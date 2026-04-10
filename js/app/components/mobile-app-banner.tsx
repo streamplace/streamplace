@@ -10,36 +10,15 @@ import {
   py,
   r,
 } from "@streamplace/components/src/lib/theme/atoms";
+import { STORE_LABELS, STORE_URLS } from "constants/store-urls";
 import { Image } from "expo-image";
+import usePlatform from "hooks/usePlatform.native";
 import { X } from "lucide-react-native";
 import { useState } from "react";
-import { Linking, Platform, Pressable } from "react-native";
+import { Linking, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const DISMISSED_KEY = "mobile_app_banner_dismissed";
-
-function getMobilePlatform(): "ios" | "android" | null {
-  if (Platform.OS !== "web") return null;
-  const ua = navigator.userAgent;
-  const isIOS = /iPhone|iPad|iPod/.test(ua);
-  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-  const isAndroid = /Android/.test(ua);
-  if (isAndroid) return "android";
-  // iOS Safari shows the native Smart App Banner via the apple-itunes-app meta
-  // tag, so only show our custom banner for other browsers on iOS.
-  if (isIOS && !isSafari) return "ios";
-  return null;
-}
-
-const STORE_URLS = {
-  ios: "https://apps.apple.com/us/app/streamplace/id6535653195",
-  android: "https://play.google.com/store/apps/details?id=tv.aquareum",
-};
-
-const STORE_LABELS = {
-  ios: "App Store",
-  android: "Google Play",
-};
 
 export function MobileAppBanner() {
   const [dismissed, setDismissed] = useState(() => {
@@ -51,9 +30,13 @@ export function MobileAppBanner() {
   });
 
   const insets = useSafeAreaInsets();
-  const mobilePlatform = getMobilePlatform();
+  const platform = usePlatform();
 
-  if (dismissed || !mobilePlatform) return null;
+  if (
+    dismissed ||
+    !((platform.isWebIOS && !platform.isMobileSafari) || platform.isWebAndroid)
+  )
+    return null;
 
   const dismiss = () => {
     try {
@@ -61,6 +44,8 @@ export function MobileAppBanner() {
     } catch {}
     setDismissed(true);
   };
+
+  const mobilePlatform = platform.isWebIOS ? "ios" : "android";
 
   return (
     <View

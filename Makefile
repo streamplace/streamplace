@@ -757,6 +757,8 @@ golangci-lint-container: docker-build-builder
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/index.html
+	podman exec golangci-lint mkdir -p .build
+	podman exec golangci-lint touch .build/lexicon-stamp
 	podman exec golangci-lint make dev
 
 # runs a command in the build container, building if necessary

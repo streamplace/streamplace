@@ -31,6 +31,12 @@ var thumbnailTestCases = []struct {
 			return remote.RemoteFixture("c6b57a53fc5a2234dbdd388922f0e293d8063d2b30620321e974b7c85640f228/2026-03-17T19-02-08-607Z-muxl_segment_input.fmp4")
 		},
 	},
+	{
+		name: "MuxlSegment10Sec",
+		fixtureFn: func() string {
+			return remote.RemoteFixture("82d20ee62b02f1c3a727b3001f1fa939afb757f9f205fa438d7b5753e1253eef/2026-04-11T22-39-41-861Z-packetize-input-019d7eb3-6f24-776c-ba1b-2f909a2379d7.mp4")
+		},
+	},
 }
 
 func TestThumbnail(t *testing.T) {

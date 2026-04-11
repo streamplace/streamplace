@@ -10,6 +10,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -21,8 +22,8 @@ func MP4ToMPEGTS(ctx context.Context, input io.Reader, output io.Writer) (int64,
 	pipelineStr := strings.Join([]string{
 		"appsrc name=appsrc ! qtdemux name=demux",
 		"mpegtsmux name=mux ! appsink name=appsink sync=false",
-		"demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! queue name=videoqueue",
-		"demux.audio_0 ! opusdec name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc ! queue name=audioqueue",
+		fmt.Sprintf("demux.video_0 ! h264parse ! video/x-h264,stream-format=byte-stream ! %s name=videoqueue", constants.Queue2Big),
+		fmt.Sprintf("demux.audio_0 ! opusdec name=audioparse ! audioresample ! audiorate ! fdkaacenc name=audioenc ! %s name=audioqueue", constants.Queue2Big),
 	}, " ")
 
 	pipeline, err := gst.NewPipelineFromString(pipelineStr)

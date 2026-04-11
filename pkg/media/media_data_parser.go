@@ -13,6 +13,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"go.opentelemetry.io/otel"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 )
@@ -29,10 +30,10 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 	defer cancel()
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! qtdemux name=demux",
-		"demux.video_0 ! queue ! tee name=videotee",
-		"videotee. ! queue ! h2642json ! appsink sync=false name=jsonappsink",
-		"videotee. ! queue ! appsink sync=false name=videoappsink",
-		"demux.audio_0 ! queue ! opusparse name=audioparse ! appsink sync=false name=audioappsink",
+		fmt.Sprintf("demux.video_0 ! %s ! tee name=videotee", constants.Queue2Big),
+		fmt.Sprintf("videotee. ! %s ! h2642json ! appsink sync=false name=jsonappsink", constants.Queue2Big),
+		fmt.Sprintf("videotee. ! %s ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("demux.audio_0 ! %s ! opusparse name=audioparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

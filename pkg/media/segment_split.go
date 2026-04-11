@@ -113,7 +113,7 @@ func SplitSegments(ctx context.Context, cli *config.CLI, input io.ReadSeeker, cb
 	}
 	manifestList := []ManifestAndMetadata{}
 	for _, manifest := range manifests.Manifests {
-		metadata, err := ParseSegmentAssertions(context.Background(), &manifest)
+		metadata, err := ParseSegmentAssertions(ctx, &manifest)
 		if errors.Is(err, ErrMissingMetadata) {
 			log.Error(ctx, "missing metadata", "manifest", manifest.Label)
 			continue

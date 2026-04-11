@@ -9,6 +9,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -55,10 +56,10 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	}
 
 	mq, err := gst.NewElementWithProperties("multiqueue", map[string]interface{}{
-		"name": "concat-demux-multiqueue",
-		// "max-size-time":    uint(0), // default: 2000000000, 2 seconds
-		// "max-size-bytes":   uint(0), // default: 10485760, 10MiB
-		// "max-size-buffers": uint(0), // default: 5, 5 buffers
+		"name":             "concat-demux-multiqueue",
+		"max-size-time":    constants.QueueMaxSizeTime,
+		"max-size-bytes":   constants.QueueMaxSizeBytes,
+		"max-size-buffers": constants.QueueMaxSizeBuffers,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create multiqueue element: %w", err)

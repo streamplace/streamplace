@@ -17,6 +17,7 @@ import (
 )
 
 func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (*gst.Element, error) {
+	ctx = log.WithLogValues(ctx, "func", "MuxlSegmentElem")
 	bin := gst.NewBin("muxl-segment-bin")
 	elem, err := gst.NewElementWithProperties("mp4mux", map[string]any{
 		"name":              "fmp4mux",

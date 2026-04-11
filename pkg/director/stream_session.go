@@ -824,7 +824,7 @@ func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streampl
 }
 
 func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
-	packet, err := media.Packetize(ctx, seg)
+	packet, err := media.Packetize(ctx, ss.cli, seg)
 	if err != nil {
 		return fmt.Errorf("failed to packetize segment: %w", err)
 	}

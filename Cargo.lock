@@ -3109,12 +3109,15 @@ dependencies = [
 [[package]]
 name = "muxl"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/s2pa-muxl.git?rev=5456732ab7844c7ffcba148583a08f4bf0b50dcd#5456732ab7844c7ffcba148583a08f4bf0b50dcd"
+source = "git+https://github.com/streamplace/s2pa-muxl.git?rev=e4f4c3f2d70ca7f3f3724d13f4376a0a5ca3f938#e4f4c3f2d70ca7f3f3724d13f4376a0a5ca3f938"
 dependencies = [
+ "blake3",
  "dasl",
  "mp4-atom",
  "serde",
  "serde_bytes",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

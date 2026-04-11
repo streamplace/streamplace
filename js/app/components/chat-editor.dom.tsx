@@ -31,23 +31,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // ── useSize ───────────────────────────────────────────────────────────────────
 
 function useSize(
+  elRef: React.RefObject<HTMLDivElement | null>,
   callback: ((size: { width: number; height: number }) => void) | undefined,
 ) {
   useEffect(() => {
     if (!callback) return;
+    const el = elRef.current;
+    if (!el) return;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         callback({ width, height });
       }
     });
-    observer.observe(document.body);
-    callback({
-      width: document.body.clientWidth,
-      height: document.body.clientHeight,
-    });
+    observer.observe(el);
+    callback({ width: el.clientWidth, height: el.clientHeight });
     return () => observer.disconnect();
-  }, [callback]);
+  }, [callback, elRef]);
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -983,7 +983,8 @@ export default function ChatEditor({
   onEmojiQuery,
   onEnter,
 }: ChatEditorProps) {
-  useSize(onDOMLayout);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useSize(containerRef, onDOMLayout);
   const config: InitialConfigType = {
     namespace: "ChatEditor",
     theme: EDITOR_THEME,
@@ -992,23 +993,23 @@ export default function ChatEditor({
   };
 
   return (
-    <div style={{ position: "relative", width: "100%", minHeight: 43 }}>
+    <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
       <style>{`
         html, body {
-          min-height: 43px;
           margin: 0;
           padding: 0;
         }
         .editor-root {
+        margin: 0 !important;
           background: #111827;
           border-radius: 12px;
           border: 1px solid #374151;
-          padding: 10px 14px;
+          padding: 0px 14px;
           color: white;
-          font-size: 14px;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 16px;
+          font-family: 'AtkinsonHyperlegibleNext-Regular', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           line-height: 1.5;
-          min-height: 43px;
+          min-height: 42px;
           outline: none;
           white-space: pre-wrap;
           word-break: break-word;
@@ -1017,13 +1018,16 @@ export default function ChatEditor({
         .editor-root:focus {
           border-color: #6366f1;
         }
+        .editor-paragraph {
+          margin: 9px 0px;
+        }
         .editor-placeholder {
           position: absolute;
-          top: 10px;
+          top: 11px;
           left: 14px;
           color: #6b7280;
-          font-size: 14px;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 16px;
+          font-family: 'AtkinsonHyperlegibleNext-Regular', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           pointer-events: none;
           user-select: none;
         }

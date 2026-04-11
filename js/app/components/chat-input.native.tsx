@@ -131,9 +131,21 @@ function ChatNativeInput(props: RenderInputProps) {
         )
       : new Map();
 
-  const filteredEmojis =
-    emojiQuery !== null && props.emojiData
-      ? searchEmojis(emojiQuery, props.emojiData)
+  const filteredCustomEmojis: any[] =
+    emojiQuery !== null && props.emojiPacks
+      ? props.emojiPacks.flatMap((pack) =>
+          pack.emoji
+            .filter((e) => e.name.toLowerCase().includes(emojiQuery))
+            .map((e) => ({ type: "custom", ...e })),
+        )
+      : [];
+
+  const filteredEmojis: any[] =
+    emojiQuery !== null
+      ? [
+          ...filteredCustomEmojis,
+          ...(props.emojiData ? searchEmojis(emojiQuery, props.emojiData) : []),
+        ].slice(0, 10)
       : [];
 
   const filteredAuthorsRef = useRef(filteredAuthors);
@@ -200,12 +212,15 @@ function ChatNativeInput(props: RenderInputProps) {
   );
 
   const handleEmojiSelect = useCallback(
-    (emoji: ReturnType<typeof searchEmojis>[number]) => {
-      const native = getSkinNative(emoji, props.skinTone);
+    (emoji: any) => {
       const current = textRef.current;
       const colonIdx = current.lastIndexOf(":");
-      const newText =
-        (colonIdx !== -1 ? current.slice(0, colonIdx) : current) + native + " ";
+      const base = colonIdx !== -1 ? current.slice(0, colonIdx) : current;
+      const insertion =
+        emoji.type === "custom"
+          ? `:${emoji.name}: `
+          : getSkinNative(emoji, props.skinTone) + " ";
+      const newText = base + insertion;
       setText(newText);
       textRef.current = newText;
       clearSuggestions();

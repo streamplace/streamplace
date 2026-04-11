@@ -293,107 +293,130 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length >= 3) {
-        if (!emojiData) return;
-        const aliasMatches = Object.entries(emojiData.aliases)
-          .map(([alias, emojiId]) => {
-            const aliasLower = alias.toLowerCase();
-            if (aliasLower === searchText) {
-              return { emojiId, alias, matchType: 0, index: 0 };
-            } else if (aliasLower.startsWith(searchText)) {
-              return { emojiId, alias, matchType: 1, index: 0 };
-            } else if (aliasLower.includes(searchText)) {
-              return {
-                emojiId,
-                alias,
-                matchType: 2,
-                index: aliasLower.indexOf(searchText),
-              }; // includes
+      if (searchText.length >= 1) {
+        const customMatches: any[] = [];
+        if (emojiPacks) {
+          for (const pack of emojiPacks) {
+            for (const emote of pack.emoji) {
+              if (emote.name.toLowerCase().includes(searchText)) {
+                customMatches.push({ type: "custom", ...emote });
+              }
             }
-            return null;
-          })
-          .filter(Boolean);
-
-        // Map emojiId to best alias match info
-        const bestAliasMatch: Record<
-          string,
-          { matchType: number; index: number; alias: string }
-        > = {};
-        for (const match of aliasMatches) {
-          if (!match) continue;
-          const prev = bestAliasMatch[match.emojiId];
-          if (
-            !prev ||
-            match?.matchType < prev.matchType ||
-            (match.matchType === prev.matchType && match.index < prev.index)
-          ) {
-            bestAliasMatch[match.emojiId] = match;
           }
         }
 
-        // Collect all matching emojis by id, name, keywords, or alias
-        const allEmojis = Object.values(emojiData.emojis);
-        const filtered = allEmojis
-          .map((emoji: any) => {
-            // Check alias match
-            const aliasMatch = bestAliasMatch[emoji.id];
-            if (aliasMatch) {
-              return {
-                emoji,
-                sort: [aliasMatch.matchType, aliasMatch.index, 0],
-              };
-            }
-            // Check id, name, keywords
-            if (emoji.id.toLowerCase() === searchText) {
-              return { emoji, sort: [3, 0, 0] }; // exact id
-            }
-            if (emoji.id.toLowerCase().startsWith(searchText)) {
-              return { emoji, sort: [4, 0, 0] }; // startsWith id
-            }
-            if (emoji.id.toLowerCase().includes(searchText)) {
-              return {
-                emoji,
-                sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
-              }; // includes id
-            }
-            if (emoji.m.toLowerCase().includes(searchText)) {
-              return {
-                emoji,
-                sort: [6, emoji.m.toLowerCase().indexOf(searchText), 0],
-              };
-            }
-            if (
-              emoji.k &&
-              emoji.k.some((keyword: string) =>
-                keyword.toLowerCase().includes(searchText),
-              )
-            ) {
-              return { emoji, sort: [7, 0, 0] };
-            }
-            return null;
-          })
-          .filter(Boolean)
-          // Remove duplicates by emoji id (keep best match)
-          .reduce((acc: any[], curr: any) => {
-            if (!acc.find((e) => e.emoji.id === curr.emoji.id)) {
-              acc.push(curr);
-            }
-            return acc;
-          }, [])
-          // Sort by alias match type, then position, then fallback
-          .sort((a, b) => {
-            for (let i = 0; i < a.sort.length; ++i) {
-              if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
-            }
-            return 0;
-          })
-          .slice(0, 10) // Limit to 10 results
-          .map((entry) => entry.emoji);
+        if (searchText.length < 3) {
+          if (customMatches.length > 0) {
+            setFilteredEmojis(customMatches.slice(0, 10));
+            setHighlightedIndex(0);
+            setShowEmojiSuggestions(true);
+            setShowSuggestions(false);
+          } else {
+            setShowEmojiSuggestions(false);
+          }
+        } else {
+          if (!emojiData) return;
+          const aliasMatches = Object.entries(emojiData.aliases)
+            .map(([alias, emojiId]) => {
+              const aliasLower = alias.toLowerCase();
+              if (aliasLower === searchText) {
+                return { emojiId, alias, matchType: 0, index: 0 };
+              } else if (aliasLower.startsWith(searchText)) {
+                return { emojiId, alias, matchType: 1, index: 0 };
+              } else if (aliasLower.includes(searchText)) {
+                return {
+                  emojiId,
+                  alias,
+                  matchType: 2,
+                  index: aliasLower.indexOf(searchText),
+                }; // includes
+              }
+              return null;
+            })
+            .filter(Boolean);
 
-        setFilteredEmojis(filtered);
-        setHighlightedIndex(0);
-        setShowEmojiSuggestions(filtered.length > 0);
-        setShowSuggestions(false);
+          // Map emojiId to best alias match info
+          const bestAliasMatch: Record<
+            string,
+            { matchType: number; index: number; alias: string }
+          > = {};
+          for (const match of aliasMatches) {
+            if (!match) continue;
+            const prev = bestAliasMatch[match.emojiId];
+            if (
+              !prev ||
+              match?.matchType < prev.matchType ||
+              (match.matchType === prev.matchType && match.index < prev.index)
+            ) {
+              bestAliasMatch[match.emojiId] = match;
+            }
+          }
+
+          // Collect all matching emojis by id, name, keywords, or alias
+          const allEmojis = Object.values(emojiData.emojis);
+          const filtered = allEmojis
+            .map((emoji: any) => {
+              // Check alias match
+              const aliasMatch = bestAliasMatch[emoji.id];
+              if (aliasMatch) {
+                return {
+                  emoji,
+                  sort: [aliasMatch.matchType, aliasMatch.index, 0],
+                };
+              }
+              // Check id, name, keywords
+              if (emoji.id.toLowerCase() === searchText) {
+                return { emoji, sort: [3, 0, 0] }; // exact id
+              }
+              if (emoji.id.toLowerCase().startsWith(searchText)) {
+                return { emoji, sort: [4, 0, 0] }; // startsWith id
+              }
+              if (emoji.id.toLowerCase().includes(searchText)) {
+                return {
+                  emoji,
+                  sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
+                }; // includes id
+              }
+              if (emoji.m.toLowerCase().includes(searchText)) {
+                return {
+                  emoji,
+                  sort: [6, emoji.m.toLowerCase().indexOf(searchText), 0],
+                };
+              }
+              if (
+                emoji.k &&
+                emoji.k.some((keyword: string) =>
+                  keyword.toLowerCase().includes(searchText),
+                )
+              ) {
+                return { emoji, sort: [7, 0, 0] };
+              }
+              return null;
+            })
+            .filter(Boolean)
+            // Remove duplicates by emoji id (keep best match)
+            .reduce((acc: any[], curr: any) => {
+              if (!acc.find((e) => e.emoji.id === curr.emoji.id)) {
+                acc.push(curr);
+              }
+              return acc;
+            }, [])
+            // Sort by alias match type, then position, then fallback
+            .sort((a, b) => {
+              for (let i = 0; i < a.sort.length; ++i) {
+                if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
+              }
+              return 0;
+            })
+            .slice(0, 10) // Limit to 10 results
+            .map((entry) => entry.emoji);
+
+          const combined = [...customMatches, ...filtered].slice(0, 10);
+          setFilteredEmojis(combined);
+          setHighlightedIndex(0);
+          setShowEmojiSuggestions(combined.length > 0);
+          setShowSuggestions(false);
+        }
       } else {
         setShowEmojiSuggestions(false);
       }

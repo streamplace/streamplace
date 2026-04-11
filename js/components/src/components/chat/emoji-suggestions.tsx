@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { Image, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
@@ -57,9 +57,13 @@ export function EmojiSuggestions({
       ]}
     >
       <ScrollView>
-        {emojis.map((emoji, index) => (
+        {emojis.map((emoji: any, index) => (
           <Pressable
-            key={emoji.id}
+            key={
+              (emoji as any).type === "custom"
+                ? `custom:${(emoji as any).name}`
+                : emoji.id
+            }
             onPress={() => onSelect(emoji)}
             style={[
               {
@@ -73,11 +77,25 @@ export function EmojiSuggestions({
               },
             ]}
           >
-            <Text style={{ fontSize: 16, marginRight: 8 }}>
-              {getSkinNative(emoji, skinTone)}
-            </Text>
+            {(emoji as any).type === "custom" ? (
+              <Image
+                source={{ uri: (emoji as any).imageUrl }}
+                style={{ width: 20, height: 20, marginRight: 8 }}
+              />
+            ) : (
+              <Text style={{ fontSize: 16, marginRight: 8 }}>
+                {getSkinNative(emoji, skinTone)}
+              </Text>
+            )}
             <Text style={{ color: "white", fontSize: 14 }}>
-              <Code style={[bg.gray[950]]}>:{emoji.id}:</Code> {emoji.m}
+              <Code style={[bg.gray[950]]}>
+                :
+                {(emoji as any).type === "custom"
+                  ? (emoji as any).name
+                  : emoji.id}
+                :
+              </Code>{" "}
+              {(emoji as any).type !== "custom" && emoji.m}
             </Text>
           </Pressable>
         ))}

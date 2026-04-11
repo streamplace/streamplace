@@ -7,7 +7,7 @@ import {
 } from "@streamplace/components";
 import { SelectedEmoji } from "components/emoji-picker/emoji-picker";
 import { useCallback, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 import ChatEditor, { RichTextResult } from "./chat-editor.dom";
 
 function searchEmojis(query: string, emojiData: EmojiData) {
@@ -80,9 +80,21 @@ function ChatNativeInput(props: RenderInputProps) {
         )
       : new Map();
 
-  const filteredEmojis =
-    emojiQuery !== null && props.emojiData
-      ? searchEmojis(emojiQuery, props.emojiData)
+  const filteredCustomEmojis: any[] =
+    emojiQuery !== null && props.emojiPacks
+      ? props.emojiPacks.flatMap((pack) =>
+          pack.emoji
+            .filter((e) => e.name.toLowerCase().includes(emojiQuery))
+            .map((e) => ({ type: "custom", ...e })),
+        )
+      : [];
+
+  const filteredEmojis: any[] =
+    emojiQuery !== null
+      ? [
+          ...filteredCustomEmojis,
+          ...(props.emojiData ? searchEmojis(emojiQuery, props.emojiData) : []),
+        ].slice(0, 10)
       : [];
 
   filteredAuthorsRef.current = filteredAuthors;
@@ -114,17 +126,29 @@ function ChatNativeInput(props: RenderInputProps) {
   );
 
   const handleEmojiSelect = useCallback(
-    (emoji: ReturnType<typeof searchEmojis>[number]) => {
-      console.log("Selected emoji", emoji);
-      const native = getSkinNative(emoji, props.skinTone);
+    (emoji: any) => {
       const seq = ++insertSeqRef.current;
-      setInternalInsert({
-        type: "emoji",
-        emojiId: emoji.id,
-        native,
-        text: native,
-        seq,
-      });
+      if (emoji.type === "custom") {
+        setInternalInsert({
+          type: "emoji",
+          emojiId: emoji.name,
+          native: null,
+          aturi: emoji.aturi,
+          cid: emoji.cid,
+          imageUrl: emoji.imageUrl,
+          text: `:${emoji.name}:`,
+          seq,
+        });
+      } else {
+        const native = getSkinNative(emoji, props.skinTone);
+        setInternalInsert({
+          type: "emoji",
+          emojiId: emoji.id,
+          native,
+          text: native,
+          seq,
+        });
+      }
       clearSuggestions();
     },
     [props.skinTone, clearSuggestions],
@@ -213,15 +237,14 @@ function ChatNativeInput(props: RenderInputProps) {
         </View>
       )}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
-        <View style={{ flex: 1, height }}>
+        <View style={{ flex: 1, height: Math.max(43, height) }}>
           <ChatEditor
             authors={props.authors}
             emojiData={props.emojiData}
             skinTone={props.skinTone}
             onSubmit={handleEnter}
             insertElement={activeInsert}
-            // don't use this on web for now
-            //onDOMLayout={({ height: h }) => setHeight(h)}
+            onDOMLayout={({ height: h }) => setHeight(Math.max(43, h))}
             onMentionQuery={(q) => {
               setMentionQuery(q);
               setHighlightedIndex(0);
@@ -235,26 +258,6 @@ function ChatNativeInput(props: RenderInputProps) {
             onEnter={handleEnter}
           />
         </View>
-        {hasEmojiPacks && (
-          <Pressable
-            onPress={() => setIsEmojiPickerOpen((v) => !v)}
-            style={({ pressed }) => ({
-              width: height,
-              height,
-              borderRadius: 12,
-              backgroundColor: isEmojiPickerOpen
-                ? "rgba(99,102,241,0.3)"
-                : pressed
-                  ? "rgba(255,255,255,0.15)"
-                  : "rgba(255,255,255,0.08)",
-              alignItems: "center",
-              justifyContent: "center",
-            })}
-            accessibilityLabel="Open emoji picker"
-          >
-            <Text style={{ fontSize: 20 }}>😀</Text>
-          </Pressable>
-        )}
       </View>
     </View>
   );

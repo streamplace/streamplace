@@ -13,7 +13,7 @@ import {
 import { Select } from "@streamplace/components/src/components/ui/select";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import Loading from "components/loading/loading";
-import { Pencil, Plus, Search, Trash2, X } from "lucide-react-native";
+import { Pencil, Plus, Search, Share2, Trash2, X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -21,15 +21,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Switch,
   View,
 } from "react-native";
 import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
-import {
-  PlaceStreamEmoteDefs,
-  PlaceStreamEmoteItem,
-  PlaceStreamEmotePack,
-} from "streamplace";
+import { PlaceStreamEmoteItem, PlaceStreamEmotePack } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 const { text, mb, mt, gap, layout, w } = zero;
@@ -64,20 +61,22 @@ function CreatePackDialog({
 }: {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (name: string, description: string) => void;
+  onSubmit: (name: string, description: string, openInMyChat: boolean) => void;
   isLoading: boolean;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [openInMyChat, setOpenInMyChat] = useState(false);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onSubmit(name.trim(), description.trim());
+    onSubmit(name.trim(), description.trim(), openInMyChat);
   };
 
   const handleClose = () => {
     setName("");
     setDescription("");
+    setOpenInMyChat(false);
     onClose();
   };
 
@@ -113,6 +112,26 @@ function CreatePackDialog({
             placeholder="A collection of custom emotes"
           />
         </View>
+        <View
+          style={[
+            mb[4],
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+          ]}
+        >
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
+              Open in my chat
+            </Text>
+            <Text size="sm" muted>
+              Allow followers to use this pack in your stream chat
+            </Text>
+          </View>
+          <Switch value={openInMyChat} onValueChange={setOpenInMyChat} />
+        </View>
       </View>
       <DialogFooter>
         <Button
@@ -144,22 +163,24 @@ function EditPackDialog({
 }: {
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (name: string, description: string) => void;
+  onSubmit: (name: string, description: string, openInMyChat: boolean) => void;
   isLoading: boolean;
   pack: PackRecord | null;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [openInMyChat, setOpenInMyChat] = useState(false);
 
   useEffect(() => {
     if (!pack) return;
     setName(pack.value.name);
     setDescription(pack.value.description ?? "");
+    setOpenInMyChat(pack.value.openInMyChat ?? false);
   }, [pack]);
 
   const handleSubmit = () => {
     if (!name.trim()) return;
-    onSubmit(name.trim(), description.trim());
+    onSubmit(name.trim(), description.trim(), openInMyChat);
   };
 
   return (
@@ -193,6 +214,26 @@ function EditPackDialog({
             onChangeText={setDescription}
             placeholder="A collection of custom emotes"
           />
+        </View>
+        <View
+          style={[
+            mb[4],
+            {
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+          ]}
+        >
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={[{ fontSize: 14, fontWeight: "500" }]}>
+              Open in my chat
+            </Text>
+            <Text size="sm" muted>
+              Allow followers to use this pack in your stream chat
+            </Text>
+          </View>
+          <Switch value={openInMyChat} onValueChange={setOpenInMyChat} />
         </View>
       </View>
       <DialogFooter>
@@ -726,15 +767,190 @@ function EditEmoteDialog({
   );
 }
 
+function DelegatePackDialog({
+  isVisible,
+  onClose,
+  onSubmit,
+  isLoading,
+  pack,
+}: {
+  isVisible: boolean;
+  onClose: () => void;
+  onSubmit: (recipientDID: string) => void;
+  isLoading: boolean;
+  pack: PackRecord | null;
+}) {
+  const agent = usePDSAgent();
+  const { theme } = zero.useTheme();
+  const [recipientDID, setRecipientDID] = useState<string | null>(null);
+  const [recipientHandle, setRecipientHandle] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<ActorSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (query: string) => {
+    setSearch(query);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      if (!agent) return;
+      try {
+        setSearching(true);
+        const response = await agent.place.stream.live.searchActorsTypeahead({
+          q: query,
+          limit: 5,
+        });
+        setResults(
+          response.data.actors.map((a: any) => ({
+            did: a.did,
+            handle: a.handle,
+          })),
+        );
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+  };
+
+  const selectRecipient = (actor: ActorSearchResult) => {
+    setRecipientDID(actor.did);
+    setRecipientHandle(actor.handle);
+    setSearch("");
+    setResults([]);
+  };
+
+  const clearRecipient = () => {
+    setRecipientDID(null);
+    setRecipientHandle(null);
+    setSearch("");
+    setResults([]);
+  };
+
+  const handleClose = () => {
+    clearRecipient();
+    onClose();
+  };
+
+  const handleSubmit = () => {
+    if (!recipientDID) return;
+    onSubmit(recipientDID);
+  };
+
+  return (
+    <ResponsiveDialog
+      open={isVisible}
+      onOpenChange={(open) => !open && handleClose()}
+      title="Delegate Pack"
+      dismissible={false}
+    >
+      <View style={[w.percent[100]]}>
+        {pack && (
+          <Text style={[text.gray[400], mb[4], { fontSize: 14 }]}>
+            Grant a user global access to use emotes from "{pack.value.name}".
+          </Text>
+        )}
+        <View style={[mb[4]]}>
+          <Text
+            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+          >
+            User *
+          </Text>
+          {recipientDID ? (
+            <View
+              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} ellipsizeMode="middle">
+                  @{recipientHandle ?? recipientDID}
+                </Text>
+              </View>
+              <Button
+                width="min"
+                variant="secondary"
+                size="pill"
+                onPress={clearRecipient}
+                leftIcon={<X size={14} color={theme.colors.text} />}
+              >
+                <Text>Clear</Text>
+              </Button>
+            </View>
+          ) : (
+            <View>
+              <Input
+                value={search}
+                onChangeText={handleSearchChange}
+                placeholder="Search by handle..."
+                autoCapitalize="none"
+              />
+              {searching && (
+                <View style={[mt[2]]}>
+                  <Loading />
+                </View>
+              )}
+              {results.length > 0 && (
+                <View style={[mt[1], { borderRadius: 6, overflow: "hidden" }]}>
+                  <MenuGroup>
+                    {results.map((actor, i) => (
+                      <View key={actor.did}>
+                        {i > 0 && <MenuSeparator />}
+                        <Pressable
+                          onPress={() => selectRecipient(actor)}
+                          style={({ pressed }) => ({
+                            padding: 10,
+                            backgroundColor: pressed
+                              ? "#ffffff08"
+                              : "transparent",
+                          })}
+                        >
+                          <Text>@{actor.handle}</Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </MenuGroup>
+                </View>
+              )}
+              {!searching && search.trim() && results.length === 0 && (
+                <Text size="sm" muted style={[mt[1]]}>
+                  No results found
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
+      </View>
+      <DialogFooter>
+        <Button
+          width="min"
+          variant="secondary"
+          onPress={handleClose}
+          disabled={isLoading}
+        >
+          <Text>Cancel</Text>
+        </Button>
+        <Button
+          width="min"
+          onPress={handleSubmit}
+          disabled={isLoading || !recipientDID}
+        >
+          <Text>{isLoading ? "Delegating..." : "Delegate"}</Text>
+        </Button>
+      </DialogFooter>
+    </ResponsiveDialog>
+  );
+}
+
 export default function EmotePackManager() {
   const pdsAgent = useStore((state) => state.pdsAgent);
   const session = useOAuthSession();
   const { theme } = zero.useTheme();
 
   const [packs, setPacks] = useState<PackRecord[] | null>(null);
-  const [followedPacks, setFollowedPacks] = useState<
-    PlaceStreamEmoteDefs.PackView[] | null
-  >(null);
   const [selectedPackUri, setSelectedPackUri] = useState<string | null>(null);
   const [emotes, setEmotes] = useState<EmoteRecord[] | null>(null);
   const [loadingPacks, setLoadingPacks] = useState(true);
@@ -762,6 +978,11 @@ export default function EmotePackManager() {
     isVisible: boolean;
     emote: EmoteRecord | null;
   }>({ isVisible: false, emote: null });
+  const [delegating, setDelegating] = useState(false);
+  const [delegatePackDialog, setDelegatePackDialog] = useState<{
+    isVisible: boolean;
+    pack: PackRecord | null;
+  }>({ isVisible: false, pack: null });
 
   const loadPacks = async () => {
     if (!pdsAgent || !session?.did) return;
@@ -812,19 +1033,11 @@ export default function EmotePackManager() {
     }
   };
 
-  const loadFollowedPacks = async () => {
-    if (!pdsAgent) return;
-    try {
-      const result = await pdsAgent.place.stream.emote.getEmotePacks({});
-      setFollowedPacks(
-        result.data.packs.filter((p) => p.relationship === "follow"),
-      );
-    } catch (err) {
-      console.error("Failed to load followed emote packs", err);
-    }
-  };
-
-  const createPack = async (name: string, description: string) => {
+  const createPack = async (
+    name: string,
+    description: string,
+    openInMyChat: boolean,
+  ) => {
     if (!pdsAgent || !session?.did) return;
     try {
       setCreatingPack(true);
@@ -835,6 +1048,7 @@ export default function EmotePackManager() {
           $type: "place.stream.emote.pack",
           name,
           ...(description ? { description } : {}),
+          ...(openInMyChat ? { openInMyChat: true } : {}),
           createdAt: new Date().toISOString(),
         },
       });
@@ -849,7 +1063,11 @@ export default function EmotePackManager() {
     }
   };
 
-  const editPack = async (name: string, description: string) => {
+  const editPack = async (
+    name: string,
+    description: string,
+    openInMyChat: boolean,
+  ) => {
     if (!pdsAgent || !session?.did || !editPackDialog.pack) return;
     const pack = editPackDialog.pack;
     const rkey = pack.uri.split("/").pop() ?? "";
@@ -863,6 +1081,7 @@ export default function EmotePackManager() {
           $type: "place.stream.emote.pack",
           name,
           ...(description ? { description } : {}),
+          ...(openInMyChat ? { openInMyChat: true } : {}),
           createdAt: pack.value.createdAt,
         },
       });
@@ -873,6 +1092,30 @@ export default function EmotePackManager() {
       Alert.alert("Error", err.message ?? "Failed to edit emote pack.");
     } finally {
       setEditingPack(false);
+    }
+  };
+
+  const delegatePack = async (recipientDID: string) => {
+    if (!pdsAgent || !session?.did || !delegatePackDialog.pack) return;
+    const pack = delegatePackDialog.pack;
+    try {
+      setDelegating(true);
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: session.did,
+        collection: "place.stream.emote.packDelegation",
+        record: {
+          $type: "place.stream.emote.packDelegation",
+          did: recipientDID,
+          pack: { uri: pack.uri, cid: pack.cid },
+          createdAt: new Date().toISOString(),
+        },
+      });
+      setDelegatePackDialog({ isVisible: false, pack: null });
+    } catch (err: any) {
+      console.error("Failed to delegate pack", err);
+      Alert.alert("Error", err.message ?? "Failed to delegate pack.");
+    } finally {
+      setDelegating(false);
     }
   };
 
@@ -991,7 +1234,6 @@ export default function EmotePackManager() {
 
   useEffect(() => {
     loadPacks();
-    loadFollowedPacks();
   }, [pdsAgent, session?.did]);
 
   useEffect(() => {
@@ -1059,6 +1301,22 @@ export default function EmotePackManager() {
                       leftIcon={<Pencil size={14} color={theme.colors.text} />}
                     >
                       <Text>Edit</Text>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      width="min"
+                      size="pill"
+                      onPress={() =>
+                        selectedPack &&
+                        setDelegatePackDialog({
+                          isVisible: true,
+                          pack: selectedPack,
+                        })
+                      }
+                      disabled={!selectedPack}
+                      leftIcon={<Share2 size={14} color={theme.colors.text} />}
+                    >
+                      <Text>Delegate</Text>
                     </Button>
                     <Button
                       variant="destructive"
@@ -1213,57 +1471,6 @@ export default function EmotePackManager() {
                 )}
               </MenuContainer>
             )}
-
-            {followedPacks !== null && followedPacks.length > 0 && (
-              <MenuContainer>
-                <View>
-                  <Text size="xl">From People You Follow</Text>
-                </View>
-                {followedPacks.map((pack) => (
-                  <View key={pack.uri}>
-                    <View style={[mb[2]]}>
-                      <Text size="lg">{pack.name}</Text>
-                      <Text size="sm" muted>
-                        You follow @{pack.author.handle}
-                      </Text>
-                    </View>
-                    {pack.emotes.length > 0 && (
-                      <MenuGroup>
-                        {pack.emotes.map((emote, i) => (
-                          <View key={emote.uri}>
-                            {i > 0 && <MenuSeparator />}
-                            <SettingsRowItem>
-                              <Image
-                                source={{ uri: emote.imageUrl }}
-                                style={{
-                                  width: 36,
-                                  height: 36,
-                                  borderRadius: 4,
-                                }}
-                                resizeMode="contain"
-                              />
-                              <View
-                                style={[
-                                  zero.flex.values[1],
-                                  { marginLeft: 12 },
-                                ]}
-                              >
-                                <Text size="lg">:{emote.name}:</Text>
-                                {emote.alt && (
-                                  <Text size="sm" muted>
-                                    {emote.alt}
-                                  </Text>
-                                )}
-                              </View>
-                            </SettingsRowItem>
-                          </View>
-                        ))}
-                      </MenuGroup>
-                    )}
-                  </View>
-                ))}
-              </MenuContainer>
-            )}
           </View>
         </View>
       </ScrollView>
@@ -1288,6 +1495,14 @@ export default function EmotePackManager() {
         onSubmit={editPack}
         isLoading={editingPack}
         pack={editPackDialog.pack}
+      />
+
+      <DelegatePackDialog
+        isVisible={delegatePackDialog.isVisible}
+        onClose={() => setDelegatePackDialog({ isVisible: false, pack: null })}
+        onSubmit={delegatePack}
+        isLoading={delegating}
+        pack={delegatePackDialog.pack}
       />
 
       <EditEmoteDialog

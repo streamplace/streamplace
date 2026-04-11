@@ -155,6 +155,7 @@ type CLI struct {
 	S3SecretAccessKey           string
 	S3Region                    string
 	DisableSyndication          bool
+	LegacySegmentation          bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -876,6 +877,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "us-east-1",
 				Destination: &cli.S3Region,
 				Sources:     urfavecli.EnvVars("SP_S3_REGION"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "legacy-segmentation",
+				Usage:       "switch back from MUXL to legacy segmentation in case streams have problems (shouldn't need!)",
+				Value:       false,
+				Sources:     urfavecli.EnvVars("SP_LEGACY_SEGMENTATION"),
+				Destination: &cli.LegacySegmentation,
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",

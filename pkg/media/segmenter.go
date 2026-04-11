@@ -173,7 +173,7 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 }
 
 func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
-	return MuxlSegmentElem(ctx, mm.cli, ms.Streamer(), false, func(ctx context.Context, bs []byte, now int64) error {
+	sign := func(ctx context.Context, bs []byte, now int64) error {
 		if mm.cli.SmearAudio {
 			smearedBuf := &bytes.Buffer{}
 			err := RewriteAudioTimestamps(ctx, mm.cli, bytes.NewReader(bs), smearedBuf, true)
@@ -193,7 +193,12 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 			return fmt.Errorf("error validating just-signed segment: %w", err)
 		}
 		return nil
-	})
+	}
+	if mm.cli.LegacySegmentation {
+		log.Warn(ctx, "using legacy segmentation", "streamer", ms.Streamer())
+		return SegmentElem(ctx, mm.cli, ms.Streamer(), false, sign)
+	}
+	return MuxlSegmentElem(ctx, mm.cli, ms.Streamer(), false, sign)
 }
 
 func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, input string, ch chan *SplitSegment) error {

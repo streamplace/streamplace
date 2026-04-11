@@ -84,7 +84,7 @@ interface ChatEditorProps {
   onDOMLayout?: (size: { width: number; height: number }) => void;
   onMentionQuery?: (query: string | null) => void;
   onEmojiQuery?: (query: string | null) => void;
-  onEnter?: (msg: RichTextResult) => void;
+  onEnter?: (msg: RichTextResult) => boolean | void;
 }
 
 // ── MentionNode ──────────────────────────────────────────────────────────────
@@ -605,11 +605,14 @@ function Plugins({
         const colonIdx = raw.lastIndexOf(":");
         if (colonIdx === -1) return;
         const before = raw.slice(0, colonIdx);
-        const after = raw.slice(anchor.offset);
-        node.setTextContent(before + after);
         const emojiNode = $createEmojiNode(text.trimEnd(), emoji.id, native);
         const spaceNode = new TextNode(" ");
-        node.replace(emojiNode);
+        if (before.length > 0) {
+          node.setTextContent(before);
+          node.insertAfter(emojiNode);
+        } else {
+          node.replace(emojiNode);
+        }
         emojiNode.insertAfter(spaceNode);
         spaceNode.select();
       });
@@ -702,9 +705,12 @@ function Plugins({
           const colonIdx = raw.lastIndexOf(":");
           if (colonIdx !== -1) {
             const before = raw.slice(0, colonIdx);
-            const after = raw.slice(anchor.offset);
-            anchorNode.setTextContent(before + after);
-            anchorNode.replace(emojiNode);
+            if (before.length > 0) {
+              anchorNode.setTextContent(before);
+              anchorNode.insertAfter(emojiNode);
+            } else {
+              anchorNode.replace(emojiNode);
+            }
             emojiNode.insertAfter(spaceNode);
             spaceNode.select();
           } else {
@@ -776,9 +782,13 @@ function Plugins({
         }
         const msg = extractRichText(editor);
         if (onEnterRef.current) {
-          // Native path: let native side decide submit vs confirm suggestion.
-          // Native controls editor clear via insertElement={type:"clear"}.
-          onEnterRef.current(msg);
+          const didSubmit = onEnterRef.current(msg);
+          // @ts-ignore allow onEnter to return false to prevent clearing the editor
+          if (didSubmit) {
+            editor.update(() => {
+              $getRoot().clear();
+            });
+          }
         } else if (msg.text) {
           onSubmit(msg);
           editor.update(() => {

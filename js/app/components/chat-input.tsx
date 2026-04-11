@@ -182,8 +182,7 @@ function ChatNativeInput(props: RenderInputProps) {
   // Called by the editor when Enter is pressed with no internal (webview) suggestions active.
   // If native suggestions are showing, confirm the highlighted one; otherwise submit.
   const handleEnter = useCallback(
-    (msg: RichTextResult) => {
-      console.log("message", msg);
+    (msg: RichTextResult): boolean | void => {
       const authors = filteredAuthorsRef.current;
       const emojis = filteredEmojisRef.current;
       if (authors.size > 0) {
@@ -194,10 +193,8 @@ function ChatNativeInput(props: RenderInputProps) {
         const emoji = emojis[highlightedIndexRef.current] ?? emojis[0];
         if (emoji) handleEmojiSelect(emoji);
       } else if (msg.text) {
-        // Submit — tell the editor to clear via insertElement
-        const seq = ++insertSeqRef.current;
-        setInternalInsert({ type: "clear", seq });
         props.onSubmit(msg as Parameters<typeof props.onSubmit>[0]);
+        return true;
       }
     },
     [handleMentionSelect, handleEmojiSelect, props.onSubmit],

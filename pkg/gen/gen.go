@@ -41,6 +41,7 @@ func main() {
 		streamplace.EmotePack{},
 		streamplace.EmoteItem{},
 		streamplace.EmoteDefs_EmoteView{},
+		streamplace.EmotePackDelegation{},
 	); err != nil {
 		panic(err)
 	}

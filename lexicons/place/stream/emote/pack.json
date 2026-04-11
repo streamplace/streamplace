@@ -28,6 +28,10 @@
             "maxSize": 512000,
             "description": "Optional avatar image for this pack."
           },
+          "openInMyChat": {
+            "type": "boolean",
+            "description": "If true, anyone following this user can use this pack when chatting in this user's stream."
+          },
           "createdAt": {
             "type": "string",
             "format": "datetime",

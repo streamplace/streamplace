@@ -52,7 +52,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
   const profile = useUserProfile();
   const emojiData = useEmojiData();
-  const emotePacks = useEmotePacks();
+  const emotePacks = useEmotePacks(params.user);
   const hideSidebar = useStore((x) => x.setSidebarHidden);
   const showSidebar = useStore((x) => x.setSidebarUnhidden);
   const openLoginModal = useStore((x) => x.openLoginModal);

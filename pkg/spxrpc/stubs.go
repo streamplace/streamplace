@@ -423,10 +423,11 @@ func (s *Server) HandlePlaceStreamEmoteGetEmotePack(c echo.Context) error {
 func (s *Server) HandlePlaceStreamEmoteGetEmotePacks(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamEmoteGetEmotePacks")
 	defer span.End()
+	streamer := c.QueryParam("streamer")
 	var out *placestream.EmoteGetEmotePacks_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context) (*placestream.EmoteGetEmotePacks_Output, error)
-	out, handleErr = s.handlePlaceStreamEmoteGetEmotePacks(ctx)
+	// func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context,streamer string) (*placestream.EmoteGetEmotePacks_Output, error)
+	out, handleErr = s.handlePlaceStreamEmoteGetEmotePacks(ctx, streamer)
 	if handleErr != nil {
 		return handleErr
 	}

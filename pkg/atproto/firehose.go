@@ -370,6 +370,14 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				go atsync.Bus.Publish(evt.Repo, deletedPin)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_EMOTE_PACK_DELEGATION {
+				log.Debug(ctx, "deleting pack delegation", "uri", uri)
+				err := atsync.Model.DeleteEmotePackDelegation(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete pack delegation", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

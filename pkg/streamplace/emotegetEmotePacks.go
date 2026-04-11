@@ -16,9 +16,14 @@ type EmoteGetEmotePacks_Output struct {
 }
 
 // EmoteGetEmotePacks calls the XRPC method "place.stream.emote.getEmotePacks".
-func EmoteGetEmotePacks(ctx context.Context, c lexutil.LexClient) (*EmoteGetEmotePacks_Output, error) {
+//
+// streamer: The DID of the streamer whose chat context to fetch emote packs for.
+func EmoteGetEmotePacks(ctx context.Context, c lexutil.LexClient, streamer string) (*EmoteGetEmotePacks_Output, error) {
 	var out EmoteGetEmotePacks_Output
-	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.emote.getEmotePacks", nil, nil, &out); err != nil {
+
+	params := map[string]interface{}{}
+	params["streamer"] = streamer
+	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.emote.getEmotePacks", params, nil, &out); err != nil {
 		return nil, err
 	}
 

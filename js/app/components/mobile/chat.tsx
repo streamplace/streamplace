@@ -249,7 +249,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
-  const emotePacks = useEmotePacks();
+  const emotePacks = useEmotePacks(profile?.did ?? null);
 
   return (
     <View

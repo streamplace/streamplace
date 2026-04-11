@@ -86,7 +86,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
   const emojiData = useEmojiData();
   const livestream = useLivestream();
-  const emotePacks = useEmotePacks();
+  const emotePacks = useEmotePacks(profile?.did ?? null);
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";

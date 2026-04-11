@@ -695,10 +695,40 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Record:    *recCBOR,
 			IndexedAt: now,
 		}
+		if rec.OpenInMyChat != nil {
+			pack.OpenInMyChat = *rec.OpenInMyChat
+		}
 		if err := atsync.Model.UpsertEmotePack(ctx, pack); err != nil {
 			return fmt.Errorf("failed to upsert emote pack: %w", err)
 		}
 		log.Debug(ctx, "indexed emote pack", "uri", aturi.String(), "name", rec.Name)
+
+	case *streamplace.EmotePackDelegation:
+		d := &model.EmotePackDelegation{
+			URI:          aturi.String(),
+			CID:          cid,
+			RepoDID:      userDID,
+			RKey:         rkey.String(),
+			PackURI:      rec.Pack.Uri,
+			RecipientDID: rec.Did,
+			Record:       *recCBOR,
+			IndexedAt:    now,
+		}
+		if len(rec.Emotes) > 0 {
+			uris := make([]string, len(rec.Emotes))
+			for i, e := range rec.Emotes {
+				uris[i] = e.Uri
+			}
+			encoded, err := json.Marshal(uris)
+			if err != nil {
+				return fmt.Errorf("failed to encode allowed emotes: %w", err)
+			}
+			d.AllowedEmotes = encoded
+		}
+		if err := atsync.Model.UpsertEmotePackDelegation(ctx, d); err != nil {
+			return fmt.Errorf("failed to upsert pack delegation: %w", err)
+		}
+		log.Debug(ctx, "indexed pack delegation", "uri", aturi.String(), "recipient", rec.Did)
 
 	case *streamplace.EmoteItem:
 		item := &model.EmoteItem{

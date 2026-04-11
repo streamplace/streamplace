@@ -2,16 +2,16 @@ import { usePossiblyUnauthedPDSAgent } from "@streamplace/components/src/streamp
 import type { EmojiPack } from "components/emoji-picker/emoji-picker";
 import { useEffect, useState } from "react";
 
-export function useEmotePacks(): EmojiPack[] {
+export function useEmotePacks(streamerDID: string | null): EmojiPack[] {
   const agent = usePossiblyUnauthedPDSAgent();
   const [packs, setPacks] = useState<EmojiPack[]>([]);
 
   useEffect(() => {
-    if (!agent) return;
+    if (!agent || !streamerDID) return;
     let cancelled = false;
 
     agent.place.stream.emote
-      .getEmotePacks({})
+      .getEmotePacks({ streamer: streamerDID })
       .then((res) => {
         if (cancelled) return;
         const emojiPacks: EmojiPack[] = res.data.packs.map((pack) => ({
@@ -36,7 +36,7 @@ export function useEmotePacks(): EmojiPack[] {
     return () => {
       cancelled = true;
     };
-  }, [agent]);
+  }, [agent, streamerDID]);
 
   return packs;
 }

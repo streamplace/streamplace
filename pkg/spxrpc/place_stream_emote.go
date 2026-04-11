@@ -12,7 +12,9 @@ import (
 	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
-func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*placestreamtypes.EmoteDefs_PackView, error) {
+// buildPackView constructs a PackView for the given pack. allowedEmotes, if non-nil,
+// restricts which emote items are included to those whose URI is in the set.
+func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack, allowedEmotes map[string]bool) (*placestreamtypes.EmoteDefs_PackView, error) {
 	repo, err := s.model.GetRepo(pack.RepoDID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo: %w", err)
@@ -36,6 +38,10 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*pla
 	for _, item := range items {
 		// if we have any labels, skip this emote
 		if labelsByURI[item.URI] != nil {
+			continue
+		}
+		// if a specific emote set is specified, skip emotes not in it
+		if allowedEmotes != nil && !allowedEmotes[item.URI] {
 			continue
 		}
 		emoteView := &placestreamtypes.EmoteDefs_EmoteView{
@@ -80,34 +86,57 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack) (*pla
 	}, nil
 }
 
-func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context) (*placestreamtypes.EmoteGetEmotePacks_Output, error) {
-	packs, err := s.model.GetAllEmotePacks(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get emote packs: %w", err)
-	}
-
-	followedDIDs := map[string]bool{}
+func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context, streamer string) (*placestreamtypes.EmoteGetEmotePacks_Output, error) {
 	session, _ := oatproxy.GetOAuthSession(ctx)
-	if session != nil {
-		follows, err := s.model.GetUserFollowing(ctx, session.DID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get user follows: %w", err)
+	if session == nil {
+		return &placestreamtypes.EmoteGetEmotePacks_Output{Packs: nil}, nil
+	}
+
+	packViews := make([]*placestreamtypes.EmoteDefs_PackView, 0)
+
+	// Source 1: streamer's packs with openInMyChat=true, if viewer follows the streamer.
+	follows, err := s.model.GetUserFollowing(ctx, session.DID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user follows: %w", err)
+	}
+	followsStreamer := false
+	for _, f := range follows {
+		if f.SubjectDID == streamer {
+			followsStreamer = true
+			break
 		}
-		for _, f := range follows {
-			followedDIDs[f.SubjectDID] = true
+	}
+	if followsStreamer {
+		openPacks, err := s.model.GetStreamerOpenPacks(ctx, streamer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get streamer open packs: %w", err)
+		}
+		for _, pack := range openPacks {
+			view, err := s.buildPackView(ctx, pack, nil)
+			if err != nil {
+				return nil, err
+			}
+			rel := "follow"
+			view.Relationship = &rel
+			packViews = append(packViews, view)
 		}
 	}
 
-	packViews := make([]*placestreamtypes.EmoteDefs_PackView, 0, len(packs))
-	for _, pack := range packs {
-		view, err := s.buildPackView(ctx, pack)
+	// Source 2: packs delegated to this viewer globally.
+	delegated, err := s.model.GetDelegatedPacksForUser(ctx, session.DID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get delegated packs: %w", err)
+	}
+	for _, dp := range delegated {
+		allowed, err := dp.Delegation.AllowedEmoteSet()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse delegation for pack %s: %w", dp.Pack.URI, err)
+		}
+		view, err := s.buildPackView(ctx, dp.Pack, allowed)
 		if err != nil {
 			return nil, err
 		}
-		if !followedDIDs[pack.RepoDID] {
-			continue
-		}
-		rel := "follow"
+		rel := "delegation"
 		view.Relationship = &rel
 		packViews = append(packViews, view)
 	}
@@ -124,7 +153,7 @@ func (s *Server) handlePlaceStreamEmoteGetEmotePack(ctx context.Context, uri str
 		return nil, echo.NewHTTPError(http.StatusNotFound, "emote pack not found")
 	}
 
-	packView, err := s.buildPackView(ctx, pack)
+	packView, err := s.buildPackView(ctx, pack, nil)
 	if err != nil {
 		return nil, err
 	}

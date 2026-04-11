@@ -22,4 +22,6 @@ type EmotePack struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// name: Display name of the emote pack.
 	Name string `json:"name" cborgen:"name"`
+	// openInMyChat: If true, anyone following this user can use this pack when chatting in this user's stream.
+	OpenInMyChat *bool `json:"openInMyChat,omitempty" cborgen:"openInMyChat,omitempty"`
 }

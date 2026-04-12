@@ -8,4 +8,5 @@ import (
 	_ "github.com/bluesky-social/indigo/cmd/lexgen"
 	_ "github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 	_ "golang.org/x/tools/cmd/goimports"
+	_ "tangled.org/bnewbold.net/cobalt/cmd/glot"
 )

@@ -398,20 +398,7 @@ go-lexicons:
 
 .PHONY: js-lexicons
 js-lexicons:
-	node_modules/.bin/lex gen-api ./js/streamplace/src/lexicons $$(find ./lexicons -type f -name '*.json') --yes \
-		&& rm -rf ./js/streamplace/src/lexicons/types/com ./js/streamplace/src/lexicons/types/app \
-		&& sed -i.bak "s/^..port.*app\/bsky.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/^..port.*com\/atproto.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/\(..port .*\)\.js\(.*\)/\1\2/g" $$(find ./js/streamplace/src/lexicons -type f) \
- 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamLivestream\.Main/PlaceStreamLivestream\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream/live -type f) \
-		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
-			echo 'import { ComAtprotoSyncGetRepo, AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
-		done \
-		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
-		&& find . | grep bak$$ | xargs rm
+	node_modules/.bin/lex lex build --out ./js/streamplace/src/lexicons --clear
 
 .PHONY: md-lexicons
 md-lexicons:

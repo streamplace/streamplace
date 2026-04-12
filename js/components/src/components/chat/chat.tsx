@@ -26,6 +26,7 @@ import {
 } from "../../";
 import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
 import { RenderChatMessage } from "./chat-message";
+import { EmojiCardProvider } from "./emoji-card";
 import { ModView } from "./mod-view";
 import { ProfileCardProvider } from "./user-profile-card";
 
@@ -331,31 +332,33 @@ export function Chat({
         },
       ].concat(propsStyle || [])}
     >
-      <ProfileCardProvider>
-        <FlatList
-          ref={flatListRef}
-          style={[
-            flex.grow[1],
-            flex.shrink[1],
-            { minWidth: 0, maxWidth: "100%" },
-          ]}
-          data={chat.slice(0, shownMessages)}
-          inverted={!reverse}
-          keyExtractor={keyExtractor}
-          renderItem={({ item, index }) => (
-            <ErrorBoundary>
-              <ChatLine item={item} />
-            </ErrorBoundary>
-          )}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          initialNumToRender={10}
-          updateCellsBatchingPeriod={50}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          nestedScrollEnabled={true}
-        />
-      </ProfileCardProvider>
+      <EmojiCardProvider>
+        <ProfileCardProvider>
+          <FlatList
+            ref={flatListRef}
+            style={[
+              flex.grow[1],
+              flex.shrink[1],
+              { minWidth: 0, maxWidth: "100%" },
+            ]}
+            data={chat.slice(0, shownMessages)}
+            inverted={!reverse}
+            keyExtractor={keyExtractor}
+            renderItem={({ item, index }) => (
+              <ErrorBoundary>
+                <ChatLine item={item} />
+              </ErrorBoundary>
+            )}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            initialNumToRender={10}
+            updateCellsBatchingPeriod={50}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            nestedScrollEnabled={true}
+          />
+        </ProfileCardProvider>
+      </EmojiCardProvider>
       <Reanimated.View
         style={[
           {

@@ -12,7 +12,6 @@ import {
 import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useEmotePacks } from "hooks/useEmotePacks";
-import { DAN_PACK } from "components/emoji-picker/presets";
 import { ArrowRight } from "lucide-react-native";
 import { useEffect } from "react";
 import { Pressable, View } from "react-native";

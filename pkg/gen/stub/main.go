@@ -12,6 +12,7 @@ var types = []string{
 	"RichtextFacet_Emote",
 	"RichtextFacet_EmoteView",
 	"EmoteDefs_EmoteView",
+
 }
 
 func main() {

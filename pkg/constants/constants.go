@@ -16,12 +16,10 @@ var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //
 var PLACE_STREAM_CHAT_PINNED_RECORD = "place.stream.chat.pinnedRecord"        //nolint:all
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all
-var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all
+var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all                      //nolint:all
 var PLACE_STREAM_EMOTE_PACK = "place.stream.emote.pack"                       //nolint:all
 var PLACE_STREAM_EMOTE_ITEM = "place.stream.emote.item"                       //nolint:all
-var PLACE_STREAM_EMOTE_PACK = "place.stream.emote.pack"                                   //nolint:all
-var PLACE_STREAM_EMOTE_ITEM = "place.stream.emote.item"                                   //nolint:all
-var PLACE_STREAM_EMOTE_PACK_DELEGATION = "place.stream.emote.packDelegation"              //nolint:all
+var PLACE_STREAM_EMOTE_PACK_DELEGATION = "place.stream.emote.packDelegation"  //nolint:all
 
 // Streamplace badge types
 const (

@@ -64,7 +64,7 @@ const BADGE_META: Record<string, BadgeMeta> = {
   },
 };
 
-interface OpenCardData {
+export interface OpenCardData {
   uri: string;
   author: ProfileViewBasic;
   badges: ChatMessageViewHydrated["badges"];
@@ -77,7 +77,7 @@ interface OpenCardContextValue {
   setOpenCard: (card: OpenCardData | null) => void;
 }
 
-const OpenCardContext = createContext<OpenCardContextValue>({
+export const OpenCardContext = createContext<OpenCardContextValue>({
   openCard: null,
   setOpenCard: () => {},
 });

@@ -5,6 +5,7 @@ import {
   Resizable,
   StreamNotificationProvider,
   Text,
+  useProfile,
   View,
   zero,
 } from "@streamplace/components";
@@ -245,7 +246,7 @@ export function MobileChatPanel({
 
 function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   let agent = usePDSAgent();
-
+  let profile = useProfile();
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
@@ -270,7 +271,6 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
             emojiPacks={emotePacks}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
-            emojiPacks={[DAN_PACK]}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}

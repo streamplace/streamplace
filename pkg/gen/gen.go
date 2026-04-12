@@ -42,6 +42,8 @@ func main() {
 		streamplace.EmoteItem{},
 		streamplace.EmoteDefs_EmoteView{},
 		streamplace.EmotePackDelegation{},
+		streamplace.ChatPinnedRecord{},
+		streamplace.LiveViewerCount{},
 	); err != nil {
 		panic(err)
 	}

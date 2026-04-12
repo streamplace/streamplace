@@ -13,9 +13,13 @@ description: Reference for the place.stream.emote.getEmotePacks lexicon
 
 **Type:** `query`
 
-Get all emote packs available on this server.
+Get emote packs available to the viewer in a specific stream's chat.
 
-**Parameters:** _(None defined)_
+**Parameters:**
+
+| Name       | Type     | Req'd | Description                                                          | Constraints   |
+| ---------- | -------- | ----- | -------------------------------------------------------------------- | ------------- |
+| `streamer` | `string` | ✅    | The DID of the streamer whose chat context to fetch emote packs for. | Format: `did` |
 
 **Output:**
 
@@ -39,7 +43,18 @@ Get all emote packs available on this server.
   "defs": {
     "main": {
       "type": "query",
-      "description": "Get all emote packs available on this server.",
+      "description": "Get emote packs available to the viewer in a specific stream's chat.",
+      "parameters": {
+        "type": "params",
+        "required": ["streamer"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer whose chat context to fetch emote packs for."
+          }
+        }
+      },
       "output": {
         "encoding": "application/json",
         "schema": {

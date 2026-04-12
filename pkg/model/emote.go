@@ -22,12 +22,12 @@ type EmotePack struct {
 }
 
 type EmotePackDelegation struct {
-	URI          string    `gorm:"primaryKey;column:uri"`
-	CID          string    `gorm:"column:cid"`
-	RepoDID      string    `gorm:"column:repo_did;index"`
-	RKey         string    `gorm:"column:rkey"`
-	PackURI      string    `gorm:"column:pack_uri;index"`
-	RecipientDID string    `gorm:"column:recipient_did;index"`
+	URI          string `gorm:"primaryKey;column:uri"`
+	CID          string `gorm:"column:cid"`
+	RepoDID      string `gorm:"column:repo_did;index"`
+	RKey         string `gorm:"column:rkey"`
+	PackURI      string `gorm:"column:pack_uri;index"`
+	RecipientDID string `gorm:"column:recipient_did;index"`
 	// JSON-encoded []string of allowed emote URIs; null means all emotes in the pack.
 	AllowedEmotes []byte    `gorm:"column:allowed_emotes"`
 	Record        []byte    `gorm:"column:record"`

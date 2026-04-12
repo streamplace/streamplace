@@ -284,7 +284,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to get chat profile: %w", err)
 		}
 		if msg != nil {
-			msgView, err := msg.ToStreamplaceMessageView()
+			msgView, err := msg.ToStreamplaceMessageView(ctx, atsync.Model)
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}

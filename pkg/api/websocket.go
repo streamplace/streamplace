@@ -293,7 +293,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				if msg != nil {
-					msgView, err := msg.ToStreamplaceMessageView()
+					msgView, err := msg.ToStreamplaceMessageView(ctx, a.Model)
 					if err != nil {
 						log.Error(ctx, "failed to convert chat message: %w", err)
 						return

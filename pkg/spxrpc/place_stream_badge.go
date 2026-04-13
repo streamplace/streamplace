@@ -4,11 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/badges"
@@ -132,65 +128,5 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		Server:   serverBadge,
 		Streamer: streamerSlot,
 		User:     userSlot,
-	}, nil
-}
-
-func (s *Server) handlePlaceStreamBadgeIssueBadge(ctx context.Context, input *placestream.BadgeIssueBadge_Input) (*placestream.BadgeIssueBadge_Output, error) {
-	session, client := oatproxy.GetOAuthSession(ctx)
-	if session == nil || client == nil {
-		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	// Create the badge definition record in the issuer's repo.
-	def := &placestream.BadgeDef{
-		LexiconTypeID: "place.stream.badge.def",
-		Name:          input.Name,
-		BadgeType:     input.BadgeType,
-		CreatedAt:     now,
-		Description:   input.Description,
-	}
-
-	defInput := comatproto.RepoCreateRecord_Input{
-		Collection: constants.PLACE_STREAM_BADGE_DEF,
-		Record:     &lexutil.LexiconTypeDecoder{Val: def},
-		Repo:       session.DID,
-	}
-	defOutput := comatproto.RepoCreateRecord_Output{}
-	err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, defInput, &defOutput)
-	if err != nil {
-		log.Error(ctx, "failed to create badge def record", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create badge def: %v", err))
-	}
-
-	// Create the badge issuance record referencing the new def.
-	issuance := &placestream.BadgeIssuance{
-		LexiconTypeID: "place.stream.badge.issuance",
-		Did:           input.RecipientDid,
-		Badge: &comatproto.RepoStrongRef{
-			Uri: defOutput.Uri,
-			Cid: defOutput.Cid,
-		},
-		CreatedAt: now,
-	}
-
-	issuanceInput := comatproto.RepoCreateRecord_Input{
-		Collection: constants.PLACE_STREAM_BADGE_ISSUANCE,
-		Record:     &lexutil.LexiconTypeDecoder{Val: issuance},
-		Repo:       session.DID,
-	}
-	issuanceOutput := comatproto.RepoCreateRecord_Output{}
-	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, issuanceInput, &issuanceOutput)
-	if err != nil {
-		log.Error(ctx, "failed to create badge issuance record", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create badge issuance: %v", err))
-	}
-
-	return &placestream.BadgeIssueBadge_Output{
-		DefUri:      defOutput.Uri,
-		DefCid:      defOutput.Cid,
-		IssuanceUri: issuanceOutput.Uri,
-		IssuanceCid: issuanceOutput.Cid,
 	}, nil
 }

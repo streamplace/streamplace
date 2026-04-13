@@ -280,7 +280,6 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
-	e.POST("/xrpc/place.stream.badge.issueBadge", s.HandlePlaceStreamBadgeIssueBadge)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
@@ -341,24 +340,6 @@ func (s *Server) HandlePlaceStreamBadgeGetValidBadges(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context,streamer string) (*placestream.BadgeGetValidBadges_Output, error)
 	out, handleErr = s.handlePlaceStreamBadgeGetValidBadges(ctx, streamer)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandlePlaceStreamBadgeIssueBadge(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBadgeIssueBadge")
-	defer span.End()
-
-	var body placestream.BadgeIssueBadge_Input
-	if err := c.Bind(&body); err != nil {
-		return err
-	}
-	var out *placestream.BadgeIssueBadge_Output
-	var handleErr error
-	// func (s *Server) handlePlaceStreamBadgeIssueBadge(ctx context.Context,body *placestream.BadgeIssueBadge_Input) (*placestream.BadgeIssueBadge_Output, error)
-	out, handleErr = s.handlePlaceStreamBadgeIssueBadge(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

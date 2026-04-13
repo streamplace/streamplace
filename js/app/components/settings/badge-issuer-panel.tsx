@@ -12,14 +12,7 @@ import {
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
-import {
-  Check,
-  ChevronLeft,
-  ImagePlus,
-  Plus,
-  Send,
-  X,
-} from "lucide-react-native";
+import { Check, ChevronLeft, ImagePlus, Plus, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -40,7 +33,7 @@ const BADGE_TYPE_OPTIONS: { label: string; value: BadgeType }[] = [
   { label: "Event", value: "place.stream.badge.defs#event" },
 ];
 
-type PanelView = "main" | "create" | "issue";
+type PanelView = "main" | "create";
 
 interface BadgeDefItem {
   uri: string;
@@ -146,8 +139,6 @@ export function BadgeIssuerPanel() {
   const [createImageUri, setCreateImageUri] = useState<string | null>(null);
   const [createImageBlob, setCreateImageBlob] = useState<Blob | null>(null);
 
-  const [issueRecipientDid, setIssueRecipientDid] = useState("");
-
   const loadDefs = useCallback(async () => {
     if (!agent?.did) return;
     setLoadingDefs(true);
@@ -241,44 +232,6 @@ export function BadgeIssuerPanel() {
       toast.show("Failed to create badge definition", e?.message, {
         variant: "error",
       });
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  const handleIssueFromDef = async () => {
-    if (!agent?.did || !selectedDefUri || !issueRecipientDid.trim() || working)
-      return;
-    setWorking(true);
-    try {
-      const def = defs.find((d) => d.uri === selectedDefUri);
-      if (!def) return;
-
-      const getRes = await agent.com.atproto.repo.getRecord({
-        repo: agent.did,
-        collection: "place.stream.badge.def",
-        rkey: def.uri.split("/").pop()!,
-      });
-
-      await agent.place.stream.badge.issuance.create(
-        { repo: agent.did },
-        {
-          did: issueRecipientDid.trim(),
-          badge: { uri: def.uri, cid: getRes.data.cid ?? "" },
-          createdAt: new Date().toISOString(),
-        },
-      );
-
-      setLastResult({
-        label: "Badge issued",
-        uri: def.value.name + " → " + issueRecipientDid.trim().slice(0, 30),
-      });
-      setIssueRecipientDid("");
-      setSelectedDefUri(null);
-      toast.show("Badge issued", undefined, { variant: "success" });
-      setView("main");
-    } catch (e: any) {
-      toast.show("Failed to issue badge", e?.message, { variant: "error" });
     } finally {
       setWorking(false);
     }
@@ -485,122 +438,6 @@ export function BadgeIssuerPanel() {
     );
   }
 
-  if (view === "issue") {
-    return (
-      <ScrollView>
-        <View style={[layout.flex.align.center, px[2], py[2]]}>
-          <View style={{ maxWidth: 500, width: "100%" }}>
-            {renderBackButton("Badge definitions")}
-            <Text
-              style={{
-                color: theme.colors.text,
-                fontSize: 18,
-                fontWeight: "600",
-              }}
-            >
-              Issue Badge to User
-            </Text>
-
-            {loadingDefs ? (
-              <ActivityIndicator color={theme.colors.primary} />
-            ) : defs.length === 0 ? (
-              <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>
-                No badge definitions yet. Create one first.
-              </Text>
-            ) : (
-              <MenuContainer>
-                <MenuGroup>
-                  <View style={[px[4], py[3]]}>
-                    <Text
-                      style={{
-                        color: theme.colors.textMuted,
-                        fontSize: 12,
-                        fontWeight: "600",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      SELECT A BADGE
-                    </Text>
-                  </View>
-                  {defs.map((def, i) => (
-                    <View key={def.uri}>
-                      {i > 0 && <MenuSeparator />}
-                      <BadgeDefRow
-                        def={def}
-                        selected={selectedDefUri === def.uri}
-                        onPress={() => setSelectedDefUri(def.uri)}
-                      />
-                    </View>
-                  ))}
-                </MenuGroup>
-              </MenuContainer>
-            )}
-
-            {selectedDefUri && (
-              <View style={[gap.all[4]]}>
-                <View style={[gap.all[2]]}>
-                  <Text
-                    style={[
-                      {
-                        color: theme.colors.text,
-                        fontSize: 13,
-                        fontWeight: "600",
-                      },
-                    ]}
-                  >
-                    Recipient DID
-                  </Text>
-                  <Input
-                    value={issueRecipientDid}
-                    onChangeText={setIssueRecipientDid}
-                    placeholder="did:plc:..."
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
-
-                <Button
-                  onPress={handleIssueFromDef}
-                  disabled={!issueRecipientDid.trim() || working}
-                  style={[
-                    {
-                      opacity: issueRecipientDid.trim() && !working ? 1 : 0.5,
-                    },
-                  ]}
-                >
-                  {working ? (
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.primaryForeground}
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        layout.flex.row,
-                        layout.flex.align.center,
-                        gap.all[2],
-                      ]}
-                    >
-                      <Send size={14} color={theme.colors.primaryForeground} />
-                      <Text
-                        style={{
-                          color: theme.colors.primaryForeground,
-                          fontWeight: "600",
-                        }}
-                      >
-                        Issue Badge
-                      </Text>
-                    </View>
-                  )}
-                </Button>
-              </View>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-    );
-  }
-
   return (
     <ScrollView>
       <View style={[layout.flex.align.center, px[2], py[2]]}>
@@ -645,46 +482,6 @@ export function BadgeIssuerPanel() {
                   </Text>
                   <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
                     Define a reusable badge with name, type, and optional image
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              <MenuSeparator />
-
-              <TouchableOpacity
-                onPress={() => setView("issue")}
-                style={[
-                  layout.flex.row,
-                  layout.flex.align.center,
-                  gap.all[3],
-                  py[3],
-                  px[4],
-                ]}
-              >
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: theme.colors.primary + "22",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Send size={16} color={theme.colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: theme.colors.text,
-                      fontSize: 15,
-                      fontWeight: "500",
-                    }}
-                  >
-                    Issue Existing Badge
-                  </Text>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
-                    Grant one of your badge definitions to a user
                   </Text>
                 </View>
               </TouchableOpacity>

@@ -10,10 +10,11 @@ import {
   Badge,
   BADGE_IMAGES,
 } from "@streamplace/components/src/components/chat/badge";
+import { borderRadius as radiusTokens } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -22,7 +23,7 @@ import {
 } from "react-native";
 import type { PlaceStreamBadgeDefs } from "streamplace";
 
-const { gap, p, px, py, r, layout, w } = zero;
+const { gap, p, px, py, layout, w } = zero;
 
 function BadgeIssuanceRow({
   badge,
@@ -35,11 +36,16 @@ function BadgeIssuanceRow({
 }) {
   const { theme } = zero.useTheme();
   const isSelected = badge.selected ?? false;
+  const badgeName = badge.name ?? badge.badgeType.split("#")[1];
 
   return (
     <TouchableOpacity
       onPress={() => onToggle(badge)}
       disabled={toggling}
+      accessibilityRole="switch"
+      accessibilityState={{ checked: isSelected }}
+      accessibilityLabel={`${badgeName} badge`}
+      accessibilityHint={isSelected ? "Deselect badge" : "Select badge"}
       style={[
         layout.flex.row,
         layout.flex.align.center,
@@ -52,7 +58,7 @@ function BadgeIssuanceRow({
       {badge.imageUrl ? (
         <Image
           source={{ uri: badge.imageUrl }}
-          style={{ width: 24, height: 24, borderRadius: 4 }}
+          style={{ width: 24, height: 24, borderRadius: radiusTokens.sm }}
         />
       ) : BADGE_IMAGES[badge.badgeType] ? (
         <Badge badgeType={badge.badgeType} size={24} />
@@ -61,29 +67,20 @@ function BadgeIssuanceRow({
           style={{
             width: 24,
             height: 24,
-            borderRadius: 4,
+            borderRadius: radiusTokens.sm,
             backgroundColor: theme.colors.muted,
           }}
         />
       )}
 
       <View style={[{ flex: 1 }, gap.all[0.5]]}>
-        <Text
-          style={[
-            { color: theme.colors.text, fontSize: 15, fontWeight: "500" },
-          ]}
-        >
-          {badge.name ?? badge.badgeType.split("#")[1]}
-        </Text>
+        <Text style={{ fontSize: 15, fontWeight: "500" }}>{badgeName}</Text>
         {badge.description && (
-          <Text
-            style={[{ color: theme.colors.textMuted, fontSize: 12 }]}
-            numberOfLines={2}
-          >
+          <Text muted style={{ fontSize: 12 }} numberOfLines={2}>
             {badge.description}
           </Text>
         )}
-        <Text style={[{ color: theme.colors.textMuted, fontSize: 11 }]}>
+        <Text muted style={{ fontSize: 11 }}>
           issued by {badge.issuer}
         </Text>
       </View>
@@ -130,6 +127,7 @@ export function BadgeSelectionManager() {
   const [userSlot, setUserSlot] =
     useState<PlaceStreamBadgeDefs.BadgeSlot | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
+  const togglingRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!agent) return;
@@ -151,11 +149,11 @@ export function BadgeSelectionManager() {
 
   const handleToggle = useCallback(
     async (badge: PlaceStreamBadgeDefs.BadgeIssuanceView) => {
-      if (!agent?.did || toggling) return;
+      if (!agent?.did || togglingRef.current) return;
+      togglingRef.current = badge.issuanceUri;
       setToggling(badge.issuanceUri);
 
       try {
-        // Fetch current profile record
         let currentRecord: Record<string, any> = {
           $type: "place.stream.chat.profile",
           selection: [],
@@ -182,12 +180,10 @@ export function BadgeSelectionManager() {
         const isCurrentlySelected = badge.selected ?? false;
 
         if (isCurrentlySelected) {
-          // Remove from selection
           newSelection = currentSelection.filter(
             (s) => s.uri !== badge.issuanceUri,
           );
         } else {
-          // Add to selection (max 2 cosmetic slots)
           const ref = { uri: badge.issuanceUri, cid: "" };
           newSelection = [
             ...currentSelection.filter((s) => s.uri !== badge.issuanceUri),
@@ -209,10 +205,11 @@ export function BadgeSelectionManager() {
           variant: "error",
         });
       } finally {
+        togglingRef.current = null;
         setToggling(null);
       }
     },
-    [agent, toggling, load],
+    [agent, load],
   );
 
   if (loading) {
@@ -236,7 +233,7 @@ export function BadgeSelectionManager() {
           { paddingTop: 48 },
         ]}
       >
-        <Text style={[{ color: theme.colors.textMuted, textAlign: "center" }]}>
+        <Text muted center>
           No badges yet. Badges appear here when streamers or the server issues
           them to you.
         </Text>
@@ -252,16 +249,16 @@ export function BadgeSelectionManager() {
             <MenuGroup>
               <View style={[px[4], py[3]]}>
                 <Text
-                  style={[
-                    {
-                      color: theme.colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: "600",
-                      letterSpacing: 0.5,
-                    },
-                  ]}
+                  accessibilityRole="header"
+                  muted
+                  uppercase
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    letterSpacing: 0.5,
+                  }}
                 >
-                  STREAMER BADGES
+                  Streamer badges
                 </Text>
               </View>
               {streamerSlot!.available.map((badge, i) => (
@@ -281,16 +278,16 @@ export function BadgeSelectionManager() {
             <MenuGroup>
               <View style={[px[4], py[3]]}>
                 <Text
-                  style={[
-                    {
-                      color: theme.colors.textMuted,
-                      fontSize: 12,
-                      fontWeight: "600",
-                      letterSpacing: 0.5,
-                    },
-                  ]}
+                  accessibilityRole="header"
+                  muted
+                  uppercase
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    letterSpacing: 0.5,
+                  }}
                 >
-                  COSMETIC BADGES
+                  Cosmetic badges
                 </Text>
               </View>
               {userSlot!.available.map((badge, i) => (

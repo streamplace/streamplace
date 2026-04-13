@@ -10,6 +10,10 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  fontFamilies,
+  borderRadius as radiusTokens,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { Check, ChevronLeft, ImagePlus, Plus, X } from "lucide-react-native";
@@ -22,7 +26,7 @@ import {
 } from "react-native";
 import type { PlaceStreamBadgeDef } from "streamplace";
 
-const { gap, p, px, py, r, layout } = zero;
+const { gap, p, px, py, layout } = zero;
 
 type BadgeType =
   | "place.stream.badge.defs#vip"
@@ -48,34 +52,26 @@ function getDidFromAtUri(uri: string) {
   return null;
 }
 
+function withAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function BadgeDefRow({
   def,
   selected,
   onPress,
 }: {
   def: BadgeDefItem;
-  selected: boolean;
-  onPress: () => void;
+  selected?: boolean;
+  onPress?: () => void;
 }) {
   const { theme } = zero.useTheme();
 
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        layout.flex.row,
-        layout.flex.align.center,
-        gap.all[3],
-        py[3],
-        px[4],
-        {
-          backgroundColor: selected
-            ? theme.colors.primary + "18"
-            : "transparent",
-          borderRadius: 8,
-        },
-      ]}
-    >
+  const content = (
+    <>
       {def.value.image ? (
         <Image
           source={{
@@ -85,14 +81,14 @@ function BadgeDefRow({
               "/" +
               def.value.image.ref.toString(),
           }}
-          style={{ width: 28, height: 28, borderRadius: 4 }}
+          style={{ width: 28, height: 28, borderRadius: radiusTokens.sm }}
         />
       ) : (
         <View
           style={{
             width: 28,
             height: 28,
-            borderRadius: 4,
+            borderRadius: radiusTokens.sm,
             backgroundColor: theme.colors.muted,
             alignItems: "center",
             justifyContent: "center",
@@ -102,15 +98,72 @@ function BadgeDefRow({
         </View>
       )}
       <View style={[{ flex: 1 }, gap.all[0.5]]}>
-        <Text
-          style={{ color: theme.colors.text, fontSize: 14, fontWeight: "500" }}
-        >
+        <Text style={{ fontSize: 14, fontWeight: "500" }}>
           {def.value.name}
         </Text>
-        <Text style={{ color: theme.colors.textMuted, fontSize: 11 }}>
+        <Text muted style={{ fontSize: 11 }}>
           {def.value.badgeType.split("#")[1]}
         </Text>
       </View>
+    </>
+  );
+
+  const rowStyle = [
+    layout.flex.row,
+    layout.flex.align.center,
+    gap.all[3],
+    py[3],
+    px[4],
+    {
+      backgroundColor: selected
+        ? withAlpha(theme.colors.primary, 0.09)
+        : "transparent",
+      borderRadius: radiusTokens.md,
+    },
+  ];
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${def.value.name} badge definition`}
+        style={rowStyle}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return <View style={rowStyle}>{content}</View>;
+}
+
+function BackButton({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { theme } = zero.useTheme();
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Back to ${label}`}
+      style={[
+        layout.flex.row,
+        layout.flex.align.center,
+        gap.all[2],
+        py[2],
+        { marginBottom: 4 },
+      ]}
+    >
+      <ChevronLeft size={18} color={theme.colors.textMuted} />
+      <Text muted style={{ fontSize: 14 }}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -129,7 +182,6 @@ export function BadgeIssuerPanel() {
 
   const [defs, setDefs] = useState<BadgeDefItem[]>([]);
   const [loadingDefs, setLoadingDefs] = useState(false);
-  const [selectedDefUri, setSelectedDefUri] = useState<string | null>(null);
 
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
@@ -237,61 +289,26 @@ export function BadgeIssuerPanel() {
     }
   };
 
-  const renderBackButton = (label: string) => (
-    <TouchableOpacity
-      onPress={() => setView("main")}
-      style={[
-        layout.flex.row,
-        layout.flex.align.center,
-        gap.all[2],
-        py[2],
-        { marginBottom: 4 },
-      ]}
-    >
-      <ChevronLeft size={18} color={theme.colors.textMuted} />
-      <Text style={{ color: theme.colors.textMuted, fontSize: 14 }}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-
   if (view === "create") {
     return (
       <ScrollView>
         <View style={[layout.flex.align.center, px[2], py[2]]}>
           <View style={{ maxWidth: 500, width: "100%" }}>
-            {renderBackButton("Badge definitions")}
-            <Text
-              style={{
-                color: theme.colors.text,
-                fontSize: 18,
-                fontWeight: "600",
-              }}
-            >
+            <BackButton
+              label="Badge definitions"
+              onPress={() => setView("main")}
+            />
+            <Text style={{ fontSize: 18, fontWeight: "600" }}>
               Create Badge Definition
             </Text>
-            <Text
-              style={{
-                color: theme.colors.textMuted,
-                fontSize: 13,
-                marginBottom: 16,
-              }}
-            >
+            <Text muted style={{ fontSize: 13, marginBottom: 16 }}>
               Create a reusable badge definition. You can then issue it to
               multiple users.
             </Text>
 
             <View style={[gap.all[4]]}>
               <View style={[gap.all[2]]}>
-                <Text
-                  style={[
-                    {
-                      color: theme.colors.text,
-                      fontSize: 13,
-                      fontWeight: "600",
-                    },
-                  ]}
-                >
+                <Text style={{ fontSize: 13, fontWeight: "600" }}>
                   Badge type
                 </Text>
                 <View style={[layout.flex.row, gap.all[2]]}>
@@ -312,15 +329,7 @@ export function BadgeIssuerPanel() {
               </View>
 
               <View style={[gap.all[2]]}>
-                <Text
-                  style={[
-                    {
-                      color: theme.colors.text,
-                      fontSize: 13,
-                      fontWeight: "600",
-                    },
-                  ]}
-                >
+                <Text style={{ fontSize: 13, fontWeight: "600" }}>
                   Badge name
                 </Text>
                 <Input
@@ -328,19 +337,12 @@ export function BadgeIssuerPanel() {
                   onChangeText={setCreateName}
                   placeholder="e.g. VIP Member"
                   maxLength={64}
+                  accessibilityLabel="Badge name"
                 />
               </View>
 
               <View style={[gap.all[2]]}>
-                <Text
-                  style={[
-                    {
-                      color: theme.colors.text,
-                      fontSize: 13,
-                      fontWeight: "600",
-                    },
-                  ]}
-                >
+                <Text style={{ fontSize: 13, fontWeight: "600" }}>
                   Description (optional)
                 </Text>
                 <Input
@@ -348,19 +350,12 @@ export function BadgeIssuerPanel() {
                   onChangeText={setCreateDescription}
                   placeholder="e.g. Outstanding community support"
                   maxLength={256}
+                  accessibilityLabel="Badge description"
                 />
               </View>
 
               <View style={[gap.all[2]]}>
-                <Text
-                  style={[
-                    {
-                      color: theme.colors.text,
-                      fontSize: 13,
-                      fontWeight: "600",
-                    },
-                  ]}
-                >
+                <Text style={{ fontSize: 13, fontWeight: "600" }}>
                   Badge image (optional, max 256KB)
                 </Text>
                 <View
@@ -380,13 +375,20 @@ export function BadgeIssuerPanel() {
                     >
                       <Image
                         source={{ uri: createImageUri }}
-                        style={{ width: 48, height: 48, borderRadius: 6 }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: radiusTokens.md,
+                        }}
                       />
                       <TouchableOpacity
                         onPress={() => {
                           setCreateImageUri(null);
                           setCreateImageBlob(null);
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove selected image"
+                        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                       >
                         <X size={16} color={theme.colors.textMuted} />
                       </TouchableOpacity>
@@ -442,7 +444,7 @@ export function BadgeIssuerPanel() {
     <ScrollView>
       <View style={[layout.flex.align.center, px[2], py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
-          <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>
+          <Text muted style={{ fontSize: 13 }}>
             Manage badge definitions and issue badges to users.
           </Text>
 
@@ -450,6 +452,8 @@ export function BadgeIssuerPanel() {
             <MenuGroup>
               <TouchableOpacity
                 onPress={() => setView("create")}
+                accessibilityRole="button"
+                accessibilityLabel="Create badge definition"
                 style={[
                   layout.flex.row,
                   layout.flex.align.center,
@@ -462,8 +466,8 @@ export function BadgeIssuerPanel() {
                   style={{
                     width: 32,
                     height: 32,
-                    borderRadius: 16,
-                    backgroundColor: theme.colors.primary + "22",
+                    borderRadius: radiusTokens.xl,
+                    backgroundColor: withAlpha(theme.colors.primary, 0.13),
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -471,16 +475,10 @@ export function BadgeIssuerPanel() {
                   <Plus size={16} color={theme.colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text
-                    style={{
-                      color: theme.colors.text,
-                      fontSize: 15,
-                      fontWeight: "500",
-                    }}
-                  >
+                  <Text style={{ fontSize: 15, fontWeight: "500" }}>
                     Create Badge Definition
                   </Text>
-                  <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
+                  <Text muted style={{ fontSize: 12 }}>
                     Define a reusable badge with name, type, and optional image
                   </Text>
                 </View>
@@ -490,14 +488,15 @@ export function BadgeIssuerPanel() {
 
           {lastResult && (
             <View
+              accessibilityRole="alert"
               style={[
-                r.md,
+                { borderRadius: radiusTokens.md },
                 p[3],
                 gap.all[1],
                 {
-                  backgroundColor: theme.colors.success + "22",
+                  backgroundColor: withAlpha(theme.colors.success, 0.13),
                   borderWidth: 1,
-                  borderColor: theme.colors.success + "44",
+                  borderColor: withAlpha(theme.colors.success, 0.27),
                 },
               ]}
             >
@@ -506,27 +505,17 @@ export function BadgeIssuerPanel() {
               >
                 <Check size={14} color={theme.colors.success} />
                 <Text
-                  style={[
-                    {
-                      color: theme.colors.success,
-                      fontSize: 13,
-                      fontWeight: "600",
-                    },
-                  ]}
+                  color="success"
+                  style={{ fontSize: 13, fontWeight: "600" }}
                 >
                   {lastResult.label}
                 </Text>
               </View>
               <Text
-                style={[
-                  {
-                    color: theme.colors.textMuted,
-                    fontSize: 11,
-                    fontFamily: "monospace",
-                  },
-                ]}
+                muted
                 numberOfLines={1}
                 ellipsizeMode="middle"
+                style={{ fontSize: 11, fontFamily: fontFamilies.monoRegular }}
               >
                 {lastResult.uri}
               </Text>
@@ -535,14 +524,7 @@ export function BadgeIssuerPanel() {
 
           {defs.length > 0 && (
             <>
-              <Text
-                style={{
-                  color: theme.colors.text,
-                  fontSize: 15,
-                  fontWeight: "600",
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ fontSize: 15, fontWeight: "600", marginTop: 4 }}>
                 Your Badge Definitions
               </Text>
               <MenuContainer>
@@ -550,60 +532,7 @@ export function BadgeIssuerPanel() {
                   {defs.map((def, i) => (
                     <View key={def.uri}>
                       {i > 0 && <MenuSeparator />}
-                      <View
-                        style={[
-                          layout.flex.row,
-                          layout.flex.align.center,
-                          gap.all[3],
-                          py[3],
-                          px[4],
-                        ]}
-                      >
-                        {def.value.image ? (
-                          <Image
-                            source={{
-                              uri:
-                                "https://cdn.bsky.app/img/feed_fullsize/plain/" +
-                                getDidFromAtUri(def.uri) +
-                                "/" +
-                                def.value.image.ref.toString(),
-                            }}
-                            style={{ width: 24, height: 24, borderRadius: 4 }}
-                          />
-                        ) : (
-                          <View
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 4,
-                              backgroundColor: theme.colors.muted,
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            <Text style={{ fontSize: 10 }}>🎭</Text>
-                          </View>
-                        )}
-                        <View style={{ flex: 1 }}>
-                          <Text
-                            style={{
-                              color: theme.colors.text,
-                              fontSize: 14,
-                              fontWeight: "500",
-                            }}
-                          >
-                            {def.value.name}
-                          </Text>
-                          <Text
-                            style={{
-                              color: theme.colors.textMuted,
-                              fontSize: 11,
-                            }}
-                          >
-                            {def.value.badgeType.split("#")[1]}
-                          </Text>
-                        </View>
-                      </View>
+                      <BadgeDefRow def={def} />
                     </View>
                   ))}
                 </MenuGroup>

@@ -6,10 +6,7 @@
       "type": "record",
       "record": {
         "type": "object",
-        "required": [
-          "post",
-          "createdAt"
-        ],
+        "required": ["post", "createdAt"],
         "properties": {
           "post": {
             "type": "string",
@@ -49,9 +46,7 @@
     },
     "listRule": {
       "type": "object",
-      "required": [
-        "list"
-      ],
+      "required": ["list"],
       "properties": {
         "list": {
           "type": "string",

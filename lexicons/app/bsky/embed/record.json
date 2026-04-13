@@ -3,9 +3,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "required": [
-        "record"
-      ],
+      "required": ["record"],
       "properties": {
         "record": {
           "ref": "com.atproto.repo.strongRef",
@@ -15,9 +13,7 @@
     },
     "view": {
       "type": "object",
-      "required": [
-        "record"
-      ],
+      "required": ["record"],
       "properties": {
         "record": {
           "refs": [
@@ -36,13 +32,7 @@
     },
     "viewRecord": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "author",
-        "value",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "author", "value", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -100,11 +90,7 @@
     },
     "viewBlocked": {
       "type": "object",
-      "required": [
-        "uri",
-        "blocked",
-        "author"
-      ],
+      "required": ["uri", "blocked", "author"],
       "properties": {
         "uri": {
           "type": "string",
@@ -122,10 +108,7 @@
     },
     "viewDetached": {
       "type": "object",
-      "required": [
-        "uri",
-        "detached"
-      ],
+      "required": ["uri", "detached"],
       "properties": {
         "uri": {
           "type": "string",
@@ -139,10 +122,7 @@
     },
     "viewNotFound": {
       "type": "object",
-      "required": [
-        "uri",
-        "notFound"
-      ],
+      "required": ["uri", "notFound"],
       "properties": {
         "uri": {
           "type": "string",

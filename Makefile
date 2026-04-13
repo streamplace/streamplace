@@ -384,21 +384,12 @@ lexicons:
 
 .PHONY: go-lexicons
 go-lexicons:
-	rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& $(MAKE) lexgen-types \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& go run ./pkg/gen/gen_stubs.go \
-	&& go run ./pkg/gen/gen.go \
-	&& rm -f ./pkg/streamplace/cbor_stubs.go \
-	&& $(MAKE) lexgen \
-	&& find . | grep bak$$ | xargs rm \
-	&& rm -rf api
+	rm -rf ./pkg/streamplace \
+	&& go tool tangled.org/bnewbold.net/cobalt/cmd/glot codegen --output-dir ./pkg/streamplace --no-imports-tidy
 
 .PHONY: js-lexicons
 js-lexicons:
-	node_modules/.bin/lex lex build --out ./js/streamplace/src/lexicons --clear
+	node_modules/.bin/lex build --out ./js/streamplace/src/lexicons --clear
 
 .PHONY: md-lexicons
 md-lexicons:

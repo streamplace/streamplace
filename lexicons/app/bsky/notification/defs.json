@@ -3,10 +3,7 @@
   "defs": {
     "preference": {
       "type": "object",
-      "required": [
-        "list",
-        "push"
-      ],
+      "required": ["list", "push"],
       "properties": {
         "list": {
           "type": "boolean"
@@ -94,29 +91,20 @@
     },
     "chatPreference": {
       "type": "object",
-      "required": [
-        "include",
-        "push"
-      ],
+      "required": ["include", "push"],
       "properties": {
         "push": {
           "type": "boolean"
         },
         "include": {
           "type": "string",
-          "knownValues": [
-            "all",
-            "accepted"
-          ]
+          "knownValues": ["all", "accepted"]
         }
       }
     },
     "activitySubscription": {
       "type": "object",
-      "required": [
-        "post",
-        "reply"
-      ],
+      "required": ["post", "reply"],
       "properties": {
         "post": {
           "type": "boolean"
@@ -128,11 +116,7 @@
     },
     "filterablePreference": {
       "type": "object",
-      "required": [
-        "include",
-        "list",
-        "push"
-      ],
+      "required": ["include", "list", "push"],
       "properties": {
         "list": {
           "type": "boolean"
@@ -142,19 +126,13 @@
         },
         "include": {
           "type": "string",
-          "knownValues": [
-            "all",
-            "follows"
-          ]
+          "knownValues": ["all", "follows"]
         }
       }
     },
     "subjectActivitySubscription": {
       "type": "object",
-      "required": [
-        "subject",
-        "activitySubscription"
-      ],
+      "required": ["subject", "activitySubscription"],
       "properties": {
         "subject": {
           "type": "string",

@@ -6,10 +6,7 @@
       "type": "record",
       "record": {
         "type": "object",
-        "required": [
-          "post",
-          "createdAt"
-        ],
+        "required": ["post", "createdAt"],
         "properties": {
           "post": {
             "type": "string",
@@ -23,9 +20,7 @@
           "embeddingRules": {
             "type": "array",
             "items": {
-              "refs": [
-                "#disableRule"
-              ],
+              "refs": ["#disableRule"],
               "type": "union"
             },
             "maxLength": 5,

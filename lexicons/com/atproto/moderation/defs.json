@@ -68,11 +68,7 @@
     "subjectType": {
       "type": "string",
       "description": "Tag describing a type of subject that might be reported.",
-      "knownValues": [
-        "account",
-        "record",
-        "chat"
-      ]
+      "knownValues": ["account", "record", "chat"]
     },
     "reasonAppeal": {
       "type": "token",

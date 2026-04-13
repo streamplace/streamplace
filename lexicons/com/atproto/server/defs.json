@@ -43,10 +43,7 @@
     },
     "inviteCodeUse": {
       "type": "object",
-      "required": [
-        "usedBy",
-        "usedAt"
-      ],
+      "required": ["usedBy", "usedAt"],
       "properties": {
         "usedAt": {
           "type": "string",

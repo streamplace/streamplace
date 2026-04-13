@@ -3,9 +3,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "required": [
-        "images"
-      ],
+      "required": ["images"],
       "properties": {
         "images": {
           "type": "array",
@@ -19,9 +17,7 @@
     },
     "view": {
       "type": "object",
-      "required": [
-        "images"
-      ],
+      "required": ["images"],
       "properties": {
         "images": {
           "type": "array",
@@ -35,10 +31,7 @@
     },
     "image": {
       "type": "object",
-      "required": [
-        "image",
-        "alt"
-      ],
+      "required": ["image", "alt"],
       "properties": {
         "alt": {
           "type": "string",
@@ -46,9 +39,7 @@
         },
         "image": {
           "type": "blob",
-          "accept": [
-            "image/*"
-          ],
+          "accept": ["image/*"],
           "maxSize": 1000000
         },
         "aspectRatio": {
@@ -59,11 +50,7 @@
     },
     "viewImage": {
       "type": "object",
-      "required": [
-        "thumb",
-        "fullsize",
-        "alt"
-      ],
+      "required": ["thumb", "fullsize", "alt"],
       "properties": {
         "alt": {
           "type": "string",

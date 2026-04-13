@@ -3,12 +3,7 @@
   "defs": {
     "labelerView": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "creator",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "creator", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -45,9 +40,7 @@
     },
     "labelerPolicies": {
       "type": "object",
-      "required": [
-        "labelValues"
-      ],
+      "required": ["labelValues"],
       "properties": {
         "labelValues": {
           "type": "array",
@@ -78,13 +71,7 @@
     },
     "labelerViewDetailed": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "creator",
-        "policies",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "creator", "policies", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",

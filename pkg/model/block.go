@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/hyphacoop/go-dasl/drisl"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/streamplace/appbsky"
+	"stream.place/streamplace/pkg/streamplace/placestream"
 )
 
 type Block struct {
@@ -22,7 +22,7 @@ type Block struct {
 	CreatedAt  time.Time
 }
 
-func (b *Block) ToStreamplaceBlock() (*streamplace.Defs_BlockView, error) {
+func (b *Block) ToStreamplaceBlock() (*placestream.Defs_BlockView, error) {
 	if b == nil {
 		return nil, fmt.Errorf("block is nil")
 	}
@@ -32,17 +32,15 @@ func (b *Block) ToStreamplaceBlock() (*streamplace.Defs_BlockView, error) {
 	if b.Record == nil {
 		return nil, fmt.Errorf("block record is nil")
 	}
-	rec, err := lexutil.CborDecodeValue(b.Record)
+
+	var block appbsky.GraphBlock
+	err := drisl.Unmarshal(b.Record, &block)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+		return nil, err
 	}
-	block, ok := rec.(*bsky.GraphBlock)
-	if !ok {
-		return nil, fmt.Errorf("record is not a GraphBlock")
-	}
-	return &streamplace.Defs_BlockView{
+	return &placestream.Defs_BlockView{
 		LexiconTypeID: "place.stream.defs#blockView",
-		Blocker: &bsky.ActorDefs_ProfileViewBasic{
+		Blocker: appbsky.ActorDefs_ProfileViewBasic{
 			Did:    b.RepoDID,
 			Handle: b.Repo.Handle,
 		},

@@ -3,9 +3,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "required": [
-        "external"
-      ],
+      "required": ["external"],
       "properties": {
         "external": {
           "ref": "#external",
@@ -16,9 +14,7 @@
     },
     "view": {
       "type": "object",
-      "required": [
-        "external"
-      ],
+      "required": ["external"],
       "properties": {
         "external": {
           "ref": "#viewExternal",
@@ -28,11 +24,7 @@
     },
     "external": {
       "type": "object",
-      "required": [
-        "uri",
-        "title",
-        "description"
-      ],
+      "required": ["uri", "title", "description"],
       "properties": {
         "uri": {
           "type": "string",
@@ -40,9 +32,7 @@
         },
         "thumb": {
           "type": "blob",
-          "accept": [
-            "image/*"
-          ],
+          "accept": ["image/*"],
           "maxSize": 1000000
         },
         "title": {
@@ -55,11 +45,7 @@
     },
     "viewExternal": {
       "type": "object",
-      "required": [
-        "uri",
-        "title",
-        "description"
-      ],
+      "required": ["uri", "title", "description"],
       "properties": {
         "uri": {
           "type": "string",

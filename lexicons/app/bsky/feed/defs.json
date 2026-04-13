@@ -3,13 +3,7 @@
   "defs": {
     "postView": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "author",
-        "record",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "author", "record", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -78,25 +72,14 @@
     },
     "replyRef": {
       "type": "object",
-      "required": [
-        "root",
-        "parent"
-      ],
+      "required": ["root", "parent"],
       "properties": {
         "root": {
-          "refs": [
-            "#postView",
-            "#notFoundPost",
-            "#blockedPost"
-          ],
+          "refs": ["#postView", "#notFoundPost", "#blockedPost"],
           "type": "union"
         },
         "parent": {
-          "refs": [
-            "#postView",
-            "#notFoundPost",
-            "#blockedPost"
-          ],
+          "refs": ["#postView", "#notFoundPost", "#blockedPost"],
           "type": "union"
         },
         "grandparentAuthor": {
@@ -112,11 +95,7 @@
     },
     "blockedPost": {
       "type": "object",
-      "required": [
-        "uri",
-        "blocked",
-        "author"
-      ],
+      "required": ["uri", "blocked", "author"],
       "properties": {
         "uri": {
           "type": "string",
@@ -207,9 +186,7 @@
     },
     "feedViewPost": {
       "type": "object",
-      "required": [
-        "post"
-      ],
+      "required": ["post"],
       "properties": {
         "post": {
           "ref": "#postView",
@@ -225,10 +202,7 @@
           "description": "Unique identifier per request that may be passed back alongside interactions."
         },
         "reason": {
-          "refs": [
-            "#reasonRepost",
-            "#reasonPin"
-          ],
+          "refs": ["#reasonRepost", "#reasonPin"],
           "type": "union"
         },
         "feedContext": {
@@ -240,10 +214,7 @@
     },
     "notFoundPost": {
       "type": "object",
-      "required": [
-        "uri",
-        "notFound"
-      ],
+      "required": ["uri", "notFound"],
       "properties": {
         "uri": {
           "type": "string",
@@ -257,10 +228,7 @@
     },
     "reasonRepost": {
       "type": "object",
-      "required": [
-        "by",
-        "indexedAt"
-      ],
+      "required": ["by", "indexedAt"],
       "properties": {
         "by": {
           "ref": "app.bsky.actor.defs#profileViewBasic",
@@ -282,9 +250,7 @@
     },
     "blockedAuthor": {
       "type": "object",
-      "required": [
-        "did"
-      ],
+      "required": ["did"],
       "properties": {
         "did": {
           "type": "string",
@@ -298,14 +264,7 @@
     },
     "generatorView": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "did",
-        "creator",
-        "displayName",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "did", "creator", "displayName", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -385,30 +344,20 @@
     },
     "threadViewPost": {
       "type": "object",
-      "required": [
-        "post"
-      ],
+      "required": ["post"],
       "properties": {
         "post": {
           "ref": "#postView",
           "type": "ref"
         },
         "parent": {
-          "refs": [
-            "#threadViewPost",
-            "#notFoundPost",
-            "#blockedPost"
-          ],
+          "refs": ["#threadViewPost", "#notFoundPost", "#blockedPost"],
           "type": "union"
         },
         "replies": {
           "type": "array",
           "items": {
-            "refs": [
-              "#threadViewPost",
-              "#notFoundPost",
-              "#blockedPost"
-            ],
+            "refs": ["#threadViewPost", "#notFoundPost", "#blockedPost"],
             "type": "union"
           }
         },
@@ -471,19 +420,14 @@
     },
     "skeletonFeedPost": {
       "type": "object",
-      "required": [
-        "post"
-      ],
+      "required": ["post"],
       "properties": {
         "post": {
           "type": "string",
           "format": "at-uri"
         },
         "reason": {
-          "refs": [
-            "#skeletonReasonRepost",
-            "#skeletonReasonPin"
-          ],
+          "refs": ["#skeletonReasonRepost", "#skeletonReasonPin"],
           "type": "union"
         },
         "feedContext": {
@@ -524,9 +468,7 @@
     },
     "skeletonReasonRepost": {
       "type": "object",
-      "required": [
-        "repost"
-      ],
+      "required": ["repost"],
       "properties": {
         "repost": {
           "type": "string",

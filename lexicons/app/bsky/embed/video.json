@@ -3,9 +3,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "required": [
-        "video"
-      ],
+      "required": ["video"],
       "properties": {
         "alt": {
           "type": "string",
@@ -15,9 +13,7 @@
         },
         "video": {
           "type": "blob",
-          "accept": [
-            "video/mp4"
-          ],
+          "accept": ["video/mp4"],
           "maxSize": 100000000,
           "description": "The mp4 video file. May be up to 100mb, formerly limited to 50mb."
         },
@@ -36,19 +32,13 @@
         "presentation": {
           "type": "string",
           "description": "A hint to the client about how to present the video.",
-          "knownValues": [
-            "default",
-            "gif"
-          ]
+          "knownValues": ["default", "gif"]
         }
       }
     },
     "view": {
       "type": "object",
-      "required": [
-        "cid",
-        "playlist"
-      ],
+      "required": ["cid", "playlist"],
       "properties": {
         "alt": {
           "type": "string",
@@ -74,25 +64,17 @@
         "presentation": {
           "type": "string",
           "description": "A hint to the client about how to present the video.",
-          "knownValues": [
-            "default",
-            "gif"
-          ]
+          "knownValues": ["default", "gif"]
         }
       }
     },
     "caption": {
       "type": "object",
-      "required": [
-        "lang",
-        "file"
-      ],
+      "required": ["lang", "file"],
       "properties": {
         "file": {
           "type": "blob",
-          "accept": [
-            "text/vtt"
-          ],
+          "accept": ["text/vtt"],
           "maxSize": 20000
         },
         "lang": {

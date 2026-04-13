@@ -3,9 +3,7 @@
   "defs": {
     "repoRef": {
       "type": "object",
-      "required": [
-        "did"
-      ],
+      "required": ["did"],
       "properties": {
         "did": {
           "type": "string",
@@ -15,9 +13,7 @@
     },
     "statusAttr": {
       "type": "object",
-      "required": [
-        "applied"
-      ],
+      "required": ["applied"],
       "properties": {
         "ref": {
           "type": "string"
@@ -29,11 +25,7 @@
     },
     "accountView": {
       "type": "object",
-      "required": [
-        "did",
-        "handle",
-        "indexedAt"
-      ],
+      "required": ["did", "handle", "indexedAt"],
       "properties": {
         "did": {
           "type": "string",
@@ -92,10 +84,7 @@
     },
     "repoBlobRef": {
       "type": "object",
-      "required": [
-        "did",
-        "cid"
-      ],
+      "required": ["did", "cid"],
       "properties": {
         "cid": {
           "type": "string",
@@ -113,10 +102,7 @@
     },
     "threatSignature": {
       "type": "object",
-      "required": [
-        "property",
-        "value"
-      ],
+      "required": ["property", "value"],
       "properties": {
         "value": {
           "type": "string"

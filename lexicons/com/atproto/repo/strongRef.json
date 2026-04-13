@@ -3,10 +3,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid"
-      ],
+      "required": ["uri", "cid"],
       "properties": {
         "cid": {
           "type": "string",

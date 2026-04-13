@@ -7,14 +7,7 @@
     },
     "listView": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "creator",
-        "name",
-        "purpose",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "creator", "name", "purpose", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -88,10 +81,7 @@
     },
     "listItemView": {
       "type": "object",
-      "required": [
-        "uri",
-        "subject"
-      ],
+      "required": ["uri", "subject"],
       "properties": {
         "uri": {
           "type": "string",
@@ -105,9 +95,7 @@
     },
     "relationship": {
       "type": "object",
-      "required": [
-        "did"
-      ],
+      "required": ["did"],
       "properties": {
         "did": {
           "type": "string",
@@ -148,12 +136,7 @@
     },
     "listViewBasic": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "name",
-        "purpose"
-      ],
+      "required": ["uri", "cid", "name", "purpose"],
       "properties": {
         "cid": {
           "type": "string",
@@ -199,10 +182,7 @@
     },
     "notFoundActor": {
       "type": "object",
-      "required": [
-        "actor",
-        "notFound"
-      ],
+      "required": ["actor", "notFound"],
       "properties": {
         "actor": {
           "type": "string",
@@ -233,13 +213,7 @@
     },
     "starterPackView": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "record",
-        "creator",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "record", "creator", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",
@@ -299,13 +273,7 @@
     },
     "starterPackViewBasic": {
       "type": "object",
-      "required": [
-        "uri",
-        "cid",
-        "record",
-        "creator",
-        "indexedAt"
-      ],
+      "required": ["uri", "cid", "record", "creator", "indexedAt"],
       "properties": {
         "cid": {
           "type": "string",

@@ -44,7 +44,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/streamplace/placestream"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
@@ -570,7 +570,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			return
 		}
 		count := a.Bus.GetViewerCount(user)
-		bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+		bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return

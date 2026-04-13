@@ -3,9 +3,7 @@
   "defs": {
     "tag": {
       "type": "object",
-      "required": [
-        "tag"
-      ],
+      "required": ["tag"],
       "properties": {
         "tag": {
           "type": "string",
@@ -17,9 +15,7 @@
     },
     "link": {
       "type": "object",
-      "required": [
-        "uri"
-      ],
+      "required": ["uri"],
       "properties": {
         "uri": {
           "type": "string",
@@ -30,10 +26,7 @@
     },
     "main": {
       "type": "object",
-      "required": [
-        "index",
-        "features"
-      ],
+      "required": ["index", "features"],
       "properties": {
         "index": {
           "ref": "#byteSlice",
@@ -42,11 +35,7 @@
         "features": {
           "type": "array",
           "items": {
-            "refs": [
-              "#mention",
-              "#link",
-              "#tag"
-            ],
+            "refs": ["#mention", "#link", "#tag"],
             "type": "union"
           }
         }
@@ -55,9 +44,7 @@
     },
     "mention": {
       "type": "object",
-      "required": [
-        "did"
-      ],
+      "required": ["did"],
       "properties": {
         "did": {
           "type": "string",
@@ -68,10 +55,7 @@
     },
     "byteSlice": {
       "type": "object",
-      "required": [
-        "byteStart",
-        "byteEnd"
-      ],
+      "required": ["byteStart", "byteEnd"],
       "properties": {
         "byteEnd": {
           "type": "integer",

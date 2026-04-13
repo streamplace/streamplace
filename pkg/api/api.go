@@ -73,8 +73,8 @@ type StreamplaceAPI struct {
 
 	connTracker *WebsocketTracker
 
-	limiters      map[string]*rate.Limiter
-	limitersMu    sync.Mutex
+	limiters         map[string]*rateLimiterEntry
+	limitersMu       sync.Mutex
 	SignerCache   map[string]media.MediaSigner
 	SignerCacheMu sync.Mutex
 	op            *oatproxy.OATProxy
@@ -112,7 +112,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		ATSync:           atsync,
 		Director:         d,
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
-		limiters:         make(map[string]*rate.Limiter),
+		limiters:         make(map[string]*rateLimiterEntry),
 		SignerCache:      make(map[string]media.MediaSigner),
 		op:               op,
 		sessions:         make(map[string]map[string]time.Time),
@@ -494,7 +494,7 @@ func (a *StreamplaceAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
 
 func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		payload, err := io.ReadAll(req.Body)
+		payload, err := io.ReadAll(io.LimitReader(req.Body, 1<<16))
 		if err != nil {
 			log.Log(ctx, "error reading notification create", "error", err)
 			w.WriteHeader(400)
@@ -867,16 +867,36 @@ func (a *StreamplaceAPI) HandleHealthz(ctx context.Context) http.HandlerFunc {
 	}
 }
 
+type rateLimiterEntry struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+const maxLimiterEntries = 10000
+const limiterEvictionAge = 10 * time.Minute
+
 func (a *StreamplaceAPI) getLimiter(ip string) *rate.Limiter {
 	a.limitersMu.Lock()
 	defer a.limitersMu.Unlock()
 
-	limiter, exists := a.limiters[ip]
-	if !exists {
-		limiter = rate.NewLimiter(rate.Limit(a.CLI.RateLimitPerSecond), a.CLI.RateLimitBurst)
-		a.limiters[ip] = limiter
+	entry, exists := a.limiters[ip]
+	now := time.Now()
+	if exists {
+		entry.lastSeen = now
+		return entry.limiter
 	}
 
+	// Evict stale entries if map is getting large
+	if len(a.limiters) >= maxLimiterEntries {
+		for k, v := range a.limiters {
+			if now.Sub(v.lastSeen) > limiterEvictionAge {
+				delete(a.limiters, k)
+			}
+		}
+	}
+
+	limiter := rate.NewLimiter(rate.Limit(a.CLI.RateLimitPerSecond), a.CLI.RateLimitBurst)
+	a.limiters[ip] = &rateLimiterEntry{limiter: limiter, lastSeen: now}
 	return limiter
 }
 

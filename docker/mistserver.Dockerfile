@@ -10,4 +10,6 @@ RUN apt-get update && apt-get install -y curl
 RUN cd /usr/bin && curl -o - https://r.mistserver.org/dl/mistserver_64V3.7.tar.gz | tar xzv
 RUN mkdir -p /config
 ADD ./docker/mistserver.json /config/mistserver.json
-CMD ["MistController", "-c", "/config/mistserver.json"]
+COPY ./docker/mistserver-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -158,8 +159,12 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// postgres doesn't support prepared statements for CREATE DATABASE. don't SQL inject yourself.
-	err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", dbName)).Error
+	// postgres doesn't support prepared statements for CREATE DATABASE.
+	// Validate the database name to prevent SQL injection.
+	if !isValidPgIdentifier(dbName) {
+		return nil, fmt.Errorf("invalid database name: %q", dbName)
+	}
+	err = db.Exec(fmt.Sprintf("CREATE DATABASE %s;", quoteIdentifier(dbName))).Error
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +174,19 @@ func makePostgresDB(dbURL string) (*gorm.DB, error) {
 	realDial := postgres.Open(dbURL)
 
 	return openDB(realDial)
+}
+
+// validPgIdentifier matches safe PostgreSQL identifier characters.
+var validPgIdentifier = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+// isValidPgIdentifier checks that a string is a safe PostgreSQL identifier.
+func isValidPgIdentifier(name string) bool {
+	return len(name) > 0 && len(name) <= 63 && validPgIdentifier.MatchString(name)
+}
+
+// quoteIdentifier quotes a PostgreSQL identifier to prevent SQL injection.
+func quoteIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 func redactDBURL(dbURL string) string {

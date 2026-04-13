@@ -209,7 +209,40 @@ export function BadgeSelectionManager() {
           swapRecord: swapCid,
         });
 
-        await load();
+        // Optimistically update local state
+        if (slot === "streamer") {
+          setStreamerSlot((prev) => {
+            if (!prev) return prev;
+            const available = prev.available.map((b) =>
+              b.issuanceUri === badge.issuanceUri
+                ? { ...b, selected: !isCurrentlySelected }
+                : b.issuer === badge.issuer
+                  ? { ...b, selected: false }
+                  : b,
+            );
+            return {
+              available,
+              selected: isCurrentlySelected
+                ? undefined
+                : available.find((b) => b.issuanceUri === badge.issuanceUri),
+            };
+          });
+        } else {
+          setUserSlot((prev) => {
+            if (!prev) return prev;
+            const available = prev.available.map((b) =>
+              b.issuanceUri === badge.issuanceUri
+                ? { ...b, selected: !isCurrentlySelected }
+                : { ...b, selected: false },
+            );
+            return {
+              available,
+              selected: isCurrentlySelected
+                ? undefined
+                : available.find((b) => b.issuanceUri === badge.issuanceUri),
+            };
+          });
+        }
       } catch (e: any) {
         toast.show("Failed to update badge selection", e?.message, {
           variant: "error",
@@ -219,7 +252,7 @@ export function BadgeSelectionManager() {
         setToggling(null);
       }
     },
-    [agent, load],
+    [agent],
   );
 
   if (loading) {

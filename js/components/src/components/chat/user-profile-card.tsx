@@ -88,7 +88,7 @@ interface ProfileCardData {
   profile: ReturnType<typeof useAvatars>[string] | undefined;
   profiles: ReturnType<typeof useAvatars>;
   serviceDid: string | null;
-  serviceBadges: NonNullable<ChatMessageViewHydrated["badges"]>;
+  allBadges: NonNullable<ChatMessageViewHydrated["badges"]>;
   streamer: ProfileViewBasic | undefined;
 }
 
@@ -114,17 +114,16 @@ function useProfileCardData(
   );
   const profiles = useAvatars(allDids);
 
-  const serviceBadges = useMemo(
-    () => badges?.filter((b) => serviceDid && b.issuer === serviceDid) ?? [],
-    [badges, serviceDid],
-  ) as NonNullable<ChatMessageViewHydrated["badges"]>;
+  const allBadges = (badges ?? []) as NonNullable<
+    ChatMessageViewHydrated["badges"]
+  >;
 
   return {
     author,
     profile: profiles[author.did],
     profiles,
     serviceDid,
-    serviceBadges,
+    allBadges,
     streamer,
   };
 }
@@ -142,22 +141,21 @@ const BadgeRow = ({
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
   const meta = BADGE_META[badge.badgeType];
-
-  if (!meta) return null;
+  const label = meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
+  const description = meta?.description ?? badge.description;
 
   let issuerLabel = isServiceIssued
     ? "Streamplace"
     : issuerProfiles[badge.issuer]?.handle
       ? `@${issuerProfiles[badge.issuer].handle}`
       : badge.issuer;
-  if (meta.issuedBy) {
-    issuerLabel = meta.issuedBy
-      .replace("{issuer}", issuerLabel)
-      .replace(
-        "{streamer}",
-        streamer?.handle ? formatHandleWithAt(streamer) : "the streamer",
-      );
-  }
+  const issuedByTemplate = meta?.issuedBy ?? "Issued by {issuer}";
+  issuerLabel = issuedByTemplate
+    .replace("{issuer}", issuerLabel)
+    .replace(
+      "{streamer}",
+      streamer?.handle ? formatHandleWithAt(streamer) : "the streamer",
+    );
 
   return (
     <View
@@ -167,15 +165,15 @@ const BadgeRow = ({
         { flexDirection: "row", alignItems: "center" },
       ]}
     >
-      <Badge badgeType={badge.badgeType} size={32} />
+      <Badge badgeType={badge.badgeType} size={32} imageUrl={badge.imageUrl} />
       <View style={[{ flex: 1 }]}>
-        <Text size="xs">{meta.label}</Text>
+        <Text size="xs">{label}</Text>
         <Text size="xs" color="muted">
-          Issued by {issuerLabel}
+          {issuerLabel}
         </Text>
-        {meta.description && (
+        {description && (
           <Text size="xs" color="muted">
-            {meta.description}
+            {description}
           </Text>
         )}
       </View>
@@ -190,8 +188,7 @@ const ProfileCardContent = ({
   data: ProfileCardData;
   theme: ReturnType<typeof useTheme>["theme"];
 }) => {
-  const { author, profile, profiles, serviceDid, serviceBadges, streamer } =
-    data;
+  const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
 
   return (
     <View style={[zero.pb[1]]}>
@@ -269,14 +266,14 @@ const ProfileCardContent = ({
             </View>
           )}
         </View>
-        {serviceBadges.length > 0 && serviceDid ? (
+        {allBadges.length > 0 ? (
           <View style={[zero.py[2]]}>
             <MenuGroup>
-              {serviceBadges.map((badge, i) => (
+              {allBadges.map((badge, i) => (
                 <BadgeRow
                   key={i}
                   badge={badge}
-                  serviceDid={serviceDid}
+                  serviceDid={serviceDid ?? ""}
                   streamer={streamer}
                   issuerProfiles={profiles}
                 />

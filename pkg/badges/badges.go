@@ -27,23 +27,23 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 			Issuer:    issuerDID,
 			Recipient: userDID,
 		})
-		return badges, nil
 	}
 
 	// Check if user has moderation permissions for this streamer
-	delegations, err := m.GetModerationDelegations(ctx, streamerDID, userDID)
-	if err != nil {
-		log.Error(ctx, "failed to get moderation delegations", "err", err, "userDID", userDID, "streamerDID", streamerDID)
-		return nil, err
-	}
+	if userDID != streamerDID {
+		delegations, err := m.GetModerationDelegations(ctx, streamerDID, userDID)
+		if err != nil {
+			log.Error(ctx, "failed to get moderation delegations", "err", err, "userDID", userDID, "streamerDID", streamerDID)
+			return nil, err
+		}
 
-	// If user has any delegations, they're a moderator
-	if len(delegations) > 0 {
-		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
-			BadgeType: constants.BadgeTypeMod,
-			Issuer:    issuerDID,
-			Recipient: userDID,
-		})
+		if len(delegations) > 0 {
+			badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+				BadgeType: constants.BadgeTypeMod,
+				Issuer:    issuerDID,
+				Recipient: userDID,
+			})
+		}
 	}
 
 	// if user "self-labels" as a bot (in chat profile), add bot badge
@@ -104,7 +104,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		default:
 			// All other badge types (event, unknown) are globally valid but must be
 			// issued by an authorized global badge issuer.
-			if !isGlobalIssuer(issuance.RepoDID) {
+			if !IsGlobalIssuer(issuance.RepoDID) {
 				continue
 			}
 		}
@@ -130,7 +130,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	return badges, nil
 }
 
-func isGlobalIssuer(did string) bool {
+func IsGlobalIssuer(did string) bool {
 	for _, authorized := range constants.GlobalBadgeIssuers {
 		if did == authorized {
 			return true

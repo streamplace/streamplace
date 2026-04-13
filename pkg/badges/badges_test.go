@@ -212,7 +212,9 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	t.Run("event badge issued by node appears in any streamer context", func(t *testing.T) {
 		// Register the node as an authorized global badge issuer for this test.
 		constants.GlobalBadgeIssuers = append(constants.GlobalBadgeIssuers, issuerDID)
-		t.Cleanup(func() { constants.GlobalBadgeIssuers = constants.GlobalBadgeIssuers[:len(constants.GlobalBadgeIssuers)-1] })
+		t.Cleanup(func() {
+			constants.GlobalBadgeIssuers = constants.GlobalBadgeIssuers[:len(constants.GlobalBadgeIssuers)-1]
+		})
 
 		eventUserDID := "did:plc:eventuser"
 		eventDefURI := "at://" + issuerDID + "/place.stream.badge.def/eventdef"

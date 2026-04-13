@@ -30,6 +30,8 @@ export const SCREEN_PATHS = {
   KeyManagement: "settings/streaming/key-management",
   LanguagesCategory: "settings/languages",
   BrandingAdmin: "settings/branding",
+  BadgeSelection: "settings/account/badges",
+  BadgeIssuer: "settings/issue-badges",
   // Tabs
   GoLiveTab: "go-live",
   // Root stack screens
@@ -117,6 +119,8 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 KeyManagement: SCREEN_PATHS.KeyManagement,
                 LanguagesCategory: SCREEN_PATHS.LanguagesCategory,
                 BrandingAdmin: SCREEN_PATHS.BrandingAdmin,
+                BadgeSelection: SCREEN_PATHS.BadgeSelection,
+                BadgeIssuer: SCREEN_PATHS.BadgeIssuer,
               },
             },
           },

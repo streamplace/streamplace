@@ -16,6 +16,7 @@ import {
   View,
   ViewProps,
 } from "react-native";
+import { useTheme } from "../../../lib/theme/theme";
 import * as tokens from "../../../lib/theme/tokens";
 
 // Base input primitive interface
@@ -43,12 +44,15 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
       loading = false,
       editable,
       style,
-      placeholderTextColor = "#9ca3af",
+      placeholderTextColor: placeholderTextColorProp,
       ...props
     },
     ref,
   ) => {
     const [isFocused, setIsFocused] = React.useState(false);
+    const { theme } = useTheme();
+    const placeholderTextColor =
+      placeholderTextColorProp ?? theme.colors.textMuted;
 
     let isInBottomSheet = false;
     try {

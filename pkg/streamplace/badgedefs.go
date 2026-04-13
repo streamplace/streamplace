@@ -9,8 +9,14 @@ package streamplace
 // View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.
 type BadgeDefs_BadgeView struct {
 	BadgeType string `json:"badgeType" cborgen:"badgeType"`
+	// description: Description from the badge definition.
+	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	// imageUrl: Resolved image URL for the badge icon.
+	ImageUrl *string `json:"imageUrl,omitempty" cborgen:"imageUrl,omitempty"`
 	// issuer: DID of the badge issuer.
 	Issuer string `json:"issuer" cborgen:"issuer"`
+	// name: Display name from the badge definition.
+	Name *string `json:"name,omitempty" cborgen:"name,omitempty"`
 	// recipient: DID of the badge recipient.
 	Recipient string `json:"recipient" cborgen:"recipient"`
 	// signature: TODO: Cryptographic signature of the badge (of a place.stream.key).

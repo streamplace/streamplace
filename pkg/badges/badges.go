@@ -2,6 +2,7 @@ package badges
 
 import (
 	"context"
+	"fmt"
 
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
@@ -67,10 +68,73 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		}
 	}
 
-	// TODO: Add badge issuance records when implemented
-	// - Query place.stream.badge.issuance records for this user
-	// - Verify signatures if issuer is not the current node
-	// - Add VIP badges, subscriber badges, etc.
+	// Resolve issuance-based badges from the user's badge selection.
+	for _, ref := range spChatProfile.Selection {
+		if ref == nil {
+			continue
+		}
+		issuance, err := m.GetBadgeIssuanceByURI(ctx, ref.Uri)
+		if err != nil {
+			log.Error(ctx, "failed to get badge issuance", "err", err, "uri", ref.Uri)
+			continue
+		}
+		if issuance == nil {
+			continue // revoked or not yet indexed
+		}
+		if issuance.RecipientDID != userDID {
+			log.Warn(ctx, "badge issuance recipient mismatch", "issuanceRecipient", issuance.RecipientDID, "userDID", userDID)
+			continue
+		}
+
+		def, err := m.GetBadgeDefByURI(ctx, issuance.BadgeURI)
+		if err != nil {
+			log.Error(ctx, "failed to get badge def", "err", err, "uri", issuance.BadgeURI)
+			continue
+		}
+		if def == nil {
+			continue // def was deleted
+		}
+
+		switch def.BadgeType {
+		case constants.BadgeTypeVIP:
+			// VIP badges are streamer-scoped: only shown in the granting streamer's chat.
+			if streamerDID == "" || issuance.RepoDID != streamerDID {
+				continue
+			}
+		default:
+			// All other badge types (event, unknown) are globally valid but must be
+			// issued by an authorized global badge issuer.
+			if !isGlobalIssuer(issuance.RepoDID) {
+				continue
+			}
+		}
+
+		view := &streamplace.BadgeDefs_BadgeView{
+			BadgeType: def.BadgeType,
+			Issuer:    issuance.RepoDID,
+			Recipient: userDID,
+		}
+		if def.Name != "" {
+			view.Name = &def.Name
+		}
+		if def.Description != "" {
+			view.Description = &def.Description
+		}
+		if def.ImageCID != "" {
+			imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
+			view.ImageUrl = &imageUrl
+		}
+		badges = append(badges, view)
+	}
 
 	return badges, nil
+}
+
+func isGlobalIssuer(did string) bool {
+	for _, authorized := range constants.GlobalBadgeIssuers {
+		if did == authorized {
+			return true
+		}
+	}
+	return false
 }

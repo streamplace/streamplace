@@ -38,6 +38,8 @@ func main() {
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 		streamplace.LiveViewerCount{},
+		streamplace.BadgeDef{},
+		streamplace.BadgeIssuance{},
 	); err != nil {
 		panic(err)
 	}

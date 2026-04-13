@@ -5,6 +5,7 @@
 package streamplace
 
 import (
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
@@ -15,6 +16,8 @@ func init() {
 type ChatProfile struct {
 	LexiconTypeID string             `json:"$type" cborgen:"$type,const=place.stream.chat.profile"`
 	Color         *ChatProfile_Color `json:"color,omitempty" cborgen:"color,omitempty"`
+	// selection: Badge issuances this user has selected to display in chat. Each entry is a strong reference to a place.stream.badge.issuance record.
+	Selection []*comatproto.RepoStrongRef `json:"selection,omitempty" cborgen:"selection,omitempty"`
 	// selfLabels: Self-applied labels for this profile, e.g. 'bot'.
 	SelfLabels []*string `json:"selfLabels,omitempty" cborgen:"selfLabels,omitempty"`
 }

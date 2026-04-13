@@ -124,9 +124,17 @@ type Model interface {
 
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
+
+	UpsertBadgeDef(ctx context.Context, def *BadgeDef) error
+	DeleteBadgeDef(ctx context.Context, uri string) error
+	GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, error)
+	UpsertBadgeIssuance(ctx context.Context, issuance *BadgeIssuance) error
+	DeleteBadgeIssuance(ctx context.Context, uri string) error
+	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
+	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
 }
 
-var DBRevision = 2
+var DBRevision = 4
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL
@@ -195,6 +203,8 @@ func MakeDB(dbURL string) (Model, error) {
 		ModerationDelegation{},
 		Recommendation{},
 		BskyProfile{},
+		BadgeDef{},
+		BadgeIssuance{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

@@ -22,6 +22,15 @@
               "type": "ref",
               "ref": "#selfLabel"
             }
+          },
+          "selection": {
+            "type": "array",
+            "description": "Badge issuances this user has selected to display in chat. Each entry is a strong reference to a place.stream.badge.issuance record.",
+            "maxLength": 10,
+            "items": {
+              "type": "ref",
+              "ref": "com.atproto.repo.strongRef"
+            }
           }
         }
       }

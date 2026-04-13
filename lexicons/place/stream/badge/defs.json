@@ -12,6 +12,8 @@
           "knownValues": [
             "place.stream.badge.defs#mod",
             "place.stream.badge.defs#streamer",
+            "place.stream.badge.defs#vip",
+            "place.stream.badge.defs#event",
             "place.stream.badge.defs#bot"
           ]
         },
@@ -24,6 +26,19 @@
           "type": "string",
           "format": "did",
           "description": "DID of the badge recipient."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name from the badge definition."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description from the badge definition."
+        },
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "Resolved image URL for the badge icon."
         },
         "signature": {
           "type": "string",
@@ -46,6 +61,10 @@
     "bot": {
       "type": "token",
       "description": "This user is a bot. Self-applied via place.stream.chat.profile selfLabels."
+    },
+    "event": {
+      "type": "token",
+      "description": "This user has won or earned a special event or contest badge."
     }
   }
 }

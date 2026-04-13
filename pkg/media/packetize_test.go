@@ -39,13 +39,13 @@ func TestPacketizeMuxl(t *testing.T) {
 	t.Run("ThreeSecondSeg", func(t *testing.T) {
 		withNoGSTLeaks(t, func() {
 			filename2 := remote.RemoteFixture("5e2bca8cd42ad624d505c73f7b54ec761639416ef556d83145d37b730ed3606a/2026-04-11T22-24-11-527Z-packetize-input-019d7ea5-3d07-7606-b088-1a7bc315d009.mp4")
-			innerTestPacketize(t, filename2 /* fill these in with correct values if known */, 180, 150, time.Duration(3000*time.Millisecond))
+			innerTestPacketize(t, filename2, 180, 150, time.Duration(3000*time.Millisecond))
 		})
 	})
 	t.Run("TenSecondSeg", func(t *testing.T) {
 		withNoGSTLeaks(t, func() {
 			filename3 := remote.RemoteFixture("82d20ee62b02f1c3a727b3001f1fa939afb757f9f205fa438d7b5753e1253eef/2026-04-11T22-39-41-861Z-packetize-input-019d7eb3-6f24-776c-ba1b-2f909a2379d7.mp4")
-			innerTestPacketize(t, filename3 /* fill these in with correct values if known */, 180, 150, time.Duration(10000*time.Millisecond))
+			innerTestPacketize(t, filename3, 300, 502, time.Duration(10040*time.Millisecond))
 		})
 	})
 }

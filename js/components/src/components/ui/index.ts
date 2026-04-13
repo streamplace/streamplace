@@ -40,3 +40,5 @@ export type { TextProps } from "./text";
 export type { ViewProps } from "./view";
 
 export * from "../../lib/theme";
+
+export { hexToRgba } from "../../lib/utils";

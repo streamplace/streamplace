@@ -1,6 +1,6 @@
 import { AlertCircle, CheckCircle, Info, XCircle } from "lucide-react-native";
 import { View, ViewStyle } from "react-native";
-import { useTheme } from "../../ui";
+import { hexToRgba, useTheme } from "../../ui";
 import { Text } from "./text";
 
 type AdmonitionVariant = "default" | "success" | "error" | "info" | "warning";
@@ -49,19 +49,19 @@ export function Admonition({
       borderColor: theme.colors.border,
     },
     success: {
-      backgroundColor: theme.colors.success + "15",
+      backgroundColor: hexToRgba(theme.colors.success, 0.08),
       borderColor: theme.colors.success,
     },
     error: {
-      backgroundColor: theme.colors.destructive + "15",
+      backgroundColor: hexToRgba(theme.colors.destructive, 0.08),
       borderColor: theme.colors.destructive,
     },
     info: {
-      backgroundColor: theme.colors.info + "15",
+      backgroundColor: hexToRgba(theme.colors.info, 0.08),
       borderColor: theme.colors.info,
     },
     warning: {
-      backgroundColor: theme.colors.warning + "15",
+      backgroundColor: hexToRgba(theme.colors.warning, 0.08),
       borderColor: theme.colors.warning,
     },
   };

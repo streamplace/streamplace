@@ -1,6 +1,7 @@
 import { BlobRef } from "@atproto/lexicon";
 import {
   Button,
+  hexToRgba,
   Input,
   MenuContainer,
   MenuGroup,
@@ -51,13 +52,6 @@ function getDidFromAtUri(uri: string) {
     return parts[2];
   }
   return null;
-}
-
-function withAlpha(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function BadgeDefRow({
@@ -117,7 +111,7 @@ function BadgeDefRow({
     px[4],
     {
       backgroundColor: selected
-        ? withAlpha(theme.colors.primary, 0.09)
+        ? hexToRgba(theme.colors.primary, 0.09)
         : "transparent",
       borderRadius: radiusTokens.md,
     },
@@ -558,7 +552,7 @@ export function BadgeIssuerPanel() {
                     width: 32,
                     height: 32,
                     borderRadius: radiusTokens.xl,
-                    backgroundColor: withAlpha(theme.colors.primary, 0.13),
+                    backgroundColor: hexToRgba(theme.colors.primary, 0.13),
                     alignItems: "center",
                     justifyContent: "center",
                   }}
@@ -585,9 +579,9 @@ export function BadgeIssuerPanel() {
                 p[3],
                 gap.all[1],
                 {
-                  backgroundColor: withAlpha(theme.colors.success, 0.13),
+                  backgroundColor: hexToRgba(theme.colors.success, 0.13),
                   borderWidth: 1,
-                  borderColor: withAlpha(theme.colors.success, 0.27),
+                  borderColor: hexToRgba(theme.colors.success, 0.27),
                 },
               ]}
             >

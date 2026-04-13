@@ -14,12 +14,22 @@ func init() {
 }
 
 type ChatProfile struct {
-	LexiconTypeID string             `json:"$type" cborgen:"$type,const=place.stream.chat.profile"`
-	Color         *ChatProfile_Color `json:"color,omitempty" cborgen:"color,omitempty"`
-	// selection: Badge issuances this user has selected to display in chat. Each entry is a strong reference to a place.stream.badge.issuance record.
-	Selection []*comatproto.RepoStrongRef `json:"selection,omitempty" cborgen:"selection,omitempty"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.chat.profile"`
+	// badges: Badge selections for display in chat.
+	Badges *ChatProfile_BadgeSelections `json:"badges,omitempty" cborgen:"badges,omitempty"`
+	Color  *ChatProfile_Color           `json:"color,omitempty" cborgen:"color,omitempty"`
 	// selfLabels: Self-applied labels for this profile, e.g. 'bot'.
 	SelfLabels []*string `json:"selfLabels,omitempty" cborgen:"selfLabels,omitempty"`
+}
+
+// ChatProfile_BadgeSelections is a "badgeSelections" in the place.stream.chat.profile schema.
+//
+// Selected badges for display in chat, organized by slot.
+type ChatProfile_BadgeSelections struct {
+	// global: Selected globally-issued badge (e.g. event badge).
+	Global *comatproto.RepoStrongRef `json:"global,omitempty" cborgen:"global,omitempty"`
+	// streamer: Selected streamer-issued badges, one per streamer channel.
+	Streamer []*ChatProfile_StreamerBadgeSelection `json:"streamer,omitempty" cborgen:"streamer,omitempty"`
 }
 
 // ChatProfile_Color is a "color" in the place.stream.chat.profile schema.
@@ -29,4 +39,14 @@ type ChatProfile_Color struct {
 	Blue  int64 `json:"blue" cborgen:"blue"`
 	Green int64 `json:"green" cborgen:"green"`
 	Red   int64 `json:"red" cborgen:"red"`
+}
+
+// ChatProfile_StreamerBadgeSelection is a "streamerBadgeSelection" in the place.stream.chat.profile schema.
+//
+// A selected badge for a specific streamer's channel.
+type ChatProfile_StreamerBadgeSelection struct {
+	// badge: Strong reference to the selected place.stream.badge.issuance record.
+	Badge *comatproto.RepoStrongRef `json:"badge" cborgen:"badge"`
+	// streamer: DID of the streamer whose channel this selection applies to.
+	Streamer string `json:"streamer" cborgen:"streamer"`
 }

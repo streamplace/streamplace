@@ -148,7 +148,10 @@ export function BadgeSelectionManager() {
   }, [load]);
 
   const handleToggle = useCallback(
-    async (badge: PlaceStreamBadgeDefs.BadgeIssuanceView) => {
+    async (
+      badge: PlaceStreamBadgeDefs.BadgeIssuanceView,
+      slot: "streamer" | "global",
+    ) => {
       if (!agent?.did || togglingRef.current) return;
       togglingRef.current = badge.issuanceUri;
       setToggling(badge.issuanceUri);
@@ -156,8 +159,6 @@ export function BadgeSelectionManager() {
       try {
         let currentRecord: Record<string, any> = {
           $type: "place.stream.chat.profile",
-          selection: [],
-          createdAt: new Date().toISOString(),
         };
         let swapCid: string | undefined;
 
@@ -173,29 +174,38 @@ export function BadgeSelectionManager() {
           // no profile yet, will create
         }
 
-        const currentSelection: Array<{ uri: string; cid: string }> =
-          (currentRecord.selection as any[]) ?? [];
-
-        let newSelection: Array<{ uri: string; cid: string }>;
+        const currentBadges: Record<string, any> =
+          (currentRecord.badges as Record<string, any>) ?? {};
         const isCurrentlySelected = badge.selected ?? false;
+        const ref = { uri: badge.issuanceUri, cid: badge.issuanceCid ?? "" };
 
-        if (isCurrentlySelected) {
-          newSelection = currentSelection.filter(
-            (s) => s.uri !== badge.issuanceUri,
-          );
+        let newBadges: Record<string, any>;
+        if (slot === "streamer") {
+          const currentStreamer: Array<{
+            streamer: string;
+            badge: { uri: string; cid: string };
+          }> = (currentBadges.streamer as any[]) ?? [];
+          newBadges = {
+            ...currentBadges,
+            streamer: isCurrentlySelected
+              ? currentStreamer.filter((s) => s.badge.uri !== badge.issuanceUri)
+              : [
+                  ...currentStreamer.filter((s) => s.streamer !== badge.issuer),
+                  { streamer: badge.issuer, badge: ref },
+                ],
+          };
         } else {
-          const ref = { uri: badge.issuanceUri, cid: "" };
-          newSelection = [
-            ...currentSelection.filter((s) => s.uri !== badge.issuanceUri),
-            ref,
-          ];
+          newBadges = {
+            ...currentBadges,
+            global: isCurrentlySelected ? undefined : ref,
+          };
         }
 
         await agent.com.atproto.repo.putRecord({
           repo: agent.did,
           collection: "place.stream.chat.profile",
           rkey: "self",
-          record: { ...currentRecord, selection: newSelection },
+          record: { ...currentRecord, badges: newBadges },
           swapRecord: swapCid,
         });
 
@@ -266,7 +276,7 @@ export function BadgeSelectionManager() {
                   {i > 0 && <MenuSeparator />}
                   <BadgeIssuanceRow
                     badge={badge}
-                    onToggle={handleToggle}
+                    onToggle={(b) => handleToggle(b, "streamer")}
                     toggling={toggling === badge.issuanceUri}
                   />
                 </View>
@@ -295,7 +305,7 @@ export function BadgeSelectionManager() {
                   {i > 0 && <MenuSeparator />}
                   <BadgeIssuanceRow
                     badge={badge}
-                    onToggle={handleToggle}
+                    onToggle={(b) => handleToggle(b, "global")}
                     toggling={toggling === badge.issuanceUri}
                   />
                 </View>

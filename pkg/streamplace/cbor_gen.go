@@ -2865,11 +2865,11 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	cw := cbg.NewCborWriter(w)
 	fieldCount := 4
 
-	if t.Color == nil {
+	if t.Badges == nil {
 		fieldCount--
 	}
 
-	if t.Selection == nil {
+	if t.Color == nil {
 		fieldCount--
 	}
 
@@ -2919,32 +2919,22 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.Selection ([]*atproto.RepoStrongRef) (slice)
-	if t.Selection != nil {
+	// t.Badges (streamplace.ChatProfile_BadgeSelections) (struct)
+	if t.Badges != nil {
 
-		if len("selection") > 1000000 {
-			return xerrors.Errorf("Value in field \"selection\" was too long")
+		if len("badges") > 1000000 {
+			return xerrors.Errorf("Value in field \"badges\" was too long")
 		}
 
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("selection"))); err != nil {
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("badges"))); err != nil {
 			return err
 		}
-		if _, err := cw.WriteString(string("selection")); err != nil {
+		if _, err := cw.WriteString(string("badges")); err != nil {
 			return err
 		}
 
-		if len(t.Selection) > 8192 {
-			return xerrors.Errorf("Slice value in field t.Selection was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Selection))); err != nil {
+		if err := t.Badges.MarshalCBOR(cw); err != nil {
 			return err
-		}
-		for _, v := range t.Selection {
-			if err := v.MarshalCBOR(cw); err != nil {
-				return err
-			}
-
 		}
 	}
 
@@ -3064,54 +3054,25 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Selection ([]*atproto.RepoStrongRef) (slice)
-		case "selection":
+			// t.Badges (streamplace.ChatProfile_BadgeSelections) (struct)
+		case "badges":
 
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
+			{
 
-			if extra > 8192 {
-				return fmt.Errorf("t.Selection: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Selection = make([]*atproto.RepoStrongRef, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-				{
-					var maj byte
-					var extra uint64
-					var err error
-					_ = maj
-					_ = extra
-					_ = err
-
-					{
-
-						b, err := cr.ReadByte()
-						if err != nil {
-							return err
-						}
-						if b != cbg.CborNull[0] {
-							if err := cr.UnreadByte(); err != nil {
-								return err
-							}
-							t.Selection[i] = new(atproto.RepoStrongRef)
-							if err := t.Selection[i].UnmarshalCBOR(cr); err != nil {
-								return xerrors.Errorf("unmarshaling t.Selection[i] pointer: %w", err)
-							}
-						}
-
-					}
-
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Badges = new(ChatProfile_BadgeSelections)
+					if err := t.Badges.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Badges pointer: %w", err)
+					}
+				}
+
 			}
 			// t.SelfLabels ([]*string) (slice)
 		case "selfLabels":
@@ -3162,6 +3123,334 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 
 				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *ChatProfile_BadgeSelections) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 2
+
+	if t.Global == nil {
+		fieldCount--
+	}
+
+	if t.Streamer == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Global (atproto.RepoStrongRef) (struct)
+	if t.Global != nil {
+
+		if len("global") > 1000000 {
+			return xerrors.Errorf("Value in field \"global\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("global"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("global")); err != nil {
+			return err
+		}
+
+		if err := t.Global.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Streamer ([]*streamplace.ChatProfile_StreamerBadgeSelection) (slice)
+	if t.Streamer != nil {
+
+		if len("streamer") > 1000000 {
+			return xerrors.Errorf("Value in field \"streamer\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamer"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("streamer")); err != nil {
+			return err
+		}
+
+		if len(t.Streamer) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Streamer was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Streamer))); err != nil {
+			return err
+		}
+		for _, v := range t.Streamer {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
+	}
+	return nil
+}
+
+func (t *ChatProfile_BadgeSelections) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = ChatProfile_BadgeSelections{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("ChatProfile_BadgeSelections: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 8)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Global (atproto.RepoStrongRef) (struct)
+		case "global":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Global = new(atproto.RepoStrongRef)
+					if err := t.Global.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Global pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Streamer ([]*streamplace.ChatProfile_StreamerBadgeSelection) (slice)
+		case "streamer":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Streamer: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Streamer = make([]*ChatProfile_StreamerBadgeSelection, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Streamer[i] = new(ChatProfile_StreamerBadgeSelection)
+							if err := t.Streamer[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Streamer[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *ChatProfile_StreamerBadgeSelection) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{162}); err != nil {
+		return err
+	}
+
+	// t.Badge (atproto.RepoStrongRef) (struct)
+	if len("badge") > 1000000 {
+		return xerrors.Errorf("Value in field \"badge\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("badge"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("badge")); err != nil {
+		return err
+	}
+
+	if err := t.Badge.MarshalCBOR(cw); err != nil {
+		return err
+	}
+
+	// t.Streamer (string) (string)
+	if len("streamer") > 1000000 {
+		return xerrors.Errorf("Value in field \"streamer\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("streamer"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("streamer")); err != nil {
+		return err
+	}
+
+	if len(t.Streamer) > 1000000 {
+		return xerrors.Errorf("Value in field t.Streamer was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Streamer))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.Streamer)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *ChatProfile_StreamerBadgeSelection) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = ChatProfile_StreamerBadgeSelection{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("ChatProfile_StreamerBadgeSelection: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 8)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Badge (atproto.RepoStrongRef) (struct)
+		case "badge":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Badge = new(atproto.RepoStrongRef)
+					if err := t.Badge.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Badge pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Streamer (string) (string)
+		case "streamer":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.Streamer = string(sval)
 			}
 
 		default:

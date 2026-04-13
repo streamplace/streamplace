@@ -68,63 +68,37 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		}
 	}
 
-	// Resolve issuance-based badges from the user's badge selection.
-	for _, ref := range spChatProfile.Selection {
-		if ref == nil {
-			continue
-		}
-		issuance, err := m.GetBadgeIssuanceByURI(ctx, ref.Uri)
-		if err != nil {
-			log.Error(ctx, "failed to get badge issuance", "err", err, "uri", ref.Uri)
-			continue
-		}
-		if issuance == nil {
-			continue // revoked or not yet indexed
-		}
-		if issuance.RecipientDID != userDID {
-			log.Warn(ctx, "badge issuance recipient mismatch", "issuanceRecipient", issuance.RecipientDID, "userDID", userDID)
-			continue
-		}
-
-		def, err := m.GetBadgeDefByURI(ctx, issuance.BadgeURI)
-		if err != nil {
-			log.Error(ctx, "failed to get badge def", "err", err, "uri", issuance.BadgeURI)
-			continue
-		}
-		if def == nil {
-			continue // def was deleted
-		}
-
-		switch def.BadgeType {
-		case constants.BadgeTypeVIP:
-			// VIP badges are streamer-scoped: only shown in the granting streamer's chat.
-			if streamerDID == "" || issuance.RepoDID != streamerDID {
-				continue
-			}
-		default:
-			// All other badge types (event, unknown) are globally valid but must be
-			// issued by an authorized global badge issuer.
-			if !IsGlobalIssuer(issuance.RepoDID) {
-				continue
+	// Resolve issuance-based badges from the user's badge selections.
+	if spChatProfile.Badges != nil {
+		// VIP badges: one per streamer channel, only shown in that streamer's chat.
+		if streamerDID != "" {
+			for _, sel := range spChatProfile.Badges.Streamer {
+				if sel == nil || sel.Badge == nil || sel.Streamer != streamerDID {
+					continue
+				}
+				view, err := resolveIssuanceBadgeView(ctx, sel.Badge.Uri, userDID, m)
+				if err != nil || view == nil {
+					continue
+				}
+				if view.BadgeType != constants.BadgeTypeVIP {
+					log.Warn(ctx, "streamer slot contains non-VIP badge", "badgeType", view.BadgeType)
+					continue
+				}
+				badges = append(badges, view)
 			}
 		}
 
-		view := &streamplace.BadgeDefs_BadgeView{
-			BadgeType: def.BadgeType,
-			Issuer:    issuance.RepoDID,
-			Recipient: userDID,
+		// Global badge: shown in any chat, must be issued by an authorized global issuer.
+		if spChatProfile.Badges.Global != nil {
+			view, err := resolveIssuanceBadgeView(ctx, spChatProfile.Badges.Global.Uri, userDID, m)
+			if err != nil || view == nil {
+				// logged inside resolveIssuanceBadgeView
+			} else if !IsGlobalIssuer(view.Issuer) {
+				log.Warn(ctx, "global slot badge not from authorized issuer", "issuer", view.Issuer)
+			} else {
+				badges = append(badges, view)
+			}
 		}
-		if def.Name != "" {
-			view.Name = &def.Name
-		}
-		if def.Description != "" {
-			view.Description = &def.Description
-		}
-		if def.ImageCID != "" {
-			imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
-			view.ImageUrl = &imageUrl
-		}
-		badges = append(badges, view)
 	}
 
 	return badges, nil
@@ -137,4 +111,45 @@ func IsGlobalIssuer(did string) bool {
 		}
 	}
 	return false
+}
+
+// resolveIssuanceBadgeView fetches an issuance by URI, verifies the recipient, and returns a BadgeView.
+// Returns nil (with no error) if the issuance is revoked, not indexed, or the recipient doesn't match.
+func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m model.Model) (*streamplace.BadgeDefs_BadgeView, error) {
+	issuance, err := m.GetBadgeIssuanceByURI(ctx, uri)
+	if err != nil {
+		log.Error(ctx, "failed to get badge issuance", "err", err, "uri", uri)
+		return nil, err
+	}
+	if issuance == nil {
+		return nil, nil // revoked or not yet indexed
+	}
+	if issuance.RecipientDID != userDID {
+		log.Warn(ctx, "badge issuance recipient mismatch", "issuanceRecipient", issuance.RecipientDID, "userDID", userDID)
+		return nil, nil
+	}
+	def, err := m.GetBadgeDefByURI(ctx, issuance.BadgeURI)
+	if err != nil {
+		log.Error(ctx, "failed to get badge def", "err", err, "uri", issuance.BadgeURI)
+		return nil, err
+	}
+	if def == nil {
+		return nil, nil // def was deleted
+	}
+	view := &streamplace.BadgeDefs_BadgeView{
+		BadgeType: def.BadgeType,
+		Issuer:    issuance.RepoDID,
+		Recipient: userDID,
+	}
+	if def.Name != "" {
+		view.Name = &def.Name
+	}
+	if def.Description != "" {
+		view.Description = &def.Description
+	}
+	if def.ImageCID != "" {
+		imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
+		view.ImageUrl = &imageUrl
+	}
+	return view, nil
 }

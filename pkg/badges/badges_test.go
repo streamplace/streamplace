@@ -120,9 +120,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	t.Run("vip badge appears when issuance and selection match", func(t *testing.T) {
 		setupVIPIssuance(t, vipUserDID)
 
-		profile := buildProfileWithSelection(t, []*comatproto.RepoStrongRef{
-			{Uri: issuanceURI, Cid: "bafyiss"},
-		})
+		profile := buildProfileWithStreamerBadge(t, streamerDID, &comatproto.RepoStrongRef{Uri: issuanceURI, Cid: "bafyiss"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: vipUserDID,
 			Record:  &profile,
@@ -165,9 +163,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		require.NoError(t, err)
 
 		theftUserDID := "did:plc:theftuser"
-		profile := buildProfileWithSelection(t, []*comatproto.RepoStrongRef{
-			{Uri: wrongIssuanceURI, Cid: "bafywrong"},
-		})
+		profile := buildProfileWithStreamerBadge(t, streamerDID, &comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: theftUserDID,
 			Record:  &profile,
@@ -242,9 +238,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		profile := buildProfileWithSelection(t, []*comatproto.RepoStrongRef{
-			{Uri: eventIssuanceURI, Cid: "bafyeventiss"},
-		})
+		profile := buildProfileWithGlobalBadge(t, &comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: eventUserDID,
 			Record:  &profile,
@@ -265,11 +259,29 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	})
 }
 
-func buildProfileWithSelection(t *testing.T, refs []*comatproto.RepoStrongRef) []byte {
+func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref *comatproto.RepoStrongRef) []byte {
 	t.Helper()
 	profile := &streamplace.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
-		Selection:     refs,
+		Badges: &streamplace.ChatProfile_BadgeSelections{
+			Streamer: []*streamplace.ChatProfile_StreamerBadgeSelection{
+				{Streamer: streamerDID, Badge: ref},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	err := profile.MarshalCBOR(&buf)
+	require.NoError(t, err)
+	return buf.Bytes()
+}
+
+func buildProfileWithGlobalBadge(t *testing.T, ref *comatproto.RepoStrongRef) []byte {
+	t.Helper()
+	profile := &streamplace.ChatProfile{
+		LexiconTypeID: "place.stream.chat.profile",
+		Badges: &streamplace.ChatProfile_BadgeSelections{
+			Global: ref,
+		},
 	}
 	var buf bytes.Buffer
 	err := profile.MarshalCBOR(&buf)

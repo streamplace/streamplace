@@ -37,10 +37,11 @@ const BADGE_TYPE_OPTIONS: { label: string; value: BadgeType }[] = [
   { label: "Event", value: "place.stream.badge.defs#event" },
 ];
 
-type PanelView = "main" | "create";
+type PanelView = "main" | "create" | "issue";
 
 interface BadgeDefItem {
   uri: string;
+  cid: string;
   value: PlaceStreamBadgeDef.Record;
 }
 
@@ -183,6 +184,9 @@ export function BadgeIssuerPanel() {
   const [defs, setDefs] = useState<BadgeDefItem[]>([]);
   const [loadingDefs, setLoadingDefs] = useState(false);
 
+  const [selectedDef, setSelectedDef] = useState<BadgeDefItem | null>(null);
+  const [recipientDid, setRecipientDid] = useState("");
+
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createBadgeType, setCreateBadgeType] = useState<BadgeType>(
@@ -199,7 +203,15 @@ export function BadgeIssuerPanel() {
         repo: agent.did,
         limit: 100,
       });
-      setDefs(res.records);
+      setDefs(
+        (
+          res.records as {
+            uri: string;
+            cid: string;
+            value: PlaceStreamBadgeDef.Record;
+          }[]
+        ).map(({ uri, cid, value }) => ({ uri, cid: cid ?? "", value })),
+      );
     } catch (e: any) {
       toast.show("Failed to load badge definitions", e?.message, {
         variant: "error",
@@ -288,6 +300,85 @@ export function BadgeIssuerPanel() {
       setWorking(false);
     }
   };
+
+  const handleIssueBadge = async () => {
+    if (!agent?.did || !selectedDef || !recipientDid.trim() || working) return;
+    setWorking(true);
+    try {
+      await agent.place.stream.badge.issuance.create(
+        { repo: agent.did },
+        {
+          did: recipientDid.trim(),
+          badge: { uri: selectedDef.uri, cid: selectedDef.cid },
+          createdAt: new Date().toISOString(),
+        },
+      );
+      setLastResult({
+        label: `Badge issued to ${recipientDid.trim()}`,
+        uri: recipientDid.trim(),
+      });
+      setRecipientDid("");
+      toast.show("Badge issued", undefined, { variant: "success" });
+      setSelectedDef(null);
+      setView("main");
+    } catch (e: any) {
+      toast.show("Failed to issue badge", e?.message, { variant: "error" });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (view === "issue" && selectedDef) {
+    return (
+      <ScrollView>
+        <View style={[layout.flex.align.center, px[2], py[2]]}>
+          <View style={{ maxWidth: 500, width: "100%" }}>
+            <BackButton
+              label="Badge definitions"
+              onPress={() => {
+                setSelectedDef(null);
+                setView("main");
+              }}
+            />
+            <Text style={{ fontSize: 18, fontWeight: "600" }}>Issue Badge</Text>
+            <Text muted style={{ fontSize: 13, marginBottom: 16 }}>
+              Issue "{selectedDef.value.name}" to a user by their DID.
+            </Text>
+            <View style={[gap.all[4]]}>
+              <BadgeDefRow def={selectedDef} />
+              <View style={[gap.all[2]]}>
+                <Text style={{ fontSize: 13, fontWeight: "600" }}>
+                  Recipient DID
+                </Text>
+                <Input
+                  value={recipientDid}
+                  onChangeText={setRecipientDid}
+                  placeholder="did:plc:..."
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  accessibilityLabel="Recipient DID"
+                />
+              </View>
+              <Button
+                onPress={handleIssueBadge}
+                disabled={!recipientDid.trim() || working}
+                style={{ opacity: recipientDid.trim() && !working ? 1 : 0.5 }}
+              >
+                {working ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primaryForeground}
+                  />
+                ) : (
+                  "Issue Badge"
+                )}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   if (view === "create") {
     return (
@@ -527,12 +618,21 @@ export function BadgeIssuerPanel() {
               <Text style={{ fontSize: 15, fontWeight: "600", marginTop: 4 }}>
                 Your Badge Definitions
               </Text>
+              <Text muted style={{ fontSize: 12, marginBottom: 4 }}>
+                Tap a badge to issue it to a user.
+              </Text>
               <MenuContainer>
                 <MenuGroup>
                   {defs.map((def, i) => (
                     <View key={def.uri}>
                       {i > 0 && <MenuSeparator />}
-                      <BadgeDefRow def={def} />
+                      <BadgeDefRow
+                        def={def}
+                        onPress={() => {
+                          setSelectedDef(def);
+                          setView("issue");
+                        }}
+                      />
                     </View>
                   ))}
                 </MenuGroup>

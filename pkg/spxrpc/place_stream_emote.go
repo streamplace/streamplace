@@ -55,7 +55,7 @@ func (s *Server) buildPackView(ctx context.Context, pack *model.EmotePack, allow
 		}
 		if item.ImageCID != "" {
 			// TODO: flag for CDN
-			emoteView.ImageUrl = fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", item.RepoDID, item.ImageCID)
+			emoteView.ImageUrl = fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@webp", item.RepoDID, item.ImageCID)
 		}
 		if item.CreatorDID != "" {
 			did := item.CreatorDID

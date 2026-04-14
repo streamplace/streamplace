@@ -144,6 +144,31 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
+		// validate emote facets reference real emote items
+		for _, facet := range rec.Facets {
+			for i, feature := range facet.Features {
+				if feature.RichtextFacet_Emote == nil {
+					continue
+				}
+				emote := feature.RichtextFacet_Emote
+				if emote.Ref == nil {
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+				item, err := atsync.Model.GetEmoteItemByURI(ctx, emote.Ref.Uri)
+				if err != nil {
+					log.Error(ctx, "failed to look up emote item", "uri", emote.Ref.Uri, "err", err)
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+				if item == nil {
+					log.Debug(ctx, "emote facet references unknown item, stripping", "uri", emote.Ref.Uri)
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+			}
+		}
+
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)

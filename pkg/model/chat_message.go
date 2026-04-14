@@ -81,7 +81,7 @@ func (m *ChatMessage) ToStreamplaceMessageView(ctx context.Context, mod Model) (
 						Creator:   &item.CreatorDID,
 						Alt:       &item.Alt,
 						IndexedAt: item.IndexedAt.UTC().Format("2006-01-02T15:04:05Z"),
-						ImageUrl:  fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", item.RepoDID, item.ImageCID),
+						ImageUrl:  fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@webp", item.RepoDID, item.ImageCID),
 					}
 					if item.Alt != "" {
 						emoteView.Alt = &item.Alt

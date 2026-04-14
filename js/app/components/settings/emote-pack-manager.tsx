@@ -51,7 +51,7 @@ interface ActorSearchResult {
 function emoteImageUrl(did: string, item: PlaceStreamEmoteItem.Record): string {
   // assuming item.image is a blob
   const cid = (item.image.toJSON() as any).ref.$link ?? "";
-  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@png`;
+  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@webp`;
 }
 
 function CreatePackDialog({

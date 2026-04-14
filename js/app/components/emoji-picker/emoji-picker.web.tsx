@@ -59,6 +59,7 @@ export interface CustomEmojiEntry {
 
 export interface EmojiPack {
   name: string;
+  ownerHandle?: string;
   emoji: CustomEmojiEntry[];
 }
 

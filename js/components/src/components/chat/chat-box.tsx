@@ -65,6 +65,7 @@ export interface RenderInputProps {
   skinTone: number;
   emojiPacks?: {
     name: string;
+    ownerHandle?: string;
     emoji: {
       name: string;
       imageUrl: string;
@@ -233,6 +234,10 @@ export function ChatBox({
         setMessage(message + emoji.native);
       }
     } else if (emoji.type === "custom") {
+      const qualifiedName = (emoji as any).qualifiedName;
+      const emoteText = qualifiedName
+        ? `:${qualifiedName}:`
+        : `:${emoji.name}:`;
       if (renderInput) {
         setInsertElement({
           type: "emoji",
@@ -241,11 +246,11 @@ export function ChatBox({
           aturi: emoji.aturi ?? null,
           cid: emoji.cid ?? null,
           imageUrl: emoji.imageUrl ?? null,
-          text: `:${emoji.name}:`,
+          text: emoteText,
           seq,
         });
       } else {
-        setMessage(message + `:${emoji.name}: `);
+        setMessage(message + emoteText + " ");
       }
     } else {
       return;
@@ -296,10 +301,27 @@ export function ChatBox({
       if (searchText.length >= 1) {
         const customMatches: any[] = [];
         if (emojiPacks) {
+          const slashIdx = searchText.indexOf("/");
           for (const pack of emojiPacks) {
             for (const emote of pack.emoji) {
-              if (emote.name.toLowerCase().includes(searchText)) {
-                customMatches.push({ type: "custom", ...emote });
+              if (slashIdx !== -1) {
+                const handlePart = searchText.slice(0, slashIdx);
+                const namePart = searchText.slice(slashIdx + 1);
+                if (
+                  pack.ownerHandle &&
+                  pack.ownerHandle.toLowerCase().includes(handlePart) &&
+                  emote.name.toLowerCase().includes(namePart)
+                ) {
+                  customMatches.push({
+                    type: "custom",
+                    ...emote,
+                    qualifiedName: `${pack.ownerHandle}/${emote.name}`,
+                  });
+                }
+              } else {
+                if (emote.name.toLowerCase().includes(searchText)) {
+                  customMatches.push({ type: "custom", ...emote });
+                }
               }
             }
           }

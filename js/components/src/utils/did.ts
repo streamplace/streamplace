@@ -66,5 +66,5 @@ export function extractDidFromAtUri(atUri: string): string {
 
 export function emoteImageUrl(atUri: string, cid: string): string {
   const did = extractDidFromAtUri(atUri);
-  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@png`;
+  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@webp`;
 }

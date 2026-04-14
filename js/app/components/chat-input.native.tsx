@@ -54,9 +54,25 @@ function buildEmoteMap(
   emojiPacks: RenderInputProps["emojiPacks"],
 ): Map<string, { aturi: string; cid: string }> {
   const map = new Map<string, { aturi: string; cid: string }>();
-  for (const pack of emojiPacks ?? []) {
-    for (const emote of pack.emoji) {
+  if (!emojiPacks) return map;
+  for (let i = emojiPacks.length - 1; i >= 0; i--) {
+    for (const emote of emojiPacks[i].emoji) {
       map.set(emote.name, { aturi: emote.aturi, cid: emote.cid });
+    }
+  }
+  return map;
+}
+
+function buildNamespacedMap(
+  emojiPacks: RenderInputProps["emojiPacks"],
+): Map<string, { aturi: string; cid: string }> {
+  const map = new Map<string, { aturi: string; cid: string }>();
+  if (!emojiPacks) return map;
+  for (const pack of emojiPacks) {
+    if (!pack.ownerHandle) continue;
+    for (const emote of pack.emoji) {
+      const key = `${pack.ownerHandle}/${emote.name}`;
+      map.set(key, { aturi: emote.aturi, cid: emote.cid });
     }
   }
   return map;
@@ -66,11 +82,12 @@ function extractFacets(
   text: string,
   authors: RenderInputProps["authors"],
   emoteMap: Map<string, { aturi: string; cid: string }>,
+  namespacedMap: Map<string, { aturi: string; cid: string }>,
 ): ChatFacet[] {
   const enc = new TextEncoder();
   const facets: ChatFacet[] = [];
   const authorMap = new Map(authors.map((a) => [a.handle.toLowerCase(), a]));
-  const tokenRe = /(@\S+|:[a-zA-Z0-9_]+:)/g;
+  const tokenRe = /(@\S+|:[a-zA-Z0-9._/-]+:)/g;
   let match: RegExpExecArray | null;
   while ((match = tokenRe.exec(text)) !== null) {
     const token = match[0];
@@ -88,8 +105,16 @@ function extractFacets(
         } as unknown as ChatFacet);
       }
     } else {
-      const name = token.slice(1, -1);
-      const emoteData = emoteMap.get(name);
+      const inner = token.slice(1, -1);
+      const slashIdx = inner.indexOf("/");
+      let emoteData: { aturi: string; cid: string } | undefined;
+      let name = inner;
+      if (slashIdx !== -1) {
+        emoteData = namespacedMap.get(inner.toLowerCase());
+        name = inner.slice(slashIdx + 1);
+      } else {
+        emoteData = emoteMap.get(inner);
+      }
       if (emoteData) {
         facets.push({
           index: { byteStart, byteEnd },
@@ -118,6 +143,7 @@ function ChatNativeInput(props: RenderInputProps) {
   const textRef = useRef("");
 
   const emoteMap = buildEmoteMap(props.emojiPacks);
+  const namespacedMap = buildNamespacedMap(props.emojiPacks);
 
   const filteredAuthors: Map<
     string,
@@ -241,7 +267,12 @@ function ChatNativeInput(props: RenderInputProps) {
   const handleSubmit = useCallback(() => {
     const current = textRef.current.trim();
     if (!current) return;
-    const facets = extractFacets(current, props.authors, emoteMap);
+    const facets = extractFacets(
+      current,
+      props.authors,
+      emoteMap,
+      namespacedMap,
+    );
     props.onSubmit({
       text: current,
       ...(facets.length > 0 ? { facets } : {}),

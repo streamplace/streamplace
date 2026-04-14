@@ -16,6 +16,7 @@ export function useEmotePacks(streamerDID: string | null): EmojiPack[] {
         if (cancelled) return;
         const emojiPacks: EmojiPack[] = res.data.packs.map((pack) => ({
           name: pack.name,
+          ownerHandle: pack.author?.handle ?? undefined,
           emoji: pack.emotes
             .filter((e) => e.imageUrl)
             .map((e) => ({

@@ -3,15 +3,17 @@ import {
   MenuGroup,
   MenuSeparator,
   View,
+  useDanmuUnlocked,
   zero,
 } from "@streamplace/components";
-import { Globe, Heart, Key, Webhook } from "lucide-react-native";
+import { Globe, Heart, Key, Smile, Webhook } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
 import { SettingsNavigationItem } from "./components/settings-navigation-item";
 
 export function StreamingCategorySettings() {
   const { t } = useTranslation("settings");
+  const danmuUnlocked = useDanmuUnlocked();
   return (
     <ScrollView>
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
@@ -41,6 +43,16 @@ export function StreamingCategorySettings() {
                 screen="MultistreamCategory"
                 icon={Globe}
               />
+              {danmuUnlocked && (
+                <>
+                  <MenuSeparator />
+                  <SettingsNavigationItem
+                    title="Emote Packs"
+                    screen="EmotePackManager"
+                    icon={Smile}
+                  />
+                </>
+              )}
             </MenuGroup>
           </MenuContainer>
         </View>

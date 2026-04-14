@@ -104,6 +104,7 @@ type Model interface {
 
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
+	GetActiveLabelsBatch(uris []string) (map[string][]*comatproto.LabelDefs_Label, error)
 
 	UpdateBroadcastOrigin(ctx context.Context, origin *streamplace.BroadcastOrigin, aturi syntax.ATURI) error
 	GetRecentBroadcastOrigins(ctx context.Context) ([]*streamplace.BroadcastDefs_BroadcastOriginView, error)
@@ -124,9 +125,23 @@ type Model interface {
 
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
+
+	UpsertEmotePack(ctx context.Context, pack *EmotePack) error
+	GetEmotePackByURI(ctx context.Context, uri string) (*EmotePack, error)
+	GetEmotePacksByDID(ctx context.Context, did string) ([]*EmotePack, error)
+	GetAllEmotePacks(ctx context.Context) ([]*EmotePack, error)
+	GetStreamerOpenPacks(ctx context.Context, streamerDID string) ([]*EmotePack, error)
+	UpsertEmoteItem(ctx context.Context, item *EmoteItem) error
+	GetEmoteItemsByPack(ctx context.Context, packURI string) ([]*EmoteItem, error)
+	GetEmoteItemByURI(ctx context.Context, uri string) (*EmoteItem, error)
+	DeleteEmoteItem(ctx context.Context, uri string) error
+	DeleteEmotePack(ctx context.Context, uri string) error
+	UpsertEmotePackDelegation(ctx context.Context, d *EmotePackDelegation) error
+	DeleteEmotePackDelegation(ctx context.Context, uri string) error
+	GetDelegatedPacksForUser(ctx context.Context, recipientDID string) ([]*DelegatedPack, error)
 }
 
-var DBRevision = 2
+var DBRevision = 3
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL
@@ -194,7 +209,9 @@ func MakeDB(dbURL string) (Model, error) {
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
-		BskyProfile{},
+		EmotePack{},
+		EmoteItem{},
+		EmotePackDelegation{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

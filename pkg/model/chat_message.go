@@ -12,6 +12,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -38,13 +39,13 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageView, error) {
+func (m *ChatMessage) ToStreamplaceMessageView(ctx context.Context, mod Model) (*streamplace.ChatDefs_MessageView, error) {
 	rec, err := lexutil.CborDecodeValue(*m.ChatMessage)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
 	}
-	// Truncate message text if it is a ChatMessage
 	if msg, ok := rec.(*streamplace.ChatMessage); ok {
+		// Truncate message text
 		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
 		if graphemeCount > 300 {
 			gr := uniseg.NewGraphemes(msg.Text)
@@ -53,6 +54,46 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 				result.WriteString(gr.Str())
 			}
 			msg.Text = result.String()
+		}
+		// hydrate #emote facets to #emoteView
+		if mod != nil {
+			for _, facet := range msg.Facets {
+				for i, feature := range facet.Features {
+					if feature.RichtextFacet_Emote == nil {
+						continue
+					}
+					emote := feature.RichtextFacet_Emote
+					if emote.Ref == nil {
+						continue
+					}
+					item, err := mod.GetEmoteItemByURI(ctx, emote.Ref.Uri)
+					if err != nil {
+						log.Error(ctx, "failed to look up emote item", "uri", emote.Ref.Uri, "err", err)
+						continue
+					}
+					if item == nil {
+						continue
+					}
+					emoteView := &streamplace.EmoteDefs_EmoteView{
+						Uri:       item.URI,
+						Cid:       item.CID,
+						Name:      item.Name,
+						Creator:   &item.CreatorDID,
+						Alt:       &item.Alt,
+						IndexedAt: item.IndexedAt.UTC().Format("2006-01-02T15:04:05Z"),
+						ImageUrl:  fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@webp", item.RepoDID, item.ImageCID),
+					}
+					if item.Alt != "" {
+						emoteView.Alt = &item.Alt
+					}
+					facet.Features[i] = &streamplace.RichtextFacet_Features_Elem{
+						RichtextFacet_EmoteView: &streamplace.RichtextFacet_EmoteView{
+							Name:   emote.Name,
+							Record: emoteView,
+						},
+					}
+				}
+			}
 		}
 	}
 
@@ -84,7 +125,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 
 	}
 	if m.ReplyTo != nil {
-		replyTo, err := m.ReplyTo.ToStreamplaceMessageView()
+		replyTo, err := m.ReplyTo.ToStreamplaceMessageView(ctx, mod)
 		if err != nil {
 			return nil, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
 		}
@@ -132,6 +173,7 @@ func (m *DBModel) GetChatMessage(uri string) (*ChatMessage, error) {
 }
 
 func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error) {
+	ctx := context.Background()
 	dbmessages := []ChatMessage{}
 	err := m.DB.
 		Preload("Repo").
@@ -158,8 +200,8 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDef
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
 	spmessages := []*streamplace.ChatDefs_MessageView{}
-	for _, m := range dbmessages {
-		spmessage, err := m.ToStreamplaceMessageView()
+	for _, msg := range dbmessages {
+		spmessage, err := msg.ToStreamplaceMessageView(ctx, m)
 		if err != nil {
 			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 		}

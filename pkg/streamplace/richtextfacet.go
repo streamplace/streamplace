@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -23,9 +24,30 @@ type RichtextFacet struct {
 	Index    *appbsky.RichtextFacet_ByteSlice `json:"index" cborgen:"index"`
 }
 
+// RichtextFacet_Emote is a "emote" in the place.stream.richtext.facet schema.
+type RichtextFacet_Emote struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.richtext.facet#emote"`
+	// name: Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves.
+	Name string `json:"name" cborgen:"name"`
+	// ref: Strong reference to the place.stream.emote.item record.
+	Ref *comatproto.RepoStrongRef `json:"ref" cborgen:"ref"`
+}
+
+// RichtextFacet_EmoteView is a "emoteView" in the place.stream.richtext.facet schema.
+//
+// Hydrated version of a #emote
+type RichtextFacet_EmoteView struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.richtext.facet#emoteView"`
+	// name: Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves.
+	Name   string               `json:"name" cborgen:"name"`
+	Record *EmoteDefs_EmoteView `json:"record" cborgen:"record"`
+}
+
 type RichtextFacet_Features_Elem struct {
-	RichtextFacet_Mention *appbsky.RichtextFacet_Mention
-	RichtextFacet_Link    *appbsky.RichtextFacet_Link
+	RichtextFacet_Mention   *appbsky.RichtextFacet_Mention
+	RichtextFacet_Link      *appbsky.RichtextFacet_Link
+	RichtextFacet_Emote     *RichtextFacet_Emote
+	RichtextFacet_EmoteView *RichtextFacet_EmoteView
 }
 
 func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
@@ -36,6 +58,14 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
 		t.RichtextFacet_Link.LexiconTypeID = "app.bsky.richtext.facet#link"
 		return json.Marshal(t.RichtextFacet_Link)
+	}
+	if t.RichtextFacet_Emote != nil {
+		t.RichtextFacet_Emote.LexiconTypeID = "place.stream.richtext.facet#emote"
+		return json.Marshal(t.RichtextFacet_Emote)
+	}
+	if t.RichtextFacet_EmoteView != nil {
+		t.RichtextFacet_EmoteView.LexiconTypeID = "place.stream.richtext.facet#emoteView"
+		return json.Marshal(t.RichtextFacet_EmoteView)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -53,6 +83,12 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(appbsky.RichtextFacet_Link)
 		return json.Unmarshal(b, t.RichtextFacet_Link)
+	case "place.stream.richtext.facet#emote":
+		t.RichtextFacet_Emote = new(RichtextFacet_Emote)
+		return json.Unmarshal(b, t.RichtextFacet_Emote)
+	case "place.stream.richtext.facet#emoteView":
+		t.RichtextFacet_EmoteView = new(RichtextFacet_EmoteView)
+		return json.Unmarshal(b, t.RichtextFacet_EmoteView)
 	default:
 		return nil
 	}
@@ -70,6 +106,12 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 	if t.RichtextFacet_Link != nil {
 		return t.RichtextFacet_Link.MarshalCBOR(w)
 	}
+	if t.RichtextFacet_Emote != nil {
+		return t.RichtextFacet_Emote.MarshalCBOR(w)
+	}
+	if t.RichtextFacet_EmoteView != nil {
+		return t.RichtextFacet_EmoteView.MarshalCBOR(w)
+	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
 
@@ -86,6 +128,12 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(appbsky.RichtextFacet_Link)
 		return t.RichtextFacet_Link.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.richtext.facet#emote":
+		t.RichtextFacet_Emote = new(RichtextFacet_Emote)
+		return t.RichtextFacet_Emote.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.richtext.facet#emoteView":
+		t.RichtextFacet_EmoteView = new(RichtextFacet_EmoteView)
+		return t.RichtextFacet_EmoteView.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

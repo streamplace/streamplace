@@ -1967,6 +1967,85 @@
         ]
       }
     },
+    "/xrpc/place.stream.emote.getEmotePack": {
+      "get": {
+        "summary": "Get an emote pack and its items.",
+        "operationId": "place.stream.emote.getEmotePack",
+        "tags": ["place.stream.emote"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pack": {
+                      "$ref": "#/components/schemas/place.stream.emote.defs_packView"
+                    }
+                  },
+                  "required": ["pack"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "description": "AT-URI of the place.stream.emote.pack record.",
+            "schema": {
+              "type": "string",
+              "description": "AT-URI of the place.stream.emote.pack record.",
+              "format": "uri"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.emote.getEmotePacks": {
+      "get": {
+        "summary": "Get emote packs available to the viewer in a specific stream's chat.",
+        "operationId": "place.stream.emote.getEmotePacks",
+        "tags": ["place.stream.emote"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "packs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.emote.defs_packView"
+                      }
+                    }
+                  },
+                  "required": ["packs"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the streamer whose chat context to fetch emote packs for.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the streamer whose chat context to fetch emote packs for.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.config.getEnv": {
       "get": {
         "summary": "Get client-facing environment configuration from the server.",
@@ -3890,6 +3969,80 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "place.stream.emote.defs_packView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "emotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/place.stream.emote.defs_emoteView"
+            }
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "relationship": {
+            "type": "string",
+            "description": "Why this pack is available to the requesting user."
+          }
+        },
+        "required": ["uri", "cid", "author", "name", "emotes", "indexedAt"]
+      },
+      "place.stream.emote.defs_emoteView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "AT-URI of the place.stream.emote.item record.",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "name": {
+            "type": "string",
+            "description": "Short name used to reference this emote in chat."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Resolved URL for the emote image.",
+            "format": "uri"
+          },
+          "alt": {
+            "type": "string",
+            "description": "Alt text for the emote image."
+          },
+          "creator": {
+            "type": "string",
+            "description": "DID of the creator/artist of this emote, if different from the pack author.",
+            "format": "did"
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["uri", "cid", "name", "imageUrl", "indexedAt"]
       },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",

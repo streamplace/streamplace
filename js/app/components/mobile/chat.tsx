@@ -5,6 +5,7 @@ import {
   Resizable,
   StreamNotificationProvider,
   Text,
+  useProfile,
   View,
   zero,
 } from "@streamplace/components";
@@ -20,7 +21,9 @@ import Animated, {
 
 import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { useEmotePacks } from "hooks/useEmotePacks";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
@@ -243,11 +246,11 @@ export function MobileChatPanel({
 
 function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   let agent = usePDSAgent();
-
+  let profile = useProfile();
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
-  const customEmoji: any[] = [];
+  const emotePacks = useEmotePacks(profile?.did ?? null);
 
   return (
     <View
@@ -266,15 +269,17 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            emojiPacks={emotePacks}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}
                 onClose={onClose}
                 onSelect={onSelect}
-                customEmoji={customEmoji}
+                emojiPacks={emotePacks}
               />
             )}
+            renderInput={renderChatInput}
           />
         ) : !agent ? (
           <View

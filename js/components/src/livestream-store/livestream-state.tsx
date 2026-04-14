@@ -9,6 +9,14 @@ import {
   PlaceStreamSegment,
 } from "streamplace";
 
+export interface EmoteView {
+  aturi: string;
+  cid: string;
+  name: string;
+  imageUrl: string;
+  alt?: string;
+}
+
 export interface LivestreamState {
   profile: AppBskyActorDefs.ProfileViewBasic | null;
   chatIndex: { [key: string]: ChatMessageViewHydrated };
@@ -36,6 +44,8 @@ export interface LivestreamState {
   ) => void;
   localLivestreamURI: string | null;
   setLocalLivestreamURI: (uri: string | null) => void;
+  emotes: { [aturi: string]: EmoteView };
+  addEmotes: (emotes: EmoteView[]) => void;
 }
 
 export interface LivestreamProblem {

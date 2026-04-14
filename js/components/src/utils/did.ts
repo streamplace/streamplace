@@ -59,3 +59,12 @@ export async function getBlob(
 
   return response.blob();
 }
+
+export function extractDidFromAtUri(atUri: string): string {
+  return atUri.replace("at://", "").split("/")[0];
+}
+
+export function emoteImageUrl(atUri: string, cid: string): string {
+  const did = extractDidFromAtUri(atUri);
+  return `https://cdn.bsky.app/img/feed_fullsize/plain/${did}/${cid}@webp`;
+}

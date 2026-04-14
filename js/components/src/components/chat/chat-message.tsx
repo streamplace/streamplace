@@ -4,10 +4,11 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
-import { ChatMessageViewHydrated } from "streamplace";
+import { Image, Linking, Platform, Pressable, View } from "react-native";
+import { ChatMessageViewHydrated, PlaceStreamRichtextFacet } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { emoteImageUrl } from "../../utils/did";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import { atoms, colors, layout } from "../ui";
 
@@ -23,9 +24,10 @@ interface Facet {
   }>;
 }
 
-import { useLivestreamStore } from "../../livestream-store";
+import { useEmotes, useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 import { BadgeDisplayRow } from "./badge";
+import { EmojiCard } from "./emoji-card";
 import { UserProfileCard } from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
@@ -35,6 +37,8 @@ const segmentedObject = (
   obj: RichtextSegment,
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
+  emoteCache?: { [aturi: string]: { name: string; imageUrl: string } },
+  messageUri?: string,
 ) => {
   if (obj.features && obj.features.length > 0) {
     let ftr = obj.features[0];
@@ -90,6 +94,44 @@ const segmentedObject = (
           </Text>
         </Pressable>
       );
+    } else if (ftr.$type === "place.stream.richtext.facet#emote") {
+      const emote = ftr as {
+        $type: string;
+        name: string;
+        ref?: { uri: string; cid: string };
+      };
+      if (emote.ref) {
+        const cached = emoteCache?.[emote.ref.uri];
+        const imageUrl =
+          cached?.imageUrl || emoteImageUrl(emote.ref.uri, emote.ref.cid);
+        return (
+          <Image
+            key={`emote-${index}`}
+            source={{ uri: imageUrl }}
+            accessibilityLabel={cached?.name || emote.name}
+            style={
+              {
+                height: 22,
+                width: 22,
+                verticalAlign: "middle",
+              } as any
+            }
+          />
+        );
+      }
+      return <Text key={`emote-${index}`}>:{emote.name}:</Text>;
+    } else if (ftr.$type === "place.stream.richtext.facet#emoteView") {
+      const emote = ftr as PlaceStreamRichtextFacet.EmoteView;
+      if (emote.record) {
+        return (
+          <EmojiCard
+            key={`emote-${index}`}
+            cardKey={`${messageUri}-${emote.record.uri}-${index}`}
+            emote={emote}
+          />
+        );
+      }
+      return <Text key={`emote-${index}`}>:{emote.name}:</Text>;
     } else {
       // render as normal text if we don't recognize the facet type
       return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;
@@ -102,16 +144,21 @@ const segmentedObject = (
 export const RichTextMessage = ({
   text,
   facets,
+  uri,
 }: {
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
+  uri: string;
 }) => {
   const userCache = useLivestreamStore((state) => state.authors);
+  const emoteCache = useEmotes();
   if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => segmentedObject(seg, i, userCache));
+  return segs.map((seg, i) =>
+    segmentedObject(seg, i, userCache, emoteCache, uri),
+  );
 };
 export const RenderChatMessage = memo(
   function RenderChatMessage({
@@ -186,7 +233,7 @@ export const RenderChatMessage = memo(
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+          <Text style={[flex.shrink[1], { minWidth: 0, overflow: "visible" }]}>
             <UserProfileCard
               uri={item.uri}
               author={item.author}
@@ -222,6 +269,7 @@ export const RenderChatMessage = memo(
             <RichTextMessage
               text={item.record.text}
               facets={item.record.facets || []}
+              uri={item.uri}
             />
           </Text>
         </View>

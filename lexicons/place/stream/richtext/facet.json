@@ -14,9 +14,45 @@
             "type": "union",
             "refs": [
               "app.bsky.richtext.facet#mention",
-              "app.bsky.richtext.facet#link"
+              "app.bsky.richtext.facet#link",
+              "#emote",
+              "#emoteView"
             ]
           }
+        }
+      }
+    },
+    "emote": {
+      "type": "object",
+      "required": ["name", "ref"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "maxGraphemes": 50,
+          "description": "Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves."
+        },
+        "ref": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "Strong reference to the place.stream.emote.item record."
+        }
+      }
+    },
+    "emoteView": {
+      "type": "object",
+      "description": "Hydrated version of a #emote",
+      "required": ["name", "record"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "maxGraphemes": 50,
+          "description": "Short name of the emote, e.g. 'dan'. Used as fallback text and for display before the ref resolves."
+        },
+        "record": {
+          "type": "ref",
+          "ref": "place.stream.emote.defs#emoteView"
         }
       }
     }

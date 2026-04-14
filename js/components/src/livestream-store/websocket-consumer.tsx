@@ -12,12 +12,79 @@ import {
   PlaceStreamSegment,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
+import { emoteImageUrl } from "../utils/did";
 import { formatHandleWithAt } from "../utils/format-handle";
 import { reduceChat } from "./chat";
-import { LivestreamState } from "./livestream-state";
+import { EmoteView, LivestreamState } from "./livestream-state";
 import { findProblems } from "./problems";
 
 const MAX_RECENT_SEGMENTS = 10;
+
+function exchangeEmoteRefs(
+  message: ChatMessageViewHydrated,
+  emoteCache: { [aturi: string]: EmoteView },
+): ChatMessageViewHydrated {
+  if (!message.record.facets) return message;
+
+  const newFacets = message.record.facets.map((facet) => ({
+    ...facet,
+    features: facet.features.map((feature) => {
+      if (feature.$type === "place.stream.richtext.facet#emote") {
+        const emote = feature as {
+          name: string;
+          ref?: { uri: string; cid: string };
+        };
+        if (emote.ref) {
+          const cached = emoteCache[emote.ref.uri];
+          if (cached) {
+            return {
+              $type: "place.stream.richtext.facet#emote",
+              name: cached.name,
+              ref: cached,
+            } as any;
+          }
+        }
+      }
+      return feature;
+    }),
+  }));
+
+  return {
+    ...message,
+    record: {
+      ...message.record,
+      facets: newFacets,
+    },
+  };
+}
+
+function extractEmotesFromMessage(
+  message: ChatMessageViewHydrated,
+): EmoteView[] {
+  const emotes: EmoteView[] = [];
+  if (!message.record.facets) return emotes;
+
+  for (const facet of message.record.facets) {
+    for (const feature of facet.features) {
+      if (feature.$type === "place.stream.richtext.facet#emote") {
+        const emote = feature as {
+          name: string;
+          ref?: { uri: string; cid: string };
+        };
+        if (emote.ref) {
+          emotes.push({
+            aturi: emote.ref.uri,
+            cid: emote.ref.cid,
+            name: emote.name,
+            imageUrl: emoteImageUrl(emote.ref.uri, emote.ref.cid),
+          });
+        }
+      }
+    }
+  }
+
+  return emotes;
+}
 
 export const handleWebSocketMessages = (
   state: LivestreamState,
@@ -83,7 +150,17 @@ export const handleWebSocketMessages = (
           deleted: message.deleted,
           badges: message.badges,
         };
-        state = reduceChat(state, [hydrated], [], []);
+        const emotes = extractEmotesFromMessage(hydrated);
+        state = reduceChat(state, [hydrated], []);
+        if (emotes.length > 0) {
+          state = {
+            ...state,
+            emotes: {
+              ...state.emotes,
+              ...Object.fromEntries(emotes.map((e) => [e.aturi, e])),
+            },
+          };
+        }
       } else if (PlaceStreamSegment.isRecord(message)) {
         const newRecentSegments = [...state.recentSegments];
         newRecentSegments.unshift(message);

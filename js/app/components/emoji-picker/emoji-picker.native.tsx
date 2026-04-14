@@ -2,30 +2,39 @@ import { Text, useTheme, zero } from "@streamplace/components";
 import { Image } from "expo-image";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useRef } from "react";
-import { FlatList, Keyboard, Pressable } from "react-native";
+import { FlatList, Keyboard, Pressable, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 const { bg, borders, gap, layout, p, py, r, text } = zero;
 
 export type SelectedEmoji =
   | { type: "standard"; native: string }
-  | { type: "custom"; name: string };
+  | { type: "custom"; name: string; aturi: string; cid: string };
 
 export interface CustomEmojiEntry {
   name: string;
   imageUrl: string;
+  aturi: string;
+  cid: string;
   alt?: string;
+}
+
+export interface EmojiPack {
+  name: string;
+  ownerHandle?: string;
+  emoji: CustomEmojiEntry[];
 }
 
 interface EmojiPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect?: (emoji: SelectedEmoji) => void;
-  customEmoji?: CustomEmojiEntry[];
+  emojiPacks?: EmojiPack[];
 }
 
 const PANEL_HEIGHT = 265;
@@ -34,7 +43,7 @@ export function EmojiPicker({
   isOpen,
   onClose,
   onSelect,
-  customEmoji = [],
+  emojiPacks = [],
 }: EmojiPickerProps) {
   const { theme, zero: z } = useTheme();
   const height = useSharedValue(0);
@@ -51,10 +60,9 @@ export function EmojiPicker({
     hasOpened.current = isOpen;
     // ensure the keyboard is dismissed when the emoji picker is opened
     kb.isKeyboardVisible && isOpen && Keyboard.dismiss();
-    height.value = withSpring(isOpen ? PANEL_HEIGHT : 0, {
-      damping: 30,
-      stiffness: 300,
-    });
+    height.value = isOpen
+      ? withSpring(PANEL_HEIGHT, { damping: 30, stiffness: 300 })
+      : withTiming(0, { duration: 200 });
   }, [isOpen, kb.isKeyboardVisible]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -62,8 +70,13 @@ export function EmojiPicker({
     overflow: "hidden",
   }));
 
-  const handleSelect = (name: string) => {
-    onSelect?.({ type: "custom", name });
+  const handleSelect = (item: CustomEmojiEntry) => {
+    onSelect?.({
+      type: "custom",
+      name: item.name,
+      aturi: item.aturi,
+      cid: item.cid,
+    });
     onClose();
   };
 
@@ -79,54 +92,47 @@ export function EmojiPicker({
           { height: PANEL_HEIGHT },
         ]}
       >
-        <Text
-          style={[
-            text.gray[500],
-            {
-              fontSize: 10,
-              fontWeight: "600",
-              textTransform: "uppercase",
-              letterSpacing: 0.8,
-              marginBottom: 8,
-            },
-          ]}
-        >
-          Custom Emoji
-        </Text>
-        {customEmoji.length === 0 ? (
+        {emojiPacks.length === 0 ? (
           <Animated.View
             style={[layout.flex.column, layout.flex.center, { flex: 1 }]}
           >
             <Text style={[text.gray[600]]}>No custom emoji available</Text>
           </Animated.View>
         ) : (
-          <FlatList
-            data={customEmoji}
-            keyExtractor={(item) => item.name}
-            numColumns={8}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => handleSelect(item.name)}
-                style={({ pressed }) => ({
-                  width: 36,
-                  height: 36,
-                  margin: 2,
-                  borderRadius: 6,
-                  padding: 3,
-                  backgroundColor: pressed ? theme.colors.muted : "transparent",
-                  alignItems: "center",
-                  justifyContent: "center",
-                })}
-              >
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={{ width: 28, height: 28 }}
-                  contentFit="contain"
-                  accessibilityLabel={item.alt ?? item.name}
-                />
-              </Pressable>
-            )}
-          />
+          emojiPacks.map((pack) => (
+            <View key={pack.name}>
+              <Text>{pack.name}</Text>
+              <FlatList
+                data={pack.emoji}
+                keyExtractor={(item) => item.name}
+                numColumns={8}
+                renderItem={({ item }) => (
+                  <Pressable
+                    onPress={() => handleSelect(item)}
+                    style={({ pressed }) => ({
+                      width: 36,
+                      height: 36,
+                      margin: 2,
+                      borderRadius: 6,
+                      padding: 3,
+                      backgroundColor: pressed
+                        ? theme.colors.muted
+                        : "transparent",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    })}
+                  >
+                    <Image
+                      source={{ uri: item.imageUrl }}
+                      style={{ width: 28, height: 28 }}
+                      resizeMode="contain"
+                      accessibilityLabel={item.alt ?? item.name}
+                    />
+                  </Pressable>
+                )}
+              />
+            </View>
+          ))
         )}
       </Animated.View>
     </Animated.View>

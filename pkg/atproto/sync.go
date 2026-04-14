@@ -144,6 +144,31 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
+		// validate emote facets reference real emote items
+		for _, facet := range rec.Facets {
+			for i, feature := range facet.Features {
+				if feature.RichtextFacet_Emote == nil {
+					continue
+				}
+				emote := feature.RichtextFacet_Emote
+				if emote.Ref == nil {
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+				item, err := atsync.Model.GetEmoteItemByURI(ctx, emote.Ref.Uri)
+				if err != nil {
+					log.Error(ctx, "failed to look up emote item", "uri", emote.Ref.Uri, "err", err)
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+				if item == nil {
+					log.Debug(ctx, "emote facet references unknown item, stripping", "uri", emote.Ref.Uri)
+					facet.Features[i].RichtextFacet_Emote = nil
+					continue
+				}
+			}
+		}
+
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
@@ -158,7 +183,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to retrieve just-saved chat message", "err", err)
 			return nil
 		}
-		scm, err := mcm.ToStreamplaceMessageView()
+		scm, err := mcm.ToStreamplaceMessageView(ctx, atsync.Model)
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 			return nil
@@ -284,7 +309,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to get chat profile: %w", err)
 		}
 		if msg != nil {
-			msgView, err := msg.ToStreamplaceMessageView()
+			msgView, err := msg.ToStreamplaceMessageView(ctx, atsync.Model)
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}
@@ -684,6 +709,77 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
+
+	case *streamplace.EmotePack:
+		pack := &model.EmotePack{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			Name:      rec.Name,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if rec.OpenInMyChat != nil {
+			pack.OpenInMyChat = *rec.OpenInMyChat
+		}
+		if err := atsync.Model.UpsertEmotePack(ctx, pack); err != nil {
+			return fmt.Errorf("failed to upsert emote pack: %w", err)
+		}
+		log.Debug(ctx, "indexed emote pack", "uri", aturi.String(), "name", rec.Name)
+
+	case *streamplace.EmotePackDelegation:
+		d := &model.EmotePackDelegation{
+			URI:          aturi.String(),
+			CID:          cid,
+			RepoDID:      userDID,
+			RKey:         rkey.String(),
+			PackURI:      rec.Pack.Uri,
+			RecipientDID: rec.Did,
+			Record:       *recCBOR,
+			IndexedAt:    now,
+		}
+		if len(rec.Emotes) > 0 {
+			uris := make([]string, len(rec.Emotes))
+			for i, e := range rec.Emotes {
+				uris[i] = e.Uri
+			}
+			encoded, err := json.Marshal(uris)
+			if err != nil {
+				return fmt.Errorf("failed to encode allowed emotes: %w", err)
+			}
+			d.AllowedEmotes = encoded
+		}
+		if err := atsync.Model.UpsertEmotePackDelegation(ctx, d); err != nil {
+			return fmt.Errorf("failed to upsert pack delegation: %w", err)
+		}
+		log.Debug(ctx, "indexed pack delegation", "uri", aturi.String(), "recipient", rec.Did)
+
+	case *streamplace.EmoteItem:
+		item := &model.EmoteItem{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			PackURI:   rec.Pack,
+			Name:      rec.Name,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if rec.Image != nil {
+			item.ImageCID = rec.Image.Ref.String()
+			item.ImageMimeType = rec.Image.MimeType
+		}
+		if rec.Alt != nil {
+			item.Alt = *rec.Alt
+		}
+		if rec.Creator != nil {
+			item.CreatorDID = *rec.Creator
+		}
+		if err := atsync.Model.UpsertEmoteItem(ctx, item); err != nil {
+			return fmt.Errorf("failed to upsert emote item: %w", err)
+		}
+		log.Debug(ctx, "indexed emote item", "uri", aturi.String(), "name", rec.Name)
 
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))

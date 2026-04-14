@@ -285,6 +285,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
+	e.GET("/xrpc/place.stream.emote.getEmotePack", s.HandlePlaceStreamEmoteGetEmotePack)
+	e.GET("/xrpc/place.stream.emote.getEmotePacks", s.HandlePlaceStreamEmoteGetEmotePacks)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
@@ -416,6 +418,34 @@ func (s *Server) HandlePlaceStreamConfigGetEnv(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestream.ConfigGetEnv_Output, error)
 	out, handleErr = s.handlePlaceStreamConfigGetEnv(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamEmoteGetEmotePack(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamEmoteGetEmotePack")
+	defer span.End()
+	uri := c.QueryParam("uri")
+	var out *placestream.EmoteGetEmotePack_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamEmoteGetEmotePack(ctx context.Context,uri string) (*placestream.EmoteGetEmotePack_Output, error)
+	out, handleErr = s.handlePlaceStreamEmoteGetEmotePack(ctx, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamEmoteGetEmotePacks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamEmoteGetEmotePacks")
+	defer span.End()
+	streamer := c.QueryParam("streamer")
+	var out *placestream.EmoteGetEmotePacks_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamEmoteGetEmotePacks(ctx context.Context,streamer string) (*placestream.EmoteGetEmotePacks_Output, error)
+	out, handleErr = s.handlePlaceStreamEmoteGetEmotePacks(ctx, streamer)
 	if handleErr != nil {
 		return handleErr
 	}

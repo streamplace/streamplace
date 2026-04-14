@@ -26,6 +26,7 @@ import {
   w,
 } from "../../lib/theme/atoms";
 import {
+  ChatFacet,
   useAddSystemMessage,
   useChat,
   useCreateChatMessage,
@@ -53,6 +54,45 @@ const COOL_EMOJI_LIST = [
 
 const graphemer = new Graphemer();
 
+export interface RenderInputProps {
+  onSubmit: (msg: { text: string; facets?: ChatFacet[] }) => void;
+  authors: {
+    handle: string;
+    did?: string;
+    color?: { red: number; green: number; blue: number };
+  }[];
+  emojiData: EmojiData | null;
+  skinTone: number;
+  emojiPacks?: {
+    name: string;
+    ownerHandle?: string;
+    emoji: {
+      name: string;
+      imageUrl: string;
+      aturi: string;
+      cid: string;
+      alt?: string;
+    }[];
+  }[];
+  insertElement?:
+    | {
+        type: "emoji";
+        emojiId: string;
+        native: string | null;
+        aturi?: string | null;
+        cid?: string | null;
+        imageUrl?: string | null;
+        text: string;
+        seq: number;
+      }
+    | { type: "mention"; handle: string; did: string | null; seq: number }
+    | { type: "text"; text: string; seq: number }
+    | { type: "clear"; seq: number };
+  onMentionQuery?: (query: string | null) => void;
+  onEmojiQuery?: (query: string | null) => void;
+  onEnter?: (msg: { text: string; facets?: ChatFacet[] }) => void;
+}
+
 export function ChatBox({
   isPopout,
   chatBoxStyle,
@@ -60,7 +100,9 @@ export function ChatBox({
   setIsChatVisible,
   onEmojiPickerToggle,
   emojiPicker,
+  emojiPacks,
   skinTone = 0,
+  renderInput,
   hideLogin = false,
 }: {
   isPopout?: boolean;
@@ -73,7 +115,9 @@ export function ChatBox({
     onClose: () => void,
     onSelect: (emoji: any) => void,
   ) => ReactNode;
+  emojiPacks?: RenderInputProps["emojiPacks"];
   skinTone?: number;
+  renderInput?: (props: RenderInputProps) => ReactNode;
   hideLogin?: boolean;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -90,6 +134,9 @@ export function ChatBox({
   );
   const [filteredEmojis, setFilteredEmojis] = useState<any[]>([]);
   const [showTeleportModal, setShowTeleportModal] = useState(false);
+  const [insertElement, setInsertElement] =
+    useState<RenderInputProps["insertElement"]>(undefined);
+  const insertSeqRef = useRef(0);
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
@@ -124,10 +171,22 @@ export function ChatBox({
       // our fake system user "did"
       if (msg.author.did === "did:sys:system") return acc;
       if (acc.has(msg.author.handle)) return acc;
-      acc.set(msg.author.handle, msg.chatProfile);
+      acc.set(msg.author.handle, {
+        profile: msg.chatProfile,
+        did: msg.author.did,
+      });
       return acc;
-    }, new Map<string, ChatMessageViewHydrated["chatProfile"]>());
+    }, new Map<string, { profile: ChatMessageViewHydrated["chatProfile"]; did: string }>());
   }, [chat]);
+
+  const authorsArray = useMemo(() => {
+    if (!authors) return [];
+    return Array.from(authors.entries()).map(([handle, { profile, did }]) => ({
+      handle,
+      did,
+      color: profile?.color,
+    }));
+  }, [authors]);
 
   useEffect(() => {
     if (pdsAgent && linfo?.author?.did && pdsAgent.did === linfo.author.did) {
@@ -147,14 +206,54 @@ export function ChatBox({
   };
 
   const handleEmojiSelect = (emoji: any) => {
-    console.log("[ChatBox] handleEmojiSelect", emoji);
+    const seq = ++insertSeqRef.current;
     if (emoji.s) {
-      const beforeColon = message.slice(0, message.lastIndexOf(":"));
-      setMessage(`${beforeColon}${getSkinNative(emoji, skinTone)} `);
+      const native = getSkinNative(emoji, skinTone);
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.id,
+          native,
+          text: native,
+          seq,
+        });
+      } else {
+        const beforeColon = message.slice(0, message.lastIndexOf(":"));
+        setMessage(`${beforeColon}${native} `);
+      }
     } else if (emoji.type === "standard") {
-      setMessage(message + emoji.native);
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.id ?? emoji.native,
+          native: emoji.native,
+          text: emoji.native,
+          seq,
+        });
+      } else {
+        setMessage(message + emoji.native);
+      }
     } else if (emoji.type === "custom") {
-      setMessage(message + `:${emoji.name}: `);
+      const qualifiedName = (emoji as any).qualifiedName;
+      const emoteText = qualifiedName
+        ? `:${qualifiedName}:`
+        : `:${emoji.name}:`;
+      if (renderInput) {
+        setInsertElement({
+          type: "emoji",
+          emojiId: emoji.name,
+          native: null,
+          aturi: emoji.aturi ?? null,
+          cid: emoji.cid ?? null,
+          imageUrl: emoji.imageUrl ?? null,
+          text: emoteText,
+          seq,
+        });
+      } else {
+        setMessage(message + emoteText + " ");
+      }
+    } else {
+      return;
     }
     setShowEmojiSuggestions(false);
   };
@@ -199,107 +298,147 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length >= 3) {
-        if (!emojiData) return;
-        const aliasMatches = Object.entries(emojiData.aliases)
-          .map(([alias, emojiId]) => {
-            const aliasLower = alias.toLowerCase();
-            if (aliasLower === searchText) {
-              return { emojiId, alias, matchType: 0, index: 0 };
-            } else if (aliasLower.startsWith(searchText)) {
-              return { emojiId, alias, matchType: 1, index: 0 };
-            } else if (aliasLower.includes(searchText)) {
-              return {
-                emojiId,
-                alias,
-                matchType: 2,
-                index: aliasLower.indexOf(searchText),
-              }; // includes
+      if (searchText.length >= 1) {
+        const customMatches: any[] = [];
+        if (emojiPacks) {
+          const slashIdx = searchText.indexOf("/");
+          for (const pack of emojiPacks) {
+            for (const emote of pack.emoji) {
+              if (slashIdx !== -1) {
+                const handlePart = searchText.slice(0, slashIdx);
+                const namePart = searchText.slice(slashIdx + 1);
+                if (
+                  pack.ownerHandle &&
+                  pack.ownerHandle.toLowerCase().includes(handlePart) &&
+                  emote.name.toLowerCase().includes(namePart)
+                ) {
+                  customMatches.push({
+                    type: "custom",
+                    ...emote,
+                    qualifiedName: `${pack.ownerHandle}/${emote.name}`,
+                  });
+                }
+              } else {
+                if (emote.name.toLowerCase().includes(searchText)) {
+                  customMatches.push({ type: "custom", ...emote });
+                }
+              }
             }
-            return null;
-          })
-          .filter(Boolean);
-
-        // Map emojiId to best alias match info
-        const bestAliasMatch: Record<
-          string,
-          { matchType: number; index: number; alias: string }
-        > = {};
-        for (const match of aliasMatches) {
-          if (!match) continue;
-          const prev = bestAliasMatch[match.emojiId];
-          if (
-            !prev ||
-            match?.matchType < prev.matchType ||
-            (match.matchType === prev.matchType && match.index < prev.index)
-          ) {
-            bestAliasMatch[match.emojiId] = match;
           }
         }
 
-        // Collect all matching emojis by id, name, keywords, or alias
-        const allEmojis = Object.values(emojiData.emojis);
-        const filtered = allEmojis
-          .map((emoji: any) => {
-            // Check alias match
-            const aliasMatch = bestAliasMatch[emoji.id];
-            if (aliasMatch) {
-              return {
-                emoji,
-                sort: [aliasMatch.matchType, aliasMatch.index, 0],
-              };
-            }
-            // Check id, name, keywords
-            if (emoji.id.toLowerCase() === searchText) {
-              return { emoji, sort: [3, 0, 0] }; // exact id
-            }
-            if (emoji.id.toLowerCase().startsWith(searchText)) {
-              return { emoji, sort: [4, 0, 0] }; // startsWith id
-            }
-            if (emoji.id.toLowerCase().includes(searchText)) {
-              return {
-                emoji,
-                sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
-              }; // includes id
-            }
-            if (emoji.m.toLowerCase().includes(searchText)) {
-              return {
-                emoji,
-                sort: [6, emoji.m.toLowerCase().indexOf(searchText), 0],
-              };
-            }
-            if (
-              emoji.k &&
-              emoji.k.some((keyword: string) =>
-                keyword.toLowerCase().includes(searchText),
-              )
-            ) {
-              return { emoji, sort: [7, 0, 0] };
-            }
-            return null;
-          })
-          .filter(Boolean)
-          // Remove duplicates by emoji id (keep best match)
-          .reduce((acc: any[], curr: any) => {
-            if (!acc.find((e) => e.emoji.id === curr.emoji.id)) {
-              acc.push(curr);
-            }
-            return acc;
-          }, [])
-          // Sort by alias match type, then position, then fallback
-          .sort((a, b) => {
-            for (let i = 0; i < a.sort.length; ++i) {
-              if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
-            }
-            return 0;
-          })
-          .slice(0, 10) // Limit to 10 results
-          .map((entry) => entry.emoji);
+        if (searchText.length < 3) {
+          if (customMatches.length > 0) {
+            setFilteredEmojis(customMatches.slice(0, 10));
+            setHighlightedIndex(0);
+            setShowEmojiSuggestions(true);
+            setShowSuggestions(false);
+          } else {
+            setShowEmojiSuggestions(false);
+          }
+        } else {
+          if (!emojiData) return;
+          const aliasMatches = Object.entries(emojiData.aliases)
+            .map(([alias, emojiId]) => {
+              const aliasLower = alias.toLowerCase();
+              if (aliasLower === searchText) {
+                return { emojiId, alias, matchType: 0, index: 0 };
+              } else if (aliasLower.startsWith(searchText)) {
+                return { emojiId, alias, matchType: 1, index: 0 };
+              } else if (aliasLower.includes(searchText)) {
+                return {
+                  emojiId,
+                  alias,
+                  matchType: 2,
+                  index: aliasLower.indexOf(searchText),
+                }; // includes
+              }
+              return null;
+            })
+            .filter(Boolean);
 
-        setFilteredEmojis(filtered);
-        setHighlightedIndex(0);
-        setShowEmojiSuggestions(filtered.length > 0);
-        setShowSuggestions(false);
+          // Map emojiId to best alias match info
+          const bestAliasMatch: Record<
+            string,
+            { matchType: number; index: number; alias: string }
+          > = {};
+          for (const match of aliasMatches) {
+            if (!match) continue;
+            const prev = bestAliasMatch[match.emojiId];
+            if (
+              !prev ||
+              match?.matchType < prev.matchType ||
+              (match.matchType === prev.matchType && match.index < prev.index)
+            ) {
+              bestAliasMatch[match.emojiId] = match;
+            }
+          }
+
+          // Collect all matching emojis by id, name, keywords, or alias
+          const allEmojis = Object.values(emojiData.emojis);
+          const filtered = allEmojis
+            .map((emoji: any) => {
+              // Check alias match
+              const aliasMatch = bestAliasMatch[emoji.id];
+              if (aliasMatch) {
+                return {
+                  emoji,
+                  sort: [aliasMatch.matchType, aliasMatch.index, 0],
+                };
+              }
+              // Check id, name, keywords
+              if (emoji.id.toLowerCase() === searchText) {
+                return { emoji, sort: [3, 0, 0] }; // exact id
+              }
+              if (emoji.id.toLowerCase().startsWith(searchText)) {
+                return { emoji, sort: [4, 0, 0] }; // startsWith id
+              }
+              if (emoji.id.toLowerCase().includes(searchText)) {
+                return {
+                  emoji,
+                  sort: [5, emoji.id.toLowerCase().indexOf(searchText), 0],
+                }; // includes id
+              }
+              if (emoji.m.toLowerCase().includes(searchText)) {
+                return {
+                  emoji,
+                  sort: [6, emoji.m.toLowerCase().indexOf(searchText), 0],
+                };
+              }
+              if (
+                emoji.k &&
+                emoji.k.some((keyword: string) =>
+                  keyword.toLowerCase().includes(searchText),
+                )
+              ) {
+                return { emoji, sort: [7, 0, 0] };
+              }
+              return null;
+            })
+            .filter(Boolean)
+            // Remove duplicates by emoji id (keep best match)
+            .reduce((acc: any[], curr: any) => {
+              if (!acc.find((e) => e.emoji.id === curr.emoji.id)) {
+                acc.push(curr);
+              }
+              return acc;
+            }, [])
+            // Sort by alias match type, then position, then fallback
+            .sort((a, b) => {
+              for (let i = 0; i < a.sort.length; ++i) {
+                if (a.sort[i] !== b.sort[i]) return a.sort[i] - b.sort[i];
+              }
+              return 0;
+            })
+            .slice(0, 10) // Limit to 10 results
+            .map((entry) => entry.emoji);
+
+          const combined = [...customMatches, ...filtered].slice(0, 10);
+          setFilteredEmojis(combined);
+          setHighlightedIndex(0);
+          setShowEmojiSuggestions(combined.length > 0);
+          setShowSuggestions(false);
+        }
       } else {
         setShowEmojiSuggestions(false);
       }
@@ -314,9 +453,10 @@ export function ChatBox({
     }
   };
 
-  const submit = async () => {
-    if (!message.trim()) return;
-    if (graphemer.countGraphemes(message) > 300) {
+  const submitText = async (msg: { text: string; facets?: ChatFacet[] }) => {
+    const messageText = msg.text;
+    if (!messageText.trim()) return;
+    if (graphemer.countGraphemes(messageText) > 300) {
       toast.show(
         "Message too long",
         "Please limit your message to 300 characters.",
@@ -328,8 +468,6 @@ export function ChatBox({
       return;
     }
 
-    const messageText = message;
-    setMessage("");
     setReplyToMessage(null);
 
     if (messageText.startsWith("/")) {
@@ -354,6 +492,7 @@ export function ChatBox({
       } else {
         createChatMessage({
           text: messageText,
+          facets: msg.facets,
           reply: replyTo || undefined,
         });
       }
@@ -362,6 +501,12 @@ export function ChatBox({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submit = async () => {
+    const messageText = message;
+    setMessage("");
+    await submitText({ text: messageText });
 
     if (textAreaRef.current && !textAreaRef.current.isFocused()) {
       textAreaRef.current.focus();
@@ -422,117 +567,129 @@ export function ChatBox({
           </Pressable>
         </View>
       )}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Textarea
-          ref={textAreaRef}
-          numberOfLines={1}
-          value={message}
-          enterKeyHint="send"
-          onSubmitEditing={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          multiline={false}
-          onChangeText={(text) => {
-            setMessage(text);
-            updateSuggestions(text);
-          }}
-          onKeyPress={(k) => {
-            if (k.nativeEvent.key === "Enter") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
-                }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
-                }
-              } else {
-                k.preventDefault();
+      {renderInput ? (
+        renderInput({
+          onSubmit: submitText,
+          authors: authorsArray,
+          emojiData,
+          skinTone,
+          emojiPacks,
+          insertElement,
+        })
+      ) : (
+        <>
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+            <Textarea
+              ref={textAreaRef}
+              numberOfLines={1}
+              value={message}
+              enterKeyHint="send"
+              onSubmitEditing={(e) => {
+                e.preventDefault();
                 submit();
-              }
-            } else if (k.nativeEvent.key === "Tab") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
+              }}
+              multiline={false}
+              onChangeText={(text) => {
+                setMessage(text);
+                updateSuggestions(text);
+              }}
+              onKeyPress={(k) => {
+                if (k.nativeEvent.key === "Enter") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    const handles = Array.from(filteredAuthors.keys());
+                    if (handles.length > 0) {
+                      handleMentionSelect(handles[highlightedIndex]);
+                    }
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    if (filteredEmojis.length > 0) {
+                      handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                    }
+                  } else {
+                    k.preventDefault();
+                    submit();
+                  }
+                } else if (k.nativeEvent.key === "Tab") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    const handles = Array.from(filteredAuthors.keys());
+                    if (handles.length > 0) {
+                      handleMentionSelect(handles[highlightedIndex]);
+                    }
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    if (filteredEmojis.length > 0) {
+                      handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                    }
+                  }
+                } else if (k.nativeEvent.key === "ArrowUp") {
+                  if (showSuggestions || showEmojiSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) => Math.max(prev - 1, 0));
+                  }
+                } else if (k.nativeEvent.key === "ArrowDown") {
+                  if (showSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) =>
+                      Math.min(
+                        prev + 1,
+                        Array.from(filteredAuthors.keys()).length - 1,
+                      ),
+                    );
+                  } else if (showEmojiSuggestions) {
+                    k.preventDefault();
+                    setHighlightedIndex((prev) =>
+                      Math.min(prev + 1, filteredEmojis.length - 1),
+                    );
+                  }
+                } else if (k.nativeEvent.key === "Escape") {
+                  if (showSuggestions || showEmojiSuggestions) {
+                    k.preventDefault();
+                    setShowSuggestions(false);
+                    setShowEmojiSuggestions(false);
+                  }
                 }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
-                }
-              }
-            } else if (k.nativeEvent.key === "ArrowUp") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-              }
-            } else if (k.nativeEvent.key === "ArrowDown") {
-              if (showSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(
-                    prev + 1,
-                    Array.from(filteredAuthors.keys()).length - 1,
-                  ),
-                );
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(prev + 1, filteredEmojis.length - 1),
-                );
-              }
-            } else if (k.nativeEvent.key === "Escape") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setShowSuggestions(false);
-                setShowEmojiSuggestions(false);
-              }
-            }
-          }}
-          style={[
-            chatBoxStyle,
-            isOverLimit && {
-              borderColor: "#ef4444",
-              borderWidth: 2,
-              outline: "none",
-            },
-          ]}
-          // "submit" won't blur on enter
-          submitBehavior="submit"
-          placeholder="Type a message..."
-        />
-        <View>
-          <Button
-            disabled={submitting}
-            variant="secondary"
-            width="min"
-            style={{ borderRadius: 16, height: 43 }}
-            onPress={submit}
-          >
-            {submitting ? <Loader /> : "Send"}
-          </Button>
-        </View>
-      </View>
-      {showSuggestions && (
-        <MentionSuggestions
-          authors={filteredAuthors || new Map()}
-          highlightedIndex={highlightedIndex}
-          onSelect={handleMentionSelect}
-        />
-      )}
-      {showEmojiSuggestions && (
-        <EmojiSuggestions
-          emojis={filteredEmojis}
-          highlightedIndex={highlightedIndex}
-          onSelect={handleEmojiSelect}
-          skinTone={skinTone}
-        />
+              }}
+              style={[
+                chatBoxStyle,
+                isOverLimit && {
+                  borderColor: "#ef4444",
+                  borderWidth: 2,
+                  outline: "none",
+                },
+              ]}
+              submitBehavior="submit"
+              placeholder="Type a message..."
+            />
+            <View>
+              <Button
+                disabled={submitting}
+                variant="secondary"
+                width="min"
+                style={{ borderRadius: 16, height: 43 }}
+                onPress={submit}
+              >
+                {submitting ? <Loader /> : "Send"}
+              </Button>
+            </View>
+          </View>
+          {showSuggestions && (
+            <MentionSuggestions
+              authors={filteredAuthors || new Map()}
+              highlightedIndex={highlightedIndex}
+              onSelect={handleMentionSelect}
+            />
+          )}
+          {showEmojiSuggestions && (
+            <EmojiSuggestions
+              emojis={filteredEmojis}
+              highlightedIndex={highlightedIndex}
+              onSelect={handleEmojiSelect}
+              skinTone={skinTone}
+            />
+          )}
+        </>
       )}
       {Platform.OS === "web" && (
         <View

@@ -4,6 +4,7 @@ import {
   ChatMessageViewHydrated,
   PlaceStreamChatMessage,
   PlaceStreamDefs,
+  PlaceStreamRichtextFacet,
 } from "streamplace";
 import { useChatProfile, useDID, useHandle } from "../streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
@@ -44,8 +45,11 @@ export const useAddPendingHide = () => {
   );
 };
 
+export type ChatFacet = PlaceStreamRichtextFacet.Main;
+
 export type NewChatMessage = {
   text: string;
+  facets?: ChatFacet[];
   reply?: {
     cid: string;
     uri: string;
@@ -72,28 +76,29 @@ export const useCreateChatMessage = () => {
       throw new Error("Profile not found");
     }
 
-    const rt = new RichText({ text: msg.text });
-    await rt.detectFacets(pdsAgent);
-
-    // filter out any facets that aren't in the allowed list
-    rt.facets = rt.facets?.filter((facet) => {
-      return (
-        // if all features are in the allowed list
+    let facets: PlaceStreamChatMessage.Record["facets"];
+    if (msg.facets) {
+      facets = msg.facets as PlaceStreamChatMessage.Record["facets"];
+    } else {
+      const rt = new RichText({ text: msg.text });
+      await rt.detectFacets(pdsAgent);
+      rt.facets = rt.facets?.filter((facet) =>
         facet.features.every((feature) =>
           [
             "app.bsky.richtext.facet#link",
             "app.bsky.richtext.facet#mention",
           ].includes(feature.$type),
-        )
+        ),
       );
-    });
+      facets = rt.facets as PlaceStreamChatMessage.Record["facets"];
+    }
 
     const record: PlaceStreamChatMessage.Record = {
       $type: "place.stream.chat.message",
       text: msg.text,
       createdAt: new Date().toISOString(),
       streamer: streamerProfile.did,
-      facets: rt.facets as PlaceStreamChatMessage.Record["facets"],
+      facets,
       ...(msg.reply
         ? {
             reply: {

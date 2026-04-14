@@ -16,7 +16,9 @@ import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
+import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { useEmotePacks } from "hooks/useEmotePacks";
 import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
@@ -84,6 +86,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
   const emojiData = useEmojiData();
   const livestream = useLivestream();
+  const emotePacks = useEmotePacks(profile?.did ?? null);
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";
@@ -211,14 +214,16 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
                 emojiData={emojiData}
+                emojiPacks={emotePacks}
                 emojiPicker={(isOpen, onClose, onSelect) => (
                   <EmojiPicker
                     isOpen={isOpen}
                     onClose={onClose}
                     onSelect={onSelect}
-                    customEmoji={[]}
+                    emojiPacks={emotePacks}
                   />
                 )}
+                renderInput={renderChatInput}
               />
             </View>
             <View

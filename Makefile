@@ -380,6 +380,7 @@ go-lexicons:
 	&& rm -rf ./pkg/streamplace/cbor_gen.go \
 	&& $(MAKE) lexgen \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
+	&& go run ./pkg/gen/stub \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
 	&& go run ./pkg/gen/gen.go \
 	&& $(MAKE) lexgen \

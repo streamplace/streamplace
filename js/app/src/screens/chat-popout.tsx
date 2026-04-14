@@ -9,7 +9,9 @@ import {
   usePlayerStore,
   zero,
 } from "@streamplace/components";
+import { renderChatInput } from "components/chat-input";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { useEmotePacks } from "hooks/useEmotePacks";
 import { ArrowRight } from "lucide-react-native";
 import { useEffect } from "react";
 import { Pressable, View } from "react-native";
@@ -49,6 +51,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
   const setSrc = usePlayerStore((x) => x.setSrc);
   const profile = useUserProfile();
   const emojiData = useEmojiData();
+  const emotePacks = useEmotePacks(params.user);
   const hideSidebar = useStore((x) => x.setSidebarHidden);
   const showSidebar = useStore((x) => x.setSidebarUnhidden);
   const openLoginModal = useStore((x) => x.openLoginModal);
@@ -105,9 +108,10 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
                 isOpen={isOpen}
                 onClose={onClose}
                 onSelect={onSelect}
-                customEmoji={[]}
+                emojiPacks={emotePacks}
               />
             )}
+            renderInput={renderChatInput}
           />
         ) : (
           <Pressable

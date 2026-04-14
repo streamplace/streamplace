@@ -2,7 +2,7 @@ import React from "react";
 import { Text, View } from "react-native";
 import * as zero from "../../ui";
 import { Chat } from "../chat/chat";
-import { ChatBox } from "../chat/chat-box";
+import { ChatBox, RenderInputProps } from "../chat/chat-box";
 
 const { flex, bg, r, borders, p, px, py, text, layout } = zero;
 
@@ -12,11 +12,13 @@ interface ChatPanelProps {
   messagesPerMinute?: number;
   shownMessages?: number;
   emojiData?: any;
+  emojiPacks?: RenderInputProps["emojiPacks"];
   emojiPicker?: (
     isOpen: boolean,
     onClose: () => void,
     onSelect: (emoji: any) => void,
   ) => React.ReactNode;
+  renderInput?: (props: RenderInputProps) => React.ReactNode;
 }
 
 export default function ChatPanel({
@@ -25,7 +27,9 @@ export default function ChatPanel({
   messagesPerMinute = 0,
   shownMessages = 50,
   emojiData = null,
+  emojiPacks,
   emojiPicker,
+  renderInput,
 }: ChatPanelProps) {
   return (
     <View
@@ -70,7 +74,9 @@ export default function ChatPanel({
         <View style={[{ flexShrink: 0 }]}>
           <ChatBox
             emojiData={emojiData}
+            emojiPacks={emojiPacks}
             emojiPicker={emojiPicker}
+            renderInput={renderInput}
             chatBoxStyle={[
               bg.gray[700],
               borders.width.thin,

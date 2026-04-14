@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.emote.getEmotePacks",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get emote packs available to the viewer in a specific stream's chat.",
+      "parameters": {
+        "type": "params",
+        "required": ["streamer"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer whose chat context to fetch emote packs for."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["packs"],
+          "properties": {
+            "packs": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.emote.defs#packView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

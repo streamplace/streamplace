@@ -1,5 +1,6 @@
 import {
   Button,
+  hexToRgba,
   Input,
   MenuContainer,
   MenuGroup,
@@ -491,7 +492,10 @@ export default function RecommendationsManager() {
                             {beforeSeparator}
                             <MenuItem key={`item-${index}`}>
                               <GripVertical
-                                color={theme.colors.mutedForeground + "a0"}
+                                color={hexToRgba(
+                                  theme.colors.mutedForeground,
+                                  0.63,
+                                )}
                                 size={18}
                                 style={{
                                   marginLeft: -4,

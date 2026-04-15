@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { zero } from "../..";
 import { C2PA_WARNING_LABELS } from "../../lib/metadata-constants";
 import { useTheme } from "../../lib/theme/theme";
-import { pt, r } from "../../ui";
+import { hexToRgba, pt, r } from "../../ui";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -39,7 +39,7 @@ export function ContentWarningBadge({ warnings }: ContentWarningBadgeProps) {
             px[3],
             py[2],
             r.md,
-            { backgroundColor: theme.colors.warning + "20" },
+            { backgroundColor: hexToRgba(theme.colors.warning, 0.13) },
           ]}
         >
           <AlertTriangle size={14} color={theme.colors.warningForeground} />

@@ -1,4 +1,5 @@
 import { Text, zero } from "@streamplace/components";
+import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { Edit3, Trash2 } from "lucide-react-native";
 import { ReactNode } from "react";
 import { Pressable, Switch, View } from "react-native";
@@ -132,7 +133,10 @@ export function SettingsListItem({
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
           <Text style={[text.gray[300], { fontSize: 12 }]}>URL:</Text>
           <Text
-            style={[text.gray[400], { fontSize: 12, fontFamily: "monospace" }]}
+            style={[
+              text.gray[400],
+              { fontSize: 12, fontFamily: fontFamilies.monoRegular },
+            ]}
             numberOfLines={1}
           >
             {url.length > 50

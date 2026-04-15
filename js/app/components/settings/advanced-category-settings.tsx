@@ -6,6 +6,7 @@ import {
   MenuGroup,
   Text,
   useFetchBranding,
+  useTheme,
   View,
   zero,
 } from "@streamplace/components";
@@ -21,6 +22,7 @@ import { SettingsRowItem } from "./components/settings-navigation-item";
 type Status = "ready" | "active" | "done";
 
 export function AdvancedCategorySettings() {
+  const { theme } = useTheme();
   const url = useStore((state) => state.url);
   const setURL = useStore((state) => state.setURL);
   const defaultUrl = DEFAULT_URL;
@@ -91,7 +93,7 @@ export function AdvancedCategorySettings() {
                     placeholder={
                       url != defaultUrl ? url : t("enter-custom-node-url")
                     }
-                    placeholderTextColor="#999"
+                    placeholderTextColor={theme.colors.textMuted}
                     onChangeText={setNewUrl}
                     onSubmitEditing={onSubmitUrl}
                     textContentType="URL"

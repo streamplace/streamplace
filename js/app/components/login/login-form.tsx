@@ -275,7 +275,7 @@ export default function LoginForm({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.textMuted}
             containerStyle={{
               paddingLeft: 46,
             }}

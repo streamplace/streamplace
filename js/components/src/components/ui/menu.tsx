@@ -22,7 +22,7 @@ import {
   px,
   py,
 } from "../../lib/theme/atoms";
-import { mergeStyles, useTheme } from "../../ui";
+import { hexToRgba, mergeStyles, useTheme } from "../../ui";
 import { Text } from "./text";
 
 export interface MenuContainerProps {
@@ -53,7 +53,7 @@ export const MenuGroup = forwardRef<View, MenuGroupProps>(
       <View
         ref={ref}
         style={[
-          { backgroundColor: theme.colors.muted + "c0" },
+          { backgroundColor: hexToRgba(theme.colors.muted, 0.75) },
           Platform.OS === "web" ? [px[1], py[1]] : p[1],
           gap.all[1],
           { borderRadius: borderRadius.lg },

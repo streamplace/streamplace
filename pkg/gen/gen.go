@@ -22,6 +22,8 @@ func main() {
 		streamplace.ChatMessage{},
 		streamplace.RichtextFacet{},
 		streamplace.ChatProfile{},
+		streamplace.ChatProfile_BadgeSelections{},
+		streamplace.ChatProfile_StreamerBadgeSelection{},
 		streamplace.ChatProfile_Color{},
 		streamplace.ChatMessage_ReplyRef{},
 		streamplace.ServerSettings{},
@@ -38,6 +40,8 @@ func main() {
 		streamplace.LiveTeleport{},
 		streamplace.LiveRecommendations{},
 		streamplace.LiveViewerCount{},
+		streamplace.BadgeDef{},
+		streamplace.BadgeIssuance{},
 	); err != nil {
 		panic(err)
 	}

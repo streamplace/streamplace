@@ -354,6 +354,22 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				go atsync.Bus.Publish(evt.Repo, deletedPin)
 			}
 
+			if collection.String() == constants.PLACE_STREAM_BADGE_DEF {
+				log.Debug(ctx, "deleting badge def", "uri", uri)
+				err := atsync.Model.DeleteBadgeDef(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete badge def", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_BADGE_ISSUANCE {
+				log.Debug(ctx, "deleting badge issuance", "uri", uri)
+				err := atsync.Model.DeleteBadgeIssuance(ctx, uri)
+				if err != nil {
+					log.Error(ctx, "failed to delete badge issuance", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

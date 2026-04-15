@@ -16,7 +16,9 @@ var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //
 var PLACE_STREAM_CHAT_PINNED_RECORD = "place.stream.chat.pinnedRecord"        //nolint:all
 var PLACE_STREAM_DEFAULT_METADATA = "place.stream.metadata.configuration"     //nolint:all
 var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //nolint:all
-var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all
+var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all                      //nolint:all
+var PLACE_STREAM_BADGE_DEF = "place.stream.badge.def"                         //nolint:all
+var PLACE_STREAM_BADGE_ISSUANCE = "place.stream.badge.issuance"               //nolint:all
 
 // Streamplace badge types
 const (
@@ -24,7 +26,15 @@ const (
 	BadgeTypeBot      = "place.stream.badge.defs#bot"
 	BadgeTypeStreamer = "place.stream.badge.defs#streamer"
 	BadgeTypeVIP      = "place.stream.badge.defs#vip"
+	BadgeTypeEvent    = "place.stream.badge.defs#event"
 )
+
+// GlobalBadgeIssuers is the list of DIDs authorized to issue globally-valid badges
+// (i.e. badges that appear in any streamer's chat once the recipient selects them).
+// Add the streamplace node DID here for event/contest badges.
+// We may want to limit this even further in the future to specific at URIs to avoid abuse
+// but for now we'll trust these users
+var GlobalBadgeIssuers = []string{"did:plc:2zmxikig2sj7gqaezl5gntae", "did:plc:k644h4rq5bjfzcetgsa6tuby", "did:plc:rbvrr34edl5ddpuwcubjiost"} //nolint:all
 
 const SelfLabelBot = "bot" //nolint:all
 

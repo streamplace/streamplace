@@ -278,6 +278,7 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
+	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
@@ -315,6 +316,20 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	return nil
+}
+
+func (s *Server) HandlePlaceStreamBadgeGetIssuedBadges(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBadgeGetIssuedBadges")
+	defer span.End()
+	streamer := c.QueryParam("streamer")
+	var out *placestream.BadgeGetIssuedBadges_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context,streamer string) (*placestream.BadgeGetIssuedBadges_Output, error)
+	out, handleErr = s.handlePlaceStreamBadgeGetIssuedBadges(ctx, streamer)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamBadgeGetValidBadges(c echo.Context) error {

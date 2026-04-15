@@ -685,6 +685,45 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
 
+	case *streamplace.BadgeDef:
+		def := &model.BadgeDef{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			Name:      rec.Name,
+			BadgeType: rec.BadgeType,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if rec.Description != nil {
+			def.Description = *rec.Description
+		}
+		if rec.Image != nil {
+			def.ImageCID = rec.Image.Ref.String()
+			def.ImageMimeType = rec.Image.MimeType
+		}
+		if err := atsync.Model.UpsertBadgeDef(ctx, def); err != nil {
+			return fmt.Errorf("failed to upsert badge def: %w", err)
+		}
+		log.Debug(ctx, "indexed badge def", "uri", aturi.String(), "name", rec.Name)
+
+	case *streamplace.BadgeIssuance:
+		issuance := &model.BadgeIssuance{
+			URI:          aturi.String(),
+			CID:          cid,
+			RepoDID:      userDID,
+			RKey:         rkey.String(),
+			RecipientDID: rec.Did,
+			BadgeURI:     rec.Badge.Uri,
+			Record:       *recCBOR,
+			IndexedAt:    now,
+		}
+		if err := atsync.Model.UpsertBadgeIssuance(ctx, issuance); err != nil {
+			return fmt.Errorf("failed to upsert badge issuance: %w", err)
+		}
+		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

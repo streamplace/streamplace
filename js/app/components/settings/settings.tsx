@@ -17,6 +17,7 @@ import {
 } from "components/settings/components/settings-navigation-item";
 import { ImageBackground } from "expo-image";
 import {
+  Award,
   Brush,
   Globe,
   Info,
@@ -148,6 +149,21 @@ export function Settings() {
                   title={t("danmu")}
                   screen="DanmuCategory"
                   icon={Mu as any}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("issue-badges")}
+                  screen="BadgeIssuer"
+                  icon={Award}
+                />
+              </MenuGroup>
+            )}
+            {loggedIn && (
+              <MenuGroup>
+                <SettingsNavigationItem
+                  title={t("badges")}
+                  screen="BadgeSelection"
+                  icon={Award}
                 />
               </MenuGroup>
             )}

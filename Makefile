@@ -306,6 +306,7 @@ dev-setup-meson-configure:
 
 .PHONY: muxl-wasm
 muxl-wasm:
+	rustup target add wasm32-wasip1
 	cargo build -p muxl-wasm --target wasm32-wasip1 --release
 	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 

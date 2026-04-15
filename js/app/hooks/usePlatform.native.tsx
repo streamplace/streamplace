@@ -14,5 +14,8 @@ export default function usePlatform(): IsPlatform {
     isSafari: false,
     isChrome: false,
     isFirefox: false,
+    isMobileSafari: false,
+    isWebAndroid: false,
+    isWebIOS: false,
   };
 }

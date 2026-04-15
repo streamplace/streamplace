@@ -32,7 +32,7 @@ func CombineSegments(ctx context.Context, inputFds []io.ReadSeeker, ms MediaSign
 	if err != nil {
 		return err
 	}
-	err = ms.SignConcatMP4(context.Background(), bytes.NewReader(bs), inputFds, output)
+	err = ms.SignConcatMP4(ctx, bytes.NewReader(bs), inputFds, output)
 	if err != nil {
 		return err
 	}

@@ -1,5 +1,7 @@
 package constants
 
+import "fmt"
+
 var PLACE_STREAM_KEY = "place.stream.key"                                     //nolint:all
 var PLACE_STREAM_LIVESTREAM = "place.stream.livestream"                       //nolint:all
 var PLACE_STREAM_CHAT_MESSAGE = "place.stream.chat.message"                   //nolint:all
@@ -93,3 +95,9 @@ const (
 )
 
 const BlueskyProfileGoliveKey = "place.stream.live.golive"
+
+const QueueMaxSizeBuffers = uint(0)
+const QueueMaxSizeTime = uint(0)
+const QueueMaxSizeBytes = uint(50000000)
+
+var Queue2Big = fmt.Sprintf("queue2 max-size-buffers=%d max-size-bytes=%d max-size-time=%d", QueueMaxSizeBuffers, QueueMaxSizeBytes, QueueMaxSizeTime)

@@ -283,7 +283,7 @@ static-test:
 
 .PHONY: dev-setup
 dev-setup:
-	$(MAKE) -j16 app-cached dev-setup-meson
+	$(MAKE) -j16 app-cached dev-setup-meson muxl-wasm
 
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)
@@ -303,6 +303,11 @@ dev-setup-meson:
 dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
+
+.PHONY: muxl-wasm
+muxl-wasm:
+	cargo build -p muxl-wasm --target wasm32-wasip1 --release
+	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked
@@ -599,11 +604,11 @@ desktop-windows-amd64:
 	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
 .PHONY: streamplace
-streamplace: app-cached meson-setup-static
+streamplace: app-cached meson-setup-static muxl-wasm
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive
-archive: app-cached meson-setup-static godeps
+archive: app-cached meson-setup-static godeps muxl-wasm
 	meson compile -C $(BUILDDIR) archive | grep -v drectve
 
 .PHONY: linux-amd64
@@ -710,6 +715,13 @@ link-gstreamer:
 link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
+
+.PHONY: build-muxl
+build-muxl:
+	cd ../s2pa-muxl \
+	&& cargo build --target wasm32-wasip1 --release \
+	&& cd - \
+	&& cp ../s2pa-muxl/target/wasm32-wasip1/release/muxl.wasm pkg/muxl/muxl.wasm
 
 #   _____   ____   _____ _  ________ _____
 #  |  __ \ / __ \ / ____| |/ /  ____|  __ \

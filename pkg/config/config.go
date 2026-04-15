@@ -149,6 +149,13 @@ type CLI struct {
 	PlayerTelemetry             bool
 	PlaybackWorkerURL           string
 	Ingests                     *placestream.IngestGetIngestUrls_Output
+	S3Endpoint                  string
+	S3Bucket                    string
+	S3AccessKeyID               string
+	S3SecretAccessKey           string
+	S3Region                    string
+	DisableSyndication          bool
+	LegacySegmentation          bool
 }
 
 // ContentFilters represents the content filtering configuration
@@ -809,6 +816,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources: urfavecli.EnvVars("SP_SYNDICATE"),
 			},
 			&urfavecli.BoolFlag{
+				Name:        "disable-syndication",
+				Usage:       `entirely disable syndication in both directions. useful for local development.`,
+				Value:       false,
+				Destination: &cli.DisableSyndication,
+				Sources:     urfavecli.EnvVars("SP_DISABLE_SYNDICATION"),
+			},
+			&urfavecli.BoolFlag{
 				Name:        "player-telemetry",
 				Usage:       "enable player telemetry",
 				Value:       true,
@@ -832,6 +846,44 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return json.Unmarshal([]byte(s), &cli.Ingests)
 				},
 				Sources: urfavecli.EnvVars("SP_INGESTS"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "s3-endpoint",
+				Usage:       "S3-compatible endpoint URL for segment archival uploads",
+				Destination: &cli.S3Endpoint,
+				Sources:     urfavecli.EnvVars("SP_S3_ENDPOINT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "s3-bucket",
+				Usage:       "S3 bucket name for segment archival uploads",
+				Destination: &cli.S3Bucket,
+				Sources:     urfavecli.EnvVars("SP_S3_BUCKET"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "s3-access-key-id",
+				Usage:       "S3 access key ID for segment archival uploads",
+				Destination: &cli.S3AccessKeyID,
+				Sources:     urfavecli.EnvVars("SP_S3_ACCESS_KEY_ID"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "s3-secret-access-key",
+				Usage:       "S3 secret access key for segment archival uploads",
+				Destination: &cli.S3SecretAccessKey,
+				Sources:     urfavecli.EnvVars("SP_S3_SECRET_ACCESS_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "s3-region",
+				Usage:       "S3 region (default: us-east-1)",
+				Value:       "us-east-1",
+				Destination: &cli.S3Region,
+				Sources:     urfavecli.EnvVars("SP_S3_REGION"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "legacy-segmentation",
+				Usage:       "switch back from MUXL to legacy segmentation in case streams have problems (shouldn't need!)",
+				Value:       false,
+				Sources:     urfavecli.EnvVars("SP_LEGACY_SEGMENTATION"),
+				Destination: &cli.LegacySegmentation,
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",
@@ -1228,7 +1280,14 @@ func (cli *CLI) DumpDebugSegment(ctx context.Context, name string, r io.Reader) 
 	}()
 }
 
+func (cli *CLI) S3Configured() bool {
+	return cli.S3Endpoint != "" && cli.S3Bucket != "" && cli.S3AccessKeyID != "" && cli.S3SecretAccessKey != ""
+}
+
 func (cli *CLI) ShouldSyndicate(did string) bool {
+	if cli.DisableSyndication {
+		return false
+	}
 	for _, d := range cli.Syndicate {
 		if d == "*" {
 			return true

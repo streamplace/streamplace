@@ -257,7 +257,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 
-		err = a.MediaManager.MKVIngest(context.Background(), r, mediaSigner)
+		err = a.MediaManager.MKVIngest(ctx, r, mediaSigner)
 
 		if err != nil {
 			log.Log(ctx, "stream error", "error", err)

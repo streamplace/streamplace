@@ -11,13 +11,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/test/remote"
 )
 
 func TestMP4ToMPEGTS(t *testing.T) {
 	withNoGSTLeaks(t, func() {
-		for _, file := range []string{"sample-segment.mp4", "short-video.mp4"} {
+		for _, file := range []string{
+			getFixture("sample-segment.mp4"),
+			getFixture("short-video.mp4"),
+			remote.RemoteFixture("82d20ee62b02f1c3a727b3001f1fa939afb757f9f205fa438d7b5753e1253eef/2026-04-11T22-39-41-861Z-packetize-input-019d7eb3-6f24-776c-ba1b-2f909a2379d7.mp4")} {
 			// Open input file
-			inputFile, err := os.Open(getFixture(file))
+			inputFile, err := os.Open(file)
 			require.NoError(t, err)
 			defer inputFile.Close()
 

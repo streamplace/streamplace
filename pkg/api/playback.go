@@ -263,6 +263,7 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 
 func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		ctx = log.WithLogValues(r.Context(), "func", "HandleThumbnailPlayback")
 		user := p.ByName("user")
 		if user == "" {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
@@ -313,6 +314,7 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPInternalServerError(w, "could not get segment file path", err)
 			return
 		}
+		log.Debug(ctx, "serving thumbnail", "fpath", fpath)
 		http.ServeFile(w, r, fpath)
 	}
 }

@@ -509,15 +509,28 @@ export function DropdownMenuShortcut(props: any) {
 
 export const DropdownMenuGroup = forwardRef<
   any,
-  { inset?: boolean; title?: string; children: ReactNode }
+  { inset?: boolean; title?: string; description?: string; children: ReactNode }
 >((props, ref) => {
   const { theme } = useTheme();
-  const { inset, title, children, ...rest } = props;
+  const { inset, title, children, description, ...rest } = props;
   return (
     <View style={[inset && gap[2]]} ref={ref} {...rest}>
       {title && (
-        <Text style={[{ color: theme.colors.textMuted }, pb[1], pl[2]]}>
+        <Text
+          style={[
+            { color: theme.colors.text },
+            description ? pt[1] : py[1],
+            pl[2],
+          ]}
+        >
           {title}
+        </Text>
+      )}
+      {description && (
+        <Text
+          style={[{ color: theme.colors.textMuted }, pb[2], pl[2], fontSize.sm]}
+        >
+          {description}
         </Text>
       )}
       <View

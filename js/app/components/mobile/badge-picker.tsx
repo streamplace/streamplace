@@ -206,87 +206,92 @@ export function BadgePicker() {
           <BadgeTriggerButton badge={activeBadge} loading={loading} />
         </DropdownMenuTrigger>
         <ResponsiveDropdownMenuContent align="start">
-          <Text size="lg" style={[zero.pl[2], zero.pb[2], zero.pt[1]]}>
-            Your chat appearance
-          </Text>
-          {loading ? (
-            <View style={[layout.flex.center, { height: 60 }]}>
-              <ActivityIndicator color={theme.colors.primary} />
-            </View>
-          ) : hasStreamerBadges || hasUserBadges ? (
-            <>
-              {hasStreamerBadges && (
-                <DropdownMenuGroup
-                  title={`${streamerName ? formatHandleWithAt(streamerName) + " " : ""}badges`}
-                  description={`Shows up only in ${streamerName ? `${formatHandleWithAt(streamerName)}'s` : "this"} channel`}
-                >
-                  {streamerSlot!.available.map((badge) => (
-                    <BadgeCheckboxItem
-                      key={badge.issuanceUri}
-                      badge={badge}
-                      toggling={toggling === badge.issuanceUri}
-                      onToggle={() => handleToggle(badge, "streamer")}
-                    />
-                  ))}
-                </DropdownMenuGroup>
-              )}
-              {hasUserBadges && (
-                <DropdownMenuGroup
-                  title="Global badge"
-                  description="Shows up across all channels"
-                >
-                  {userSlot!.available.map((badge) => (
-                    <BadgeCheckboxItem
-                      key={badge.issuanceUri}
-                      badge={badge}
-                      toggling={toggling === badge.issuanceUri}
-                      onToggle={() => handleToggle(badge, "global")}
-                    />
-                  ))}
-                </DropdownMenuGroup>
-              )}
-            </>
-          ) : null}
-          <DropdownMenuGroup title="Name color">
-            <View
-              style={[
-                layout.flex.row,
-                { flexWrap: "wrap", gap: 8, padding: 6 },
-              ]}
-            >
-              {HOT_COLORS.map(({ r, g, b }) => {
-                const hex = `rgb(${r}, ${g}, ${b})`;
-                const isSelected = currentColor === hex;
-                return (
-                  <TouchableOpacity
-                    key={hex}
-                    onPress={() => createChatProfileRecord(r, g, b)}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      backgroundColor: hex,
-                      borderWidth: isSelected ? 2 : 0,
-                      borderColor: "white",
-                      shadowColor: isSelected ? hex : "transparent",
-                      shadowOpacity: isSelected ? 0.8 : 0,
-                      shadowRadius: 4,
-                      shadowOffset: { width: 0, height: 0 },
-                      elevation: isSelected ? 4 : 0,
-                    }}
-                  />
-                );
-              })}
-            </View>
-            <DropdownMenuItem onPress={openModal}>
-              <View
-                style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
-              >
-                <SwatchBook size={24} color={currentColor} />
-                <Text style={{ color: currentColor }}>Custom color...</Text>
+          <View style={[gap.all[1]]}>
+            <Text size="lg" style={[zero.pl[2], zero.pb[1], zero.pt[1]]}>
+              Your chat appearance
+            </Text>
+            {loading ? (
+              <View style={[layout.flex.center, { height: 60 }]}>
+                <ActivityIndicator color={theme.colors.primary} />
               </View>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
+            ) : hasStreamerBadges || hasUserBadges ? (
+              <>
+                {hasStreamerBadges && (
+                  <DropdownMenuGroup
+                    title={`${streamerName ? formatHandleWithAt(streamerName) + " " : ""}badges`}
+                    description={`Shows up only in ${streamerName ? `${formatHandleWithAt(streamerName)}'s` : "this"} channel`}
+                  >
+                    {streamerSlot!.available.map((badge) => (
+                      <BadgeCheckboxItem
+                        key={badge.issuanceUri}
+                        badge={badge}
+                        toggling={toggling === badge.issuanceUri}
+                        onToggle={() => handleToggle(badge, "streamer")}
+                      />
+                    ))}
+                  </DropdownMenuGroup>
+                )}
+                {hasUserBadges && (
+                  <DropdownMenuGroup
+                    title="Global badge"
+                    description="Shows up across all channels"
+                  >
+                    {userSlot!.available.map((badge) => (
+                      <BadgeCheckboxItem
+                        key={badge.issuanceUri}
+                        badge={badge}
+                        toggling={toggling === badge.issuanceUri}
+                        onToggle={() => handleToggle(badge, "global")}
+                      />
+                    ))}
+                  </DropdownMenuGroup>
+                )}
+              </>
+            ) : null}
+            <DropdownMenuGroup
+              title="Handle color"
+              description="Change your color in chat"
+            >
+              <View
+                style={[
+                  layout.flex.row,
+                  { flexWrap: "wrap", gap: 8, padding: 6, paddingTop: 10 },
+                ]}
+              >
+                {HOT_COLORS.map(({ r, g, b }) => {
+                  const hex = `rgb(${r}, ${g}, ${b})`;
+                  const isSelected = currentColor === hex;
+                  return (
+                    <TouchableOpacity
+                      key={hex}
+                      onPress={() => createChatProfileRecord(r, g, b)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 999,
+                        backgroundColor: hex,
+                        borderWidth: isSelected ? 2 : 0,
+                        borderColor: "white",
+                        shadowColor: isSelected ? hex : "transparent",
+                        shadowOpacity: isSelected ? 0.8 : 0,
+                        shadowRadius: 4,
+                        shadowOffset: { width: 0, height: 0 },
+                        elevation: isSelected ? 4 : 0,
+                      }}
+                    />
+                  );
+                })}
+              </View>
+              <DropdownMenuItem onPress={openModal}>
+                <View
+                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+                >
+                  <SwatchBook size={20} color={currentColor} />
+                  <Text style={{ color: currentColor }}>Custom color...</Text>
+                </View>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </View>
         </ResponsiveDropdownMenuContent>
       </DropdownMenu>
       {modal}

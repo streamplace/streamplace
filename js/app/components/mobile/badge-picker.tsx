@@ -202,8 +202,6 @@ export function BadgePicker() {
   const hasUserBadges = (userSlot?.available?.length ?? 0) > 0;
   const streamerName = linfo?.author;
 
-  console.log(me);
-
   return (
     <>
       <DropdownMenu>

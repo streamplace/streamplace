@@ -437,7 +437,7 @@ function BadgeCheckboxItem({
             ]}
           />
         )}
-        <View style={[layout.flex.grow]}>
+        <View style={[zero.flex.grow[1]]}>
           <Text size="sm">{badgeName}</Text>
           {desc && (
             <Text muted size="xs">

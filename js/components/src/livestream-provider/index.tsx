@@ -144,6 +144,12 @@ export function PinnedCommentWatcher() {
   const store = getStoreFromContext();
   const prevPinnedRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    return () => {
+      StreamNotifications.pinnedCommentDismiss();
+    };
+  }, []);
+
   // Show/hide notification when pinned comment changes
   useEffect(() => {
     const currentUri = pinnedComment?.uri ?? null;

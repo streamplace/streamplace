@@ -47,8 +47,8 @@ export function useResponsiveLayout({
   const chatPanelWidth = responsiveValue(
     {
       md: 320,
-      lg: 400,
-      xl: 480,
+      lg: 380,
+      xl: 400,
       default: 300,
     },
     screenWidth,

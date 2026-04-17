@@ -1020,7 +1020,9 @@ export const createBlueskySlice: StateCreator<
         throw new Error("No profile");
       }
 
+      const existingProfile = (get() as BlueskySlice).chatProfile?.profile;
       const chatProfile: PlaceStreamChatProfile.Record = {
+        ...existingProfile,
         $type: "place.stream.chat.profile",
         color: {
           red: red,

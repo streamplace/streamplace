@@ -47,9 +47,14 @@ const segmentedObject = (
           href={linkftr.uri}
           key={`mention-${index}`}
           style={[{ cursor: "pointer" }]}
-          onPress={() =>
-            Platform.OS != "web" && Linking.openURL(linkftr.uri || "")
-          }
+          onPress={(e) => {
+            if (Platform.OS !== "web") {
+              Linking.openURL(linkftr.uri || "");
+            } else {
+              e.preventDefault();
+              window.open(linkftr.uri, "_blank");
+            }
+          }}
         >
           <Text
             style={[

@@ -530,7 +530,7 @@ export function ChatBox({
                   setReplyToMessage(null);
                 }
               }
-            }
+            }}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
             style={

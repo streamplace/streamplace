@@ -3,8 +3,88 @@
  * Used both for URL parsing (inbound) and URL generation (outbound)
  */
 
-import { LinkingOptions, getStateFromPath } from "@react-navigation/native";
+import {
+  getStateFromPath,
+  LinkingOptions,
+  NavigationState,
+  PartialState,
+} from "@react-navigation/native";
+import { useToast } from "@streamplace/components";
 import * as ExpoLinking from "expo-linking";
+
+const AT_URI_PREFIX = "at://";
+
+export function parseAtUriPath(path: string): {
+  authority: string;
+  collection: string;
+  rkey: string;
+} | null {
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  if (!cleanPath.startsWith(AT_URI_PREFIX)) {
+    return null;
+  }
+  const rest = cleanPath.slice(AT_URI_PREFIX.length);
+  const parts = rest.split("/");
+  const authority = parts[0];
+  if (!authority) return null;
+  return {
+    authority,
+    collection: parts[1] ?? "",
+    rkey: parts[2] ?? "",
+  };
+}
+
+function resolveAtUriNavigation(
+  path: string,
+): PartialState<NavigationState> | null {
+  const atUri = parseAtUriPath(path);
+  const toast = useToast();
+  if (!atUri) return null;
+  // if just authority, redirect to stream page
+  if (!atUri.collection) {
+    return {
+      routes: [
+        {
+          name: "Stream",
+          params: { user: atUri.authority },
+        },
+      ],
+    };
+  } else if (atUri.collection === "place.stream.livestream") {
+    // livestream isn't historical so just redirect to user
+    return {
+      routes: [
+        {
+          name: "Stream",
+          params: { user: atUri.authority },
+        },
+      ],
+    };
+  } else {
+    // otherwise, redirect to home page and do a 'could not find'
+    return {
+      routes: [
+        {
+          name: "MainTabs",
+          state: {
+            routes: [
+              {
+                name: "HomeTab",
+                state: {
+                  routes: [
+                    {
+                      name: "HomeMain",
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    };
+  }
+}
 
 export const SCREEN_PATHS = {
   // HomeTab screens
@@ -86,6 +166,11 @@ export function isValidScreenName(
 export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParamList> =
   {
     prefixes: [ExpoLinking.createURL("")],
+    getStateFromPath: (path, options) => {
+      const atUriState = resolveAtUriNavigation(path);
+      if (atUriState) return atUriState;
+      return getStateFromPath(path, options);
+    },
     config: {
       screens: {
         // Main tabs (used on all platforms, tab bar hidden on web)
@@ -142,6 +227,8 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
   };
 
 export function getStreamplaceStateFromPath(path: string) {
+  const atUriState = resolveAtUriNavigation(path);
+  if (atUriState) return atUriState;
   const ret = getStateFromPath(path, streamplaceLinkingOptions.config);
   if (!ret) {
     throw new Error(`Invalid path: ${path}`);

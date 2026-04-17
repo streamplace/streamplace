@@ -21,6 +21,7 @@ import Animated, {
 import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { BadgePicker } from "components/mobile/badge-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
@@ -267,6 +268,7 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
+            leftSlot={<BadgePicker />}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}

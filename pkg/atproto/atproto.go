@@ -7,8 +7,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/patrickmn/go-cache"
+
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	_ "github.com/bluesky-social/indigo/api/bsky"
+	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -21,6 +23,8 @@ import (
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
+
+var handleCache = cache.New(1*time.Hour, 10*time.Minute)
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
@@ -180,6 +184,25 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 		return nil, fmt.Errorf("failed to update repo: %w", err)
 	}
 	return id, nil
+}
+
+func (atsync *ATProtoSynchronizer) ResolveAuthorHandle(ctx context.Context, author *bsky.ActorDefs_ProfileViewBasic) {
+	if author.Handle != "" && author.Handle != "handle.invalid" {
+		return
+	}
+	if cached, ok := handleCache.Get(author.Did); ok {
+		author.Handle = cached.(string)
+		return
+	}
+	repo, err := atsync.SyncBlueskyRepoCached(ctx, author.Did)
+	if err != nil {
+		log.Warn(ctx, "failed to resolve author handle", "did", author.Did, "err", err)
+		return
+	}
+	if repo != nil && repo.Handle != "" {
+		author.Handle = repo.Handle
+		handleCache.SetDefault(author.Did, repo.Handle)
+	}
 }
 
 func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {

@@ -255,6 +255,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
+				a.ATSync.ResolveAuthorHandle(ctx, message.Author)
 				initialBurst <- message
 			}
 		}()
@@ -298,6 +299,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 						log.Error(ctx, "failed to convert chat message: %w", err)
 						return
 					}
+					a.ATSync.ResolveAuthorHandle(ctx, msgView.Author)
 					prv.Message = msgView
 				}
 				if profile != nil {

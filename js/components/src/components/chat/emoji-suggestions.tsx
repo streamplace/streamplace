@@ -1,4 +1,5 @@
-import { Pressable } from "react-native";
+import { useEffect, useRef } from "react";
+import { Platform, Pressable } from "react-native";
 import { ScrollView } from "react-native-gesture-handler";
 import { Code, Text, View } from "../..";
 import { bg, layout, left, right, zIndex } from "../../lib/theme/atoms";
@@ -40,6 +41,17 @@ export function EmojiSuggestions({
     return null;
   }
 
+  const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const el = itemRefs.current.get(highlightedIndex);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [highlightedIndex]);
+
   return (
     <View
       style={[
@@ -61,6 +73,10 @@ export function EmojiSuggestions({
           <Pressable
             key={emoji.id}
             onPress={() => onSelect(emoji)}
+            ref={(ref) => {
+              const el = ref as unknown as HTMLElement;
+              if (el) itemRefs.current.set(index, el);
+            }}
             style={[
               {
                 padding: 8,

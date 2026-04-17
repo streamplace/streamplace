@@ -18,9 +18,10 @@ import {
 } from "@streamplace/components/src/components/chat/badge";
 import { borderRadius as radiusTokens } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { p } from "@streamplace/components/src/ui";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
 import { Image } from "expo-image";
-import { SwatchBook } from "lucide-react-native";
+import { Check, SwatchBook } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +30,7 @@ import {
   View,
 } from "react-native";
 import { useStore } from "store";
+import { useUserProfile } from "store/hooks";
 import type { PlaceStreamBadgeDefs } from "streamplace";
 
 const { gap, layout } = zero;
@@ -50,6 +52,7 @@ const HOT_COLORS = [
 
 export function BadgePicker() {
   const agent = usePDSAgent();
+  const me = useUserProfile();
   const { theme } = zero.useTheme();
   const toast = useToast();
   const linfo = useLivestream();
@@ -199,6 +202,8 @@ export function BadgePicker() {
   const hasUserBadges = (userSlot?.available?.length ?? 0) > 0;
   const streamerName = linfo?.author;
 
+  console.log(me);
+
   return (
     <>
       <DropdownMenu>
@@ -210,6 +215,42 @@ export function BadgePicker() {
             <Text size="lg" style={[zero.pl[2], zero.pb[1], zero.pt[1]]}>
               Your chat appearance
             </Text>
+            <DropdownMenuGroup>
+              <View
+                style={[
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  gap.all[1],
+                  p[2],
+                ]}
+              >
+                <Text>
+                  <Text style={{ color: currentColor }}>
+                    <View>
+                      {streamerSlot?.selected && (
+                        <Badge
+                          isInChat={true}
+                          badgeType={streamerSlot.selected.badgeType}
+                          imageUrl={streamerSlot.selected.imageUrl}
+                          size={22}
+                        />
+                      )}
+                      {userSlot?.selected && (
+                        <Badge
+                          isInChat={true}
+                          badgeType={userSlot.selected.badgeType}
+                          imageUrl={userSlot.selected.imageUrl}
+                          size={22}
+                        />
+                      )}
+                    </View>
+                    @{me?.handle || me?.did || "yourhand.le"}
+                  </Text>
+                  : what is a bluesky account
+                </Text>
+              </View>
+            </DropdownMenuGroup>
+
             {loading ? (
               <View style={[layout.flex.center, { height: 60 }]}>
                 <ActivityIndicator color={theme.colors.primary} />
@@ -396,7 +437,7 @@ function BadgeCheckboxItem({
             ]}
           />
         )}
-        <View style={{ flex: 1 }}>
+        <View style={[layout.flex.grow]}>
           <Text size="sm">{badgeName}</Text>
           {desc && (
             <Text muted size="xs">
@@ -404,13 +445,11 @@ function BadgeCheckboxItem({
             </Text>
           )}
         </View>
-        {toggling && (
-          <ActivityIndicator
-            size="small"
-            color={theme.colors.primary}
-            style={{ marginLeft: 8 }}
-          />
-        )}
+        {toggling ? (
+          <ActivityIndicator size="small" color={theme.colors.primary} />
+        ) : badge.selected ? (
+          <Check size={14} strokeWidth={3} color={theme.colors.foreground} />
+        ) : null}
       </View>
     </DropdownMenuCheckboxItem>
   );

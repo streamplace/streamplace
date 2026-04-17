@@ -492,6 +492,9 @@ export function ChatBox({
                 k.preventDefault();
                 setShowSuggestions(false);
                 setShowEmojiSuggestions(false);
+              } else if (replyTo) {
+                k.preventDefault();
+                setReplyToMessage(null);
               }
             }
           }}

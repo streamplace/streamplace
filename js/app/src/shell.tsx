@@ -25,6 +25,7 @@ import { MobileAppBanner } from "components/mobile-app-banner";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
+import { BackupSettings } from "components/settings/backup-settings";
 import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
 import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";

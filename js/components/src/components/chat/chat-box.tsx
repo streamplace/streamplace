@@ -652,6 +652,7 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
+              // @ts-ignore this should work fine on web and get ignored on mobile
               href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"

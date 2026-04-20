@@ -13,6 +13,7 @@ import {
 import { StreamNotifications } from "../../lib/stream-notifications";
 import { SystemMessages } from "../../lib/system-messages";
 import {
+  bg,
   borders,
   flex,
   gap,
@@ -31,6 +32,7 @@ import {
   useCreateChatMessage,
   useLivestream,
   useLivestreamStore,
+  useProfile,
   useReplyToMessage,
   useSetReplyToMessage,
 } from "../../livestream-store";
@@ -60,6 +62,8 @@ export function ChatBox({
   onEmojiPickerToggle,
   emojiPicker,
   skinTone = 0,
+  hideLogin = false,
+  leftSlot,
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
@@ -72,8 +76,11 @@ export function ChatBox({
     onSelect: (emoji: any) => void,
   ) => ReactNode;
   skinTone?: number;
+  hideLogin?: boolean;
+  leftSlot?: ReactNode;
 }) {
   const [submitting, setSubmitting] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const [message, setMessage] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showEmojiSuggestions, setShowEmojiSuggestions] = useState(false);
@@ -90,6 +97,7 @@ export function ChatBox({
   const isOverLimit = graphemer.countGraphemes(message) > 300;
 
   let linfo = useLivestream();
+  const profile = useProfile();
 
   const { theme, zero: zt } = useTheme();
 
@@ -419,90 +427,133 @@ export function ChatBox({
         </View>
       )}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Textarea
-          ref={textAreaRef}
-          numberOfLines={1}
-          value={message}
-          enterKeyHint="send"
-          onSubmitEditing={(e) => {
-            e.preventDefault();
-            submit();
-          }}
-          multiline={false}
-          onChangeText={(text) => {
-            setMessage(text);
-            updateSuggestions(text);
-          }}
-          onKeyPress={(k) => {
-            if (k.nativeEvent.key === "Enter") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
+        <View
+          style={
+            leftSlot
+              ? [
+                  layout.flex.row,
+                  layout.flex.alignCenter,
+                  { flex: 1 },
+                  borders.width.thin,
+                  borders.color.gray[400],
+                  bg.gray[900],
+                  chatBoxStyle,
+                  isOverLimit
+                    ? {
+                        borderColor: "#ef4444",
+                        borderWidth: 2,
+                        outline: "none",
+                      }
+                    : inputFocused
+                      ? {
+                          borderColor: theme.colors.foreground,
+                          outline: "none",
+                        }
+                      : null,
+                  pr[2],
+                ]
+              : [{ flex: 1 }]
+          }
+        >
+          {leftSlot}
+          <Textarea
+            ref={textAreaRef}
+            numberOfLines={1}
+            value={message}
+            enterKeyHint="send"
+            onSubmitEditing={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+            multiline={false}
+            onChangeText={(text) => {
+              setMessage(text);
+              updateSuggestions(text);
+            }}
+            onKeyPress={(k) => {
+              if (k.nativeEvent.key === "Enter") {
+                if (showSuggestions) {
+                  k.preventDefault();
+                  const handles = Array.from(filteredAuthors.keys());
+                  if (handles.length > 0) {
+                    handleMentionSelect(handles[highlightedIndex]);
+                  }
+                } else if (showEmojiSuggestions) {
+                  k.preventDefault();
+                  if (filteredEmojis.length > 0) {
+                    handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                  }
+                } else {
+                  k.preventDefault();
+                  submit();
                 }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
+              } else if (k.nativeEvent.key === "Tab") {
+                if (showSuggestions) {
+                  k.preventDefault();
+                  const handles = Array.from(filteredAuthors.keys());
+                  if (handles.length > 0) {
+                    handleMentionSelect(handles[highlightedIndex]);
+                  }
+                } else if (showEmojiSuggestions) {
+                  k.preventDefault();
+                  if (filteredEmojis.length > 0) {
+                    handleEmojiSelect(filteredEmojis[highlightedIndex]);
+                  }
                 }
-              } else {
-                k.preventDefault();
-                submit();
-              }
-            } else if (k.nativeEvent.key === "Tab") {
-              if (showSuggestions) {
-                k.preventDefault();
-                const handles = Array.from(filteredAuthors.keys());
-                if (handles.length > 0) {
-                  handleMentionSelect(handles[highlightedIndex]);
+              } else if (k.nativeEvent.key === "ArrowUp") {
+                if (showSuggestions || showEmojiSuggestions) {
+                  k.preventDefault();
+                  setHighlightedIndex((prev) => Math.max(prev - 1, 0));
                 }
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                if (filteredEmojis.length > 0) {
-                  handleEmojiSelect(filteredEmojis[highlightedIndex]);
+              } else if (k.nativeEvent.key === "ArrowDown") {
+                if (showSuggestions) {
+                  k.preventDefault();
+                  setHighlightedIndex((prev) =>
+                    Math.min(
+                      prev + 1,
+                      Array.from(filteredAuthors.keys()).length - 1,
+                    ),
+                  );
+                } else if (showEmojiSuggestions) {
+                  k.preventDefault();
+                  setHighlightedIndex((prev) =>
+                    Math.min(prev + 1, filteredEmojis.length - 1),
+                  );
+                }
+              } else if (k.nativeEvent.key === "Escape") {
+                if (showSuggestions || showEmojiSuggestions) {
+                  k.preventDefault();
+                  setShowSuggestions(false);
+                  setShowEmojiSuggestions(false);
                 }
               }
-            } else if (k.nativeEvent.key === "ArrowUp") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) => Math.max(prev - 1, 0));
-              }
-            } else if (k.nativeEvent.key === "ArrowDown") {
-              if (showSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(
-                    prev + 1,
-                    Array.from(filteredAuthors.keys()).length - 1,
-                  ),
-                );
-              } else if (showEmojiSuggestions) {
-                k.preventDefault();
-                setHighlightedIndex((prev) =>
-                  Math.min(prev + 1, filteredEmojis.length - 1),
-                );
-              }
-            } else if (k.nativeEvent.key === "Escape") {
-              if (showSuggestions || showEmojiSuggestions) {
-                k.preventDefault();
-                setShowSuggestions(false);
-                setShowEmojiSuggestions(false);
-              }
+            }}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            style={
+              leftSlot
+                ? [
+                    {
+                      flex: 1,
+                      borderWidth: 0,
+                      backgroundColor: "transparent",
+                      outline: "none",
+                    },
+                  ]
+                : [
+                    chatBoxStyle,
+                    isOverLimit && {
+                      borderColor: "#ef4444",
+                      borderWidth: 2,
+                      outline: "none",
+                    },
+                  ]
             }
-          }}
-          style={[
-            chatBoxStyle,
-            isOverLimit && {
-              borderColor: "#ef4444",
-              borderWidth: 2,
-              outline: "none",
-            },
-          ]}
-          // "submit" won't blur on enter
-          submitBehavior="submit"
-          placeholder="Type a message..."
-        />
+            // "submit" won't blur on enter
+            submitBehavior="submit"
+            placeholder="Type a message..."
+          />
+        </View>
         <View>
           <Button
             disabled={submitting}
@@ -601,14 +652,21 @@ export function ChatBox({
           </Pressable>
           {!isPopout && (
             <Button
+              href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
               style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
-                if (!linfo) return;
-                const u = new URL(window.location.href);
-                u.pathname = `/chat-popout/${linfo?.author?.did}`;
-                window.open(u.toString(), "_blank", "popup=true");
+                const did = linfo?.author?.did ?? profile?.did;
+                if (did) {
+                  const u = new URL(window.location.href);
+                  u.pathname = `/chat-popout/${did}`;
+                  window.open(
+                    u.toString(),
+                    "_blank",
+                    "popup=true,width=480,height=600",
+                  );
+                }
                 setIsChatVisible?.(false);
               }}
             >

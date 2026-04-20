@@ -88,10 +88,24 @@ func (s *Server) isLocalPDS(ctx context.Context, repo string) (bool, string, err
 	if err != nil {
 		return false, "", fmt.Errorf("resolveRepoService: %w", err)
 	}
-	if did == s.cli.BroadcasterDID() {
+	if did == s.cli.BroadcasterDID() || did == s.cli.ServerDID() {
 		return true, svc, nil
 	}
 	return false, svc, nil
+}
+
+// isServerPDS returns true if the request arrived on the ServerHost (server-local PDS).
+// When ServerHost == BroadcasterHost (single-node), always returns true — the server
+// PDS is the only PDS and the lexicon repo is not directly exposed.
+func (s *Server) isServerPDS(ctx context.Context) bool {
+	if s.cli.ServerHost == s.cli.BroadcasterHost {
+		return true
+	}
+	ec, ok := ctx.Value(echoContextKey).(echo.Context)
+	if !ok {
+		return false
+	}
+	return ec.Request().Host == s.cli.ServerHost
 }
 
 func makeUnauthenticatedRequest(ctx context.Context, service, method string, params map[string]interface{}, out interface{}) error {

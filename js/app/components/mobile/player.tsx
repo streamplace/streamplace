@@ -15,6 +15,7 @@ import {
   usePlayerDimensions,
   usePlayerStore,
   useSegment,
+  useSegmentDimensions,
   View,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
@@ -22,16 +23,22 @@ import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 import { ComponentRef, useEffect, useRef, useState } from "react";
-import { Platform, ScrollView, StatusBar } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StatusBar,
+  useWindowDimensions,
+} from "react-native";
 import Reanimated, {
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 import { useUserProfile } from "store/hooks";
 import { convertNavigationParams } from "../../src/navigation-helper";
 import { BottomMetadata } from "./bottom-metadata";
-import { DesktopChatPanel } from "./chat";
+import { DesktopChatPanel, MobileChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
 import { OfflineCounter } from "./offline-counter";
 import { MobileUi } from "./ui";
@@ -70,6 +77,26 @@ function PlayerWithProvider(
   const [showChat, setShowChat] = useState(true);
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { top: safeTop } = useSafeAreaInsets();
+  const segDims = useSegmentDimensions();
+  const isPortrait = screenHeight > screenWidth;
+  const portraitFadeOpacity = useSharedValue(1);
+  const portraitVideoTranslateY = useDerivedValue(
+    () => (portraitFadeOpacity.value - 1) * 20,
+  );
+  const portraitVideoStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (portraitFadeOpacity.value - 1) * 20 }],
+  }));
+  const isPortraitLandscapeCase =
+    isPortrait &&
+    segDims.width > segDims.height &&
+    !shouldShowChatSidePanel &&
+    !props.ingest &&
+    props.mode !== "vod";
+  const videoBoxHeight = isPortraitLandscapeCase
+    ? Math.round((screenWidth * segDims.height) / segDims.width)
+    : undefined;
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
@@ -218,31 +245,114 @@ function PlayerWithProvider(
         <StatusBar hidden={true} />
         <PlayerProvider defaultId={props.playerId || undefined}>
           <View
-            style={{
-              flexDirection: chatVisible ? "row" : "column",
-              flex: 1,
-              width: "100%",
-              height: "100%",
-            }}
+            style={[
+              {
+                flexDirection: chatVisible ? "row" : "column",
+                flex: 1,
+                width: "100%",
+                height: "100%",
+                paddingTop:
+                  isPortraitLandscapeCase && Platform.OS !== "web"
+                    ? 54
+                    : undefined,
+              },
+            ]}
           >
-            <PlayerInner
-              {...props}
-              showChat={showChat}
-              setShowChat={setShowChat}
-              showUnavailable={showUnavailable}
-            />
-            {shouldShowChatSidePanel ? (
+            <Reanimated.View
+              style={[
+                isPortraitLandscapeCase
+                  ? {
+                      height: (videoBoxHeight ?? 0) + safeTop,
+                      paddingTop: safeTop,
+                    }
+                  : { flex: 1 },
+                isPortrait && Platform.OS !== "web"
+                  ? portraitVideoStyle
+                  : undefined,
+              ]}
+            >
+              <PlayerInner
+                {...props}
+                showChat={showChat}
+                setShowChat={setShowChat}
+                showUnavailable={showUnavailable}
+              />
+            </Reanimated.View>
+            {isPortraitLandscapeCase ? (
+              <>
+                <MobileUi
+                  hideMobileChat={true}
+                  showChat
+                  sharedFadeOpacity={portraitFadeOpacity}
+                />
+                {!showUnavailable && (
+                  <MobileChatPanel
+                    isPlayerRatioGreater={true}
+                    fixed={true}
+                    portraitVideoTranslateY={portraitVideoTranslateY}
+                  />
+                )}
+              </>
+            ) : shouldShowChatSidePanel ? (
               <DesktopChatPanel
                 chatVisible={chatVisible}
                 chatPanelWidth={chatPanelWidth}
+                setShowChat={setShowChat}
               />
             ) : (
-              !showUnavailable && <MobileUi />
+              !showUnavailable && <View />
             )}
           </View>
         </PlayerProvider>
       </LivestreamProvider>
     </RotationProvider>
+  );
+}
+
+function MobileUiOverlay({
+  showChat,
+  setShowChat,
+  isPortraitLandscapeCase,
+  mode,
+}: {
+  showChat: boolean;
+  setShowChat: (show: boolean) => void;
+  isPortraitLandscapeCase: boolean;
+  mode?: string;
+}) {
+  const { width, height } = usePlayerDimensions();
+  const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
+  const isLandscape = aspectRatio > 1;
+  const showFullDesktopMode = aspectRatio > 1 && width > 1200;
+  const fullscreen = usePlayerStore((x) => x.fullscreen);
+  const { isPlayerRatioGreater: segIsLandscape } = useSegmentDimensions();
+
+  if (
+    isPortraitLandscapeCase ||
+    mode === "vod" ||
+    showFullDesktopMode ||
+    fullscreen ||
+    (!isLandscape && !segIsLandscape)
+  ) {
+    return null;
+  }
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
+    >
+      <MobileUi
+        showChat={showChat}
+        setShowChat={setShowChat}
+        hideMobileChat={!isLandscape && segIsLandscape}
+      />
+    </View>
   );
 }
 
@@ -350,7 +460,7 @@ export function PlayerInner(
     <ScrollView
       style={{
         height: showFullDesktopMode ? "100%" : undefined,
-        flex: showFullDesktopMode ? 1 : undefined,
+        flex: 1,
         maxWidth: calculatedWidth,
       }}
       contentContainerStyle={
@@ -393,7 +503,7 @@ export function PlayerInner(
             {showFullDesktopMode || fullscreen ? (
               <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
             ) : (
-              isLandscape && (
+              (isLandscape || !!props.ingest) && (
                 <MobileUi
                   setShowChat={props.setShowChat}
                   showChat={props.showChat}

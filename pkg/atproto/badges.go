@@ -13,6 +13,7 @@ import (
 // and adds a mod or streamer badge as the first badge (server-controlled).
 // - If the author is the streamer, adds a "streamer" badge
 // - If the author has moderation permissions, adds a "mod" badge
+// - If the author self-labels as a bot, adds a "bot" badge
 func AddModBadgeIfApplicable(ctx context.Context, message *streamplace.ChatDefs_MessageView, streamerDID string, issuerDID string, m model.Model) error {
 	if message == nil {
 		return fmt.Errorf("message is nil")

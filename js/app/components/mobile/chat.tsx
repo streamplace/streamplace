@@ -5,30 +5,30 @@ import {
   Resizable,
   StreamNotificationProvider,
   Text,
-  useHandle,
-  useLivestreamInfo,
   View,
   zero,
 } from "@streamplace/components";
 import { useKeyboard } from "hooks/useKeyboard";
-import { useEffect } from "react";
-import { Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { Platform, Pressable, useWindowDimensions } from "react-native";
 import Animated, {
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
 
-import { useNavigation, useNavigationState } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
+import { BadgePicker } from "components/mobile/badge-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
-export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
+export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
   let insets = useSafeAreaInsets();
   let panelWidthWithInsets = chatPanelWidth;
   const sidebarOffset = useSharedValue(chatVisible ? 0 : panelWidthWithInsets);
@@ -110,15 +110,115 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth }) {
           >
             <StreamNotificationProvider position="top" />
           </Animated.View>
-          <ChatPanel />
+          <ChatPanel setShowChat={setShowChat} />
         </View>
       </Animated.View>
     </>
   );
 }
 
+function FixedChatPanel() {
+  const kb = useKeyboard();
+  const [containerHeight, setContainerHeight] = useState(0);
+  const sa = useSafeAreaInsets();
+  const dims = useWindowDimensions();
+
+  const SpringSettings = {
+    duration: 25,
+    mass: 10,
+  };
+
+  // calculate top bar + safe area height
+  const videoHeight = dims.height - sa.top - 88 - containerHeight;
+  const calculatedHeight =
+    containerHeight + (kb.keyboardHeight > 0 ? videoHeight : 0);
+
+  const animatedSidebarStyle = useAnimatedStyle(() => ({
+    height: withSpring(
+      containerHeight > 0
+        ? Math.max(0, calculatedHeight - kb.keyboardHeight)
+        : containerHeight,
+      SpringSettings,
+    ),
+    backgroundColor: withSpring(
+      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+      SpringSettings,
+    ),
+    borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),
+    transform: [
+      {
+        translateY:
+          Platform.OS === "web"
+            ? 0
+            : withSpring(-kb.keyboardHeight, SpringSettings),
+      },
+    ],
+  }));
+
+  return (
+    <View
+      style={{ position: "relative", flex: 1 }}
+      onLayout={(e) => setContainerHeight(e.nativeEvent.layout.height)}
+    >
+      <Animated.View
+        style={[
+          { position: "absolute", bottom: 0, left: 0, right: 0 },
+          animatedSidebarStyle,
+        ]}
+      >
+        <ChatPanel />
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2,
+          }}
+        >
+          <StreamNotificationProvider position="top" />
+        </View>
+      </Animated.View>
+    </View>
+  );
+}
+
 // MobileChatPanel.tsx
-export function MobileChatPanel({ isPlayerRatioGreater }) {
+export function MobileChatPanel({
+  isPlayerRatioGreater,
+  portraitVideoTranslateY,
+  fixed = false,
+}: {
+  isPlayerRatioGreater: boolean;
+  portraitVideoTranslateY?: SharedValue<number>;
+  fixed?: boolean;
+}) {
+  const insets = useSafeAreaInsets();
+
+  console.log("porteaitVideoTranslateY", portraitVideoTranslateY);
+  // create fixed style
+  const fixedStyle = useAnimatedStyle(() => ({
+    marginTop: portraitVideoTranslateY ? portraitVideoTranslateY.value : 0,
+  }));
+
+  if (fixed) {
+    return (
+      <Animated.View
+        style={[
+          {
+            flex: 1,
+            width: "100%",
+            paddingBottom: insets.bottom,
+            position: "relative",
+          },
+          fixedStyle,
+        ]}
+      >
+        <FixedChatPanel />
+      </Animated.View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -142,25 +242,13 @@ export function MobileChatPanel({ isPlayerRatioGreater }) {
   );
 }
 
-function ChatPanel() {
-  const { profile } = useLivestreamInfo();
-  const handle = useHandle();
-
+function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
   let agent = usePDSAgent();
 
   const navigation = useNavigation();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const emojiData = useEmojiData();
   const customEmoji: any[] = [];
-
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
-    let route: any = state.routes[state.index];
-    while (route.state?.index !== undefined) {
-      route = route.state.routes[route.state.index];
-    }
-    return { name: route.name, params: route.params };
-  });
 
   return (
     <View
@@ -179,6 +267,8 @@ function ChatPanel() {
           <ChatBox
             emojiData={emojiData}
             chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
+            leftSlot={<BadgePicker />}
             emojiPicker={(isOpen, onClose, onSelect) => (
               <EmojiPicker
                 isOpen={isOpen}
@@ -205,7 +295,18 @@ function ChatPanel() {
           </View>
         ) : (
           <Pressable
-            onPress={() => openLoginModal(currentRoute as any)}
+            onPress={() => {
+              const state = navigation.getState();
+              if (!state) {
+                openLoginModal();
+                return;
+              }
+              let route: any = state.routes[state.index];
+              while (route.state?.index !== undefined) {
+                route = route.state.routes[route.state.index];
+              }
+              openLoginModal({ name: route.name, params: route.params } as any);
+            }}
             style={[
               layout.flex.row,
               layout.flex.center,

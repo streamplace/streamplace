@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,7 +42,6 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
@@ -235,16 +235,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.GET("/.well-known/atproto-did", a.HandleAtprotoDID(ctx))
 	router.GET("/dl/*params", a.HandleAppDownload(ctx))
 	router.POST("/", a.HandleWebRTCIngest(ctx))
-	for _, redirect := range a.CLI.Redirects {
-		parts := strings.Split(redirect, ":")
-		if len(parts) != 2 {
-			log.Error(ctx, "invalid redirect", "redirect", redirect)
-			return nil, fmt.Errorf("invalid redirect: %s", redirect)
-		}
-		router.Handle("GET", parts[0], func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-			http.Redirect(w, r, parts[1], http.StatusTemporaryRedirect)
-		})
-	}
 	if a.CLI.FrontendProxy != "" {
 		u, err := url.Parse(a.CLI.FrontendProxy)
 		if err != nil {
@@ -290,6 +280,11 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	handler = cors.AllowAll().Handler(handler)
 	handler = sloghttp.New(slog.Default())(handler)
 	handler = a.RateLimitMiddleware(ctx)(handler)
+	redirectMiddleware, err := a.RedirectMiddleware()
+	if err != nil {
+		return nil, err
+	}
+	handler = redirectMiddleware(handler)
 
 	// this needs to be LAST so nothing else clobbers the context
 	handler = a.ContextMiddleware(ctx)(handler)
@@ -574,7 +569,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		count := spmetrics.GetViewCount(user)
+		count := a.Bus.GetViewerCount(user)
 		bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
@@ -711,6 +706,48 @@ func (a *StreamplaceAPI) RateLimitMiddleware(ctx context.Context) func(http.Hand
 			next.ServeHTTP(w, req)
 		})
 	}
+}
+
+type redirectRule struct {
+	re    *regexp.Regexp
+	toURL *url.URL
+	rawTo string
+}
+
+// RedirectMiddleware returns a middleware that handles path redirects according to CLI.Redirects
+func (a *StreamplaceAPI) RedirectMiddleware() (func(http.Handler) http.Handler, error) {
+	var redirectRules []redirectRule
+	for from, to := range a.CLI.Redirects {
+		re, err := regexp.Compile(from)
+		if err != nil {
+			return nil, fmt.Errorf("invalid redirect pattern: %s (regex error: %w)", from, err)
+		}
+		toBase, err := url.Parse(to)
+		if err != nil {
+			return nil, fmt.Errorf("invalid redirect destination: %s", to)
+		}
+		redirectRules = append(redirectRules, redirectRule{re: re, toURL: toBase, rawTo: to})
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Only match redirections for GET requests
+			if r.Method == http.MethodGet {
+				for _, rule := range redirectRules {
+					if rule.re.MatchString(r.URL.Path) {
+						// Make new URL by copying base and setting url query param
+						redirectURL := *rule.toURL
+						q := redirectURL.Query()
+						q.Set("url", r.URL.String())
+						redirectURL.RawQuery = q.Encode()
+						http.Redirect(w, r, redirectURL.String(), http.StatusTemporaryRedirect)
+						return
+					}
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}, nil
 }
 
 // helper for getting a listener from a systemd file descriptor

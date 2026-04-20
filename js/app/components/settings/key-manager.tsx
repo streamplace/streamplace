@@ -14,6 +14,7 @@ import { PlaceStreamKey } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 
 import { Text, zero } from "@streamplace/components";
+import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 
@@ -46,7 +47,7 @@ function KeyRow({
           <Text
             style={[
               {
-                fontFamily: "monospace",
+                fontFamily: fontFamilies.monoRegular,
                 fontSize: 12,
                 color: "#fff",
               },

@@ -224,7 +224,7 @@ func CustomDirectory(plcURL string) identity.Directory {
 	return &base
 }
 
-func DIDDoc(host string) map[string]any {
+func DIDDoc(host string, pubMultibase string) map[string]any {
 	return map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
@@ -250,7 +250,7 @@ func DIDDoc(host string) map[string]any {
 				"id":                 fmt.Sprintf("did:web:%s#atproto", host),
 				"type":               "Multikey",
 				"controller":         fmt.Sprintf("did:web:%s", host),
-				"publicKeyMultibase": LexiconPubMultibase,
+				"publicKeyMultibase": pubMultibase,
 			},
 		},
 	}

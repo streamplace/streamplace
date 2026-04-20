@@ -25,6 +25,18 @@ endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig:$(shell pwd)/$(BUILDDIR)/meson-uninstalled
 
+# Sentinel file that records when lexicons were last built
+LEXICON_STAMP := .build/lexicon-stamp
+
+# Find all files in the lexicons/ directory
+LEXICON_SOURCES := $(shell find lexicons -type f)
+
+# The stamp file depends on all lexicon sources.
+# It only rebuilds when any source is newer than the stamp.
+$(LEXICON_STAMP): $(LEXICON_SOURCES)
+	$(MAKE) lexicons
+	touch $(LEXICON_STAMP)
+
 .PHONY: version
 version:
 	@go run ./pkg/config/git/git.go -v \
@@ -271,10 +283,10 @@ static-test:
 
 .PHONY: dev-setup
 dev-setup:
-	$(MAKE) -j16 app-cached dev-setup-meson
+	$(MAKE) -j16 app-cached dev-setup-meson muxl-wasm
 
 .PHONY: dev
-dev: app-cached
+dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
@@ -291,6 +303,12 @@ dev-setup-meson:
 dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
+
+.PHONY: muxl-wasm
+muxl-wasm:
+	rustup target add wasm32-wasip1
+	cargo build -p muxl-wasm --target wasm32-wasip1 --release
+	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked
@@ -587,11 +605,11 @@ desktop-windows-amd64:
 	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
 .PHONY: streamplace
-streamplace: app-cached meson-setup-static
+streamplace: app-cached meson-setup-static muxl-wasm
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive
-archive: app-cached meson-setup-static godeps
+archive: app-cached meson-setup-static godeps muxl-wasm
 	meson compile -C $(BUILDDIR) archive | grep -v drectve
 
 .PHONY: linux-amd64
@@ -699,6 +717,13 @@ link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
 
+.PHONY: build-muxl
+build-muxl:
+	cd ../s2pa-muxl \
+	&& cargo build --target wasm32-wasip1 --release \
+	&& cd - \
+	&& cp ../s2pa-muxl/target/wasm32-wasip1/release/muxl.wasm pkg/muxl/muxl.wasm
+
 #   _____   ____   _____ _  ________ _____
 #  |  __ \ / __ \ / ____| |/ /  ____|  __ \
 #  | |  | | |  | | |    | ' /| |__  | |__) |
@@ -745,6 +770,8 @@ golangci-lint-container: docker-build-builder
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/index.html
+	podman exec golangci-lint mkdir -p .build
+	podman exec golangci-lint touch .build/lexicon-stamp
 	podman exec golangci-lint make dev
 
 # runs a command in the build container, building if necessary

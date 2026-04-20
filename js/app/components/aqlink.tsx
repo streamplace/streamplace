@@ -1,8 +1,5 @@
-import {
-  useNavigation,
-  useNavigationState,
-  useRoute,
-} from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+import { useDID } from "@streamplace/components";
 import usePlatform from "hooks/usePlatform";
 import { useEffect } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
@@ -45,18 +42,19 @@ export default function AQLink({
 }) {
   const { isWeb } = usePlatform();
   const navigation = useNavigation();
-  const route = useRoute();
   const openLoginModal = useStore((state) => state.openLoginModal);
+  const did = useDID();
   const { href } = useAQLinkHref(to);
 
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
+  const getCurrentRoute = () => {
+    const state = navigation.getState();
+    if (!state) return { name: undefined, params: undefined };
     let route: any = state.routes[state.index];
     while (route.state?.index !== undefined) {
       route = route.state.routes[route.state.index];
     }
     return { name: route.name, params: route.params };
-  });
+  };
 
   const baseStyle: StyleProp<ViewStyle> = {
     display: "flex",
@@ -69,14 +67,26 @@ export default function AQLink({
     }
     // intercept login navigation and show modal instead
     if (to.screen === "Login") {
+      // if we're logged in, navigate to the settings page instead of showing the login modal
+      if (useDID()) {
+        navigation.navigate("MainTabs", {
+          screen: "SettingsTab",
+          params: { screen: "AccountCategory" },
+        });
+        return;
+      }
       console.log(
         "AQLink intercepting login navigation, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
-      openLoginModal(currentRoute as any);
+      if (openLoginModal === null) {
+        console.warn("openLoginModal is null, cannot open login modal");
+        return;
+      }
+      openLoginModal(getCurrentRoute() as any);
       console.log(
         "AQLink login navigation intercepted, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
       return;
     }
@@ -87,7 +97,7 @@ export default function AQLink({
       rootNav.navigate(to.screen, to.params);
       console.log(
         "AQLink root navigation intercepted, current route:",
-        currentRoute,
+        getCurrentRoute(),
       );
       return;
     }
@@ -95,7 +105,10 @@ export default function AQLink({
     const converted = convertNavigationParams(to);
     // @ts-expect-error - dynamic navigation with LinkParams
     navigation.navigate(converted.screen, converted.params);
-    console.log("AQLink navigation intercepted, current route:", currentRoute);
+    console.log(
+      "AQLink navigation intercepted, current route:",
+      getCurrentRoute(),
+    );
   };
 
   // use Pressable with href on web to render as <a> tag for copy/paste support

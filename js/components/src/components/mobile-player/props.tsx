@@ -2,6 +2,7 @@ export type PlayerProps = {
   name: string;
   playerId?: string;
   src: string;
+  mode?: "live" | "vod";
   muted: boolean;
   telemetry: boolean;
   fullscreen: boolean;

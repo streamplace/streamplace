@@ -155,6 +155,10 @@ func (m metadata) Flat() []any {
 
 // Return a new context, adding in the provided values to the logging metadata
 func WithLogValues(ctx context.Context, args ...string) context.Context {
+	// _, debugOk := ctx.Value(clogDebugKey).(map[string]map[string]int)
+	// if !debugOk {
+	// 	fmt.Printf("!!! warning, got WithLogValues without debug key in context, this will never work (usually this means you used context.Background() instead of passing it through from somewhere) args=%+v\n", args)
+	// }
 	oldMetadata, _ := ctx.Value(clogContextKey).(metadata)
 	// No previous logging found, set up a new map
 	if oldMetadata == nil {

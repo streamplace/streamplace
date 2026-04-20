@@ -16,9 +16,9 @@ import {
   View,
   ViewProps,
 } from "react-native";
+import { useTheme } from "../../../lib/theme/theme";
 import * as tokens from "../../../lib/theme/tokens";
 
-// Base input primitive interface
 export interface InputPrimitiveProps
   extends Omit<TextInputProps, "onChange" | "onFocus" | "onBlur"> {
   error?: boolean;
@@ -29,7 +29,6 @@ export interface InputPrimitiveProps
   onBlur?: (event: BlurEvent) => void;
 }
 
-// Input root primitive - the main TextInput component
 export const InputRoot = forwardRef<any, InputPrimitiveProps>(
   (
     {
@@ -43,12 +42,15 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
       loading = false,
       editable,
       style,
-      placeholderTextColor = "#9ca3af",
+      placeholderTextColor: placeholderTextColorProp,
       ...props
     },
     ref,
   ) => {
     const [isFocused, setIsFocused] = React.useState(false);
+    const { theme } = useTheme();
+    const placeholderTextColor =
+      placeholderTextColorProp ?? theme.colors.textMuted;
 
     let isInBottomSheet = false;
     try {
@@ -95,6 +97,15 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
       [onBlur],
     );
 
+    const colorStyles = {
+      borderColor: error ? theme.colors.destructive : theme.colors.border,
+      ...(disabled && {
+        backgroundColor: theme.colors.muted,
+        opacity: 0.6,
+      }),
+      ...(loading && { opacity: 0.7 }),
+    };
+
     return (
       <InputComponent
         ref={ref}
@@ -104,13 +115,7 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
         onBlur={handleBlur}
         editable={!disabled && !loading && editable}
         placeholderTextColor={placeholderTextColor}
-        style={[
-          primitiveStyles.input,
-          style,
-          error && primitiveStyles.inputError,
-          disabled && primitiveStyles.inputDisabled,
-          loading && primitiveStyles.inputLoading,
-        ]}
+        style={[structuralStyles.input, colorStyles, style]}
         {...props}
       />
     );
@@ -119,7 +124,6 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
 
 InputRoot.displayName = "InputRoot";
 
-// Input container primitive - wraps input with additional elements
 export interface InputContainerProps extends ViewProps {
   focused?: boolean;
   error?: boolean;
@@ -138,16 +142,25 @@ export const InputContainer = forwardRef<View, InputContainerProps>(
     },
     ref,
   ) => {
+    const { theme } = useTheme();
+
+    const colorStyles = {
+      borderColor: error
+        ? theme.colors.destructive
+        : focused
+          ? theme.colors.ring
+          : theme.colors.border,
+      backgroundColor: theme.colors.background,
+      ...(disabled && {
+        backgroundColor: theme.colors.muted,
+        opacity: 0.6,
+      }),
+    };
+
     return (
       <View
         ref={ref}
-        style={[
-          primitiveStyles.container,
-          style,
-          focused && primitiveStyles.containerFocused,
-          error && primitiveStyles.containerError,
-          disabled && primitiveStyles.containerDisabled,
-        ]}
+        style={[structuralStyles.container, colorStyles, style]}
         {...props}
       >
         {children}
@@ -158,7 +171,6 @@ export const InputContainer = forwardRef<View, InputContainerProps>(
 
 InputContainer.displayName = "InputContainer";
 
-// Input label primitive
 export interface InputLabelProps extends TextProps {
   required?: boolean;
   disabled?: boolean;
@@ -177,19 +189,27 @@ export const InputLabel = forwardRef<Text, InputLabelProps>(
     },
     ref,
   ) => {
+    const { theme } = useTheme();
+
+    const colorStyle = {
+      color: error
+        ? theme.colors.destructive
+        : disabled
+          ? theme.colors.textMuted
+          : theme.colors.text,
+      ...(disabled && { opacity: 0.6 }),
+    };
+
     return (
       <Text
         ref={ref}
-        style={[
-          primitiveStyles.label,
-          style,
-          error && primitiveStyles.labelError,
-          disabled && primitiveStyles.labelDisabled,
-        ]}
+        style={[structuralStyles.label, colorStyle, style]}
         {...props}
       >
         {children}
-        {required && <Text style={primitiveStyles.required}> *</Text>}
+        {required && (
+          <Text style={{ color: theme.colors.destructive }}> *</Text>
+        )}
       </Text>
     );
   },
@@ -197,7 +217,6 @@ export const InputLabel = forwardRef<Text, InputLabelProps>(
 
 InputLabel.displayName = "InputLabel";
 
-// Input description/helper text primitive
 export interface InputDescriptionProps extends TextProps {
   error?: boolean;
   disabled?: boolean;
@@ -205,15 +224,21 @@ export interface InputDescriptionProps extends TextProps {
 
 export const InputDescription = forwardRef<Text, InputDescriptionProps>(
   ({ children, error = false, disabled = false, style, ...props }, ref) => {
+    const { theme } = useTheme();
+
+    const colorStyle = {
+      color: error
+        ? theme.colors.destructive
+        : disabled
+          ? theme.colors.textMuted
+          : theme.colors.textMuted,
+      ...(disabled && { opacity: 0.6 }),
+    };
+
     return (
       <Text
         ref={ref}
-        style={[
-          primitiveStyles.description,
-          style,
-          error && primitiveStyles.descriptionError,
-          disabled && primitiveStyles.descriptionDisabled,
-        ]}
+        style={[structuralStyles.description, colorStyle, style]}
         {...props}
       >
         {children}
@@ -224,17 +249,26 @@ export const InputDescription = forwardRef<Text, InputDescriptionProps>(
 
 InputDescription.displayName = "InputDescription";
 
-// Input error message primitive
 export interface InputErrorProps extends TextProps {
   visible?: boolean;
 }
 
 export const InputError = forwardRef<Text, InputErrorProps>(
   ({ children, visible = true, style, ...props }, ref) => {
+    const { theme } = useTheme();
+
     if (!visible || !children) return null;
 
     return (
-      <Text ref={ref} style={[primitiveStyles.error, style]} {...props}>
+      <Text
+        ref={ref}
+        style={[
+          structuralStyles.error,
+          { color: theme.colors.destructive },
+          style,
+        ]}
+        {...props}
+      >
         {children}
       </Text>
     );
@@ -243,7 +277,6 @@ export const InputError = forwardRef<Text, InputErrorProps>(
 
 InputError.displayName = "InputError";
 
-// Input addon primitive (for icons, buttons, etc.)
 export interface InputAddonProps extends ViewProps {
   position?: "left" | "right";
   touchable?: boolean;
@@ -266,14 +299,13 @@ export const InputAddon = forwardRef<
     ref,
   ) => {
     const addonStyle = [
-      primitiveStyles.addon,
-      primitiveStyles[
-        `addon${position.charAt(0).toUpperCase() + position.slice(1)}` as keyof typeof primitiveStyles
+      structuralStyles.addon,
+      structuralStyles[
+        `addon${position.charAt(0).toUpperCase() + position.slice(1)}` as keyof typeof structuralStyles
       ],
       style,
     ];
 
-    // Filter out null event handlers for TouchableOpacity compatibility
     const { onBlur, onFocus, ...restProps } = props;
     const touchableProps = {
       ...restProps,
@@ -308,7 +340,6 @@ export const InputAddon = forwardRef<
 
 InputAddon.displayName = "InputAddon";
 
-// Input group primitive - groups label, input, description, error
 export interface InputGroupProps extends ViewProps {
   spacing?: number;
 }
@@ -318,7 +349,7 @@ export const InputGroup = forwardRef<View, InputGroupProps>(
     return (
       <View
         ref={ref}
-        style={[primitiveStyles.group, { gap: spacing }, style]}
+        style={[structuralStyles.group, { gap: spacing }, style]}
         {...props}
       >
         {children}
@@ -329,15 +360,13 @@ export const InputGroup = forwardRef<View, InputGroupProps>(
 
 InputGroup.displayName = "InputGroup";
 
-// Primitive styles (minimal, unstyled)
-const primitiveStyles = StyleSheet.create({
+const structuralStyles = StyleSheet.create({
   input: {
-    minHeight: 44, // iOS minimum touch target
+    minHeight: 44,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: "#d1d5db",
     borderRadius: 8,
     boxShadow: "none",
     fontFamily: tokens.fontFamilies.regular,
@@ -351,75 +380,25 @@ const primitiveStyles = StyleSheet.create({
       },
     }),
   },
-  inputFocused: {
-    // No focus styles for the actual input
-  },
-  inputError: {
-    borderColor: "#ef4444",
-    borderWidth: 1,
-  },
-  inputDisabled: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#e5e7eb",
-    opacity: 0.6,
-  },
-  inputLoading: {
-    opacity: 0.7,
-  },
   container: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#d1d5db",
     borderRadius: 8,
-    backgroundColor: "white",
     paddingHorizontal: 12,
     minHeight: 44,
-  },
-  containerFocused: {
-    borderColor: "#3b82f6",
-    borderWidth: 1,
-  },
-  containerError: {
-    borderColor: "#ef4444",
-    borderWidth: 1,
-  },
-  containerDisabled: {
-    backgroundColor: "#f3f4f6",
-    borderColor: "#e5e7eb",
-    opacity: 0.6,
   },
   label: {
     fontSize: 14,
     fontWeight: "500",
-    color: "#374151",
     marginBottom: 4,
-  },
-  labelError: {
-    color: "#ef4444",
-  },
-  labelDisabled: {
-    color: "#9ca3af",
-    opacity: 0.6,
-  },
-  required: {
-    color: "#ef4444",
   },
   description: {
     fontSize: 12,
-    color: "#6b7280",
     marginTop: 4,
-  },
-  descriptionError: {
-    color: "#ef4444",
-  },
-  descriptionDisabled: {
-    color: "#9ca3af",
-    opacity: 0.6,
   },
   error: {
     fontSize: 12,
-    color: "#ef4444",
     marginTop: 4,
   },
   addon: {
@@ -438,7 +417,6 @@ const primitiveStyles = StyleSheet.create({
   },
 });
 
-// Export primitive collection
 export const InputPrimitive = {
   Root: InputRoot,
   Container: InputContainer,

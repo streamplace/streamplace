@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -42,32 +42,58 @@ const segmentedObject = (
     if (ftr.$type === "app.bsky.richtext.facet#link") {
       let linkftr = ftr as $Typed<Link>;
       return (
-        <Text
+        <Pressable
+          // @ts-ignore renders as <a> on web
+          href={linkftr.uri}
           key={`mention-${index}`}
-          style={[{ color: atoms.colors.ios.systemBlue, cursor: "pointer" }]}
-          onPress={() => Linking.openURL(linkftr.uri || "")}
+          style={[{ cursor: "pointer" }]}
+          onPress={(e) => {
+            if (Platform.OS !== "web") {
+              Linking.openURL(linkftr.uri || "");
+            } else {
+              e.preventDefault();
+              window.open(linkftr.uri, "_blank");
+            }
+          }}
         >
-          {obj.text}
-        </Text>
+          <Text
+            style={[
+              {
+                color: atoms.colors.ios.systemBlue,
+                cursor: "pointer",
+                marginBottom: -4,
+              },
+            ]}
+            leading={0}
+          >
+            {obj.text}
+          </Text>
+        </Pressable>
       );
     } else if (ftr.$type === "app.bsky.richtext.facet#mention") {
       let mtnftr = ftr as $Typed<Mention>;
       const profile = userCache?.[mtnftr.did];
       return (
-        <Text
+        <Pressable
           key={`mention-${index}`}
-          style={[
-            {
-              cursor: "pointer",
-              color: getRgbColor(profile?.color),
-            },
-          ]}
+          style={[{ cursor: "pointer" }]}
           onPress={() =>
+            Platform.OS != "web" &&
             Linking.openURL(`https://bsky.app/profile/${mtnftr.did || ""}`)
           }
         >
-          {obj.text}
-        </Text>
+          <Text
+            style={[
+              {
+                cursor: "pointer",
+                color: getRgbColor(profile?.color),
+                marginBottom: -4,
+              },
+            ]}
+          >
+            {obj.text}
+          </Text>
+        </Pressable>
       );
     } else {
       // render as normal text if we don't recognize the facet type
@@ -85,9 +111,8 @@ export const RichTextMessage = ({
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
-  if (!facets?.length) return <Text>{text}</Text>;
-
   const userCache = useLivestreamStore((state) => state.authors);
+  if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
@@ -160,7 +185,6 @@ export const RenderChatMessage = memo(
               style={{
                 fontVariant: ["tabular-nums"],
                 color: colors.gray[400],
-                width: 44,
                 marginRight: 8,
               }}
             >
@@ -177,11 +201,11 @@ export const RenderChatMessage = memo(
                 style={
                   {
                     // display: inline is a no-op on mobile
-                    display: "inline",
+                    display: Platform.OS === "web" ? "inline" : undefined,
                     alignItems: "center",
                     justifyContent: "flex-end",
                     flexDirection: "row",
-                    marginBottom: -6.25,
+                    marginBottom: -4,
                   } as any
                 }
               >

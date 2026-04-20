@@ -1,4 +1,4 @@
-import { Text, useAQState, useTheme } from "@streamplace/components";
+import { hexToRgba, Text, useAQState, useTheme } from "@streamplace/components";
 import {
   EmojiPicker as FrimousseEmojiPicker,
   SkinTone,
@@ -492,7 +492,7 @@ export function EmojiPicker({
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background =
-                        theme.colors.secondary + "90";
+                        hexToRgba(theme.colors.secondary, 0.56);
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background =

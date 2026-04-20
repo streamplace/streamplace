@@ -86,6 +86,7 @@ func (d *Director) Start(ctx context.Context) error {
 					statusUpdateChan:     make(chan struct{}, 1),
 					originUpdateChan:     make(chan struct{}, 1),
 					livestreamUpdateChan: make(chan struct{}, 1),
+					viewCountUpdateChan:  make(chan struct{}, 1),
 					localDB:              d.localDB,
 					atsync:               d.atsync,
 				}

@@ -137,6 +137,8 @@ jobs:
           && corepack enable \
           && export GOTOOLCHAIN=go1.25.1 \
           && brew install go \
+          && rustup target add wasm32-wasip1 \
+          && rustup target add wasm32-unknown-unknown \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \

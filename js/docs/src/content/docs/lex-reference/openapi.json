@@ -571,6 +571,37 @@
         "summary": "Create or update S3 storage configuration for backups.",
         "operationId": "place.stream.server.upsertStorage",
         "tags": ["place.stream.server"],
+                    "servers": {
+                      "type": "array",
+                      "description": "List of available playback server addresses",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["servers"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "stream",
+            "in": "query",
+            "required": true,
+            "description": "Identifier of the stream to get playback servers for",
+            "schema": {
+              "type": "string",
+              "description": "Identifier of the stream to get playback servers for"
+            }
+          }
+        ]
+    "/xrpc/place.stream.playback.getPlaybackServer": {
+      "get": {
+        "summary": "Get available playback servers for a livestream.",
+        "operationId": "place.stream.playback.getPlaybackServer",
+        "tags": ["place.stream.playback"],
         "responses": {
           "200": {
             "description": "Success",
@@ -1103,6 +1134,96 @@
         }
       }
     },
+    "/xrpc/place.stream.moderation.createPin": {
+      "post": {
+        "summary": "Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. Creates a place.stream.chat.pinnedRecord in the streamer's repo, replacing any existing pin.",
+        "operationId": "place.stream.moderation.createPin",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created pinned record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created pinned record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "messageUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the chat message to pin.",
+                    "format": "uri"
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "description": "Optional expiration time for this pin.",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["streamer", "messageUri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.moderation.deleteBlock": {
       "post": {
         "summary": "Delete a block (unban) on behalf of a streamer. Requires 'ban' permission. Deletes an app.bsky.graph.block record from the streamer's repository.",
@@ -1243,6 +1364,79 @@
                   }
                 },
                 "required": ["streamer", "gateUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deletePin": {
+      "post": {
+        "summary": "Unpin a pinned chat message on behalf of a streamer. Requires 'message.pin' permission. Deletes the place.stream.chat.pinnedRecord from the streamer's repo.",
+        "operationId": "place.stream.moderation.deletePin",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "Forbidden"
+                        },
+                        {
+                          "const": "SessionNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "pinUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the pinned record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "pinUri"]
               }
             }
           }
@@ -1887,6 +2081,31 @@
         ]
       }
     },
+    "/xrpc/place.stream.config.getEnv": {
+      "get": {
+        "summary": "Get client-facing environment configuration from the server.",
+        "operationId": "place.stream.config.getEnv",
+        "tags": ["place.stream.config"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "playbackWorkerUrl": {
+                      "type": "string",
+                      "description": "URL of the Cloudflare playback router worker"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.broadcast.getBroadcaster": {
       "get": {
         "summary": "Get information about a Streamplace broadcaster.",
@@ -2195,6 +2414,53 @@
             }
           }
         }
+      }
+    },
+    "/xrpc/place.stream.badge.getIssuedBadges": {
+      "get": {
+        "summary": "Returns badges issued to the authenticated user, organized by display slot. Also indicates which badges are currently selected in the user's chat profile.",
+        "operationId": "place.stream.badge.getIssuedBadges",
+        "tags": ["place.stream.badge"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "server": {
+                      "$ref": "#/components/schemas/place.stream.badge.defs_badgeView",
+                      "description": "Computed server badge (streamer, mod, or bot) for the given streamer context. Absent if the user has no server role."
+                    },
+                    "streamer": {
+                      "$ref": "#/components/schemas/place.stream.badge.defs_badgeSlot",
+                      "description": "Streamer-issued badges (e.g. VIP) available to the user."
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/place.stream.badge.defs_badgeSlot",
+                      "description": "Globally-issued cosmetic badges (e.g. event) available to the user."
+                    }
+                  },
+                  "required": ["streamer", "user"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "streamer",
+            "in": "query",
+            "required": false,
+            "description": "DID of the streamer channel to compute the server badge against.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the streamer channel to compute the server badge against.",
+              "format": "did"
+            }
+          }
+        ]
       }
     },
     "/xrpc/place.stream.badge.getValidBadges": {
@@ -3848,12 +4114,84 @@
             "description": "DID of the badge recipient.",
             "format": "did"
           },
+          "name": {
+            "type": "string",
+            "description": "Display name from the badge definition."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description from the badge definition."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Resolved image URL for the badge icon.",
+            "format": "uri"
+          },
           "signature": {
             "type": "string",
             "description": "TODO: Cryptographic signature of the badge (of a place.stream.key)."
           }
         },
         "required": ["badgeType", "issuer", "recipient"]
+      },
+      "place.stream.badge.defs_badgeSlot": {
+        "type": "object",
+        "description": "A display slot containing available issuance-based badges and which one (if any) is currently selected.",
+        "properties": {
+          "selected": {
+            "$ref": "#/components/schemas/place.stream.badge.defs_badgeIssuanceView",
+            "description": "The currently selected badge in this slot, if any."
+          },
+          "available": {
+            "type": "array",
+            "description": "All badges available for this slot.",
+            "items": {
+              "$ref": "#/components/schemas/place.stream.badge.defs_badgeIssuanceView"
+            }
+          }
+        },
+        "required": ["available"]
+      },
+      "place.stream.badge.defs_badgeIssuanceView": {
+        "type": "object",
+        "description": "A resolved view of a badge issuance, including def fields for display.",
+        "properties": {
+          "issuanceUri": {
+            "type": "string",
+            "description": "AT URI of the place.stream.badge.issuance record.",
+            "format": "uri"
+          },
+          "issuanceCid": {
+            "type": "string",
+            "description": "CID of the place.stream.badge.issuance record."
+          },
+          "badgeType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name from the badge definition."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description from the badge definition."
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Resolved image URL for the badge icon.",
+            "format": "uri"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "DID of the badge issuer.",
+            "format": "did"
+          },
+          "selected": {
+            "type": "boolean",
+            "description": "Whether this badge is currently in the user's chat profile selection."
+          }
+        },
+        "required": ["issuanceUri", "badgeType", "issuer"]
       },
       "com.atproto.sync.listRepos_repo": {
         "type": "object",

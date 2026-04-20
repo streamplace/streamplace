@@ -17,6 +17,7 @@ import {
 } from "components/settings/components/settings-navigation-item";
 import { ImageBackground } from "expo-image";
 import {
+  Award,
   Brush,
   Globe,
   Info,
@@ -29,7 +30,6 @@ import {
 import { ScrollView } from "react-native";
 
 import { LiquidGlassView } from "@callstack/liquid-glass";
-import { useNavigationState } from "@react-navigation/native";
 import Mu from "components/mobile/desktop-ui/mu";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
@@ -40,15 +40,6 @@ export function Settings() {
   const userProfile = useUserProfile();
   const danmuUnlocked = useDanmuUnlocked();
   const openLoginModal = useStore((state) => state.openLoginModal);
-
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
-    let route: any = state.routes[state.index];
-    while (route.state?.index !== undefined) {
-      route = route.state.routes[route.state.index];
-    }
-    return { name: route.name, params: route.params };
-  });
 
   const adminDids = useStreamplaceStore((state) => state.adminDIDs);
   const did = useDID();
@@ -158,6 +149,21 @@ export function Settings() {
                   title={t("danmu")}
                   screen="DanmuCategory"
                   icon={Mu as any}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("issue-badges")}
+                  screen="BadgeIssuer"
+                  icon={Award}
+                />
+              </MenuGroup>
+            )}
+            {loggedIn && (
+              <MenuGroup>
+                <SettingsNavigationItem
+                  title={t("badges")}
+                  screen="BadgeSelection"
+                  icon={Award}
                 />
               </MenuGroup>
             )}

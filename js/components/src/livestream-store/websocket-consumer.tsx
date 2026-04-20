@@ -2,6 +2,7 @@ import { AppBskyActorDefs } from "@atproto/api";
 import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
+  PinnedRecordViewHydrated,
   PlaceStreamChatDefs,
   PlaceStreamChatGate,
   PlaceStreamChatMessage,
@@ -123,6 +124,20 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
+      } else if (PlaceStreamChatDefs.isPinnedRecordView(message)) {
+        const pinnedView = message as PinnedRecordViewHydrated;
+        state = {
+          ...state,
+          pinnedComment: pinnedView,
+        };
+      } else if (
+        (message as any).$type === "place.stream.chat.pinnedRecord" &&
+        (message as any).deleted === true
+      ) {
+        state = {
+          ...state,
+          pinnedComment: null,
+        };
       } else if (PlaceStreamLiveTeleport.isRecord(message)) {
         const teleportRecord = message as PlaceStreamLiveTeleport.Record;
         state = {

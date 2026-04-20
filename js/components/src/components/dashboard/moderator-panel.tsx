@@ -372,6 +372,7 @@ function AddModeratorDialog({
     ban: false,
     hide: false,
     "livestream.manage": false,
+    "message.pin": false,
   });
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -380,7 +381,12 @@ function AddModeratorDialog({
   useEffect(() => {
     if (!visible) {
       setModeratorDID("");
-      setPermissions({ ban: false, hide: false, "livestream.manage": false });
+      setPermissions({
+        ban: false,
+        hide: false,
+        "livestream.manage": false,
+        "message.pin": false,
+      });
       setError(null);
     }
   }, [visible]);
@@ -401,7 +407,12 @@ function AddModeratorDialog({
 
     const selectedPermissions = Object.entries(permissions)
       .filter(([_, enabled]) => enabled)
-      .map(([perm]) => perm) as ("ban" | "hide" | "livestream.manage")[];
+      .map(([perm]) => perm) as (
+      | "ban"
+      | "hide"
+      | "livestream.manage"
+      | "message.pin"
+    )[];
 
     if (selectedPermissions.length === 0) {
       setError("Please select at least one permission");

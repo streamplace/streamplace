@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -8,19 +9,29 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
 // take in a segment and return a bunch of packets suitable for webrtc
-func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error) {
+func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
+	uu, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
+	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
+
 	pipelineSlice := []string{
-		"h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink",
-		"opusparse name=audioparse ! appsink sync=false name=audioappsink",
+		fmt.Sprintf("%s name=videoparse ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=audioparse ! opusparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -137,6 +148,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			}
 
 			samples := buffer.Bytes()
+			// log.Warn(ctx, "audioappsink NewSampleFunc", "sample", len(samples))
 
 			audioOutput = append(audioOutput, samples)
 

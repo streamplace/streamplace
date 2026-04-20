@@ -81,7 +81,7 @@ export function useListModerators(): ListModeratorsResult {
 
 interface AddModeratorParams {
   moderatorDID: string;
-  permissions: ("ban" | "hide" | "livestream.manage")[];
+  permissions: ("ban" | "hide" | "livestream.manage" | "message.pin")[];
   expirationTime?: string; // ISO 8601 datetime string
 }
 

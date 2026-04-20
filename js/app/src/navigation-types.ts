@@ -14,6 +14,8 @@ export type SettingsStackParamList = {
   LanguagesCategory: undefined;
   DeveloperSettings: undefined;
   KeyManagement: undefined;
+  BadgeSelection: undefined;
+  BadgeIssuer: undefined;
 };
 
 export type HomeStackParamList = {

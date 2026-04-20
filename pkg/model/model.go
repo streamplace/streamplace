@@ -85,6 +85,12 @@ type Model interface {
 	GetGate(ctx context.Context, rkey string) (*Gate, error)
 	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
 
+	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
+	DeletePinnedRecord(ctx context.Context, uri string) error
+	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
+	GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error)
+	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error)
+
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
 
@@ -118,9 +124,17 @@ type Model interface {
 
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error)
+
+	UpsertBadgeDef(ctx context.Context, def *BadgeDef) error
+	DeleteBadgeDef(ctx context.Context, uri string) error
+	GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, error)
+	UpsertBadgeIssuance(ctx context.Context, issuance *BadgeIssuance) error
+	DeleteBadgeIssuance(ctx context.Context, uri string) error
+	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
+	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
 }
 
-var DBRevision = 2
+var DBRevision = 4
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL
@@ -179,6 +193,7 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatMessage{},
 		ChatProfile{},
 		Gate{},
+		PinnedRecord{},
 		ServerSettings{},
 		Labeler{},
 		Label{},
@@ -188,6 +203,8 @@ func MakeDB(dbURL string) (Model, error) {
 		ModerationDelegation{},
 		Recommendation{},
 		BskyProfile{},
+		BadgeDef{},
+		BadgeIssuance{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

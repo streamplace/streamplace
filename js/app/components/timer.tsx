@@ -1,4 +1,5 @@
 import { Text, zero } from "@streamplace/components";
+import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
@@ -36,7 +37,7 @@ export default function Timer({ start }: { start: string | Date }) {
     >
       <Text
         style={[
-          { fontFamily: "monospace" },
+          { fontFamily: fontFamilies.monoRegular },
           {
             textShadowOffset: { width: -1, height: 1 },
             textShadowRadius: 3,

@@ -54,3 +54,16 @@ func (t *ChatDefs_MessageView_ReplyTo) UnmarshalJSON(b []byte) error {
 		return nil
 	}
 }
+
+// ChatDefs_PinnedRecordView is a "pinnedRecordView" in the place.stream.chat.defs schema.
+//
+// View of a pinned chat record with hydrated message data.
+type ChatDefs_PinnedRecordView struct {
+	LexiconTypeID string                `json:"$type" cborgen:"$type,const=place.stream.chat.defs#pinnedRecordView"`
+	Cid           string                `json:"cid" cborgen:"cid"`
+	IndexedAt     string                `json:"indexedAt" cborgen:"indexedAt"`
+	Message       *ChatDefs_MessageView `json:"message,omitempty" cborgen:"message,omitempty"`
+	PinnedBy      *ChatProfile          `json:"pinnedBy,omitempty" cborgen:"pinnedBy,omitempty"`
+	Record        *ChatPinnedRecord     `json:"record" cborgen:"record"`
+	Uri           string                `json:"uri" cborgen:"uri"`
+}

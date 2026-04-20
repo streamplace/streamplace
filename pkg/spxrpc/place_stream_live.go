@@ -190,7 +190,7 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
 		}
-		viewers := spmetrics.GetViewCount(stream.Author.Did)
+		viewers := s.bus.GetViewerCount(stream.Author.Did)
 		stream.ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(viewers),
@@ -209,6 +209,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 }
 
 func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
+	if s.cli.DisableSyndication {
+		return echo.NewHTTPError(http.StatusNotImplemented, "Syndication is disabled")
+	}
 	user := c.QueryParam("streamer")
 	if user == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "User DID is required")

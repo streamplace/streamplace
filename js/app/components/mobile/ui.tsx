@@ -40,6 +40,7 @@ import { Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -55,11 +56,13 @@ export function MobileUi({
   showChat,
   hideMobileChat,
   embed = false,
+  sharedFadeOpacity,
 }: {
   setShowChat?: (show: boolean) => void;
   showChat?: boolean;
   hideMobileChat?: boolean;
   embed?: boolean;
+  sharedFadeOpacity?: SharedValue<number>;
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
@@ -110,11 +113,13 @@ export function MobileUi({
     if (recordSubmitted) setShowLoading(false);
   }, [recordSubmitted]);
 
+  const isPortrait = !shouldShowChatSidePanel;
   const isSelfAndNotLive = ingest !== null && ls === null;
   const isSelfAndLive = ingest !== null && ls !== null;
 
   const FADE_OUT_DELAY = 4000;
-  const fadeOpacity = useSharedValue(1);
+  const internalFadeOpacity = useSharedValue(1);
+  const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
@@ -122,6 +127,7 @@ export function MobileUi({
     fadeOpacity.value = withTiming(1, { duration: 200 });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
+    if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
     }, FADE_OUT_DELAY);
@@ -147,10 +153,8 @@ export function MobileUi({
   };
 
   const animatedFadeStyle = useAnimatedStyle(() => ({
-    opacity:
-      shouldShowFloatingMetrics || showChat === undefined
-        ? 1
-        : fadeOpacity.value,
+    opacity: fadeOpacity.value,
+    transform: isPortrait ? [{ translateY: (fadeOpacity.value - 1) * 40 }] : [],
   }));
 
   const hover = Gesture.Hover().onChange(onPlayerHover);
@@ -203,27 +207,26 @@ export function MobileUi({
                 <View
                   style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
                 >
-                  {shouldShowFloatingMetrics && (
-                    <View>
-                      <View
-                        style={[
-                          {
-                            padding: 9,
-                            backgroundColor: "rgba(90,90,90, 0.3)",
-                            borderRadius: 12,
-                          },
-                          r[2],
-                        ]}
-                      >
-                        <PlayerUI.Viewers />
-                      </View>
+                  <View>
+                    <View
+                      style={[
+                        {
+                          padding: 9,
+                          backgroundColor: "rgba(90,90,90, 0.3)",
+                          borderRadius: 12,
+                        },
+                        r[2],
+                      ]}
+                    >
+                      <PlayerUI.Viewers />
                     </View>
-                  )}
+                  </View>
 
                   <RightControlsPanel
                     ingest={ingest}
                     doSetIngestCamera={doSetIngestCamera}
                     shouldShowChatSidePanel={shouldShowChatSidePanel}
+                    isPortrait={!shouldShowChatSidePanel}
                     showChat={showChat}
                     setShowChat={setShowChat}
                   />
@@ -285,9 +288,10 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && !isSelfAndNotLive && playerIsReady && (
-        <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
-      )}
+      {hideMobileChat ||
+        (isPortrait && !isSelfAndNotLive && playerIsReady && (
+          <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+        ))}
     </>
   );
 }
@@ -334,31 +338,31 @@ function LeftControlsPanel({
             onPress={() => {
               navigation.canGoBack()
                 ? navigation.goBack()
-                : navigation.navigate("Home", {
-                    screen: "HomeMain",
-                  });
+                : navigation.navigate("MainTabs" as any, { screen: "HomeTab" });
             }}
           >
             <ChevronLeft color="white" />
           </Pressable>
           <Image
             source={
-              profile?.did
-                ? { url: avatars[profile?.did]?.avatar }
+              avatars[profile?.did]
+                ? avatars[profile?.did]?.avatar
                 : require("assets/images/goose.png")
             }
+            key={profile?.did}
             style={[
               {
                 width: 36,
                 height: 36,
-                backgroundColor: "green",
               },
               { borderRadius: 999 },
               borders.width.thin,
               borders.color.gray[700],
             ]}
           />
-          <Text>{profile?.handle}</Text>
+          <Text numberOfLines={1} ellipsizeMode="tail">
+            {profile?.handle}
+          </Text>
         </View>
       </View>
 
@@ -410,12 +414,14 @@ function RightControlsPanel({
   ingest,
   doSetIngestCamera,
   shouldShowChatSidePanel,
+  isPortrait,
   showChat,
   setShowChat,
 }: {
   ingest: string | null;
   doSetIngestCamera: () => void;
   shouldShowChatSidePanel: boolean;
+  isPortrait: boolean;
   showChat?: boolean;
   setShowChat?: (show: boolean) => void;
 }) {
@@ -462,12 +468,10 @@ function RightControlsPanel({
             paddingVertical: 2.25 * 4,
           },
           zero.r[2],
-          showChat === undefined
-            ? zero.layout.flex.column
-            : zero.layout.flex.row,
+          isPortrait ? zero.layout.flex.column : zero.layout.flex.row,
           zero.layout.flex.center,
           zero.gap.all[4],
-          showChat === undefined ? zero.px[2] : zero.px[3],
+          isPortrait ? zero.px[2] : zero.px[3],
           zero.layout.position.relative,
         ]}
       >
@@ -506,7 +510,7 @@ function RightControlsPanel({
         ) : (
           <View
             style={[
-              showChat === undefined
+              isPortrait
                 ? { flexDirection: "column-reverse" }
                 : { flexDirection: "row" },
               zero.layout.flex.center,

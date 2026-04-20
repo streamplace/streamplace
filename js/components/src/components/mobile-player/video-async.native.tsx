@@ -177,6 +177,11 @@ export function NativeVideo(props?: {
         }}
         allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
         onLayout={handleLayout}
+        style={{
+          minWidth: "100%",
+          minHeight: "100%",
+          flex: 1,
+        }}
       />
     </>
   );

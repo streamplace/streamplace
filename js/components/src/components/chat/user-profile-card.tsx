@@ -10,13 +10,28 @@ import {
   useRef,
   useState,
 } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { zero } from "../..";
 import { useAvatars } from "../../hooks/useAvatars";
+import IconBsky from "../../icons/icon-bsky";
+import {
+  borders,
+  gap,
+  h,
+  pb,
+  pl,
+  pt,
+  px,
+  r,
+  shadows,
+  w,
+} from "../../lib/theme/atoms";
 import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
 import { useTheme } from "../../ui";
 import { formatHandleWithAt } from "../../utils/format-handle";
+import { Button, MenuGroup } from "../ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,48 +42,91 @@ import { Badge } from "./badge";
 
 interface BadgeMeta {
   label: string;
-  description: string;
+  description?: string;
   issuedBy?: string;
 }
 
 const BADGE_META: Record<string, BadgeMeta> = {
   "place.stream.badge.defs#mod": {
     label: "Moderator",
-    description: "This user is a moderator.",
     issuedBy: "{issuer} for {streamer}",
+  },
+  "place.stream.badge.defs#bot": {
+    label: "Bot",
+    description: "This account has been marked as automated by its owner.",
   },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",
-    description: "This user is the streamer.",
   },
   "place.stream.badge.defs#vip": {
     label: "VIP",
-    description: "This user is a very important person.",
+    description: "This user is clearly a very important person.",
   },
 };
 
+interface OpenCardData {
+  uri: string;
+  author: ProfileViewBasic;
+  badges: ChatMessageViewHydrated["badges"];
+  anchorX: number;
+  anchorY: number;
+}
+
 interface OpenCardContextValue {
-  openUri: string | null;
-  setOpenUri: (uri: string | null) => void;
+  openCard: OpenCardData | null;
+  setOpenCard: (card: OpenCardData | null) => void;
 }
 
 const OpenCardContext = createContext<OpenCardContextValue>({
-  openUri: null,
-  setOpenUri: () => {},
+  openCard: null,
+  setOpenCard: () => {},
 });
 
-export const ProfileCardProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
-  const [openUri, setOpenUri] = useState<string | null>(null);
-  return (
-    <OpenCardContext.Provider value={{ openUri, setOpenUri }}>
-      {children}
-    </OpenCardContext.Provider>
+// All hook-derived data needed to render the card — computed outside any Modal boundary.
+interface ProfileCardData {
+  author: ProfileViewBasic;
+  profile: ReturnType<typeof useAvatars>[string] | undefined;
+  profiles: ReturnType<typeof useAvatars>;
+  serviceDid: string | null;
+  allBadges: NonNullable<ChatMessageViewHydrated["badges"]>;
+  streamer: ProfileViewBasic | undefined;
+}
+
+function useProfileCardData(
+  author: ProfileViewBasic,
+  badges: ChatMessageViewHydrated["badges"],
+): ProfileCardData {
+  const nodeUrl = useUrl();
+  const serviceDid = nodeUrl
+    ? `did:web:${nodeUrl.replace(/^https?:\/\//, "")}`
+    : null;
+  const streamer = useLivestreamStore((x) => x.livestream?.author);
+
+  const issuerDids = useMemo(
+    () =>
+      badges?.map((b) => b.issuer).filter((did) => did && did !== serviceDid) ??
+      [],
+    [badges, serviceDid],
   );
-};
+  const allDids = useMemo(
+    () => (author.did ? [author.did, ...issuerDids] : issuerDids),
+    [author.did, issuerDids],
+  );
+  const profiles = useAvatars(allDids);
+
+  const allBadges = (badges ?? []) as NonNullable<
+    ChatMessageViewHydrated["badges"]
+  >;
+
+  return {
+    author,
+    profile: profiles[author.did],
+    profiles,
+    serviceDid,
+    allBadges,
+    streamer,
+  };
+}
 
 const BadgeRow = ({
   streamer,
@@ -83,43 +141,260 @@ const BadgeRow = ({
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
   const meta = BADGE_META[badge.badgeType];
-
-  if (!meta) return null;
+  const label = meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
+  const description = meta?.description ?? badge.description;
 
   let issuerLabel = isServiceIssued
     ? "Streamplace"
     : issuerProfiles[badge.issuer]?.handle
       ? `@${issuerProfiles[badge.issuer].handle}`
       : badge.issuer;
-  if (meta.issuedBy) {
-    issuerLabel = meta.issuedBy
-      .replace("{issuer}", issuerLabel)
-      .replace(
-        "{streamer}",
-        streamer?.handle ? formatHandleWithAt(streamer) : "the streamer",
-      );
-  }
+  const issuedByTemplate = meta?.issuedBy ?? "Issued by {issuer}";
+  issuerLabel = issuedByTemplate
+    .replace("{issuer}", issuerLabel)
+    .replace(
+      "{streamer}",
+      streamer?.handle ? formatHandleWithAt(streamer) : "the streamer",
+    );
 
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingLeft: 6,
-      }}
+      style={[
+        gap.all[3],
+        pl[2],
+        { flexDirection: "row", alignItems: "center" },
+      ]}
     >
-      <Badge badgeType={badge.badgeType} size={32} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text size="xs">{meta.label}</Text>
+      <Badge badgeType={badge.badgeType} size={32} imageUrl={badge.imageUrl} />
+      <View style={[{ flex: 1 }]}>
+        <Text size="xs">{label}</Text>
         <Text size="xs" color="muted">
-          Issued by {issuerLabel}
+          {issuerLabel}
         </Text>
-        <Text size="xs" color="muted">
-          {meta.description}
-        </Text>
+        {description && (
+          <Text size="xs" color="muted">
+            {description}
+          </Text>
+        )}
       </View>
     </View>
+  );
+};
+
+const ProfileCardContent = ({
+  data,
+  theme,
+}: {
+  data: ProfileCardData;
+  theme: ReturnType<typeof useTheme>["theme"];
+}) => {
+  const { author, profile, profiles, serviceDid, allBadges, streamer } = data;
+
+  return (
+    <View style={[zero.pb[1]]}>
+      {profile?.banner ? (
+        <Image
+          source={{ uri: profile.banner }}
+          style={[h[20], { width: "100%" }, Platform.OS != "web" && zero.r.md]}
+        />
+      ) : (
+        <View
+          style={[
+            h[20],
+            { width: "100%", backgroundColor: theme.colors.muted },
+          ]}
+        />
+      )}
+      <View
+        style={[
+          px[3],
+          {
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            marginTop: -24,
+          },
+        ]}
+      >
+        {profile?.avatar ? (
+          <Image
+            source={{ uri: profile.avatar }}
+            style={[
+              w[12],
+              h[12],
+              r.full,
+              { borderWidth: 2, borderColor: theme.colors.card },
+            ]}
+          />
+        ) : (
+          <View
+            style={[
+              w[12],
+              h[12],
+              r.full,
+              {
+                borderWidth: 2,
+                borderColor: theme.colors.card,
+                backgroundColor: theme.colors.mutedForeground,
+              },
+            ]}
+          />
+        )}
+      </View>
+      <View style={[px[3]]}>
+        <View
+          style={[
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            zero.layout.flex.justify.between,
+            gap.all[2],
+          ]}
+        >
+          <Text>@{author.handle}</Text>
+          {Platform.OS === "web" && (
+            <View style={{ position: "absolute", right: 2, bottom: 7 }}>
+              <Button
+                size="pill"
+                variant="secondary"
+                style={{ aspectRatio: 1 }}
+                onPress={() => {
+                  Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+                }}
+              >
+                <IconBsky size={18} />
+              </Button>
+            </View>
+          )}
+        </View>
+        {allBadges.length > 0 ? (
+          <View style={[zero.py[2]]}>
+            <MenuGroup>
+              {allBadges.map((badge, i) => (
+                <BadgeRow
+                  key={i}
+                  badge={badge}
+                  serviceDid={serviceDid ?? ""}
+                  streamer={streamer}
+                  issuerProfiles={profiles}
+                />
+              ))}
+            </MenuGroup>
+          </View>
+        ) : null}
+      </View>
+      {Platform.OS !== "web" && (
+        <View style={[px[3], pt[2]]}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => {
+              Linking.openURL(`https://bsky.app/profile/${author.handle}`);
+            }}
+          >
+            <View
+              style={[
+                zero.gap.all[2],
+                zero.layout.flex.row,
+                zero.layout.flex.alignCenter,
+              ]}
+            >
+              <IconBsky size={20} />
+              <Text>View Profile</Text>
+            </View>
+          </Button>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Web only overlay rendered in a React portal
+const ProfileCardOverlay = ({
+  card,
+  onClose,
+}: {
+  card: OpenCardData;
+  onClose: () => void;
+}) => {
+  const { theme } = useTheme();
+  const data = useProfileCardData(card.author, card.badges);
+
+  const [portalContainer, setPortalContainer] = useState<Element | null>(null);
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      setPortalContainer(document.body);
+    }
+  }, []);
+
+  if (!portalContainer) return null;
+
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 400;
+  const viewportHeight =
+    typeof window !== "undefined" ? window.innerHeight : 600;
+  const cardWidth = 300;
+  const left = Math.max(
+    8,
+    Math.min(card.anchorX, viewportWidth - cardWidth - 8),
+  );
+  const flipUp = viewportHeight - card.anchorY < 280;
+  const verticalStyle = flipUp
+    ? { bottom: viewportHeight - card.anchorY + 4 }
+    : { top: card.anchorY + 4 };
+
+  const { createPortal } = require("react-dom");
+
+  return createPortal(
+    <>
+      {/* Invisible backdrop — clicking outside closes the card */}
+      <Pressable
+        onPress={onClose}
+        style={{
+          position: "fixed" as any,
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9998,
+        }}
+      />
+      <Pressable
+        style={[
+          r.md,
+          borders.width.thin,
+          shadows.lg,
+          {
+            position: "fixed" as any,
+            left,
+            ...verticalStyle,
+            width: cardWidth,
+            zIndex: 9999,
+            backgroundColor: theme.colors.popover,
+            borderColor: theme.colors.border,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        <ProfileCardContent data={data} theme={theme} />
+      </Pressable>
+    </>,
+    portalContainer,
+  );
+};
+
+export const ProfileCardProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const [openCard, setOpenCard] = useState<OpenCardData | null>(null);
+  const value = useMemo(() => ({ openCard, setOpenCard }), [openCard]);
+  return (
+    <OpenCardContext.Provider value={value}>
+      {children}
+      {openCard && Platform.OS === "web" && (
+        <ProfileCardOverlay card={openCard} onClose={() => setOpenCard(null)} />
+      )}
+    </OpenCardContext.Provider>
   );
 };
 
@@ -135,161 +410,58 @@ export const UserProfileCard = ({
   children: React.ReactNode;
 }) => {
   const { theme } = useTheme();
-  const nodeUrl = useUrl();
-  const serviceDid = nodeUrl
-    ? `did:web:${nodeUrl.replace(/^https?:\/\//, "")}`
-    : null;
-
-  const streamer = useLivestreamStore((x) => x.livestream?.author);
-
-  const { openUri, setOpenUri } = useContext(OpenCardContext);
-  const isOpen = openUri === uri;
-  const thisRef = useRef<TriggerRef>(null);
+  const data = useProfileCardData(author, badges);
+  const { setOpenCard } = useContext(OpenCardContext);
   const [hovered, setHovered] = useState(false);
+  // web: ref for measuring anchor position
+  const triggerRef = useRef<View>(null);
+  // native: ref for the dropdown trigger
+  const dropdownRef = useRef<TriggerRef>(null);
 
-  const issuerDids = useMemo(
-    () =>
-      badges?.map((b) => b.issuer).filter((did) => did && did !== serviceDid) ??
-      [],
-    [badges, serviceDid],
-  );
+  const openWebCard = useCallback(() => {
+    if (triggerRef.current) {
+      triggerRef.current.measureInWindow((x, y, width, height) => {
+        setOpenCard({ uri, author, badges, anchorX: x, anchorY: y + height });
+      });
+    }
+  }, [uri, author, badges, setOpenCard]);
 
-  const allDids = useMemo(
-    () => (author.did ? [author.did, ...issuerDids] : issuerDids),
-    [author.did, issuerDids],
-  );
+  // Native: use DropdownMenu for built-in positioning and interactions.
+  // * important ! all data must be computed outside the dropdown and passed in!
+  if (Platform.OS !== "web") {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger ref={dropdownRef} asChild>
+          <Pressable onPress={() => {}}>{children}</Pressable>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent style={{ minWidth: 280, maxWidth: 320 }}>
+          <ProfileCardContent data={data} theme={theme} />
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
-  const profiles = useAvatars(allDids);
-  const profile = profiles[author.did];
-
-  useEffect(() => {
-    isOpen ? thisRef.current?.open() : thisRef.current?.close();
-  }, [isOpen]);
-
-  const onOpenChange = useCallback(
-    (open: boolean) => {
-      setOpenUri(open ? uri : null);
-    },
-    [uri, setOpenUri],
-  );
-
-  const serviceBadges = useMemo(
-    () => badges?.filter((b) => serviceDid && b.issuer === serviceDid) ?? [],
-    [badges, serviceDid],
-  );
-
+  // Web: Pressable that pushes card data + anchor coords into context for the portal overlay.
   return (
-    <DropdownMenu onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger ref={thisRef} asChild>
-        <Pressable
-          onPress={() => {}}
-          {...(Platform.OS === "web"
-            ? {
-                onHoverIn: () => setHovered(true),
-                onHoverOut: () => setHovered(false),
-              }
-            : {})}
-          style={{
-            paddingHorizontal: 3,
-            flexDirection: "row",
-            gap: 4,
-            marginLeft: -3,
-            paddingLeft: 3,
-            marginRight: -2,
-            ...(Platform.OS === "web" && { paddingBottom: 4 }),
-            ...(Platform.OS === "web" && hovered
-              ? { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 6 }
-              : {}),
-          }}
-        >
-          {children}
-        </Pressable>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent style={{ minWidth: 280, maxWidth: 320 }}>
-        <View>
-          {profile?.banner ? (
-            <Image
-              source={{ uri: profile.banner }}
-              style={{
-                width: "100%",
-                height: 80,
-                borderRadius: theme.borderRadius.md,
-              }}
-            />
-          ) : (
-            <View
-              style={{
-                width: "100%",
-                height: 80,
-                borderRadius: theme.borderRadius.md,
-                backgroundColor: theme.colors.muted,
-              }}
-            />
-          )}
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "flex-end",
-              marginTop: -24,
-              paddingHorizontal: 12,
-            }}
-          >
-            {profile?.avatar ? (
-              <Image
-                source={{ uri: profile.avatar }}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  borderWidth: 2,
-                  borderColor: theme.colors.card,
-                }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: theme.colors.mutedForeground,
-                  borderWidth: 2,
-                  borderColor: theme.colors.card,
-                }}
-              />
-            )}
-          </View>
-          <View style={{ paddingHorizontal: 12 }}>
-            <Text>@{author.handle}</Text>
-            {profile?.description ? (
-              <Text size="sm" color="muted" numberOfLines={4}>
-                {profile.description}
-              </Text>
-            ) : null}
-          </View>
-          {serviceBadges.length > 0 && serviceDid ? (
-            <View
-              style={{
-                marginTop: 12,
-                paddingHorizontal: 12,
-                paddingBottom: 8,
-                borderTopWidth: 1,
-                borderTopColor: theme.colors.border,
-                paddingTop: 8,
-              }}
-            >
-              {serviceBadges.map((badge, i) => (
-                <BadgeRow
-                  key={i}
-                  badge={badge}
-                  serviceDid={serviceDid}
-                  streamer={streamer}
-                  issuerProfiles={profiles}
-                />
-              ))}
-            </View>
-          ) : null}
-        </View>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Pressable
+      ref={triggerRef}
+      onPress={openWebCard}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={[
+        gap.all[1],
+        px[1],
+        pb[1],
+        hovered ? r.sm : undefined,
+        {
+          flexDirection: "row",
+          marginLeft: -3,
+          marginRight: -2,
+          ...(hovered ? { backgroundColor: "rgba(255,255,255,0.15)" } : {}),
+        },
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 };

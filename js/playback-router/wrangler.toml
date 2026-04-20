@@ -1,0 +1,9 @@
+name = "playback-router"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+
+[vars]
+# Upstream servers as UPSTREAM_SERVER__0, UPSTREAM_SERVER__1, etc.
+# UPSTREAM_SERVER__0 = "https://us-east.stream.place"
+# UPSTREAM_SERVER__1 = "https://us-west.stream.place"
+# UPSTREAM_SERVER__2 = "https://eu.stream.place"

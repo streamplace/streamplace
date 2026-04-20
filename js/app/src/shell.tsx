@@ -3,10 +3,14 @@ import {
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import {
+  createNativeStackNavigator,
+  NativeStackHeaderBackProps,
+} from "@react-navigation/native-stack";
 import {
   Text,
   useAccentColor,
+  useDID,
   usePrimaryColor,
   useSiteTitle,
   useTheme,
@@ -17,10 +21,12 @@ import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
+import { MobileAppBanner } from "components/mobile-app-banner";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
-import { BackupSettings } from "components/settings/backup-settings";
+import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
+import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
@@ -33,7 +39,8 @@ import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
-import { useSidebarControl } from "hooks/useSidebarControl";
+import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
+import { Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -66,17 +73,49 @@ const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
+function useBaseScreenOptions() {
+  const z = useTheme();
+  return {
+    headerShown: true,
+    headerTransparent: Platform.OS === "ios",
+    headerBackButtonDisplayMode: "minimal" as const,
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+    },
+    headerStyle: {
+      backgroundColor: z.theme.colors.background,
+      borderBottomColor: z.theme.colors.border,
+      borderBottomWidth: 1,
+    },
+  };
+}
+
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
   const title = useSiteTitle() || "Streamplace Station";
+  const baseScreenOptions = useBaseScreenOptions();
+  const isNative = Platform.OS !== "web";
+  const z = useTheme();
+  const did = useDID();
+
+  const headerScreenOptions = {
+    headerShown: !isNative,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+    headerRight: () => <LGAvatarButton />,
+    ...(isNative && {
+      headerTransparent: true,
+    }),
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal.base.fontFamily,
+    },
+  };
+
   return (
-    <HomeStack.Navigator
-      screenOptions={{
-        headerShown: true,
-        headerTransparent: Platform.OS === "ios",
-        headerBackButtonDisplayMode: "minimal",
-      }}
-    >
+    <HomeStack.Navigator screenOptions={baseScreenOptions}>
       <HomeStack.Screen
         name="HomeMain"
         component={HomeScreen}
@@ -111,32 +150,35 @@ function HomeNavigator() {
       <HomeStack.Screen
         name="About"
         component={AboutScreen}
-        options={{ title: "What's Streamplace?" }}
+        options={{
+          title: "What's Streamplace?",
+          ...headerScreenOptions,
+        }}
       />
       <HomeStack.Screen
         name="Download"
         component={DownloadScreen}
-        options={{ title: "Download" }}
+        options={{ title: "Download", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="LiveDashboard"
         component={LiveDashboard}
-        options={{ title: "Live Dashboard" }}
+        options={{ title: "Live Dashboard", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Login"
         component={Login}
-        options={{ title: "Login" }}
+        options={{ title: did ? "Account" : "Login", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Multi"
         component={MultiScreen}
-        options={{ title: "Multi-stream" }}
+        options={{ title: "Multi-stream", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Support"
         component={SupportScreen}
-        options={{ title: "Support" }}
+        options={{ title: "Support", ...headerScreenOptions }}
       />
     </HomeStack.Navigator>
   );
@@ -144,17 +186,31 @@ function HomeNavigator() {
 
 // Settings stack navigator
 function SettingsNavigator() {
+  const baseScreenOptions = useBaseScreenOptions();
   const z = useTheme();
+  const isNative = Platform.OS !== "web";
+  const headerScreenOptions = {
+    headerShown: true,
+    headerLeft: isNative
+      ? undefined
+      : ({ canGoBack }: NativeStackHeaderBackProps) => (
+          <NavigationButton canGoBack={canGoBack} />
+        ),
+    headerRight: () => <LGAvatarButton />,
+    ...(isNative && {
+      headerTransparent: true,
+    }),
+    headerTitleStyle: {
+      fontFamily: z.theme.typography.universal.base.fontFamily,
+    },
+  };
   return (
     <SettingsStack.Navigator
       initialRouteName="MainSettings"
       screenOptions={{
-        headerShown: true,
         headerTransparent: Platform.OS === "ios",
         headerBackButtonDisplayMode: "minimal",
-        headerTitleStyle: {
-          fontFamily: z.theme.typography.universal["2xl"].fontFamily,
-        },
+        ...headerScreenOptions,
       }}
     >
       <SettingsStack.Screen
@@ -222,6 +278,16 @@ function SettingsNavigator() {
         component={KeyManager}
         options={{ title: "Key Manager" }}
       />
+      <SettingsStack.Screen
+        name="BadgeSelection"
+        component={BadgeSelectionManager}
+        options={{ title: "Badges" }}
+      />
+      <SettingsStack.Screen
+        name="BadgeIssuer"
+        component={BadgeIssuerPanel}
+        options={{ title: "Issue Badges" }}
+      />
     </SettingsStack.Navigator>
   );
 }
@@ -245,11 +311,12 @@ const getIcon = (
       type: "sfSymbol",
       name: IOS_ICONS[name],
     };
+  } else {
+    return {
+      type: "materialSymbol",
+      name: ANDROID_ICONS[name],
+    };
   }
-  return {
-    type: "materialSymbol",
-    name: ANDROID_ICONS[name],
-  };
 };
 
 // Tab navigator (main app sections, navigation on web is handled in sidebar)
@@ -257,6 +324,7 @@ function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
   const accentColor = useAccentColor();
   const primaryColor = usePrimaryColor();
+  const isLargeScreen = useIsLargeScreen();
   const z = useTheme();
 
   return (
@@ -264,13 +332,18 @@ function TabNavigator() {
       screenOptions={{
         lazy: true,
         headerShown: false,
-        // Hide tab bar on web
-        tabBarStyle: isNative ? undefined : { display: "none" },
-        // doesn't seem to work on iOS?
-        // tabBarInactiveTintColor: primaryColor || accentColor || "#f0f",
-        // tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        // Hide tab bar on web and < 800px
+        tabBarStyle: isNative
+          ? undefined
+          : !isLargeScreen
+            ? undefined
+            : { display: "none" },
+        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+        },
+        headerStyle: {
+          backgroundColor: z.theme.colors.background,
         },
       }}
     >
@@ -279,9 +352,15 @@ function TabNavigator() {
         component={HomeNavigator}
         options={{
           title: "Home",
-          ...(isNative && {
-            tabBarIcon: getIcon("Home"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Home"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Home size={size} color={color} />
+                ),
+              }),
         }}
       />
       <Tab.Screen
@@ -289,9 +368,15 @@ function TabNavigator() {
         component={LaunchGoLive}
         options={{
           title: "Go Live",
-          ...(isNative && {
-            tabBarIcon: getIcon("GoLive"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("GoLive"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Video size={size} color={color} />
+                ),
+              }),
           headerShown: true,
           headerTransparent: true,
         }}
@@ -301,9 +386,15 @@ function TabNavigator() {
         component={SettingsNavigator}
         options={{
           title: "Settings",
-          ...(isNative && {
-            tabBarIcon: getIcon("Settings"),
-          }),
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Settings"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Cog size={size} color={color} />
+                ),
+              }),
           headerShown: false,
         }}
       />
@@ -434,9 +525,10 @@ export default function Shell() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <StatusBar barStyle="light-content" />
       {!isNative && <SidebarOverlay />}
+      {!isNative && <MobileAppBanner />}
       <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
         <RootStack.Navigator
           screenOptions={{
@@ -516,6 +608,6 @@ export default function Shell() {
           loginAction(pdsHost, openLoginLink);
         }}
       />
-    </>
+    </View>
   );
 }

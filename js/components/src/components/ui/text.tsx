@@ -174,11 +174,14 @@ export const Text = forwardRef<any, TextProps>(
       Array.isArray(style) ? style : [style || undefined]
     ).filter((s) => s !== undefined);
 
+    const finalWeight = bold ? "bold" : (weight ?? undefined);
+
     return (
       <TextPrimitive.Root
         ref={ref}
         variant={variant || "body1"}
         size={size || "base"}
+        weight={finalWeight}
         color={finalColor || "default"}
         align={finalAlign}
         transform={finalTransform}

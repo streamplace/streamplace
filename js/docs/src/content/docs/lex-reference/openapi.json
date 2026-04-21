@@ -2471,6 +2471,197 @@
         ]
       }
     },
+    "/xrpc/games.gamesgamesgamesgames.search": {
+      "get": {
+        "summary": "Search across all entity types (games, profiles, platforms, collections, engines).",
+        "operationId": "games.gamesgamesgamesgames.search",
+        "tags": ["games.gamesgamesgamesgames"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "totalResults": {
+                      "type": "integer",
+                      "description": "Total number of results matching the query above the relevance threshold."
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_gameSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_profileSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_platformSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_collectionSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_engineSummaryView"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["results"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "applicationTypes",
+            "in": "query",
+            "required": false,
+            "description": "Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game.",
+            "schema": {
+              "type": "array",
+              "description": "Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genres",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "themes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "modes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "playerPerspectives",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "ageRatings",
+            "in": "query",
+            "required": false,
+            "description": "Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen).",
+            "schema": {
+              "type": "array",
+              "description": "Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen).",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "includeUnrated",
+            "in": "query",
+            "required": false,
+            "description": "When age rating filters are active, also include games with no age ratings.",
+            "schema": {
+              "type": "boolean",
+              "description": "When age rating filters are active, also include games with no age ratings.",
+              "default": false
+            }
+          },
+          {
+            "name": "includeCancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.sync.getRecord": {
       "get": {
         "summary": "Get data blocks needed to prove the existence or non-existence of record in the current version of repo. Does not require auth.",
@@ -4018,6 +4209,207 @@
           }
         },
         "required": ["uri", "cid"]
+      },
+      "games.gamesgamesgamesgames.defs_gameSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_mediaItem"
+            }
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_genre"
+            }
+          },
+          "slug": {
+            "type": "string"
+          },
+          "applicationType": {
+            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_applicationType"
+          },
+          "firstReleaseDate": {
+            "type": "integer",
+            "description": "Earliest release date as YYYYMMDD integer."
+          }
+        },
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_mediaItem": {
+        "type": "object",
+        "properties": {
+          "blob": {
+            "type": "string",
+            "format": "binary"
+          },
+          "description": {
+            "type": "string"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "accoladesTrailer",
+              "announcementTrailer",
+              "artwork",
+              "cinematicTrailer",
+              "conceptArt",
+              "cover",
+              "coverAlt",
+              "coverHistorical",
+              "coverSquare",
+              "cutscene",
+              "devDiary",
+              "gameplayImage",
+              "gameplayTrailer",
+              "icon",
+              "infographic",
+              "intro",
+              "keyArt",
+              "keyArtLogo",
+              "launchTrailer",
+              "logoBlack",
+              "logoColor",
+              "logoWhite",
+              "releaseDateTrailer",
+              "screenshot",
+              "teaser",
+              "trailer"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer"
+          }
+        }
+      },
+      "games.gamesgamesgamesgames.defs_genre": {
+        "type": "string"
+      },
+      "games.gamesgamesgamesgames.defs_applicationType": {
+        "type": "string",
+        "enum": [
+          "addon",
+          "bundle",
+          "dlc",
+          "episode",
+          "expandedGame",
+          "expansion",
+          "fork",
+          "game",
+          "mod",
+          "port",
+          "remake",
+          "remaster",
+          "season",
+          "standaloneExpansion",
+          "update"
+        ]
+      },
+      "games.gamesgamesgamesgames.defs_profileSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "profileType": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 640
+          },
+          "avatar": {
+            "type": "string",
+            "format": "binary"
+          }
+        },
+        "required": ["uri", "did", "profileType"]
+      },
+      "games.gamesgamesgamesgames.defs_platformSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "abbreviation": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_platformCategory"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_platformCategory": {
+        "type": "string"
+      },
+      "games.gamesgamesgamesgames.defs_collectionSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_engineSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
       },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",

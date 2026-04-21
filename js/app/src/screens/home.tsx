@@ -12,7 +12,34 @@ import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PlaceStreamLivestream } from "streamplace";
+import { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
+
+const LABEL_DISPLAY: Record<string, string> = {
+  just_chatting: "Just Chatting",
+  music: "Music",
+  art: "Art",
+  programming: "Programming",
+  cooking: "Cooking",
+  fitness: "Fitness",
+  sports: "Sports",
+};
+
+function getStreamCategories(record: PlaceStreamLivestream.Record): string[] {
+  const categories: string[] = [];
+  if (record.activity) {
+    if (record.activity.$type === "place.stream.defs#activityGame") {
+      const game = record.activity as PlaceStreamDefs.ActivityGame;
+      if (game.name) categories.push(game.name);
+    } else if (record.activity.$type === "place.stream.defs#activityLabel") {
+      const label = record.activity as PlaceStreamDefs.ActivityLabel;
+      categories.push(LABEL_DISPLAY[label.label] ?? label.label);
+    }
+  }
+  if (record.tags) {
+    categories.push(...record.tags);
+  }
+  return categories;
+}
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards
@@ -115,7 +142,9 @@ function HomeScreenItem({
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
-        category={[]}
+        category={getStreamCategories(
+          item.record as PlaceStreamLivestream.Record,
+        )}
         viewers={item.viewerCount?.count}
         isLive={true}
       />

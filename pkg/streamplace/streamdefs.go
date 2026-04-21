@@ -8,6 +8,24 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 )
 
+// Defs_ActivityGame is a "activityGame" in the place.stream.defs schema.
+//
+// A game from the gamesgamesgamesgames catalog, identified by its AT URI.
+type Defs_ActivityGame struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.defs#activityGame"`
+	// name: Cached display name of the game.
+	Name *string `json:"name,omitempty" cborgen:"name,omitempty"`
+	Uri  string  `json:"uri" cborgen:"uri"`
+}
+
+// Defs_ActivityLabel is a "activityLabel" in the place.stream.defs schema.
+//
+// A non-game activity with a well-known label.
+type Defs_ActivityLabel struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.defs#activityLabel"`
+	Label         string `json:"label" cborgen:"label"`
+}
+
 // Defs_BlockView is a "blockView" in the place.stream.defs schema.
 type Defs_BlockView struct {
 	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.defs#blockView"`

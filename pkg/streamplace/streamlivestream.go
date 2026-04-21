@@ -5,12 +5,15 @@
 package streamplace
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
@@ -19,6 +22,8 @@ func init() {
 
 type Livestream struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.livestream"`
+	// activity: The game or activity being streamed.
+	Activity *Livestream_Activity `json:"activity,omitempty" cborgen:"activity,omitempty"`
 	// agent: The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS
 	Agent *string `json:"agent,omitempty" cborgen:"agent,omitempty"`
 	// canonicalUrl: The primary URL where this livestream can be viewed, if available.
@@ -33,12 +38,83 @@ type Livestream struct {
 	LastSeenAt           *string                          `json:"lastSeenAt,omitempty" cborgen:"lastSeenAt,omitempty"`
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`
 	// post: The post that announced this livestream.
-	Post  *comatproto.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
-	Thumb *lexutil.LexBlob          `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Post *comatproto.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
+	// tags: Freeform tags for this stream.
+	Tags  []string         `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	Thumb *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
 	// title: The title of the livestream, as it will be announced to followers.
 	Title string `json:"title" cborgen:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
 	Url *string `json:"url,omitempty" cborgen:"url,omitempty"`
+}
+
+// The game or activity being streamed.
+type Livestream_Activity struct {
+	Defs_ActivityGame  *Defs_ActivityGame
+	Defs_ActivityLabel *Defs_ActivityLabel
+}
+
+func (t *Livestream_Activity) MarshalJSON() ([]byte, error) {
+	if t.Defs_ActivityGame != nil {
+		t.Defs_ActivityGame.LexiconTypeID = "place.stream.defs#activityGame"
+		return json.Marshal(t.Defs_ActivityGame)
+	}
+	if t.Defs_ActivityLabel != nil {
+		t.Defs_ActivityLabel.LexiconTypeID = "place.stream.defs#activityLabel"
+		return json.Marshal(t.Defs_ActivityLabel)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *Livestream_Activity) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.defs#activityGame":
+		t.Defs_ActivityGame = new(Defs_ActivityGame)
+		return json.Unmarshal(b, t.Defs_ActivityGame)
+	case "place.stream.defs#activityLabel":
+		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
+		return json.Unmarshal(b, t.Defs_ActivityLabel)
+	default:
+		return nil
+	}
+}
+
+func (t *Livestream_Activity) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.Defs_ActivityGame != nil {
+		return t.Defs_ActivityGame.MarshalCBOR(w)
+	}
+	if t.Defs_ActivityLabel != nil {
+		return t.Defs_ActivityLabel.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Livestream_Activity) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.defs#activityGame":
+		t.Defs_ActivityGame = new(Defs_ActivityGame)
+		return t.Defs_ActivityGame.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.defs#activityLabel":
+		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
+		return t.Defs_ActivityLabel.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
 }
 
 // Livestream_LivestreamView is a "livestreamView" in the place.stream.livestream schema.

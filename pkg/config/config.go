@@ -156,6 +156,7 @@ type CLI struct {
 	S3Region                    string
 	DisableSyndication          bool
 	LegacySegmentation          bool
+	GamesAPIURL                 string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -686,6 +687,12 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the Cloudflare playback router worker",
 				Destination: &cli.PlaybackWorkerURL,
 				Sources:     urfavecli.EnvVars("SP_PLAYBACK_WORKER_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-url",
+				Usage:       "URL of the games.gamesgamesgamesgames API (e.g. http://localhost:3001)",
+				Destination: &cli.GamesAPIURL,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_URL"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-debug",

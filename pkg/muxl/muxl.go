@@ -170,14 +170,14 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 	// Feed input to stdin in a goroutine
 	go func() {
 		_, err := io.Copy(stdinWriter, input)
-		if err != nil {
+		if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 			log.Error(ctx, "error copying input to stdin", "error", err)
 		}
 		stdinWriter.Close()
 	}()
 
 	// Parse framed events from stdout
-	err = ParseMuxlEvents(stdoutReader, initCh, segCh)
+	err = ParseMuxlEvents(ctx, stdoutReader, initCh, segCh)
 	if err != nil {
 		return fmt.Errorf("parsing events: %w", err)
 	}
@@ -190,7 +190,7 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 	return nil
 }
 
-func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
+func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh chan []byte) error {
 	decoder := drisl.NewDecoder(r)
 
 	for {
@@ -206,7 +206,11 @@ func ParseMuxlEvents(r io.Reader, initCh chan []byte, segCh chan []byte) error {
 			for _, data := range ev.Tracks {
 				combined = append(combined, data...)
 			}
-			segCh <- combined
+			select {
+			case <-ctx.Done():
+				return nil
+			case segCh <- combined:
+			}
 		} else {
 			return fmt.Errorf("unknown event type: %s", ev.Type)
 		}

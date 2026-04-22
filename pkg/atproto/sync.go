@@ -171,7 +171,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to add mod badge", "err", err)
 		}
 
-		atsync.ResolveAuthorHandle(ctx, scm.Author)
+		if scm.Author.Handle == "" || scm.Author.Handle == "handle.invalid" {
+			scm.Author.Handle = atsync.ResolveAuthorHandle(ctx, scm.Author.Did)
+		}
 
 		go atsync.Bus.Publish(rec.Streamer, scm)
 

@@ -9,7 +9,6 @@ import {
   NavigationState,
   PartialState,
 } from "@react-navigation/native";
-import { useToast } from "@streamplace/components";
 import * as ExpoLinking from "expo-linking";
 
 const AT_URI_PREFIX = "at://";
@@ -38,7 +37,6 @@ function resolveAtUriNavigation(
   path: string,
 ): PartialState<NavigationState> | null {
   const atUri = parseAtUriPath(path);
-  const toast = useToast();
   if (!atUri) return null;
   // if just authority, redirect to stream page
   if (!atUri.collection) {

@@ -31,6 +31,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/moderation"
 	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -128,6 +129,7 @@ type CLI struct {
 	LivepeerHelp                bool
 	PLCURL                      string
 	ContentFilters              *ContentFilters
+	ModerationDir               string
 	DefaultRecommendedStreamers []string
 	SQLLogging                  bool
 	SentryDSN                   string
@@ -642,6 +644,16 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return json.Unmarshal([]byte(s), &cli.ContentFilters)
 				},
 				Sources: urfavecli.EnvVars("SP_CONTENT_FILTERS"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "moderation-dir",
+				Usage:       "directory containing additional .txt profanity wordlists to load at startup",
+				Destination: &cli.ModerationDir,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					moderation.ModerationDir = s
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_MODERATION_DIR"),
 			},
 			&urfavecli.StringFlag{
 				Name:  "default-recommended-streamers",

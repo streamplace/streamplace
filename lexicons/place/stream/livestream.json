@@ -73,7 +73,7 @@
           },
           "tags": {
             "type": "array",
-            "description": "Freeform tags for this stream.",
+            "description": "Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).",
             "maxLength": 10,
             "items": {
               "type": "string",

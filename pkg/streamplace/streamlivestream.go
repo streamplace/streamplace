@@ -39,7 +39,7 @@ type Livestream struct {
 	NotificationSettings *Livestream_NotificationSettings `json:"notificationSettings,omitempty" cborgen:"notificationSettings,omitempty"`
 	// post: The post that announced this livestream.
 	Post *comatproto.RepoStrongRef `json:"post,omitempty" cborgen:"post,omitempty"`
-	// tags: Freeform tags for this stream.
+	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
 	Tags  []string         `json:"tags,omitempty" cborgen:"tags,omitempty"`
 	Thumb *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
 	// title: The title of the livestream, as it will be announced to followers.

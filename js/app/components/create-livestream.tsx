@@ -223,7 +223,9 @@ export default function CreateLivestream() {
               {tags.length < 10 && (
                 <TextInput
                   value={tagInput}
-                  onChangeText={setTagInput}
+                  onChangeText={(v) =>
+                    setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
+                  }
                   placeholder="Add a tag, press Enter"
                   onSubmitEditing={() => {
                     const trimmed = tagInput.trim();

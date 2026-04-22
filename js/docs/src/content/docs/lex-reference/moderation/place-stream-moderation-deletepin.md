@@ -2,13 +2,11 @@
 title: place.stream.moderation.deletePin
 description: Reference for the place.stream.moderation.deletePin lexicon
 ---
-
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
-
 ### `main`
 
 **Type:** `procedure`
@@ -24,11 +22,10 @@ Unpin a pinned chat message on behalf of a streamer. Requires 'message.pin' perm
 
 **Schema Type:** `object`
 
-| Name       | Type     | Req'd | Description                                | Constraints      |
-| ---------- | -------- | ----- | ------------------------------------------ | ---------------- |
-| `streamer` | `string` | ✅    | The DID of the streamer.                   | Format: `did`    |
-| `pinUri`   | `string` | ✅    | The AT-URI of the pinned record to delete. | Format: `at-uri` |
-
+| Name | Type | Req'd  | Description | Constraints |
+|------|------|----------|-------------|-------------|
+| `streamer` | `string` | ✅  | The DID of the streamer. | Format: `did` |
+| `pinUri` | `string` | ✅  | The AT-URI of the pinned record to delete. | Format: `at-uri` |
 **Output:**
 
 - **Encoding:** `application/json`
@@ -46,7 +43,6 @@ _(No properties defined)_
 ---
 
 ## Lexicon Source
-
 ```json
 {
   "lexicon": 1,
@@ -59,7 +55,10 @@ _(No properties defined)_
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["streamer", "pinUri"],
+          "required": [
+            "streamer",
+            "pinUri"
+          ],
           "properties": {
             "streamer": {
               "type": "string",

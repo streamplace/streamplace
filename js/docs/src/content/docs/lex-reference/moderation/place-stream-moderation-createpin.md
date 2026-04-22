@@ -2,13 +2,11 @@
 title: place.stream.moderation.createPin
 description: Reference for the place.stream.moderation.createPin lexicon
 ---
-
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
-
 ### `main`
 
 **Type:** `procedure`
@@ -24,12 +22,11 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
 
 **Schema Type:** `object`
 
-| Name         | Type     | Req'd | Description                            | Constraints        |
-| ------------ | -------- | ----- | -------------------------------------- | ------------------ |
-| `streamer`   | `string` | ✅    | The DID of the streamer.               | Format: `did`      |
-| `messageUri` | `string` | ✅    | The AT-URI of the chat message to pin. | Format: `at-uri`   |
-| `expiresAt`  | `string` | ❌    | Optional expiration time for this pin. | Format: `datetime` |
-
+| Name | Type | Req'd  | Description | Constraints |
+|------|------|----------|-------------|-------------|
+| `streamer` | `string` | ✅  | The DID of the streamer. | Format: `did` |
+| `messageUri` | `string` | ✅  | The AT-URI of the chat message to pin. | Format: `at-uri` |
+| `expiresAt` | `string` | ❌  | Optional expiration time for this pin. | Format: `datetime` |
 **Output:**
 
 - **Encoding:** `application/json`
@@ -37,11 +34,10 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
 
 **Schema Type:** `object`
 
-| Name  | Type     | Req'd | Description                              | Constraints      |
-| ----- | -------- | ----- | ---------------------------------------- | ---------------- |
-| `uri` | `string` | ✅    | The AT-URI of the created pinned record. | Format: `at-uri` |
-| `cid` | `string` | ✅    | The CID of the created pinned record.    | Format: `cid`    |
-
+| Name | Type | Req'd  | Description | Constraints |
+|------|------|----------|-------------|-------------|
+| `uri` | `string` | ✅  | The AT-URI of the created pinned record. | Format: `at-uri` |
+| `cid` | `string` | ✅  | The CID of the created pinned record. | Format: `cid` |
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
@@ -51,7 +47,6 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
 ---
 
 ## Lexicon Source
-
 ```json
 {
   "lexicon": 1,
@@ -64,7 +59,10 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["streamer", "messageUri"],
+          "required": [
+            "streamer",
+            "messageUri"
+          ],
           "properties": {
             "streamer": {
               "type": "string",
@@ -88,7 +86,10 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": ["uri", "cid"],
+          "required": [
+            "uri",
+            "cid"
+          ],
           "properties": {
             "uri": {
               "type": "string",

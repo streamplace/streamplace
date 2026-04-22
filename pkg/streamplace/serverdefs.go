@@ -12,6 +12,16 @@ type ServerDefs_RewriteRule struct {
 	To string `json:"to" cborgen:"to"`
 }
 
+// ServerDefs_Storage is a "storage" in the place.stream.server.defs schema.
+//
+// S3 storage configuration for backups.
+type ServerDefs_Storage struct {
+	// isActive: Whether backup storage is currently active.
+	IsActive bool `json:"isActive" cborgen:"isActive"`
+	// url: S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket
+	Url string `json:"url" cborgen:"url"`
+}
+
 // ServerDefs_Webhook is a "webhook" in the place.stream.server.defs schema.
 //
 // A webhook configuration for receiving Streamplace events.

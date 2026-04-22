@@ -68,8 +68,7 @@ export const Input = forwardRef<any, InputProps>(
           case "underlined":
             return [
               zt.bg.transparent,
-              zt.border.bottom.default,
-              { borderRadius: 0, paddingHorizontal: 0 },
+              { borderRadius: 0, paddingHorizontal: 0, borderWidth: 0 },
             ];
           default:
             return [zt.bg.background, zt.border.default];

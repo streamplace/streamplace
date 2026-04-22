@@ -42,6 +42,7 @@ manage-keys = Manage Keys
 
 ## Settings Page Specific
 settings-title = Settings
+error = Error
 
 ## Navigation Categories
 about = About
@@ -80,6 +81,32 @@ keys-count = { $count ->
     [one] { $count } key
    *[other] { $count } keys
 }
+
+## Backup Settings
+backup = Backup
+backup-enabled = S3 Backup
+backup-enabled-description = Automatically backup recordings to S3-compatible storage
+backup-connection-url = Connection URL
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = Endpoint
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = Bucket
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = Access Key
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = Secret Key
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = Region
+backup-region-placeholder = us-east-1
+backup-test-connection = Test Connection
+backup-testing-connection = Testing connection...
+backup-connection-successful = Connection successful
+backup-connection-failed = Failed to connect
+show-password-in-url = Show password in URL
+show-password-in-url-description = Display the secret key in the connection URL (if input)
+requested-seconds-per-segment = Seconds per segment
+requested-seconds-per-segment-description = Set the seconds per segment you wish to request the server use
+
 
 ## Recommendations
 recommendations = Recommendations
@@ -232,3 +259,16 @@ branding-not-available = File uploads are only available on web
 
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
+
+backup-save = Save backup settings
+backup-saving = Saving backup settings...
+backup-secret-key-set-placeholder = (Password already set)
+backup-error-invalid-endpoint = Must be a valid domain name
+backup-error-invalid-bucket = Must contain only lowercase letters, numbers, dots, and hyphens
+backup-error-invalid-segment-duration = Must be between 1 and 60 seconds
+backup-error-load-failed = Failed to load storage settings
+backup-error-update-failed = Failed to update backup status
+backup-error-save-failed = Failed to save storage settings
+backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
+backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket

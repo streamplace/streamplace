@@ -36,6 +36,13 @@ export function StreamingCategorySettings() {
                 icon={Webhook}
               />
               <MenuSeparator />
+              {/* Hidden until we finish the backend */}
+              {/* <SettingsNavigationItem
+                title={t("backup")}
+                screen="BackupSettings"
+                icon={Database}
+              /> */}
+              <MenuSeparator />
               <SettingsNavigationItem
                 title={t("multistream")}
                 screen="MultistreamCategory"

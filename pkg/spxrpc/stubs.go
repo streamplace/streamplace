@@ -310,11 +310,14 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.POST("/xrpc/place.stream.playback.whep", s.HandlePlaceStreamPlaybackWhep)
 	e.POST("/xrpc/place.stream.server.createWebhook", s.HandlePlaceStreamServerCreateWebhook)
+	e.POST("/xrpc/place.stream.server.deleteStorage", s.HandlePlaceStreamServerDeleteStorage)
 	e.POST("/xrpc/place.stream.server.deleteWebhook", s.HandlePlaceStreamServerDeleteWebhook)
 	e.GET("/xrpc/place.stream.server.getServerTime", s.HandlePlaceStreamServerGetServerTime)
+	e.GET("/xrpc/place.stream.server.getStorage", s.HandlePlaceStreamServerGetStorage)
 	e.GET("/xrpc/place.stream.server.getWebhook", s.HandlePlaceStreamServerGetWebhook)
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
+	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
 	return nil
 }
 
@@ -877,6 +880,19 @@ func (s *Server) HandlePlaceStreamServerCreateWebhook(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamServerDeleteStorage(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerDeleteStorage")
+	defer span.End()
+	var out *placestream.ServerDeleteStorage_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerDeleteStorage(ctx context.Context) (*placestream.ServerDeleteStorage_Output, error)
+	out, handleErr = s.handlePlaceStreamServerDeleteStorage(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamServerDeleteWebhook(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerDeleteWebhook")
 	defer span.End()
@@ -902,6 +918,19 @@ func (s *Server) HandlePlaceStreamServerGetServerTime(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerGetServerTime(ctx context.Context) (*placestream.ServerGetServerTime_Output, error)
 	out, handleErr = s.handlePlaceStreamServerGetServerTime(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerGetStorage(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerGetStorage")
+	defer span.End()
+	var out *placestream.ServerGetStorage_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*placestream.ServerGetStorage_Output, error)
+	out, handleErr = s.handlePlaceStreamServerGetStorage(ctx)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -969,6 +998,24 @@ func (s *Server) HandlePlaceStreamServerUpdateWebhook(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context,body *placestream.ServerUpdateWebhook_Input) (*placestream.ServerUpdateWebhook_Output, error)
 	out, handleErr = s.handlePlaceStreamServerUpdateWebhook(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamServerUpsertStorage(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerUpsertStorage")
+	defer span.End()
+
+	var body placestream.ServerUpsertStorage_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ServerUpsertStorage_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context,body *placestream.ServerUpsertStorage_Input) (*placestream.ServerUpsertStorage_Output, error)
+	out, handleErr = s.handlePlaceStreamServerUpsertStorage(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -134,6 +134,8 @@ export function useCreateStreamRecord() {
     canonicalUrl,
     notificationSettings,
     idleTimeoutSeconds,
+    activity,
+    tags,
   }: {
     title: string;
     customThumbnail?: Blob;
@@ -141,6 +143,8 @@ export function useCreateStreamRecord() {
     canonicalUrl?: string;
     notificationSettings?: PlaceStreamLivestream.NotificationSettings;
     idleTimeoutSeconds?: number;
+    activity?: PlaceStreamLivestream.Record["activity"];
+    tags?: string[];
   }) => {
     if (!agent) {
       throw new Error("No PDS agent found");
@@ -176,6 +180,8 @@ export function useCreateStreamRecord() {
       // e.g. `@streamplace/components/0.1.0 (ios, 32.0)`
       agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
       idleTimeoutSeconds: idleTimeoutSeconds,
+      activity: activity,
+      tags: tags?.length ? tags : undefined,
     };
 
     if (notificationSettings) {
@@ -214,6 +220,8 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     title: string,
     livestream: LivestreamViewHydrated | null,
     customThumbnail?: Blob,
+    activity?: PlaceStreamLivestream.Record["activity"],
+    tags?: string[],
   ) => {
     if (!agent) {
       throw new Error("No PDS agent found");
@@ -255,6 +263,8 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
       createdAt: new Date().toISOString(),
       post: oldRecordValue.post,
       thumb: thumbnail,
+      activity: activity,
+      tags: tags?.length ? tags : undefined,
     };
 
     await agent.com.atproto.repo.putRecord({

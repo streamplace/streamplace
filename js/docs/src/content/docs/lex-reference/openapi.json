@@ -1967,6 +1967,57 @@
         ]
       }
     },
+    "/xrpc/place.stream.game.getGame": {
+      "get": {
+        "operationId": "place.stream.game.getGame",
+        "tags": ["place.stream.game"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string"
+                    },
+                    "coverUrl": {
+                      "type": "string"
+                    },
+                    "genres": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["uri", "name"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.game.search": {
       "get": {
         "summary": "Search for games and other entities via the games.gamesgamesgamesgames catalog. Proxied from the configured games API.",

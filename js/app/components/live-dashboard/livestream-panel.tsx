@@ -23,8 +23,10 @@ import { ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, ScrollView, TouchableOpacity, View } from "react-native";
 import { useUserProfile } from "store/hooks";
+import type { PlaceStreamLivestream } from "streamplace";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
+import ActivityPicker from "../activity-picker";
 
 const { flex, p, px, py, gap, layout, bg, borders, text, r, w, typography } =
   zero;
@@ -220,6 +222,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     "create",
   );
 
+  const [activity, setActivity] = useState<
+    PlaceStreamLivestream.Record["activity"] | undefined
+  >(undefined);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+
   const [createPost, setCreatePost] = useState(true);
   const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -238,6 +246,17 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
       if (livestream.record.title) {
         setTitle(livestream.record.title);
+      }
+
+      if (livestream.record.activity) {
+        setActivity(
+          livestream.record
+            .activity as PlaceStreamLivestream.Record["activity"],
+        );
+      }
+
+      if (livestream.record.tags) {
+        setTags(livestream.record.tags as string[]);
       }
 
       if (
@@ -297,12 +316,16 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
           },
           canonicalUrl: canonicalUrl || undefined,
           idleTimeoutSeconds: idleTimeout ? 300 : 0,
+          activity,
+          tags,
         });
       } else {
         await updateStreamRecord(
           title.trim(),
           livestream,
           thumbnailToUse as Blob | undefined,
+          activity,
+          tags,
         );
       }
 
@@ -316,6 +339,9 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       if (mode === "create") {
         setTitle("");
         setSelectedImage(undefined);
+        setActivity(undefined);
+        setTags([]);
+        setTagInput("");
       }
     } catch (error) {
       console.error("Error with livestream:", error);
@@ -557,6 +583,116 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                     </View>
                   </View>
                 </View>
+
+                <View
+                  style={[
+                    layout.flex.row,
+                    { alignItems: "flex-start" },
+                    w.percent[100],
+                  ]}
+                >
+                  <Text
+                    style={[
+                      text.neutral[300],
+                      {
+                        minWidth: 100,
+                        textAlign: "left",
+                        paddingTop: 8,
+                        fontSize: 14,
+                      },
+                    ]}
+                  >
+                    Activity
+                  </Text>
+                  <View style={[flex.values[1]]}>
+                    <ActivityPicker value={activity} onChange={setActivity} />
+                  </View>
+                </View>
+
+                {/*<View
+                  style={[
+                    layout.flex.row,
+                    { alignItems: "flex-start" },
+                    w.percent[100],
+                  ]}
+                >
+                  <Text
+                    style={[
+                      text.neutral[300],
+                      {
+                        minWidth: 100,
+                        textAlign: "left",
+                        paddingTop: 8,
+                        fontSize: 14,
+                      },
+                    ]}
+                  >
+                    Tags
+                  </Text>
+                  <View style={[flex.values[1], gap.all[2]]}>
+                    <View
+                      style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}
+                    >
+                      {tags.map((tag) => (
+                        <Pressable
+                          key={tag}
+                          onPress={() => setTags(tags.filter((t) => t !== tag))}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            backgroundColor: "#1e3a5f",
+                            borderRadius: 16,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            gap: 4,
+                          }}
+                        >
+                          <Text style={{ color: "#60a5fa", fontSize: 13 }}>
+                            {tag}
+                          </Text>
+                          <Text
+                            style={{
+                              color: "#60a5fa",
+                              fontSize: 14,
+                              lineHeight: 16,
+                            }}
+                          >
+                            ×
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {tags.length < 10 && (
+                      <input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        placeholder="Add a tag, press Enter"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            const trimmed = tagInput.trim();
+                            if (trimmed && !tags.includes(trimmed)) {
+                              setTags([...tags, trimmed]);
+                            }
+                            setTagInput("");
+                          }
+                        }}
+                        style={
+                          {
+                            borderWidth: 1,
+                            borderColor: "#4b5563",
+                            borderRadius: 8,
+                            padding: 10,
+                            backgroundColor: "#1f2937",
+                            color: "white",
+                            fontSize: 14,
+                            width: "100%",
+                            outline: "none",
+                          } as any
+                        }
+                      />
+                    )}
+                  </View>
+                </View>*/}
 
                 <Tooltip
                   content="Set this to have the livestream announced with a link to this URL instead of the default URL."

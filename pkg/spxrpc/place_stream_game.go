@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	placestream "stream.place/streamplace/pkg/streamplace"
@@ -61,4 +62,88 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 
 	s.GameSearchCache.SetDefault(cacheKey, &out)
 	return &out, nil
+}
+
+func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (*placestream.GameGetGame_Output, error) {
+	if s.cli.GamesAPIURL == "" {
+		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "games API not configured")
+	}
+
+	cacheKey := "game:" + uri
+	if cached, found := s.GameSearchCache.Get(cacheKey); found {
+		return cached.(*placestream.GameGetGame_Output), nil
+	}
+
+	// Parse AT URI: at://authority/collection/rkey
+	withoutPrefix := strings.TrimPrefix(uri, "at://")
+	parts := strings.SplitN(withoutPrefix, "/", 3)
+	if len(parts) != 3 {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid AT URI")
+	}
+	did, collection, rkey := parts[0], parts[1], parts[2]
+
+	params := url.Values{}
+	params.Set("repo", did)
+	params.Set("collection", collection)
+	params.Set("rkey", rkey)
+	reqURL := s.cli.GamesAPIURL + "/xrpc/com.atproto.repo.getRecord?" + params.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build request")
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "games API unreachable")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("games API returned %d", resp.StatusCode))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to read response")
+	}
+
+	var record struct {
+		Value struct {
+			Name    string   `json:"name"`
+			Summary string   `json:"summary"`
+			Genres  []string `json:"genres"`
+			Media   []struct {
+				MediaType string `json:"mediaType"`
+				Blob      struct {
+					Ref struct {
+						Link string `json:"$link"`
+					} `json:"ref"`
+				} `json:"blob"`
+			} `json:"media"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(body, &record); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadGateway, "failed to parse response")
+	}
+
+	var coverUrl *string
+	for _, m := range record.Value.Media {
+		if (m.MediaType == "cover" || m.MediaType == "coverSquare") && m.Blob.Ref.Link != "" {
+			u := "https://cdn.bsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
+			coverUrl = &u
+			break
+		}
+	}
+
+	out := &placestream.GameGetGame_Output{
+		Uri:      uri,
+		Name:     record.Value.Name,
+		Summary:  &record.Value.Summary,
+		Genres:   record.Value.Genres,
+		CoverUrl: coverUrl,
+	}
+
+	s.GameSearchCache.SetDefault(cacheKey, out)
+	return out, nil
 }

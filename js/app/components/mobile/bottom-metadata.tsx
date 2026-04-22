@@ -2,6 +2,7 @@ import {
   Button,
   ContentRights,
   ContentWarnings,
+  formatActivity,
   formatHandle,
   formatHandleWithAt,
   hexToRgba,
@@ -31,29 +32,6 @@ import { KebabMenu } from "./desktop-ui/kebab";
 const { gap, px, py, colors, r, borders } = zero;
 
 const ROSE_RING = "rgba(244, 114, 182, 0.32)";
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  just_chatting: "Just Chatting",
-  music: "Music",
-  art: "Art",
-  programming: "Programming",
-  cooking: "Cooking",
-  fitness: "Fitness",
-  sports: "Sports",
-};
-
-function formatActivity(
-  activity: (ActivityGame | ActivityLabel) & { $type?: string },
-): string | null {
-  if (activity.$type === "place.stream.defs#activityGame") {
-    return (activity as ActivityGame).name ?? null;
-  }
-  if (activity.$type === "place.stream.defs#activityLabel") {
-    const label = (activity as ActivityLabel).label;
-    return ACTIVITY_LABELS[label] ?? label;
-  }
-  return null;
-}
 
 const ATMOCO_STREAMS = [
   { handle: "stream1.atmosphereconf.org", label: "Great Hall" },

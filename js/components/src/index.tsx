@@ -72,3 +72,10 @@ export type { AQStorage } from "./storage/storage.shared";
 
 // Content metadata components
 export * from "./components/content-metadata";
+
+// Shared metadata constants
+export {
+  ACTIVITY_LABELS,
+  ACTIVITY_LABEL_DISPLAY,
+  formatActivity,
+} from "./lib/metadata-constants";

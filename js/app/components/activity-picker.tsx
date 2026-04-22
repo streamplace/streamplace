@@ -8,6 +8,7 @@ import {
   useTheme,
   zero,
 } from "@streamplace/components";
+import { ACTIVITY_LABELS } from "@streamplace/components/src/lib/metadata-constants";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
@@ -21,19 +22,6 @@ import {
 import { getDidFromAtUri, getGameCoverUrl } from "../utils/game";
 
 const { p, px, r, layout, borders, gap, flex } = zero;
-
-const ACTIVITY_LABELS: Array<{
-  value: PlaceStreamDefs.ActivityLabel["label"];
-  display: string;
-}> = [
-  { value: "just_chatting", display: "Just Chatting" },
-  { value: "music", display: "Music" },
-  { value: "art", display: "Art" },
-  { value: "programming", display: "Programming" },
-  { value: "cooking", display: "Cooking" },
-  { value: "fitness", display: "Fitness" },
-  { value: "sports", display: "Sports" },
-];
 
 interface GameResult {
   uri: string;

@@ -53,11 +53,14 @@
         "label": {
           "type": "string",
           "knownValues": [
+            "events",
             "just_chatting",
             "music",
             "art",
-            "programming",
+            "software_dev",
             "cooking",
+            "miniatures",
+            "makers_crafting",
             "fitness",
             "sports"
           ]

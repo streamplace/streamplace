@@ -1,4 +1,9 @@
-import { Text, useStreamplaceStore, zero } from "@streamplace/components";
+import {
+  ACTIVITY_LABEL_DISPLAY,
+  Text,
+  useStreamplaceStore,
+  zero,
+} from "@streamplace/components";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import ErrorBox from "components/error/error";
@@ -14,16 +19,6 @@ import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
 
-const LABEL_DISPLAY: Record<string, string> = {
-  just_chatting: "Just Chatting",
-  music: "Music",
-  art: "Art",
-  programming: "Programming",
-  cooking: "Cooking",
-  fitness: "Fitness",
-  sports: "Sports",
-};
-
 function getStreamCategories(record: PlaceStreamLivestream.Record): string[] {
   const categories: string[] = [];
   if (record.activity) {
@@ -32,7 +27,7 @@ function getStreamCategories(record: PlaceStreamLivestream.Record): string[] {
       if (game.name) categories.push(game.name);
     } else if (record.activity.$type === "place.stream.defs#activityLabel") {
       const label = record.activity as PlaceStreamDefs.ActivityLabel;
-      categories.push(LABEL_DISPLAY[label.label] ?? label.label);
+      categories.push(ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label);
     }
   }
   if (record.tags) {

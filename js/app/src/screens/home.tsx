@@ -19,21 +19,19 @@ import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
 
-function getStreamCategories(record: PlaceStreamLivestream.Record): string[] {
-  const categories: string[] = [];
-  if (record.activity) {
-    if (record.activity.$type === "place.stream.defs#activityGame") {
-      const game = record.activity as PlaceStreamDefs.ActivityGame;
-      if (game.name) categories.push(game.name);
-    } else if (record.activity.$type === "place.stream.defs#activityLabel") {
-      const label = record.activity as PlaceStreamDefs.ActivityLabel;
-      categories.push(ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label);
-    }
+function getStreamActivity(
+  record: PlaceStreamLivestream.Record,
+): string | undefined {
+  if (!record.activity) return undefined;
+  if (record.activity.$type === "place.stream.defs#activityGame") {
+    const game = record.activity as PlaceStreamDefs.ActivityGame;
+    return game.name ?? undefined;
   }
-  if (record.tags) {
-    categories.push(...record.tags);
+  if (record.activity.$type === "place.stream.defs#activityLabel") {
+    const label = record.activity as PlaceStreamDefs.ActivityLabel;
+    return ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label;
   }
-  return categories;
+  return undefined;
 }
 
 // as we're not using a specific grid library these are necessary
@@ -137,9 +135,11 @@ function HomeScreenItem({
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
-        category={getStreamCategories(
+        category={[]}
+        activity={getStreamActivity(
           item.record as PlaceStreamLivestream.Record,
         )}
+        tags={(item.record as PlaceStreamLivestream.Record).tags ?? []}
         viewers={item.viewerCount?.count}
         isLive={true}
       />

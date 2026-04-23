@@ -25,7 +25,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { Image } from "expo-image";
-import { ImagePlus, X } from "lucide-react-native";
+import { ChevronsUpDown, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -97,6 +97,7 @@ function LanguagePicker({
           size="sm"
           width="min"
           style={[bg.neutral[800], borders.color.neutral[600]]}
+          rightIcon={<ChevronsUpDown />}
         >
           <Text style={[text.neutral[300], { fontSize: 14 }]}>
             {currentLabel ?? "Select language"}

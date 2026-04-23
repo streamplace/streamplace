@@ -1,5 +1,11 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
-import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
+import {
+  hexToRgba,
+  PlayerUI,
+  Text,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import { Platform, View } from "react-native";
@@ -15,6 +21,8 @@ interface StreamCardProps {
   streamerName?: string;
   viewers?: number;
   category: string[];
+  activity?: string;
+  tags?: string[];
   isLive?: boolean;
 }
 
@@ -27,6 +35,8 @@ const StreamCard = ({
   streamerName,
   viewers = 0,
   category = [],
+  activity,
+  tags = [],
   isLive = true,
 }: StreamCardProps) => {
   const layoutHorizontal = horizontal;
@@ -40,8 +50,6 @@ const StreamCard = ({
   const avatarSize = 40;
   const livePillHeight = 30;
   const livePillPaddingHorizontal = 4;
-  const categoryPillHeight = 16;
-  const categoryPillPaddingHorizontal = 4;
 
   const verticalContentSectionHeight = avatarSize + 2 * contentPadding;
   const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
@@ -204,40 +212,41 @@ const StreamCard = ({
               @{streamerName}
             </Text>
           )}
-          {category.length > 0 && (
+          {((activity && category.length > 0) || tags.length > 0) && (
             <View
-              style={[
-                {
-                  flexWrap: "wrap",
-                  gap: 4,
-                  alignItems: "center",
-                  flexDirection: "row",
-                },
-              ]}
+              style={{
+                flexWrap: "wrap",
+                gap: 6,
+                alignItems: "center",
+                flexDirection: "row",
+              }}
             >
-              {category.map((cat, index) => (
+              {activity && (
+                <Text
+                  size="sm"
+                  style={{ color: theme.colors.ring }}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {activity}
+                </Text>
+              )}
+              {(tags.length > 0 ? tags : category).map((cat, index) => (
                 <View
                   key={index}
                   style={[
+                    zero.r.full,
                     {
-                      backgroundColor: "rgba(0, 0, 0, 0.75)",
-                      borderRadius: 999,
-                      paddingHorizontal: categoryPillPaddingHorizontal,
-                      height: categoryPillHeight,
-                      alignSelf: "flex-start",
-                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      backgroundColor: hexToRgba(theme.colors.secondary, 0.3),
+                      paddingHorizontal: 8,
                     },
                   ]}
                 >
                   <Text
-                    style={[
-                      {
-                        fontSize: 12,
-                        color: "rgba(255, 255, 255, 0.75)",
-                        fontWeight: "400",
-                        paddingHorizontal: 3,
-                      },
-                    ]}
+                    size="sm"
+                    color={hexToRgba(theme.colors.primaryForeground, 0.85)}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >

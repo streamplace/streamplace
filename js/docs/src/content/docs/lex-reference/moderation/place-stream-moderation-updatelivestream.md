@@ -2,11 +2,13 @@
 title: place.stream.moderation.updateLivestream
 description: Reference for the place.stream.moderation.updateLivestream lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -22,11 +24,12 @@ Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `streamer` | `string` | ✅  | The DID of the streamer. | Format: `did` |
-| `livestreamUri` | `string` | ✅  | The AT-URI of the livestream record to update. | Format: `at-uri` |
-| `title` | `string` | ❌  | New title for the livestream. | Max Length: 1400<br/>Max Graphemes: 140 |
+| Name            | Type     | Req'd | Description                                    | Constraints                             |
+| --------------- | -------- | ----- | ---------------------------------------------- | --------------------------------------- |
+| `streamer`      | `string` | ✅    | The DID of the streamer.                       | Format: `did`                           |
+| `livestreamUri` | `string` | ✅    | The AT-URI of the livestream record to update. | Format: `at-uri`                        |
+| `title`         | `string` | ❌    | New title for the livestream.                  | Max Length: 1400<br/>Max Graphemes: 140 |
+
 **Output:**
 
 - **Encoding:** `application/json`
@@ -34,10 +37,11 @@ Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `uri` | `string` | ✅  | The AT-URI of the updated livestream record. | Format: `at-uri` |
-| `cid` | `string` | ✅  | The CID of the updated livestream record. | Format: `cid` |
+| Name  | Type     | Req'd | Description                                  | Constraints      |
+| ----- | -------- | ----- | -------------------------------------------- | ---------------- |
+| `uri` | `string` | ✅    | The AT-URI of the updated livestream record. | Format: `at-uri` |
+| `cid` | `string` | ✅    | The CID of the updated livestream record.    | Format: `cid`    |
+
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
@@ -48,6 +52,7 @@ Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -60,10 +65,7 @@ Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "streamer",
-            "livestreamUri"
-          ],
+          "required": ["streamer", "livestreamUri"],
           "properties": {
             "streamer": {
               "type": "string",
@@ -88,10 +90,7 @@ Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "uri",
-            "cid"
-          ],
+          "required": ["uri", "cid"],
           "properties": {
             "uri": {
               "type": "string",

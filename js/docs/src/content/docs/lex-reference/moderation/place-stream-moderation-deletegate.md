@@ -2,11 +2,13 @@
 title: place.stream.moderation.deleteGate
 description: Reference for the place.stream.moderation.deleteGate lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -22,10 +24,11 @@ Delete a gate (unhide message) on behalf of a streamer. Requires 'hide' permissi
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `streamer` | `string` | ✅  | The DID of the streamer. | Format: `did` |
-| `gateUri` | `string` | ✅  | The AT-URI of the gate record to delete. | Format: `at-uri` |
+| Name       | Type     | Req'd | Description                              | Constraints      |
+| ---------- | -------- | ----- | ---------------------------------------- | ---------------- |
+| `streamer` | `string` | ✅    | The DID of the streamer.                 | Format: `did`    |
+| `gateUri`  | `string` | ✅    | The AT-URI of the gate record to delete. | Format: `at-uri` |
+
 **Output:**
 
 - **Encoding:** `application/json`
@@ -43,6 +46,7 @@ _(No properties defined)_
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -55,10 +59,7 @@ _(No properties defined)_
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "streamer",
-            "gateUri"
-          ],
+          "required": ["streamer", "gateUri"],
           "properties": {
             "streamer": {
               "type": "string",

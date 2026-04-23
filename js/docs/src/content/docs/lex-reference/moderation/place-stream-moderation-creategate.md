@@ -2,11 +2,13 @@
 title: place.stream.moderation.createGate
 description: Reference for the place.stream.moderation.createGate lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -22,10 +24,11 @@ Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `streamer` | `string` | ✅  | The DID of the streamer. | Format: `did` |
-| `messageUri` | `string` | ✅  | The AT-URI of the chat message to hide. | Format: `at-uri` |
+| Name         | Type     | Req'd | Description                             | Constraints      |
+| ------------ | -------- | ----- | --------------------------------------- | ---------------- |
+| `streamer`   | `string` | ✅    | The DID of the streamer.                | Format: `did`    |
+| `messageUri` | `string` | ✅    | The AT-URI of the chat message to hide. | Format: `at-uri` |
+
 **Output:**
 
 - **Encoding:** `application/json`
@@ -33,10 +36,11 @@ Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `uri` | `string` | ✅  | The AT-URI of the created gate record. | Format: `at-uri` |
-| `cid` | `string` | ✅  | The CID of the created gate record. | Format: `cid` |
+| Name  | Type     | Req'd | Description                            | Constraints      |
+| ----- | -------- | ----- | -------------------------------------- | ---------------- |
+| `uri` | `string` | ✅    | The AT-URI of the created gate record. | Format: `at-uri` |
+| `cid` | `string` | ✅    | The CID of the created gate record.    | Format: `cid`    |
+
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
@@ -46,6 +50,7 @@ Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -58,10 +63,7 @@ Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "streamer",
-            "messageUri"
-          ],
+          "required": ["streamer", "messageUri"],
           "properties": {
             "streamer": {
               "type": "string",
@@ -80,10 +82,7 @@ Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "uri",
-            "cid"
-          ],
+          "required": ["uri", "cid"],
           "properties": {
             "uri": {
               "type": "string",

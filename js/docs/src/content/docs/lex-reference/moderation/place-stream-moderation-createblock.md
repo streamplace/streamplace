@@ -2,11 +2,13 @@
 title: place.stream.moderation.createBlock
 description: Reference for the place.stream.moderation.createBlock lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -22,11 +24,12 @@ Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `streamer` | `string` | ✅  | The DID of the streamer whose chat this block applies to. | Format: `did` |
-| `subject` | `string` | ✅  | The DID of the user being blocked from chat. | Format: `did` |
-| `reason` | `string` | ❌  | Optional reason for the block. | Max Length: 300 |
+| Name       | Type     | Req'd | Description                                               | Constraints     |
+| ---------- | -------- | ----- | --------------------------------------------------------- | --------------- |
+| `streamer` | `string` | ✅    | The DID of the streamer whose chat this block applies to. | Format: `did`   |
+| `subject`  | `string` | ✅    | The DID of the user being blocked from chat.              | Format: `did`   |
+| `reason`   | `string` | ❌    | Optional reason for the block.                            | Max Length: 300 |
+
 **Output:**
 
 - **Encoding:** `application/json`
@@ -34,10 +37,11 @@ Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `uri` | `string` | ✅  | The AT-URI of the created block record. | Format: `at-uri` |
-| `cid` | `string` | ✅  | The CID of the created block record. | Format: `cid` |
+| Name  | Type     | Req'd | Description                             | Constraints      |
+| ----- | -------- | ----- | --------------------------------------- | ---------------- |
+| `uri` | `string` | ✅    | The AT-URI of the created block record. | Format: `at-uri` |
+| `cid` | `string` | ✅    | The CID of the created block record.    | Format: `cid`    |
+
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
@@ -47,6 +51,7 @@ Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -59,10 +64,7 @@ Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "streamer",
-            "subject"
-          ],
+          "required": ["streamer", "subject"],
           "properties": {
             "streamer": {
               "type": "string",
@@ -86,10 +88,7 @@ Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "uri",
-            "cid"
-          ],
+          "required": ["uri", "cid"],
           "properties": {
             "uri": {
               "type": "string",

@@ -2,11 +2,13 @@
 title: place.stream.moderation.permission
 description: Reference for the place.stream.moderation.permission lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `record`
@@ -17,16 +19,17 @@ Record granting moderation permissions to a user for this streamer's content.
 
 **Record Properties:**
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `moderator` | `string` | ✅  | The DID of the user granted moderator permissions. | Format: `did` |
-| `permissions` | Array of `string` | ✅  | Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata. |  |
-| `createdAt` | `string` | ✅  | Client-declared timestamp when this moderator was added. | Format: `datetime` |
-| `expirationTime` | `string` | ❌  | Optional expiration time for this delegation. If set, the delegation is invalid after this time. | Format: `datetime` |
+| Name             | Type              | Req'd | Description                                                                                                                                                                                | Constraints        |
+| ---------------- | ----------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| `moderator`      | `string`          | ✅    | The DID of the user granted moderator permissions.                                                                                                                                         | Format: `did`      |
+| `permissions`    | Array of `string` | ✅    | Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata. |                    |
+| `createdAt`      | `string`          | ✅    | Client-declared timestamp when this moderator was added.                                                                                                                                   | Format: `datetime` |
+| `expirationTime` | `string`          | ❌    | Optional expiration time for this delegation. If set, the delegation is invalid after this time.                                                                                           | Format: `datetime` |
 
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -38,11 +41,7 @@ Record granting moderation permissions to a user for this streamer's content.
       "description": "Record granting moderation permissions to a user for this streamer's content.",
       "record": {
         "type": "object",
-        "required": [
-          "moderator",
-          "permissions",
-          "createdAt"
-        ],
+        "required": ["moderator", "permissions", "createdAt"],
         "properties": {
           "moderator": {
             "type": "string",
@@ -53,12 +52,7 @@ Record granting moderation permissions to a user for this streamer's content.
             "type": "array",
             "items": {
               "type": "string",
-              "enum": [
-                "ban",
-                "hide",
-                "livestream.manage",
-                "message.pin"
-              ]
+              "enum": ["ban", "hide", "livestream.manage", "message.pin"]
             },
             "description": "Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata."
           },

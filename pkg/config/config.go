@@ -159,6 +159,8 @@ type CLI struct {
 	DisableSyndication          bool
 	LegacySegmentation          bool
 	GamesAPIURL                 string
+	GamesAPIClientKey           string
+	GamesAPIClientSecret        string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -705,6 +707,18 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the games.gamesgamesgamesgames API (e.g. http://localhost:3001)",
 				Destination: &cli.GamesAPIURL,
 				Sources:     urfavecli.EnvVars("SP_GAMES_API_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-client-key",
+				Usage:       "Client key for authenticating with the games.gamesgamesgamesgames API",
+				Destination: &cli.GamesAPIClientKey,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_CLIENT_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-client-secret",
+				Usage:       "Client secret for authenticating with the games.gamesgamesgamesgames API",
+				Destination: &cli.GamesAPIClientSecret,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_CLIENT_SECRET"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-debug",

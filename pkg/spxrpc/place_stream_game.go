@@ -40,6 +40,13 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to build games request")
 	}
 
+	if s.cli.GamesAPIClientKey != "" {
+		req.Header.Set("X-Client-Key", s.cli.GamesAPIClientKey)
+	}
+	if s.cli.GamesAPIClientSecret != "" {
+		req.Header.Set("X-Client-Secret", s.cli.GamesAPIClientSecret)
+	}
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadGateway, "games API unreachable")
@@ -82,11 +89,17 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 	}
 	did, collection, rkey := parts[0], parts[1], parts[2]
 
+	// resolve the DID to get the PDS
+	did, svc, _, err := resolveRepoService(ctx, did)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "failed to resolve DID")
+	}
+
 	params := url.Values{}
 	params.Set("repo", did)
 	params.Set("collection", collection)
 	params.Set("rkey", rkey)
-	reqURL := s.cli.GamesAPIURL + "/xrpc/com.atproto.repo.getRecord?" + params.Encode()
+	reqURL := svc + "/xrpc/com.atproto.repo.getRecord?" + params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {

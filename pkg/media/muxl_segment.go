@@ -87,6 +87,11 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 	}()
 
 	go func() {
+		<-ctx.Done()
+		r.Close()
+	}()
+
+	go func() {
 		var initSeg []byte
 		select {
 		case <-ctx.Done():

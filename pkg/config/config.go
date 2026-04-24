@@ -707,6 +707,10 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the games.gamesgamesgamesgames API (e.g. http://localhost:3001)",
 				Destination: &cli.GamesAPIURL,
 				Sources:     urfavecli.EnvVars("SP_GAMES_API_URL"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					cli.GamesAPIURL = strings.TrimRight(s, "/")
+					return nil
+				},
 			},
 			&urfavecli.StringFlag{
 				Name:        "games-api-client-key",

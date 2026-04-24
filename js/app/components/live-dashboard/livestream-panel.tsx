@@ -732,12 +732,17 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                         }
                         placeholder="Add a tag, press Enter"
                         variant="filled"
-                        onSubmitEditing={() => {
+                        onSubmitEditing={(e) => {
                           const trimmed = tagInput.trim();
                           if (trimmed && !tags.includes(trimmed)) {
                             setTags([...tags, trimmed]);
                           }
                           setTagInput("");
+                          // re-focus the input after submitting
+                          setTimeout(() => {
+                            const input = e.target;
+                            input.focus();
+                          }, 10);
                         }}
                         inputStyle={[
                           p[3],

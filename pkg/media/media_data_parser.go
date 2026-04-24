@@ -9,6 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -43,6 +44,8 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 
 	var videoMetadata *localdb.SegmentMediadataVideo
 	var audioMetadata *localdb.SegmentMediadataAudio
+	var videoDuration time.Duration
+	var audioDuration time.Duration
 
 	appsrc, err := pipeline.GetElementByName("appsrc")
 	if err != nil {
@@ -64,7 +67,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
 	}
 	audioSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: ParseSegmentMediaDataSinkNewSampleFunc(ctx, &foundSomeAudio),
+		NewSampleFunc: ParseSegmentMediaDataSinkNewSampleFunc(ctx, &foundSomeAudio, &audioDuration),
 	})
 
 	foundSomeVideo := false
@@ -77,7 +80,7 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		return nil, fmt.Errorf("error creating SegmentMetadata pipeline: %w", err)
 	}
 	videoSink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: ParseSegmentMediaDataSinkNewSampleFunc(ctx, &foundSomeVideo),
+		NewSampleFunc: ParseSegmentMediaDataSinkNewSampleFunc(ctx, &foundSomeVideo, &videoDuration),
 	})
 	padsAdded := 0
 
@@ -281,17 +284,15 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		Audio: []*localdb.SegmentMediadataAudio{audioMetadata},
 	}
 
-	ok, dur := pipeline.QueryDuration(gst.FormatTime)
-	if !ok {
-		return nil, fmt.Errorf("error getting duration")
-	} else {
-		meta.Duration = dur
-	}
+	log.Warn(ctx, "video duration", "duration", videoDuration)
+
+	meta.Duration = videoDuration.Nanoseconds()
 
 	return meta, nil
 }
 
-func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack *bool) func(sink *app.Sink) gst.FlowReturn {
+func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack *bool, duration *time.Duration) func(sink *app.Sink) gst.FlowReturn {
+	var firstPTS *time.Time
 	return func(sink *app.Sink) gst.FlowReturn {
 		sample := sink.PullSample()
 		if sample == nil {
@@ -301,6 +302,12 @@ func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack 
 		if buf == nil {
 			return gst.FlowError
 		}
+		pts := buf.PresentationTimestamp().AsTimestamp()
+		if firstPTS == nil {
+			firstPTS = pts
+		}
+		diff := pts.Sub(*firstPTS)
+		*duration = diff
 		dur := buf.Duration().AsDuration()
 		if dur != nil && *dur > 0 {
 			*foundThisTrack = true

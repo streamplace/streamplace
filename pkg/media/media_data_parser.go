@@ -284,8 +284,6 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		Audio: []*localdb.SegmentMediadataAudio{audioMetadata},
 	}
 
-	log.Warn(ctx, "video duration", "duration", videoDuration)
-
 	meta.Duration = videoDuration.Nanoseconds()
 
 	return meta, nil

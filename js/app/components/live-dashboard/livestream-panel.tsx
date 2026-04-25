@@ -428,15 +428,6 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         mode === "create" ? "Livestream announced" : "Livestream updated";
 
       toast.show(toastTitle, title.trim(), { duration: 4 });
-
-      // Clear form on successful create
-      if (mode === "create") {
-        setTitle("");
-        setSelectedImage(undefined);
-        setActivity(undefined);
-        setTags([]);
-        setTagInput("");
-      }
     } catch (error) {
       console.error("Error with livestream:", error);
 

@@ -35,18 +35,19 @@ currently-translating-description = 应用程序的某些部分可能看起来�
 
 ## Debug Recording
 debug-recording-title = 允许 { $host } 录制您的直播串流以进行除错和服务改善
-debug-recording-description = 可选项目
+debug-recording-description = 可选项
 
 ## Key Management
 manage-keys = 管理密钥
 
 ## Settings Page Specific
 settings-title = 设置
+error = 错误
 
 ## Navigation Categories
 about = 关于
 account = 帐户
-advanced = 高端
+advanced = 高级
 danmu = 弹幕
 developer = 开发者
 languages = 语言
@@ -61,13 +62,13 @@ refresh = 刷新
 save-button = 保存
 sign-in = 登录
 update = 更新
-log-out = 注销
+log-out = 登出
 optional = 选填
 
 ## Account Settings
 account-greeting = 嗨，@{ $handle }。
 edit-profile-bluesky = 在 Bluesky 编辑个人数据
-change-name-color = 变更名称颜色
+change-name-color = 更改名称颜色
 
 ## Key Management
 key-management = 密钥管理
@@ -77,6 +78,32 @@ your-stream-pubkeys = 您的串流公开密钥
 no-keys = 尚未设置密钥
 pubkey-description = 公开密钥与串流密钥 (用于串流软件) 配对以签署和验证您的串流
 keys-count = { $count } 个密钥
+
+## Backup Settings
+backup = 备份
+backup-enabled = S3 备份
+backup-enabled-description = 自动将录影备份到兼容 S3 的存储
+backup-connection-url = 连接网址
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = 终端
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = 存储桶
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = 访问密钥
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = 秘密密钥
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = 地区
+backup-region-placeholder = us-east-1
+backup-test-connection = 测试连接
+backup-testing-connection = 正在测试连接...
+backup-connection-successful = 连接成功
+backup-connection-failed = 连接失败
+show-password-in-url = 在网址中显示密码
+show-password-in-url-description = 在连接网址中显示秘密密钥 (若有)
+requested-seconds-per-segment = 每段秒数
+requested-seconds-per-segment-description = 设置每段秒数，以请求服务器使用
+
 
 ## Recommendations
 recommendations = 推荐主播
@@ -186,7 +213,7 @@ branding-main-logo-description = SVG、PNG 或 JPEG (最大 500KB)
 branding-favicon = 网站图标
 branding-favicon-description = SVG、PNG 或 ICO (最大 100KB)
 branding-sidebar-bg = 侧边栏背景图片
-branding-sidebar-bg-description = SVG、PNG 或 JPEG (最大 500KB) - 显示在侧边栏底部，全宽显示。为了获得最佳效果，请上传一张带有透明度的图片，因为目前没有单独的透明度选项。
+branding-sidebar-bg-description = SVG、PNG 或 JPEG (最大 500KB)——显示在侧边栏底部，全宽显示。为了获得最佳效果，请上传一张带有透明度的图片，因为目前没有单独的透明度选项。
 branding-current = 当前：{ $value }
 branding-dimensions = { $height } x { $width }
 
@@ -220,3 +247,16 @@ branding-not-available = 文件上传仅在网页版上可用
 
 ## Navigation Categories (About Page)
 node-legal-documents = 主播专属文档
+
+backup-save = 保存备份设置
+backup-saving = 正在保存备份设置...
+backup-secret-key-set-placeholder = (密码已设置)
+backup-error-invalid-endpoint = 必须是有效的域名
+backup-error-invalid-bucket = 必须只包含小写字母、数字、点和连字符
+backup-error-invalid-segment-duration = 必须在 1 到 60 秒之间
+backup-error-load-failed = 加载存储设置失败
+backup-error-update-failed = 更新备份状态失败
+backup-error-save-failed = 保存存储设置失败
+backup-error-missing-secret = 没有秘密密钥时无法更新 S3 设置。请重新输入。
+backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = 必须是格式为 s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket 的有效 S3 网址

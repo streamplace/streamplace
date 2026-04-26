@@ -28,19 +28,20 @@ type MuxlEvent struct {
 //go:embed muxl.wasm
 var wasmBytes []byte
 
-var wasmRuntime wazero.Runtime
+var (
+	wasmRuntime    wazero.Runtime
+	compiledModule wazero.CompiledModule
+)
 
 func init() {
-	wasmRuntime = wazero.NewRuntime(context.Background())
-	wasi_snapshot_preview1.MustInstantiate(context.Background(), wasmRuntime)
-}
-
-func getCompiledModule(ctx context.Context) (wazero.CompiledModule, error) {
-	compiledModule, err := wasmRuntime.CompileModule(ctx, wasmBytes)
+	ctx := context.Background()
+	wasmRuntime = wazero.NewRuntime(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
+	var err error
+	compiledModule, err = wasmRuntime.CompileModule(ctx, wasmBytes)
 	if err != nil {
-		return nil, fmt.Errorf("error compiling module: %w", err)
+		panic(fmt.Errorf("error compiling muxl wasm module: %w", err))
 	}
-	return compiledModule, nil
 }
 
 // Segment arbitrary fMP4 input into MUXL-compatible init and segment chunks.
@@ -139,11 +140,6 @@ func (w *logWriter) Write(p []byte) (int, error) {
 }
 
 func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []byte, segCh chan []byte) error {
-	compiledModule, err := getCompiledModule(ctx)
-	if err != nil {
-		return fmt.Errorf("error getting compiled module: %w", err)
-	}
-
 	// Set up stdin/stdout pipes
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
@@ -159,9 +155,15 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 	// Run the module in a goroutine
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := wasmRuntime.InstantiateModule(ctx, compiledModule, config)
+		mod, err := wasmRuntime.InstantiateModule(ctx, compiledModule, config)
 		if err != nil {
 			log.Error(ctx, "error instantiating module", "error", err)
+		}
+		// wazero leaves the module registered on clean exit; close to free its WASM memory.
+		if mod != nil {
+			if closeErr := mod.Close(ctx); closeErr != nil {
+				log.Error(ctx, "error closing wasm module", "error", closeErr)
+			}
 		}
 		stdoutWriter.Close()
 		errCh <- err
@@ -177,8 +179,7 @@ func runMuxl(ctx context.Context, args []string, input io.Reader, initCh chan []
 	}()
 
 	// Parse framed events from stdout
-	err = ParseMuxlEvents(ctx, stdoutReader, initCh, segCh)
-	if err != nil {
+	if err := ParseMuxlEvents(ctx, stdoutReader, initCh, segCh); err != nil {
 		return fmt.Errorf("parsing events: %w", err)
 	}
 

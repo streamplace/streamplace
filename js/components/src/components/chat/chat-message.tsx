@@ -4,24 +4,12 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import { Linking, Platform, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { RichtextSegment, segmentize } from "../../lib/facet";
+import { Facet, RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import { atoms, colors, layout } from "../ui";
-
-interface Facet {
-  index: {
-    byteStart: number;
-    byteEnd: number;
-  };
-  features: Array<{
-    $type: string;
-    uri?: string;
-    did?: string;
-  }>;
-}
 
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
@@ -31,77 +19,55 @@ import { UserProfileCard } from "./user-profile-card";
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
 
-const segmentedObject = (
-  obj: RichtextSegment,
+const renderSegment = (
+  seg: RichtextSegment,
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
 ) => {
-  if (obj.features && obj.features.length > 0) {
-    let ftr = obj.features[0];
-    // afaik there shouldn't be a case where facets overlap, at least currently
-    if (ftr.$type === "app.bsky.richtext.facet#link") {
-      let linkftr = ftr as $Typed<Link>;
-      return (
-        <Pressable
-          // @ts-ignore renders as <a> on web
-          href={linkftr.uri}
-          key={`mention-${index}`}
-          style={[{ cursor: "pointer" }]}
-          onPress={(e) => {
-            if (Platform.OS !== "web") {
-              Linking.openURL(linkftr.uri || "");
-            } else {
-              e.preventDefault();
-              window.open(linkftr.uri, "_blank");
-            }
-          }}
-        >
-          <Text
-            style={[
-              {
-                color: atoms.colors.ios.systemBlue,
-                cursor: "pointer",
-                marginBottom: -4,
-              },
-            ]}
-            leading={0}
-          >
-            {obj.text}
-          </Text>
-        </Pressable>
-      );
-    } else if (ftr.$type === "app.bsky.richtext.facet#mention") {
-      let mtnftr = ftr as $Typed<Mention>;
-      const profile = userCache?.[mtnftr.did];
-      return (
-        <Pressable
-          key={`mention-${index}`}
-          style={[{ cursor: "pointer" }]}
-          onPress={() =>
-            Platform.OS != "web" &&
-            Linking.openURL(`https://bsky.app/profile/${mtnftr.did || ""}`)
-          }
-        >
-          <Text
-            style={[
-              {
-                cursor: "pointer",
-                color: getRgbColor(profile?.color),
-                marginBottom: -4,
-              },
-            ]}
-          >
-            {obj.text}
-          </Text>
-        </Pressable>
-      );
-    } else {
-      // render as normal text if we don't recognize the facet type
-      return <Text key={`unknown-facet-${index}`}>{obj.text}</Text>;
-    }
-  } else {
-    return <Text key={`text-${index}`}>{obj.text}</Text>;
+  const ftr = seg.features?.[0];
+
+  if (!ftr) {
+    return <Text key={`text-${index}`}>{seg.text}</Text>;
   }
+
+  if (ftr.$type === "app.bsky.richtext.facet#link") {
+    const linkFtr = ftr as $Typed<Link>;
+    return (
+      <Text
+        key={`link-${index}`}
+        style={{ color: atoms.colors.ios.systemBlue, cursor: "pointer" }}
+        // @ts-ignore href renders as <a> on web
+        href={Platform.OS === "web" ? linkFtr.uri : undefined}
+        accessibilityRole="link"
+        onPress={() => {
+          if (Platform.OS === "web") {
+            window.open(linkFtr.uri, "_blank");
+          } else {
+            Linking.openURL(linkFtr.uri || "");
+          }
+        }}
+      >
+        {seg.text}
+      </Text>
+    );
+  }
+
+  if (ftr.$type === "app.bsky.richtext.facet#mention") {
+    const mtnFtr = ftr as $Typed<Mention>;
+    const profile = userCache?.[mtnFtr.did];
+    return (
+      <Text
+        key={`mention-${index}`}
+        style={{ color: getRgbColor(profile?.color), cursor: "pointer" }}
+        onPress={() =>
+          Linking.openURL(`https://bsky.app/profile/${mtnFtr.did || ""}`)
+        }
+      >
+        {seg.text}
+      </Text>
+    );
+  }
+  return <Text key={`unknown-facet-${index}`}>{seg.text}</Text>;
 };
 
 export const RichTextMessage = ({
@@ -116,7 +82,7 @@ export const RichTextMessage = ({
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => segmentedObject(seg, i, userCache));
+  return segs.map((seg, i) => renderSegment(seg, i, userCache));
 };
 export const RenderChatMessage = memo(
   function RenderChatMessage({

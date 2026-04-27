@@ -22,11 +22,57 @@ import {
   ShieldQuestion,
   Video,
 } from "lucide-react-native";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Linking, Platform, Pressable } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { getStreamplaceStateFromPath } from "src/linking-config";
 import SidebarItem from "./sidebar-item";
+
+function getActiveTabAndScreen(state: any): {
+  tab: string | undefined;
+  screen: string | undefined;
+} {
+  if (!state) return { tab: undefined, screen: undefined };
+  const mainTabsRoute = state.routes?.[state.index ?? 0];
+  if (mainTabsRoute?.name !== "MainTabs" || !mainTabsRoute.state) {
+    return { tab: undefined, screen: mainTabsRoute?.name };
+  }
+  const tabState = mainTabsRoute.state;
+  const activeTab = tabState.routes?.[tabState.index ?? 0];
+  if (!activeTab) return { tab: undefined, screen: undefined };
+  let screen = activeTab.name;
+  let nested = activeTab.state;
+  while (nested) {
+    const r = nested.routes?.[nested.index ?? 0];
+    if (!r) break;
+    screen = r.name;
+    nested = r.state;
+  }
+  return { tab: activeTab.name, screen };
+}
+
+function getTargetTabAndScreen(href: string): {
+  tab: string | undefined;
+  screen: string | undefined;
+} {
+  const state = getStreamplaceStateFromPath(href);
+  const first = (state.routes as any[])?.[state.index ?? 0];
+  if (first?.name !== "MainTabs" || !first.state) {
+    return { tab: undefined, screen: first?.name };
+  }
+  const tabState = first.state;
+  const activeTab = tabState.routes?.[tabState.index ?? 0];
+  if (!activeTab) return { tab: undefined, screen: undefined };
+  let screen = activeTab.name;
+  let nested = activeTab.state;
+  while (nested) {
+    const r = nested.routes?.[nested.index ?? 0];
+    if (!r) break;
+    screen = r.name;
+    nested = r.state;
+  }
+  return { tab: activeTab.name, screen };
+}
 
 export interface SidebarNavItem {
   icon:
@@ -46,6 +92,7 @@ export interface ExternalSidebarItem {
   label: React.ReactNode;
   onPress: () => void;
   href: string;
+  hidden?: boolean;
 }
 
 export function SidebarOverlay() {
@@ -58,6 +105,23 @@ export function SidebarOverlay() {
   const mainLogo = useMainLogo();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
   const did = useDID();
+
+  const [navState, setNavState] = useState(() => navigation.getState());
+  useEffect(() => {
+    return navigation.addListener("state", () => {
+      setNavState(navigation.getState());
+    });
+  }, [navigation]);
+  const { tab: currentTab, screen: currentScreen } =
+    getActiveTabAndScreen(navState);
+
+  function isItemActive(href: string): boolean {
+    const target = getTargetTabAndScreen(href);
+    if (!target.tab || !currentTab) return false;
+    if (target.tab !== currentTab) return false;
+    if (target.tab === "SettingsTab") return true;
+    return target.screen === currentScreen;
+  }
 
   const animatedSidebarStyle = useAnimatedStyle(() => {
     return {
@@ -132,6 +196,7 @@ export function SidebarOverlay() {
         Linking.openURL(u.toString());
       },
       href: u.toString(),
+      hidden: !isBrowser,
     },
   ];
 
@@ -220,7 +285,7 @@ export function SidebarOverlay() {
             icon={item.icon}
             href={item.href}
             label={item.label}
-            active={false} // We'll handle active state separately if needed
+            active={isItemActive(item.href)}
             collapsed={sidebar.isCollapsed}
             onPress={(e) => {
               e.preventDefault();
@@ -237,18 +302,24 @@ export function SidebarOverlay() {
         );
       })}
 
-      {externalItems.map((item, index) => (
-        <SidebarItem
-          key={`external-${index}`}
-          icon={item.icon}
-          label={item.label}
-          href={item.href}
-          active={false}
-          collapsed={sidebar.isCollapsed}
-          onPress={() => item.onPress()}
-          tint="rgba(189, 110, 134)"
-        />
-      ))}
+      {externalItems.map((item, index) => {
+        if (item.hidden) return null;
+        return (
+          <SidebarItem
+            key={`external-${index}`}
+            icon={item.icon}
+            label={item.label}
+            href={item.href}
+            active={false}
+            collapsed={sidebar.isCollapsed}
+            onPress={(e) => {
+              e.preventDefault();
+              item.onPress();
+            }}
+            tint="rgba(189, 110, 134)"
+          />
+        );
+      })}
     </Animated.View>
   );
 }

@@ -105,7 +105,6 @@ type CLI struct {
 	LivepeerGateway             bool
 	WHIPTest                    string
 	Thumbnail                   bool
-	SmearAudio                  bool
 	ExternalSigning             bool
 	RTMPServerAddon             string
 	TracingEndpoint             string
@@ -521,13 +520,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       true,
 				Destination: &cli.Thumbnail,
 				Sources:     urfavecli.EnvVars("SP_THUMBNAIL"),
-			},
-			&urfavecli.BoolFlag{
-				Name:        "smear-audio",
-				Usage:       "enable audio smearing to create 'perfect' segment timestamps",
-				Value:       false,
-				Destination: &cli.SmearAudio,
-				Sources:     urfavecli.EnvVars("SP_SMEAR_AUDIO"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "tracing-endpoint",

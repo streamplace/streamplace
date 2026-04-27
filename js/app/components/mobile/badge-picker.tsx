@@ -8,7 +8,9 @@ import {
   hexToRgba,
   ResponsiveDropdownMenuContent,
   Text,
+  useBadgeSlots,
   useLivestream,
+  useSetBadgeSlots,
   useToast,
   zero,
 } from "@streamplace/components";
@@ -58,31 +60,30 @@ export function BadgePicker() {
   const linfo = useLivestream();
   const streamerDid = linfo?.author?.did;
 
+  const badgeSlots = useBadgeSlots();
+  const setBadgeSlots = useSetBadgeSlots();
   const [loading, setLoading] = useState(false);
-  const [streamerSlot, setStreamerSlot] =
-    useState<PlaceStreamBadgeDefs.BadgeSlot | null>(null);
-  const [userSlot, setUserSlot] =
-    useState<PlaceStreamBadgeDefs.BadgeSlot | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const togglingRef = useRef<string | null>(null);
 
+  const streamerSlot = badgeSlots?.streamer ?? null;
+  const userSlot = badgeSlots?.user ?? null;
   const activeBadge = streamerSlot?.selected ?? userSlot?.selected ?? null;
 
   const load = useCallback(async () => {
-    if (!agent?.did) return;
+    if (!agent?.did || badgeSlots !== null) return;
     try {
       setLoading(true);
       const res = await agent.place.stream.badge.getIssuedBadges({
         streamer: streamerDid,
       });
-      setStreamerSlot(res.data.streamer);
-      setUserSlot(res.data.user);
+      setBadgeSlots({ streamer: res.data.streamer, user: res.data.user });
     } catch (e: any) {
       toast.show("Failed to load badges", e?.message, { variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [agent, streamerDid]);
+  }, [agent, streamerDid, badgeSlots, setBadgeSlots]);
 
   useEffect(() => {
     load();
@@ -151,36 +152,44 @@ export function BadgePicker() {
         });
 
         if (slot === "streamer") {
-          setStreamerSlot((prev) => {
-            if (!prev) return prev;
-            const available = prev.available.map((b) =>
-              b.issuanceUri === badge.issuanceUri
-                ? { ...b, selected: !isCurrentlySelected }
-                : b.issuer === badge.issuer
-                  ? { ...b, selected: false }
-                  : b,
-            );
-            return {
-              available,
-              selected: isCurrentlySelected
-                ? undefined
-                : available.find((b) => b.issuanceUri === badge.issuanceUri),
-            };
+          setBadgeSlots({
+            streamer: (() => {
+              const prev = streamerSlot;
+              if (!prev) return prev;
+              const available = prev.available.map((b) =>
+                b.issuanceUri === badge.issuanceUri
+                  ? { ...b, selected: !isCurrentlySelected }
+                  : b.issuer === badge.issuer
+                    ? { ...b, selected: false }
+                    : b,
+              );
+              return {
+                available,
+                selected: isCurrentlySelected
+                  ? undefined
+                  : available.find((b) => b.issuanceUri === badge.issuanceUri),
+              };
+            })(),
+            user: userSlot,
           });
         } else {
-          setUserSlot((prev) => {
-            if (!prev) return prev;
-            const available = prev.available.map((b) =>
-              b.issuanceUri === badge.issuanceUri
-                ? { ...b, selected: !isCurrentlySelected }
-                : { ...b, selected: false },
-            );
-            return {
-              available,
-              selected: isCurrentlySelected
-                ? undefined
-                : available.find((b) => b.issuanceUri === badge.issuanceUri),
-            };
+          setBadgeSlots({
+            streamer: streamerSlot,
+            user: (() => {
+              const prev = userSlot;
+              if (!prev) return prev;
+              const available = prev.available.map((b) =>
+                b.issuanceUri === badge.issuanceUri
+                  ? { ...b, selected: !isCurrentlySelected }
+                  : { ...b, selected: false },
+              );
+              return {
+                available,
+                selected: isCurrentlySelected
+                  ? undefined
+                  : available.find((b) => b.issuanceUri === badge.issuanceUri),
+              };
+            })(),
           });
         }
       } catch (e: any) {
@@ -190,7 +199,7 @@ export function BadgePicker() {
         setToggling(null);
       }
     },
-    [agent],
+    [agent, streamerSlot, userSlot, setBadgeSlots],
   );
 
   const { currentColor, openModal, modal } = useNameColorPicker();

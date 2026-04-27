@@ -3,6 +3,7 @@ import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
   PinnedRecordViewHydrated,
+  PlaceStreamBadgeDefs,
   PlaceStreamDefs,
   PlaceStreamLiveTeleport,
   PlaceStreamModerationPermission,
@@ -22,6 +23,11 @@ export interface LivestreamState {
   problems: LivestreamProblem[];
   renditions: PlaceStreamDefs.Rendition[];
   replyToMessage: ChatMessageViewHydrated | null;
+  chatDraft: string;
+  badgeSlots: {
+    streamer: PlaceStreamBadgeDefs.BadgeSlot | null;
+    user: PlaceStreamBadgeDefs.BadgeSlot | null;
+  } | null;
   streamKey: string | null;
   setStreamKey: (key: string | null) => void;
   activeTeleport: PlaceStreamLiveTeleport.Record | null;

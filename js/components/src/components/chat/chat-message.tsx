@@ -152,6 +152,7 @@ export const RenderChatMessage = memo(
                 fontVariant: ["tabular-nums"],
                 color: colors.gray[400],
                 marginRight: 8,
+                marginTop: Platform.OS === "web" ? 1 : 2,
               }}
             >
               {formatTime(item.record.createdAt)}
@@ -171,13 +172,12 @@ export const RenderChatMessage = memo(
                     alignItems: "center",
                     justifyContent: "flex-end",
                     flexDirection: "row",
-                    marginBottom: -4,
+                    marginBottom: -4.5,
                   } as any
                 }
               >
                 <BadgeDisplayRow badges={item.badges} />
                 <Text
-                  weight="bold"
                   style={{
                     cursor: "pointer",
                     color: getRgbColor(item.chatProfile?.color),
@@ -187,9 +187,7 @@ export const RenderChatMessage = memo(
                 </Text>
               </View>
             </UserProfileCard>
-            <Text weight="bold" color="default">
-              {": "}
-            </Text>
+            <Text color="default">{": "}</Text>
             <RichTextMessage
               text={item.record.text}
               facets={item.record.facets || []}

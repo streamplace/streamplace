@@ -55,3 +55,15 @@ user-offline-no-recommendations =
   请稍后再来看看。
 streaming-title = 正在直播 { $title }
 viewer-count = { $count } 位观众
+
+## PDS Host Selector
+pds-selector-title = 刚接触 Atmosphere 吗？
+pds-selector-description = 您需要选择一个 PDS (个人数据服务器) 来访问 Atmosphere 上的应用程序，例如 Bluesky、Tangled 和 Spark。
+pds-selector-custom-label = 另一个 PDS
+pds-selector-custom-description = 请输入您自己的 PDS 主机网址
+pds-selector-custom-url-label = 自定义 PDS 网址
+pds-selector-custom-url-placeholder = https://pds.example.com
+pds-selector-learn-more = 了解有关自组主机的更多信息
+pds-selector-info = 每个主机都有自己的政策和可靠性标准。您的 ATProto 数据存储在您选择的主机上，您可以以后进行迁移。注意：Streamplace 有自己的审核规则——无论您选择哪个主机，都可能会被 Streamplace 禁止使用。
+pds-selector-read-policies = 在继续之前，请阅读 { $label } 的<tosLink>服务条款</tosLink>和<privacyLink>隐私政策</privacyLink>。
+pds-selector-handle-policy-checkbox = 我已阅读并同意<policyLink>处理政策</policyLink>

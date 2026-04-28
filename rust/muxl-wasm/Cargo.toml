@@ -9,5 +9,4 @@ name = "muxl-wasm"
 path = "src/main.rs"
 
 [dependencies]
-muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "79ac2324310f2b546cab59bbeeeae6835777bd2e", package = "muxl-sign" }
-# muxl-sign = { path = "../../../muxl/crates/muxl-sign" }
+muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "3261a8cc6e7800c8fbb1e88112af03da3f8ad180", package = "muxl-sign" }

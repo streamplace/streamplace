@@ -1,16 +1,16 @@
 package muxl
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"testing/fstest"
 
 	_ "embed"
 
@@ -70,7 +70,7 @@ func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, 
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, initCh, segCh)
 }
 
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
@@ -80,7 +80,7 @@ func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byt
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, initCh, segCh)
 }
 
 // SignerInput is the per-call input bundle for RunMuxlSigner. Cert chain
@@ -99,6 +99,12 @@ type SignerInput struct {
 // RunMuxlSigner signs one segment's worth of MP4 bytes via the muxl-sign
 // `sign-per-track` subcommand. Returns the wrapper-signed flat MP4 with
 // per-track ingredient manifests embedded.
+//
+// All I/O is in-memory: the segment streams in on stdin, the signed output
+// streams out on stdout, and cert/key/manifests are exposed via a read-only
+// fs.FS mount at /keys. No host filesystem hits — important on Windows
+// where %TEMP% lives on NTFS and per-call open/write/close + Defender
+// scans show up under load.
 func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 	if in.Alg == "" {
 		in.Alg = "es256k"
@@ -108,43 +114,28 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 		return nil, err
 	}
 
-	workDir, err := os.MkdirTemp("", "muxl-sign-*")
-	if err != nil {
-		return nil, fmt.Errorf("mkdtemp: %w", err)
-	}
-	defer os.RemoveAll(workDir)
-
-	files := map[string][]byte{
-		"in.mp4":       in.Segment,
-		"cert.pem":     in.CertPEM,
-		"key.pem":      in.KeyPEM,
-		"track.json":   in.TrackManifest,
-		"wrapper.json": in.WrapperManifest,
-	}
-	for name, data := range files {
-		if err := os.WriteFile(filepath.Join(workDir, name), data, 0o600); err != nil {
-			return nil, fmt.Errorf("write %s: %w", name, err)
-		}
+	keysFS := fstest.MapFS{
+		"cert.pem":     {Data: in.CertPEM},
+		"key.pem":      {Data: in.KeyPEM},
+		"track.json":   {Data: in.TrackManifest},
+		"wrapper.json": {Data: in.WrapperManifest},
 	}
 	args := []string{
 		"muxl-wasm", "sign-per-track",
-		"--input", "/work/in.mp4",
-		"--output", "/work/out.mp4",
-		"--cert", "/work/cert.pem",
-		"--key", "/work/key.pem",
+		"--input", "-",
+		"--output", "-",
+		"--cert", "/keys/cert.pem",
+		"--key", "/keys/key.pem",
 		"--alg", in.Alg,
-		"--track-manifest", "/work/track.json",
-		"--wrapper-manifest", "/work/wrapper.json",
+		"--track-manifest", "/keys/track.json",
+		"--wrapper-manifest", "/keys/wrapper.json",
 	}
-	fsCfg := wazero.NewFSConfig().WithDirMount(workDir, "/work")
-	if err := runMuxlWith(ctx, mod, args, fsCfg, true, nil, nil, nil); err != nil {
+	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
+	var output bytes.Buffer
+	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, nil, nil); err != nil {
 		return nil, err
 	}
-	signed, err := os.ReadFile(filepath.Join(workDir, "out.mp4"))
-	if err != nil {
-		return nil, fmt.Errorf("read signed output: %w", err)
-	}
-	return signed, nil
+	return output.Bytes(), nil
 }
 
 // Concatenator accepts full fMP4 archives (init+segments) and produces
@@ -245,12 +236,13 @@ var stderrWriter func(ctx context.Context, instanceID uint64) io.Writer = func(c
 
 // runMuxlWith instantiates a precompiled wasm module with the given args and
 // optional FS mount. If initCh+segCh are non-nil, stdout is parsed as DRISL
-// events and routed to those channels. If input is non-nil, it's piped to
-// the module's stdin. realClock=true exposes the host's wall clock and
+// events and routed to those channels; otherwise if stdout is non-nil the
+// module's stdout writes go straight there. If input is non-nil, it's piped
+// to the module's stdin. realClock=true exposes the host's wall clock and
 // real randomness — c2pa-rs needs both for cert validity checks and COSE
 // sign nonces. The segmenter intentionally runs against wazero's fake
 // clock so its output stays byte-stable across runs.
-func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, initCh chan []byte, segCh chan []byte) error {
+func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, initCh chan []byte, segCh chan []byte) error {
 	instanceID := moduleCounter.Add(1)
 	cfg := wazero.NewModuleConfig().
 		WithName(fmt.Sprintf("muxl-%d", instanceID)).
@@ -280,6 +272,8 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 	if parseEvents {
 		stdoutReader, stdoutWriter = io.Pipe()
 		cfg = cfg.WithStdout(stdoutWriter)
+	} else if stdout != nil {
+		cfg = cfg.WithStdout(stdout)
 	}
 
 	errCh := make(chan error, 1)

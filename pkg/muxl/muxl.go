@@ -295,9 +295,16 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := wasmRuntime.InstantiateModule(ctx, mod, cfg)
+		instance, err := wasmRuntime.InstantiateModule(ctx, mod, cfg)
 		if err != nil {
 			log.Error(ctx, "error instantiating module", "error", err)
+		}
+		// wazero leaves the module registered on clean exit; close to free
+		// its WASM memory. Without this RunMuxlSigner leaks ~10MB per GoP.
+		if instance != nil {
+			if closeErr := instance.Close(ctx); closeErr != nil {
+				log.Error(ctx, "error closing wasm module", "error", closeErr)
+			}
 		}
 		if stdoutWriter != nil {
 			stdoutWriter.Close()

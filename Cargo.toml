@@ -2,13 +2,3 @@
 resolver = "3"
 members = ["rust/export-c2pa-schema", "rust/iroh-streamplace", "rust/muxl-wasm"]
 exclude = ["subprojects/c2pa_go"]
-
-# Local override for the streamplace c2pa-rs fork while a one-char wasip1
-# fix in sdk/src/utils/io_utils.rs is unpushed (see ~/code/muxl/CLAUDE.md
-# for the diff). rust/muxl-wasm targets wasm32-wasip1 and depends on
-# muxl-sign → c2pa-rs; without this patch the workspace's wasm build hits
-# `error[E0308]: tempfile_builder returns bare Error::… instead of Err(...)`.
-# Drop this once the fix lands on streamplace/c2pa-rs and the muxl-sign
-# rev gets bumped.
-[patch."https://github.com/streamplace/c2pa-rs.git"]
-c2pa = { path = "../c2pa-rs/sdk" }

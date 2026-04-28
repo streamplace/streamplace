@@ -578,6 +578,7 @@ dependencies = [
 [[package]]
 name = "c2pa"
 version = "0.58.0"
+source = "git+https://github.com/streamplace/c2pa-rs.git?rev=f23cfd398aac79f06cc7114baa633096189d5a37#f23cfd398aac79f06cc7114baa633096189d5a37"
 dependencies = [
  "asn1-rs",
  "async-generic",
@@ -623,100 +624,6 @@ dependencies = [
  "p256",
  "p384",
  "p521",
- "pem",
- "pkcs1",
- "pkcs8 0.10.2",
- "png_pong",
- "quick-xml",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "rand_core 0.9.3",
- "range-set",
- "rasn",
- "rasn-cms",
- "rasn-ocsp",
- "rasn-pkix",
- "regex",
- "reqwest",
- "riff",
- "ring",
- "rsa",
- "serde",
- "serde-transcode",
- "serde-wasm-bindgen",
- "serde_bytes",
- "serde_cbor",
- "serde_derive",
- "serde_json",
- "serde_with",
- "sha1",
- "sha2 0.10.9",
- "spki 0.7.3",
- "static-iref",
- "tempfile",
- "thiserror 2.0.16",
- "toml 0.8.23",
- "treeline",
- "ureq",
- "url",
- "uuid",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "web-time",
- "windows-core",
- "wstd",
- "x509-certificate",
- "x509-parser",
- "zeroize",
- "zip",
-]
-
-[[package]]
-name = "c2pa"
-version = "0.58.0"
-source = "git+https://github.com/hyphacoop/c2pa-rs.git?rev=1b84d40219b27340a30fc309250e774e8a7b7761#1b84d40219b27340a30fc309250e774e8a7b7761"
-dependencies = [
- "asn1-rs",
- "async-generic",
- "async-recursion",
- "async-trait",
- "atree",
- "base64 0.22.1",
- "bcder",
- "byteorder",
- "byteordered",
- "bytes",
- "chrono",
- "ciborium",
- "config",
- "console_log",
- "const-hex",
- "const-oid 0.9.6",
- "conv",
- "coset",
- "der 0.7.10",
- "ed25519-dalek 2.2.0",
- "env_logger",
- "extfmt",
- "getrandom 0.2.16",
- "hex",
- "hex-literal",
- "http",
- "id3",
- "img-parts",
- "iref",
- "jfifdump",
- "js-sys",
- "lazy_static",
- "log",
- "memchr",
- "mp4",
- "nom",
- "non-empty-string",
- "nonempty-collections",
- "num-bigint-dig",
- "openssl",
  "pem",
  "pkcs1",
  "pkcs8 0.10.2",
@@ -1719,7 +1626,7 @@ name = "export_c2pa_schema"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "c2pa 0.58.0 (git+https://github.com/hyphacoop/c2pa-rs.git?rev=1b84d40219b27340a30fc309250e774e8a7b7761)",
+ "c2pa",
  "schemars 0.8.22",
  "serde",
  "serde_json",
@@ -1793,21 +1700,6 @@ name = "foldhash"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
-
-[[package]]
-name = "foreign-types"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
-dependencies = [
- "foreign-types-shared",
-]
-
-[[package]]
-name = "foreign-types-shared"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "form_urlencoded"
@@ -2963,7 +2855,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bytes",
- "c2pa 0.58.0",
+ "c2pa",
  "hex",
  "iroh",
  "iroh-base",
@@ -3313,7 +3205,7 @@ dependencies = [
 [[package]]
 name = "muxl"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/muxl.git?rev=bffd0ab4266365d7d6e766d516655d2b2f7a2d83#bffd0ab4266365d7d6e766d516655d2b2f7a2d83"
+source = "git+https://github.com/streamplace/muxl.git?rev=bcb356a06edfde5d109e1aaca247c03b5308571e#bcb356a06edfde5d109e1aaca247c03b5308571e"
 dependencies = [
  "blake3",
  "clap",
@@ -3329,9 +3221,9 @@ dependencies = [
 [[package]]
 name = "muxl-sign"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/muxl.git?rev=bffd0ab4266365d7d6e766d516655d2b2f7a2d83#bffd0ab4266365d7d6e766d516655d2b2f7a2d83"
+source = "git+https://github.com/streamplace/muxl.git?rev=bcb356a06edfde5d109e1aaca247c03b5308571e#bcb356a06edfde5d109e1aaca247c03b5308571e"
 dependencies = [
- "c2pa 0.58.0",
+ "c2pa",
  "clap",
  "dasl",
  "k256",
@@ -3790,54 +3682,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "openssl"
-version = "0.10.73"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8505734d46c8ab1e19a1dce3aef597ad87dcb4c37e7188231769bd6bd51cebf8"
-dependencies = [
- "bitflags",
- "cfg-if",
- "foreign-types",
- "libc",
- "once_cell",
- "openssl-macros",
- "openssl-sys",
-]
-
-[[package]]
-name = "openssl-macros"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.105",
-]
-
-[[package]]
-name = "openssl-src"
-version = "300.5.2+3.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d270b79e2926f5150189d475bc7e9d2c69f9c4697b185fa917d5a32b792d21b4"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "openssl-sys"
-version = "0.9.109"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90096e2e47630d78b7d1c20952dc621f957103f8bc2c8359ec81290d75238571"
-dependencies = [
- "cc",
- "libc",
- "openssl-src",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
 name = "ordered-multimap"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4165,12 +4009,6 @@ dependencies = [
  "der 0.8.0-rc.9",
  "spki 0.8.0-rc.4",
 ]
-
-[[package]]
-name = "pkg-config"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "plain"
@@ -6417,12 +6255,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "vcpkg"
-version = "0.2.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "version_check"

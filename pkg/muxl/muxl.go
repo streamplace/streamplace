@@ -16,6 +16,7 @@ import (
 
 	"github.com/hyphacoop/go-dasl/drisl"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"stream.place/streamplace/pkg/log"
 )
@@ -49,9 +50,70 @@ var (
 	compileErr  error
 )
 
+// signerRegistry holds the per-instance host-sign closure used by
+// muxl-sign's `--host-sign` mode. The wasm import looks the closure up by
+// the instance name (which we make unique per call via moduleCounter), so
+// concurrent signs don't collide. RunMuxlSigner registers a closure on
+// entry and deletes it on return.
+var signerRegistry sync.Map // string → func([]byte) ([]byte, error)
+
+// hostSignErr is the sentinel u32 muxl-sign's host_sign import returns to
+// signal "the host couldn't sign this" — anything other than a real
+// signature length.
+const hostSignErr = ^uint32(0)
+
 func init() {
-	wasmRuntime = wazero.NewRuntime(context.Background())
-	wasi_snapshot_preview1.MustInstantiate(context.Background(), wasmRuntime)
+	ctx := context.Background()
+	wasmRuntime = wazero.NewRuntime(ctx)
+	wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
+
+	// Register the `streamplace` host module that muxl.wasm imports. The
+	// import is declared unconditionally on the wasm side (it's part of
+	// the binary's import table whether or not `--host-sign` is set) so
+	// the host module must always exist; PEM-mode invocations simply
+	// never call into it.
+	_, err := wasmRuntime.NewHostModuleBuilder("streamplace").
+		NewFunctionBuilder().
+		WithFunc(hostSign).
+		Export("host_sign").
+		Instantiate(ctx)
+	if err != nil {
+		panic(fmt.Errorf("registering streamplace host module: %w", err))
+	}
+}
+
+// hostSign is the trampoline behind muxl-sign's `streamplace.host_sign`
+// import. It looks up the per-instance closure registered by
+// RunMuxlSigner, hands it the bytes to sign, and writes the signature
+// back into wasm memory. Returns the signature length on success or
+// hostSignErr on any failure.
+func hostSign(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr, outMax uint32) uint32 {
+	v, ok := signerRegistry.Load(mod.Name())
+	if !ok {
+		log.Error(ctx, "host_sign called with no signer registered", "instance", mod.Name())
+		return hostSignErr
+	}
+	signFn := v.(func([]byte) ([]byte, error))
+
+	data, ok := mod.Memory().Read(dataPtr, dataLen)
+	if !ok {
+		log.Error(ctx, "host_sign: bad data pointer/length", "instance", mod.Name(), "ptr", dataPtr, "len", dataLen)
+		return hostSignErr
+	}
+	sig, err := signFn(data)
+	if err != nil {
+		log.Error(ctx, "host_sign: signer returned error", "instance", mod.Name(), "error", err)
+		return hostSignErr
+	}
+	if uint32(len(sig)) > outMax {
+		log.Error(ctx, "host_sign: signature too long for output buffer", "instance", mod.Name(), "len", len(sig), "max", outMax)
+		return hostSignErr
+	}
+	if !mod.Memory().Write(outPtr, sig) {
+		log.Error(ctx, "host_sign: bad output pointer", "instance", mod.Name(), "ptr", outPtr)
+		return hostSignErr
+	}
+	return uint32(len(sig))
 }
 
 func getModule(ctx context.Context) (wazero.CompiledModule, error) {
@@ -70,7 +132,7 @@ func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, 
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, initCh, segCh)
 }
 
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
@@ -80,16 +142,30 @@ func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byt
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, nil, initCh, segCh)
 }
 
-// SignerInput is the per-call input bundle for RunMuxlSigner. Cert chain
-// and private key are PEM bytes (leaf cert first); manifests are JSON bodies
+// SignerInput is the per-call input bundle for RunMuxlSigner. Exactly one
+// of KeyPEM or Sign must be set:
+//
+//   - KeyPEM: the streamer's PKCS#8-PEM private key bytes. Sent into the
+//     wasm sandbox via a read-only FS mount; signing happens inside wasm
+//     using c2pa-rs. Use this for software keys where the bytes are
+//     readily available (e.g. atproto-derived stream keys).
+//   - Sign: a host-side closure that takes pre-hashed-or-not data (per
+//     c2pa's CallbackSigner contract: ECDSA receives the unhashed bytes
+//     and the closure is expected to do SHA-256 + sign + raw r||s) and
+//     returns the signature. Use this for hardware-backed signers
+//     (PKCS#11, EIP-712) whose key bytes never leave the host. Powered
+//     by the wasm `streamplace.host_sign` import — see hostSign.
+//
+// Cert chain is always PEM bytes, leaf first. Manifests are JSON bodies
 // already substituted with per-segment values (timestamps etc.).
 type SignerInput struct {
 	Segment         []byte
 	CertPEM         []byte
 	KeyPEM          []byte
+	Sign            func(data []byte) ([]byte, error)
 	TrackManifest   []byte
 	WrapperManifest []byte
 	// Alg defaults to "es256k" when empty.
@@ -101,11 +177,16 @@ type SignerInput struct {
 // per-track ingredient manifests embedded.
 //
 // All I/O is in-memory: the segment streams in on stdin, the signed output
-// streams out on stdout, and cert/key/manifests are exposed via a read-only
-// fs.FS mount at /keys. No host filesystem hits — important on Windows
-// where %TEMP% lives on NTFS and per-call open/write/close + Defender
-// scans show up under load.
+// streams out on stdout, and cert/manifests (plus key.pem in PEM mode) are
+// exposed via a read-only fs.FS mount at /keys. No host filesystem hits —
+// important on Windows where %TEMP% lives on NTFS and per-call
+// open/write/close + Defender scans show up under load.
 func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
+	hasKey := len(in.KeyPEM) > 0
+	hasSign := in.Sign != nil
+	if hasKey == hasSign {
+		return nil, fmt.Errorf("muxl: exactly one of SignerInput.KeyPEM or SignerInput.Sign must be set")
+	}
 	if in.Alg == "" {
 		in.Alg = "es256k"
 	}
@@ -116,7 +197,6 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 
 	keysFS := fstest.MapFS{
 		"cert.pem":     {Data: in.CertPEM},
-		"key.pem":      {Data: in.KeyPEM},
 		"track.json":   {Data: in.TrackManifest},
 		"wrapper.json": {Data: in.WrapperManifest},
 	}
@@ -125,14 +205,19 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 		"--input", "-",
 		"--output", "-",
 		"--cert", "/keys/cert.pem",
-		"--key", "/keys/key.pem",
 		"--alg", in.Alg,
 		"--track-manifest", "/keys/track.json",
 		"--wrapper-manifest", "/keys/wrapper.json",
 	}
+	if hasKey {
+		keysFS["key.pem"] = &fstest.MapFile{Data: in.KeyPEM}
+		args = append(args, "--key", "/keys/key.pem")
+	} else {
+		args = append(args, "--host-sign")
+	}
 	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
 	var output bytes.Buffer
-	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, nil, nil); err != nil {
+	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, in.Sign, nil, nil); err != nil {
 		return nil, err
 	}
 	return output.Bytes(), nil
@@ -238,14 +323,21 @@ var stderrWriter func(ctx context.Context, instanceID uint64) io.Writer = func(c
 // optional FS mount. If initCh+segCh are non-nil, stdout is parsed as DRISL
 // events and routed to those channels; otherwise if stdout is non-nil the
 // module's stdout writes go straight there. If input is non-nil, it's piped
-// to the module's stdin. realClock=true exposes the host's wall clock and
-// real randomness — c2pa-rs needs both for cert validity checks and COSE
-// sign nonces. The segmenter intentionally runs against wazero's fake
-// clock so its output stays byte-stable across runs.
-func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, initCh chan []byte, segCh chan []byte) error {
+// to the module's stdin. If signFn is non-nil it's registered against the
+// instance's name for the duration of the call so that wasm calls into
+// `streamplace.host_sign` route to it. realClock=true exposes the host's
+// wall clock and real randomness — c2pa-rs needs both for cert validity
+// checks and COSE sign nonces. The segmenter intentionally runs against
+// wazero's fake clock so its output stays byte-stable across runs.
+func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, signFn func([]byte) ([]byte, error), initCh chan []byte, segCh chan []byte) error {
 	instanceID := moduleCounter.Add(1)
+	instanceName := fmt.Sprintf("muxl-%d", instanceID)
+	if signFn != nil {
+		signerRegistry.Store(instanceName, signFn)
+		defer signerRegistry.Delete(instanceName)
+	}
 	cfg := wazero.NewModuleConfig().
-		WithName(fmt.Sprintf("muxl-%d", instanceID)).
+		WithName(instanceName).
 		WithStderr(stderrWriter(ctx, instanceID)).
 		WithArgs(args...)
 	if realClock {
@@ -315,6 +407,37 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 		return fmt.Errorf("wasm execution: %w", wasmErr)
 	}
 	return nil
+}
+
+// SignerToCallback wraps a crypto.Signer for use as SignerInput.Sign.
+//
+// Hashes data with SHA-256 (matching c2pa's CallbackSigner contract for
+// SHA-256-family algs — ECDSA P-256/secp256k1, RSA PS256), calls the
+// signer, and converts ECDSA DER output to raw r||s. byteLen is the
+// curve's coordinate byte size: 32 for ES256/ES256K, 48 for ES384, 66
+// for ES512. For RSA-PSS algs the byteLen argument is ignored and the
+// raw signer output is passed through.
+//
+// The crypto.Signer can be a software ecdsa.PrivateKey, a PKCS#11
+// hardware signer, an EIP-712 wallet wrapper, etc. — anything implementing
+// the standard interface.
+func SignerToCallback(signer cryptoSigner, byteLen int) func([]byte) ([]byte, error) {
+	return func(data []byte) ([]byte, error) {
+		digest := sha256Sum(data)
+		sig, err := signer.Sign(rand.Reader, digest[:], cryptoSHA256)
+		if err != nil {
+			return nil, fmt.Errorf("muxl host sign: %w", err)
+		}
+		// ECDSA returns DER; c2pa-rs callbacks must produce raw r||s.
+		// Detect by trying to parse — RSA-PSS returns a signature that
+		// won't parse as the SEQUENCE { r INTEGER, s INTEGER } shape, so
+		// we pass it through.
+		raw, ok := derECDSAToRaw(sig, byteLen)
+		if !ok {
+			return sig, nil
+		}
+		return raw, nil
+	}
 }
 
 func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh chan []byte) error {

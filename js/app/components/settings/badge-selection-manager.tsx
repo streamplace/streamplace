@@ -1,9 +1,11 @@
 import {
   MenuContainer,
   MenuGroup,
+  MenuLabel,
   MenuSeparator,
   Text,
   useToast,
+  useTranslation,
   zero,
 } from "@streamplace/components";
 import {
@@ -12,6 +14,7 @@ import {
 } from "@streamplace/components/src/components/chat/badge";
 import { borderRadius as radiusTokens } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { flex } from "@streamplace/components/src/ui";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -35,6 +38,7 @@ function BadgeIssuanceRow({
   toggling: boolean;
 }) {
   const { theme } = zero.useTheme();
+  const { t } = useTranslation("settings");
   const isSelected = badge.selected ?? false;
   const badgeName = badge.name ?? badge.badgeType.split("#")[1];
 
@@ -73,15 +77,17 @@ function BadgeIssuanceRow({
         />
       )}
 
-      <View style={[{ flex: 1 }, gap.all[0.5]]}>
-        <Text style={{ fontSize: 15, fontWeight: "500" }}>{badgeName}</Text>
+      <View style={[flex.grow[1]]}>
+        <Text size="sm" leading="tight">
+          {badgeName}
+        </Text>
         {badge.description && (
-          <Text muted style={{ fontSize: 12 }} numberOfLines={2}>
+          <Text muted size="xs" numberOfLines={2} leading="snug">
             {badge.description}
           </Text>
         )}
-        <Text muted style={{ fontSize: 11 }}>
-          issued by {badge.issuer}
+        <Text muted size="xs">
+          {t("badges-issued-by", { issuer: badge.issuer })}
         </Text>
       </View>
 
@@ -120,6 +126,7 @@ export function BadgeSelectionManager() {
   const agent = usePDSAgent();
   const { theme } = zero.useTheme();
   const toast = useToast();
+  const { t } = useTranslation("settings");
 
   const [loading, setLoading] = useState(true);
   const [streamerSlot, setStreamerSlot] =
@@ -137,7 +144,7 @@ export function BadgeSelectionManager() {
       setStreamerSlot(res.data.streamer);
       setUserSlot(res.data.user);
     } catch (e: any) {
-      toast.show("Failed to load badges", e?.message, { variant: "error" });
+      toast.show(t("badges-failed-load"), e?.message, { variant: "error" });
     } finally {
       setLoading(false);
     }
@@ -244,7 +251,7 @@ export function BadgeSelectionManager() {
           });
         }
       } catch (e: any) {
-        toast.show("Failed to update badge selection", e?.message, {
+        toast.show(t("badges-failed-update"), e?.message, {
           variant: "error",
         });
       } finally {
@@ -277,8 +284,7 @@ export function BadgeSelectionManager() {
         ]}
       >
         <Text muted center>
-          No badges yet. Badges appear here when streamers or the server issues
-          them to you.
+          {t("badges-empty-state")}
         </Text>
       </ScrollView>
     );
@@ -289,61 +295,39 @@ export function BadgeSelectionManager() {
       <View style={{ maxWidth: 500, width: "100%", alignSelf: "center" }}>
         <MenuContainer>
           {hasStreamerBadges && (
-            <MenuGroup>
-              <View style={[px[4], py[3]]}>
-                <Text
-                  accessibilityRole="header"
-                  muted
-                  uppercase
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  Streamer badges
-                </Text>
-              </View>
-              {streamerSlot!.available.map((badge, i) => (
-                <View key={badge.issuanceUri}>
-                  {i > 0 && <MenuSeparator />}
-                  <BadgeIssuanceRow
-                    badge={badge}
-                    onToggle={(b) => handleToggle(b, "streamer")}
-                    toggling={toggling === badge.issuanceUri}
-                  />
-                </View>
-              ))}
-            </MenuGroup>
+            <>
+              <MenuLabel>{t("badges-streamer-section")}</MenuLabel>
+              <MenuGroup>
+                {streamerSlot!.available.map((badge, i) => (
+                  <View key={badge.issuanceUri}>
+                    {i > 0 && <MenuSeparator />}
+                    <BadgeIssuanceRow
+                      badge={badge}
+                      onToggle={(b) => handleToggle(b, "streamer")}
+                      toggling={toggling === badge.issuanceUri}
+                    />
+                  </View>
+                ))}
+              </MenuGroup>
+            </>
           )}
 
           {hasUserBadges && (
-            <MenuGroup>
-              <View style={[px[4], py[3]]}>
-                <Text
-                  accessibilityRole="header"
-                  muted
-                  uppercase
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    letterSpacing: 0.5,
-                  }}
-                >
-                  Cosmetic badges
-                </Text>
-              </View>
-              {userSlot!.available.map((badge, i) => (
-                <View key={badge.issuanceUri}>
-                  {i > 0 && <MenuSeparator />}
-                  <BadgeIssuanceRow
-                    badge={badge}
-                    onToggle={(b) => handleToggle(b, "global")}
-                    toggling={toggling === badge.issuanceUri}
-                  />
-                </View>
-              ))}
-            </MenuGroup>
+            <>
+              <MenuLabel>{t("badges-cosmetic-section")}</MenuLabel>
+              <MenuGroup>
+                {userSlot!.available.map((badge, i) => (
+                  <View key={badge.issuanceUri}>
+                    {i > 0 && <MenuSeparator />}
+                    <BadgeIssuanceRow
+                      badge={badge}
+                      onToggle={(b) => handleToggle(b, "global")}
+                      toggling={toggling === badge.issuanceUri}
+                    />
+                  </View>
+                ))}
+              </MenuGroup>
+            </>
           )}
         </MenuContainer>
       </View>

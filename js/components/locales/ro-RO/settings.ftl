@@ -231,3 +231,41 @@ branding-not-available = Încărcarea de fișiere este disponibilă doar pe web.
 
 ## Navigation Categories (About Page)
 node-legal-documents = Documente specifice radiodifuzorului
+
+## Badges
+badges = Insigne
+badges-cosmetic-section = Insigne cosmetice
+badges-empty-state = Nu ți-a fost acordată nicio insignă încă.
+badges-failed-load = Nu s-au putut încărca insignele
+badges-failed-update = Nu s-a putut actualiza selecția de insigne
+badges-issued-by = Acordată de { $issuer }
+badges-streamer-section = Insigne de la streameri
+
+## Issue Badges
+issue-badges = Emitere insigne
+issue-badges-back-to-definitions = Definiții insigne
+issue-badges-badge-name = Numele insignei
+issue-badges-badge-name-placeholder = ex. VIP, Susținător
+issue-badges-badge-type = Tipul insignei
+issue-badges-choose-image = Alegeți imaginea
+issue-badges-create-definition = Creare definiție insignă
+issue-badges-create-definition-description = Definiți un nou tip de insignă care poate fi acordată spectatorilor
+issue-badges-create-definition-subtitle = Definiți un nou tip de insignă
+issue-badges-definition-created = Definiție insignă creată
+issue-badges-description-optional = Descriere (opțional)
+issue-badges-description-placeholder = Descriere opțională pentru această insignă
+issue-badges-failed-create = Nu s-a putut crea definiția insignei
+issue-badges-failed-issue = Nu s-a putut emite insigna
+issue-badges-failed-load = Nu s-au putut încărca definițiile insignelor
+issue-badges-image-optional = Imagine (opțional)
+issue-badges-image-too-large = Imaginea trebuie să fie mai mică de 256KB
+issue-badges-image-web-only = Încărcarea imaginilor este disponibilă doar pe web
+issue-badges-issue-badge = Emite insignă
+issue-badges-issue-badge-description = Emite insigna „{ $name }" unui spectator prin DID-ul său
+issue-badges-issued = Insignă emisă
+issue-badges-issued-to = Emisă pentru { $did }
+issue-badges-manage-description = Creați definiții de insigne și emiteți-le spectatorilor
+issue-badges-recipient-did = DID destinatar
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = Atingeți pentru a emite
+issue-badges-your-definitions = Definițiile dvs. de insigne

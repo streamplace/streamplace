@@ -260,3 +260,41 @@ backup-error-save-failed = 保存存储设置失败
 backup-error-missing-secret = 没有秘密密钥时无法更新 S3 设置。请重新输入。
 backup-segment-duration-placeholder = 6
 backup-connection-url-placeholder = 必须是格式为 s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket 的有效 S3 网址
+
+## 徽章
+badges = 徽章
+badges-cosmetic-section = 装饰性徽章
+badges-empty-state = 您还没有获得任何徽章。
+badges-failed-load = 加载徽章失败
+badges-failed-update = 更新徽章选择失败
+badges-issued-by = 由 { $issuer } 颁发
+badges-streamer-section = 主播徽章
+
+## 颁发徽章
+issue-badges = 颁发徽章
+issue-badges-back-to-definitions = 徽章定义
+issue-badges-badge-name = 徽章名称
+issue-badges-badge-name-placeholder = 例如 VIP、支持者
+issue-badges-badge-type = 徽章类型
+issue-badges-choose-image = 选择图片
+issue-badges-create-definition = 创建徽章定义
+issue-badges-create-definition-description = 定义可颁发给观众的新徽章类型
+issue-badges-create-definition-subtitle = 定义新徽章类型
+issue-badges-definition-created = 徽章定义已创建
+issue-badges-description-optional = 描述（可选）
+issue-badges-description-placeholder = 此徽章的可选描述
+issue-badges-failed-create = 创建徽章定义失败
+issue-badges-failed-issue = 颁发徽章失败
+issue-badges-failed-load = 加载徽章定义失败
+issue-badges-image-optional = 图片（可选）
+issue-badges-image-too-large = 图片必须小于 256KB
+issue-badges-image-web-only = 图片上传仅在网页版可用
+issue-badges-issue-badge = 颁发徽章
+issue-badges-issue-badge-description = 通过 DID 将"{ $name }"徽章颁发给观众
+issue-badges-issued = 徽章已颁发
+issue-badges-issued-to = 已颁发给 { $did }
+issue-badges-manage-description = 创建徽章定义并颁发给观众
+issue-badges-recipient-did = 收件人 DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = 点击颁发
+issue-badges-your-definitions = 您的徽章定义

@@ -14,7 +14,7 @@ import {
 } from "@streamplace/components/src/components/chat/badge";
 import { borderRadius as radiusTokens } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import { flex } from "@streamplace/components/src/ui";
+import { flex, mt, pt } from "@streamplace/components/src/ui";
 import { Image } from "expo-image";
 import { Check } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -278,6 +278,7 @@ export function BadgeSelectionManager() {
       <ScrollView
         contentContainerStyle={[
           p[4],
+          mt[12],
           gap.all[3],
           layout.flex.align.center,
           { paddingTop: 48 },
@@ -291,7 +292,7 @@ export function BadgeSelectionManager() {
   }
 
   return (
-    <ScrollView contentContainerStyle={[p[2]]}>
+    <ScrollView contentContainerStyle={[p[2], pt[28]]}>
       <View style={{ maxWidth: 500, width: "100%", alignSelf: "center" }}>
         <MenuContainer>
           {hasStreamerBadges && (

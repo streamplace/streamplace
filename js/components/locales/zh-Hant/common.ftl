@@ -60,3 +60,15 @@ viewer-count = { $count ->
     [1] 1 位觀眾
    *[other] { $count } 位觀眾
 }
+
+## PDS Host Selector
+pds-selector-title = 初次接觸 Atmosphere？
+pds-selector-description = 您需要選擇一個 PDS（個人資料伺服器）來存取 Atmosphere 上的應用程式，例如 Bluesky、Tangled 和 Spark。
+pds-selector-custom-label = 其他 PDS
+pds-selector-custom-description = 輸入您自己的 PDS 主機網址
+pds-selector-custom-url-label = 自訂 PDS 網址
+pds-selector-custom-url-placeholder = https://pds.example.com
+pds-selector-learn-more = 了解更多關於自行架設的資訊
+pds-selector-info = 每個主機都有自己的政策和可靠性標準。您的 ATProto 資料存放在您選擇的主機上，您可以之後進行遷移。注意：Streamplace 有自己的審核規則——無論您選擇哪個主機，都可能被 Streamplace 封禁。
+pds-selector-read-policies = 在繼續之前，請閱讀 { $label } 的<tosLink>服務條款</tosLink>和<privacyLink>隱私政策</privacyLink>。
+pds-selector-handle-policy-checkbox = 我已閱讀並同意<policyLink>識別碼政策</policyLink>

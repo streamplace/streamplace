@@ -23,12 +23,7 @@ import { useNameColorPicker } from "components/name-color-picker/name-color-pick
 import { Image } from "expo-image";
 import { Check, SwatchBook } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
 import type { PlaceStreamBadgeDefs } from "streamplace";
@@ -349,7 +344,7 @@ function BadgeTriggerButton({
   const [hover, setHover] = useState(false);
 
   return (
-    <Pressable
+    <View
       style={{
         paddingHorizontal: 9.5,
         marginRight: -9.5,
@@ -361,8 +356,8 @@ function BadgeTriggerButton({
           ? theme.colors.muted
           : hexToRgba(theme.colors.muted, 0.3),
       }}
-      onHoverIn={() => setHover(true)}
-      onHoverOut={() => setHover(false)}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => setHover(false)}
     >
       {loading ? (
         <ActivityIndicator size="small" color={theme.colors.mutedForeground} />
@@ -384,7 +379,7 @@ function BadgeTriggerButton({
           }}
         />
       )}
-    </Pressable>
+    </View>
   );
 }
 

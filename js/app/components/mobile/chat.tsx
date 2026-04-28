@@ -195,7 +195,6 @@ export function MobileChatPanel({
 }) {
   const insets = useSafeAreaInsets();
 
-  console.log("porteaitVideoTranslateY", portraitVideoTranslateY);
   // create fixed style
   const fixedStyle = useAnimatedStyle(() => ({
     marginTop: portraitVideoTranslateY ? portraitVideoTranslateY.value : 0,

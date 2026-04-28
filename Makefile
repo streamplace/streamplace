@@ -324,7 +324,7 @@ dev-rust: .build/bin/uniffi-bindgen-go-forked
 	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
 
 .PHONY: dev-test
-dev-test:
+dev-test: muxl-wasm
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
@@ -716,13 +716,6 @@ link-gstreamer:
 link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
-
-.PHONY: build-muxl
-build-muxl:
-	cd ../s2pa-muxl \
-	&& cargo build --target wasm32-wasip1 --release \
-	&& cd - \
-	&& cp ../s2pa-muxl/target/wasm32-wasip1/release/muxl.wasm pkg/muxl/muxl.wasm
 
 #   _____   ____   _____ _  ________ _____
 #  |  __ \ / __ \ / ____| |/ /  ____|  __ \

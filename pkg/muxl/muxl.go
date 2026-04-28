@@ -30,24 +30,23 @@ type MuxlEvent struct {
 	Data   []byte
 }
 
+// muxl.wasm is built from rust/muxl-wasm via `make muxl-wasm`. It bundles
+// the full muxl-sign CLI — both unsigned subcommands (segment, concat,
+// catalog, fmp4, mp4, hls) and the signing ones (sign-per-track,
+// sign-segment) — so this package only needs one wasm artifact.
+//
 //go:embed muxl.wasm
 var wasmBytes []byte
 
-//go:embed muxl-sign.wasm
-var signWasmBytes []byte
-
 var wasmRuntime wazero.Runtime
 
-// Compile each wasm module exactly once and reuse the result; instantiation
+// Compile the wasm module exactly once and reuse the result; instantiation
 // is cheap, compilation is not. RunMuxlSigner runs once per GoP so the
 // difference adds up fast.
 var (
-	segCompileOnce  sync.Once
-	segCompiled     wazero.CompiledModule
-	segCompileErr   error
-	signCompileOnce sync.Once
-	signCompiled    wazero.CompiledModule
-	signCompileErr  error
+	compileOnce sync.Once
+	compiled    wazero.CompiledModule
+	compileErr  error
 )
 
 func init() {
@@ -55,43 +54,33 @@ func init() {
 	wasi_snapshot_preview1.MustInstantiate(context.Background(), wasmRuntime)
 }
 
-func getSegmenterModule(ctx context.Context) (wazero.CompiledModule, error) {
-	segCompileOnce.Do(func() {
-		segCompiled, segCompileErr = wasmRuntime.CompileModule(ctx, wasmBytes)
+func getModule(ctx context.Context) (wazero.CompiledModule, error) {
+	compileOnce.Do(func() {
+		compiled, compileErr = wasmRuntime.CompileModule(ctx, wasmBytes)
 	})
-	if segCompileErr != nil {
-		return nil, fmt.Errorf("error compiling muxl module: %w", segCompileErr)
+	if compileErr != nil {
+		return nil, fmt.Errorf("error compiling muxl wasm module: %w", compileErr)
 	}
-	return segCompiled, nil
-}
-
-func getSignerModule(ctx context.Context) (wazero.CompiledModule, error) {
-	signCompileOnce.Do(func() {
-		signCompiled, signCompileErr = wasmRuntime.CompileModule(ctx, signWasmBytes)
-	})
-	if signCompileErr != nil {
-		return nil, fmt.Errorf("error compiling muxl-sign module: %w", signCompileErr)
-	}
-	return signCompiled, nil
+	return compiled, nil
 }
 
 // Segment arbitrary fMP4 input into MUXL-compatible init and segment chunks.
 func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte) error {
-	mod, err := getSegmenterModule(ctx)
+	mod, err := getModule(ctx)
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl", "segment", "-", "--stdout"}, nil, false, input, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, initCh, segCh)
 }
 
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
 // If the init segment changes, you'll get a new init segment in the output.
 func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte) error {
-	mod, err := getSegmenterModule(ctx)
+	mod, err := getModule(ctx)
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl", "concat"}, nil, false, input, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, initCh, segCh)
 }
 
 // SignerInput is the per-call input bundle for RunMuxlSigner. Cert chain
@@ -114,7 +103,7 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 	if in.Alg == "" {
 		in.Alg = "es256k"
 	}
-	mod, err := getSignerModule(ctx)
+	mod, err := getModule(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +127,7 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 		}
 	}
 	args := []string{
-		"muxl-sign", "sign-per-track",
+		"muxl-wasm", "sign-per-track",
 		"--input", "/work/in.mp4",
 		"--output", "/work/out.mp4",
 		"--cert", "/work/cert.pem",

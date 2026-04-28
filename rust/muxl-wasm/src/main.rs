@@ -1,3 +1,3 @@
 fn main() {
-    muxl::cli_main();
+    muxl_sign::cli_main();
 }

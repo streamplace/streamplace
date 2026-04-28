@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
 
+[[bin]]
+name = "muxl-wasm"
+path = "src/main.rs"
+
 [dependencies]
-# For local development, use the path dependency:
-# muxl = { path = "../../../s2pa-muxl" }
-# To use the published git version instead, comment the line above and uncomment:
-muxl = { git = "https://github.com/streamplace/s2pa-muxl.git", rev = "e4f4c3f2d70ca7f3f3724d13f4376a0a5ca3f938" }
+muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "79ac2324310f2b546cab59bbeeeae6835777bd2e", package = "muxl-sign" }
+# muxl-sign = { path = "../../../muxl/crates/muxl-sign" }

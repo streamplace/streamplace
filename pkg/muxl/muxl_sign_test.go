@@ -115,8 +115,8 @@ func parseES256KPKCS8PEM(t *testing.T, pemBytes []byte) *secp256k1.PrivateKey {
 
 	// PKCS#8 PrivateKeyInfo: SEQUENCE { version INTEGER, algo AlgID, key OCTET STRING }
 	var pkcs8 struct {
-		Version    int
-		Algo       struct {
+		Version int
+		Algo    struct {
 			Algorithm  asn1.ObjectIdentifier
 			Parameters asn1.RawValue
 		}

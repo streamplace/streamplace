@@ -136,11 +136,12 @@ jobs:
           npm install -g corepack@latest \
           && corepack enable \
           && export GOTOOLCHAIN=go1.25.1 \
-          && brew install go \
+          && brew install go llvm \
           && rustup target add wasm32-wasip1 \
           && rustup target add wasm32-unknown-unknown \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
           && python -m pip install meson \
+          && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}

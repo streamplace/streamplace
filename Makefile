@@ -307,8 +307,10 @@ dev-setup-meson-configure:
 .PHONY: muxl-wasm
 muxl-wasm:
 	rustup target add wasm32-wasip1
-	CC="" cargo build -p muxl-wasm --target wasm32-wasip1 --release
-	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
+	if [ "$(BUILDOS)" = "darwin" ]; then stat /opt/homebrew/opt/llvm/bin/clang >/dev/null 2>&1 || (echo "llvm not installed, run 'brew install llvm' and try again" && exit 1); fi \
+	&& export PATH="/opt/homebrew/opt/llvm/bin:$$PATH" \
+	&& CC="" cargo build -p muxl-wasm --target wasm32-wasip1 --release \
+	&& cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked

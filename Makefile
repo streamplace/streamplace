@@ -307,8 +307,10 @@ dev-setup-meson-configure:
 .PHONY: muxl-wasm
 muxl-wasm:
 	rustup target add wasm32-wasip1
-	cargo build -p muxl-wasm --target wasm32-wasip1 --release
-	cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
+	if [ "$(BUILDOS)" = "darwin" ]; then stat "$$(brew --prefix)/opt/llvm/bin/clang" >/dev/null 2>&1 || (echo "llvm not installed, run 'brew install llvm' and try again" && exit 1); fi \
+	&& export PATH="$$(brew --prefix)/opt/llvm/bin:$$PATH" \
+	&& CC="" cargo build -p muxl-wasm --target wasm32-wasip1 --release \
+	&& cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked
@@ -324,7 +326,7 @@ dev-rust: .build/bin/uniffi-bindgen-go-forked
 	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
 
 .PHONY: dev-test
-dev-test:
+dev-test: muxl-wasm
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
@@ -717,13 +719,6 @@ link-ffmpeg:
 	rm -rf subprojects/FFmpeg
 	ln -s $$(realpath ../ffmpeg) ./subprojects/FFmpeg
 
-.PHONY: build-muxl
-build-muxl:
-	cd ../s2pa-muxl \
-	&& cargo build --target wasm32-wasip1 --release \
-	&& cd - \
-	&& cp ../s2pa-muxl/target/wasm32-wasip1/release/muxl.wasm pkg/muxl/muxl.wasm
-
 #   _____   ____   _____ _  ________ _____
 #  |  __ \ / __ \ / ____| |/ /  ____|  __ \
 #  | |  | | |  | | |    | ' /| |__  | |__) |
@@ -779,9 +774,10 @@ IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET)
 DOCKER_OPTS?=
+DOCKER_PWD_MOUNT_PATH?=$$(pwd)
 .PHONY: in-container
 in-container: docker-build-builder
-	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$$(pwd) -w $$(pwd) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
+	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$(DOCKER_PWD_MOUNT_PATH) -w $(DOCKER_PWD_MOUNT_PATH) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
 
 .PHONY: docker-shell
 docker-shell:

@@ -54,7 +54,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Publish Test Report
         if: matrix.name == 'linux-amd64' && (success() || failure())
@@ -136,11 +136,12 @@ jobs:
           npm install -g corepack@latest \
           && corepack enable \
           && export GOTOOLCHAIN=go1.25.1 \
-          && brew install go \
+          && brew install go llvm \
           && rustup target add wasm32-wasip1 \
           && rustup target add wasm32-unknown-unknown \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
           && python -m pip install meson \
+          && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}

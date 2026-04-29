@@ -174,14 +174,6 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 
 func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
 	sign := func(ctx context.Context, bs []byte, now int64) error {
-		if mm.cli.SmearAudio {
-			smearedBuf := &bytes.Buffer{}
-			err := RewriteAudioTimestamps(ctx, mm.cli, bytes.NewReader(bs), smearedBuf, true)
-			if err != nil {
-				return fmt.Errorf("error smearing audio timestamps: %w", err)
-			}
-			bs = smearedBuf.Bytes()
-		}
 		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
 		if err != nil {
 			return fmt.Errorf("error calling SignMP4: %w", err)

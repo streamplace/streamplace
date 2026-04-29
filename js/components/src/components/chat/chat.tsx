@@ -261,6 +261,9 @@ export function Chat({
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const latestMessageTime = chat?.[0]
+    ? new Date(chat[0].record.createdAt).getTime()
+    : null;
 
   // Animation for scroll-to-bottom button
   const buttonOpacity = useSharedValue(0);
@@ -302,13 +305,22 @@ export function Chat({
   };
 
   useEffect(() => {
-    if (hideAfter && hideAfter > 0) {
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, hideAfter * 1000);
-      return () => clearTimeout(timer);
+    if (!hideAfter || hideAfter <= 0) return;
+
+    const referenceTime = latestMessageTime ?? Date.now();
+    const delay = referenceTime + hideAfter * 1000 - Date.now();
+
+    if (delay <= 0) {
+      setIsVisible(false);
+      return;
     }
-  }, [hideAfter]);
+
+    setIsVisible(true);
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [hideAfter, latestMessageTime]);
 
   if (!isVisible) return null;
 

@@ -68,7 +68,7 @@ export default function AQLink({
     // intercept login navigation and show modal instead
     if (to.screen === "Login") {
       // if we're logged in, navigate to the settings page instead of showing the login modal
-      if (useDID()) {
+      if (did) {
         navigation.navigate("MainTabs", {
           screen: "SettingsTab",
           params: { screen: "AccountCategory" },

@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
 import { SystemMessageType } from "../../lib/system-messages";
 import { bg, colors, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
@@ -24,13 +24,17 @@ export function SystemMessage({
     <View
       style={[
         w.percent[100],
-        px[2],
+        Platform.OS === "web" && px[2],
         pb[2],
         isError && bg.red[950],
         isError && r.md,
       ]}
     >
-      <Code color="muted" tracking="widest" style={[pl[12], ml[1]]}>
+      <Code
+        color="muted"
+        tracking="widest"
+        style={[Platform.OS === "web" ? pl[12] : pl[11], ml[1]]}
+      >
         SYSTEM MESSAGE
       </Code>
       <View style={[gap.all[2], layout.flex.row]}>

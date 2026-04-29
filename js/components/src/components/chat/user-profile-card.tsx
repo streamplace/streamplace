@@ -432,7 +432,12 @@ export const UserProfileCard = ({
     return (
       <DropdownMenu>
         <DropdownMenuTrigger ref={dropdownRef} asChild>
-          <Pressable onPress={() => {}}>{children}</Pressable>
+          <Pressable
+            style={{ flexDirection: "row", alignItems: "center" }}
+            onPress={() => {}}
+          >
+            {children}
+          </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent style={{ minWidth: 280, maxWidth: 320 }}>
           <ProfileCardContent data={data} theme={theme} />
@@ -455,8 +460,10 @@ export const UserProfileCard = ({
         hovered ? r.sm : undefined,
         {
           flexDirection: "row",
+          alignItems: "center",
           marginLeft: -3,
           marginRight: -2,
+          marginBottom: -4,
           ...(hovered ? { backgroundColor: "rgba(255,255,255,0.15)" } : {}),
         },
       ]}

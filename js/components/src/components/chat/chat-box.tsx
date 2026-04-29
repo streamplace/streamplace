@@ -29,11 +29,13 @@ import {
 import {
   useAddSystemMessage,
   useChat,
+  useChatDraft,
   useCreateChatMessage,
   useLivestream,
   useLivestreamStore,
   useProfile,
   useReplyToMessage,
+  useSetChatDraft,
   useSetReplyToMessage,
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
@@ -81,7 +83,8 @@ export function ChatBox({
 }) {
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
-  const [message, setMessage] = useState("");
+  const message = useChatDraft();
+  const setMessage = useSetChatDraft();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showEmojiSuggestions, setShowEmojiSuggestions] = useState(false);
   const [showEmojiSelector, setShowEmojiSelector] = useState(false);

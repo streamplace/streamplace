@@ -23,6 +23,32 @@ export const useSetReplyToMessage = () => {
   );
 };
 
+export const useChatDraft = () =>
+  useLivestreamStore((state) => state.chatDraft);
+
+export const useSetChatDraft = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (draft: string) => {
+      store.setState({ chatDraft: draft });
+    },
+    [store],
+  );
+};
+
+export const useBadgeSlots = () =>
+  useLivestreamStore((state) => state.badgeSlots);
+
+export const useSetBadgeSlots = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (slots: NonNullable<LivestreamState["badgeSlots"]> | null) => {
+      store.setState({ badgeSlots: slots });
+    },
+    [store],
+  );
+};
+
 export const usePendingHides = () =>
   useLivestreamStore((state) => state.pendingHides);
 

@@ -17,6 +17,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     segment: null,
     renditions: [],
     replyToMessage: null,
+    chatDraft: "",
+    badgeSlots: null,
     streamKey: null,
     setStreamKey: (sk) => set({ streamKey: sk }),
     authors: {},

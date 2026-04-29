@@ -1,4 +1,8 @@
-import { CommonActions, useNavigation } from "@react-navigation/native";
+import {
+  CommonActions,
+  getPathFromState,
+  useNavigation,
+} from "@react-navigation/native";
 import {
   Text,
   useDID,
@@ -25,7 +29,10 @@ import {
 import React, { useEffect, useState } from "react";
 import { Linking, Platform, Pressable } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { getStreamplaceStateFromPath } from "src/linking-config";
+import {
+  getStreamplaceStateFromPath,
+  streamplaceLinkingOptions,
+} from "src/linking-config";
 import SidebarItem from "./sidebar-item";
 
 function getActiveTabAndScreen(state: any): {
@@ -82,7 +89,7 @@ export interface SidebarNavItem {
   label: React.ReactNode;
   href: string;
   hidden?: boolean;
-  matchDepth?: "tab" | "screen";
+  matchPrefix?: string;
 }
 
 export interface ExternalSidebarItem {
@@ -115,15 +122,17 @@ export function SidebarOverlay() {
   }, [navigation]);
   const { tab: currentTab, screen: currentScreen } =
     getActiveTabAndScreen(navState);
+  const currentPath = navState
+    ? getPathFromState(navState, streamplaceLinkingOptions.config)
+    : undefined;
 
-  function isItemActive(
-    href: string,
-    matchDepth: "tab" | "screen" = "screen",
-  ): boolean {
+  function isItemActive(href: string, matchPrefix?: string): boolean {
+    if (matchPrefix !== undefined) {
+      return currentPath?.startsWith(matchPrefix) ?? false;
+    }
     const target = getTargetTabAndScreen(href);
     if (!target.tab || !currentTab) return false;
     if (target.tab !== currentTab) return false;
-    if (matchDepth === "tab") return true;
     return target.screen === currentScreen;
   }
 
@@ -163,7 +172,7 @@ export function SidebarOverlay() {
       icon: () => <SettingsIcon color={foregroundColor} size={24} />,
       label: <Text variant="h5">Settings</Text>,
       href: "/settings",
-      matchDepth: "tab",
+      matchPrefix: "/settings",
     },
     {
       icon: () => <Video color={foregroundColor} size={24} />,
@@ -290,7 +299,7 @@ export function SidebarOverlay() {
             icon={item.icon}
             href={item.href}
             label={item.label}
-            active={isItemActive(item.href, item.matchDepth)}
+            active={isItemActive(item.href, item.matchPrefix)}
             collapsed={sidebar.isCollapsed}
             onPress={(e) => {
               e.preventDefault();

@@ -82,6 +82,7 @@ export interface SidebarNavItem {
   label: React.ReactNode;
   href: string;
   hidden?: boolean;
+  matchDepth?: "tab" | "screen";
 }
 
 export interface ExternalSidebarItem {
@@ -115,11 +116,14 @@ export function SidebarOverlay() {
   const { tab: currentTab, screen: currentScreen } =
     getActiveTabAndScreen(navState);
 
-  function isItemActive(href: string): boolean {
+  function isItemActive(
+    href: string,
+    matchDepth: "tab" | "screen" = "screen",
+  ): boolean {
     const target = getTargetTabAndScreen(href);
     if (!target.tab || !currentTab) return false;
     if (target.tab !== currentTab) return false;
-    if (target.tab === "SettingsTab") return true;
+    if (matchDepth === "tab") return true;
     return target.screen === currentScreen;
   }
 
@@ -159,6 +163,7 @@ export function SidebarOverlay() {
       icon: () => <SettingsIcon color={foregroundColor} size={24} />,
       label: <Text variant="h5">Settings</Text>,
       href: "/settings",
+      matchDepth: "tab",
     },
     {
       icon: () => <Video color={foregroundColor} size={24} />,
@@ -285,7 +290,7 @@ export function SidebarOverlay() {
             icon={item.icon}
             href={item.href}
             label={item.label}
-            active={isItemActive(item.href)}
+            active={isItemActive(item.href, item.matchDepth)}
             collapsed={sidebar.isCollapsed}
             onPress={(e) => {
               e.preventDefault();

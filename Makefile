@@ -774,9 +774,10 @@ IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET)
 DOCKER_OPTS?=
+DOCKER_PWD_MOUNT_PATH?=$$(pwd)
 .PHONY: in-container
 in-container: docker-build-builder
-	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$$(pwd) -w $$(pwd) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
+	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$(DOCKER_PWD_MOUNT_PATH) -w $(DOCKER_PWD_MOUNT_PATH) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
 
 .PHONY: docker-shell
 docker-shell:

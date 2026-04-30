@@ -144,19 +144,24 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 		return nil, fmt.Errorf("failed to read input: %w", err)
 	}
 
-	// Always sign via the wazero host-callback so the actual ECDSA op runs
-	// in native Go (decred secp256k1 has assembly-optimized math) instead
-	// of through k256 inside wasm. The in-wasm PEM path was lower-overhead
-	// per call on paper — no wazero trap per sign — but in practice the
-	// k256-in-wasm path showed worse and more variable p99 sign latency
-	// under production load. The callback trap is sub-microsecond; the
-	// ECDSA op itself is what dominates, and Go does it faster.
+	// Software ES256K keys (the streamplace stream-key path) export to PEM
+	// and sign in-wasm; everything else (EIP-712 wallets, PKCS#11 hardware
+	// signers) goes through the wazero host-callback so the key never
+	// leaves Go's address space.
 	signerInput := muxl.SignerInput{
 		Segment:         bs,
 		CertPEM:         ms.Cert,
-		Sign:            muxl.SignerToCallback(ms.Signer, 32),
 		TrackManifest:   manifestBs,
 		WrapperManifest: manifestBs,
+	}
+	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
+		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal signing key: %w", err)
+		}
+		signerInput.KeyPEM = keyPEM
+	} else {
+		signerInput.Sign = muxl.SignerToCallback(ms.Signer, 32)
 	}
 
 	_, signSpan := otel.Tracer("signer").Start(ctx, "SignMP4_Sign")

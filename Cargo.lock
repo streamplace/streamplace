@@ -3205,7 +3205,6 @@ dependencies = [
 [[package]]
 name = "muxl"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/muxl.git?rev=1073f58#1073f580a7a3f52f2ab8b2e1e16e90813e25624a"
 dependencies = [
  "blake3",
  "clap",
@@ -3221,7 +3220,6 @@ dependencies = [
 [[package]]
 name = "muxl-sign"
 version = "0.1.0"
-source = "git+https://github.com/streamplace/muxl.git?rev=1073f58#1073f580a7a3f52f2ab8b2e1e16e90813e25624a"
 dependencies = [
  "c2pa",
  "clap",
@@ -3230,6 +3228,7 @@ dependencies = [
  "muxl",
  "serde",
  "serde_bytes",
+ "sha2 0.10.9",
 ]
 
 [[package]]

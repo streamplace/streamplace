@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -68,17 +69,43 @@ func init() {
 	wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
 
 	// Register the `streamplace` host module that muxl.wasm imports. The
-	// import is declared unconditionally on the wasm side (it's part of
-	// the binary's import table whether or not `--host-sign` is set) so
-	// the host module must always exist; PEM-mode invocations simply
-	// never call into it.
+	// imports are declared unconditionally on the wasm side (they're part
+	// of the binary's import table whether or not the corresponding wasm
+	// path is exercised) so the host module must always exist. PEM-mode
+	// sign invocations simply never call into host_sign; in-wasm SHA-256
+	// invocations never call into host_sha256.
 	_, err := wasmRuntime.NewHostModuleBuilder("streamplace").
 		NewFunctionBuilder().
 		WithFunc(hostSign).
 		Export("host_sign").
+		NewFunctionBuilder().
+		WithFunc(hostSha256).
+		Export("host_sha256").
 		Instantiate(ctx)
 	if err != nil {
 		panic(fmt.Errorf("registering streamplace host module: %w", err))
+	}
+}
+
+// hostSha256 is the trampoline behind muxl-sign's
+// `streamplace.host_sha256` import. Reads the input from wasm linear
+// memory at (dataPtr, dataLen), hashes it with native Go's SHA-256
+// (which has hardware-accelerated paths via the `crypto/sha256` package
+// on amd64/arm64), and writes the 32-byte digest back at outPtr.
+//
+// Used today by the bench-sha256 subcommand to size the upper bound on
+// what host SHA-256 saves vs in-wasm sha2; if the win is real and the
+// patch story for c2pa-rs's sha2 dep gets settled, this becomes the
+// hot-path implementation for all hashing too.
+func hostSha256(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr uint32) {
+	data, ok := mod.Memory().Read(dataPtr, dataLen)
+	if !ok {
+		log.Error(ctx, "host_sha256: bad data pointer/length", "instance", mod.Name(), "ptr", dataPtr, "len", dataLen)
+		return
+	}
+	sum := sha256.Sum256(data)
+	if !mod.Memory().Write(outPtr, sum[:]) {
+		log.Error(ctx, "host_sha256: bad output pointer", "instance", mod.Name(), "ptr", outPtr)
 	}
 }
 

@@ -182,6 +182,13 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 
 	log.Log(ctx, "found followers", "count", len(followersDIDs))
 
+	followersDIDs, err = state.filterNotificationRecipients(ctx, userDID, followersDIDs)
+	if err != nil {
+  	return err
+	}
+
+	log.Log(ctx, "filtered followers", "count", len(followersDIDs))
+
 	notifications, err := state.GetManyNotificationTokens(followersDIDs)
 	if err != nil {
 		return err

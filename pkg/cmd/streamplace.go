@@ -73,6 +73,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	app.Usage = "decentralized live streaming platform"
 	app.Version = build.Version
 	app.Commands = []*urfavecli.Command{
+		makeE2eCommand(build),
 		makeSelfTestCommand(build),
 		makeVODTestCommand(build),
 		makeStreamCommand(build),

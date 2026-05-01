@@ -1,0 +1,13 @@
+appId: tv.aquareum.dev
+---
+- launchApp
+- tapOn:
+    text: "Go Live"
+- assertVisible:
+    text: "Ready to go live?"
+- assertVisible:
+    text: "Start streaming"
+- tapOn:
+    text: "Start streaming"
+- assertVisible:
+    text: "Log In"

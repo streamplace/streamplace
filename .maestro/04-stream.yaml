@@ -1,0 +1,11 @@
+appId: ${APP_ID}
+---
+- launchApp
+- assertVisible:
+    text: "${ACCOUNT_HANDLE}"
+    timeout: 30000
+- tapOn:
+    text: "${ACCOUNT_HANDLE}"
+- assertVisible:
+    text: "LIVE"
+    timeout: 10000

@@ -70,6 +70,14 @@ jobs:
           path: ./bin/
           retention-days: 1
 
+      - name: Upload streamplace binary
+        if: matrix.name == 'linux-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64/streamplace
+          retention-days: 1
+
   # windows-selftest:
   #   name: windows-selftest
   #   runs-on: windows-latest
@@ -145,3 +153,11 @@ jobs:
           && python -m pip install meson \
           && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}
+
+      - name: Upload streamplace binary
+        if: matrix.name == 'darwin-arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamplace-darwin-arm64-${{ github.run_id }}
+          path: ./build-darwin-arm64/streamplace
+          retention-days: 1

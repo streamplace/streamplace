@@ -1,0 +1,20 @@
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    text: "Settings"
+- scrollUntilVisible:
+    element:
+      text: "Advanced"
+- tapOn:
+    text: "Advanced"
+- tapOn:
+    text: "Use Custom Node"
+- tapOn:
+    text: "Enter custom node URL"
+- inputText: "${SERVER_URL}"
+- tapOn:
+    text: "Save"
+- tapOn:
+    text: "Home"

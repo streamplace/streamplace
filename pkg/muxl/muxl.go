@@ -19,8 +19,13 @@ import (
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/log"
 )
+
+var muxlTracer = otel.Tracer("muxl")
 
 var moduleCounter atomic.Uint64
 
@@ -98,14 +103,24 @@ func init() {
 // patch story for c2pa-rs's sha2 dep gets settled, this becomes the
 // hot-path implementation for all hashing too.
 func hostSha256(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr uint32) {
+	_, span := muxlTracer.Start(ctx, "muxl.hostSha256", trace.WithAttributes(
+		attribute.String("instance", mod.Name()),
+		attribute.Int64("data_len", int64(dataLen)),
+	))
+	defer span.End()
+
 	data, ok := mod.Memory().Read(dataPtr, dataLen)
 	if !ok {
 		log.Error(ctx, "host_sha256: bad data pointer/length", "instance", mod.Name(), "ptr", dataPtr, "len", dataLen)
+		span.SetAttributes(attribute.String("error", "bad data pointer"))
 		return
 	}
+	span.AddEvent("read input bytes")
 	sum := sha256.Sum256(data)
+	span.AddEvent("hashed")
 	if !mod.Memory().Write(outPtr, sum[:]) {
 		log.Error(ctx, "host_sha256: bad output pointer", "instance", mod.Name(), "ptr", outPtr)
+		span.SetAttributes(attribute.String("error", "bad output pointer"))
 	}
 }
 
@@ -115,37 +130,61 @@ func hostSha256(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr ui
 // back into wasm memory. Returns the signature length on success or
 // hostSignErr on any failure.
 func hostSign(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr, outMax uint32) uint32 {
+	ctx, span := muxlTracer.Start(ctx, "muxl.hostSign", trace.WithAttributes(
+		attribute.String("instance", mod.Name()),
+		attribute.Int64("data_len", int64(dataLen)),
+	))
+	defer span.End()
+
 	v, ok := signerRegistry.Load(mod.Name())
 	if !ok {
 		log.Error(ctx, "host_sign called with no signer registered", "instance", mod.Name())
+		span.SetAttributes(attribute.String("error", "no signer registered"))
 		return hostSignErr
 	}
 	signFn := v.(func([]byte) ([]byte, error))
+	span.AddEvent("registry lookup ok")
 
 	data, ok := mod.Memory().Read(dataPtr, dataLen)
 	if !ok {
 		log.Error(ctx, "host_sign: bad data pointer/length", "instance", mod.Name(), "ptr", dataPtr, "len", dataLen)
+		span.SetAttributes(attribute.String("error", "bad data pointer"))
 		return hostSignErr
 	}
+	span.AddEvent("read input bytes")
+
+	signCtx, signSpan := muxlTracer.Start(ctx, "muxl.hostSign.signFn")
 	sig, err := signFn(data)
+	signSpan.End()
+	_ = signCtx
 	if err != nil {
 		log.Error(ctx, "host_sign: signer returned error", "instance", mod.Name(), "error", err)
+		span.SetAttributes(attribute.String("error", err.Error()))
 		return hostSignErr
 	}
+	span.SetAttributes(attribute.Int("sig_len", len(sig)))
+
 	if uint32(len(sig)) > outMax {
 		log.Error(ctx, "host_sign: signature too long for output buffer", "instance", mod.Name(), "len", len(sig), "max", outMax)
+		span.SetAttributes(attribute.String("error", "signature too long"))
 		return hostSignErr
 	}
 	if !mod.Memory().Write(outPtr, sig) {
 		log.Error(ctx, "host_sign: bad output pointer", "instance", mod.Name(), "ptr", outPtr)
+		span.SetAttributes(attribute.String("error", "bad output pointer"))
 		return hostSignErr
 	}
+	span.AddEvent("wrote signature")
 	return uint32(len(sig))
 }
 
 func getModule(ctx context.Context) (wazero.CompiledModule, error) {
 	compileOnce.Do(func() {
+		_, span := muxlTracer.Start(ctx, "muxl.CompileModule", trace.WithAttributes(
+			attribute.Int("wasm_bytes", len(wasmBytes)),
+		))
 		compiled, compileErr = wasmRuntime.CompileModule(ctx, wasmBytes)
+		span.End()
 	})
 	if compileErr != nil {
 		return nil, fmt.Errorf("error compiling muxl wasm module: %w", compileErr)
@@ -217,11 +256,29 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 	if in.Alg == "" {
 		in.Alg = "es256k"
 	}
-	mod, err := getModule(ctx)
+
+	mode := "pem"
+	if hasSign {
+		mode = "host-callback"
+	}
+	ctx, span := muxlTracer.Start(ctx, "muxl.RunMuxlSigner", trace.WithAttributes(
+		attribute.String("alg", in.Alg),
+		attribute.String("mode", mode),
+		attribute.Int("segment_bytes", len(in.Segment)),
+		attribute.Int("cert_bytes", len(in.CertPEM)),
+		attribute.Int("track_manifest_bytes", len(in.TrackManifest)),
+		attribute.Int("wrapper_manifest_bytes", len(in.WrapperManifest)),
+	))
+	defer span.End()
+
+	getCtx, getSpan := muxlTracer.Start(ctx, "muxl.RunMuxlSigner.getModule")
+	mod, err := getModule(getCtx)
+	getSpan.End()
 	if err != nil {
 		return nil, err
 	}
 
+	span.AddEvent("build keysFS")
 	keysFS := fstest.MapFS{
 		"cert.pem":     {Data: in.CertPEM},
 		"track.json":   {Data: in.TrackManifest},
@@ -247,6 +304,7 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, in.Sign, nil, nil); err != nil {
 		return nil, err
 	}
+	span.SetAttributes(attribute.Int("output_bytes", output.Len()))
 	return output.Bytes(), nil
 }
 
@@ -359,10 +417,24 @@ var stderrWriter func(ctx context.Context, instanceID uint64) io.Writer = func(c
 func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, signFn func([]byte) ([]byte, error), initCh chan []byte, segCh chan []byte) error {
 	instanceID := moduleCounter.Add(1)
 	instanceName := fmt.Sprintf("muxl-%d", instanceID)
+
+	ctx, span := muxlTracer.Start(ctx, "muxl.runMuxlWith", trace.WithAttributes(
+		attribute.String("instance", instanceName),
+		attribute.StringSlice("args", args),
+		attribute.Bool("real_clock", realClock),
+		attribute.Bool("has_input", input != nil),
+		attribute.Bool("has_stdout", stdout != nil),
+		attribute.Bool("has_sign_fn", signFn != nil),
+		attribute.Bool("parse_events", initCh != nil && segCh != nil),
+	))
+	defer span.End()
+
 	if signFn != nil {
 		signerRegistry.Store(instanceName, signFn)
 		defer signerRegistry.Delete(instanceName)
+		span.AddEvent("registered host signer")
 	}
+
 	cfg := wazero.NewModuleConfig().
 		WithName(instanceName).
 		WithStderr(stderrWriter(ctx, instanceID)).
@@ -394,17 +466,31 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 	} else if stdout != nil {
 		cfg = cfg.WithStdout(stdout)
 	}
+	span.AddEvent("config built")
 
 	errCh := make(chan error, 1)
 	go func() {
-		instance, err := wasmRuntime.InstantiateModule(ctx, mod, cfg)
+		// Span covers the wasm's entire run from instantiation through
+		// exit + cleanup. Host calls (host_sign, host_sha256) made
+		// during execution will be children of this span via the ctx
+		// wazero passes through.
+		instCtx, instSpan := muxlTracer.Start(ctx, "muxl.wasm.InstantiateModule", trace.WithAttributes(
+			attribute.String("instance", instanceName),
+		))
+		instance, err := wasmRuntime.InstantiateModule(instCtx, mod, cfg)
+		instSpan.End()
 		if err != nil {
 			log.Error(ctx, "error instantiating module", "error", err)
 		}
 		// wazero leaves the module registered on clean exit; close to free
 		// its WASM memory. Without this RunMuxlSigner leaks ~10MB per GoP.
 		if instance != nil {
-			if closeErr := instance.Close(ctx); closeErr != nil {
+			closeCtx, closeSpan := muxlTracer.Start(ctx, "muxl.wasm.Instance.Close", trace.WithAttributes(
+				attribute.String("instance", instanceName),
+			))
+			closeErr := instance.Close(closeCtx)
+			closeSpan.End()
+			if closeErr != nil {
 				log.Error(ctx, "error closing wasm module", "error", closeErr)
 			}
 		}
@@ -416,7 +502,12 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 
 	if input != nil {
 		go func() {
-			_, err := io.Copy(stdinWriter, input)
+			_, copySpan := muxlTracer.Start(ctx, "muxl.wasm.stdinCopy", trace.WithAttributes(
+				attribute.String("instance", instanceName),
+			))
+			n, err := io.Copy(stdinWriter, input)
+			copySpan.SetAttributes(attribute.Int64("bytes_copied", n))
+			copySpan.End()
 			if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 				log.Error(ctx, "error copying input to stdin", "error", err)
 			}
@@ -425,14 +516,19 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 	}
 
 	if parseEvents {
-		if err := ParseMuxlEvents(ctx, stdoutReader, initCh, segCh); err != nil {
+		_, parseSpan := muxlTracer.Start(ctx, "muxl.wasm.parseEvents")
+		err := ParseMuxlEvents(ctx, stdoutReader, initCh, segCh)
+		parseSpan.End()
+		if err != nil {
 			return fmt.Errorf("parsing events: %w", err)
 		}
 	}
 
+	span.AddEvent("waiting on wasm exit")
 	if wasmErr := <-errCh; wasmErr != nil {
 		return fmt.Errorf("wasm execution: %w", wasmErr)
 	}
+	span.AddEvent("wasm exited")
 	return nil
 }
 
@@ -450,15 +546,16 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 // the standard interface.
 func SignerToCallback(signer cryptoSigner, byteLen int) func([]byte) ([]byte, error) {
 	return func(data []byte) ([]byte, error) {
+		// Note: no ctx threading — the sync hostSign trampoline already
+		// holds a span open for "muxl.hostSign.signFn" that this work is
+		// running under. Sub-spans here would only show up if the
+		// closure was called directly from a Go context; not worth the
+		// allocation for the common (host_sign-driven) path.
 		digest := sha256Sum(data)
 		sig, err := signer.Sign(rand.Reader, digest[:], cryptoSHA256)
 		if err != nil {
 			return nil, fmt.Errorf("muxl host sign: %w", err)
 		}
-		// ECDSA returns DER; c2pa-rs callbacks must produce raw r||s.
-		// Detect by trying to parse — RSA-PSS returns a signature that
-		// won't parse as the SEQUENCE { r INTEGER, s INTEGER } shape, so
-		// we pass it through.
 		raw, ok := derECDSAToRaw(sig, byteLen)
 		if !ok {
 			return sig, nil

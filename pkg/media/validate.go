@@ -12,6 +12,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
@@ -29,9 +31,14 @@ type ManifestAndCert struct {
 }
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
-	ctx, span := otel.Tracer("signer").Start(ctx, "ValidateMP4")
+	tracer := otel.Tracer("signer")
+	ctx, span := tracer.Start(ctx, "ValidateMP4")
 	defer span.End()
+
+	_, readSpan := tracer.Start(ctx, "ValidateMP4.ReadInput")
 	buf, err := io.ReadAll(input)
+	readSpan.SetAttributes(attribute.Int("bytes", len(buf)))
+	readSpan.End()
 	if err != nil {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
@@ -47,7 +54,9 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 
 	label := manifest.Label
 	if label != nil && mm.model != nil {
+		_, dbSpan := tracer.Start(ctx, "ValidateMP4.LocalDB.GetSegment")
 		oldSeg, err := mm.localDB.GetSegment(*label)
+		dbSpan.End()
 		if err != nil {
 			return fmt.Errorf("failed to get old segment: %w", err)
 		}
@@ -75,11 +84,15 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		signingKeyDID = meta.Creator
 		repoDID = meta.Creator
 	} else {
-		repo, err := mm.atsync.SyncBlueskyRepoCached(ctx, meta.Creator)
+		atCtx, atSpan := tracer.Start(ctx, "ValidateMP4.SyncBlueskyRepoCached")
+		repo, err := mm.atsync.SyncBlueskyRepoCached(atCtx, meta.Creator)
+		atSpan.End()
 		if err != nil {
 			return err
 		}
-		signingKey, err := mm.model.GetSigningKey(ctx, pub.DIDKey(), repo.DID)
+		modelCtx, modelSpan := tracer.Start(ctx, "ValidateMP4.GetSigningKey")
+		signingKey, err := mm.model.GetSigningKey(modelCtx, pub.DIDKey(), repo.DID)
+		modelSpan.End()
 		if err != nil {
 			return err
 		}
@@ -102,16 +115,22 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 	}
 
+	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
+		attribute.Int("bytes", len(buf)),
+	))
 	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "mp4")
 	if err != nil {
+		fileSpan.End()
 		return err
 	}
 	defer fd.Close()
 
 	r := bytes.NewReader(buf)
 	if _, err := io.Copy(fd, r); err != nil {
+		fileSpan.End()
 		return err
 	}
+	fileSpan.End()
 	var deleteAfter *time.Time
 	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
 		secs := *meta.DistributionPolicy.DeleteAfterSeconds
@@ -223,15 +242,34 @@ type ValidationResult struct {
 
 // validate a signed mp4 file unto itself, ignoring whether this user is allowed and whatnot
 func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error) {
+	tracer := otel.Tracer("signer")
+	ctx, span := tracer.Start(ctx, "ValidateMP4Media", trace.WithAttributes(
+		attribute.Int("bytes", len(buf)),
+	))
+	defer span.End()
+
 	var maniCert ManifestAndCert
+	// uniffi → c2pa-rs Reader: parses + verifies the COSE_Sign1 signature,
+	// validates ingredient manifests, and serializes the manifest tree
+	// out as JSON. This is the heaviest single step in the validate
+	// path and a strong candidate for the long-tail spike.
+	gmcCtx, gmcSpan := tracer.Start(ctx, "ValidateMP4Media.iroh.GetManifestAndCert")
 	maniStr, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(buf)))
+	gmcSpan.End()
+	_ = gmcCtx
 	if err != nil {
 		return nil, err
 	}
+
+	_, unmarshalSpan := tracer.Start(ctx, "ValidateMP4Media.UnmarshalManifest", trace.WithAttributes(
+		attribute.Int("json_bytes", len(maniStr)),
+	))
 	err = json.Unmarshal([]byte(maniStr), &maniCert)
+	unmarshalSpan.End()
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal manifest and cert: %w", err)
 	}
+
 	activeManifest := maniCert.ValidationResults.ActiveManifest
 	if activeManifest != nil {
 		if activeManifest.Failure == nil {
@@ -242,18 +280,31 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 			return nil, fmt.Errorf("active manifest has failures: %s", string(bs))
 		}
 	}
+
+	_, certSpan := tracer.Start(ctx, "ValidateMP4Media.ParseES256KCert")
 	pub, err := signers.ParseES256KCert([]byte(maniCert.Cert))
+	certSpan.End()
 	if err != nil {
 		return nil, err
 	}
-	meta, err := ParseSegmentAssertions(ctx, &maniCert.Manifest)
+
+	assCtx, assSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentAssertions")
+	meta, err := ParseSegmentAssertions(assCtx, &maniCert.Manifest)
+	assSpan.End()
 	if err != nil {
 		return nil, err
 	}
-	mediaData, err := ParseSegmentMediaData(ctx, buf)
+
+	// Drives a gst pipeline (qtdemux + h264parse + opusparse + appsinks) —
+	// any tail here means a gst element is misbehaving, not the c2pa
+	// signing stack.
+	mdCtx, mdSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentMediaData")
+	mediaData, err := ParseSegmentMediaData(mdCtx, buf)
+	mdSpan.End()
 	if err != nil {
 		return nil, err
 	}
+
 	return &ValidationResult{
 		Pub:       pub,
 		Meta:      meta,

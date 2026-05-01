@@ -63,6 +63,16 @@ var SigningDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000, 20000, 30000, 60000},
 }, []string{"streamer"})
 
+// SegmentDeliveryDuration measures wall time from when the muxer hands a
+// fresh segment to the sign callback through the end of validation —
+// i.e. the latency the user actually waits on before the segment is
+// available downstream. Wraps SignMP4 + ValidateMP4.
+var SegmentDeliveryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "streamplace_segment_delivery_duration_ms",
+	Help:    "duration of sign + validate in ms (the user-visible per-segment latency)",
+	Buckets: []float64{0, 250, 500, 750, 1000, 1250, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 10000, 20000, 30000, 60000},
+}, []string{"streamer"})
+
 var QueuedTranscodeDuration = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_queued_transcode_duration_ms",
 	Help: "duration of transcode in ms, including time spent waiting",

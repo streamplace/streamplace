@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
@@ -25,6 +27,8 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/spmetrics"
 )
+
+var signerTracer = otel.Tracer("signer")
 
 type MediaSigner interface {
 	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
@@ -88,25 +92,31 @@ func (ms *MediaSignerLocal) Streamer() string {
 
 func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
 	startTime := time.Now()
-	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
+	ctx, span := signerTracer.Start(ctx, "SignMP4", trace.WithAttributes(
+		attribute.String("streamer", ms.StreamerName),
+		attribute.Int64("segment_start_ms", start),
+	))
 	defer span.End()
 
-	// Build manifest with metadata from database
+	// --- 1. Build manifest. -------------------------------------------------
 	var manifestBs []byte
 	var err error
-	if len(ms.PrebuiltManifest) > 0 {
-		// Use prebuilt manifest (from external signing subprocess)
+	switch {
+	case len(ms.PrebuiltManifest) > 0:
 		manifestBs = ms.PrebuiltManifest
+		span.AddEvent("manifest: prebuilt", trace.WithAttributes(attribute.Int("bytes", len(manifestBs))))
 		log.Debug(ctx, "SignMP4: using prebuilt manifest", "manifestLength", len(manifestBs))
-	} else if ms.manifestBuilder != nil {
-		_, span2 := otel.Tracer("signer").Start(ctx, "SignMP4_BuildManifest")
+	case ms.manifestBuilder != nil:
+		_, span2 := signerTracer.Start(ctx, "SignMP4.BuildManifest")
 		manifestBs, err = ms.manifestBuilder.BuildManifest(ctx, ms.StreamerName, start)
+		if manifestBs != nil {
+			span2.SetAttributes(attribute.Int("bytes", len(manifestBs)))
+		}
 		span2.End()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build manifest: %w", err)
 		}
-	} else {
-		// This should NOT happen in production - manifestBuilder should always be initialized
+	default:
 		log.Warn(ctx, "SignMP4: manifestBuilder is nil, using fallback manifest - this indicates model was not passed to MakeMediaSigner", "streamer", ms.StreamerName)
 		title := "livestream"
 		ts := aqtime.FromMillis(start).String()
@@ -137,17 +147,19 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal basic manifest: %w", err)
 		}
+		span.AddEvent("manifest: fallback", trace.WithAttributes(attribute.Int("bytes", len(manifestBs))))
 	}
 
+	// --- 2. Read segment bytes. ---------------------------------------------
+	_, readSpan := signerTracer.Start(ctx, "SignMP4.ReadInput")
 	bs, err := io.ReadAll(input)
+	readSpan.SetAttributes(attribute.Int("bytes", len(bs)))
+	readSpan.End()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read input: %w", err)
 	}
 
-	// Software ES256K keys (the streamplace stream-key path) export to PEM
-	// and sign in-wasm; everything else (EIP-712 wallets, PKCS#11 hardware
-	// signers) goes through the wazero host-callback so the key never
-	// leaves Go's address space.
+	// --- 3. Pick signing backend. -------------------------------------------
 	signerInput := muxl.SignerInput{
 		Segment:         bs,
 		CertPEM:         ms.Cert,
@@ -155,25 +167,33 @@ func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, st
 		WrapperManifest: manifestBs,
 	}
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
+		_, marshalSpan := signerTracer.Start(ctx, "SignMP4.MarshalKeyPEM")
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+		marshalSpan.End()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal signing key: %w", err)
 		}
 		signerInput.KeyPEM = keyPEM
+		span.SetAttributes(attribute.String("backend", "pem"))
 	} else {
 		signerInput.Sign = muxl.SignerToCallback(ms.Signer, 32)
+		span.SetAttributes(
+			attribute.String("backend", "host-callback"),
+			attribute.String("signer_type", fmt.Sprintf("%T", ms.Signer)),
+		)
 	}
 
-	_, signSpan := otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
+	// --- 4. Sign via wasm. --------------------------------------------------
 	signed, err := muxl.RunMuxlSigner(ctx, signerInput)
-	signSpan.End()
 	if err != nil {
 		return nil, fmt.Errorf("muxl-sign failed: %w", err)
 	}
+	span.SetAttributes(attribute.Int("signed_bytes", len(signed)))
 
 	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
 	return signed, nil
 }
+
 
 func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error {
 	startTime := time.Now()

@@ -11,8 +11,12 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // For testing. Normally,  We don't want to stop the pipeline upon a
@@ -173,14 +177,37 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 }
 
 func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+	tracer := otel.Tracer("signer")
+	streamer := ms.Streamer()
 	sign := func(ctx context.Context, bs []byte, now int64) error {
+		// Top-level span for the user-visible segment-delivery latency:
+		// raw bytes from gst go in, validated/persisted segment comes out.
+		// Includes SignMP4 (per-track wasm signing) + ValidateMP4
+		// (uniffi c2pa-rs verification + media data parse + DB writes).
+		ctx, span := tracer.Start(ctx, "SegmentAndSign", trace.WithAttributes(
+			attribute.String("streamer", streamer),
+			attribute.Int("input_bytes", len(bs)),
+			attribute.Int64("segment_start_ms", now),
+		))
+		defer span.End()
+		startTime := time.Now()
+		defer func() {
+			spmetrics.SegmentDeliveryDuration.
+				WithLabelValues(streamer).
+				Observe(float64(time.Since(startTime).Milliseconds()))
+		}()
+
 		signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
 		if err != nil {
+			span.SetAttributes(attribute.String("error", "sign"))
 			return fmt.Errorf("error calling SignMP4: %w", err)
 		}
+		span.SetAttributes(attribute.Int("signed_bytes", len(signedBs)))
 		log.Debug(ctx, "signed segment", "size", len(signedBs))
+
 		err = mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true)
 		if err != nil {
+			span.SetAttributes(attribute.String("error", "validate"))
 			mm.cli.DumpDebugSegment(ctx, "just-signed-segment.mp4", bytes.NewReader(signedBs))
 			return fmt.Errorf("error validating just-signed segment: %w", err)
 		}

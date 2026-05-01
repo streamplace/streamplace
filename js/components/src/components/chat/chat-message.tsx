@@ -39,8 +39,9 @@ const renderSegment = (
         // @ts-ignore href renders as <a> on web
         href={Platform.OS === "web" ? linkFtr.uri : undefined}
         accessibilityRole="link"
-        onPress={() => {
+        onPress={(e) => {
           if (Platform.OS === "web") {
+            e.preventDefault();
             window.open(linkFtr.uri, "_blank");
           } else {
             Linking.openURL(linkFtr.uri || "");

@@ -24,10 +24,11 @@ import (
 // distribution. Skipped by default; opt in with STREAMPLACE_STRESS=1.
 //
 // Knobs (env):
-//   STREAMPLACE_STRESS               required to run (gate)
-//   STREAMPLACE_STRESS_MODE          "wasm" | "external" | "both"   default "both"
-//   STREAMPLACE_STRESS_CONCURRENCY   parallel goroutines            default runtime.NumCPU
-//   STREAMPLACE_STRESS_COUNT         total signs per mode           default 100
+//
+//	STREAMPLACE_STRESS               required to run (gate)
+//	STREAMPLACE_STRESS_MODE          "wasm" | "external" | "both"   default "both"
+//	STREAMPLACE_STRESS_CONCURRENCY   parallel goroutines            default runtime.NumCPU
+//	STREAMPLACE_STRESS_COUNT         total signs per mode           default 100
 //
 // Concurrency=N spins up N goroutines that share a queue of `count` jobs
 // and pull until empty — closer to production where multiple streamers
@@ -37,9 +38,10 @@ import (
 // manifest); only the per-call dispatch differs (KeyPEM vs Sign closure).
 //
 // Example:
-//   STREAMPLACE_STRESS=1 STREAMPLACE_STRESS_MODE=both \
-//   STREAMPLACE_STRESS_CONCURRENCY=8 STREAMPLACE_STRESS_COUNT=200 \
-//   go test ./pkg/muxl -run TestStress -v -timeout 30m
+//
+//	STREAMPLACE_STRESS=1 STREAMPLACE_STRESS_MODE=both \
+//	STREAMPLACE_STRESS_CONCURRENCY=8 STREAMPLACE_STRESS_COUNT=200 \
+//	go test ./pkg/muxl -run TestStress -v -timeout 30m
 func TestStress(t *testing.T) {
 	if os.Getenv("STREAMPLACE_STRESS") == "" {
 		t.Skip("set STREAMPLACE_STRESS=1 to run")

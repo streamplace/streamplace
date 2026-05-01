@@ -272,11 +272,7 @@ jobs:
             . /tmp/e2e-env.sh
             ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
             adb install -r js/app/android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test \
-              -e APP_ID=tv.aquareum \
-              -e SERVER_URL="$ANDROID_SERVER_URL" \
-              -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" \
-              .maestro/
+            maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$ANDROID_SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
 
   ios-e2e:
     name: ios-e2e
@@ -332,12 +328,12 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath js/app/ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+            -destination 'platform=iOS Simulator,name=iPhone 16e' \
             build
 
       - name: boot simulator and install app
         run: |
-          xcrun simctl boot "iPhone 15 Pro" || true
+          xcrun simctl boot "iPhone 16e" || true
           xcrun simctl install booted js/app/ios/build/Build/Products/Debug-iphonesimulator/Streamplace.app
 
       - name: download streamplace binary

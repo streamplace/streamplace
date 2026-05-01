@@ -1,4 +1,4 @@
-appId: ${APP_ID}
+appId: tv.aquareum
 ---
 - launchApp:
     clearState: true

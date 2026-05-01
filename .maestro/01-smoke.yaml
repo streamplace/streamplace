@@ -1,6 +1,5 @@
-appId: tv.aquareum.dev
+appId: tv.aquareum
 ---
-- launchApp:
-    clearState: true
+- launchApp
 - assertVisible:
     text: "Streamplace"

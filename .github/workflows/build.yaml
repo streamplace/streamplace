@@ -328,12 +328,12 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -derivedDataPath js/app/ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone 16e' \
+            -destination 'platform=iOS Simulator,name=iPhone Air,OS=26.1' \
             build
 
       - name: boot simulator and install app
         run: |
-          xcrun simctl boot "iPhone 16e" || true
+          xcrun simctl boot "iPhone Air" || true
           xcrun simctl install booted js/app/ios/build/Build/Products/Debug-iphonesimulator/Streamplace.app
 
       - name: download streamplace binary

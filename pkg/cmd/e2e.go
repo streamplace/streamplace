@@ -85,7 +85,7 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	}()
 
 	// Create a test account on the local PDS.
-	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.Client}
+	xrpcc := &xrpc.Client{Host: env.PDSURL, Client: &aqhttp.TrustedClient}
 	uu, err := uuid.NewRandom()
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	}
 	xrpcc = &xrpc.Client{
 		Host:   env.PDSURL,
-		Client: &aqhttp.Client,
+		Client: &aqhttp.TrustedClient,
 		Auth: &xrpc.AuthInfo{
 			Did:        out.Did,
 			AccessJwt:  session.AccessJwt,

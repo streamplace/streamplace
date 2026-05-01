@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
@@ -240,8 +241,44 @@ type ValidationResult struct {
 	Cert      string
 }
 
-// validate a signed mp4 file unto itself, ignoring whether this user is allowed and whatnot
 func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error) {
+	g, ctx := errgroup.WithContext(ctx)
+	var mediaData *localdb.SegmentMediaData
+	var validationResult *ValidationResult
+	g.Go(func() error {
+		var err error
+		mediaData, err = ValidateMP4MediaData(ctx, buf)
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		validationResult, err = ValidateMP4MediaC2PA(ctx, buf)
+		return err
+	})
+	err := g.Wait()
+	if err != nil {
+		return nil, err
+	}
+	validationResult.MediaData = mediaData
+	return validationResult, nil
+}
+
+func ValidateMP4MediaData(ctx context.Context, buf []byte) (*localdb.SegmentMediaData, error) {
+	tracer := otel.Tracer("signer")
+	// Drives a gst pipeline (qtdemux + h264parse + opusparse + appsinks) —
+	// any tail here means a gst element is misbehaving, not the c2pa
+	// signing stack.
+	mdCtx, mdSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentMediaData")
+	mediaData, err := ParseSegmentMediaData(mdCtx, buf)
+	mdSpan.End()
+	if err != nil {
+		return nil, err
+	}
+	return mediaData, nil
+}
+
+// validate a signed mp4 file unto itself, ignoring whether this user is allowed and whatnot
+func ValidateMP4MediaC2PA(ctx context.Context, buf []byte) (*ValidationResult, error) {
 	tracer := otel.Tracer("signer")
 	ctx, span := tracer.Start(ctx, "ValidateMP4Media", trace.WithAttributes(
 		attribute.Int("bytes", len(buf)),
@@ -295,20 +332,10 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 		return nil, err
 	}
 
-	// Drives a gst pipeline (qtdemux + h264parse + opusparse + appsinks) —
-	// any tail here means a gst element is misbehaving, not the c2pa
-	// signing stack.
-	mdCtx, mdSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentMediaData")
-	mediaData, err := ParseSegmentMediaData(mdCtx, buf)
-	mdSpan.End()
-	if err != nil {
-		return nil, err
-	}
-
 	return &ValidationResult{
 		Pub:       pub,
 		Meta:      meta,
-		MediaData: mediaData,
+		MediaData: nil, // filled in by ValidateMP4MediaData
 		Manifest:  &maniCert.Manifest,
 		Cert:      maniCert.Cert,
 	}, nil

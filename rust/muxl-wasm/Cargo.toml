@@ -9,7 +9,4 @@ name = "muxl-wasm"
 path = "src/main.rs"
 
 [dependencies]
-# Path dep while host_sha256 import work is unpushed; bump back to a git
-# rev once it lands on streamplace/muxl.
-muxl-sign = { path = "../../../muxl/crates/muxl-sign" }
-# muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "1073f58", package = "muxl-sign" }
+muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "1073f58", package = "muxl-sign" }

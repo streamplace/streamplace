@@ -1,11 +1,13 @@
 appId: tv.aquareum
 ---
 - launchApp
-- assertVisible:
-    text: "${ACCOUNT_HANDLE}"
+- extendedWaitUntil:
+    visible:
+      text: "${ACCOUNT_HANDLE}"
     timeout: 30000
 - tapOn:
     text: "${ACCOUNT_HANDLE}"
-- assertVisible:
-    text: "LIVE"
+- extendedWaitUntil:
+    visible:
+      text: "LIVE"
     timeout: 10000

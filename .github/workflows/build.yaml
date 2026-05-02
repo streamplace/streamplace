@@ -255,6 +255,9 @@ jobs:
             . /tmp/e2e-env.sh
             ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
             adb install -r ./apk/*.apk
+            adb shell input keyevent 82
+            sleep 5
+            adb shell input keyevent 4
             maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$ANDROID_SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
 
       - name: upload maestro recordings

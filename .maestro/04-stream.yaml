@@ -1,13 +1,18 @@
 appId: tv.aquareum
 ---
 - launchApp
-- extendedWaitUntil:
-    visible:
-      text: "${ACCOUNT_HANDLE}"
-    timeout: 30000
+- takeScreenshot: 04-01-launched
+# tap on video to show controls
 - tapOn:
-    text: "${ACCOUNT_HANDLE}"
-- extendedWaitUntil:
-    visible:
-      text: "LIVE"
-    timeout: 10000
+    point: 16%,31%
+- takeScreenshot: 04-02-tapped-video
+- waitForAnimationToEnd
+# tap on random part of video
+- tapOn:
+    point: 25%,25%
+- takeScreenshot: 04-03-after-second-tap
+# seems to be slow enough for the chrome to fade out (weird!!!)
+# # tap on settings icon
+# - assertVisible:
+#     point: 90%,9%
+# - assertVisible: "Bottom Sheet"

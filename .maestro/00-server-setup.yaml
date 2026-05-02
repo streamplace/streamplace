@@ -2,19 +2,26 @@ appId: tv.aquareum
 ---
 - launchApp:
     clearState: true
+- takeScreenshot: 00-01-launched
 - tapOn:
     text: "Settings"
+- takeScreenshot: 00-02-settings
 - scrollUntilVisible:
     element:
       text: "Advanced"
 - tapOn:
     text: "Advanced"
+- takeScreenshot: 00-03-advanced
 - tapOn:
     text: "Use Custom Node"
+- takeScreenshot: 00-04-custom-node-toggled
 - tapOn:
     text: "Enter custom node URL"
 - inputText: "${SERVER_URL}"
+- takeScreenshot: 00-05-url-entered
 - tapOn:
     text: "Save"
+- takeScreenshot: 00-06-saved
 - tapOn:
     text: "Home"
+- takeScreenshot: 00-07-home

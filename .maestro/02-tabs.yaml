@@ -1,20 +1,24 @@
 appId: tv.aquareum
 ---
 - launchApp
+- takeScreenshot: 02-01-home
 - assertVisible:
     text: "Streamplace"
 
 - tapOn:
     text: "Go Live"
+- takeScreenshot: 02-02-go-live
 - assertVisible:
     text: "Ready to go live?"
 
 - tapOn:
     text: "Settings"
+- takeScreenshot: 02-03-settings
 - assertVisible:
     text: "Settings"
 
 - tapOn:
     text: "Home"
+- takeScreenshot: 02-04-home-return
 - assertVisible:
     text: "Streamplace"

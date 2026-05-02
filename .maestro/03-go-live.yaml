@@ -3,11 +3,14 @@ appId: tv.aquareum
 - launchApp
 - tapOn:
     text: "Go Live"
+- takeScreenshot: 03-01-go-live-prompt
 - assertVisible:
     text: "Ready to go live?"
 - assertVisible:
     text: "Start streaming"
 - tapOn:
     text: "Start streaming"
+- takeScreenshot: 03-02-after-start-streaming
 - assertVisible:
     text: "Log In"
+- takeScreenshot: 03-03-log-in

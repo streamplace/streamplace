@@ -272,7 +272,15 @@ jobs:
             . /tmp/e2e-env.sh
             ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
             adb install -r js/app/android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$ANDROID_SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+            maestro test --output ./maestro-results -e APP_ID=tv.aquareum -e SERVER_URL="$ANDROID_SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+
+      - name: upload maestro screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-${{ github.run_id }}
+          path: ./maestro-results/
+          retention-days: 7
 
   ios-e2e:
     name: ios-e2e
@@ -357,8 +365,12 @@ jobs:
       - name: run maestro tests
         run: |
           source /tmp/e2e-env.sh
-          maestro test \
-            -e APP_ID=tv.aquareum \
-            -e SERVER_URL="$SERVER_URL" \
-            -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" \
-            .maestro/
+          maestro test --output ./maestro-results -e APP_ID=tv.aquareum -e SERVER_URL="$SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+
+      - name: upload maestro screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-${{ github.run_id }}
+          path: ./maestro-results/
+          retention-days: 7

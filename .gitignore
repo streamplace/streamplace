@@ -27,3 +27,4 @@ js/app/src/build-info.json
 *.env
 muxl.wasm
 /moderation
+.maestro/screenshots/

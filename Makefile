@@ -359,6 +359,7 @@ fix:
 	pnpm run fix
 	gofmt -w .
 	cargo fix --allow-dirty
+	go mod tidy
 
 .PHONY: golangci-lint
 golangci-lint:

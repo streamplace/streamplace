@@ -18,12 +18,12 @@ import React, {
 } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { scheduleOnRN } from "react-native-worklets";
 import {
   a,
   borderRadius,
@@ -225,8 +225,8 @@ export const DropdownMenuBottomSheet = forwardRef<
     slideAnim.value = withTiming(40, { duration: 150 });
     fadeAnim.value = withTiming(0, { duration: 150 }, (finished) => {
       if (finished) {
-        runOnJS(popStack)();
-        runOnJS(resetAnimationValues)();
+        scheduleOnRN(popStack);
+        scheduleOnRN(resetAnimationValues);
       }
     });
   };

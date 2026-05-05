@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { pt } from "../../../lib/theme/atoms";
 
 type LoadingOverlayProps = {
@@ -59,7 +59,7 @@ export function LoadingOverlay({
     } else {
       wholeOpacity.value = withTiming(0, { duration: 500 }, () => {
         // Unmount after fade-out
-        runOnJS(setShouldRender)(false);
+        scheduleOnRN(setShouldRender, false);
       });
     }
   }, [visible]);

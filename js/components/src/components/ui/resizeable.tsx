@@ -10,13 +10,13 @@ import Animated, {
   Easing,
   Extrapolation,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { scheduleOnRN } from "react-native-worklets";
 import { useKeyboardSlide } from "../../hooks";
 import { bottom, h, layout, p, w, zIndex } from "../../lib/theme/atoms";
 import { View } from "./view";
@@ -80,10 +80,10 @@ export function Resizable({
       if (nowCollapsed && !wasCollapsed.value) {
         sheetHeight.value = withTiming(MIN_HEIGHT, TIMING_CONFIG);
         wasCollapsed.value = true;
-        runOnJS(setIsCollapsed)(true);
+        scheduleOnRN(setIsCollapsed, true);
       } else if (!nowCollapsed && wasCollapsed.value) {
         wasCollapsed.value = false;
-        runOnJS(setIsCollapsed)(false);
+        scheduleOnRN(setIsCollapsed, false);
       }
     });
 

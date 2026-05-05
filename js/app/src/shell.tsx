@@ -1,7 +1,5 @@
-import {
-  BottomTabIcon,
-  createBottomTabNavigator,
-} from "@react-navigation/bottom-tabs";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import type { Icon } from "@react-navigation/elements";
 import { useLinkTo, useNavigation } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
@@ -306,7 +304,7 @@ const ANDROID_ICONS = {
 
 const getIcon = (
   name: keyof typeof IOS_ICONS | keyof typeof ANDROID_ICONS,
-): BottomTabIcon => {
+): Icon => {
   if (Platform.OS === "ios") {
     return {
       type: "sfSymbol",

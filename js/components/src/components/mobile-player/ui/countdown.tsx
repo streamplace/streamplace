@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useFrameCallback,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 type CountdownOverlayProps = {
   visible: boolean;
@@ -52,12 +52,11 @@ export function CountdownOverlay({
     const elapsed = (timestamp - startTimestamp.value) / 1000; // Convert to seconds
     const remaining = Math.max(0, startFrom - Math.floor(elapsed));
 
-    // Use runOnJS to call JavaScript functions from worklet
-    runOnJS(updateCountdown)(remaining);
+    scheduleOnRN(updateCountdown, remaining);
 
     if (remaining === 0 && !done.value) {
       done.value = true;
-      runOnJS(handleDone)();
+      scheduleOnRN(handleDone);
     }
   });
 

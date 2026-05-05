@@ -2,11 +2,11 @@ import { memo, useEffect, useState } from "react";
 import { LayoutChangeEvent, StyleSheet } from "react-native";
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Text } from "../ui";
 import { baseDuration, mapRange, MAX_DURATION, MIN_DURATION } from "./math";
@@ -105,7 +105,7 @@ export const DanmuMessage = memo(
         },
         (finished) => {
           if (finished) {
-            runOnJS(onComplete)(message.uri);
+            scheduleOnRN(onComplete, message.uri);
           }
         },
       );

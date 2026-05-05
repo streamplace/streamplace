@@ -13,7 +13,6 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
   Easing,
-  runOnJS,
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
@@ -21,6 +20,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Circle, Svg } from "react-native-svg";
+import { scheduleOnRN } from "react-native-worklets";
 import { useTheme } from "../../lib/theme/theme";
 import { Button } from "./button";
 import { Text } from "./text";
@@ -311,32 +311,23 @@ function ToastContainer({
 
   const setHovered = (value: boolean) => toastManager.setHovered(value);
 
-  const pan = Gesture.Pan()
-    .onUpdate((event) => {
-      const velocity = isTop ? -event.velocityY : event.velocityY;
-      if (velocity > 500) {
-        runOnJS(setHovered)(true);
-      } else if (velocity < -500) {
-        runOnJS(setHovered)(false);
-      }
-    })
-    .onEnd((event) => {
-      const translationY = isTop ? -event.translationY : event.translationY;
-      if (translationY > 50) {
-        runOnJS(setHovered)(true);
-      } else if (translationY < -50) {
-        runOnJS(setHovered)(false);
-      }
-    });
+  const pan = Gesture.Pan().onEnd((event) => {
+    const translationY = isTop ? -event.translationY : event.translationY;
+    if (translationY > 50) {
+      scheduleOnRN(setHovered, true);
+    } else if (translationY < -50) {
+      scheduleOnRN(setHovered, false);
+    }
+  });
 
   const gesture =
     Platform.OS === "web"
       ? Gesture.Hover()
           .onStart(() => {
-            runOnJS(setHovered)(true);
+            scheduleOnRN(setHovered, true);
           })
           .onEnd(() => {
-            runOnJS(setHovered)(false);
+            scheduleOnRN(setHovered, false);
           })
       : pan;
 
@@ -652,7 +643,7 @@ export function Toast({
           },
           (finished) => {
             if (finished) {
-              runOnJS(onOpenChange)(false);
+              scheduleOnRN(onOpenChange, false);
             }
           },
         );
@@ -689,7 +680,7 @@ export function Toast({
           { duration: 250 },
           (finished) => {
             if (finished) {
-              runOnJS(onOpenChange)(false);
+              scheduleOnRN(onOpenChange, false);
             }
           },
         );
@@ -717,7 +708,7 @@ export function Toast({
           { duration: 250 },
           (finished) => {
             if (finished) {
-              runOnJS(onOpenChange)(false);
+              scheduleOnRN(onOpenChange, false);
             }
           },
         );

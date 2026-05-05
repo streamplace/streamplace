@@ -1,12 +1,12 @@
 import { forwardRef, ReactNode } from "react";
-import { Animated, Platform, View, ViewStyle } from "react-native";
+import { Platform, View, ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import {
-  runOnJS,
+import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 import {
   a,
   borderRadius,
@@ -123,7 +123,7 @@ export const MenuItem = forwardRef<View, MenuItemProps>(
           );
 
           if (clampedIndex !== _dragIndex) {
-            runOnJS(_onDragMove)(_dragIndex, clampedIndex);
+            scheduleOnRN(_onDragMove, _dragIndex, clampedIndex);
           }
         })
         .onEnd(() => {
@@ -135,7 +135,7 @@ export const MenuItem = forwardRef<View, MenuItemProps>(
             Math.min(_dragTotalItems - 1, newIndex),
           );
 
-          runOnJS(_onDragEnd)(_dragIndex, clampedIndex);
+          scheduleOnRN(_onDragEnd, _dragIndex, clampedIndex);
 
           translateY.value = withSpring(0);
           isDragging.value = false;

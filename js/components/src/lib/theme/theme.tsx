@@ -475,13 +475,20 @@ export function ThemeProvider({
     ],
   );
 
+  const parentTheme = useContext(ThemeContext);
+  const isRoot = !parentTheme;
+
   return (
     <ThemeContext.Provider value={value}>
-      <GestureHandlerRootView>
-        {children}
-        <PortalHost />
-        <ToastProvider />
-      </GestureHandlerRootView>
+      {isRoot ? (
+        <GestureHandlerRootView>
+          {children}
+          <PortalHost />
+          <ToastProvider />
+        </GestureHandlerRootView>
+      ) : (
+        children
+      )}
     </ThemeContext.Provider>
   );
 }

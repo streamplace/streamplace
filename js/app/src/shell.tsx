@@ -60,6 +60,10 @@ import LiveDashboard from "src/screens/live-dashboard";
 import MobileGoLive from "src/screens/mobile-go-live";
 import MobileStream from "src/screens/mobile-stream";
 import MultiScreen from "src/screens/multi";
+import PopoutInfoWidget from "src/screens/popout-info-widget";
+import PopoutLivestream from "src/screens/popout-livestream";
+import PopoutMultistream from "src/screens/popout-multistream";
+import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
 import SupportScreen from "src/screens/support";
 import { useStore } from "store";
 import {
@@ -592,6 +596,26 @@ export default function Shell() {
           <RootStack.Screen
             name="DanmuOBS"
             component={DanmuOBSScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="PopoutStreamMonitor"
+            component={PopoutStreamMonitor}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="PopoutInfoWidget"
+            component={PopoutInfoWidget}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="PopoutMultistream"
+            component={PopoutMultistream}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="PopoutLivestream"
+            component={PopoutLivestream}
             options={{ headerShown: false }}
           />
         </RootStack.Navigator>

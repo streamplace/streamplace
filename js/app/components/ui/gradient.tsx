@@ -2,15 +2,21 @@
 // Posted by TOPKAT, modified by community. See post 'Timeline' for change history
 // Retrieved 2026-02-18, License - CC BY-SA 4.0
 
-import { DimensionValue, StyleSheet, View, ViewProps } from "react-native";
+import { StyleSheet, View, ViewProps } from "react-native";
 import Animated from "react-native-reanimated";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient,
+  NumberProp,
+  Rect,
+  Stop,
+} from "react-native-svg";
 
 type GradientProps = {
   fromColor: string;
   toColor: string;
   children?: any;
-  height?: DimensionValue;
+  height?: NumberProp;
   opacityColor1?: number;
   opacityColor2?: number;
 } & ViewProps;
@@ -22,6 +28,7 @@ function Gradient({
   height = "100%",
   opacityColor1 = 1,
   opacityColor2 = 1,
+  style,
   ...otherViewProps
 }: GradientProps) {
   const gradientUniqueId = `grad${fromColor}+${toColor}`.replace(
@@ -29,46 +36,35 @@ function Gradient({
     "",
   );
   return (
-    <>
-      <View
-        style={[
-          {
-            ...StyleSheet.absoluteFillObject,
-            height,
-            zIndex: -1,
-            top: 0,
-            left: 0,
-          },
-          otherViewProps.style,
-        ]}
-        {...otherViewProps}
+    <View
+      style={[{ position: "relative", zIndex: 0 }, style]}
+      {...otherViewProps}
+    >
+      <Svg
+        height={height}
+        width="100%"
+        style={[StyleSheet.absoluteFill, { zIndex: -1 }]}
       >
-        <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-          <Defs>
-            <LinearGradient
-              id={gradientUniqueId}
-              x1="0%"
-              y1="0%"
-              x2="0%"
-              y2="100%"
-            >
-              <Stop
-                offset="0"
-                stopColor={fromColor}
-                stopOpacity={opacityColor1}
-              />
-              <Stop
-                offset="1"
-                stopColor={toColor}
-                stopOpacity={opacityColor2}
-              />
-            </LinearGradient>
-          </Defs>
-          <Rect width="100%" height="100%" fill={`url(#${gradientUniqueId})`} />
-        </Svg>
-      </View>
+        <Defs>
+          <LinearGradient
+            id={gradientUniqueId}
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
+            <Stop
+              offset="0"
+              stopColor={fromColor}
+              stopOpacity={opacityColor1}
+            />
+            <Stop offset="1" stopColor={toColor} stopOpacity={opacityColor2} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${gradientUniqueId})`} />
+      </Svg>
       {children}
-    </>
+    </View>
   );
 }
 

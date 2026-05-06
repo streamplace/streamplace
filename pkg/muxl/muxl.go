@@ -102,9 +102,12 @@ func memoryConfigSnapshot() (initial, max uint64) {
 }
 
 // muxlAllocator implements experimental.MemoryAllocator. Stateless apart
-// from the configured ceilings; each Allocate call produces a fresh
+// from the configured ceilings and the per-call ctx/instance used to log
+// cap-exceeded events; each Allocate call produces a fresh
 // muxlLinearMemory.
 type muxlAllocator struct {
+	ctx          context.Context
+	instanceName string
 	initialBytes uint64
 	maxBytes     uint64
 }
@@ -122,8 +125,10 @@ func (a *muxlAllocator) Allocate(capHint, wasmMax uint64) experimental.LinearMem
 		initial = effectiveMax
 	}
 	return &muxlLinearMemory{
-		buf: make([]byte, 0, initial),
-		max: effectiveMax,
+		ctx:          a.ctx,
+		instanceName: a.instanceName,
+		buf:          make([]byte, 0, initial),
+		max:          effectiveMax,
 	}
 }
 
@@ -132,12 +137,19 @@ func (a *muxlAllocator) Allocate(capHint, wasmMax uint64) experimental.LinearMem
 // capacity; otherwise it doubles capacity (geometric growth) up to max,
 // or returns nil if the requested size exceeds max.
 type muxlLinearMemory struct {
-	buf []byte
-	max uint64
+	ctx          context.Context
+	instanceName string
+	buf          []byte
+	max          uint64
 }
 
 func (m *muxlLinearMemory) Reallocate(size uint64) []byte {
 	if size > m.max {
+		log.Error(m.ctx, "muxl memory cap exceeded",
+			"instance", m.instanceName,
+			"requested_bytes", size,
+			"max_bytes", m.max,
+		)
 		return nil
 	}
 	if size <= uint64(cap(m.buf)) {
@@ -563,6 +575,8 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 
 	initialBytes, maxBytes := memoryConfigSnapshot()
 	allocator := &muxlAllocator{
+		ctx:          ctx,
+		instanceName: instanceName,
 		initialBytes: initialBytes,
 		maxBytes:     maxBytes,
 	}

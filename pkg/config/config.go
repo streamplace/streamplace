@@ -155,6 +155,8 @@ type CLI struct {
 	S3Region                    string
 	DisableSyndication          bool
 	LegacySegmentation          bool
+	MuxlInitialMemoryMB         int
+	MuxlMaxMemoryMB             int
 }
 
 // ContentFilters represents the content filtering configuration
@@ -547,6 +549,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       10,
 				Destination: &cli.RateLimitWebsocket,
 				Sources:     urfavecli.EnvVars("SP_RATE_LIMIT_WEBSOCKET"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "muxl-initial-memory-mb",
+				Usage:       "initial wasm linear memory pre-allocation per muxl instance, in MiB. higher avoids realloc churn at the cost of holding more memory upfront",
+				Value:       50,
+				Destination: &cli.MuxlInitialMemoryMB,
+				Sources:     urfavecli.EnvVars("SP_MUXL_INITIAL_MEMORY_MB"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "muxl-max-memory-mb",
+				Usage:       "hard ceiling on wasm linear memory per muxl instance, in MiB. signing fails if a segment requires more than this",
+				Value:       1024,
+				Destination: &cli.MuxlMaxMemoryMB,
+				Sources:     urfavecli.EnvVars("SP_MUXL_MAX_MEMORY_MB"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "rtmp-server-addon",

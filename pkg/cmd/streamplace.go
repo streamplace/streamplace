@@ -32,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/replication/iroh_replicator"
@@ -136,6 +137,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		"runtime.GOOS", runtime.GOOS,
 		"runtime.GOARCH", runtime.GOARCH,
 		"runtime.Version", runtime.Version())
+
+	muxl.Configure(
+		uint64(cli.MuxlInitialMemoryMB)*1024*1024,
+		uint64(cli.MuxlMaxMemoryMB)*1024*1024,
+	)
 
 	signer, err := createSigner(ctx, cli)
 	if err != nil {

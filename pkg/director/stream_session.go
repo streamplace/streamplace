@@ -414,6 +414,11 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
 
+	if ss.cli.BroadcasterHost == "" {
+		log.Debug(ctx, "no broadcaster host configured, skipping status update", "repoDID", repoDID)
+		return nil
+	}
+
 	canonicalUrl := fmt.Sprintf("https://%s/%s", ss.cli.BroadcasterHost, repo.Handle)
 
 	if lsr.CanonicalUrl != nil {

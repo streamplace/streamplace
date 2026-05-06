@@ -1,4 +1,9 @@
-import { Text, useStreamplaceStore, zero } from "@streamplace/components";
+import {
+  ACTIVITY_LABEL_DISPLAY,
+  Text,
+  useStreamplaceStore,
+  zero,
+} from "@streamplace/components";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import ErrorBox from "components/error/error";
@@ -12,7 +17,22 @@ import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PlaceStreamLivestream } from "streamplace";
+import { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
+
+function getStreamActivity(
+  record: PlaceStreamLivestream.Record,
+): string | undefined {
+  if (!record.activity) return undefined;
+  if (record.activity.$type === "place.stream.defs#activityGame") {
+    const game = record.activity as PlaceStreamDefs.ActivityGame;
+    return game.name ?? undefined;
+  }
+  if (record.activity.$type === "place.stream.defs#activityLabel") {
+    const label = record.activity as PlaceStreamDefs.ActivityLabel;
+    return ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label;
+  }
+  return undefined;
+}
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards
@@ -116,6 +136,10 @@ function HomeScreenItem({
         avatarUrl={avatarUrl}
         streamerName={user}
         category={[]}
+        activity={getStreamActivity(
+          item.record as PlaceStreamLivestream.Record,
+        )}
+        tags={(item.record as PlaceStreamLivestream.Record).tags ?? []}
         viewers={item.viewerCount?.count}
         isLive={true}
       />

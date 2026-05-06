@@ -10,6 +10,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/moderation"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -29,6 +30,9 @@ func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView
 	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)
+	}
+	if typedRec, ok := rec.(*streamplace.Livestream); ok {
+		typedRec.Tags = moderation.FilterTags(typedRec.Tags)
 	}
 	postView := streamplace.Livestream_LivestreamView{
 		LexiconTypeID: "place.stream.livestream#livestreamView",

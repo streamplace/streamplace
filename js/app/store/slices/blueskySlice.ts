@@ -103,8 +103,15 @@ export interface BlueskySlice {
   createLivestreamRecord: (
     title: string,
     customThumbnail?: Blob,
+    activity?: PlaceStreamLivestream.Record["activity"],
+    tags?: string[],
   ) => Promise<void>;
-  updateLivestreamRecord: (title: string, livestream: any) => Promise<void>;
+  updateLivestreamRecord: (
+    title: string,
+    livestream: any,
+    activity?: PlaceStreamLivestream.Record["activity"],
+    tags?: string[],
+  ) => Promise<void>;
   getChatProfileRecordFromPDS: () => Promise<void>;
   createChatProfileRecord: (
     red: number,
@@ -755,7 +762,12 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  createLivestreamRecord: async (title: string, customThumbnail?: Blob) => {
+  createLivestreamRecord: async (
+    title: string,
+    customThumbnail?: Blob,
+    activity?: PlaceStreamLivestream.Record["activity"],
+    tags?: string[],
+  ) => {
     set({
       newLivestream: {
         loading: true,
@@ -854,6 +866,8 @@ export const createBlueskySlice: StateCreator<
           cid: newPost.cid,
         },
         thumb: thumbnail,
+        activity,
+        tags: tags && tags.length > 0 ? tags : undefined,
       };
 
       await state.pdsAgent.com.atproto.repo.createRecord({
@@ -880,7 +894,12 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  updateLivestreamRecord: async (title: string, livestream: any) => {
+  updateLivestreamRecord: async (
+    title: string,
+    livestream: any,
+    activity?: PlaceStreamLivestream.Record["activity"],
+    tags?: string[],
+  ) => {
     set({
       newLivestream: {
         loading: true,
@@ -925,6 +944,8 @@ export const createBlueskySlice: StateCreator<
         url: streamplaceUrl,
         createdAt: new Date().toISOString(),
         post: oldRecordValue.post,
+        activity,
+        tags: tags && tags.length > 0 ? tags : undefined,
       };
 
       await state.pdsAgent.com.atproto.repo.putRecord({

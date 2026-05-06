@@ -16,6 +16,15 @@ export class StreamplaceAgent extends Agent {
       x.id.startsWith("place.stream"),
     );
 
-    this.lex = new Lexicons([...parentSchemas, ...streamplaceSchemas]);
+    // for game search
+    const pentaractSchemas = appSchemas.filter((x) =>
+      x.id.startsWith("games.gamesgamesgamesgames"),
+    );
+
+    this.lex = new Lexicons([
+      ...parentSchemas,
+      ...streamplaceSchemas,
+      ...pentaractSchemas,
+    ]);
   }
 }

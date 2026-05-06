@@ -277,6 +277,10 @@ func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) RegisterHandlersGamesGamesgamesgamesgames(e *echo.Echo) error {
+	return nil
+}
+
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
@@ -286,6 +290,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
+	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
+	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
@@ -434,6 +440,46 @@ func (s *Server) HandlePlaceStreamConfigGetEnv(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestream.ConfigGetEnv_Output, error)
 	out, handleErr = s.handlePlaceStreamConfigGetEnv(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGameGetGame(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGameGetGame")
+	defer span.End()
+	uri := c.QueryParam("uri")
+	var out *placestream.GameGetGame_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context,uri string) (*placestream.GameGetGame_Output, error)
+	out, handleErr = s.handlePlaceStreamGameGetGame(ctx, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGameSearch")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 20
+	}
+	q := c.QueryParam("q")
+	var out *placestream.GameSearch_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
+	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
 	if handleErr != nil {
 		return handleErr
 	}

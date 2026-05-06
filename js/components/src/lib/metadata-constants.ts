@@ -1,4 +1,52 @@
-import { schemas } from "streamplace";
+import { PlaceStreamDefs, schemas } from "streamplace";
+
+// "knownValues": [
+//   "events",
+//   "just_chatting",
+//   "music",
+//   "art",
+//   "software_dev",
+//   "miniatures",
+//   "makers_crafting",
+//   "fitness",
+//   "sports"
+// ]
+
+export const ACTIVITY_LABELS: Array<{
+  value: PlaceStreamDefs.ActivityLabel["label"];
+  display: string;
+}> = [
+  { value: "just_chatting", display: "Just Chatting" },
+  { value: "music", display: "Music" },
+  { value: "art", display: "Art" },
+  { value: "software_dev", display: "Software and Game Development" },
+  { value: "miniatures", display: "Miniatures and Models" },
+  { value: "events", display: "Special Events" },
+  { value: "makers_crafting", display: "Makers and Crafting" },
+  { value: "cooking", display: "Cooking and Food" },
+  { value: "fitness", display: "Fitness and Health" },
+  { value: "sports", display: "Sports" },
+];
+
+export const ACTIVITY_LABEL_DISPLAY: Record<string, string> =
+  Object.fromEntries(
+    ACTIVITY_LABELS.map(({ value, display }) => [value, display]),
+  );
+
+export function formatActivity(
+  activity: (PlaceStreamDefs.ActivityGame | PlaceStreamDefs.ActivityLabel) & {
+    $type?: string;
+  },
+): string | null {
+  if (activity.$type === "place.stream.defs#activityGame") {
+    return (activity as PlaceStreamDefs.ActivityGame).name ?? null;
+  }
+  if (activity.$type === "place.stream.defs#activityLabel") {
+    const label = (activity as PlaceStreamDefs.ActivityLabel).label;
+    return ACTIVITY_LABEL_DISPLAY[label] ?? label;
+  }
+  return null;
+}
 
 // Content warnings derived from lexicon schema
 export const CONTENT_WARNINGS = (() => {

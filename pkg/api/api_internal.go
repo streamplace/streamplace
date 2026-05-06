@@ -423,6 +423,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to convert chat message to streamplace message view", err)
 			return
 		}
+		if spmsg.Author.Handle == "" || spmsg.Author.Handle == "handle.invalid" {
+			spmsg.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, spmsg.Author.Did)
+		}
 		bs, err := json.Marshal(spmsg)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to marshal json", err)

@@ -1,7 +1,7 @@
 {
   "name": "@streamplace/app",
   "main": "./src/entrypoint.tsx",
-  "version": "0.10.23",
+  "version": "0.10.24",
   "runtimeVersion": "0.10.0",
   "scripts": {
     "start": "npx expo start -c --port 38081",

@@ -18,6 +18,7 @@ import (
 	"github.com/hyphacoop/go-dasl/drisl"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -67,6 +68,110 @@ var signerRegistry sync.Map // string → func([]byte) ([]byte, error)
 // signal "the host couldn't sign this" — anything other than a real
 // signature length.
 const hostSignErr = ^uint32(0)
+
+// memoryConfig holds the per-instance wasm linear memory tuning. wazero's
+// default allocator reallocs+memcpys on every memory.grow page, so a
+// module that ends up at 50MB allocates ~25GB of cumulative slices on its
+// way there. The custom allocator below pre-allocates the backing buffer
+// and grows geometrically, so a typical segment never reallocs at all.
+//
+// initial is the upfront capacity of the backing []byte; max is a hard
+// ceiling — Reallocate returns nil past it, which surfaces to the wasm
+// module as a memory.grow failure. Defaults are conservative; Configure
+// overrides them from CLI flags.
+var (
+	memoryConfigMu     sync.RWMutex
+	memoryInitialBytes uint64 = 50 * 1024 * 1024
+	memoryMaxBytes     uint64 = 1024 * 1024 * 1024
+)
+
+// Configure sets the wasm linear memory tuning used by all subsequent
+// RunMuxl* calls. Safe to call concurrently with in-flight calls (they'll
+// keep their existing allocator) but typically called once at startup.
+func Configure(initialBytes, maxBytes uint64) {
+	memoryConfigMu.Lock()
+	defer memoryConfigMu.Unlock()
+	memoryInitialBytes = initialBytes
+	memoryMaxBytes = maxBytes
+}
+
+func memoryConfigSnapshot() (initial, max uint64) {
+	memoryConfigMu.RLock()
+	defer memoryConfigMu.RUnlock()
+	return memoryInitialBytes, memoryMaxBytes
+}
+
+// muxlAllocator implements experimental.MemoryAllocator. Stateless apart
+// from the configured ceilings and the per-call ctx/instance used to log
+// cap-exceeded events; each Allocate call produces a fresh
+// muxlLinearMemory.
+type muxlAllocator struct {
+	ctx          context.Context
+	instanceName string
+	initialBytes uint64
+	maxBytes     uint64
+}
+
+func (a *muxlAllocator) Allocate(capHint, wasmMax uint64) experimental.LinearMemory {
+	effectiveMax := a.maxBytes
+	if wasmMax > 0 && wasmMax < effectiveMax {
+		effectiveMax = wasmMax
+	}
+	initial := a.initialBytes
+	if initial < capHint {
+		initial = capHint
+	}
+	if initial > effectiveMax {
+		initial = effectiveMax
+	}
+	return &muxlLinearMemory{
+		ctx:          a.ctx,
+		instanceName: a.instanceName,
+		buf:          make([]byte, 0, initial),
+		max:          effectiveMax,
+	}
+}
+
+// muxlLinearMemory is the per-instance backing buffer. Reallocate keeps
+// the same slice (no copy) when the new size fits in the existing
+// capacity; otherwise it doubles capacity (geometric growth) up to max,
+// or returns nil if the requested size exceeds max.
+type muxlLinearMemory struct {
+	ctx          context.Context
+	instanceName string
+	buf          []byte
+	max          uint64
+}
+
+func (m *muxlLinearMemory) Reallocate(size uint64) []byte {
+	if size > m.max {
+		log.Error(m.ctx, "muxl memory cap exceeded",
+			"instance", m.instanceName,
+			"requested_bytes", size,
+			"max_bytes", m.max,
+		)
+		return nil
+	}
+	if size <= uint64(cap(m.buf)) {
+		m.buf = m.buf[:size]
+		return m.buf
+	}
+	newCap := uint64(cap(m.buf)) * 2
+	if newCap < size {
+		newCap = size
+	}
+	if newCap > m.max {
+		newCap = m.max
+	}
+	newBuf := make([]byte, size, newCap)
+	copy(newBuf, m.buf)
+	m.buf = newBuf
+	return m.buf
+}
+
+func (m *muxlLinearMemory) Free() {
+	m.buf = nil
+}
 
 func init() {
 	ctx := context.Background()
@@ -468,6 +573,14 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 	}
 	span.AddEvent("config built")
 
+	initialBytes, maxBytes := memoryConfigSnapshot()
+	allocator := &muxlAllocator{
+		ctx:          ctx,
+		instanceName: instanceName,
+		initialBytes: initialBytes,
+		maxBytes:     maxBytes,
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		// Span covers the wasm's entire run from instantiation through
@@ -476,7 +589,10 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 		// wazero passes through.
 		instCtx, instSpan := muxlTracer.Start(ctx, "muxl.wasm.InstantiateModule", trace.WithAttributes(
 			attribute.String("instance", instanceName),
+			attribute.Int64("memory_initial_bytes", int64(initialBytes)),
+			attribute.Int64("memory_max_bytes", int64(maxBytes)),
 		))
+		instCtx = experimental.WithMemoryAllocator(instCtx, allocator)
 		instance, err := wasmRuntime.InstantiateModule(instCtx, mod, cfg)
 		instSpan.End()
 		if err != nil {

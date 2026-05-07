@@ -1291,6 +1291,9 @@ func (cli *CLI) BroadcasterDID() string {
 }
 
 func (cli *CLI) ServerDID() string {
+	if cli.ServerHost == "" {
+		return cli.BroadcasterDID()
+	}
 	return fmt.Sprintf("did:web:%s", cli.ServerHost)
 }
 

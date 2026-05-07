@@ -471,11 +471,54 @@ func ServerRepoGetRepo(ctx context.Context, since string) ([]byte, error) {
 	serverRepoLock.Lock()
 	defer serverRepoLock.Unlock()
 
-	buf := bytes.Buffer{}
-	err := ServerCarStore.ReadUserCar(ctx, ServerRepoUser, since, true, &buf)
+	_, robs, err := OpenServerRepo(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("ServerRepoGetRepo: failed to read user car: %w", err)
+		return nil, fmt.Errorf("ServerRepoMerkleProof: failed to open repo: %w", err)
 	}
+
+	bs := util.NewLoggingBstore(robs)
+
+	root, err := ServerCarStore.GetUserRepoHead(ctx, ServerRepoUser)
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoMerkleProof: failed to get user repo head: %w", err)
+	}
+
+	r, err := atrepo.OpenRepo(ctx, bs, root)
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoMerkleProof: failed to open repo: %w", err)
+	}
+
+	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
+		_, _, err = r.GetRecordBytes(ctx, rkey)
+		if err != nil {
+			return fmt.Errorf("ServerRepoMerkleProof: failed to get record bytes: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error doing foreach: %w", err)
+	}
+
+	blocks := bs.GetLoggedBlocks()
+
+	buf := new(bytes.Buffer)
+	hb, err := cbor.DumpObject(&car.CarHeader{
+		Roots:   []cid.Cid{root},
+		Version: 1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoMerkleProof: failed to dump car header: %w", err)
+	}
+	if _, err := carstore.LdWrite(buf, hb); err != nil {
+		return nil, err
+	}
+
+	for _, blk := range blocks {
+		if _, err := carstore.LdWrite(buf, blk.Cid().Bytes(), blk.RawData()); err != nil {
+			return nil, err
+		}
+	}
+
 	return buf.Bytes(), nil
 }
 

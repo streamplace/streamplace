@@ -8,6 +8,7 @@ import {
   MenuSeparator,
   Text,
   useToast,
+  useTranslation,
   View,
   zero,
 } from "@streamplace/components";
@@ -167,6 +168,7 @@ export function BadgeIssuerPanel() {
   const agent = usePDSAgent();
   const { theme } = zero.useTheme();
   const toast = useToast();
+  const { t } = useTranslation("settings");
 
   const [view, setView] = useState<PanelView>("main");
   const [working, setWorking] = useState(false);
@@ -207,7 +209,7 @@ export function BadgeIssuerPanel() {
         ).map(({ uri, cid, value }) => ({ uri, cid: cid ?? "", value })),
       );
     } catch (e: any) {
-      toast.show("Failed to load badge definitions", e?.message, {
+      toast.show(t("issue-badges-failed-load"), e?.message, {
         variant: "error",
       });
     } finally {
@@ -223,7 +225,7 @@ export function BadgeIssuerPanel() {
 
   const pickImage = useCallback(() => {
     if (Platform.OS !== "web") {
-      toast.show("Image upload is only available on web", undefined, {
+      toast.show(t("issue-badges-image-web-only"), undefined, {
         variant: "error",
       });
       return;
@@ -236,7 +238,7 @@ export function BadgeIssuerPanel() {
       const file = e.target?.files?.[0];
       if (file) {
         if (file.size > 262144) {
-          toast.show("Image must be under 256KB", undefined, {
+          toast.show(t("issue-badges-image-too-large"), undefined, {
             variant: "error",
           });
           return;
@@ -274,20 +276,20 @@ export function BadgeIssuerPanel() {
       );
 
       setLastResult({
-        label: "Badge definition created",
+        label: t("issue-badges-definition-created"),
         uri: createName.trim(),
       });
       setCreateName("");
       setCreateDescription("");
       setCreateImageUri(null);
       setCreateImageBlob(null);
-      toast.show("Badge definition created", undefined, {
+      toast.show(t("issue-badges-definition-created"), undefined, {
         variant: "success",
       });
       loadDefs();
       setView("main");
     } catch (e: any) {
-      toast.show("Failed to create badge definition", e?.message, {
+      toast.show(t("issue-badges-failed-create"), e?.message, {
         variant: "error",
       });
     } finally {
@@ -308,15 +310,17 @@ export function BadgeIssuerPanel() {
         },
       );
       setLastResult({
-        label: `Badge issued to ${recipientDid.trim()}`,
+        label: t("issue-badges-issued-to", { did: recipientDid.trim() }),
         uri: recipientDid.trim(),
       });
       setRecipientDid("");
-      toast.show("Badge issued", undefined, { variant: "success" });
+      toast.show(t("issue-badges-issued"), undefined, { variant: "success" });
       setSelectedDef(null);
       setView("main");
     } catch (e: any) {
-      toast.show("Failed to issue badge", e?.message, { variant: "error" });
+      toast.show(t("issue-badges-failed-issue"), e?.message, {
+        variant: "error",
+      });
     } finally {
       setWorking(false);
     }
@@ -328,29 +332,33 @@ export function BadgeIssuerPanel() {
         <View style={[layout.flex.align.center, px[2], py[2]]}>
           <View style={{ maxWidth: 500, width: "100%" }}>
             <BackButton
-              label="Badge definitions"
+              label={t("issue-badges-back-to-definitions")}
               onPress={() => {
                 setSelectedDef(null);
                 setView("main");
               }}
             />
-            <Text style={{ fontSize: 18, fontWeight: "600" }}>Issue Badge</Text>
+            <Text style={{ fontSize: 18, fontWeight: "600" }}>
+              {t("issue-badges-issue-badge")}
+            </Text>
             <Text muted style={{ fontSize: 13, marginBottom: 16 }}>
-              Issue "{selectedDef.value.name}" to a user by their DID.
+              {t("issue-badges-issue-badge-description", {
+                name: selectedDef.value.name,
+              })}
             </Text>
             <View style={[gap.all[4]]}>
               <BadgeDefRow def={selectedDef} />
               <View style={[gap.all[2]]}>
                 <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                  Recipient DID
+                  {t("issue-badges-recipient-did")}
                 </Text>
                 <Input
                   value={recipientDid}
                   onChangeText={setRecipientDid}
-                  placeholder="did:plc:..."
+                  placeholder={t("issue-badges-recipient-did-placeholder")}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  accessibilityLabel="Recipient DID"
+                  accessibilityLabel={t("issue-badges-recipient-did")}
                 />
               </View>
               <Button
@@ -364,7 +372,7 @@ export function BadgeIssuerPanel() {
                     color={theme.colors.primaryForeground}
                   />
                 ) : (
-                  "Issue Badge"
+                  t("issue-badges-issue-badge")
                 )}
               </Button>
             </View>
@@ -380,21 +388,20 @@ export function BadgeIssuerPanel() {
         <View style={[layout.flex.align.center, px[2], py[2]]}>
           <View style={{ maxWidth: 500, width: "100%" }}>
             <BackButton
-              label="Badge definitions"
+              label={t("issue-badges-back-to-definitions")}
               onPress={() => setView("main")}
             />
             <Text style={{ fontSize: 18, fontWeight: "600" }}>
-              Create Badge Definition
+              {t("issue-badges-create-definition")}
             </Text>
             <Text muted style={{ fontSize: 13, marginBottom: 16 }}>
-              Create a reusable badge definition. You can then issue it to
-              multiple users.
+              {t("issue-badges-create-definition-description")}
             </Text>
 
             <View style={[gap.all[4]]}>
               <View style={[gap.all[2]]}>
                 <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                  Badge type
+                  {t("issue-badges-badge-type")}
                 </Text>
                 <View style={[layout.flex.row, gap.all[2]]}>
                   {BADGE_TYPE_OPTIONS.map(({ label, value }) => (
@@ -415,33 +422,33 @@ export function BadgeIssuerPanel() {
 
               <View style={[gap.all[2]]}>
                 <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                  Badge name
+                  {t("issue-badges-badge-name")}
                 </Text>
                 <Input
                   value={createName}
                   onChangeText={setCreateName}
-                  placeholder="e.g. VIP Member"
+                  placeholder={t("issue-badges-badge-name-placeholder")}
                   maxLength={64}
-                  accessibilityLabel="Badge name"
+                  accessibilityLabel={t("issue-badges-badge-name")}
                 />
               </View>
 
               <View style={[gap.all[2]]}>
                 <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                  Description (optional)
+                  {t("issue-badges-description-optional")}
                 </Text>
                 <Input
                   value={createDescription}
                   onChangeText={setCreateDescription}
-                  placeholder="e.g. Outstanding community support"
+                  placeholder={t("issue-badges-description-placeholder")}
                   maxLength={256}
-                  accessibilityLabel="Badge description"
+                  accessibilityLabel={t("issue-badges-description-optional")}
                 />
               </View>
 
               <View style={[gap.all[2]]}>
                 <Text style={{ fontSize: 13, fontWeight: "600" }}>
-                  Badge image (optional, max 256KB)
+                  {t("issue-badges-image-optional")}
                 </Text>
                 <View
                   style={[
@@ -493,7 +500,9 @@ export function BadgeIssuerPanel() {
                         ]}
                       >
                         <ImagePlus size={14} color={theme.colors.textMuted} />
-                        <Text style={{ fontSize: 12 }}>Choose image</Text>
+                        <Text style={{ fontSize: 12 }}>
+                          {t("issue-badges-choose-image")}
+                        </Text>
                       </View>
                     </Button>
                   )}
@@ -515,7 +524,7 @@ export function BadgeIssuerPanel() {
                     color={theme.colors.primaryForeground}
                   />
                 ) : (
-                  "Create Badge Definition"
+                  t("issue-badges-create-definition")
                 )}
               </Button>
             </View>
@@ -530,7 +539,7 @@ export function BadgeIssuerPanel() {
       <View style={[layout.flex.align.center, px[2], py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <Text muted style={{ fontSize: 13 }}>
-            Manage badge definitions and issue badges to users.
+            {t("issue-badges-manage-description")}
           </Text>
 
           <MenuContainer>
@@ -538,7 +547,7 @@ export function BadgeIssuerPanel() {
               <TouchableOpacity
                 onPress={() => setView("create")}
                 accessibilityRole="button"
-                accessibilityLabel="Create badge definition"
+                accessibilityLabel={t("issue-badges-create-definition")}
                 style={[
                   layout.flex.row,
                   layout.flex.align.center,
@@ -561,10 +570,10 @@ export function BadgeIssuerPanel() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: "500" }}>
-                    Create Badge Definition
+                    {t("issue-badges-create-definition")}
                   </Text>
                   <Text muted style={{ fontSize: 12 }}>
-                    Define a reusable badge with name, type, and optional image
+                    {t("issue-badges-create-definition-subtitle")}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -610,10 +619,10 @@ export function BadgeIssuerPanel() {
           {defs.length > 0 && (
             <>
               <Text style={{ fontSize: 15, fontWeight: "600", marginTop: 4 }}>
-                Your Badge Definitions
+                {t("issue-badges-your-definitions")}
               </Text>
               <Text muted style={{ fontSize: 12, marginBottom: 4 }}>
-                Tap a badge to issue it to a user.
+                {t("issue-badges-tap-to-issue")}
               </Text>
               <MenuContainer>
                 <MenuGroup>

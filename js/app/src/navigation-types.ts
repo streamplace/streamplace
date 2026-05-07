@@ -49,6 +49,10 @@ export type RootStackParamList = {
   DanmuOBS: { user: string };
   AVSync: undefined;
   LegacyStream: { user: string };
+  PopoutStreamMonitor: undefined;
+  PopoutInfoWidget: undefined;
+  PopoutMultistream: undefined;
+  PopoutLivestream: undefined;
 };
 
 // Helper type for screen props

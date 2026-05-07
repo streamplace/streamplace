@@ -13,13 +13,14 @@ import {
 } from "@streamplace/components";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
 import { Image } from "expo-image";
-import { Edit3, LogOut, Palette, X } from "lucide-react-native";
+import { Award, Edit3, LogOut, Palette, X } from "lucide-react-native";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
 import { convertNavigationParams } from "../../src/navigation-helper";
 import {
   SettingsExternalItem,
+  SettingsNavigationItem,
   SettingsRowItem,
 } from "./components/settings-navigation-item";
 
@@ -126,6 +127,14 @@ export function AccountCategorySettings() {
                 LeftIcon={Edit3}
                 title={t("edit-profile-bluesky")}
                 link={`https://bsky.app/profile/${userProfile.handle}`}
+              />
+            </MenuGroup>
+
+            <MenuGroup>
+              <SettingsNavigationItem
+                title={t("badges")}
+                screen="BadgeSelection"
+                icon={Award}
               />
             </MenuGroup>
 

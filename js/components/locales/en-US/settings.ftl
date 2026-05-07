@@ -272,3 +272,41 @@ backup-error-save-failed = Failed to save storage settings
 backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
 backup-segment-duration-placeholder = 6
 backup-connection-url-placeholder = Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket
+
+## Badges
+badges = Badges
+badges-cosmetic-section = Cosmetic Badges
+badges-empty-state = You haven't been issued any badges yet.
+badges-failed-load = Failed to load badges
+badges-failed-update = Failed to update badge selection
+badges-issued-by = Issued by { $issuer }
+badges-streamer-section = Streamer Badges
+
+## Issue Badges
+issue-badges = Issue Badges
+issue-badges-back-to-definitions = Badge Definitions
+issue-badges-badge-name = Badge Name
+issue-badges-badge-name-placeholder = e.g. VIP, Supporter
+issue-badges-badge-type = Badge Type
+issue-badges-choose-image = Choose Image
+issue-badges-create-definition = Create Badge Definition
+issue-badges-create-definition-description = Define a new badge type that can be issued to viewers
+issue-badges-create-definition-subtitle = Define a new badge type
+issue-badges-definition-created = Badge definition created
+issue-badges-description-optional = Description (optional)
+issue-badges-description-placeholder = Optional description for this badge
+issue-badges-failed-create = Failed to create badge definition
+issue-badges-failed-issue = Failed to issue badge
+issue-badges-failed-load = Failed to load badge definitions
+issue-badges-image-optional = Image (optional)
+issue-badges-image-too-large = Image must be under 256KB
+issue-badges-image-web-only = Image upload is only available on web
+issue-badges-issue-badge = Issue Badge
+issue-badges-issue-badge-description = Issue the "{ $name }" badge to a viewer by their DID
+issue-badges-issued = Badge issued
+issue-badges-issued-to = Issued to { $did }
+issue-badges-manage-description = Create badge definitions and issue them to viewers
+issue-badges-recipient-did = Recipient DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = Tap to issue
+issue-badges-your-definitions = Your Badge Definitions

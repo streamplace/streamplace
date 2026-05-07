@@ -60,3 +60,15 @@ viewer-count = { $count ->
     [1] 1 spectateur
    *[other] { $count } spectateurs
 }
+
+## PDS Host Selector
+pds-selector-title = Nouveau sur Atmosphere ?
+pds-selector-description = Vous devrez sélectionner un PDS (Serveur de Données Personnel) pour accéder aux applications sur Atmosphere, comme Bluesky, Tangled et Spark.
+pds-selector-custom-label = Un autre PDS
+pds-selector-custom-description = Saisissez l'URL de votre propre hôte PDS
+pds-selector-custom-url-label = URL PDS personnalisée
+pds-selector-custom-url-placeholder = https://pds.exemple.com
+pds-selector-learn-more = En savoir plus sur l'auto-hébergement
+pds-selector-info = Chaque hôte a ses propres politiques et normes de fiabilité. Vos données ATProto se trouvent sur l'hôte que vous choisissez et vous pouvez migrer ultérieurement. Remarque : Streamplace a ses propres règles de modération — vous pouvez être banni de Streamplace quel que soit l'hôte choisi.
+pds-selector-read-policies = Lisez les <tosLink>Conditions d'utilisation</tosLink> et la <privacyLink>Politique de confidentialité</privacyLink> de { $label } avant de continuer.
+pds-selector-handle-policy-checkbox = J'ai lu et j'accepte la <policyLink>politique des identifiants</policyLink>

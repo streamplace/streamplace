@@ -158,15 +158,6 @@ export function Settings() {
                 />
               </MenuGroup>
             )}
-            {loggedIn && (
-              <MenuGroup>
-                <SettingsNavigationItem
-                  title={t("badges")}
-                  screen="BadgeSelection"
-                  icon={Award}
-                />
-              </MenuGroup>
-            )}
             {isAdmin && (
               <MenuGroup>
                 <SettingsNavigationItem

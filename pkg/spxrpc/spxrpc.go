@@ -26,35 +26,37 @@ import (
 )
 
 type Server struct {
-	e              *echo.Echo
-	cli            *config.CLI
-	model          model.Model
-	OGImageCache   *cache.Cache
-	LiveUsersCache *cache.Cache
-	ATSync         *atproto.ATProtoSynchronizer
-	statefulDB     *statedb.StatefulDB
-	bus            *bus.Bus
-	op             *oatproxy.OATProxy
-	localDB        localdb.LocalDB
-	mm             *media.MediaManager
-	aliases        map[string]string
+	e               *echo.Echo
+	cli             *config.CLI
+	model           model.Model
+	OGImageCache    *cache.Cache
+	LiveUsersCache  *cache.Cache
+	GameSearchCache *cache.Cache
+	ATSync          *atproto.ATProtoSynchronizer
+	statefulDB      *statedb.StatefulDB
+	bus             *bus.Bus
+	op              *oatproxy.OATProxy
+	localDB         localdb.LocalDB
+	mm              *media.MediaManager
+	aliases         map[string]string
 }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
-		e:              e,
-		cli:            cli,
-		model:          model,
-		OGImageCache:   cache.New(5*time.Minute, 10*time.Minute), // 5min TTL, 10min cleanup
-		LiveUsersCache: cache.New(5*time.Second, 10*time.Second), // 5sec TTL, 10sec cleanup
-		ATSync:         atsync,
-		statefulDB:     statefulDB,
-		bus:            bus,
-		op:             op,
-		localDB:        ldb,
-		mm:             mm,
-		aliases:        aliases,
+		e:               e,
+		cli:             cli,
+		model:           model,
+		OGImageCache:    cache.New(5*time.Minute, 10*time.Minute),
+		LiveUsersCache:  cache.New(5*time.Second, 10*time.Second),
+		GameSearchCache: cache.New(60*time.Second, 2*time.Minute),
+		ATSync:          atsync,
+		statefulDB:      statefulDB,
+		bus:             bus,
+		op:              op,
+		localDB:         ldb,
+		mm:              mm,
+		aliases:         aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

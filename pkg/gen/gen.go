@@ -42,6 +42,8 @@ func main() {
 		streamplace.LiveViewerCount{},
 		streamplace.BadgeDef{},
 		streamplace.BadgeIssuance{},
+		streamplace.Defs_ActivityGame{},
+		streamplace.Defs_ActivityLabel{},
 	); err != nil {
 		panic(err)
 	}

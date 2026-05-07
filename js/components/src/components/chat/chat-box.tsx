@@ -206,7 +206,7 @@ export function ChatBox({
     const colonIndex = text.lastIndexOf(":");
     if (colonIndex !== -1) {
       const searchText = text.slice(colonIndex + 1).toLowerCase();
-      if (searchText.length >= 3) {
+      if (searchText.length >= 3 && !searchText.includes(" ")) {
         if (!emojiData) return;
         const aliasMatches = Object.entries(emojiData.aliases)
           .map(([alias, emojiId]) => {

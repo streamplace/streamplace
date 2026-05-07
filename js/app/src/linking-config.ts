@@ -123,6 +123,10 @@ export const SCREEN_PATHS = {
   InfoWidgetEmbed: "info-widget",
   LegacyStream: "legacy/:user",
   DanmuOBS: "widgets/:user/danmu",
+  PopoutStreamMonitor: "widgets/stream-monitor",
+  PopoutInfoWidget: "widgets/info",
+  PopoutMultistream: "widgets/multistream",
+  PopoutLivestream: "widgets/livestream",
 } as const;
 
 /**
@@ -222,6 +226,10 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
         InfoWidgetEmbed: SCREEN_PATHS.InfoWidgetEmbed,
         LegacyStream: SCREEN_PATHS.LegacyStream,
         DanmuOBS: SCREEN_PATHS.DanmuOBS,
+        PopoutStreamMonitor: SCREEN_PATHS.PopoutStreamMonitor,
+        PopoutInfoWidget: SCREEN_PATHS.PopoutInfoWidget,
+        PopoutMultistream: SCREEN_PATHS.PopoutMultistream,
+        PopoutLivestream: SCREEN_PATHS.PopoutLivestream,
       },
     },
   };

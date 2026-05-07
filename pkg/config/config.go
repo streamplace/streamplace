@@ -31,6 +31,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/moderation"
 	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -127,6 +128,7 @@ type CLI struct {
 	LivepeerHelp                bool
 	PLCURL                      string
 	ContentFilters              *ContentFilters
+	ModerationDir               string
 	DefaultRecommendedStreamers []string
 	SQLLogging                  bool
 	SentryDSN                   string
@@ -157,6 +159,9 @@ type CLI struct {
 	LegacySegmentation          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
+	GamesAPIURL                 string
+	GamesAPIClientKey           string
+	GamesAPIClientSecret        string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -651,6 +656,16 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources: urfavecli.EnvVars("SP_CONTENT_FILTERS"),
 			},
 			&urfavecli.StringFlag{
+				Name:        "moderation-dir",
+				Usage:       "directory containing additional .txt profanity wordlists to load at startup",
+				Destination: &cli.ModerationDir,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					moderation.ModerationDir = s
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_MODERATION_DIR"),
+			},
+			&urfavecli.StringFlag{
 				Name:  "default-recommended-streamers",
 				Usage: `comma-separated list of streamer DIDs to recommend by default when no other recommendations are available (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
@@ -694,6 +709,28 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "URL of the Cloudflare playback router worker",
 				Destination: &cli.PlaybackWorkerURL,
 				Sources:     urfavecli.EnvVars("SP_PLAYBACK_WORKER_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-url",
+				Usage:       "URL of the games.gamesgamesgamesgames API (e.g. http://localhost:3001)",
+				Destination: &cli.GamesAPIURL,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_URL"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					cli.GamesAPIURL = strings.TrimRight(s, "/")
+					return nil
+				},
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-client-key",
+				Usage:       "Client key for authenticating with the games.gamesgamesgamesgames API",
+				Destination: &cli.GamesAPIClientKey,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_CLIENT_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "games-api-client-secret",
+				Usage:       "Client secret for authenticating with the games.gamesgamesgamesgames API",
+				Destination: &cli.GamesAPIClientSecret,
+				Sources:     urfavecli.EnvVars("SP_GAMES_API_CLIENT_SECRET"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "livepeer-debug",

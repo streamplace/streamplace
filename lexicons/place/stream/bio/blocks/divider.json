@@ -1,0 +1,11 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.divider",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A horizontal divider/rule between blocks.",
+      "properties": {}
+    }
+  }
+}

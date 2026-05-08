@@ -180,6 +180,8 @@ type Model interface {
 	DeleteVodGate(ctx context.Context, rkey string) error
 	GetVodGate(ctx context.Context, rkey string) (*VodGate, error)
 	GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error)
+	CreateBioPage(ctx context.Context, bioPage *BioPage) error
+	GetBioPage(ctx context.Context, repoDID string) (*BioPage, error)
 }
 
 // DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
@@ -265,6 +267,7 @@ func MakeDB(dbURL string) (Model, error) {
 		VodComment{},
 		Like{},
 		VodGate{},
+		BioPage{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

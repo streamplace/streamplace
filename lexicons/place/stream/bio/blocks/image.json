@@ -1,0 +1,37 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.image",
+  "defs": {
+    "main": {
+      "type": "object",
+      "required": ["image", "aspectRatio"],
+      "properties": {
+        "image": {
+          "type": "blob",
+          "accept": ["image/*"],
+          "maxSize": 1000000
+        },
+        "aspectRatio": {
+          "type": "ref",
+          "ref": "#aspectRatio"
+        },
+        "alt": {
+          "type": "string",
+          "description": "Alt text describing the image, for accessibility."
+        }
+      }
+    },
+    "aspectRatio": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

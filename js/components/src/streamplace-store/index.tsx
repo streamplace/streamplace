@@ -1,3 +1,4 @@
+export * from "./bio";
 export * from "./block";
 export * from "./branding";
 export * from "./ingest";

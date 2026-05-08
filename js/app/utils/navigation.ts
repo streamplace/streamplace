@@ -15,6 +15,7 @@ const NAVIGATOR_STRUCTURE: Record<string, string[]> = {
     "LanguagesCategory",
     "DeveloperSettings",
     "KeyManagement",
+    "BioSettings",
   ],
 };
 

@@ -1,0 +1,75 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.layouts.columns",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A column-based layout for the customizable body of a bio. On narrow viewports columns collapse into a single stack in column order.",
+      "required": ["columns"],
+      "properties": {
+        "columns": {
+          "type": "array",
+          "minLength": 1,
+          "maxLength": 4,
+          "items": {
+            "type": "ref",
+            "ref": "#column"
+          }
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "required": ["blocks"],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Optional weight for this column's width. If omitted on any column, columns share width equally."
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#blockEntry"
+          }
+        }
+      }
+    },
+    "blockEntry": {
+      "type": "object",
+      "required": ["block"],
+      "properties": {
+        "alignment": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        },
+        "colSpan": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "description": "Number of columns this block spans, starting from its column. Useful for hero banners and wide embeds. Defaults to 1."
+        },
+        "block": {
+          "type": "union",
+          "refs": [
+            "place.stream.bio.blocks.text",
+            "place.stream.bio.blocks.header",
+            "place.stream.bio.blocks.image",
+            "place.stream.bio.blocks.orderedList",
+            "place.stream.bio.blocks.unorderedList",
+            "place.stream.bio.blocks.blockquote",
+            "place.stream.bio.blocks.divider",
+            "place.stream.bio.blocks.link",
+            "place.stream.bio.blocks.socialLinks",
+            "place.stream.bio.blocks.livestream",
+            "place.stream.bio.blocks.schedule",
+            "place.stream.bio.blocks.bskyPost",
+            "place.stream.bio.blocks.embed"
+          ]
+        }
+      }
+    }
+  }
+}

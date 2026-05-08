@@ -19,6 +19,7 @@ import { ImageBackground } from "expo-image";
 import {
   Award,
   Brush,
+  FileText,
   Globe,
   Info,
   Lock,
@@ -128,6 +129,12 @@ export function Settings() {
                   title={t("account")}
                   screen="AccountCategory"
                   icon={User2}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("bio")}
+                  screen="BioSettings"
+                  icon={FileText}
                 />
                 <MenuSeparator />
                 <SettingsNavigationItem

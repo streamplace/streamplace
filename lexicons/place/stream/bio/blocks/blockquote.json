@@ -1,0 +1,23 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.blockquote",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A block-level quotation.",
+      "required": ["plaintext"],
+      "properties": {
+        "plaintext": {
+          "type": "string"
+        },
+        "facets": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.richtext.facet"
+          }
+        }
+      }
+    }
+  }
+}

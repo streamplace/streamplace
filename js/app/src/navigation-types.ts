@@ -16,6 +16,7 @@ export type SettingsStackParamList = {
   KeyManagement: undefined;
   BadgeSelection: undefined;
   BadgeIssuer: undefined;
+  BioSettings: undefined;
 };
 
 export type HomeStackParamList = {

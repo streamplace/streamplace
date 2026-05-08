@@ -12,6 +12,7 @@ const SETTINGS_SCREENS = [
   "AdvancedCategory",
   "LanguagesCategory",
   "KeyManagement",
+  "BioSettings",
 ];
 
 // Screens that are in the HomeTab stack

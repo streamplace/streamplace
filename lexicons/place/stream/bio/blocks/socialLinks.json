@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.socialLinks",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A group of social/platform links rendered as an icon row.",
+      "required": ["links"],
+      "properties": {
+        "links": {
+          "type": "array",
+          "minLength": 1,
+          "maxLength": 32,
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.bio.defs#social"
+          }
+        }
+      }
+    }
+  }
+}

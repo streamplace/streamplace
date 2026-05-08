@@ -35,6 +35,12 @@ export * as I18n from "./i18n";
 // Theme system exports
 export * from "./lib/theme";
 
+export { leafletDocToBio } from "./lib/leaflet-to-bio";
+export type {
+  LeafletToBioOptions,
+  LeafletToBioResult,
+} from "./lib/leaflet-to-bio";
+
 export * from "./components/chat/chat";
 export * from "./components/chat/chat-box";
 export * from "./components/chat/system-message";
@@ -74,6 +80,10 @@ export type { AQStorage } from "./storage/storage.shared";
 
 // Content metadata components
 export * from "./components/content-metadata";
+
+// Bio viewer components
+export { BioViewer } from "./components/bio";
+export type { BioViewerProps } from "./components/bio";
 
 // Shared metadata constants
 export {

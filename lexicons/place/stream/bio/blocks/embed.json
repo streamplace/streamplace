@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.embed",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "An embedded external website or iframe-able URL, optionally with link-preview metadata.",
+      "required": ["src"],
+      "properties": {
+        "src": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 1000,
+          "maxGraphemes": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 3000,
+          "maxGraphemes": 300
+        },
+        "previewImage": {
+          "type": "blob",
+          "accept": ["image/*"],
+          "maxSize": 1000000
+        }
+      }
+    }
+  }
+}

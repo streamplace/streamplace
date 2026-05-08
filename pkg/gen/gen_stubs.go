@@ -19,6 +19,40 @@ func (t *Defs_ActivityGame) MarshalCBOR(w io.Writer) error    { return nil }
 func (t *Defs_ActivityGame) UnmarshalCBOR(r io.Reader) error  { return nil }
 func (t *Defs_ActivityLabel) MarshalCBOR(w io.Writer) error   { return nil }
 func (t *Defs_ActivityLabel) UnmarshalCBOR(r io.Reader) error { return nil }
+
+func (t *BioLayoutsColumns) MarshalCBOR(w io.Writer) error      { return nil }
+func (t *BioLayoutsColumns) UnmarshalCBOR(r io.Reader) error    { return nil }
+func (t *BioBlocksText) MarshalCBOR(w io.Writer) error          { return nil }
+func (t *BioBlocksText) UnmarshalCBOR(r io.Reader) error        { return nil }
+func (t *BioBlocksHeader) MarshalCBOR(w io.Writer) error        { return nil }
+func (t *BioBlocksHeader) UnmarshalCBOR(r io.Reader) error      { return nil }
+func (t *BioBlocksImage) MarshalCBOR(w io.Writer) error         { return nil }
+func (t *BioBlocksImage) UnmarshalCBOR(r io.Reader) error       { return nil }
+func (t *BioBlocksOrderedList) MarshalCBOR(w io.Writer) error   { return nil }
+func (t *BioBlocksOrderedList) UnmarshalCBOR(r io.Reader) error { return nil }
+func (t *BioBlocksUnorderedList) MarshalCBOR(w io.Writer) error   { return nil }
+func (t *BioBlocksUnorderedList) UnmarshalCBOR(r io.Reader) error { return nil }
+func (t *BioBlocksBlockquote) MarshalCBOR(w io.Writer) error    { return nil }
+func (t *BioBlocksBlockquote) UnmarshalCBOR(r io.Reader) error  { return nil }
+func (t *BioBlocksDivider) MarshalCBOR(w io.Writer) error       { return nil }
+func (t *BioBlocksDivider) UnmarshalCBOR(r io.Reader) error     { return nil }
+func (t *BioBlocksLink) MarshalCBOR(w io.Writer) error          { return nil }
+func (t *BioBlocksLink) UnmarshalCBOR(r io.Reader) error        { return nil }
+func (t *BioBlocksSocialLinks) MarshalCBOR(w io.Writer) error   { return nil }
+func (t *BioBlocksSocialLinks) UnmarshalCBOR(r io.Reader) error { return nil }
+func (t *BioBlocksLivestream) MarshalCBOR(w io.Writer) error    { return nil }
+func (t *BioBlocksLivestream) UnmarshalCBOR(r io.Reader) error  { return nil }
+func (t *BioBlocksSchedule) MarshalCBOR(w io.Writer) error      { return nil }
+func (t *BioBlocksSchedule) UnmarshalCBOR(r io.Reader) error    { return nil }
+func (t *BioBlocksBskyPost) MarshalCBOR(w io.Writer) error      { return nil }
+func (t *BioBlocksBskyPost) UnmarshalCBOR(r io.Reader) error    { return nil }
+func (t *BioBlocksEmbed) MarshalCBOR(w io.Writer) error         { return nil }
+func (t *BioBlocksEmbed) UnmarshalCBOR(r io.Reader) error       { return nil }
+
+func (t *BioBlocksOrderedList_ListItem_Content) MarshalCBOR(w io.Writer) error   { return nil }
+func (t *BioBlocksOrderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error { return nil }
+func (t *BioBlocksUnorderedList_ListItem_Content) MarshalCBOR(w io.Writer) error   { return nil }
+func (t *BioBlocksUnorderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error { return nil }
 `
 
 func main() {

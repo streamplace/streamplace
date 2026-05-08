@@ -21,7 +21,7 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 		Region:          ss.cli.S3Region,
 	}
 	keyPrefix := repoDID + "/"
-	ss.s3Uploader = s3.NewS3Uploader(ctx, cfg, keyPrefix, time.Minute)
+	ss.s3Uploader = s3.NewS3Uploader(cfg, keyPrefix, time.Minute)
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint)
 }
 
@@ -38,7 +38,8 @@ func (ss *StreamSession) s3Close(ctx context.Context) {
 	if ss.s3Uploader == nil {
 		return
 	}
-	err := ss.s3Uploader.Close(ctx)
+	// this context is already canceled, so we need a new one
+	err := ss.s3Uploader.Close(context.Background())
 	if err != nil {
 		log.Error(ctx, "error closing S3 upload", "error", err)
 	}

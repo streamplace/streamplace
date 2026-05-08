@@ -52,7 +52,8 @@ type activeUpload struct {
 // NewS3Uploader creates a new S3Uploader. keyPrefix is prepended to every
 // object key (typically the streamer DID + "/"). Starts the muxl Concatenator
 // and a background goroutine that reads processed segments and uploads them.
-func NewS3Uploader(ctx context.Context, cfg Config, keyPrefix string, cutoverEvery time.Duration) *S3Uploader {
+func NewS3Uploader(cfg Config, keyPrefix string, cutoverEvery time.Duration) *S3Uploader {
+	ctx := context.Background()
 	client := s3.New(s3.Options{
 		Region: cfg.Region,
 		Credentials: credentials.NewStaticCredentialsProvider(
@@ -91,7 +92,7 @@ func (u *S3Uploader) Close(ctx context.Context) error {
 	closeErr := u.concat.Close()
 	uploadErr := <-u.done
 	if uploadErr != nil {
-		return uploadErr
+		return fmt.Errorf("error uploading: %w", uploadErr)
 	}
 	return closeErr
 }
@@ -161,7 +162,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			return nil
 		}
 		if err := flushBuffer(); err != nil {
-			return err
+			return fmt.Errorf("error flushing buffer: %w", err)
 		}
 		if len(current.parts) == 0 {
 			_, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
@@ -237,6 +238,9 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			if !ok {
 				// Concatenator is done, complete any in-progress upload
 				err = completeUpload()
+				if err != nil {
+					err = fmt.Errorf("error completing upload: %w", err)
+				}
 				u.done <- err
 				return
 			}
@@ -245,8 +249,11 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			}
 
 		case <-ctx.Done():
-			_ = completeUpload()
-			u.done <- ctx.Err()
+			err = completeUpload()
+			if err != nil {
+				err = fmt.Errorf("error completing upload: %w", err)
+			}
+			u.done <- err
 			return
 		}
 	}

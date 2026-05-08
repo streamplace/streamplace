@@ -11,5 +11,9 @@ func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestrea
 	if s.cli.PlaybackWorkerURL != "" {
 		out.PlaybackWorkerUrl = &s.cli.PlaybackWorkerURL
 	}
+	if s.cli.GamesAPIURL != "" {
+		t := true
+		out.GamesEnabled = &t
+	}
 	return out, nil
 }

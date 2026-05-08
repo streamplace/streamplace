@@ -9,6 +9,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { ACTIVITY_LABELS } from "@streamplace/components/src/lib/metadata-constants";
+import { useStreamplaceStore } from "@streamplace/components/src/streamplace-store/streamplace-store";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { X } from "lucide-react-native";
@@ -50,10 +51,14 @@ export default function ActivityPicker({
   const agent = usePDSAgent();
   const { theme, zero: z } = useTheme();
   const c = theme.colors;
+  const gamesEnabled = useStreamplaceStore((s) => s.gamesEnabled);
 
-  const [mode, setMode] = useState<"game" | "label">(
-    value?.$type === "place.stream.defs#activityLabel" ? "label" : "game",
-  );
+  const [mode, setMode] = useState<"game" | "label">(() => {
+    if (value?.$type === "place.stream.defs#activityLabel") return "label";
+    if (value?.$type === "place.stream.defs#activityGame" && gamesEnabled)
+      return "game";
+    return gamesEnabled ? "game" : "label";
+  });
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GameResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -209,34 +214,36 @@ export default function ActivityPicker({
   return (
     <View style={[gap.all[2]]}>
       <View style={[layout.flex.row, gap.all[2]]}>
-        {(["game", "label"] as const).map((m) => (
-          <Pressable
-            key={m}
-            onPress={() => {
-              setMode(m);
-              if (m === "game" && selectedLabel) onChange(undefined);
-              if (m === "label" && selectedGame) onChange(undefined);
-            }}
-            style={[
-              px[3],
-              borders.width.thin,
-              { paddingVertical: 6, borderRadius: 6 },
-              { borderColor: mode === m ? c.border : c.border },
-              {
-                backgroundColor: mode === m ? c.card : "transparent",
-              },
-            ]}
-          >
-            <Text
-              style={{
-                color: mode === m ? c.primary : c.mutedForeground,
-                fontSize: 13,
+        {(["game", "label"] as const)
+          .filter((m) => m !== "game" || gamesEnabled)
+          .map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => {
+                setMode(m);
+                if (m === "game" && selectedLabel) onChange(undefined);
+                if (m === "label" && selectedGame) onChange(undefined);
               }}
+              style={[
+                px[3],
+                borders.width.thin,
+                { paddingVertical: 6, borderRadius: 6 },
+                { borderColor: mode === m ? c.border : c.border },
+                {
+                  backgroundColor: mode === m ? c.card : "transparent",
+                },
+              ]}
             >
-              {m === "game" ? "Game" : "Other Activity"}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                style={{
+                  color: mode === m ? c.primary : c.mutedForeground,
+                  fontSize: 13,
+                }}
+              >
+                {m === "game" ? "Game" : "Other Activity"}
+              </Text>
+            </Pressable>
+          ))}
       </View>
 
       {mode === "game" && (

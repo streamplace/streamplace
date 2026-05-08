@@ -14,6 +14,8 @@ import (
 type ConfigGetEnv_Output struct {
 	// playbackWorkerUrl: URL of the Cloudflare playback router worker
 	PlaybackWorkerUrl *string `json:"playbackWorkerUrl,omitempty" cborgen:"playbackWorkerUrl,omitempty"`
+	// gamesEnabled: Whether the games API is configured and available
+	GamesEnabled *bool `json:"gamesEnabled,omitempty" cborgen:"gamesEnabled,omitempty"`
 }
 
 // ConfigGetEnv calls the XRPC method "place.stream.config.getEnv".

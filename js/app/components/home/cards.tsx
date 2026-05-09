@@ -93,7 +93,7 @@ const StreamCard = ({
   // Define dynamic styles
   const borderRadius = 12;
   const contentPaddingHoriz = 12;
-  const contentPaddingVertical = 2;
+  const contentPaddingVertical = 2.65;
   const avatarSize = 40;
   const livePillHeight = 30;
   const livePillPaddingHorizontal = 4;
@@ -187,7 +187,7 @@ const StreamCard = ({
             {
               width: avatarSize,
               height: avatarSize,
-              marginVertical: contentPaddingVertical * 4,
+              marginVertical: layoutHorizontal ? 0 : contentPaddingVertical * 4,
               borderRadius: avatarSize / 2,
               overflow: "hidden",
               flexShrink: 0,

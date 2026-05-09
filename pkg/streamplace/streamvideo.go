@@ -25,19 +25,26 @@ type Video struct {
 	// duration: Total duration of the video in milliseconds.
 	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
 	// source: The canonical source of this video, either some media tracks or a clip from another video.
-	Source *Video_Source `json:"source,omitempty" cborgen:"source,omitempty"`
-	Title  string        `json:"title" cborgen:"title"`
+	Source *Video_Source `json:"source" cborgen:"source"`
+	// thumb: Thumbnail image for the video.
+	Thumb *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	Title string           `json:"title" cborgen:"title"`
 }
 
 // The canonical source of this video, either some media tracks or a clip from another video.
 type Video_Source struct {
 	MediaDefs_SourceTracks *MediaDefs_SourceTracks
+	MediaDefs_SourceClip   *MediaDefs_SourceClip
 }
 
 func (t *Video_Source) MarshalJSON() ([]byte, error) {
 	if t.MediaDefs_SourceTracks != nil {
 		t.MediaDefs_SourceTracks.LexiconTypeID = "place.stream.media.defs#sourceTracks"
 		return json.Marshal(t.MediaDefs_SourceTracks)
+	}
+	if t.MediaDefs_SourceClip != nil {
+		t.MediaDefs_SourceClip.LexiconTypeID = "place.stream.media.defs#sourceClip"
+		return json.Marshal(t.MediaDefs_SourceClip)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -52,6 +59,9 @@ func (t *Video_Source) UnmarshalJSON(b []byte) error {
 	case "place.stream.media.defs#sourceTracks":
 		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
 		return json.Unmarshal(b, t.MediaDefs_SourceTracks)
+	case "place.stream.media.defs#sourceClip":
+		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
+		return json.Unmarshal(b, t.MediaDefs_SourceClip)
 	default:
 		return nil
 	}
@@ -66,6 +76,9 @@ func (t *Video_Source) MarshalCBOR(w io.Writer) error {
 	if t.MediaDefs_SourceTracks != nil {
 		return t.MediaDefs_SourceTracks.MarshalCBOR(w)
 	}
+	if t.MediaDefs_SourceClip != nil {
+		return t.MediaDefs_SourceClip.MarshalCBOR(w)
+	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
 
@@ -79,6 +92,9 @@ func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
 	case "place.stream.media.defs#sourceTracks":
 		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
 		return t.MediaDefs_SourceTracks.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.media.defs#sourceClip":
+		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
+		return t.MediaDefs_SourceClip.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

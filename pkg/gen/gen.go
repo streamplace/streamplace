@@ -49,6 +49,7 @@ func main() {
 		streamplace.MediaDefs_Blob{},
 		streamplace.MediaDefs_MuxlTrack{},
 		streamplace.MediaDefs_SourceTracks{},
+		streamplace.MediaDefs_SourceClip{},
 	); err != nil {
 		panic(err)
 	}

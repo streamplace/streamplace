@@ -38,6 +38,19 @@ type MediaDefs_MuxlTrack struct {
 	Type string `json:"type" cborgen:"type"`
 }
 
+// MediaDefs_SourceClip is a "sourceClip" in the place.stream.media.defs schema.
+//
+// An object representing that this video's source is a clip from another video.
+type MediaDefs_SourceClip struct {
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.defs#sourceClip"`
+	// end: End time of the clip in milliseconds.
+	End int64 `json:"end" cborgen:"end"`
+	// start: Start time of the clip in milliseconds.
+	Start int64 `json:"start" cborgen:"start"`
+	// video: AT URI of the video we're clipping.
+	Video string `json:"video" cborgen:"video"`
+}
+
 // MediaDefs_SourceTracks is a "sourceTracks" in the place.stream.media.defs schema.
 //
 // A collection of tracks representing the canonical source of a video.

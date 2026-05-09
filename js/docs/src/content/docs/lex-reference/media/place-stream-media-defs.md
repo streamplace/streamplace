@@ -23,6 +23,24 @@ A collection of tracks representing the canonical source of a video.
 
 ---
 
+<a name="sourceclip"></a>
+
+### `sourceClip`
+
+**Type:** `object`
+
+An object representing that this video's source is a clip from another video.
+
+**Properties:**
+
+| Name    | Type      | Req'd | Description                             | Constraints      |
+| ------- | --------- | ----- | --------------------------------------- | ---------------- |
+| `video` | `string`  | ✅    | AT URI of the video we're clipping.     | Format: `at-uri` |
+| `start` | `integer` | ✅    | Start time of the clip in milliseconds. |                  |
+| `end`   | `integer` | ✅    | End time of the clip in milliseconds.   |                  |
+
+---
+
 <a name="muxltrack"></a>
 
 ### `muxlTrack`
@@ -78,6 +96,26 @@ A MUXL blob in one of the MUXL-supported formats.
             "type": "union",
             "refs": ["place.stream.media.defs#muxlTrack"]
           }
+        }
+      }
+    },
+    "sourceClip": {
+      "type": "object",
+      "description": "An object representing that this video's source is a clip from another video.",
+      "required": ["video", "start", "end"],
+      "properties": {
+        "video": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "AT URI of the video we're clipping."
+        },
+        "start": {
+          "type": "integer",
+          "description": "Start time of the clip in milliseconds."
+        },
+        "end": {
+          "type": "integer",
+          "description": "End time of the clip in milliseconds."
         }
       }
     },

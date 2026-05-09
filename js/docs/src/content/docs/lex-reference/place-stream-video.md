@@ -19,12 +19,13 @@ Some media content: potentially video, audio, or subtitles.
 
 **Record Properties:**
 
-| Name        | Type                                                                                                                    | Req'd | Description                                                                                | Constraints                             |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------ | --------------------------------------- |
-| `createdAt` | `string`                                                                                                                | ✅    | Time this video was created.                                                               | Format: `datetime`                      |
-| `title`     | `string`                                                                                                                | ✅    |                                                                                            | Max Length: 1400<br/>Max Graphemes: 140 |
-| `duration`  | `integer`                                                                                                               | ❌    | Total duration of the video in milliseconds.                                               |                                         |
-| `source`    | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks) | ❌    | The canonical source of this video, either some media tracks or a clip from another video. |                                         |
+| Name        | Type                                                                                                                                                                                                                              | Req'd | Description                                                                                | Constraints                                   |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| `createdAt` | `string`                                                                                                                                                                                                                          | ✅    | Time this video was created.                                                               | Format: `datetime`                            |
+| `title`     | `string`                                                                                                                                                                                                                          | ✅    |                                                                                            | Max Length: 1400<br/>Max Graphemes: 140       |
+| `duration`  | `integer`                                                                                                                                                                                                                         | ❌    | Total duration of the video in milliseconds.                                               |                                               |
+| `source`    | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ✅    | The canonical source of this video, either some media tracks or a clip from another video. |                                               |
+| `thumb`     | `blob`                                                                                                                                                                                                                            | ❌    | Thumbnail image for the video.                                                             | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 
 ---
 
@@ -41,7 +42,7 @@ Some media content: potentially video, audio, or subtitles.
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["createdAt", "title"],
+        "required": ["createdAt", "title", "source"],
         "properties": {
           "createdAt": {
             "type": "string",
@@ -59,8 +60,17 @@ Some media content: potentially video, audio, or subtitles.
           },
           "source": {
             "type": "union",
-            "refs": ["place.stream.media.defs#sourceTracks"],
+            "refs": [
+              "place.stream.media.defs#sourceTracks",
+              "place.stream.media.defs#sourceClip"
+            ],
             "description": "The canonical source of this video, either some media tracks or a clip from another video."
+          },
+          "thumb": {
+            "description": "Thumbnail image for the video.",
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 1000000
           }
         }
       }

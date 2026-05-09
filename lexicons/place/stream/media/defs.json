@@ -17,6 +17,26 @@
         }
       }
     },
+    "sourceClip": {
+      "type": "object",
+      "description": "An object representing that this video's source is a clip from another video.",
+      "required": ["video", "start", "end"],
+      "properties": {
+        "video": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "AT URI of the video we're clipping."
+        },
+        "start": {
+          "type": "integer",
+          "description": "Start time of the clip in milliseconds."
+        },
+        "end": {
+          "type": "integer",
+          "description": "End time of the clip in milliseconds."
+        }
+      }
+    },
     "muxlTrack": {
       "type": "object",
       "description": "A track backed by a MUXL container",

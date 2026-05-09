@@ -8,7 +8,7 @@
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["createdAt", "title"],
+        "required": ["createdAt", "title", "source"],
         "properties": {
           "createdAt": {
             "type": "string",
@@ -26,8 +26,17 @@
           },
           "source": {
             "type": "union",
-            "refs": ["place.stream.media.defs#sourceTracks"],
+            "refs": [
+              "place.stream.media.defs#sourceTracks",
+              "place.stream.media.defs#sourceClip"
+            ],
             "description": "The canonical source of this video, either some media tracks or a clip from another video."
+          },
+          "thumb": {
+            "description": "Thumbnail image for the video.",
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 1000000
           }
         }
       }

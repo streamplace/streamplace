@@ -23,6 +23,15 @@ type Config struct {
 	Region          string
 }
 
+// Recorder is an optional persistence hook for S3Uploader. RecordStart is
+// called when a new multipart upload begins; the returned id is passed back
+// to RecordComplete when the upload is finalized. Implementations should
+// tolerate nil contexts being passed.
+type Recorder interface {
+	RecordStart(ctx context.Context, userDID, bucket, key string, started time.Time) (id string, err error)
+	RecordComplete(ctx context.Context, id string, parts int32, size int64) error
+}
+
 // S3Uploader manages streaming multipart uploads to an S3-compatible endpoint.
 // Full fMP4 archives are fed via AddSegment. They are run through a muxl
 // Concatenator to strip duplicate init segments, then uploaded as a
@@ -33,26 +42,34 @@ type S3Uploader struct {
 	bucket       string
 	cutoverEvery time.Duration
 	keyPrefix    string // e.g. "did:plc:abc123/"
+	userDID      string
 	concat       *muxl.Concatenator
 	done         chan error
+	recorder     Recorder
 }
 
 // S3 requires each part except the last to be at least 5MB.
 const minPartSize = 5 * 1024 * 1024
 
 type activeUpload struct {
-	key      string
-	uploadID string
-	parts    []types.CompletedPart
-	partNum  int32
-	started  time.Time
-	buf      []byte // accumulates segments until we hit minPartSize
+	key       string
+	uploadID  string
+	recordID  string // set by Recorder.RecordStart, used for RecordComplete
+	parts     []types.CompletedPart
+	partNum   int32
+	started   time.Time
+	buf       []byte // accumulates segments until we hit minPartSize
+	totalSize int64  // running total of bytes flushed across all parts
 }
 
+var DefaultCutoverEvery = 10 * time.Minute
+
 // NewS3Uploader creates a new S3Uploader. keyPrefix is prepended to every
-// object key (typically the streamer DID + "/"). Starts the muxl Concatenator
-// and a background goroutine that reads processed segments and uploads them.
-func NewS3Uploader(cfg Config, keyPrefix string, cutoverEvery time.Duration) *S3Uploader {
+// object key (typically the streamer DID + "/"). userDID is passed through
+// to the Recorder so uploads can be attributed to a user. recorder may be
+// nil to disable persistence. Starts the muxl Concatenator and a background
+// goroutine that reads processed segments and uploads them.
+func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
 	ctx := context.Background()
 	client := s3.New(s3.Options{
 		Region: cfg.Region,
@@ -65,7 +82,7 @@ func NewS3Uploader(cfg Config, keyPrefix string, cutoverEvery time.Duration) *S3
 		UsePathStyle: true,
 	})
 	if cutoverEvery == 0 {
-		cutoverEvery = time.Minute
+		cutoverEvery = DefaultCutoverEvery
 	}
 	concat := muxl.NewConcatenator(ctx)
 	u := &S3Uploader{
@@ -73,8 +90,10 @@ func NewS3Uploader(cfg Config, keyPrefix string, cutoverEvery time.Duration) *S3
 		bucket:       cfg.Bucket,
 		cutoverEvery: cutoverEvery,
 		keyPrefix:    keyPrefix,
+		userDID:      userDID,
 		concat:       concat,
 		done:         make(chan error, 1),
+		recorder:     recorder,
 	}
 	go u.uploadLoop(ctx)
 	return u
@@ -123,6 +142,13 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			uploadID: *resp.UploadId,
 			started:  now,
 		}
+		if u.recorder != nil {
+			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, now)
+			if recErr != nil {
+				log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
+			}
+			current.recordID = id
+		}
 		// Prepend init segment to the buffer so the file starts valid
 		if initSeg != nil {
 			current.buf = append(current.buf, initSeg...)
@@ -153,6 +179,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			ETag:       resp.ETag,
 			PartNumber: aws.Int32(partNum),
 		})
+		current.totalSize += int64(len(current.buf))
 		current.buf = current.buf[:0]
 		return nil
 	}
@@ -187,7 +214,12 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if err != nil {
 			return fmt.Errorf("completing multipart upload %s: %w", current.key, err)
 		}
-		log.Log(ctx, "completed S3 multipart upload", "key", current.key, "parts", len(current.parts))
+		log.Log(ctx, "completed S3 multipart upload", "key", current.key, "parts", len(current.parts), "size", current.totalSize)
+		if u.recorder != nil && current.recordID != "" {
+			if recErr := u.recorder.RecordComplete(ctx, current.recordID, int32(len(current.parts)), current.totalSize); recErr != nil {
+				log.Error(ctx, "recording S3 upload completion", "key", current.key, "error", recErr)
+			}
+		}
 		current = nil
 		return nil
 	}

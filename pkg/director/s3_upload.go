@@ -21,7 +21,7 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 		Region:          ss.cli.S3Region,
 	}
 	keyPrefix := repoDID + "/"
-	ss.s3Uploader = s3.NewS3Uploader(cfg, keyPrefix, time.Minute)
+	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, time.Minute, ss.statefulDB)
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint)
 }
 

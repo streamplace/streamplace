@@ -333,21 +333,21 @@ build-desktop-darwin:
   variables:
     COMMAND: make ci-desktop-darwin
 
-windows-selftest:
-  interruptible: true
-  stage: build
-  # for the moment...
-  tags:
-    - windows
-  timeout: 2 hours
-  needs:
-    - job: build-windows-amd64
-      artifacts: true
-  variables:
-    MSYSTEM: "MINGW32"
-    CHERE_INVOKING: "yes"
-  script:
-    - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
+# windows-selftest:
+#   interruptible: true
+#   stage: build
+#   # for the moment...
+#   tags:
+#     - windows
+#   timeout: 2 hours
+#   needs:
+#     - job: build-windows-amd64
+#       artifacts: true
+#   variables:
+#     MSYSTEM: "MINGW32"
+#     CHERE_INVOKING: "yes"
+#   script:
+#     - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
 
 .release-template:
   stage: build

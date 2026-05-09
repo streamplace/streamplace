@@ -36,6 +36,10 @@ RUN apt update \
   libc6:arm64 libstdc++6:arm64 \
   cmake libssl-dev libssl-dev:arm64 \
   ruby-rubygems postgresql sudo \
+  xvfb libgtk-3-0 libnss3 libasound2 libgbm1 libxkbcommon0 libdrm2 \
+  libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxshmfence1 \
+  libpango-1.0-0 libcairo2 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+  libxss1 libxtst6 libsecret-1-0 libnotify4 libatspi2.0-0 \
   && pip install meson tomli \
   && curl -L --fail https://go.dev/dl/go$GO_VERSION.linux-$TARGETARCH.tar.gz -o go.tar.gz \
   && tar -C /usr/local -xf go.tar.gz \

@@ -213,6 +213,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	handleIncomingStream := func(w http.ResponseWriter, httpReq *http.Request, p httprouter.Params) {
+		reqCtx := httpReq.Context()
 		var r io.Reader = httpReq.Body
 		key := p.ByName("key")
 		limitStr := httpReq.URL.Query().Get("ratelimit")
@@ -225,7 +226,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			bucket := ratelimit.NewBucketWithRate(float64(limit), int64(limit)) // 2 Mbps
 			r = ratelimit.Reader(r, bucket)
 		}
-		log.Log(ctx, "stream start")
+		log.Log(reqCtx, "stream start")
 
 		var mediaSigner media.MediaSigner
 		var ok bool
@@ -237,34 +238,34 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			mediaSigner, ok = a.SignerCache[parts[0]]
 			a.SignerCacheMu.Unlock()
 			if !ok {
-				log.Error(ctx, "couldn't find key in cache", "part", parts[0], "key", key)
+				log.Error(reqCtx, "couldn't find key in cache", "part", parts[0], "key", key)
 				errors.WriteHTTPUnauthorized(w, "invalid authorization key", nil)
 				return
 			}
 		} else {
-			mediaSigner, err = a.MakeMediaSigner(ctx, key)
+			mediaSigner, err = a.MakeMediaSigner(reqCtx, key)
 			if err != nil {
 				errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
 				return
 			}
 		}
 
-		ctx = log.WithLogValues(ctx, "streamer", mediaSigner.Streamer())
+		reqCtx = log.WithLogValues(reqCtx, "streamer", mediaSigner.Streamer())
 
-		err = a.checkBanned(ctx, mediaSigner.Streamer())
+		err = a.checkBanned(reqCtx, mediaSigner.Streamer())
 		if err != nil {
 			errors.WriteHTTPUnauthorized(w, err.Error(), err)
 			return
 		}
 
-		err = a.MediaManager.MKVIngest(ctx, r, mediaSigner)
+		err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)
 
 		if err != nil {
-			log.Log(ctx, "stream error", "error", err)
+			log.Log(reqCtx, "stream error", "error", err)
 			errors.WriteHTTPInternalServerError(w, "stream error", err)
 			return
 		}
-		log.Log(ctx, "stream success", "url", httpReq.URL.String())
+		log.Log(reqCtx, "stream success", "url", httpReq.URL.String())
 	}
 
 	// route to accept an incoming mkv stream from OBS, segment it, and push the segments back to this HTTP handler
@@ -506,22 +507,23 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	})
 
 	router.POST("/replay/:streamKey", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		reqCtx := r.Context()
 		key := p.ByName("streamKey")
 		if key == "" {
 			errors.WriteHTTPBadRequest(w, "streamKey required", nil)
 			return
 		}
-		mediaSigner, err := a.MakeMediaSigner(ctx, key)
+		mediaSigner, err := a.MakeMediaSigner(reqCtx, key)
 		if err != nil {
 			errors.WriteHTTPUnauthorized(w, "invalid authorization key", err)
 			return
 		}
-		pc, err := rtcrec.NewReplayPeerConnection(ctx, r.Body)
+		pc, err := rtcrec.NewReplayPeerConnection(reqCtx, r.Body)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to create replay peer connection", err)
 			return
 		}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &webrtc.SessionDescription{SDP: "placeholder"}, mediaSigner, pc, make(chan error, 1))
+		answer, err := a.MediaManager.WebRTCIngest(reqCtx, &webrtc.SessionDescription{SDP: "placeholder"}, mediaSigner, pc, make(chan error, 1))
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to ingest web rtc", err)
 			return
@@ -529,7 +531,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		w.WriteHeader(200)
 		if _, err := w.Write([]byte(answer.SDP)); err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to write response", err)
-			log.Error(ctx, "error writing response", "error", err)
+			log.Error(reqCtx, "error writing response", "error", err)
 		}
 	})
 

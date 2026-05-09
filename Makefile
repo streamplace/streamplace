@@ -388,6 +388,13 @@ go-lexicons:
 	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
 	&& $(MAKE) lexgen-types \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
+	&& echo 'package streamplace' > pkg/streamplace/cbor_gen.go \
+    && echo 'import "io"' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
 	&& go run ./pkg/gen/gen_stubs.go \
 	&& go run ./pkg/gen/gen.go \

@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.media.track",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An additional track for a video stream.",
+      "key": "tid",
+      "record": {
+        "required": ["video", "track"],
+        "type": "object",
+        "properties": {
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The video that this track is associated with."
+          },
+          "track": {
+            "type": "union",
+            "refs": ["place.stream.media.defs#muxlTrack"]
+          }
+        }
+      }
+    }
+  }
+}

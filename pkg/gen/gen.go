@@ -44,6 +44,11 @@ func main() {
 		streamplace.BadgeIssuance{},
 		streamplace.Defs_ActivityGame{},
 		streamplace.Defs_ActivityLabel{},
+		streamplace.Video{},
+		streamplace.MediaTrack{},
+		streamplace.MediaDefs_Blob{},
+		streamplace.MediaDefs_MuxlTrack{},
+		streamplace.MediaDefs_SourceTracks{},
 	); err != nil {
 		panic(err)
 	}

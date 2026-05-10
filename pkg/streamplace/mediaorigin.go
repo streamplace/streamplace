@@ -6,12 +6,12 @@ package streamplace
 
 // MediaOrigin is a "main" in the place.stream.media.origin schema.
 //
-// A MUXL blob in one of the MUXL-supported formats.
+// A record indicating that a MUXL blob is available for download somewhere.
 type MediaOrigin struct {
-	// muxlType: MUXL type of the archive (mp4, fmp4).
-	MuxlType string `json:"muxlType" cborgen:"muxlType"`
-	// ref: BLAKE-3 content hash (BDASL CID) of the archive.
-	Ref string `json:"ref" cborgen:"ref"`
+	// blob: BLAKE-3 content hash (BDASL CID) of the source video segment.
+	Blob string `json:"blob" cborgen:"blob"`
+	// mimeType: MIME type of the file (e.g. video/mp4).
+	MimeType string `json:"mimeType" cborgen:"mimeType"`
 	// size: Size of the file in bytes.
 	Size int64 `json:"size" cborgen:"size"`
 }

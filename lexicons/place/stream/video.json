@@ -4,21 +4,16 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Some media content: potentially video, audio, or subtitles.",
+      "description": "Some media content: potentially video, audio, or subtitles. This record is intentionally minimal so that metadata can be altered without breaking strongRefs. For the stream's title and description and whatnot, check the `place.stream.metadata.video` with the tid matching this video.",
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["createdAt", "title", "source"],
+        "required": ["createdAt", "source", "duration"],
         "properties": {
           "createdAt": {
             "type": "string",
             "format": "datetime",
             "description": "Time this video was created."
-          },
-          "title": {
-            "type": "string",
-            "maxLength": 1400,
-            "maxGraphemes": 140
           },
           "duration": {
             "type": "integer",
@@ -31,12 +26,6 @@
               "place.stream.media.defs#sourceClip"
             ],
             "description": "The canonical source of this video, either some media tracks or a clip from another video."
-          },
-          "thumb": {
-            "description": "Thumbnail image for the video.",
-            "type": "blob",
-            "accept": ["image/*"],
-            "maxSize": 1000000
           }
         }
       }

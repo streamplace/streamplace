@@ -46,10 +46,11 @@ func main() {
 		streamplace.Defs_ActivityLabel{},
 		streamplace.Video{},
 		streamplace.MediaTrack{},
-		streamplace.MediaDefs_Blob{},
 		streamplace.MediaDefs_MuxlTrack{},
 		streamplace.MediaDefs_SourceTracks{},
 		streamplace.MediaDefs_SourceClip{},
+		streamplace.MetadataVideo{},
+		streamplace.MetadataVideo_Connection{},
 	); err != nil {
 		panic(err)
 	}

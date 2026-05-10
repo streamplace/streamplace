@@ -13,15 +13,15 @@ description: Reference for the place.stream.media.origin lexicon
 
 **Type:** `object`
 
-A MUXL blob in one of the MUXL-supported formats.
+A record indicating that a MUXL blob is available for download somewhere.
 
 **Properties:**
 
-| Name       | Type      | Req'd | Description                                      | Constraints |
-| ---------- | --------- | ----- | ------------------------------------------------ | ----------- |
-| `ref`      | `string`  | ✅    | BLAKE-3 content hash (BDASL CID) of the archive. |             |
-| `muxlType` | `string`  | ✅    | MUXL type of the archive (mp4, fmp4).            |             |
-| `size`     | `integer` | ✅    | Size of the file in bytes.                       |             |
+| Name       | Type      | Req'd | Description                                                   | Constraints |
+| ---------- | --------- | ----- | ------------------------------------------------------------- | ----------- |
+| `blob`     | `string`  | ✅    | BLAKE-3 content hash (BDASL CID) of the source video segment. |             |
+| `size`     | `integer` | ✅    | Size of the file in bytes.                                    |             |
+| `mimeType` | `string`  | ✅    | MIME type of the file (e.g. video/mp4).                       |             |
 
 ---
 
@@ -34,20 +34,20 @@ A MUXL blob in one of the MUXL-supported formats.
   "defs": {
     "main": {
       "type": "object",
-      "description": "A MUXL blob in one of the MUXL-supported formats.",
-      "required": ["ref", "muxlType", "size"],
+      "description": "A record indicating that a MUXL blob is available for download somewhere.",
+      "required": ["blob", "size", "mimeType"],
       "properties": {
-        "ref": {
+        "blob": {
           "type": "string",
-          "description": "BLAKE-3 content hash (BDASL CID) of the archive."
-        },
-        "muxlType": {
-          "type": "string",
-          "description": "MUXL type of the archive (mp4, fmp4)."
+          "description": "BLAKE-3 content hash (BDASL CID) of the source video segment."
         },
         "size": {
           "type": "integer",
           "description": "Size of the file in bytes."
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type of the file (e.g. video/mp4)."
         }
       }
     }

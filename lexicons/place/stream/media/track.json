@@ -4,20 +4,20 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "An additional track for a video stream.",
+      "description": "A track for a video stream, either part of the source or a custom additional track.",
       "key": "tid",
       "record": {
-        "required": ["video", "track"],
+        "required": ["track"],
         "type": "object",
         "properties": {
-          "video": {
-            "type": "string",
-            "format": "at-uri",
-            "description": "The video that this track is associated with."
-          },
           "track": {
             "type": "union",
             "refs": ["place.stream.media.defs#muxlTrack"]
+          },
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The video that this track is associated with, if this track is not part of the source."
           }
         }
       }

@@ -396,6 +396,8 @@ go-lexicons:
     && echo 'func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
     && echo 'func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
     && echo 'func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MetadataVideo_Connection) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MetadataVideo_Connection) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
 	&& go run ./pkg/gen/gen_stubs.go \

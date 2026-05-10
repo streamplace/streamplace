@@ -10,32 +10,24 @@ import (
 	"fmt"
 	"io"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
-
-// MediaDefs_Blob is a "blob" in the place.stream.media.defs schema.
-//
-// A MUXL blob in one of the MUXL-supported formats.
-type MediaDefs_Blob struct {
-	// muxlType: MUXL type of the archive (mp4, fmp4).
-	MuxlType string `json:"muxlType" cborgen:"muxlType"`
-	// ref: BLAKE-3 content hash (BDASL CID) of the archive.
-	Ref string `json:"ref" cborgen:"ref"`
-	// size: Size of the file in bytes.
-	Size int64 `json:"size" cborgen:"size"`
-}
 
 // MediaDefs_MuxlTrack is a "muxlTrack" in the place.stream.media.defs schema.
 //
 // A track backed by a MUXL container
 type MediaDefs_MuxlTrack struct {
-	LexiconTypeID string          `json:"$type" cborgen:"$type,const=place.stream.media.defs#muxlTrack"`
-	Blob          *MediaDefs_Blob `json:"blob" cborgen:"blob"`
-	// trackId: ID of the track within the MUXL container.
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.defs#muxlTrack"`
+	// blob: BLAKE-3 content hash (BDASL CID) of the source video segment.
+	Blob string `json:"blob" cborgen:"blob"`
+	// language: Language of the track, if applicable.
+	Language *string `json:"language,omitempty" cborgen:"language,omitempty"`
+	// mediaType: Type of the track: video, audio, or text.
+	MediaType string `json:"mediaType" cborgen:"mediaType"`
+	// trackId: ID of the track within the MUXL container. 1-indexed for MP4 reasons.
 	TrackId string `json:"trackId" cborgen:"trackId"`
-	// type: Type of the track: video, audio, or text.
-	Type string `json:"type" cborgen:"type"`
 }
 
 // MediaDefs_SourceClip is a "sourceClip" in the place.stream.media.defs schema.
@@ -61,13 +53,13 @@ type MediaDefs_SourceTracks struct {
 }
 
 type MediaDefs_SourceTracks_Tracks_Elem struct {
-	MediaDefs_MuxlTrack *MediaDefs_MuxlTrack
+	RepoStrongRef *comatproto.RepoStrongRef
 }
 
 func (t *MediaDefs_SourceTracks_Tracks_Elem) MarshalJSON() ([]byte, error) {
-	if t.MediaDefs_MuxlTrack != nil {
-		t.MediaDefs_MuxlTrack.LexiconTypeID = "place.stream.media.defs#muxlTrack"
-		return json.Marshal(t.MediaDefs_MuxlTrack)
+	if t.RepoStrongRef != nil {
+		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
+		return json.Marshal(t.RepoStrongRef)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -79,9 +71,9 @@ func (t *MediaDefs_SourceTracks_Tracks_Elem) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "place.stream.media.defs#muxlTrack":
-		t.MediaDefs_MuxlTrack = new(MediaDefs_MuxlTrack)
-		return json.Unmarshal(b, t.MediaDefs_MuxlTrack)
+	case "com.atproto.repo.strongRef":
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
+		return json.Unmarshal(b, t.RepoStrongRef)
 	default:
 		return nil
 	}
@@ -93,8 +85,8 @@ func (t *MediaDefs_SourceTracks_Tracks_Elem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if t.MediaDefs_MuxlTrack != nil {
-		return t.MediaDefs_MuxlTrack.MarshalCBOR(w)
+	if t.RepoStrongRef != nil {
+		return t.RepoStrongRef.MarshalCBOR(w)
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
@@ -106,9 +98,9 @@ func (t *MediaDefs_SourceTracks_Tracks_Elem) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	switch typ {
-	case "place.stream.media.defs#muxlTrack":
-		t.MediaDefs_MuxlTrack = new(MediaDefs_MuxlTrack)
-		return t.MediaDefs_MuxlTrack.UnmarshalCBOR(bytes.NewReader(b))
+	case "com.atproto.repo.strongRef":
+		t.RepoStrongRef = new(comatproto.RepoStrongRef)
+		return t.RepoStrongRef.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

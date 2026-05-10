@@ -21,8 +21,8 @@ func init() {
 type MediaTrack struct {
 	LexiconTypeID string            `json:"$type" cborgen:"$type,const=place.stream.media.track"`
 	Track         *MediaTrack_Track `json:"track" cborgen:"track"`
-	// video: The video that this track is associated with.
-	Video string `json:"video" cborgen:"video"`
+	// video: The video that this track is associated with, if this track is not part of the source.
+	Video *string `json:"video,omitempty" cborgen:"video,omitempty"`
 }
 
 type MediaTrack_Track struct {

@@ -23,12 +23,9 @@ type Video struct {
 	// createdAt: Time this video was created.
 	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// duration: Total duration of the video in milliseconds.
-	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
+	Duration int64 `json:"duration" cborgen:"duration"`
 	// source: The canonical source of this video, either some media tracks or a clip from another video.
 	Source *Video_Source `json:"source" cborgen:"source"`
-	// thumb: Thumbnail image for the video.
-	Thumb *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
-	Title string           `json:"title" cborgen:"title"`
 }
 
 // The canonical source of this video, either some media tracks or a clip from another video.

@@ -13,16 +13,16 @@ description: Reference for the place.stream.media.track lexicon
 
 **Type:** `record`
 
-An additional track for a video stream.
+A track for a video stream, either part of the source or a custom additional track.
 
 **Record Key:** `tid`
 
 **Record Properties:**
 
-| Name    | Type                                                                                                              | Req'd | Description                                   | Constraints      |
-| ------- | ----------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------- | ---------------- |
-| `video` | `string`                                                                                                          | ✅    | The video that this track is associated with. | Format: `at-uri` |
-| `track` | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack) | ✅    |                                               |                  |
+| Name    | Type                                                                                                              | Req'd | Description                                                                            | Constraints      |
+| ------- | ----------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------- | ---------------- |
+| `track` | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack) | ✅    |                                                                                        |                  |
+| `video` | `string`                                                                                                          | ❌    | The video that this track is associated with, if this track is not part of the source. | Format: `at-uri` |
 
 ---
 
@@ -35,20 +35,20 @@ An additional track for a video stream.
   "defs": {
     "main": {
       "type": "record",
-      "description": "An additional track for a video stream.",
+      "description": "A track for a video stream, either part of the source or a custom additional track.",
       "key": "tid",
       "record": {
-        "required": ["video", "track"],
+        "required": ["track"],
         "type": "object",
         "properties": {
-          "video": {
-            "type": "string",
-            "format": "at-uri",
-            "description": "The video that this track is associated with."
-          },
           "track": {
             "type": "union",
             "refs": ["place.stream.media.defs#muxlTrack"]
+          },
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The video that this track is associated with, if this track is not part of the source."
           }
         }
       }

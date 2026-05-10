@@ -17,9 +17,9 @@ A collection of tracks representing the canonical source of a video.
 
 **Properties:**
 
-| Name     | Type                                                                                                                       | Req'd | Description                                                    | Constraints |
-| -------- | -------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------- |
-| `tracks` | Array of Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack) | ✅    | The canonical list of tracks specifying the source of a video. |             |
+| Name     | Type                                                                                                                                                                      | Req'd | Description                                                    | Constraints |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------- |
+| `tracks` | Array of Union of:<br/>&nbsp;&nbsp;[`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ✅    | The canonical list of tracks specifying the source of a video. |             |
 
 ---
 
@@ -51,29 +51,12 @@ A track backed by a MUXL container
 
 **Properties:**
 
-| Name      | Type                                                                          | Req'd | Description                                | Constraints |
-| --------- | ----------------------------------------------------------------------------- | ----- | ------------------------------------------ | ----------- |
-| `blob`    | [`place.stream.media.defs#blob`](/lex-reference/place-stream-media-defs#blob) | ✅    |                                            |             |
-| `trackId` | `string`                                                                      | ✅    | ID of the track within the MUXL container. |             |
-| `type`    | `string`                                                                      | ✅    | Type of the track: video, audio, or text.  |             |
-
----
-
-<a name="blob"></a>
-
-### `blob`
-
-**Type:** `object`
-
-A MUXL blob in one of the MUXL-supported formats.
-
-**Properties:**
-
-| Name       | Type      | Req'd | Description                                      | Constraints |
-| ---------- | --------- | ----- | ------------------------------------------------ | ----------- |
-| `ref`      | `string`  | ✅    | BLAKE-3 content hash (BDASL CID) of the archive. |             |
-| `muxlType` | `string`  | ✅    | MUXL type of the archive (mp4, fmp4).            |             |
-| `size`     | `integer` | ✅    | Size of the file in bytes.                       |             |
+| Name        | Type     | Req'd | Description                                                           | Constraints |
+| ----------- | -------- | ----- | --------------------------------------------------------------------- | ----------- |
+| `blob`      | `string` | ✅    | BLAKE-3 content hash (BDASL CID) of the source video segment.         |             |
+| `trackId`   | `string` | ✅    | ID of the track within the MUXL container. 1-indexed for MP4 reasons. |             |
+| `mediaType` | `string` | ✅    | Type of the track: video, audio, or text.                             |             |
+| `language`  | `string` | ❌    | Language of the track, if applicable.                                 |             |
 
 ---
 
@@ -94,7 +77,7 @@ A MUXL blob in one of the MUXL-supported formats.
           "description": "The canonical list of tracks specifying the source of a video.",
           "items": {
             "type": "union",
-            "refs": ["place.stream.media.defs#muxlTrack"]
+            "refs": ["com.atproto.repo.strongRef"]
           }
         }
       }
@@ -122,38 +105,23 @@ A MUXL blob in one of the MUXL-supported formats.
     "muxlTrack": {
       "type": "object",
       "description": "A track backed by a MUXL container",
-      "required": ["blob", "trackId", "type"],
+      "required": ["blob", "trackId", "mediaType"],
       "properties": {
         "blob": {
-          "type": "ref",
-          "ref": "place.stream.media.defs#blob"
+          "type": "string",
+          "description": "BLAKE-3 content hash (BDASL CID) of the source video segment."
         },
         "trackId": {
           "type": "string",
-          "description": "ID of the track within the MUXL container."
+          "description": "ID of the track within the MUXL container. 1-indexed for MP4 reasons."
         },
-        "type": {
+        "mediaType": {
           "type": "string",
           "description": "Type of the track: video, audio, or text."
-        }
-      }
-    },
-    "blob": {
-      "type": "object",
-      "description": "A MUXL blob in one of the MUXL-supported formats.",
-      "required": ["ref", "muxlType", "size"],
-      "properties": {
-        "ref": {
-          "type": "string",
-          "description": "BLAKE-3 content hash (BDASL CID) of the archive."
         },
-        "muxlType": {
+        "language": {
           "type": "string",
-          "description": "MUXL type of the archive (mp4, fmp4)."
-        },
-        "size": {
-          "type": "integer",
-          "description": "Size of the file in bytes."
+          "description": "Language of the track, if applicable."
         }
       }
     }

@@ -12,7 +12,7 @@
           "description": "The canonical list of tracks specifying the source of a video.",
           "items": {
             "type": "union",
-            "refs": ["place.stream.media.defs#muxlTrack"]
+            "refs": ["com.atproto.repo.strongRef"]
           }
         }
       }
@@ -40,38 +40,23 @@
     "muxlTrack": {
       "type": "object",
       "description": "A track backed by a MUXL container",
-      "required": ["blob", "trackId", "type"],
+      "required": ["blob", "trackId", "mediaType"],
       "properties": {
         "blob": {
-          "type": "ref",
-          "ref": "place.stream.media.defs#blob"
+          "type": "string",
+          "description": "BLAKE-3 content hash (BDASL CID) of the source video segment."
         },
         "trackId": {
           "type": "string",
-          "description": "ID of the track within the MUXL container."
+          "description": "ID of the track within the MUXL container. 1-indexed for MP4 reasons."
         },
-        "type": {
+        "mediaType": {
           "type": "string",
           "description": "Type of the track: video, audio, or text."
-        }
-      }
-    },
-    "blob": {
-      "type": "object",
-      "description": "A MUXL blob in one of the MUXL-supported formats.",
-      "required": ["ref", "muxlType", "size"],
-      "properties": {
-        "ref": {
-          "type": "string",
-          "description": "BLAKE-3 content hash (BDASL CID) of the archive."
         },
-        "muxlType": {
+        "language": {
           "type": "string",
-          "description": "MUXL type of the archive (mp4, fmp4)."
-        },
-        "size": {
-          "type": "integer",
-          "description": "Size of the file in bytes."
+          "description": "Language of the track, if applicable."
         }
       }
     }

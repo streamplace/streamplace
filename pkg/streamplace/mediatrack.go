@@ -20,12 +20,23 @@ func init() {
 }
 
 type MediaTrack struct {
-	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.track"`
+	LexiconTypeID string                     `json:"$type" cborgen:"$type,const=place.stream.media.track"`
+	Metadata      *MediaTrack_CommonMetadata `json:"metadata,omitempty" cborgen:"metadata,omitempty"`
 	// parentTrack: If this is a derived track like a transcode or a transcript, what was the parent track?
 	ParentTrack *comatproto.RepoStrongRef `json:"parentTrack,omitempty" cborgen:"parentTrack,omitempty"`
 	Track       *MediaTrack_Track         `json:"track" cborgen:"track"`
 	// video: If this is a derived track like a transcode or a transcript, what video did it come from?
 	Video *comatproto.RepoStrongRef `json:"video,omitempty" cborgen:"video,omitempty"`
+}
+
+// MediaTrack_CommonMetadata is a "commonMetadata" in the place.stream.media.track schema.
+//
+// Metadata common to all media types. Contains subobjects for other media types.
+type MediaTrack_CommonMetadata struct {
+	Audio *Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
+	// language: IETF BCP 47 language tag corresponding to the content of this track
+	Language *string        `json:"language,omitempty" cborgen:"language,omitempty"`
+	Video    *Segment_Video `json:"video,omitempty" cborgen:"video,omitempty"`
 }
 
 type MediaTrack_Track struct {

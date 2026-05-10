@@ -8329,7 +8329,11 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 4
+	fieldCount := 5
+
+	if t.Metadata == nil {
+		fieldCount--
+	}
 
 	if t.ParentTrack == nil {
 		fieldCount--
@@ -8393,6 +8397,25 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 		}
 
 		if err := t.Video.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Metadata (streamplace.MediaTrack_CommonMetadata) (struct)
+	if t.Metadata != nil {
+
+		if len("metadata") > 1000000 {
+			return xerrors.Errorf("Value in field \"metadata\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("metadata"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("metadata")); err != nil {
+			return err
+		}
+
+		if err := t.Metadata.MarshalCBOR(cw); err != nil {
 			return err
 		}
 	}
@@ -8506,6 +8529,26 @@ func (t *MediaTrack) UnmarshalCBOR(r io.Reader) (err error) {
 					t.Video = new(atproto.RepoStrongRef)
 					if err := t.Video.UnmarshalCBOR(cr); err != nil {
 						return xerrors.Errorf("unmarshaling t.Video pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Metadata (streamplace.MediaTrack_CommonMetadata) (struct)
+		case "metadata":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Metadata = new(MediaTrack_CommonMetadata)
+					if err := t.Metadata.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Metadata pointer: %w", err)
 					}
 				}
 
@@ -9883,6 +9926,216 @@ func (t *MetadataVideo_Connection) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.LexiconTypeID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+	fieldCount := 3
+
+	if t.Audio == nil {
+		fieldCount--
+	}
+
+	if t.Language == nil {
+		fieldCount--
+	}
+
+	if t.Video == nil {
+		fieldCount--
+	}
+
+	if _, err := cw.Write(cbg.CborEncodeMajorType(cbg.MajMap, uint64(fieldCount))); err != nil {
+		return err
+	}
+
+	// t.Audio (streamplace.Segment_Audio) (struct)
+	if t.Audio != nil {
+
+		if len("audio") > 1000000 {
+			return xerrors.Errorf("Value in field \"audio\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("audio"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("audio")); err != nil {
+			return err
+		}
+
+		if err := t.Audio.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Video (streamplace.Segment_Video) (struct)
+	if t.Video != nil {
+
+		if len("video") > 1000000 {
+			return xerrors.Errorf("Value in field \"video\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("video"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("video")); err != nil {
+			return err
+		}
+
+		if err := t.Video.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
+
+	// t.Language (string) (string)
+	if t.Language != nil {
+
+		if len("language") > 1000000 {
+			return xerrors.Errorf("Value in field \"language\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("language"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("language")); err != nil {
+			return err
+		}
+
+		if t.Language == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.Language) > 1000000 {
+				return xerrors.Errorf("Value in field t.Language was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Language))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.Language)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MediaTrack_CommonMetadata{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MediaTrack_CommonMetadata: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 8)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Audio (streamplace.Segment_Audio) (struct)
+		case "audio":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Audio = new(Segment_Audio)
+					if err := t.Audio.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Audio pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Video (streamplace.Segment_Video) (struct)
+		case "video":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Video = new(Segment_Video)
+					if err := t.Video.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Video pointer: %w", err)
+					}
+				}
+
+			}
+			// t.Language (string) (string)
+		case "language":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.Language = (*string)(&sval)
+				}
 			}
 
 		default:

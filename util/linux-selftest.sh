@@ -4,11 +4,13 @@ set -euo pipefail
 set -x
 
 # Electron refuses to run as root, so we sudo into a non-root user. Chromium
-# also wants a sandbox: K8s pod seccomp blocks the namespace sandbox, so we
+# also wants a sandbox: container seccomp blocks the namespace sandbox, so we
 # pass --no-sandbox. Note: no `--` separator before --self-test — index.ts
-# reads process.argv.slice(2), and a literal `--` would shift --self-test into
-# parseArgs's positional bucket and crash. Without `--`, Electron eats
-# --no-sandbox itself and --self-test lands in the right slot.
+# reads process.argv.slice(2), and any extra CLI flag (including `--`) would
+# shift --self-test past slot 2 and parseArgs would reject it. So Chromium-
+# tuning options have to come from the environment, not argv:
+#   LIBGL_ALWAYS_SOFTWARE=1 + GALLIUM_DRIVER=llvmpipe force Mesa software
+#   rendering, which in CI takes WebRTC playback from ~0% to ~97%.
 # Pre-extracting the AppImage also avoids needing FUSE inside the container.
 
 WORKDIR=/tmp/linux-selftest
@@ -26,5 +28,6 @@ chmod +x streamplace-desktop.AppImage
 chmod -R o+rX squashfs-root
 
 sudo -u testuser env AQD_NO_UPDATE=true HOME=/home/testuser \
+  LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
   xvfb-run -a --server-args="-screen 0 1280x1024x24" \
   ./squashfs-root/AppRun --no-sandbox --self-test

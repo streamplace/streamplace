@@ -8329,7 +8329,11 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 3
+	fieldCount := 4
+
+	if t.ParentTrack == nil {
+		fieldCount--
+	}
 
 	if t.Video == nil {
 		fieldCount--
@@ -8374,7 +8378,7 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Video (string) (string)
+	// t.Video (atproto.RepoStrongRef) (struct)
 	if t.Video != nil {
 
 		if len("video") > 1000000 {
@@ -8388,21 +8392,27 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 			return err
 		}
 
-		if t.Video == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if len(*t.Video) > 1000000 {
-				return xerrors.Errorf("Value in field t.Video was too long")
-			}
+		if err := t.Video.MarshalCBOR(cw); err != nil {
+			return err
+		}
+	}
 
-			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.Video))); err != nil {
-				return err
-			}
-			if _, err := cw.WriteString(string(*t.Video)); err != nil {
-				return err
-			}
+	// t.ParentTrack (atproto.RepoStrongRef) (struct)
+	if t.ParentTrack != nil {
+
+		if len("parentTrack") > 1000000 {
+			return xerrors.Errorf("Value in field \"parentTrack\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("parentTrack"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("parentTrack")); err != nil {
+			return err
+		}
+
+		if err := t.ParentTrack.MarshalCBOR(cw); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -8433,7 +8443,7 @@ func (t *MediaTrack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 5)
+	nameBuf := make([]byte, 11)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -8480,10 +8490,11 @@ func (t *MediaTrack) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 			}
-			// t.Video (string) (string)
+			// t.Video (atproto.RepoStrongRef) (struct)
 		case "video":
 
 			{
+
 				b, err := cr.ReadByte()
 				if err != nil {
 					return err
@@ -8492,14 +8503,32 @@ func (t *MediaTrack) UnmarshalCBOR(r io.Reader) (err error) {
 					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
+					t.Video = new(atproto.RepoStrongRef)
+					if err := t.Video.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Video pointer: %w", err)
+					}
+				}
 
-					sval, err := cbg.ReadStringWithMax(cr, 1000000)
-					if err != nil {
+			}
+			// t.ParentTrack (atproto.RepoStrongRef) (struct)
+		case "parentTrack":
+
+			{
+
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
 						return err
 					}
-
-					t.Video = (*string)(&sval)
+					t.ParentTrack = new(atproto.RepoStrongRef)
+					if err := t.ParentTrack.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.ParentTrack pointer: %w", err)
+					}
 				}
+
 			}
 
 		default:

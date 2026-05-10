@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -19,10 +20,12 @@ func init() {
 }
 
 type MediaTrack struct {
-	LexiconTypeID string            `json:"$type" cborgen:"$type,const=place.stream.media.track"`
-	Track         *MediaTrack_Track `json:"track" cborgen:"track"`
-	// video: The video that this track is associated with, if this track is not part of the source.
-	Video *string `json:"video,omitempty" cborgen:"video,omitempty"`
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.track"`
+	// parentTrack: If this is a derived track like a transcode or a transcript, what was the parent track?
+	ParentTrack *comatproto.RepoStrongRef `json:"parentTrack,omitempty" cborgen:"parentTrack,omitempty"`
+	Track       *MediaTrack_Track         `json:"track" cborgen:"track"`
+	// video: If this is a derived track like a transcode or a transcript, what video did it come from?
+	Video *comatproto.RepoStrongRef `json:"video,omitempty" cborgen:"video,omitempty"`
 }
 
 type MediaTrack_Track struct {

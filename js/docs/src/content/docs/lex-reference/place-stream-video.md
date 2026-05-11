@@ -13,17 +13,36 @@ description: Reference for the place.stream.video lexicon
 
 **Type:** `record`
 
-Some media content: potentially video, audio, or subtitles. This record is intentionally minimal so that metadata can be altered without breaking strongRefs. For the stream's title and description and whatnot, check the `place.stream.metadata.video` with the tid matching this video.
+Metadata for a place.stream.video record. By convention the video and the metadata shall have the same tid.
 
 **Record Key:** `tid`
 
 **Record Properties:**
 
-| Name        | Type                                                                                                                                                                                                                              | Req'd | Description                                                                                | Constraints        |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------ | ------------------ |
-| `createdAt` | `string`                                                                                                                                                                                                                          | ✅    | Time this video was created.                                                               | Format: `datetime` |
-| `duration`  | `integer`                                                                                                                                                                                                                         | ✅    | Total duration of the video in milliseconds.                                               |                    |
-| `source`    | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ✅    | The canonical source of this video, either some media tracks or a clip from another video. |                    |
+| Name                | Type                                                                                                                                                                                                            | Req'd | Description                                                                                                                                                                                       | Constraints                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `title`             | `string`                                                                                                                                                                                                        | ✅    | Title of the video referenced by this record                                                                                                                                                      | Max Length: 1400<br/>Max Graphemes: 140       |
+| `description`       | `string`                                                                                                                                                                                                        | ❌    | Description of this video                                                                                                                                                                         | Max Length: 50000<br/>Max Graphemes: 5000     |
+| `descriptionFacets` | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet)                                                                                                                            | ❌    | Annotations of text (mentions, URLs, etc)                                                                                                                                                         |                                               |
+| `thumb`             | `blob`                                                                                                                                                                                                          | ❌    | Thumbnail image for the video.                                                                                                                                                                    | Accept: `image/*`<br/>Max Size: 1000000 bytes |
+| `connections`       | Array of Union of:<br/>&nbsp;&nbsp;[`#connection`](#connection)                                                                                                                                                 | ❌    | Free-form list of atproto records related in some way to this video                                                                                                                               |                                               |
+| `contentPolicy`     | [`place.stream.metadata.configuration`](/lex-reference/place-stream-metadata-configuration)                                                                                                                     | ❌    | copyright, distribution, and content warning data                                                                                                                                                 |                                               |
+| `activity`          | Union of:<br/>&nbsp;&nbsp;[`place.stream.defs#activityGame`](/lex-reference/place-stream-defs#activitygame)<br/>&nbsp;&nbsp;[`place.stream.defs#activityLabel`](/lex-reference/place-stream-defs#activitylabel) | ❌    | The game or activity in the video.                                                                                                                                                                |                                               |
+| `tags`              | Array of `string`                                                                                                                                                                                               | ❌    | Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language). | Max Items: 10                                 |
+
+---
+
+<a name="connection"></a>
+
+### `connection`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name  | Type                                                                                                                                   | Req'd | Description | Constraints |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
+| `ref` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    |             |             |
 
 ---
 
@@ -36,29 +55,78 @@ Some media content: potentially video, audio, or subtitles. This record is inten
   "defs": {
     "main": {
       "type": "record",
-      "description": "Some media content: potentially video, audio, or subtitles. This record is intentionally minimal so that metadata can be altered without breaking strongRefs. For the stream's title and description and whatnot, check the `place.stream.metadata.video` with the tid matching this video.",
+      "description": "Metadata for a place.stream.video record. By convention the video and the metadata shall have the same tid.",
       "key": "tid",
       "record": {
+        "required": ["title"],
         "type": "object",
-        "required": ["createdAt", "source", "duration"],
         "properties": {
-          "createdAt": {
+          "title": {
             "type": "string",
-            "format": "datetime",
-            "description": "Time this video was created."
+            "maxLength": 1400,
+            "maxGraphemes": 140,
+            "description": "Title of the video referenced by this record"
           },
-          "duration": {
-            "type": "integer",
-            "description": "Total duration of the video in milliseconds."
+          "description": {
+            "type": "string",
+            "maxLength": 50000,
+            "maxGraphemes": 5000,
+            "description": "Description of this video"
           },
-          "source": {
+          "descriptionFacets": {
+            "type": "array",
+            "description": "Annotations of text (mentions, URLs, etc)",
+            "items": {
+              "type": "ref",
+              "ref": "place.stream.richtext.facet"
+            }
+          },
+          "thumb": {
+            "description": "Thumbnail image for the video.",
+            "type": "blob",
+            "accept": ["image/*"],
+            "maxSize": 1000000
+          },
+          "connections": {
+            "type": "array",
+            "description": "Free-form list of atproto records related in some way to this video",
+            "items": {
+              "type": "union",
+              "refs": ["#connection"]
+            }
+          },
+          "contentPolicy": {
+            "description": "copyright, distribution, and content warning data",
+            "type": "ref",
+            "ref": "place.stream.metadata.configuration"
+          },
+          "activity": {
             "type": "union",
+            "description": "The game or activity in the video.",
             "refs": [
-              "place.stream.media.defs#sourceTracks",
-              "place.stream.media.defs#sourceClip"
-            ],
-            "description": "The canonical source of this video, either some media tracks or a clip from another video."
+              "place.stream.defs#activityGame",
+              "place.stream.defs#activityLabel"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "description": "Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 640,
+              "maxGraphemes": 64
+            }
           }
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
         }
       }
     }

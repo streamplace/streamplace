@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -20,78 +21,148 @@ func init() {
 
 type Video struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.video"`
-	// createdAt: Time this video was created.
-	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
-	// duration: Total duration of the video in milliseconds.
-	Duration int64 `json:"duration" cborgen:"duration"`
-	// source: The canonical source of this video, either some media tracks or a clip from another video.
-	Source *Video_Source `json:"source" cborgen:"source"`
+	// activity: The game or activity in the video.
+	Activity *Video_Activity `json:"activity,omitempty" cborgen:"activity,omitempty"`
+	// connections: Free-form list of atproto records related in some way to this video
+	Connections []*Video_Connections_Elem `json:"connections,omitempty" cborgen:"connections,omitempty"`
+	// contentPolicy: copyright, distribution, and content warning data
+	ContentPolicy *MetadataConfiguration `json:"contentPolicy,omitempty" cborgen:"contentPolicy,omitempty"`
+	// description: Description of this video
+	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
+	// descriptionFacets: Annotations of text (mentions, URLs, etc)
+	DescriptionFacets []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
+	Tags []string `json:"tags,omitempty" cborgen:"tags,omitempty"`
+	// thumb: Thumbnail image for the video.
+	Thumb *lexutil.LexBlob `json:"thumb,omitempty" cborgen:"thumb,omitempty"`
+	// title: Title of the video referenced by this record
+	Title string `json:"title" cborgen:"title"`
 }
 
-// The canonical source of this video, either some media tracks or a clip from another video.
-type Video_Source struct {
-	MediaDefs_SourceTracks *MediaDefs_SourceTracks
-	MediaDefs_SourceClip   *MediaDefs_SourceClip
+// The game or activity in the video.
+type Video_Activity struct {
+	Defs_ActivityGame  *Defs_ActivityGame
+	Defs_ActivityLabel *Defs_ActivityLabel
 }
 
-func (t *Video_Source) MarshalJSON() ([]byte, error) {
-	if t.MediaDefs_SourceTracks != nil {
-		t.MediaDefs_SourceTracks.LexiconTypeID = "place.stream.media.defs#sourceTracks"
-		return json.Marshal(t.MediaDefs_SourceTracks)
+func (t *Video_Activity) MarshalJSON() ([]byte, error) {
+	if t.Defs_ActivityGame != nil {
+		t.Defs_ActivityGame.LexiconTypeID = "place.stream.defs#activityGame"
+		return json.Marshal(t.Defs_ActivityGame)
 	}
-	if t.MediaDefs_SourceClip != nil {
-		t.MediaDefs_SourceClip.LexiconTypeID = "place.stream.media.defs#sourceClip"
-		return json.Marshal(t.MediaDefs_SourceClip)
+	if t.Defs_ActivityLabel != nil {
+		t.Defs_ActivityLabel.LexiconTypeID = "place.stream.defs#activityLabel"
+		return json.Marshal(t.Defs_ActivityLabel)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
 
-func (t *Video_Source) UnmarshalJSON(b []byte) error {
+func (t *Video_Activity) UnmarshalJSON(b []byte) error {
 	typ, err := lexutil.TypeExtract(b)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
-	case "place.stream.media.defs#sourceTracks":
-		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
-		return json.Unmarshal(b, t.MediaDefs_SourceTracks)
-	case "place.stream.media.defs#sourceClip":
-		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
-		return json.Unmarshal(b, t.MediaDefs_SourceClip)
+	case "place.stream.defs#activityGame":
+		t.Defs_ActivityGame = new(Defs_ActivityGame)
+		return json.Unmarshal(b, t.Defs_ActivityGame)
+	case "place.stream.defs#activityLabel":
+		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
+		return json.Unmarshal(b, t.Defs_ActivityLabel)
 	default:
 		return nil
 	}
 }
 
-func (t *Video_Source) MarshalCBOR(w io.Writer) error {
+func (t *Video_Activity) MarshalCBOR(w io.Writer) error {
 
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if t.MediaDefs_SourceTracks != nil {
-		return t.MediaDefs_SourceTracks.MarshalCBOR(w)
+	if t.Defs_ActivityGame != nil {
+		return t.Defs_ActivityGame.MarshalCBOR(w)
 	}
-	if t.MediaDefs_SourceClip != nil {
-		return t.MediaDefs_SourceClip.MarshalCBOR(w)
+	if t.Defs_ActivityLabel != nil {
+		return t.Defs_ActivityLabel.MarshalCBOR(w)
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
 
-func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
+func (t *Video_Activity) UnmarshalCBOR(r io.Reader) error {
 	typ, b, err := lexutil.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
 
 	switch typ {
-	case "place.stream.media.defs#sourceTracks":
-		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
-		return t.MediaDefs_SourceTracks.UnmarshalCBOR(bytes.NewReader(b))
-	case "place.stream.media.defs#sourceClip":
-		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
-		return t.MediaDefs_SourceClip.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.defs#activityGame":
+		t.Defs_ActivityGame = new(Defs_ActivityGame)
+		return t.Defs_ActivityGame.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.defs#activityLabel":
+		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
+		return t.Defs_ActivityLabel.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
+}
+
+// Video_Connection is a "connection" in the place.stream.video schema.
+type Video_Connection struct {
+	LexiconTypeID string                    `json:"$type" cborgen:"$type,const=place.stream.video#connection"`
+	Ref           *comatproto.RepoStrongRef `json:"ref,omitempty" cborgen:"ref,omitempty"`
+}
+
+type Video_Connections_Elem struct {
+	Video_Connection *Video_Connection
+}
+
+func (t *Video_Connections_Elem) MarshalJSON() ([]byte, error) {
+	if t.Video_Connection != nil {
+		t.Video_Connection.LexiconTypeID = "place.stream.video#connection"
+		return json.Marshal(t.Video_Connection)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *Video_Connections_Elem) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.video#connection":
+		t.Video_Connection = new(Video_Connection)
+		return json.Unmarshal(b, t.Video_Connection)
+	default:
+		return nil
+	}
+}
+
+func (t *Video_Connections_Elem) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.Video_Connection != nil {
+		return t.Video_Connection.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Video_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.video#connection":
+		t.Video_Connection = new(Video_Connection)
+		return t.Video_Connection.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

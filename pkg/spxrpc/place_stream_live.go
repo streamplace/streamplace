@@ -561,6 +561,9 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting livestream", err)
 	}
+	if livestream == nil || livestream.Livestream == nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "no active livestream for this repo")
+	}
 
 	livestreamView, err := livestream.ToLivestreamView()
 	if err != nil {

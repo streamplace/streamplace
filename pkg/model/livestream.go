@@ -27,6 +27,9 @@ type Livestream struct {
 }
 
 func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView, error) {
+	if ls == nil || ls.Livestream == nil {
+		return nil, fmt.Errorf("livestream record is nil")
+	}
 	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding feed post: %w", err)

@@ -25,8 +25,8 @@ type MediaTrack struct {
 	// parentTrack: If this is a derived track like a transcode or a transcript, what was the parent track?
 	ParentTrack *comatproto.RepoStrongRef `json:"parentTrack,omitempty" cborgen:"parentTrack,omitempty"`
 	Track       *MediaTrack_Track         `json:"track" cborgen:"track"`
-	// video: If this is a derived track like a transcode or a transcript, what video did it come from?
-	Video *comatproto.RepoStrongRef `json:"video,omitempty" cborgen:"video,omitempty"`
+	// video: If this is a derived track like a transcode or a transcript, what was the source place.stream.video?
+	Video *string `json:"video,omitempty" cborgen:"video,omitempty"`
 }
 
 // MediaTrack_CommonMetadata is a "commonMetadata" in the place.stream.media.track schema.

@@ -11,8 +11,8 @@
           "type": "array",
           "description": "The canonical list of tracks specifying the source of a video.",
           "items": {
-            "type": "union",
-            "refs": ["com.atproto.repo.strongRef"]
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
           }
         }
       }

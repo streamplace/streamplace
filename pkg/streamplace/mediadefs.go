@@ -5,14 +5,7 @@
 package streamplace
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
-
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 // MediaDefs_MuxlTrack is a "muxlTrack" in the place.stream.media.defs schema.
@@ -49,59 +42,5 @@ type MediaDefs_SourceClip struct {
 type MediaDefs_SourceTracks struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.defs#sourceTracks"`
 	// tracks: The canonical list of tracks specifying the source of a video.
-	Tracks []*MediaDefs_SourceTracks_Tracks_Elem `json:"tracks" cborgen:"tracks"`
-}
-
-type MediaDefs_SourceTracks_Tracks_Elem struct {
-	RepoStrongRef *comatproto.RepoStrongRef
-}
-
-func (t *MediaDefs_SourceTracks_Tracks_Elem) MarshalJSON() ([]byte, error) {
-	if t.RepoStrongRef != nil {
-		t.RepoStrongRef.LexiconTypeID = "com.atproto.repo.strongRef"
-		return json.Marshal(t.RepoStrongRef)
-	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
-}
-
-func (t *MediaDefs_SourceTracks_Tracks_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := lexutil.TypeExtract(b)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatproto.RepoStrongRef)
-		return json.Unmarshal(b, t.RepoStrongRef)
-	default:
-		return nil
-	}
-}
-
-func (t *MediaDefs_SourceTracks_Tracks_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
-	if t.RepoStrongRef != nil {
-		return t.RepoStrongRef.MarshalCBOR(w)
-	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
-}
-
-func (t *MediaDefs_SourceTracks_Tracks_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := lexutil.CborTypeExtractReader(r)
-	if err != nil {
-		return err
-	}
-
-	switch typ {
-	case "com.atproto.repo.strongRef":
-		t.RepoStrongRef = new(comatproto.RepoStrongRef)
-		return t.RepoStrongRef.UnmarshalCBOR(bytes.NewReader(b))
-	default:
-		return nil
-	}
+	Tracks []*comatproto.RepoStrongRef `json:"tracks" cborgen:"tracks"`
 }

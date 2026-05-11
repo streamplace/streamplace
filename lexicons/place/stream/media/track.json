@@ -15,9 +15,9 @@
             "refs": ["place.stream.media.defs#muxlTrack"]
           },
           "video": {
-            "type": "ref",
-            "ref": "com.atproto.repo.strongRef",
-            "description": "If this is a derived track like a transcode or a transcript, what video did it come from?"
+            "type": "string",
+            "format": "at-uri",
+            "description": "If this is a derived track like a transcode or a transcript, what was the source place.stream.video?"
           },
           "parentTrack": {
             "type": "ref",

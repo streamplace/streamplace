@@ -17,9 +17,9 @@ A collection of tracks representing the canonical source of a video.
 
 **Properties:**
 
-| Name     | Type                                                                                                                                                                      | Req'd | Description                                                    | Constraints |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------- |
-| `tracks` | Array of Union of:<br/>&nbsp;&nbsp;[`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ✅    | The canonical list of tracks specifying the source of a video. |             |
+| Name     | Type                                                                                                                                            | Req'd | Description                                                    | Constraints |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------- |
+| `tracks` | Array of [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ✅    | The canonical list of tracks specifying the source of a video. |             |
 
 ---
 
@@ -76,8 +76,8 @@ A track backed by a MUXL container
           "type": "array",
           "description": "The canonical list of tracks specifying the source of a video.",
           "items": {
-            "type": "union",
-            "refs": ["com.atproto.repo.strongRef"]
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef"
           }
         }
       }

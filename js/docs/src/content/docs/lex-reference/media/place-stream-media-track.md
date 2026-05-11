@@ -19,12 +19,12 @@ A track for a video stream, either part of the source or a custom additional tra
 
 **Record Properties:**
 
-| Name          | Type                                                                                                                                   | Req'd | Description                                                                               | Constraints |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------------------------------------------------------------------------------------- | ----------- |
-| `track`       | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack)                      | ✅    |                                                                                           |             |
-| `video`       | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | If this is a derived track like a transcode or a transcript, what video did it come from? |             |
-| `parentTrack` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | If this is a derived track like a transcode or a transcript, what was the parent track?   |             |
-| `metadata`    | [`place.stream.media.track#commonMetadata`](/lex-reference/place-stream-media-track#commonmetadata)                                    | ❌    |                                                                                           |             |
+| Name          | Type                                                                                                                                   | Req'd | Description                                                                                          | Constraints      |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------- | ---------------- |
+| `track`       | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack)                      | ✅    |                                                                                                      |                  |
+| `video`       | `string`                                                                                                                               | ❌    | If this is a derived track like a transcode or a transcript, what was the source place.stream.video? | Format: `at-uri` |
+| `parentTrack` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | If this is a derived track like a transcode or a transcript, what was the parent track?              |                  |
+| `metadata`    | [`place.stream.media.track#commonMetadata`](/lex-reference/place-stream-media-track#commonmetadata)                                    | ❌    |                                                                                                      |                  |
 
 ---
 
@@ -66,9 +66,9 @@ Metadata common to all media types. Contains subobjects for other media types.
             "refs": ["place.stream.media.defs#muxlTrack"]
           },
           "video": {
-            "type": "ref",
-            "ref": "com.atproto.repo.strongRef",
-            "description": "If this is a derived track like a transcode or a transcript, what video did it come from?"
+            "type": "string",
+            "format": "at-uri",
+            "description": "If this is a derived track like a transcode or a transcript, what was the source place.stream.video?"
           },
           "parentTrack": {
             "type": "ref",

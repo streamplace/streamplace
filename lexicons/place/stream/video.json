@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "Metadata for a place.stream.video record. By convention the video and the metadata shall have the same tid.",
+      "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
         "required": ["title"],
@@ -16,11 +16,23 @@
             "maxGraphemes": 140,
             "description": "Title of the video referenced by this record"
           },
+          "source": {
+            "type": "union",
+            "refs": [
+              "place.stream.media.defs#sourceTracks",
+              "place.stream.media.defs#sourceClip"
+            ],
+            "description": "What is the source of this video?"
+          },
           "description": {
             "type": "string",
             "maxLength": 50000,
             "maxGraphemes": 5000,
             "description": "Description of this video"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration of the video in milliseconds"
           },
           "descriptionFacets": {
             "type": "array",
@@ -71,6 +83,16 @@
       "type": "object",
       "properties": {
         "ref": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    },
+    "videoSourceContent": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "description": "place.stream.media.source record providing the content for this video record",
           "type": "ref",
           "ref": "com.atproto.repo.strongRef"
         }

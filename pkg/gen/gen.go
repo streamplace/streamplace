@@ -49,7 +49,6 @@ func main() {
 		streamplace.MediaDefs_MuxlTrack{},
 		streamplace.MediaDefs_SourceTracks{},
 		streamplace.MediaDefs_SourceClip{},
-		streamplace.MediaContent{},
 		streamplace.MediaTrack_CommonMetadata{},
 		streamplace.Video_Connection{},
 	); err != nil {

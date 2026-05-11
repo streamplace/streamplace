@@ -31,6 +31,10 @@ type Video struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// descriptionFacets: Annotations of text (mentions, URLs, etc)
 	DescriptionFacets []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	// duration: Duration of the video in milliseconds
+	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
+	// source: What is the source of this video?
+	Source *Video_Source `json:"source,omitempty" cborgen:"source,omitempty"`
 	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
 	Tags []string `json:"tags,omitempty" cborgen:"tags,omitempty"`
 	// thumb: Thumbnail image for the video.
@@ -166,4 +170,79 @@ func (t *Video_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// What is the source of this video?
+type Video_Source struct {
+	MediaDefs_SourceTracks *MediaDefs_SourceTracks
+	MediaDefs_SourceClip   *MediaDefs_SourceClip
+}
+
+func (t *Video_Source) MarshalJSON() ([]byte, error) {
+	if t.MediaDefs_SourceTracks != nil {
+		t.MediaDefs_SourceTracks.LexiconTypeID = "place.stream.media.defs#sourceTracks"
+		return json.Marshal(t.MediaDefs_SourceTracks)
+	}
+	if t.MediaDefs_SourceClip != nil {
+		t.MediaDefs_SourceClip.LexiconTypeID = "place.stream.media.defs#sourceClip"
+		return json.Marshal(t.MediaDefs_SourceClip)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *Video_Source) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.media.defs#sourceTracks":
+		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
+		return json.Unmarshal(b, t.MediaDefs_SourceTracks)
+	case "place.stream.media.defs#sourceClip":
+		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
+		return json.Unmarshal(b, t.MediaDefs_SourceClip)
+	default:
+		return nil
+	}
+}
+
+func (t *Video_Source) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.MediaDefs_SourceTracks != nil {
+		return t.MediaDefs_SourceTracks.MarshalCBOR(w)
+	}
+	if t.MediaDefs_SourceClip != nil {
+		return t.MediaDefs_SourceClip.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.media.defs#sourceTracks":
+		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
+		return t.MediaDefs_SourceTracks.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.media.defs#sourceClip":
+		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
+		return t.MediaDefs_SourceClip.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
+}
+
+// Video_VideoSourceContent is a "videoSourceContent" in the place.stream.video schema.
+type Video_VideoSourceContent struct {
+	// ref: place.stream.media.source record providing the content for this video record
+	Ref *comatproto.RepoStrongRef `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }

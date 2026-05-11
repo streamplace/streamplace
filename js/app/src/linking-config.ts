@@ -93,6 +93,7 @@ export const SCREEN_PATHS = {
   Login: "login",
   Multi: "multi/:config",
   Support: "support",
+  Upload: "upload",
   // Settings screens
   MainSettings: "settings",
   AboutCategory: "settings/about",
@@ -188,6 +189,7 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 Login: SCREEN_PATHS.Login,
                 Multi: SCREEN_PATHS.Multi,
                 Support: SCREEN_PATHS.Support,
+                Upload: SCREEN_PATHS.Upload,
               },
             },
             GoLiveTab: SCREEN_PATHS.GoLiveTab,

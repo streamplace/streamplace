@@ -1546,6 +1546,103 @@
         }
       }
     },
+    "/xrpc/place.stream.media.createUpload": {
+      "post": {
+        "summary": "Start a resumable upload of arbitrary media content. Returns a TUS upload URL and a short-lived bearer token used to authenticate subsequent chunk requests (no DPoP required on chunks). The DID of the authenticated user is recorded against the upload; on completion a VOD processing task is enqueued.",
+        "operationId": "place.stream.media.createUpload",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "description": "Server-side identifier for this upload."
+                    },
+                    "uploadUrl": {
+                      "type": "string",
+                      "description": "Absolute URL to PATCH/HEAD per the TUS protocol.",
+                      "format": "uri"
+                    },
+                    "uploadToken": {
+                      "type": "string",
+                      "description": "Short-lived bearer token bound to this upload. Send as 'Authorization: Bearer <token>' on TUS requests."
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "description": "When the upload token expires.",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "uploadUrl",
+                    "uploadToken",
+                    "expiresAt",
+                    "uploadId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "UploadTooLarge"
+                        },
+                        {
+                          "const": "UnsupportedMimeType"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "size": {
+                    "type": "integer",
+                    "description": "Total size of the upload in bytes."
+                  },
+                  "mimeType": {
+                    "type": "string",
+                    "description": "MIME type of the content being uploaded (e.g. video/mp4)."
+                  },
+                  "filename": {
+                    "type": "string",
+                    "description": "Optional filename hint to attach as upload metadata."
+                  }
+                },
+                "required": ["size", "mimeType"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.denyTeleport": {
       "post": {
         "summary": "Deny an incoming teleport request.",

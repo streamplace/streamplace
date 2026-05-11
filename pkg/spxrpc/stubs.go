@@ -302,6 +302,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.live.searchActorsTypeahead", s.HandlePlaceStreamLiveSearchActorsTypeahead)
 	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
+	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
@@ -666,6 +667,24 @@ func (s *Server) HandlePlaceStreamLiveStopLivestream(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context,body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveStopLivestream(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaCreateUpload(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaCreateUpload")
+	defer span.End()
+
+	var body placestream.MediaCreateUpload_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaCreateUpload_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context,body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaCreateUpload(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

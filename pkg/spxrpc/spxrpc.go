@@ -23,6 +23,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/upload"
 )
 
 type Server struct {
@@ -38,10 +39,11 @@ type Server struct {
 	op              *oatproxy.OATProxy
 	localDB         localdb.LocalDB
 	mm              *media.MediaManager
+	uploadManager   *upload.Manager
 	aliases         map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, aliases map[string]string) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:               e,
@@ -56,6 +58,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		op:              op,
 		localDB:         ldb,
 		mm:              mm,
+		uploadManager:   um,
 		aliases:         aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())

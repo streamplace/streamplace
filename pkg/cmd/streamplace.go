@@ -41,6 +41,7 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
+	"stream.place/streamplace/pkg/upload"
 
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
@@ -343,7 +344,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb)
+	um, err := upload.New(ctx, cli, state)
+	if err != nil {
+		return err
+	}
+	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um)
 	if err != nil {
 		return err
 	}

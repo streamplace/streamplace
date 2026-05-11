@@ -45,6 +45,7 @@ import (
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/upload"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
@@ -64,6 +65,7 @@ type StreamplaceAPI struct {
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
+	UploadManager    *upload.Manager
 	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
@@ -95,7 +97,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -107,6 +109,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		FirebaseNotifier: noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
+		UploadManager:    um,
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
@@ -155,7 +158,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.Aliases)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.Aliases)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +212,13 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+	if a.UploadManager != nil {
+		uploadHandler := middlewarestd.Handler("/api/upload/:id", mdlw, a.UploadManager)
+		apiRouter.Handler("HEAD", "/api/upload/:id", uploadHandler)
+		apiRouter.Handler("PATCH", "/api/upload/:id", uploadHandler)
+		apiRouter.Handler("DELETE", "/api/upload/:id", uploadHandler)
+		apiRouter.Handler("OPTIONS", "/api/upload/:id", uploadHandler)
+	}
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)

@@ -23,6 +23,7 @@ import (
 var TaskNotification = "notification"
 var TaskChat = "chat"
 var TaskFinalizeLivestream = "finalize_livestream"
+var TaskVODProcess = "vod_process"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -37,6 +38,20 @@ type ChatTask struct {
 
 type FinalizeLivestreamTask struct {
 	LivestreamURI string `json:"livestreamURI"`
+}
+
+// VODProcessTask is enqueued by the upload manager when a resumable user
+// upload completes. The processor probes the file, generates MUXL tracks,
+// and creates the place.stream.video record set. The actual processing is
+// not yet implemented — for now this just acknowledges receipt.
+type VODProcessTask struct {
+	UploadID string `json:"uploadId"`
+	RepoDID  string `json:"repoDID"`
+	MimeType string `json:"mimeType"`
+	Filename string `json:"filename,omitempty"`
+	Size     int64  `json:"size"`
+	Backend  string `json:"backend"`
+	Location string `json:"location"`
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -72,9 +87,30 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processChatMessageTask(ctx, task)
 	case TaskFinalizeLivestream:
 		return state.processFinalizeLivestreamTask(ctx, task)
+	case TaskVODProcess:
+		return state.processVODProcessTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
+}
+
+// processVODProcessTask is a stub. The full pipeline (probe, transcode,
+// generate place.stream.media.track / .origin / place.stream.video records)
+// lives in a follow-up change; right now we just log so the queue doesn't
+// keep retrying.
+func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
+	var t VODProcessTask
+	if err := json.Unmarshal(task.Payload, &t); err != nil {
+		return err
+	}
+	log.Log(ctx, "vod-process task received (stub)",
+		"uploadId", t.UploadID, "repoDID", t.RepoDID,
+		"backend", t.Backend, "size", t.Size, "mimeType", t.MimeType)
+	if err := state.CompleteTask(ctx, task.ID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {

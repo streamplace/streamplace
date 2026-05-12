@@ -1,0 +1,84 @@
+package streamplace
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
+)
+
+func (t *BioBlocksOrderedList_ListItem_Content) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.BioBlocksText != nil {
+		return t.BioBlocksText.MarshalCBOR(w)
+	}
+	if t.BioBlocksHeader != nil {
+		return t.BioBlocksHeader.MarshalCBOR(w)
+	}
+	if t.BioBlocksImage != nil {
+		return t.BioBlocksImage.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *BioBlocksOrderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+	switch typ {
+	case "place.stream.bio.blocks.text":
+		t.BioBlocksText = new(BioBlocksText)
+		return t.BioBlocksText.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.header":
+		t.BioBlocksHeader = new(BioBlocksHeader)
+		return t.BioBlocksHeader.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.image":
+		t.BioBlocksImage = new(BioBlocksImage)
+		return t.BioBlocksImage.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
+}
+
+func (t *BioBlocksUnorderedList_ListItem_Content) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.BioBlocksText != nil {
+		return t.BioBlocksText.MarshalCBOR(w)
+	}
+	if t.BioBlocksHeader != nil {
+		return t.BioBlocksHeader.MarshalCBOR(w)
+	}
+	if t.BioBlocksImage != nil {
+		return t.BioBlocksImage.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *BioBlocksUnorderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+	switch typ {
+	case "place.stream.bio.blocks.text":
+		t.BioBlocksText = new(BioBlocksText)
+		return t.BioBlocksText.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.header":
+		t.BioBlocksHeader = new(BioBlocksHeader)
+		return t.BioBlocksHeader.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.image":
+		t.BioBlocksImage = new(BioBlocksImage)
+		return t.BioBlocksImage.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
+}

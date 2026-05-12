@@ -4,6 +4,7 @@ import {
   Input,
   MenuContainer,
   MenuGroup,
+  resolveDIDDocument,
   Text,
   useBio,
   useDID,
@@ -18,23 +19,50 @@ import {
 import { Download, Plus, Save, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
+import { parseAtUriPath } from "src/linking-config";
 import type { PlaceStreamBioDefs, PlaceStreamBioPage } from "streamplace";
 
-const PLATFORM_OPTIONS: PlaceStreamBioDefs.Social["platform"][] = [
-  "bluesky",
-  "twitter",
-  "youtube",
-  "twitch",
-  "kick",
-  "discord",
-  "instagram",
-  "tiktok",
-  "github",
-  "cashapp",
-  "ko-fi",
-  "patreon",
-  "website",
-];
+function parseSocialUrl(
+  url: string,
+): Pick<PlaceStreamBioDefs.Social, "platform" | "handle"> {
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    const segments = u.pathname.replace(/^\//, "").split("/").filter(Boolean);
+    const first = segments[0] ?? "";
+
+    if (host === "bsky.app" && first === "profile" && segments[1])
+      return { platform: "bluesky", handle: `@${segments[1]}` };
+    if (host === "twitter.com" || host === "x.com")
+      return { platform: "twitter", handle: first ? `@${first}` : "" };
+    if (host === "youtube.com") {
+      if (first.startsWith("@")) return { platform: "youtube", handle: first };
+      if ((first === "c" || first === "user") && segments[1])
+        return { platform: "youtube", handle: segments[1] };
+      return { platform: "youtube", handle: "" };
+    }
+    if (host === "twitch.tv") return { platform: "twitch", handle: first };
+    if (host === "kick.com") return { platform: "kick", handle: first };
+    if (host === "discord.gg" || host === "discord.com")
+      return { platform: "discord", handle: "" };
+    if (host === "instagram.com")
+      return { platform: "instagram", handle: first ? `@${first}` : "" };
+    if (host === "tiktok.com")
+      return {
+        platform: "tiktok",
+        handle: first.startsWith("@") ? first : first ? `@${first}` : "",
+      };
+    if (host === "github.com") return { platform: "github", handle: first };
+    if (host === "cash.app")
+      return {
+        platform: "cashapp",
+        handle: first.startsWith("$") ? first : first ? `$${first}` : "",
+      };
+    if (host === "ko-fi.com") return { platform: "ko-fi", handle: first };
+    if (host === "patreon.com") return { platform: "patreon", handle: first };
+  } catch {}
+  return { platform: "website", handle: "" };
+}
 
 export function BioSettings() {
   const { t } = useTranslation("settings");
@@ -43,7 +71,7 @@ export function BioSettings() {
   const putBio = usePutBio();
   const importBioFromLeaflet = useImportBioFromLeaflet();
   const did = useDID();
-  const { theme } = useTheme();
+  const { theme, zero: z } = useTheme();
 
   const [leafletSource, setLeafletSource] = useState("");
   const [importing, setImporting] = useState(false);
@@ -72,6 +100,16 @@ export function BioSettings() {
     setImporting(true);
     setImportError(null);
     setWarnings([]);
+    // if the DID doesn't match, exit early
+    let parsedUri = parseAtUriPath(leafletSource);
+    if (parsedUri === null || parsedUri === undefined || !did) {
+      setImportError("Invalid DID");
+      return;
+    }
+    if (parsedUri?.authority != did) {
+      setImportError("This is not your record");
+    }
+    resolveDIDDocument(did);
     try {
       const result = await importBioFromLeaflet({
         source: leafletSource.trim(),
@@ -86,16 +124,18 @@ export function BioSettings() {
   };
 
   const handleSave = async () => {
-    if (!bio) return;
     setSaving(true);
     try {
+      const now = new Date().toISOString();
       const updated: PlaceStreamBioPage.Record = {
+        $type: "place.stream.bio.page",
         ...bio,
         description: description
-          ? { plaintext: description, facets: bio.description?.facets }
+          ? { plaintext: description, facets: bio?.description?.facets }
           : undefined,
         socials: socials.length > 0 ? socials : undefined,
-        updatedAt: new Date().toISOString(),
+        createdAt: bio?.createdAt ?? now,
+        updatedAt: now,
       };
       await putBio(updated);
       setEdited(false);
@@ -116,13 +156,9 @@ export function BioSettings() {
     setEdited(true);
   };
 
-  const updateSocial = (
-    idx: number,
-    field: keyof PlaceStreamBioDefs.Social,
-    value: string,
-  ) => {
+  const updateSocialUrl = (idx: number, value: string) => {
     const next = [...socials];
-    next[idx] = { ...next[idx], [field]: value };
+    next[idx] = { ...next[idx], url: value, ...parseSocialUrl(value) };
     setSocials(next);
     setEdited(true);
   };
@@ -154,19 +190,29 @@ export function BioSettings() {
                 >
                   <View style={{ flex: 1 }}>
                     <Input
-                      placeholder="at://did:plc:.../pub.leaflet.document/abc123"
+                      placeholder="at://did:plc:.../site.standard.document/abc123"
                       value={leafletSource}
                       onChangeText={setLeafletSource}
                     />
                   </View>
-                  <Button
-                    onPress={handleImport}
-                    loading={importing}
-                    disabled={!leafletSource.trim() || !did}
-                  >
-                    <Download size={16} style={{ marginRight: 4 }} />
-                    {t("import", "Import")}
-                  </Button>
+                  <View style={[zero.layout.flex.center]}>
+                    <Button
+                      onPress={handleImport}
+                      loading={importing}
+                      disabled={!leafletSource.trim() || !did}
+                      size="md"
+                      width="min"
+                      style={[]}
+                      leftIcon={
+                        <Download
+                          size={16}
+                          color={theme.colors.primaryForeground}
+                        />
+                      }
+                    >
+                      {t("import", "Import")}
+                    </Button>
+                  </View>
                 </View>
                 {importError && (
                   <Text color="destructive" size="sm" style={{ marginTop: 8 }}>
@@ -186,104 +232,109 @@ export function BioSettings() {
             </MenuGroup>
 
             {bio && (
-              <>
-                <MenuGroup>
-                  <View style={[zero.p[4]]}>
-                    <Text size="xl" weight="bold">
-                      {t("bio-preview", "Preview")}
-                    </Text>
-                  </View>
-                  <BioViewer bio={bio} did={did} />
-                </MenuGroup>
+              <MenuGroup>
+                <View style={[zero.p[4]]}>
+                  <Text size="xl" weight="bold">
+                    {t("bio-preview", "Preview")}
+                  </Text>
+                </View>
+                <BioViewer bio={bio} did={did} />
+              </MenuGroup>
+            )}
 
-                <MenuGroup>
-                  <View style={[zero.p[4]]}>
-                    <Text size="xl" weight="bold">
-                      {t("edit-description", "Edit Description")}
+            <MenuGroup>
+              <View style={[zero.p[4]]}>
+                <Text size="xl" weight="bold">
+                  {t("edit-description", "Edit Description")}
+                </Text>
+                <View style={{ marginTop: 8 }}>
+                  <Input
+                    multiline
+                    numberOfLines={4}
+                    placeholder={t(
+                      "description-placeholder",
+                      "Write something about yourself...",
+                    )}
+                    value={description}
+                    onChangeText={handleDescriptionChange}
+                  />
+                </View>
+              </View>
+            </MenuGroup>
+
+            <MenuGroup>
+              <View style={[zero.p[4]]}>
+                <View
+                  direction="row"
+                  justify="between"
+                  align="center"
+                  style={{ marginBottom: 12 }}
+                >
+                  <Text size="xl" weight="bold">
+                    {t("social-links", "Social Links")}
+                  </Text>
+                  <Button
+                    variant="secondary"
+                    size="pill"
+                    width="min"
+                    onPress={addSocial}
+                    leftIcon={
+                      <Plus
+                        size={14}
+                        style={{ marginRight: 2 }}
+                        color={theme.colors.primaryForeground}
+                      />
+                    }
+                  >
+                    {t("add", "Add")}
+                  </Button>
+                </View>
+                {socials.map((social, idx) => (
+                  <View
+                    key={idx}
+                    direction="row"
+                    align="center"
+                    style={[zero.gap.all[2], { marginBottom: 8 }]}
+                  >
+                    <Text
+                      size="xs"
+                      color="muted"
+                      style={{ minWidth: 64, textAlign: "right" }}
+                    >
+                      {social.platform || "website"}
                     </Text>
-                    <View style={{ marginTop: 8 }}>
+                    <View style={{ flex: 1 }}>
                       <Input
-                        multiline
-                        numberOfLines={4}
-                        placeholder={t(
-                          "description-placeholder",
-                          "Write something about yourself...",
-                        )}
-                        value={description}
-                        onChangeText={handleDescriptionChange}
+                        placeholder="https://..."
+                        value={social.url}
+                        size="sm"
+                        onChangeText={(v) => updateSocialUrl(idx, v)}
+                        autoCapitalize="none"
+                        autoCorrect={false}
                       />
                     </View>
-                  </View>
-                </MenuGroup>
-
-                <MenuGroup>
-                  <View style={[zero.p[4]]}>
-                    <View
-                      direction="row"
-                      justify="between"
-                      align="center"
-                      style={{ marginBottom: 12 }}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      width="min"
+                      onPress={() => removeSocial(idx)}
                     >
-                      <Text size="xl" weight="bold">
-                        {t("social-links", "Social Links")}
-                      </Text>
-                      <Button variant="secondary" size="sm" onPress={addSocial}>
-                        <Plus size={14} style={{ marginRight: 2 }} />
-                        {t("add", "Add")}
-                      </Button>
-                    </View>
-                    {socials.map((social, idx) => (
-                      <View key={idx} style={{ marginBottom: 8 }}>
-                        <View direction="row" style={[zero.gap.all[2]]}>
-                          <View style={{ flex: 1 }}>
-                            <Input
-                              placeholder="URL"
-                              value={social.url}
-                              onChangeText={(v) => updateSocial(idx, "url", v)}
-                            />
-                          </View>
-                          <View style={{ flex: 0.5 }}>
-                            <Input
-                              placeholder="Handle"
-                              value={social.handle ?? ""}
-                              onChangeText={(v) =>
-                                updateSocial(idx, "handle", v)
-                              }
-                            />
-                          </View>
-                          <View style={{ flex: 0.5 }}>
-                            <Input
-                              placeholder="Platform"
-                              value={social.platform}
-                              onChangeText={(v) =>
-                                updateSocial(idx, "platform", v)
-                              }
-                            />
-                          </View>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onPress={() => removeSocial(idx)}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </View>
-                      </View>
-                    ))}
+                      <Trash2 size={14} />
+                    </Button>
                   </View>
-                </MenuGroup>
+                ))}
+              </View>
+            </MenuGroup>
 
-                {edited && (
-                  <MenuGroup>
-                    <View style={[zero.p[4]]}>
-                      <Button onPress={handleSave} loading={saving}>
-                        <Save size={16} style={{ marginRight: 4 }} />
-                        {t("save-bio", "Save Bio")}
-                      </Button>
-                    </View>
-                  </MenuGroup>
-                )}
-              </>
+            {edited && (
+              <MenuGroup>
+                <View style={[zero.p[4]]}>
+                  <Button onPress={handleSave} loading={saving}>
+                    <Save size={16} style={{ marginRight: 4 }} />
+                    {t("save-bio", "Save Bio")}
+                  </Button>
+                </View>
+              </MenuGroup>
             )}
           </MenuContainer>
         </View>

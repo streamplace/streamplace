@@ -1,6 +1,7 @@
 import { Response } from "@atproto/api/dist/client/types/com/atproto/repo/getRecord";
 import { PlaceStreamBioPage } from "streamplace";
 import { leafletDocToBio } from "../lib/leaflet-to-bio";
+import { getPDSServiceEndpoint, resolveDIDDocument } from "../utils/did";
 import {
   getStreamplaceStoreFromContext,
   useDID,
@@ -10,7 +11,7 @@ import { usePDSAgent } from "./xrpc";
 
 const BIO_COLLECTION = "place.stream.bio.page";
 const BIO_RKEY = "self";
-const LEAFLET_COLLECTION = "pub.leaflet.document";
+const LEAFLET_COLLECTION = "site.standard.document";
 
 export function useBio() {
   return useStreamplaceStore((x) => x.bio);
@@ -98,18 +99,26 @@ export function useImportBioFromLeaflet() {
     }
     const { repo, rkey } = resolveLeafletRef(input.source, did);
 
-    const docRes = await pdsAgent.com.atproto.repo.getRecord({
+    // Fetch the leaflet document directly from the PDS to avoid the local proxy's
+    // lexicon type checker, which rejects unknown $types like site.standard.document.
+    const didDoc = await resolveDIDDocument(repo);
+    const pdsEndpoint = getPDSServiceEndpoint(didDoc);
+    const params = new URLSearchParams({
       repo,
       collection: LEAFLET_COLLECTION,
       rkey,
     });
-    if (!docRes.success) {
-      throw new Error("Failed to fetch leaflet document");
+    const docRes = await fetch(
+      `${pdsEndpoint}/xrpc/com.atproto.repo.getRecord?${params}`,
+    );
+    if (!docRes.ok) {
+      throw new Error(`Failed to fetch leaflet document: ${docRes.status}`);
     }
+    const docJson = await docRes.json();
 
     const prior = await readExistingBio(pdsAgent, did);
     const importedFrom = `at://${repo}/${LEAFLET_COLLECTION}/${rkey}`;
-    const { bio, warnings } = leafletDocToBio(docRes.data.value as object, {
+    const { bio, warnings } = leafletDocToBio(docJson.value as object, {
       importedFrom,
       preserve: prior,
     }) as { bio: PlaceStreamBioPage.Record; warnings: string[] };

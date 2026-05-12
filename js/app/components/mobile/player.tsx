@@ -42,6 +42,7 @@ import { BottomMetadata } from "./bottom-metadata";
 import { DesktopChatPanel, MobileChatPanel } from "./chat";
 import { DesktopUi } from "./desktop-ui";
 import { OfflineCounter } from "./offline-counter";
+import { StreamTabs } from "./stream-tabs";
 import { MobileUi } from "./ui";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
@@ -89,7 +90,7 @@ function PlayerWithProvider(
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { top: safeTop } = useSafeAreaInsets();
+  const { top: safeTop, bottom: safeBottom } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
   const isPortraitLandscapeCase =
@@ -102,6 +103,9 @@ function PlayerWithProvider(
   const videoBoxHeight = isPortraitLandscapeCase
     ? Math.round((screenWidth * segDims.height) / segDims.width)
     : undefined;
+  // scrollable layout: video at fixed aspect ratio, bio scrollable below
+  const useScrollableLayout =
+    !isPortraitLandscapeCase && !shouldShowChatSidePanel;
 
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
@@ -256,36 +260,94 @@ function PlayerWithProvider(
       <LivestreamProvider src={props.src ?? ""} onTeleport={handleTeleport}>
         <StatusBar hidden={true} />
         <PlayerProvider defaultId={props.playerId || undefined}>
-          <View
-            style={[
-              {
-                flexDirection: chatVisible ? "row" : "column",
-                flex: 1,
-                width: "100%",
-                height: "100%",
-                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
-              },
-            ]}
-          >
-            <View
-              style={
-                isPortraitLandscapeCase
-                  ? {
-                      height: (videoBoxHeight ?? 0) + safeTop,
-                      paddingTop: safeTop,
-                    }
-                  : { flex: 1 }
-              }
+          {useScrollableLayout ? (
+            // Scrollable layout: video at aspect ratio, bio below
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: safeBottom + 20 }}
+              bounces={false}
+              showsVerticalScrollIndicator={false}
             >
-              <PlayerInner
-                {...props}
-                showChat={showChat}
-                setShowChat={setShowChat}
-                showUnavailable={showUnavailable}
-              />
+              <View
+                style={{
+                  height: showUnavailable
+                    ? screenWidth * (3 / 4)
+                    : segDims.width > 0 && segDims.height > 0
+                      ? Math.round(
+                          (screenWidth * segDims.height) / segDims.width,
+                        )
+                      : Math.round(screenWidth * (9 / 16)),
+                  overflow: "hidden",
+                }}
+              >
+                <PlayerInner
+                  {...props}
+                  showChat={showChat}
+                  setShowChat={setShowChat}
+                  showUnavailable={showUnavailable}
+                />
+              </View>
+              <StreamTabs />
+            </ScrollView>
+          ) : (
+            <View
+              style={[
+                {
+                  flexDirection: chatVisible ? "row" : "column",
+                  flex: 1,
+                  width: "100%",
+                  height: "100%",
+                  paddingTop:
+                    isPortraitLandscapeCase && Platform.OS !== "web"
+                      ? 54
+                      : undefined,
+                },
+              ]}
+            >
+              <Reanimated.View
+                style={[
+                  isPortraitLandscapeCase
+                    ? {
+                        height: (videoBoxHeight ?? 0) + safeTop,
+                        paddingTop: safeTop,
+                      }
+                    : { flex: 1 },
+                  isPortrait && Platform.OS !== "web"
+                    ? portraitVideoStyle
+                    : undefined,
+                ]}
+              >
+                <PlayerInner
+                  {...props}
+                  showChat={showChat}
+                  setShowChat={setShowChat}
+                  showUnavailable={showUnavailable}
+                />
+              </Reanimated.View>
+              {isPortraitLandscapeCase ? (
+                <>
+                  <MobileUi
+                    hideMobileChat={true}
+                    showChat
+                    sharedFadeOpacity={portraitFadeOpacity}
+                  />
+                  {!showUnavailable && (
+                    <MobileChatPanel
+                      isPlayerRatioGreater={true}
+                      fixed={true}
+                      portraitVideoTranslateY={portraitVideoTranslateY}
+                    />
+                  )}
+                </>
+              ) : shouldShowChatSidePanel ? (
+                <DesktopChatPanel
+                  chatVisible={chatVisible}
+                  chatPanelWidth={chatPanelWidth}
+                  setShowChat={setShowChat}
+                />
+              ) : null}
             </View>
-            {chatSection}
-          </View>
+          )}
         </PlayerProvider>
       </LivestreamProvider>
     </RotationProvider>
@@ -524,11 +586,14 @@ export function PlayerInner(
       >
         {videoContent}
       </Reanimated.View>
-      {showFullDesktopMode && props.mode !== "vod" && (
-        <BottomMetadata
-          setShowChat={props.setShowChat}
-          showChat={props.showChat}
-        />
+      {showFullDesktopMode && (
+        <>
+          <BottomMetadata
+            setShowChat={props.setShowChat}
+            showChat={props.showChat}
+          />
+          <StreamTabs />
+        </>
       )}
       {props.mode === "vod" && <VodSection />}
     </ScrollView>

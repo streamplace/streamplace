@@ -49,10 +49,6 @@ func (t *BioBlocksBskyPost) UnmarshalCBOR(r io.Reader) error    { return nil }
 func (t *BioBlocksEmbed) MarshalCBOR(w io.Writer) error         { return nil }
 func (t *BioBlocksEmbed) UnmarshalCBOR(r io.Reader) error       { return nil }
 
-func (t *BioBlocksOrderedList_ListItem_Content) MarshalCBOR(w io.Writer) error   { return nil }
-func (t *BioBlocksOrderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error { return nil }
-func (t *BioBlocksUnorderedList_ListItem_Content) MarshalCBOR(w io.Writer) error   { return nil }
-func (t *BioBlocksUnorderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error { return nil }
 `
 
 func main() {

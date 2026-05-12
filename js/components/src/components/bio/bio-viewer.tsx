@@ -1,3 +1,4 @@
+import { zero } from "@streamplace/components";
 import { Image } from "expo-image";
 import React from "react";
 import {
@@ -44,7 +45,7 @@ function BioHeader({ bio }: { bio: PlaceStreamBioPage.Record }) {
   const { zero: zt } = useTheme();
 
   return (
-    <View style={{ marginBottom: 24 }}>
+    <View style={[zero.mb[8], zt.bg.muted, zero.r.md, zero.p[4]]}>
       {bio.description && (
         <RichTextView
           plaintext={bio.description.plaintext}
@@ -114,18 +115,18 @@ function BioLayout({
 }) {
   if (!layout) return null;
 
-  const block = (layout as any).BioLayoutsColumns as
-    | PlaceStreamBioLayoutsColumns.Main
-    | undefined;
-  if (block) {
-    return <ColumnsLayout columns={block.columns} did={did} />;
+  const t = (layout as any)?.$type as string | undefined;
+
+  if (t === "place.stream.bio.layouts.columns") {
+    return (
+      <ColumnsLayout
+        columns={(layout as PlaceStreamBioLayoutsColumns.Main).columns}
+        did={did}
+      />
+    );
   }
 
-  const unknown = layout as { $type?: string };
-  if (unknown.$type) {
-    return <Text color="muted">Unsupported layout: {unknown.$type}</Text>;
-  }
-  return null;
+  return <Text color="muted">Unsupported layout: {t ?? "(no type)"}</Text>;
 }
 
 function ColumnsLayout({
@@ -393,7 +394,7 @@ function OrderedListItem({
 }) {
   return (
     <View style={{ marginBottom: 4 }}>
-      <View direction="row" style={{ gap: 6 }}>
+      <View direction="row" align="center" style={{ gap: 6 }}>
         <Text size="base" weight="medium" style={{ minWidth: 20 }}>
           {index}.
         </Text>
@@ -447,7 +448,7 @@ function UnorderedListItem({
 
   return (
     <View style={{ marginBottom: 4 }}>
-      <View direction="row" style={{ gap: 6 }}>
+      <View direction="row" align="center" style={{ gap: 6 }}>
         <Text size="base" style={{ minWidth: 16 }}>
           {isChecklist ? (item.checked ? "☑" : "☐") : "•"}
         </Text>
@@ -483,8 +484,10 @@ function ListItemContent({
   const t = (block as any)?.$type as string | undefined;
 
   switch (t) {
-    case "place.stream.bio.blocks.text":
-      return <TextBlock block={block as PlaceStreamBioBlocksText.Main} />;
+    case "place.stream.bio.blocks.text": {
+      const b = block as PlaceStreamBioBlocksText.Main;
+      return <RichTextView plaintext={b.plaintext} facets={b.facets} />;
+    }
     case "place.stream.bio.blocks.header":
       return <HeaderBlock block={block as PlaceStreamBioBlocksHeader.Main} />;
     case "place.stream.bio.blocks.image":
@@ -722,7 +725,7 @@ function EmbedBlock({
       )}
       <View style={{ padding: 12 }}>
         {block.title && (
-          <Text weight="semibold" size="base">
+          <Text weight="bold" size="base">
             {block.title}
           </Text>
         )}
@@ -781,16 +784,13 @@ function RichTextPlaintext({
   );
   const segments: React.ReactNode[] = [];
   let lastEnd = 0;
-  const encoder = new TextEncoder();
 
   for (const facet of sorted) {
     const bs = facet.index.byteStart;
     const be = facet.index.byteEnd;
 
-    const preBytes = encoder.encode(plaintext.slice(0, lastEnd));
-    const preLength = preBytes.length;
-    const start = byteOffsetToChar(encoder.encode(plaintext), bs);
-    const end = byteOffsetToChar(encoder.encode(plaintext), be);
+    const start = byteOffsetToChar(plaintext, bs);
+    const end = byteOffsetToChar(plaintext, be);
 
     if (lastEnd < start) {
       segments.push(
@@ -840,24 +840,16 @@ function RichTextPlaintext({
   return <>{segments}</>;
 }
 
-function byteOffsetToChar(bytes: Uint8Array, byteOffset: number): number {
-  let charCount = 0;
-  let byteCount = 0;
-  const decoder = new TextDecoder();
-
-  for (let i = 0; i < bytes.length && byteCount < byteOffset; ) {
-    const cp = bytes[i];
-    if (cp < 0x80) {
-      i += 1;
-    } else if (cp < 0xe0) {
-      i += 2;
-    } else if (cp < 0xf0) {
-      i += 3;
-    } else {
-      i += 4;
-    }
-    byteCount = i;
-    charCount++;
+function byteOffsetToChar(str: string, byteOffset: number): number {
+  let bytes = 0;
+  for (let i = 0; i < str.length; ) {
+    if (bytes >= byteOffset) return i;
+    const cp = str.codePointAt(i)!;
+    if (cp < 0x80) bytes += 1;
+    else if (cp < 0x800) bytes += 2;
+    else if (cp < 0x10000) bytes += 3;
+    else bytes += 4;
+    i += cp > 0xffff ? 2 : 1;
   }
-  return charCount;
+  return str.length;
 }

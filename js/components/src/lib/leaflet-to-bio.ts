@@ -27,11 +27,19 @@ interface LeafletAspectRatio {
   height: number;
 }
 
+interface LeafletContent {
+  $type: "pub.leaflet.content";
+  pages?: LeafletPage[];
+}
+
 interface LeafletDoc {
   $type?: string;
   title?: string;
   description?: string;
+  // pub.leaflet.document (old)
   pages?: LeafletPage[];
+  // site.standard.document (new)
+  content?: LeafletContent;
 }
 
 type LeafletPage = LeafletLinearPage | LeafletCanvasPage | { $type?: string };
@@ -92,7 +100,20 @@ export function leafletDocToBio(
   const warnings: string[] = [];
   const blocks: PlaceStreamBioLayoutsColumns.BlockEntry[] = [];
 
-  const pages = Array.isArray(doc.pages) ? doc.pages : [];
+  if (
+    doc.content !== undefined &&
+    doc.content?.$type !== "pub.leaflet.content"
+  ) {
+    throw new Error(
+      `This record is not from leaflet.pub (content type: ${doc.content?.$type ?? "unknown"}).`,
+    );
+  }
+
+  const pages = Array.isArray(doc.content?.pages)
+    ? doc.content.pages
+    : Array.isArray(doc.pages)
+      ? doc.pages
+      : [];
   const linearOrCanvasPages = pages.filter(
     (p): p is LeafletLinearPage | LeafletCanvasPage =>
       p?.$type === "pub.leaflet.pages.linearDocument" ||

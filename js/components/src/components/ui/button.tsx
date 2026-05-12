@@ -159,8 +159,8 @@ export const Button = forwardRef<any, ButtonProps>(
           return {
             button: [
               zero.px[4],
-              zero.py[2],
-              { borderRadius: zero.borderRadius.md },
+              //zero.py[2],
+              { borderRadius: zero.borderRadius.md, paddingVertical: 2.8 * 4 },
             ],
             inner: { gap: 6 },
             text: zero.typography.universal.sm,

@@ -94,23 +94,32 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 	}
 }
 
-// processVODProcessTask is a stub. The full pipeline (probe, transcode,
-// generate place.stream.media.track / .origin / place.stream.video records)
-// lives in a follow-up change; right now we just log so the queue doesn't
-// keep retrying.
+// VODProcessor runs the gstreamer + muxl + S3 pipeline for one upload
+// and returns the resulting BDASL CID. The function-pointer indirection
+// keeps pkg/statedb from importing pkg/vod (which transitively pulls in
+// gstreamer); the bootstrap (pkg/cmd) installs the concrete
+// implementation at startup.
+type VODProcessor func(ctx context.Context, t VODProcessTask) (cid string, err error)
+
+func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = f }
+
 func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
 	var t VODProcessTask
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
-	log.Log(ctx, "vod-process task received (stub)",
-		"uploadId", t.UploadID, "repoDID", t.RepoDID,
-		"backend", t.Backend, "size", t.Size, "mimeType", t.MimeType)
-	if err := state.CompleteTask(ctx, task.ID); err != nil {
-		return err
+	if state.vodProcessor == nil {
+		log.Warn(ctx, "no VOD processor configured; dropping task",
+			"uploadId", t.UploadID, "did", t.RepoDID)
+		return state.CompleteTask(ctx, task.ID)
 	}
-	return nil
+	cid, err := state.vodProcessor(ctx, t)
+	if err != nil {
+		return fmt.Errorf("vod processing: %w", err)
+	}
+	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
+	return state.CompleteTask(ctx, task.ID)
 }
 
 func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {

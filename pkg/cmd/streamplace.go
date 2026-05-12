@@ -42,6 +42,7 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/vod"
 
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
@@ -348,6 +349,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
+		return vod.ProcessVOD(ctx, cli, vod.Input{
+			UploadID: t.UploadID,
+			RepoDID:  t.RepoDID,
+			MimeType: t.MimeType,
+			Filename: t.Filename,
+			Size:     t.Size,
+			Backend:  t.Backend,
+			Location: t.Location,
+		})
+	})
 	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um)
 	if err != nil {
 		return err

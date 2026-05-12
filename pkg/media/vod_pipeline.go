@@ -1,0 +1,329 @@
+package media
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+	"sync"
+
+	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/log"
+)
+
+// ErrUnsupportedCodec is returned by RunVODPipeline when the input
+// contains a stream we can't process. Currently: any non-h264 video, or
+// audio in a codec we don't recognize at all (anything we recognize and
+// is not AAC gets transcoded to AAC).
+var ErrUnsupportedCodec = errors.New("unsupported codec")
+
+// RunVODPipeline runs the gstreamer side of VOD processing: read the
+// source media from src (size bytes total), parse it via parsebin,
+// re-mux it to fragmented MP4, and write that fMP4 to out. Audio is
+// transcoded to AAC via fdkaacenc when not already AAC; video must be
+// h264 — anything else returns ErrUnsupportedCodec.
+//
+// The function blocks until the input is fully consumed or an error
+// occurs. out is written from a gstreamer streaming thread, so it must
+// be safe for concurrent use with this goroutine (typically an io.Pipe
+// or a buffered writer fed by a single reader).
+func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Writer) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ctx = log.WithLogValues(ctx, "func", "RunVODPipeline")
+
+	pipeline, err := gst.NewPipeline("vod-process")
+	if err != nil {
+		return fmt.Errorf("new pipeline: %w", err)
+	}
+	defer func() {
+		if setErr := pipeline.BlockSetState(gst.StateNull); setErr != nil {
+			log.Error(ctx, "failed to set pipeline to null", "error", setErr)
+		}
+	}()
+
+	srcBin, err := RandomAccessSrcBin(ctx, "vod-src", src, size)
+	if err != nil {
+		return fmt.Errorf("source bin: %w", err)
+	}
+	if err := pipeline.Add(srcBin.Element); err != nil {
+		return fmt.Errorf("add src bin: %w", err)
+	}
+
+	parsebin, err := gst.NewElementWithProperties("parsebin", map[string]any{
+		"name":               "vod-parsebin",
+		"expose-all-streams": true,
+	})
+	if err != nil {
+		return fmt.Errorf("create parsebin: %w", err)
+	}
+	if err := pipeline.Add(parsebin); err != nil {
+		return fmt.Errorf("add parsebin: %w", err)
+	}
+	if err := srcBin.Link(parsebin); err != nil {
+		return fmt.Errorf("link src bin -> parsebin: %w", err)
+	}
+
+	mp4mux, err := gst.NewElementWithProperties("mp4mux", map[string]any{
+		"name":              "vod-mp4mux",
+		"fragment-mode":     0,
+		"fragment-duration": 1,
+	})
+	if err != nil {
+		return fmt.Errorf("create mp4mux: %w", err)
+	}
+	if err := pipeline.Add(mp4mux); err != nil {
+		return fmt.Errorf("add mp4mux: %w", err)
+	}
+
+	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
+		"name":  "vod-appsink",
+		"sync":  false,
+		"async": false,
+	})
+	if err != nil {
+		return fmt.Errorf("create appsink: %w", err)
+	}
+	if err := pipeline.Add(appsink); err != nil {
+		return fmt.Errorf("add appsink: %w", err)
+	}
+	if err := mp4mux.Link(appsink); err != nil {
+		return fmt.Errorf("link mp4mux -> appsink: %w", err)
+	}
+
+	sink := app.SinkFromElement(appsink)
+	sink.SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, out),
+	})
+
+	// padErr captures the first wiring error from pad-added so we can
+	// surface it after the bus loop returns. gotVideo/gotAudio prevent us
+	// from blindly wiring multiple streams of the same kind into mp4mux
+	// (we'd just get the first one; warn the user about extras).
+	var (
+		mu       sync.Mutex
+		padErr   error
+		gotVideo bool
+		gotAudio bool
+	)
+
+	handlerID, err := parsebin.Connect("pad-added", func(_ *gst.Element, pad *gst.Pad) {
+		mu.Lock()
+		defer mu.Unlock()
+		if padErr != nil {
+			return
+		}
+		caps := pad.GetCurrentCaps()
+		if caps == nil {
+			log.Warn(ctx, "parsebin pad missing caps; ignoring", "pad", pad.GetName())
+			return
+		}
+		s := caps.GetStructureAt(0)
+		if s == nil {
+			log.Warn(ctx, "parsebin caps missing structure; ignoring", "pad", pad.GetName())
+			return
+		}
+		capsName := s.Name()
+		padCtx := log.WithLogValues(ctx, "pad", pad.GetName(), "caps", capsName)
+		switch {
+		case strings.HasPrefix(capsName, "video/"):
+			if gotVideo {
+				log.Warn(padCtx, "additional video pad; ignoring (only one video stream supported)")
+				return
+			}
+			if err := wireVideoChain(pipeline, mp4mux, pad, s); err != nil {
+				padErr = err
+				pipeline.Error("video chain failed", err)
+				return
+			}
+			gotVideo = true
+		case strings.HasPrefix(capsName, "audio/"):
+			if gotAudio {
+				log.Warn(padCtx, "additional audio pad; ignoring (only one audio stream supported)")
+				return
+			}
+			if err := wireAudioChain(pipeline, mp4mux, pad, s); err != nil {
+				padErr = err
+				pipeline.Error("audio chain failed", err)
+				return
+			}
+			gotAudio = true
+		default:
+			log.Warn(padCtx, "non-A/V parsebin pad; ignoring")
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("connect pad-added: %w", err)
+	}
+	// Disconnecting before pipeline tear-down breaks the closure->pipeline
+	// reference cycle that would otherwise pin every element alive past
+	// the function's return.
+	defer parsebin.HandlerDisconnect(handlerID)
+
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("set playing: %w", err)
+	}
+
+	if err := <-busErr; err != nil {
+		mu.Lock()
+		pe := padErr
+		mu.Unlock()
+		if pe != nil {
+			return pe
+		}
+		return fmt.Errorf("pipeline: %w", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if padErr != nil {
+		return padErr
+	}
+	if !gotVideo {
+		return fmt.Errorf("no video stream found in input")
+	}
+	return nil
+}
+
+type elemSpec struct {
+	name  string
+	props map[string]any
+}
+
+func wireVideoChain(pipeline *gst.Pipeline, mp4mux *gst.Element, pad *gst.Pad, caps *gst.Structure) error {
+	codec := caps.Name()
+	if codec != "video/x-h264" {
+		return fmt.Errorf("%w: video codec %q (only h264 is supported)", ErrUnsupportedCodec, codec)
+	}
+	chain, err := buildChain(pipeline, "vod-video", []elemSpec{
+		{name: "queue"},
+		{name: "h264parse", props: map[string]any{"config-interval": 0, "disable-passthrough": true}},
+	})
+	if err != nil {
+		return err
+	}
+	if err := linkChain(chain); err != nil {
+		return err
+	}
+	sinkPad := mp4mux.GetRequestPad("video_%u")
+	if sinkPad == nil {
+		return fmt.Errorf("mp4mux: no video request pad")
+	}
+	if ret := pad.Link(chain[0].GetStaticPad("sink")); ret != gst.PadLinkOK {
+		return fmt.Errorf("link parsebin -> video chain: %v", ret)
+	}
+	if ret := chain[len(chain)-1].GetStaticPad("src").Link(sinkPad); ret != gst.PadLinkOK {
+		return fmt.Errorf("link video chain -> mp4mux: %v", ret)
+	}
+	syncAll(chain)
+	return nil
+}
+
+func wireAudioChain(pipeline *gst.Pipeline, mp4mux *gst.Element, pad *gst.Pad, caps *gst.Structure) error {
+	codec := caps.Name()
+	specs, err := audioChainSpec(codec, caps)
+	if err != nil {
+		return err
+	}
+	chain, err := buildChain(pipeline, "vod-audio", specs)
+	if err != nil {
+		return err
+	}
+	if err := linkChain(chain); err != nil {
+		return err
+	}
+	sinkPad := mp4mux.GetRequestPad("audio_%u")
+	if sinkPad == nil {
+		return fmt.Errorf("mp4mux: no audio request pad")
+	}
+	if ret := pad.Link(chain[0].GetStaticPad("sink")); ret != gst.PadLinkOK {
+		return fmt.Errorf("link parsebin -> audio chain: %v", ret)
+	}
+	if ret := chain[len(chain)-1].GetStaticPad("src").Link(sinkPad); ret != gst.PadLinkOK {
+		return fmt.Errorf("link audio chain -> mp4mux: %v", ret)
+	}
+	syncAll(chain)
+	return nil
+}
+
+// transcodeToAAC is the suffix used after a decoder when re-encoding to
+// AAC for ingest into mp4mux. resample + convert insulate the encoder
+// from arbitrary sample rates and channel layouts.
+var transcodeToAAC = []elemSpec{
+	{name: "audioconvert"},
+	{name: "audioresample"},
+	{name: "fdkaacenc"},
+	{name: "aacparse"},
+}
+
+func audioChainSpec(codec string, caps *gst.Structure) ([]elemSpec, error) {
+	out := []elemSpec{{name: "queue"}}
+	switch codec {
+	case "audio/mpeg":
+		v, _ := caps.GetValue("mpegversion")
+		ver, _ := v.(int)
+		switch ver {
+		case 2, 4:
+			// AAC (mpegversion 2 = MPEG-2 AAC, 4 = MPEG-4 AAC); pass through.
+			out = append(out, elemSpec{name: "aacparse"})
+		case 1:
+			// MP3 — decode, re-encode to AAC.
+			out = append(out, elemSpec{name: "mpegaudioparse"}, elemSpec{name: "mpg123audiodec"})
+			out = append(out, transcodeToAAC...)
+		default:
+			return nil, fmt.Errorf("%w: audio/mpeg mpegversion=%d", ErrUnsupportedCodec, ver)
+		}
+	case "audio/x-opus":
+		out = append(out, elemSpec{name: "opusdec"})
+		out = append(out, transcodeToAAC...)
+	case "audio/x-vorbis":
+		out = append(out, elemSpec{name: "vorbisdec"})
+		out = append(out, transcodeToAAC...)
+	case "audio/x-flac":
+		out = append(out, elemSpec{name: "flacdec"})
+		out = append(out, transcodeToAAC...)
+	default:
+		return nil, fmt.Errorf("%w: audio codec %q", ErrUnsupportedCodec, codec)
+	}
+	return out, nil
+}
+
+func buildChain(pipeline *gst.Pipeline, prefix string, specs []elemSpec) ([]*gst.Element, error) {
+	out := make([]*gst.Element, len(specs))
+	for i, spec := range specs {
+		props := map[string]any{}
+		for k, v := range spec.props {
+			props[k] = v
+		}
+		props["name"] = fmt.Sprintf("%s-%s-%d", prefix, spec.name, i)
+		e, err := gst.NewElementWithProperties(spec.name, props)
+		if err != nil {
+			return nil, fmt.Errorf("create %s: %w", spec.name, err)
+		}
+		if err := pipeline.Add(e); err != nil {
+			return nil, fmt.Errorf("add %s: %w", spec.name, err)
+		}
+		out[i] = e
+	}
+	return out, nil
+}
+
+func linkChain(elems []*gst.Element) error {
+	for i := 0; i < len(elems)-1; i++ {
+		if err := elems[i].Link(elems[i+1]); err != nil {
+			return fmt.Errorf("link %s -> %s: %w", elems[i].GetName(), elems[i+1].GetName(), err)
+		}
+	}
+	return nil
+}
+
+func syncAll(elems []*gst.Element) {
+	for _, e := range elems {
+		e.SyncStateWithParent()
+	}
+}

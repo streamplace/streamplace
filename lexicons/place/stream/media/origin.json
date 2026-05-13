@@ -4,11 +4,11 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "An attestation that a MUXL blob is available for download at one or more URLs. Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.",
+      "description": "An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.",
       "key": "any",
       "record": {
         "type": "object",
-        "required": ["blob", "size", "mimeType", "urls"],
+        "required": ["blob", "size", "mimeType"],
         "properties": {
           "blob": {
             "type": "string",
@@ -21,15 +21,6 @@
           "mimeType": {
             "type": "string",
             "description": "MIME type of the blob (e.g. video/mp4)."
-          },
-          "urls": {
-            "type": "array",
-            "description": "Public URLs from which the blob can be fetched. Multiple entries enable transport diversity (HTTP, future iroh/libp2p schemes).",
-            "minLength": 1,
-            "items": {
-              "type": "string",
-              "format": "uri"
-            }
           }
         }
       }

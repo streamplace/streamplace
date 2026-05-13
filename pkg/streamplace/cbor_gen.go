@@ -9068,7 +9068,7 @@ func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
 
 	cw := cbg.NewCborWriter(w)
 
-	if _, err := cw.Write([]byte{165}); err != nil {
+	if _, err := cw.Write([]byte{164}); err != nil {
 		return err
 	}
 
@@ -9115,39 +9115,6 @@ func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
 		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Size-1)); err != nil {
 			return err
 		}
-	}
-
-	// t.Urls ([]string) (slice)
-	if len("urls") > 1000000 {
-		return xerrors.Errorf("Value in field \"urls\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("urls"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("urls")); err != nil {
-		return err
-	}
-
-	if len(t.Urls) > 8192 {
-		return xerrors.Errorf("Slice value in field t.Urls was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Urls))); err != nil {
-		return err
-	}
-	for _, v := range t.Urls {
-		if len(v) > 1000000 {
-			return xerrors.Errorf("Value in field v was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(v))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string(v)); err != nil {
-			return err
-		}
-
 	}
 
 	// t.LexiconTypeID (string) (string)
@@ -9271,46 +9238,6 @@ func (t *MediaOrigin) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.Size = int64(extraI)
-			}
-			// t.Urls ([]string) (slice)
-		case "urls":
-
-			maj, extra, err = cr.ReadHeader()
-			if err != nil {
-				return err
-			}
-
-			if extra > 8192 {
-				return fmt.Errorf("t.Urls: array too large (%d)", extra)
-			}
-
-			if maj != cbg.MajArray {
-				return fmt.Errorf("expected cbor array")
-			}
-
-			if extra > 0 {
-				t.Urls = make([]string, extra)
-			}
-
-			for i := 0; i < int(extra); i++ {
-				{
-					var maj byte
-					var extra uint64
-					var err error
-					_ = maj
-					_ = extra
-					_ = err
-
-					{
-						sval, err := cbg.ReadStringWithMax(cr, 1000000)
-						if err != nil {
-							return err
-						}
-
-						t.Urls[i] = string(sval)
-					}
-
-				}
 			}
 			// t.LexiconTypeID (string) (string)
 		case "$type":

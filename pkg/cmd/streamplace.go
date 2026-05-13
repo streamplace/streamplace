@@ -42,7 +42,12 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/vod"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
@@ -349,8 +354,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	vodStore, err := makeVODStore(ctx, cli)
+	if err != nil {
+		return fmt.Errorf("make vod store: %w", err)
+	}
 	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
-		return vod.ProcessVOD(ctx, cli, vod.Input{
+		return vod.ProcessVOD(ctx, vodStore, vod.Input{
 			UploadID: t.UploadID,
 			RepoDID:  t.RepoDID,
 			MimeType: t.MimeType,
@@ -554,6 +563,41 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	return group.Wait()
+}
+
+// makeVODStore picks the blob.Store backing VOD output for this
+// process. S3 if it's configured (production / multi-node); otherwise
+// the local DataDir. Either way the same Store is used to read the
+// user upload AND write the content-addressed VOD output — uploads
+// land under "uploads/" and VOD output lands under "vod/" within the
+// Store's namespace.
+//
+// FileStore is rooted at DataDir so it can see the upload manager's
+// "uploads/<id>" tree alongside its own "vod/" tree; S3Store is rooted
+// at the configured bucket for the same reason.
+//
+// Mirrors upload.New's multi-node-requires-S3 invariant: in single-node
+// file mode the upload and the produced VOD share local disk; in
+// multi-node S3 mode any station can pick up a queued VOD task and
+// land output in shared storage.
+func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
+	if cli.S3Configured() {
+		s3client := awss3.New(awss3.Options{
+			Region: cli.S3Region,
+			Credentials: credentials.NewStaticCredentialsProvider(
+				cli.S3AccessKeyID,
+				cli.S3SecretAccessKey,
+				"",
+			),
+			BaseEndpoint: aws.String(cli.S3Endpoint),
+			UsePathStyle: true,
+		})
+		log.Log(ctx, "VOD store: S3", "bucket", cli.S3Bucket)
+		return blob.NewS3Store(s3client, cli.S3Bucket), nil
+	}
+	root := cli.DataFilePath(nil)
+	log.Log(ctx, "VOD store: file", "root", root)
+	return blob.NewFileStore(root)
 }
 
 var ErrCaughtSignal = errors.New("caught signal")

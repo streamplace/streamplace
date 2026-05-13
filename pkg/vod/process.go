@@ -1,15 +1,16 @@
 // Package vod implements the post-upload processing pipeline for a VOD
 // upload: read the user's raw file from wherever the upload manager
 // stored it, run it through gstreamer (parsebin -> mp4mux -> muxl
-// concatenator), and write the resulting fMP4 to S3 under a key derived
-// from the BLAKE3-based BDASL CID of the final bytes.
+// concatenator), and write the resulting fMP4 to a content-addressed
+// key under a blob.Store.
 //
-// The full pipeline is streaming end-to-end — bytes flow from the source
+// The pipeline is streaming end-to-end — bytes flow from the source
 // (file or ranged S3 GETs), through gstreamer's appsrc -> parsebin ->
 // fdkaacenc/h264parse -> mp4mux -> appsink, into the muxl wasm
-// concatenator, and out to an S3 multipart upload. The bdasl hasher
-// runs as a tee on the way out; the final CID is known only when the
-// last byte is written.
+// concatenator, and out to a blob.Store writer. A bdasl.Writer runs
+// as a tee on the way out; the final CID is known only when the last
+// byte is written, at which point we Move the staging blob to the
+// content-addressed key.
 package vod
 
 import (
@@ -17,23 +18,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
 	"stream.place/streamplace/pkg/bdasl"
-	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/muxl"
-	s3pkg "stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -45,8 +41,8 @@ const (
 	stageOpenSource         = "open_source"
 	stageStaging            = "start_staging"
 	stagePipeline           = "gstreamer_pipeline"
-	stageStagingComplete    = "s3_complete"
-	stageContentAddressCopy = "content_address_copy"
+	stageStagingComplete    = "store_complete"
+	stageContentAddressCopy = "content_address_move"
 )
 
 // Input is the per-upload state needed to drive ProcessVOD. It's a
@@ -59,33 +55,34 @@ type Input struct {
 	MimeType string
 	Filename string
 	Size     int64
-	// Backend is the storage tier the user upload lives on: "file" or "s3".
+	// Backend describes the upload source backend ("file" or "s3"),
+	// matching what the upload manager stored on the row. Used only
+	// for metrics labeling; the actual reading goes through the
+	// blob.Store passed to ProcessVOD.
 	Backend string
-	// Location is the path (file backend) or s3:// URL (s3 backend) of
-	// the user upload.
+	// Location is the backend-specific URL/path (a file path or
+	// "s3://bucket/key" URL) the upload landed at. Translated to a
+	// Store key via Store.ParseLocation.
 	Location string
 }
 
-// Backend constants mirror pkg/upload.BackendFile / BackendS3 without
-// importing the upload package (which would pull statedb in transitively).
-const (
-	BackendFile = "file"
-	BackendS3   = "s3"
-)
-
-// StagingPrefix is where in-progress VOD outputs land in S3 before being
-// renamed to their content-addressed key. We park them under a dedicated
-// prefix so a periodic janitor can sweep abandoned uploads.
+// StagingPrefix is where in-progress VOD outputs land before being
+// renamed to their content-addressed key. We park them under a
+// dedicated prefix so a periodic janitor can sweep abandoned uploads.
 const StagingPrefix = "vod-staging/"
 
 // ContentPrefix is the prefix for the final, content-addressed object.
 const ContentPrefix = "vod/"
 
 // ProcessVOD runs the streaming pipeline for one VOD upload and returns
-// the BDASL CID of the resulting fMP4. The output object is written at
-// ContentPrefix+<cid>.fmp4 in the configured S3 bucket; staging objects
-// are cleaned up on success or failure.
-func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) {
+// the BDASL CID of the resulting fMP4. Reads come from `in` via the
+// supplied Store; the output blob lands at ContentPrefix+<cid>.fmp4 in
+// the same Store; staging blobs are cleaned up on success or failure.
+//
+// The Store is the storage layer; it can be either a FileStore (single-
+// node deployments) or an S3Store (production). Future Stores can mix
+// caches and archives behind the same interface.
+func ProcessVOD(ctx context.Context, store blob.Store, in Input) (string, error) {
 	ctx = log.WithLogValues(ctx, "func", "ProcessVOD", "uploadId", in.UploadID, "did", in.RepoDID)
 	ctx, span := vodTracer.Start(ctx, "vod.ProcessVOD", trace.WithAttributes(
 		attribute.String("upload_id", in.UploadID),
@@ -102,16 +99,14 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) 
 		spmetrics.VODProcessDurationMS.Observe(float64(time.Since(startTime).Milliseconds()))
 	}()
 
-	log.Log(ctx, "starting VOD processing", "backend", in.Backend, "size", in.Size, "mimeType", in.MimeType)
+	log.Log(ctx, "starting VOD processing",
+		"backend", in.Backend,
+		"size", in.Size,
+		"mimeType", in.MimeType,
+		"location", in.Location,
+	)
 
-	if !cli.S3Configured() {
-		err := errors.New("vod processing requires S3 to be configured")
-		recordErr(span, "config", err)
-		return "", err
-	}
-	s3client := newS3Client(cli)
-
-	src, size, closer, err := openSource(ctx, cli, s3client, in)
+	src, size, closer, err := openSource(ctx, store, in)
 	if err != nil {
 		recordErr(span, stageOpenSource, err)
 		return "", fmt.Errorf("open source: %w", err)
@@ -122,7 +117,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) 
 
 	stagingKey := StagingPrefix + in.UploadID + ".fmp4"
 	span.SetAttributes(attribute.String("staging_key", stagingKey))
-	staging, err := s3pkg.NewMultipartWriter(ctx, s3client, cli.S3Bucket, stagingKey, "video/mp4")
+	staging, err := store.NewWriter(ctx, stagingKey, "video/mp4")
 	if err != nil {
 		recordErr(span, stageStaging, err)
 		return "", fmt.Errorf("start staging upload: %w", err)
@@ -151,9 +146,10 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) 
 	span.SetAttributes(
 		attribute.String("cid", finalCID),
 		attribute.String("content_key", contentKey),
+		attribute.String("content_url", store.URL(contentKey)),
 	)
 
-	if err := finalizeUpload(ctx, s3client, cli.S3Bucket, stagingKey, contentKey); err != nil {
+	if err := finalizeMove(ctx, store, stagingKey, contentKey); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
 	}
@@ -162,7 +158,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) 
 	span.SetStatus(codes.Ok, "")
 	log.Log(ctx, "VOD processed",
 		"cid", finalCID,
-		"key", contentKey,
+		"url", store.URL(contentKey),
 		"input_size", size,
 		"output_size", counter.n,
 		"duration_ms", time.Since(startTime).Milliseconds(),
@@ -170,10 +166,10 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, in Input) (string, error) 
 	return finalCID, nil
 }
 
-// completeStaging wraps the multipart Complete call in its own span so
-// we can see how much of total processing time is spent waiting for S3
-// to acknowledge the upload.
-func completeStaging(ctx context.Context, staging *s3pkg.MultipartWriter, stagingKey string) error {
+// completeStaging wraps the writer Complete call in its own span so
+// we can see how much of total processing time is spent waiting for
+// the storage layer to acknowledge the upload.
+func completeStaging(ctx context.Context, staging blob.Writer, stagingKey string) error {
 	_, span := vodTracer.Start(ctx, "vod.completeStaging", trace.WithAttributes(
 		attribute.String("staging_key", stagingKey),
 	))
@@ -183,6 +179,28 @@ func completeStaging(ctx context.Context, staging *s3pkg.MultipartWriter, stagin
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
+	return nil
+}
+
+// finalizeMove atomically promotes the staged blob at stagingKey to the
+// content-addressed contentKey. For S3Store this is a CopyObject +
+// DeleteObject; for FileStore it's an os.Rename.
+func finalizeMove(ctx context.Context, store blob.Store, stagingKey, contentKey string) error {
+	ctx, span := vodTracer.Start(ctx, "vod.finalizeMove", trace.WithAttributes(
+		attribute.String("staging_key", stagingKey),
+		attribute.String("content_key", contentKey),
+	))
+	defer span.End()
+	moveStart := time.Now()
+	if err := store.Move(ctx, stagingKey, contentKey); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "move")
+		return err
+	}
+	span.SetAttributes(attribute.Int64("move_duration_ms", time.Since(moveStart).Milliseconds()))
+	log.Debug(ctx, "moved staging to content-addressed key",
+		"duration_ms", time.Since(moveStart).Milliseconds(),
+	)
 	return nil
 }
 
@@ -346,101 +364,35 @@ func consumeConcatTraced(ctx context.Context, c *muxl.Concatenator, dst io.Write
 	return nil
 }
 
-// openSource returns a ReaderAt + size for the upload, regardless of
-// backend. The returned closer must be called when the caller is done
+// openSource returns a Reader + size for the upload via the supplied
+// Store. The returned closer must be called when the caller is done
 // with the source.
-func openSource(ctx context.Context, cli *config.CLI, s3client *awss3.Client, in Input) (io.ReaderAt, int64, func(), error) {
+//
+// The upload's Location field (a backend-specific URL/path) is
+// translated to a Store-relative key via store.ParseLocation. If the
+// configured Store can't claim the Location — e.g. the upload was
+// stored in S3 but the deployment is now serving file-only — the open
+// fails with a clear error.
+func openSource(ctx context.Context, store blob.Store, in Input) (io.ReaderAt, int64, func(), error) {
 	ctx, span := vodTracer.Start(ctx, "vod.openSource", trace.WithAttributes(
 		attribute.String("backend", in.Backend),
 		attribute.String("location", in.Location),
 	))
 	defer span.End()
-	switch in.Backend {
-	case BackendFile:
-		f, err := os.Open(in.Location)
-		if err != nil {
-			span.RecordError(err)
-			return nil, 0, nil, fmt.Errorf("open file upload %q: %w", in.Location, err)
-		}
-		st, err := f.Stat()
-		if err != nil {
-			span.RecordError(err)
-			_ = f.Close()
-			return nil, 0, nil, fmt.Errorf("stat file upload %q: %w", in.Location, err)
-		}
-		span.SetAttributes(attribute.Int64("size_bytes", st.Size()))
-		log.Debug(ctx, "opened file upload", "path", in.Location, "size", st.Size())
-		return f, st.Size(), func() { _ = f.Close() }, nil
-	case BackendS3:
-		bucket, key, err := s3pkg.ParseURL(in.Location)
-		if err != nil {
-			span.RecordError(err)
-			return nil, 0, nil, fmt.Errorf("parse s3 location %q: %w", in.Location, err)
-		}
-		span.SetAttributes(attribute.String("bucket", bucket), attribute.String("key", key))
-		ra, err := s3pkg.NewReaderAt(ctx, s3client, bucket, key)
-		if err != nil {
-			span.RecordError(err)
-			return nil, 0, nil, fmt.Errorf("open s3 upload: %w", err)
-		}
-		span.SetAttributes(attribute.Int64("size_bytes", ra.Size()))
-		log.Debug(ctx, "opened s3 upload", "bucket", bucket, "key", key, "size", ra.Size())
-		return ra, ra.Size(), func() { _ = ra.Close() }, nil
-	default:
-		err := fmt.Errorf("unknown upload backend %q", in.Backend)
+	key, ok := store.ParseLocation(in.Location)
+	if !ok {
+		err := fmt.Errorf("store does not own upload location %q (backend %s)", in.Location, in.Backend)
 		span.RecordError(err)
 		return nil, 0, nil, err
 	}
-}
-
-// finalizeUpload renames the staging object to its content-addressed
-// key. S3 has no rename: we CopyObject server-side, then DeleteObject
-// the staging key. If the content key already exists (duplicate upload
-// of identical content), we still proceed — copy is idempotent and we
-// still want to drop the staging copy.
-func finalizeUpload(ctx context.Context, c *awss3.Client, bucket, stagingKey, contentKey string) error {
-	ctx, span := vodTracer.Start(ctx, "vod.finalizeUpload", trace.WithAttributes(
-		attribute.String("bucket", bucket),
-		attribute.String("staging_key", stagingKey),
-		attribute.String("content_key", contentKey),
-	))
-	defer span.End()
-
-	copyStart := time.Now()
-	_, err := c.CopyObject(ctx, &awss3.CopyObjectInput{
-		Bucket:     aws.String(bucket),
-		Key:        aws.String(contentKey),
-		CopySource: aws.String(bucket + "/" + stagingKey),
-	})
+	span.SetAttributes(attribute.String("key", key))
+	rdr, err := store.Open(ctx, key)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "copy")
-		return fmt.Errorf("copy staging -> %s: %w", contentKey, err)
+		return nil, 0, nil, fmt.Errorf("open upload: %w", err)
 	}
-	span.SetAttributes(attribute.Int64("copy_duration_ms", time.Since(copyStart).Milliseconds()))
-	log.Debug(ctx, "copied staging to content-addressed key", "duration_ms", time.Since(copyStart).Milliseconds())
-
-	if _, err := c.DeleteObject(ctx, &awss3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(stagingKey),
-	}); err != nil {
-		// Non-fatal: the content key is in place; staging will be swept
-		// later. Log + continue, and record it on the span for visibility.
-		span.RecordError(err)
-		log.Warn(ctx, "failed to delete staging object", "key", stagingKey, "error", err)
-	}
-	return nil
-}
-
-func newS3Client(cli *config.CLI) *awss3.Client {
-	return awss3.New(awss3.Options{
-		Region: cli.S3Region,
-		Credentials: credentials.NewStaticCredentialsProvider(
-			cli.S3AccessKeyID,
-			cli.S3SecretAccessKey,
-			"",
-		),
-		BaseEndpoint: aws.String(cli.S3Endpoint),
-		UsePathStyle: true,
-	})
+	size := rdr.Size()
+	span.SetAttributes(attribute.Int64("size_bytes", size))
+	log.Debug(ctx, "opened upload via Store", "url", store.URL(key), "size", size)
+	return rdr, size, func() { _ = rdr.Close() }, nil
 }

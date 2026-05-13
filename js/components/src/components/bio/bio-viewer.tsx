@@ -15,7 +15,7 @@ import {
   PlaceStreamBioBlocksText,
   PlaceStreamBioBlocksUnorderedList,
   PlaceStreamBioDefs,
-  PlaceStreamBioLayoutsColumns,
+  PlaceStreamBioLayoutsPanels,
   PlaceStreamBioPage,
   PlaceStreamRichtextFacet,
 } from "streamplace";
@@ -117,10 +117,10 @@ function BioLayout({
 
   const t = (layout as any)?.$type as string | undefined;
 
-  if (t === "place.stream.bio.layouts.columns") {
+  if (t === "place.stream.bio.layouts.panels") {
     return (
-      <ColumnsLayout
-        columns={(layout as PlaceStreamBioLayoutsColumns.Main).columns}
+      <PanelsLayout
+        panels={(layout as PlaceStreamBioLayoutsPanels.Main).panels}
         did={did}
       />
     );
@@ -129,46 +129,25 @@ function BioLayout({
   return <Text color="muted">Unsupported layout: {t ?? "(no type)"}</Text>;
 }
 
-function ColumnsLayout({
-  columns,
+function PanelsLayout({
+  panels,
   did,
 }: {
-  columns: PlaceStreamBioLayoutsColumns.Column[];
+  panels: PlaceStreamBioLayoutsPanels.Panel[];
   did?: string;
 }) {
-  const numCols = columns.length;
-  const hasWidths = columns.some((c) => c.width != null);
-
   return (
     <View direction="row" style={{ flexWrap: "wrap", gap: 16 }}>
-      {columns.map((col, colIdx) => {
-        const widthPct =
-          hasWidths && col.width != null
-            ? (`${
-                Math.round(
-                  (col.width /
-                    columns.reduce((sum, c) => sum + (c.width ?? 1), 0)) *
-                    10000,
-                ) / 100
-              }%` as const)
-            : (`${Math.round((1 / numCols) * 10000) / 100}%` as const);
-
-        return (
-          <View
-            key={colIdx}
-            style={{
-              width: widthPct,
-              flexGrow: 0,
-              flexShrink: 1,
-              minWidth: 200,
-            }}
-          >
-            {col.blocks.map((entry, blockIdx) => (
-              <BlockEntryView key={blockIdx} entry={entry} did={did} />
-            ))}
-          </View>
-        );
-      })}
+      {panels.map((panel, panelIdx) => (
+        <View
+          key={panelIdx}
+          style={{ flex: 1, flexGrow: 1, flexShrink: 1, minWidth: 200 }}
+        >
+          {panel.blocks.map((entry, blockIdx) => (
+            <BlockEntryView key={blockIdx} entry={entry} did={did} />
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
@@ -177,21 +156,13 @@ function BlockEntryView({
   entry,
   did,
 }: {
-  entry: PlaceStreamBioLayoutsColumns.BlockEntry;
+  entry: PlaceStreamBioLayoutsPanels.BlockEntry;
   did?: string;
 }) {
   const alignment = mapAlignment(entry.alignment);
 
   return (
-    <View
-      style={{
-        marginBottom: 12,
-        alignItems: alignment,
-        ...(entry.colSpan && entry.colSpan > 1
-          ? { width: `${Math.min(entry.colSpan * 100, 100)}%` }
-          : {}),
-      }}
-    >
+    <View style={{ marginBottom: 12, alignItems: alignment }}>
       <BlockRenderer block={entry.block} did={did} />
     </View>
   );
@@ -216,7 +187,7 @@ function BlockRenderer({
   block,
   did,
 }: {
-  block: PlaceStreamBioLayoutsColumns.BlockEntry["block"];
+  block: PlaceStreamBioLayoutsPanels.BlockEntry["block"];
   did?: string;
 }) {
   const t = (block as any)?.$type as string | undefined;

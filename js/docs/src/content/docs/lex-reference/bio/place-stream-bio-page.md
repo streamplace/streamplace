@@ -19,14 +19,14 @@ A Streamplace user's bio: a long-form 'about' description, pinned social links, 
 
 **Record Properties:**
 
-| Name           | Type                                                                                                            | Req'd | Description                                                                                                                                                                 | Constraints        |
-| -------------- | --------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `description`  | [`#description`](#description)                                                                                  | ❌    | Long-form 'about' text shown in the bio header. Distinct from the user's bsky profile description, which is shorter.                                                        |                    |
-| `socials`      | Array of [`place.stream.bio.defs#social`](/lex-reference/place-stream-bio-defs#social)                          | ❌    | Pinned social/platform links shown in the bio header.                                                                                                                       | Max Items: 16      |
-| `layout`       | Union of:<br/>&nbsp;&nbsp;[`place.stream.bio.layouts.columns`](/lex-reference/place-stream-bio-layouts-columns) | ❌    | How the customizable body of the bio is arranged. Currently only the columns layout is defined; future layouts (e.g. canvas, grid) can be added here.                       |                    |
-| `importedFrom` | `string`                                                                                                        | ❌    | Optional reference to an external authoring source (e.g. a pub.leaflet.document) this bio was imported/translated from. Clients may use this to offer a 're-import' action. | Format: `at-uri`   |
-| `createdAt`    | `string`                                                                                                        | ✅    |                                                                                                                                                                             | Format: `datetime` |
-| `updatedAt`    | `string`                                                                                                        | ❌    |                                                                                                                                                                             | Format: `datetime` |
+| Name           | Type                                                                                                          | Req'd | Description                                                                                                                                                                 | Constraints        |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `description`  | [`#description`](#description)                                                                                | ❌    | Long-form 'about' text shown in the bio header. Distinct from the user's bsky profile description, which is shorter.                                                        |                    |
+| `socials`      | Array of [`place.stream.bio.defs#social`](/lex-reference/place-stream-bio-defs#social)                        | ❌    | Pinned social/platform links shown in the bio header.                                                                                                                       | Max Items: 16      |
+| `layout`       | Union of:<br/>&nbsp;&nbsp;[`place.stream.bio.layouts.panels`](/lex-reference/place-stream-bio-layouts-panels) | ❌    | How the customizable body of the bio is arranged.                                                                                                                           |                    |
+| `importedFrom` | `string`                                                                                                      | ❌    | Optional reference to an external authoring source (e.g. a pub.leaflet.document) this bio was imported/translated from. Clients may use this to offer a 're-import' action. | Format: `at-uri`   |
+| `createdAt`    | `string`                                                                                                      | ✅    |                                                                                                                                                                             | Format: `datetime` |
+| `updatedAt`    | `string`                                                                                                      | ❌    |                                                                                                                                                                             | Format: `datetime` |
 
 ---
 
@@ -78,8 +78,8 @@ Long-form rich text describing the user.
           },
           "layout": {
             "type": "union",
-            "description": "How the customizable body of the bio is arranged. Currently only the columns layout is defined; future layouts (e.g. canvas, grid) can be added here.",
-            "refs": ["place.stream.bio.layouts.columns"]
+            "description": "How the customizable body of the bio is arranged.",
+            "refs": ["place.stream.bio.layouts.panels"]
           },
           "importedFrom": {
             "type": "string",

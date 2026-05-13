@@ -3,11 +3,14 @@ import {
   getPDSServiceEndpoint,
   resolveDIDDocument,
   Text,
+  useAvatars,
   useLivestreamInfo,
   useTheme,
   View,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
+import { ChevronDown, ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable } from "react-native";
 import type { PlaceStreamBioPage } from "streamplace";
@@ -59,16 +62,53 @@ type Tab = "about";
 
 const TABS: { id: Tab; label: string }[] = [{ id: "about", label: "About" }];
 
-export function StreamTabs() {
+export function StreamTabs({
+  onToggleCollapse,
+  collapsed,
+}: {
+  onToggleCollapse?: () => void;
+  collapsed?: boolean;
+}) {
   const { profile } = useLivestreamInfo();
   const { bio, loading } = useStreamerBio(profile?.did);
   const [activeTab, setActiveTab] = useState<Tab>("about");
   const { theme } = useTheme();
+  const avatars = useAvatars(profile?.did ? [profile.did] : []);
+  const avatar = profile?.did ? avatars[profile.did]?.avatar : undefined;
 
   if (!profile?.did) return null;
 
   return (
     <View style={{ backgroundColor: "rgba(0,0,0,0.9)" }}>
+      {/* Profile strip — tap to collapse/expand video */}
+      {onToggleCollapse && (
+        <Pressable
+          onPress={onToggleCollapse}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+            gap: 10,
+          }}
+        >
+          <Image
+            source={
+              avatar ? { uri: avatar } : require("assets/images/goose.png")
+            }
+            style={{ width: 32, height: 32, borderRadius: 999 }}
+          />
+          <Text size="base" weight="medium" style={{ flex: 1 }}>
+            {profile.handle}
+          </Text>
+          {collapsed ? (
+            <ChevronDown size={18} color={theme.colors.mutedForeground} />
+          ) : (
+            <ChevronUp size={18} color={theme.colors.mutedForeground} />
+          )}
+        </Pressable>
+      )}
+
       {/* Tab bar */}
       <View direction="row" style={{ paddingHorizontal: 20, paddingTop: 16 }}>
         {TABS.map((tab) => {

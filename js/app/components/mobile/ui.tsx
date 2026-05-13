@@ -58,12 +58,14 @@ export function MobileUi({
   hideMobileChat,
   embed = false,
   sharedFadeOpacity,
+  onCollapse,
 }: {
   setShowChat?: (show: boolean) => void;
   showChat?: boolean;
   hideMobileChat?: boolean;
   embed?: boolean;
   sharedFadeOpacity?: SharedValue<number>;
+  onCollapse?: () => void;
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
@@ -208,6 +210,9 @@ export function MobileUi({
                 >
                   <LeftControlsPanel
                     navigation={navigation}
+                    profile={profile}
+                    avatars={avatars}
+                    onCollapse={onCollapse}
                     muted={muted}
                     setMuted={setMuted}
                     muteWasForced={muteWasForced}
@@ -328,12 +333,14 @@ function LeftControlsPanel({
   setMuted,
   muteWasForced,
   setMuteWasForced,
+  onCollapse,
 }: {
   navigation: any;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   muteWasForced: boolean;
   setMuteWasForced: (forced: boolean) => void;
+  onCollapse?: () => void;
 }) {
   const profile = useAuthor();
   const avatar = useAvatar();
@@ -367,24 +374,32 @@ function LeftControlsPanel({
           >
             <ChevronLeft color="white" />
           </Pressable>
-          <Image
-            source={
-              avatar ? { uri: avatar } : require("assets/images/goose.png")
-            }
-            key={profile?.did}
-            style={[
-              {
-                width: 36,
-                height: 36,
-              },
-              { borderRadius: 999 },
-              borders.width.thin,
-              borders.color.gray[700],
-            ]}
-          />
-          <Text numberOfLines={1} ellipsizeMode="tail">
-            {profile?.handle}
-          </Text>
+          <Pressable
+            onPress={onCollapse}
+            disabled={!onCollapse}
+            style={[layout.flex.row, layout.flex.center, gap.all[2]]}
+          >
+            <Image
+              source={
+                avatars[profile?.did]
+                  ? avatars[profile?.did]?.avatar
+                  : require("assets/images/goose.png")
+              }
+              key={profile?.did}
+              style={[
+                {
+                  width: 36,
+                  height: 36,
+                },
+                { borderRadius: 999 },
+                borders.width.thin,
+                borders.color.gray[700],
+              ]}
+            />
+            <Text numberOfLines={1} ellipsizeMode="tail">
+              {profile?.handle}
+            </Text>
+          </Pressable>
         </View>
       </View>
 

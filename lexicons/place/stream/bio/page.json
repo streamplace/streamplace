@@ -26,8 +26,8 @@
           },
           "layout": {
             "type": "union",
-            "description": "How the customizable body of the bio is arranged. Currently only the columns layout is defined; future layouts (e.g. canvas, grid) can be added here.",
-            "refs": ["place.stream.bio.layouts.columns"]
+            "description": "How the customizable body of the bio is arranged.",
+            "refs": ["place.stream.bio.layouts.panels"]
           },
           "importedFrom": {
             "type": "string",

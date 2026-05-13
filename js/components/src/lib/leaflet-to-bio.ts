@@ -10,7 +10,7 @@ import {
   PlaceStreamBioBlocksOrderedList,
   PlaceStreamBioBlocksText,
   PlaceStreamBioBlocksUnorderedList,
-  PlaceStreamBioLayoutsColumns,
+  PlaceStreamBioLayoutsPanels,
   PlaceStreamBioPage,
   PlaceStreamRichtextFacet,
 } from "streamplace";
@@ -61,6 +61,212 @@ interface LeafletBlockEntry {
 
 type LeafletBlock = { $type: string; [k: string]: unknown };
 
+export interface LeafletFlatBlock {
+  idx: number;
+  pageIdx: number;
+  label: string;
+  blockType: string;
+  // Passed through to leafletRangesToBio — do not access from UI code
+  _entry: unknown;
+}
+
+export interface PanelRange {
+  startIdx: number;
+  endIdx: number; // inclusive
+  color: string;
+}
+
+const PANEL_RANGE_COLORS = [
+  "#e74c3c",
+  "#3498db",
+  "#2ecc71",
+  "#f39c12",
+  "#9b59b6",
+  "#1abc9c",
+  "#e91e63",
+  "#f1c40f",
+];
+
+export function autoSplitRanges(
+  blocks: LeafletFlatBlock[],
+  colors: string[] = PANEL_RANGE_COLORS,
+): PanelRange[] {
+  const ranges: PanelRange[] = [];
+  let runStart: number | null = null;
+
+  for (let i = 0; i < blocks.length; i++) {
+    const isDivider =
+      blocks[i].blockType === "divider" ||
+      blocks[i].blockType === "horizontalRule";
+
+    if (isDivider) {
+      if (runStart !== null) {
+        ranges.push({
+          startIdx: runStart,
+          endIdx: i - 1,
+          color: colors[ranges.length % colors.length],
+        });
+        runStart = null;
+      }
+      continue;
+    }
+
+    if (runStart === null) {
+      runStart = i;
+    }
+  }
+
+  if (runStart !== null) {
+    ranges.push({
+      startIdx: runStart,
+      endIdx: blocks.length - 1,
+      color: colors[ranges.length % colors.length],
+    });
+  }
+
+  return ranges;
+}
+
+export function extractLeafletBlocks(doc: LeafletDoc): {
+  blocks: LeafletFlatBlock[];
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const blocks: LeafletFlatBlock[] = [];
+
+  if (
+    doc.content !== undefined &&
+    doc.content?.$type !== "pub.leaflet.content"
+  ) {
+    throw new Error(
+      `This record is not from leaflet.pub (content type: ${doc.content?.$type ?? "unknown"}).`,
+    );
+  }
+
+  const pages = Array.isArray(doc.content?.pages)
+    ? doc.content.pages
+    : Array.isArray(doc.pages)
+      ? doc.pages
+      : [];
+  const linearOrCanvasPages = pages.filter(
+    (p): p is LeafletLinearPage | LeafletCanvasPage =>
+      p?.$type === "pub.leaflet.pages.linearDocument" ||
+      p?.$type === "pub.leaflet.pages.canvas",
+  );
+  const skippedPages = pages.length - linearOrCanvasPages.length;
+  if (skippedPages > 0) {
+    warnings.push(
+      `Skipped ${skippedPages} page(s) of unknown type. Only linearDocument and canvas pages are supported.`,
+    );
+  }
+
+  linearOrCanvasPages.forEach((page, pageIdx) => {
+    for (const entry of page.blocks ?? []) {
+      if (!entry.block) continue;
+      const idx = blocks.length;
+      const blockType = entry.block.$type?.split(".").pop() ?? "unknown";
+      const label = labelForBlock(entry.block);
+      blocks.push({ idx, pageIdx, label, blockType, _entry: entry });
+    }
+  });
+
+  return { blocks, warnings };
+}
+
+export function leafletRangesToBio(
+  doc: LeafletDoc,
+  blocks: LeafletFlatBlock[],
+  ranges: PanelRange[],
+  opts: LeafletToBioOptions = {},
+): LeafletToBioResult {
+  const warnings: string[] = [];
+  const sortedRanges = [...ranges].sort((a, b) => a.startIdx - b.startIdx);
+
+  const panels: PlaceStreamBioLayoutsPanels.Panel[] = [];
+  for (const range of sortedRanges) {
+    const panelBlocks = blocks
+      .slice(range.startIdx, range.endIdx + 1)
+      .map((fb) =>
+        translateBlockEntry(fb._entry as LeafletBlockEntry, warnings),
+      )
+      .filter((e): e is PlaceStreamBioLayoutsPanels.BlockEntry => e !== null);
+    if (panelBlocks.length > 0) {
+      panels.push({ blocks: panelBlocks });
+    }
+  }
+
+  const selectedCount = sortedRanges.reduce(
+    (sum, r) => sum + (r.endIdx - r.startIdx + 1),
+    0,
+  );
+  const droppedCount = blocks.length - selectedCount;
+  if (droppedCount > 0) {
+    warnings.push(
+      `${droppedCount} block(s) were not included in any panel and were dropped.`,
+    );
+  }
+
+  const layout: PlaceStreamBioLayoutsPanels.Main = {
+    $type: "place.stream.bio.layouts.panels",
+    panels: panels.length > 0 ? panels : [{ blocks: [] }],
+  };
+
+  const now = opts.now ?? new Date().toISOString();
+  const prior = opts.preserve ?? null;
+
+  const bio: PlaceStreamBioPage.Record = {
+    $type: "place.stream.bio.page",
+    layout: layout as PlaceStreamBioPage.Record["layout"],
+    createdAt: prior?.createdAt ?? now,
+    updatedAt: now,
+  };
+
+  if (typeof doc.description === "string" && doc.description.length > 0) {
+    bio.description = { plaintext: doc.description };
+  }
+  if (prior?.socials && prior.socials.length > 0) {
+    bio.socials = prior.socials;
+  }
+  if (opts.importedFrom) {
+    bio.importedFrom = opts.importedFrom;
+  }
+
+  return { bio, warnings };
+}
+
+function labelForBlock(block: LeafletBlock): string {
+  switch (block.$type) {
+    case "pub.leaflet.blocks.text":
+    case "pub.leaflet.blocks.header":
+    case "pub.leaflet.blocks.blockquote":
+      return truncateStr(String(block.plaintext ?? ""), 60) || block.$type;
+    case "pub.leaflet.blocks.image":
+      return block.alt
+        ? `Image: ${truncateStr(String(block.alt), 50)}`
+        : "Image";
+    case "pub.leaflet.blocks.button":
+      return `Link: ${truncateStr(String(block.text || block.url || ""), 50)}`;
+    case "pub.leaflet.blocks.website":
+      return `Embed: ${truncateStr(String(block.title || block.src || ""), 50)}`;
+    case "pub.leaflet.blocks.iframe":
+      return `Embed: ${truncateStr(String(block.src ?? ""), 50)}`;
+    case "pub.leaflet.blocks.bskyPost":
+      return "Bluesky Post";
+    case "pub.leaflet.blocks.horizontalRule":
+      return "Divider";
+    case "pub.leaflet.blocks.orderedList":
+      return "Ordered List";
+    case "pub.leaflet.blocks.unorderedList":
+      return "Unordered List";
+    default:
+      return block.$type?.split(".").pop() ?? "Block";
+  }
+}
+
+function truncateStr(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + "…";
+}
+
 export interface LeafletToBioOptions {
   /** AT-URI of the leaflet record being imported, recorded on the bio for re-import UX. */
   importedFrom?: string;
@@ -98,7 +304,7 @@ export function leafletDocToBio(
   opts: LeafletToBioOptions = {},
 ): LeafletToBioResult {
   const warnings: string[] = [];
-  const blocks: PlaceStreamBioLayoutsColumns.BlockEntry[] = [];
+  const blocks: PlaceStreamBioLayoutsPanels.BlockEntry[] = [];
 
   if (
     doc.content !== undefined &&
@@ -141,9 +347,9 @@ export function leafletDocToBio(
     }
   });
 
-  const layout: PlaceStreamBioLayoutsColumns.Main = {
-    $type: "place.stream.bio.layouts.columns",
-    columns: [{ blocks }],
+  const layout: PlaceStreamBioLayoutsPanels.Main = {
+    $type: "place.stream.bio.layouts.panels",
+    panels: [{ blocks }],
   };
 
   const now = opts.now ?? new Date().toISOString();
@@ -174,16 +380,16 @@ export function leafletDocToBio(
 function translateBlockEntry(
   entry: LeafletBlockEntry,
   warnings: string[],
-): PlaceStreamBioLayoutsColumns.BlockEntry | null {
+): PlaceStreamBioLayoutsPanels.BlockEntry | null {
   const block = entry?.block;
   if (!block || typeof block.$type !== "string") return null;
 
   const translated = translateBlock(block, warnings);
   if (!translated) return null;
 
-  const result: PlaceStreamBioLayoutsColumns.BlockEntry = {
-    $type: "place.stream.bio.layouts.columns#blockEntry",
-    block: translated as PlaceStreamBioLayoutsColumns.BlockEntry["block"],
+  const result: PlaceStreamBioLayoutsPanels.BlockEntry = {
+    $type: "place.stream.bio.layouts.panels#blockEntry",
+    block: translated as PlaceStreamBioLayoutsPanels.BlockEntry["block"],
   };
 
   const alignment = entry.alignment;
@@ -460,10 +666,10 @@ function makeDivider(): PlaceStreamBioBlocksDivider.Main {
   return { $type: "place.stream.bio.blocks.divider" };
 }
 
-function makeDividerEntry(): PlaceStreamBioLayoutsColumns.BlockEntry {
+function makeDividerEntry(): PlaceStreamBioLayoutsPanels.BlockEntry {
   return {
-    $type: "place.stream.bio.layouts.columns#blockEntry",
-    block: makeDivider() as PlaceStreamBioLayoutsColumns.BlockEntry["block"],
+    $type: "place.stream.bio.layouts.panels#blockEntry",
+    block: makeDivider() as PlaceStreamBioLayoutsPanels.BlockEntry["block"],
   };
 }
 

@@ -25,7 +25,7 @@ type BioPage struct {
 	Description *BioPage_Description `json:"description,omitempty" cborgen:"description,omitempty"`
 	// importedFrom: Optional reference to an external authoring source (e.g. a pub.leaflet.document) this bio was imported/translated from. Clients may use this to offer a 're-import' action.
 	ImportedFrom *string `json:"importedFrom,omitempty" cborgen:"importedFrom,omitempty"`
-	// layout: How the customizable body of the bio is arranged. Currently only the columns layout is defined; future layouts (e.g. canvas, grid) can be added here.
+	// layout: How the customizable body of the bio is arranged.
 	Layout *BioPage_Layout `json:"layout,omitempty" cborgen:"layout,omitempty"`
 	// socials: Pinned social/platform links shown in the bio header.
 	Socials   []*BioDefs_Social `json:"socials,omitempty" cborgen:"socials,omitempty"`
@@ -41,15 +41,15 @@ type BioPage_Description struct {
 	Plaintext string           `json:"plaintext" cborgen:"plaintext"`
 }
 
-// How the customizable body of the bio is arranged. Currently only the columns layout is defined; future layouts (e.g. canvas, grid) can be added here.
+// How the customizable body of the bio is arranged.
 type BioPage_Layout struct {
-	BioLayoutsColumns *BioLayoutsColumns
+	BioLayoutsPanels *BioLayoutsPanels
 }
 
 func (t *BioPage_Layout) MarshalJSON() ([]byte, error) {
-	if t.BioLayoutsColumns != nil {
-		t.BioLayoutsColumns.LexiconTypeID = "place.stream.bio.layouts.columns"
-		return json.Marshal(t.BioLayoutsColumns)
+	if t.BioLayoutsPanels != nil {
+		t.BioLayoutsPanels.LexiconTypeID = "place.stream.bio.layouts.panels"
+		return json.Marshal(t.BioLayoutsPanels)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -61,9 +61,9 @@ func (t *BioPage_Layout) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "place.stream.bio.layouts.columns":
-		t.BioLayoutsColumns = new(BioLayoutsColumns)
-		return json.Unmarshal(b, t.BioLayoutsColumns)
+	case "place.stream.bio.layouts.panels":
+		t.BioLayoutsPanels = new(BioLayoutsPanels)
+		return json.Unmarshal(b, t.BioLayoutsPanels)
 	default:
 		return nil
 	}
@@ -75,8 +75,8 @@ func (t *BioPage_Layout) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	if t.BioLayoutsColumns != nil {
-		return t.BioLayoutsColumns.MarshalCBOR(w)
+	if t.BioLayoutsPanels != nil {
+		return t.BioLayoutsPanels.MarshalCBOR(w)
 	}
 	return fmt.Errorf("can not marshal empty union as CBOR")
 }
@@ -88,9 +88,9 @@ func (t *BioPage_Layout) UnmarshalCBOR(r io.Reader) error {
 	}
 
 	switch typ {
-	case "place.stream.bio.layouts.columns":
-		t.BioLayoutsColumns = new(BioLayoutsColumns)
-		return t.BioLayoutsColumns.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.layouts.panels":
+		t.BioLayoutsPanels = new(BioLayoutsPanels)
+		return t.BioLayoutsPanels.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

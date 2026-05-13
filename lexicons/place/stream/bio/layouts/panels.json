@@ -1,33 +1,27 @@
 {
   "lexicon": 1,
-  "id": "place.stream.bio.layouts.columns",
+  "id": "place.stream.bio.layouts.panels",
   "defs": {
     "main": {
       "type": "object",
-      "description": "A column-based layout for the customizable body of a bio. On narrow viewports columns collapse into a single stack in column order.",
-      "required": ["columns"],
+      "description": "An auto-layout of panels. Each panel is one column wide; panels flow left-to-right and wrap onto new rows. On narrow viewports panels stack vertically.",
+      "required": ["panels"],
       "properties": {
-        "columns": {
+        "panels": {
           "type": "array",
           "minLength": 1,
-          "maxLength": 4,
+          "maxLength": 8,
           "items": {
             "type": "ref",
-            "ref": "#column"
+            "ref": "#panel"
           }
         }
       }
     },
-    "column": {
+    "panel": {
       "type": "object",
       "required": ["blocks"],
       "properties": {
-        "width": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 4,
-          "description": "Optional weight for this column's width. If omitted on any column, columns share width equally."
-        },
         "blocks": {
           "type": "array",
           "items": {
@@ -44,12 +38,6 @@
         "alignment": {
           "type": "string",
           "enum": ["left", "center", "right"]
-        },
-        "colSpan": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 4,
-          "description": "Number of columns this block spans, starting from its column. Useful for hero banners and wide embeds. Defaults to 1."
         },
         "block": {
           "type": "union",

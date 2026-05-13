@@ -23,8 +23,8 @@ import {
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { ArrowLeft } from "lucide-react-native";
-import { ComponentRef, useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -107,10 +107,43 @@ function PlayerWithProvider(
   const useScrollableLayout =
     !isPortraitLandscapeCase && !shouldShowChatSidePanel;
 
+  // collapse state for the scrollable layout — tap avatar/handle to toggle
+  const collapsedRef = useRef(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const scrollableVideoHeightValue = useSharedValue(0);
+  const animatedScrollableVideoStyle = useAnimatedStyle(() => ({
+    height: scrollableVideoHeightValue.value,
+    overflow: "hidden",
+  }));
+
   const websocketConnected = useLivestreamStore((x) => x.websocketConnected);
   const hasReceivedSegment = useLivestreamStore((x) => x.hasReceivedSegment);
   const [showUnavailable, setShowUnavailable] = useState(false);
   const segs = useSegment();
+
+  const normalScrollableVideoHeight = useMemo(() => {
+    if (showUnavailable) return Math.round(screenWidth * (3 / 4));
+    if (segDims.width > 0 && segDims.height > 0) {
+      return Math.round((screenWidth * segDims.height) / segDims.width);
+    }
+    return Math.round(screenWidth * (9 / 16));
+  }, [showUnavailable, screenWidth, segDims.width, segDims.height]);
+
+  useEffect(() => {
+    // sync height when segment dims change, or on mount — skip if currently collapsed
+    if (!collapsedRef.current) {
+      scrollableVideoHeightValue.value = normalScrollableVideoHeight;
+    }
+  }, [normalScrollableVideoHeight]);
+
+  const toggleCollapsed = () => {
+    collapsedRef.current = !collapsedRef.current;
+    setCollapsed(collapsedRef.current);
+    scrollableVideoHeightValue.value = withTiming(
+      collapsedRef.current ? 0 : normalScrollableVideoHeight,
+      { duration: 250 },
+    );
+  };
 
   // periodically check if segment has become stale
   const [now, setNow] = useState(Date.now());
@@ -268,26 +301,19 @@ function PlayerWithProvider(
               bounces={false}
               showsVerticalScrollIndicator={false}
             >
-              <View
-                style={{
-                  height: showUnavailable
-                    ? screenWidth * (3 / 4)
-                    : segDims.width > 0 && segDims.height > 0
-                      ? Math.round(
-                          (screenWidth * segDims.height) / segDims.width,
-                        )
-                      : Math.round(screenWidth * (9 / 16)),
-                  overflow: "hidden",
-                }}
-              >
+              <Reanimated.View style={animatedScrollableVideoStyle}>
                 <PlayerInner
                   {...props}
                   showChat={showChat}
                   setShowChat={setShowChat}
                   showUnavailable={showUnavailable}
+                  onCollapse={toggleCollapsed}
                 />
-              </View>
-              <StreamTabs />
+              </Reanimated.View>
+              <StreamTabs
+                onToggleCollapse={toggleCollapsed}
+                collapsed={collapsed}
+              />
             </ScrollView>
           ) : (
             <View
@@ -359,6 +385,7 @@ export function PlayerInner(
     showChat: boolean;
     setShowChat: (show: boolean) => void;
     showUnavailable: boolean;
+    onCollapse?: () => void;
   },
 ) {
   let sb = useSidebarControl();
@@ -584,7 +611,36 @@ export function PlayerInner(
           animatedHeightStyle,
         ]}
       >
-        {videoContent}
+        {props.showUnavailable ? (
+          <UserOffline />
+        ) : (
+          <PlayerInnerInner {...props}>
+            {showFullDesktopMode || fullscreen ? (
+              <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
+            ) : (
+              (isLandscape || !!props.ingest) && (
+                <MobileUi
+                  setShowChat={props.setShowChat}
+                  showChat={props.showChat}
+                  onCollapse={props.onCollapse}
+                />
+              )
+            )}
+            <PlayerUI.ViewerLoadingOverlay />
+            {!props.showUnavailable && <OfflineCounter isMobile={true} />}
+            <View
+              ref={dropdownPortalRef}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: "none",
+              }}
+            />
+          </PlayerInnerInner>
+        )}
       </Reanimated.View>
       {showFullDesktopMode && (
         <>

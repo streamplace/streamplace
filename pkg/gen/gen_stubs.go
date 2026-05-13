@@ -20,8 +20,8 @@ func (t *Defs_ActivityGame) UnmarshalCBOR(r io.Reader) error  { return nil }
 func (t *Defs_ActivityLabel) MarshalCBOR(w io.Writer) error   { return nil }
 func (t *Defs_ActivityLabel) UnmarshalCBOR(r io.Reader) error { return nil }
 
-func (t *BioLayoutsColumns) MarshalCBOR(w io.Writer) error      { return nil }
-func (t *BioLayoutsColumns) UnmarshalCBOR(r io.Reader) error    { return nil }
+func (t *BioLayoutsPanels) MarshalCBOR(w io.Writer) error      { return nil }
+func (t *BioLayoutsPanels) UnmarshalCBOR(r io.Reader) error    { return nil }
 func (t *BioBlocksText) MarshalCBOR(w io.Writer) error          { return nil }
 func (t *BioBlocksText) UnmarshalCBOR(r io.Reader) error        { return nil }
 func (t *BioBlocksHeader) MarshalCBOR(w io.Writer) error        { return nil }

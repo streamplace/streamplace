@@ -1,24 +1,38 @@
+import type { LeafletFlatBlock, PanelRange } from "@streamplace/components";
 import {
+  autoSplitRanges,
   BioViewer,
   Button,
+  extractLeafletBlocks,
   Input,
+  LeafletPanelRangeSelector,
   MenuContainer,
   MenuGroup,
   resolveDIDDocument,
   Text,
   useBio,
   useDID,
+  useFetchLeafletDoc,
   useGetBio,
   useImportBioFromLeaflet,
+  useImportBioFromRanges,
   usePutBio,
   useTheme,
   useTranslation,
   View,
   zero,
 } from "@streamplace/components";
-import { Download, Plus, Save, Trash2 } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Check,
+  Download,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ScrollView } from "react-native";
+import { Modal, Pressable, ScrollView } from "react-native";
 import { parseAtUriPath } from "src/linking-config";
 import type { PlaceStreamBioDefs, PlaceStreamBioPage } from "streamplace";
 
@@ -83,6 +97,18 @@ export function BioSettings() {
   const [saving, setSaving] = useState(false);
   const [edited, setEdited] = useState(false);
 
+  const [rangeBlocks, setRangeBlocks] = useState<LeafletFlatBlock[] | null>(
+    null,
+  );
+  const [ranges, setRanges] = useState<PanelRange[]>([]);
+  const [rangeDoc, setRangeDoc] = useState<object | null>(null);
+  const [rangeSource, setRangeSource] = useState("");
+  const [rangeImporting, setRangeImporting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  const fetchLeafletDoc = useFetchLeafletDoc();
+  const importBioFromRanges = useImportBioFromRanges();
+
   useEffect(() => {
     getBio();
   }, []);
@@ -100,7 +126,6 @@ export function BioSettings() {
     setImporting(true);
     setImportError(null);
     setWarnings([]);
-    // if the DID doesn't match, exit early
     let parsedUri = parseAtUriPath(leafletSource);
     if (parsedUri === null || parsedUri === undefined || !did) {
       setImportError("Invalid DID");
@@ -121,6 +146,85 @@ export function BioSettings() {
     } finally {
       setImporting(false);
     }
+  };
+
+  const handleOpenRangeSelector = async () => {
+    if (!leafletSource.trim()) return;
+    setImportError(null);
+    setImporting(true);
+    let parsedUri = parseAtUriPath(leafletSource);
+    if (parsedUri === null || parsedUri === undefined || !did) {
+      setImportError("Invalid DID");
+      setImporting(false);
+      return;
+    }
+    if (parsedUri?.authority != did) {
+      setImportError("This is not your record");
+      setImporting(false);
+      return;
+    }
+    try {
+      resolveDIDDocument(did);
+      const doc = await fetchLeafletDoc(leafletSource.trim());
+      const { blocks, warnings: w } = extractLeafletBlocks(doc);
+      if (blocks.length === 0) {
+        setImportError("No importable blocks found in this leaflet document.");
+        setImporting(false);
+        return;
+      }
+      setRangeBlocks(blocks);
+      setRangeDoc(doc);
+      setRangeSource(leafletSource.trim());
+      setRanges(autoSplitRanges(blocks));
+      setWarnings(w);
+      setLeafletSource("");
+    } catch (e: any) {
+      setImportError(e?.message ?? "Failed to fetch leaflet document");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const selectedBlockCount = ranges.reduce(
+    (sum, r) => sum + (r.endIdx - r.startIdx + 1),
+    0,
+  );
+  const totalBlocks = rangeBlocks?.length ?? 0;
+  const unselectedCount = totalBlocks - selectedBlockCount;
+
+  const handleConfirmRanges = () => {
+    if (unselectedCount > 0) {
+      setShowConfirmModal(true);
+      return;
+    }
+    doRangeImport();
+  };
+
+  const doRangeImport = async () => {
+    setShowConfirmModal(false);
+    if (!rangeDoc || !rangeBlocks || ranges.length === 0) return;
+    setRangeImporting(true);
+    try {
+      const result = await importBioFromRanges(
+        rangeSource,
+        rangeDoc,
+        rangeBlocks,
+        ranges,
+      );
+      setWarnings(result.warnings);
+      closeRangeSelector();
+    } catch (e: any) {
+      setImportError(e?.message ?? "Import failed");
+    } finally {
+      setRangeImporting(false);
+    }
+  };
+
+  const closeRangeSelector = () => {
+    setRangeBlocks(null);
+    setRangeDoc(null);
+    setRangeSource("");
+    setRanges([]);
   };
 
   const handleSave = async () => {
@@ -213,6 +317,18 @@ export function BioSettings() {
                       {t("import", "Import")}
                     </Button>
                   </View>
+                  <View style={[zero.layout.flex.center]}>
+                    <Button
+                      onPress={handleOpenRangeSelector}
+                      loading={importing}
+                      disabled={!leafletSource.trim() || !did}
+                      variant="secondary"
+                      size="md"
+                      width="min"
+                    >
+                      {t("select-panels", "Select Panels")}
+                    </Button>
+                  </View>
                 </View>
                 {importError && (
                   <Text color="destructive" size="sm" style={{ marginTop: 8 }}>
@@ -230,6 +346,59 @@ export function BioSettings() {
                 )}
               </View>
             </MenuGroup>
+
+            {rangeBlocks !== null && (
+              <MenuGroup>
+                <View style={[zero.p[4]]}>
+                  <View
+                    direction="row"
+                    align="center"
+                    justify="between"
+                    style={{ marginBottom: 12 }}
+                  >
+                    <View
+                      direction="row"
+                      align="center"
+                      style={[zero.gap.all[2]]}
+                    >
+                      <Pressable onPress={closeRangeSelector}>
+                        <ArrowLeft size={18} color={theme.colors.foreground} />
+                      </Pressable>
+                      <Text size="lg" weight="bold">
+                        {t("select-panels", "Select Panels")}
+                      </Text>
+                    </View>
+                    <Button
+                      onPress={handleConfirmRanges}
+                      loading={rangeImporting}
+                      disabled={ranges.length === 0}
+                      size="sm"
+                      width="min"
+                      leftIcon={
+                        <Check
+                          size={14}
+                          color={theme.colors.primaryForeground}
+                        />
+                      }
+                    >
+                      {t("confirm-import", "Confirm Import")}
+                    </Button>
+                  </View>
+
+                  {unselectedCount > 0 && ranges.length > 0 && (
+                    <Text size="sm" color="muted" style={{ marginBottom: 8 }}>
+                      {unselectedCount} of {totalBlocks} blocks will be dropped
+                    </Text>
+                  )}
+
+                  <LeafletPanelRangeSelector
+                    blocks={rangeBlocks}
+                    ranges={ranges}
+                    onRangesChange={setRanges}
+                  />
+                </View>
+              </MenuGroup>
+            )}
 
             {bio && (
               <MenuGroup>
@@ -339,6 +508,67 @@ export function BioSettings() {
           </MenuContainer>
         </View>
       </View>
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              borderRadius: 12,
+              padding: 24,
+              maxWidth: 400,
+              width: "100%",
+            }}
+          >
+            <View
+              direction="row"
+              align="center"
+              justify="between"
+              style={{ marginBottom: 16 }}
+            >
+              <Text size="lg" weight="bold">
+                {t("confirm-import-title", "Confirm Import")}
+              </Text>
+              <Pressable onPress={() => setShowConfirmModal(false)}>
+                <X size={18} color={theme.colors.mutedForeground} />
+              </Pressable>
+            </View>
+            <Text size="sm" color="muted" style={{ marginBottom: 16 }}>
+              {unselectedCount} block(s) are not in any panel and will be
+              dropped. Continue?
+            </Text>
+            <View direction="row" style={[zero.gap.all[2]]}>
+              <Button
+                variant="secondary"
+                size="md"
+                width="min"
+                onPress={() => setShowConfirmModal(false)}
+              >
+                {t("cancel", "Cancel")}
+              </Button>
+              <Button
+                size="md"
+                onPress={doRangeImport}
+                loading={rangeImporting}
+              >
+                {t("import-anyway", "Import Anyway")}
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

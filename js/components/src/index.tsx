@@ -35,10 +35,17 @@ export * as I18n from "./i18n";
 // Theme system exports
 export * from "./lib/theme";
 
-export { leafletDocToBio } from "./lib/leaflet-to-bio";
+export {
+  autoSplitRanges,
+  extractLeafletBlocks,
+  leafletDocToBio,
+  leafletRangesToBio,
+} from "./lib/leaflet-to-bio";
 export type {
+  LeafletFlatBlock,
   LeafletToBioOptions,
   LeafletToBioResult,
+  PanelRange,
 } from "./lib/leaflet-to-bio";
 
 export * from "./components/chat/chat";
@@ -82,7 +89,11 @@ export type { AQStorage } from "./storage/storage.shared";
 export * from "./components/content-metadata";
 
 // Bio viewer components
-export { BioViewer } from "./components/bio";
+export {
+  BioViewer,
+  LeafletPanelRangeSelector,
+  PANEL_RANGE_COLORS,
+} from "./components/bio";
 export type { BioViewerProps } from "./components/bio";
 
 // Shared metadata constants

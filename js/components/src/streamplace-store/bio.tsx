@@ -1,6 +1,11 @@
 import { Response } from "@atproto/api/dist/client/types/com/atproto/repo/getRecord";
 import { PlaceStreamBioPage } from "streamplace";
-import { leafletDocToBio } from "../lib/leaflet-to-bio";
+import {
+  leafletDocToBio,
+  LeafletFlatBlock,
+  leafletRangesToBio,
+  PanelRange,
+} from "../lib/leaflet-to-bio";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../utils/did";
 import {
   getStreamplaceStoreFromContext,
@@ -73,6 +78,56 @@ export function usePutBio() {
       throw new Error("Failed to put bio record");
     }
     store.setState({ bio });
+  };
+}
+
+export function useFetchLeafletDoc() {
+  const did = useDID();
+
+  return async (source: string): Promise<object> => {
+    if (!did) throw new Error("No DID");
+    const { repo, rkey } = resolveLeafletRef(source, did);
+    const didDoc = await resolveDIDDocument(repo);
+    const pdsEndpoint = getPDSServiceEndpoint(didDoc);
+    const params = new URLSearchParams({
+      repo,
+      collection: LEAFLET_COLLECTION,
+      rkey,
+    });
+    const res = await fetch(
+      `${pdsEndpoint}/xrpc/com.atproto.repo.getRecord?${params}`,
+    );
+    if (!res.ok) {
+      throw new Error(`Failed to fetch leaflet document: ${res.status}`);
+    }
+    const json = await res.json();
+    return json.value as object;
+  };
+}
+
+export function useImportBioFromRanges() {
+  const did = useDID();
+  const pdsAgent = usePDSAgent();
+  const putBio = usePutBio();
+
+  return async (
+    source: string,
+    doc: object,
+    blocks: LeafletFlatBlock[],
+    ranges: PanelRange[],
+  ): Promise<ImportFromLeafletResult> => {
+    if (!did || !pdsAgent) throw new Error("No DID or PDS agent");
+    const { repo, rkey } = resolveLeafletRef(source, did);
+    const importedFrom = `at://${repo}/${LEAFLET_COLLECTION}/${rkey}`;
+    const prior = await readExistingBio(pdsAgent, did);
+    const { bio, warnings } = leafletRangesToBio(
+      doc as Parameters<typeof leafletRangesToBio>[0],
+      blocks,
+      ranges,
+      { importedFrom, preserve: prior },
+    );
+    await putBio(bio);
+    return { bio, warnings };
   };
 }
 

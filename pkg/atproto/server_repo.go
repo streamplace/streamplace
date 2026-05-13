@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -404,6 +406,40 @@ func ServerRepoMerkleProof(ctx context.Context, collection string, rkey string) 
 	}
 
 	return buf.Bytes(), nil
+}
+
+// ServerRepoListCollections walks the server repo's MST and returns
+// the distinct collection NSIDs currently holding at least one record.
+// Used by com.atproto.repo.describeRepo to advertise what's actually
+// in the repo rather than a hardcoded list. Returned collections are
+// sorted lexicographically for stable output.
+func ServerRepoListCollections(ctx context.Context) ([]string, error) {
+	serverRepoLock.Lock()
+	defer serverRepoLock.Unlock()
+
+	r, _, err := OpenServerRepo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoListCollections: failed to open repo: %w", err)
+	}
+	seen := map[string]struct{}{}
+	err = r.ForEach(ctx, "", func(rpath string, _ cid.Cid) error {
+		// rpath is "<collection>/<rkey>"; pull the prefix.
+		slash := strings.IndexByte(rpath, '/')
+		if slash <= 0 {
+			return nil
+		}
+		seen[rpath[:slash]] = struct{}{}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoListCollections: error iterating records: %w", err)
+	}
+	out := make([]string, 0, len(seen))
+	for c := range seen {
+		out = append(out, c)
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 func ServerRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatproto.RepoListRecords_Output, error) {

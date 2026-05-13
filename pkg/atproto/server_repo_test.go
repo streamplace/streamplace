@@ -66,6 +66,11 @@ func TestServerRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, listOut.Records, 1)
 
+	// ListCollections should report the collection we just wrote.
+	cols, err := ServerRepoListCollections(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{constants.PLACE_STREAM_LIVE_VIEWERCOUNT}, cols)
+
 	// Merkle proof
 	proof, err := ServerRepoMerkleProof(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123")
 	require.NoError(t, err)
@@ -92,6 +97,23 @@ func TestServerRepo(t *testing.T) {
 	out, err = ServerRepoGetRecord(context.Background(), "did:web:server1.example.com", constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123")
 	require.NoError(t, err)
 	require.NotNil(t, out)
+
+	// After writing a record in a second collection, ListCollections
+	// should pick both up in sorted order.
+	origin := &streamplace.MediaOrigin{
+		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
+		Blob:          "babczxv...",
+		Size:          1234,
+		MimeType:      "video/mp4",
+	}
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv1", origin)
+	require.NoError(t, err)
+	cols, err = ServerRepoListCollections(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []string{
+		constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
+		constants.PLACE_STREAM_MEDIA_ORIGIN,
+	}, cols)
 
 	handle.Close()
 }

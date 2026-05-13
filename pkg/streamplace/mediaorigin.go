@@ -4,14 +4,22 @@
 
 package streamplace
 
-// MediaOrigin is a "main" in the place.stream.media.origin schema.
-//
-// A record indicating that a MUXL blob is available for download somewhere.
+import (
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+)
+
+func init() {
+	lexutil.RegisterType("place.stream.media.origin", &MediaOrigin{})
+}
+
 type MediaOrigin struct {
-	// blob: BLAKE-3 content hash (BDASL CID) of the source video segment.
+	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.media.origin"`
+	// blob: BLAKE-3 content hash (BDASL CID) of the blob.
 	Blob string `json:"blob" cborgen:"blob"`
-	// mimeType: MIME type of the file (e.g. video/mp4).
+	// mimeType: MIME type of the blob (e.g. video/mp4).
 	MimeType string `json:"mimeType" cborgen:"mimeType"`
-	// size: Size of the file in bytes.
+	// size: Size of the blob in bytes.
 	Size int64 `json:"size" cborgen:"size"`
+	// urls: Public URLs from which the blob can be fetched. Multiple entries enable transport diversity (HTTP, future iroh/libp2p schemes).
+	Urls []string `json:"urls" cborgen:"urls"`
 }

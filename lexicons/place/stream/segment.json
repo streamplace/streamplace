@@ -68,7 +68,7 @@
       "type": "object",
       "required": ["codec", "rate", "channels"],
       "properties": {
-        "codec": { "type": "string", "enum": ["opus"] },
+        "codec": { "type": "string", "enum": ["opus", "aac"] },
         "rate": { "type": "integer" },
         "channels": { "type": "integer" }
       }

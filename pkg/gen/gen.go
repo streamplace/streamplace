@@ -46,6 +46,7 @@ func main() {
 		streamplace.Defs_ActivityLabel{},
 		streamplace.Video{},
 		streamplace.MediaTrack{},
+		streamplace.MediaOrigin{},
 		streamplace.MediaDefs_MuxlTrack{},
 		streamplace.MediaDefs_SourceTracks{},
 		streamplace.MediaDefs_SourceClip{},

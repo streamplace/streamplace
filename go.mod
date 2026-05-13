@@ -91,6 +91,7 @@ require (
 	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/plugin/prometheus v0.1.0
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (
@@ -564,7 +565,6 @@ require (
 	gotest.tools/v3 v3.5.2 // indirect
 	honnef.co/go/tools v0.6.1 // indirect
 	howett.net/plist v1.0.0 // indirect
-	lukechampine.com/blake3 v1.4.1 // indirect
 	modernc.org/knuth v0.5.5 // indirect
 	modernc.org/token v1.1.0 // indirect
 	mvdan.cc/gofumpt v0.8.0 // indirect

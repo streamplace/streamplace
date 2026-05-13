@@ -11,17 +11,20 @@ description: Reference for the place.stream.media.origin lexicon
 
 ### `main`
 
-**Type:** `object`
+**Type:** `record`
 
-A record indicating that a MUXL blob is available for download somewhere.
+An attestation that a MUXL blob is available for download at one or more URLs. Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.
 
-**Properties:**
+**Record Key:** `any`
 
-| Name       | Type      | Req'd | Description                                                   | Constraints |
-| ---------- | --------- | ----- | ------------------------------------------------------------- | ----------- |
-| `blob`     | `string`  | ✅    | BLAKE-3 content hash (BDASL CID) of the source video segment. |             |
-| `size`     | `integer` | ✅    | Size of the file in bytes.                                    |             |
-| `mimeType` | `string`  | ✅    | MIME type of the file (e.g. video/mp4).                       |             |
+**Record Properties:**
+
+| Name       | Type              | Req'd | Description                                                                                                                     | Constraints  |
+| ---------- | ----------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `blob`     | `string`          | ✅    | BLAKE-3 content hash (BDASL CID) of the blob.                                                                                   |              |
+| `size`     | `integer`         | ✅    | Size of the blob in bytes.                                                                                                      |              |
+| `mimeType` | `string`          | ✅    | MIME type of the blob (e.g. video/mp4).                                                                                         |              |
+| `urls`     | Array of `string` | ✅    | Public URLs from which the blob can be fetched. Multiple entries enable transport diversity (HTTP, future iroh/libp2p schemes). | Min Items: 1 |
 
 ---
 
@@ -33,21 +36,34 @@ A record indicating that a MUXL blob is available for download somewhere.
   "id": "place.stream.media.origin",
   "defs": {
     "main": {
-      "type": "object",
-      "description": "A record indicating that a MUXL blob is available for download somewhere.",
-      "required": ["blob", "size", "mimeType"],
-      "properties": {
-        "blob": {
-          "type": "string",
-          "description": "BLAKE-3 content hash (BDASL CID) of the source video segment."
-        },
-        "size": {
-          "type": "integer",
-          "description": "Size of the file in bytes."
-        },
-        "mimeType": {
-          "type": "string",
-          "description": "MIME type of the file (e.g. video/mp4)."
+      "type": "record",
+      "description": "An attestation that a MUXL blob is available for download at one or more URLs. Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["blob", "size", "mimeType", "urls"],
+        "properties": {
+          "blob": {
+            "type": "string",
+            "description": "BLAKE-3 content hash (BDASL CID) of the blob."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size of the blob in bytes."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the blob (e.g. video/mp4)."
+          },
+          "urls": {
+            "type": "array",
+            "description": "Public URLs from which the blob can be fetched. Multiple entries enable transport diversity (HTTP, future iroh/libp2p schemes).",
+            "minLength": 1,
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
         }
       }
     }

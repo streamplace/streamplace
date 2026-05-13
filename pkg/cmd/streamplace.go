@@ -25,6 +25,7 @@ import (
 	urfavecli "github.com/urfave/cli/v3"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
@@ -42,7 +43,6 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
-	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/vod"
 
 	"github.com/aws/aws-sdk-go-v2/aws"

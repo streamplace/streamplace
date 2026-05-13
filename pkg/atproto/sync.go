@@ -728,6 +728,73 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
 
+	case *streamplace.Video:
+		// Index the video record so playback can resolve it by URI
+		// without needing to round-trip back to the user's PDS.
+		v := &model.Video{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			Title:     rec.Title,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if rec.Duration != nil {
+			v.DurationMS = rec.Duration
+		}
+		if err := atsync.Model.UpsertVideo(ctx, v); err != nil {
+			return fmt.Errorf("failed to upsert video: %w", err)
+		}
+		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
+
+	case *streamplace.MediaTrack:
+		// Pull the muxlTrack subobject — that's where the blob CID
+		// and track-within-container metadata live. Tracks not
+		// backed by a muxlTrack (we don't define any other shape
+		// yet) are skipped with a warning.
+		if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
+			return nil
+		}
+		mt := rec.Track.MediaDefs_MuxlTrack
+		t := &model.MediaTrack{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			Blob:      mt.Blob,
+			TrackID:   mt.TrackId,
+			MediaType: mt.MediaType,
+			Language:  mt.Language,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if err := atsync.Model.UpsertMediaTrack(ctx, t); err != nil {
+			return fmt.Errorf("failed to upsert media track: %w", err)
+		}
+		log.Debug(ctx, "indexed media track", "uri", aturi.String(), "blob", mt.Blob, "mediaType", mt.MediaType)
+
+	case *streamplace.MediaOrigin:
+		// Origin records are published by streamplace nodes (not users)
+		// against their own server-repo DID. The userDID here is the
+		// publishing server's DID — same field, different semantics.
+		o := &model.MediaOrigin{
+			URI:       aturi.String(),
+			CID:       cid,
+			ServerDID: userDID,
+			RKey:      rkey.String(),
+			Blob:      rec.Blob,
+			Size:      rec.Size,
+			MimeType:  rec.MimeType,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if err := atsync.Model.UpsertMediaOrigin(ctx, o); err != nil {
+			return fmt.Errorf("failed to upsert media origin: %w", err)
+		}
+		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

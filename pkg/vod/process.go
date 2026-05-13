@@ -30,6 +30,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
@@ -85,7 +86,7 @@ const ContentPrefix = "vod/"
 // The Store is the storage layer; it can be either a FileStore (single-
 // node deployments) or an S3Store (production). Future Stores can mix
 // caches and archives behind the same interface.
-func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB, store blob.Store, in Input) (string, error) {
+func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB, mod model.Model, store blob.Store, in Input) (string, error) {
 	ctx = log.WithLogValues(ctx, "func", "ProcessVOD", "uploadId", in.UploadID, "did", in.RepoDID)
 	ctx, span := vodTracer.Start(ctx, "vod.ProcessVOD", trace.WithAttributes(
 		attribute.String("upload_id", in.UploadID),
@@ -178,6 +179,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	if err := publishRecords(ctx, publishParams{
 		cli:      cli,
 		state:    state,
+		mod:      mod,
 		in:       in,
 		cid:      finalCID,
 		size:     counter.n,

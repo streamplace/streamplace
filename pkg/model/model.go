@@ -132,6 +132,21 @@ type Model interface {
 	DeleteBadgeIssuance(ctx context.Context, uri string) error
 	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
 	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
+
+	UpsertVideo(ctx context.Context, v *Video) error
+	DeleteVideo(ctx context.Context, uri string) error
+	GetVideoByURI(ctx context.Context, uri string) (*Video, error)
+	GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error)
+
+	UpsertMediaTrack(ctx context.Context, t *MediaTrack) error
+	DeleteMediaTrack(ctx context.Context, uri string) error
+	GetMediaTrackByURI(ctx context.Context, uri string) (*MediaTrack, error)
+	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
+
+	UpsertMediaOrigin(ctx context.Context, o *MediaOrigin) error
+	DeleteMediaOrigin(ctx context.Context, uri string) error
+	GetMediaOriginByURI(ctx context.Context, uri string) (*MediaOrigin, error)
+	GetMediaOriginsByBlob(ctx context.Context, blob string) ([]*MediaOrigin, error)
 }
 
 var DBRevision = 4
@@ -205,6 +220,9 @@ func MakeDB(dbURL string) (Model, error) {
 		BskyProfile{},
 		BadgeDef{},
 		BadgeIssuance{},
+		Video{},
+		MediaTrack{},
+		MediaOrigin{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

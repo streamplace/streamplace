@@ -1,8 +1,10 @@
 package vod
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -16,6 +18,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
@@ -33,6 +36,7 @@ type XRPCClient interface {
 type publishParams struct {
 	cli      *config.CLI
 	state    *statedb.StatefulDB
+	mod      model.Model
 	in       Input
 	cid      string
 	size     int64
@@ -61,7 +65,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 	))
 	defer span.End()
 
-	if err := publishOrigin(ctx, p.cli, p.cid, p.size, p.mimeType); err != nil {
+	if err := publishOrigin(ctx, p.cli, p.mod, p.cid, p.size, p.mimeType); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "origin")
 		return fmt.Errorf("publish origin: %w", err)
@@ -106,7 +110,16 @@ func publishRecords(ctx context.Context, p publishParams) error {
 // publishOrigin attests that this server has the blob with the given
 // CID. The record's rkey is the CID, so retries of the same processed
 // VOD overwrite the existing record rather than accumulating dupes.
-func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64, mimeType string) error {
+//
+// After committing to the server repo we also upsert the equivalent
+// row in the local index. Server-repo commits don't flow through the
+// bluesky firehose (it's our own repo, not a federated PDS), so
+// without the synthetic upsert here the playback path on the same
+// node wouldn't know about its own published blobs. Future federation
+// receivers (subscribing to other nodes' server-repo firehoses) will
+// reach the same model row via the place.stream.media.origin case in
+// pkg/atproto/sync.go.
+func publishOrigin(ctx context.Context, cli *config.CLI, mod model.Model, cid string, size int64, mimeType string) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishOrigin", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.Int64("size", size),
@@ -123,10 +136,42 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 		span.RecordError(err)
 		return err
 	}
+
+	serverDID := cli.ServerDID()
+	uri := fmt.Sprintf("at://%s/%s/%s", serverDID, constants.PLACE_STREAM_MEDIA_ORIGIN, cid)
+	// Re-encode for the index; we don't have the record CID from the
+	// commit (CommitServerRepoRecord swallows it) so we use the blob
+	// CID as a stand-in. Downstream callers care about the blob, not
+	// the record CID.
+	recBytes := bytes.Buffer{}
+	if err := rec.MarshalCBOR(&recBytes); err != nil {
+		span.RecordError(err)
+		// Non-fatal: the record is in the repo; we just can't index it
+		// locally right now. The firehose path will resync if/when it
+		// comes online.
+		log.Warn(ctx, "failed to CBOR-encode origin record for index", "error", err)
+		return nil
+	}
+	if err := mod.UpsertMediaOrigin(ctx, &model.MediaOrigin{
+		URI:       uri,
+		CID:       cid, // record CID not available from server-repo commit; reuse blob CID
+		ServerDID: serverDID,
+		RKey:      cid,
+		Blob:      cid,
+		Size:      size,
+		MimeType:  mimeType,
+		Record:    recBytes.Bytes(),
+		IndexedAt: time.Now(),
+	}); err != nil {
+		span.RecordError(err)
+		log.Warn(ctx, "failed to index media.origin locally", "error", err)
+	}
+
 	log.Log(ctx, "published media.origin",
 		"collection", constants.PLACE_STREAM_MEDIA_ORIGIN,
 		"rkey", cid,
 		"size", size,
+		"uri", uri,
 	)
 	return nil
 }

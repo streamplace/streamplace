@@ -41,7 +41,7 @@ func TestRunVODPipeline_h264Opus(t *testing.T) {
 	require.NoError(t, err)
 
 	out := &bytes.Buffer{}
-	err = RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
+	_, err = RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
 	require.NoError(t, err)
 	require.Greater(t, out.Len(), 1024, "expected non-trivial fMP4 output")
 
@@ -66,7 +66,7 @@ func TestRunVODPipeline_h264AAC_RocketLeague(t *testing.T) {
 	require.NoError(t, err)
 
 	out := &bytes.Buffer{}
-	err = RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
+	_, err = RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
 	require.NoError(t, err)
 	require.Greater(t, out.Len(), 1024, "expected non-trivial fMP4 output")
 	require.GreaterOrEqual(t, out.Len(), 8)

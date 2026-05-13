@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -25,6 +27,47 @@ var vodPipelineTracer = otel.Tracer("vod-pipeline")
 // is not AAC gets transcoded to AAC).
 var ErrUnsupportedCodec = errors.New("unsupported codec")
 
+// VODResult bundles probe-derived metadata that the caller needs for
+// downstream record creation. Populated incrementally by the pad-added
+// handler (video/audio codec + dimensions/rate from parsebin caps) and
+// finalized after EOS with a duration query against the pipeline.
+type VODResult struct {
+	// DurationMS is the duration of the source as reported by gstreamer
+	// after EOS, in milliseconds. Zero if the duration query failed
+	// (rare; bug or live source).
+	DurationMS int64
+	// Video is the video track's probe metadata. nil if no video pad
+	// was wired (only happens when the input is audio-only, which the
+	// pipeline rejects today via "no video stream found").
+	Video *VODVideoTrack
+	// Audio is the audio track's probe metadata. nil if the input had
+	// no audio.
+	Audio *VODAudioTrack
+}
+
+// VODVideoTrack is per-track probe metadata for a video stream.
+// Codec is the gstreamer caps name without the leading "video/" (e.g.
+// "x-h264"); width/height are pixels; framerate is the parsebin-
+// reported frame rate in num/den form (often non-integer for variable-
+// frame-rate content).
+type VODVideoTrack struct {
+	Codec     string
+	Width     int
+	Height    int
+	FPSNum    int
+	FPSDen    int
+}
+
+// VODAudioTrack is per-track probe metadata for an audio stream. Codec
+// is the gstreamer caps name (e.g. "x-opus", "mpeg"). For audio/mpeg
+// callers should also consult MPEGVersion to disambiguate AAC vs MP3.
+type VODAudioTrack struct {
+	Codec       string
+	Rate        int
+	Channels    int
+	MPEGVersion int
+}
+
 // RunVODPipeline runs the gstreamer side of VOD processing: read the
 // source media from src (size bytes total), parse it via parsebin,
 // re-mux it to fragmented MP4, and write that fMP4 to out. Audio is
@@ -35,7 +78,11 @@ var ErrUnsupportedCodec = errors.New("unsupported codec")
 // occurs. out is written from a gstreamer streaming thread, so it must
 // be safe for concurrent use with this goroutine (typically an io.Pipe
 // or a buffered writer fed by a single reader).
-func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Writer) error {
+//
+// On success, the returned VODResult carries probe metadata gathered
+// during the run (track codec/dimensions, total duration) for use by
+// the caller's downstream record-creation logic.
+func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Writer) (VODResult, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "func", "RunVODPipeline")
@@ -47,10 +94,12 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 
 	log.Debug(ctx, "creating pipeline", "source_size", size)
 
+	var result VODResult
+
 	pipeline, err := gst.NewPipeline("vod-process")
 	if err != nil {
 		span.RecordError(err)
-		return fmt.Errorf("new pipeline: %w", err)
+		return result, fmt.Errorf("new pipeline: %w", err)
 	}
 	defer func() {
 		if setErr := pipeline.BlockSetState(gst.StateNull); setErr != nil {
@@ -60,10 +109,10 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 
 	srcBin, err := RandomAccessSrcBin(ctx, "vod-src", src, size)
 	if err != nil {
-		return fmt.Errorf("source bin: %w", err)
+		return result, fmt.Errorf("source bin: %w", err)
 	}
 	if err := pipeline.Add(srcBin.Element); err != nil {
-		return fmt.Errorf("add src bin: %w", err)
+		return result, fmt.Errorf("add src bin: %w", err)
 	}
 
 	parsebin, err := gst.NewElementWithProperties("parsebin", map[string]any{
@@ -71,13 +120,13 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		"expose-all-streams": true,
 	})
 	if err != nil {
-		return fmt.Errorf("create parsebin: %w", err)
+		return result, fmt.Errorf("create parsebin: %w", err)
 	}
 	if err := pipeline.Add(parsebin); err != nil {
-		return fmt.Errorf("add parsebin: %w", err)
+		return result, fmt.Errorf("add parsebin: %w", err)
 	}
 	if err := srcBin.Link(parsebin); err != nil {
-		return fmt.Errorf("link src bin -> parsebin: %w", err)
+		return result, fmt.Errorf("link src bin -> parsebin: %w", err)
 	}
 
 	mp4mux, err := gst.NewElementWithProperties("mp4mux", map[string]any{
@@ -86,10 +135,10 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		"fragment-duration": 1,
 	})
 	if err != nil {
-		return fmt.Errorf("create mp4mux: %w", err)
+		return result, fmt.Errorf("create mp4mux: %w", err)
 	}
 	if err := pipeline.Add(mp4mux); err != nil {
-		return fmt.Errorf("add mp4mux: %w", err)
+		return result, fmt.Errorf("add mp4mux: %w", err)
 	}
 
 	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
@@ -98,13 +147,13 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		"async": false,
 	})
 	if err != nil {
-		return fmt.Errorf("create appsink: %w", err)
+		return result, fmt.Errorf("create appsink: %w", err)
 	}
 	if err := pipeline.Add(appsink); err != nil {
-		return fmt.Errorf("add appsink: %w", err)
+		return result, fmt.Errorf("add appsink: %w", err)
 	}
 	if err := mp4mux.Link(appsink); err != nil {
-		return fmt.Errorf("link mp4mux -> appsink: %w", err)
+		return result, fmt.Errorf("link mp4mux -> appsink: %w", err)
 	}
 
 	sink := app.SinkFromElement(appsink)
@@ -159,6 +208,14 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			}
 			gotVideo = true
 			videoCaps = capsName
+			result.Video = extractVideoTrack(capsName, s)
+			log.Debug(padCtx, "video probe",
+				"codec", result.Video.Codec,
+				"width", result.Video.Width,
+				"height", result.Video.Height,
+				"fps_num", result.Video.FPSNum,
+				"fps_den", result.Video.FPSDen,
+			)
 		case strings.HasPrefix(capsName, "audio/"):
 			if gotAudio {
 				log.Warn(padCtx, "additional audio pad; ignoring (only one audio stream supported)")
@@ -172,13 +229,24 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			}
 			gotAudio = true
 			audioCaps = capsName
+			// After transcoding (opus/mp3/etc -> AAC), the audio track
+			// in the final fMP4 is AAC. We report what the *output*
+			// looks like, not the input. For passthrough AAC we keep
+			// the caps as-is.
+			result.Audio = extractAudioTrack(capsName, s, transcoded)
+			log.Debug(padCtx, "audio probe",
+				"codec", result.Audio.Codec,
+				"rate", result.Audio.Rate,
+				"channels", result.Audio.Channels,
+				"transcoded", transcoded,
+			)
 			span.SetAttributes(attribute.Bool("audio_transcode", transcoded))
 		default:
 			log.Warn(padCtx, "non-A/V parsebin pad; ignoring")
 		}
 	})
 	if err != nil {
-		return fmt.Errorf("connect pad-added: %w", err)
+		return result, fmt.Errorf("connect pad-added: %w", err)
 	}
 	// Disconnecting before pipeline tear-down breaks the closure->pipeline
 	// reference cycle that would otherwise pin every element alive past
@@ -190,7 +258,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 
 	if err := pipeline.SetState(gst.StatePlaying); err != nil {
 		span.RecordError(err)
-		return fmt.Errorf("set playing: %w", err)
+		return result, fmt.Errorf("set playing: %w", err)
 	}
 	log.Debug(ctx, "pipeline transitioned to PLAYING")
 
@@ -201,13 +269,24 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		if pe != nil {
 			span.RecordError(pe)
 			span.SetStatus(codes.Error, "pad-wiring")
-			return pe
+			return result, pe
 		}
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "bus")
-		return fmt.Errorf("pipeline: %w", err)
+		return result, fmt.Errorf("pipeline: %w", err)
 	}
 	log.Debug(ctx, "pipeline EOS reached cleanly")
+
+	// Query the pipeline's duration before tearing it down. gstreamer
+	// reports it in nanoseconds (FormatTime); we expose milliseconds
+	// because that's what place.stream.video's duration field takes.
+	if ok, durNS := pipeline.QueryDuration(gst.FormatTime); ok {
+		result.DurationMS = durNS / int64(time.Millisecond)
+		span.SetAttributes(attribute.Int64("duration_ms", result.DurationMS))
+		log.Debug(ctx, "queried pipeline duration", "duration_ms", result.DurationMS)
+	} else {
+		log.Warn(ctx, "pipeline duration query failed; record will report 0 ms")
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -220,15 +299,87 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	if padErr != nil {
 		span.RecordError(padErr)
 		span.SetStatus(codes.Error, "pad-wiring")
-		return padErr
+		return result, padErr
 	}
 	if !gotVideo {
 		err := fmt.Errorf("no video stream found in input")
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "no_video")
-		return err
+		return result, err
 	}
-	return nil
+	return result, nil
+}
+
+// extractVideoTrack pulls codec/dimensions/framerate out of a parsebin
+// video pad's caps Structure. The framerate is a GstFraction that
+// go-gst doesn't expose typed access for, so we stringify and parse
+// num/den ourselves — same workaround the existing media_data_parser
+// uses for live-segment probing.
+func extractVideoTrack(capsName string, s *gst.Structure) *VODVideoTrack {
+	t := &VODVideoTrack{Codec: strings.TrimPrefix(capsName, "video/")}
+	if v, _ := s.GetValue("width"); v != nil {
+		if w, ok := v.(int); ok {
+			t.Width = w
+		}
+	}
+	if v, _ := s.GetValue("height"); v != nil {
+		if h, ok := v.(int); ok {
+			t.Height = h
+		}
+	}
+	if v, _ := s.GetValue("framerate"); v != nil {
+		t.FPSNum, t.FPSDen = parseFraction(v)
+	}
+	return t
+}
+
+// extractAudioTrack pulls codec/rate/channels out of a parsebin audio
+// pad's caps Structure. When the chain transcodes to AAC (the common
+// case for anything that isn't already AAC), the reported codec is
+// "mpeg" with mpegversion=4, since that's the actual MP4 output —
+// callers downstream care about what landed in the final blob, not
+// what came in.
+func extractAudioTrack(capsName string, s *gst.Structure, transcoded bool) *VODAudioTrack {
+	t := &VODAudioTrack{Codec: strings.TrimPrefix(capsName, "audio/")}
+	if v, _ := s.GetValue("rate"); v != nil {
+		if r, ok := v.(int); ok {
+			t.Rate = r
+		}
+	}
+	if v, _ := s.GetValue("channels"); v != nil {
+		if c, ok := v.(int); ok {
+			t.Channels = c
+		}
+	}
+	if v, _ := s.GetValue("mpegversion"); v != nil {
+		if mv, ok := v.(int); ok {
+			t.MPEGVersion = mv
+		}
+	}
+	if transcoded {
+		// The chain re-encoded to AAC; the final fMP4 carries AAC
+		// regardless of what came in.
+		t.Codec = "mpeg"
+		t.MPEGVersion = 4
+	}
+	return t
+}
+
+// parseFraction takes a GstFraction-shaped value from a caps Structure
+// (go-gst returns it as a stringer with "num/den" format) and returns
+// the numerator and denominator. Returns 0,0 on any parse failure.
+func parseFraction(v any) (num, den int) {
+	str := fmt.Sprintf("%v", v)
+	parts := strings.SplitN(str, "/", 2)
+	if len(parts) != 2 {
+		return 0, 0
+	}
+	n, err1 := strconv.Atoi(strings.TrimSpace(parts[0]))
+	d, err2 := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
+		return 0, 0
+	}
+	return n, d
 }
 
 type elemSpec struct {

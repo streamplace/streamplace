@@ -27,10 +27,12 @@ import (
 
 	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 var vodTracer = otel.Tracer("vod")
@@ -43,6 +45,7 @@ const (
 	stagePipeline           = "gstreamer_pipeline"
 	stageStagingComplete    = "store_complete"
 	stageContentAddressCopy = "content_address_move"
+	stagePublish            = "publish_records"
 )
 
 // Input is the per-upload state needed to drive ProcessVOD. It's a
@@ -82,7 +85,7 @@ const ContentPrefix = "vod/"
 // The Store is the storage layer; it can be either a FileStore (single-
 // node deployments) or an S3Store (production). Future Stores can mix
 // caches and archives behind the same interface.
-func ProcessVOD(ctx context.Context, store blob.Store, in Input) (string, error) {
+func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB, store blob.Store, in Input) (string, error) {
 	ctx = log.WithLogValues(ctx, "func", "ProcessVOD", "uploadId", in.UploadID, "did", in.RepoDID)
 	ctx, span := vodTracer.Start(ctx, "vod.ProcessVOD", trace.WithAttributes(
 		attribute.String("upload_id", in.UploadID),
@@ -128,12 +131,30 @@ func ProcessVOD(ctx context.Context, store blob.Store, in Input) (string, error)
 	counter := &countingWriter{}
 	final := io.MultiWriter(hasher, counter, staging)
 
-	if _, err := streamThroughMuxl(ctx, src, size, final); err != nil {
+	probe, err := streamThroughMuxl(ctx, src, size, final)
+	if err != nil {
 		recordErr(span, stagePipeline, err)
 		// staging is aborted by the deferred Close
 		return "", err
 	}
-	span.SetAttributes(attribute.Int64("output_size_bytes", counter.n))
+	span.SetAttributes(
+		attribute.Int64("output_size_bytes", counter.n),
+		attribute.Int64("probe_duration_ms", probe.DurationMS),
+	)
+	if probe.Video != nil {
+		span.SetAttributes(
+			attribute.String("probe_video_codec", probe.Video.Codec),
+			attribute.Int("probe_video_width", probe.Video.Width),
+			attribute.Int("probe_video_height", probe.Video.Height),
+		)
+	}
+	if probe.Audio != nil {
+		span.SetAttributes(
+			attribute.String("probe_audio_codec", probe.Audio.Codec),
+			attribute.Int("probe_audio_rate", probe.Audio.Rate),
+			attribute.Int("probe_audio_channels", probe.Audio.Channels),
+		)
+	}
 	spmetrics.VODOutputBytes.Observe(float64(counter.n))
 
 	if err := completeStaging(ctx, staging, stagingKey); err != nil {
@@ -152,6 +173,19 @@ func ProcessVOD(ctx context.Context, store blob.Store, in Input) (string, error)
 	if err := finalizeMove(ctx, store, stagingKey, contentKey); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
+	}
+
+	if err := publishRecords(ctx, publishParams{
+		cli:      cli,
+		state:    state,
+		in:       in,
+		cid:      finalCID,
+		size:     counter.n,
+		mimeType: "video/mp4",
+		probe:    probe,
+	}); err != nil {
+		recordErr(span, stagePublish, err)
+		return "", fmt.Errorf("publish records: %w", err)
 	}
 
 	spmetrics.VODProcessSuccessesTotal.WithLabelValues(in.Backend).Inc()
@@ -232,10 +266,11 @@ func recordErr(span trace.Span, stage string, err error) {
 // forwards those bytes into the muxl concatenator; another goroutine
 // drains the concatenator's init+seg channels and writes them to dst.
 //
-// The empty string return is a placeholder — the CID is computed by the
-// caller from the bdasl.Writer tee'd into dst, since the hash is only
-// final once the last byte lands.
-func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer) (string, error) {
+// The returned media.VODResult is the probe metadata gathered during
+// the pipeline run (codec/dimensions/duration). The CID is computed
+// by the caller from the bdasl.Writer tee'd into dst, since the hash
+// is only final once the last byte lands.
+func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer) (media.VODResult, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.streamThroughMuxl", trace.WithAttributes(
 		attribute.Int64("source_size_bytes", size),
 	))
@@ -291,7 +326,7 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 	}()
 
 	// Run gstreamer on this goroutine; mp4mux output bytes land at pw.
-	pipelineErr := media.RunVODPipeline(ctx, src, size, pw)
+	result, pipelineErr := media.RunVODPipeline(ctx, src, size, pw)
 	// Close pw so the forwarder sees EOF and can close the concat.
 	_ = pw.Close()
 
@@ -312,19 +347,19 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 	if pipelineErr != nil {
 		span.RecordError(pipelineErr)
 		span.SetStatus(codes.Error, "pipeline")
-		return "", fmt.Errorf("gstreamer pipeline: %w", pipelineErr)
+		return result, fmt.Errorf("gstreamer pipeline: %w", pipelineErr)
 	}
 	if feedErr != nil {
 		span.RecordError(feedErr)
 		span.SetStatus(codes.Error, "feed")
-		return "", fmt.Errorf("muxl feed: %w", feedErr)
+		return result, fmt.Errorf("muxl feed: %w", feedErr)
 	}
 	if consumeErr != nil {
 		span.RecordError(consumeErr)
 		span.SetStatus(codes.Error, "consume")
-		return "", fmt.Errorf("muxl consume: %w", consumeErr)
+		return result, fmt.Errorf("muxl consume: %w", consumeErr)
 	}
-	return "", nil
+	return result, nil
 }
 
 // consumeConcatTraced drains the concatenator's two output channels and

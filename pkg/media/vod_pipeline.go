@@ -133,7 +133,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		if padErr != nil {
 			return
 		}
-		caps := pad.GetCurrentCaps()
+		caps := padCaps(pad)
 		if caps == nil {
 			log.Warn(ctx, "parsebin pad missing caps; ignoring", "pad", pad.GetName())
 			return
@@ -386,4 +386,34 @@ func syncAll(elems []*gst.Element) {
 	for _, e := range elems {
 		e.SyncStateWithParent()
 	}
+}
+
+// padCaps resolves a pad's current caps with fallbacks for the case
+// parsebin emits its source pads before the caps event has propagated:
+//
+//  1. GetCurrentCaps — fast path, works once a CAPS event has fixed
+//     the pad. For many inputs this is set at pad-added time.
+//  2. GetStream().Caps — parsebin attaches a GstStream to each
+//     exposed pad with the codec caps from its internal parser,
+//     even before the downstream caps query has fixated. Works
+//     reliably for parsebin and decodebin3.
+//  3. GetAllowedCaps — fallback intersection of the pad's template
+//     and the (still-empty) peer caps. Rarely fixes a codec name
+//     directly but catches typed pad templates as a last resort.
+//
+// Returns nil if all three fall short, in which case the caller
+// should log+ignore the pad — there's no productive way to wire it.
+func padCaps(pad *gst.Pad) *gst.Caps {
+	if c := pad.GetCurrentCaps(); c != nil {
+		return c
+	}
+	if stream := pad.GetStream(); stream != nil {
+		if c := stream.Caps(); c != nil {
+			return c
+		}
+	}
+	if c := pad.GetAllowedCaps(); c != nil {
+		return c
+	}
+	return nil
 }

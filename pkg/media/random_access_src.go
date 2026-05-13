@@ -106,6 +106,7 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 			if int64(offset) > size {
 				return false
 			}
+			log.Debug(ctx, "RandomAccessSrcBin: seek", "from", pos, "to", int64(offset))
 			pos = int64(offset)
 			eos = false
 			return true

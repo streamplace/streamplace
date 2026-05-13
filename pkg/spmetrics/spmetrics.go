@@ -103,6 +103,80 @@ var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of currently connected labeler firehoses",
 }, []string{"labeler"})
 
+// --- VOD processing ---------------------------------------------------------
+
+// VODProcessAttemptsTotal increments once per task dequeued for VOD
+// processing, labeled by the input storage backend (file/s3). Pair with
+// VODProcessSuccessesTotal / VODProcessErrorsTotal to compute success
+// rate.
+var VODProcessAttemptsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_vod_process_attempts_total",
+	Help: "total number of VOD processing attempts (one per dequeued task)",
+}, []string{"backend"})
+
+var VODProcessSuccessesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_vod_process_successes_total",
+	Help: "total number of VOD processing runs that produced a content-addressed object",
+}, []string{"backend"})
+
+// VODProcessErrorsTotal is labeled by the stage that failed so we can
+// see whether the bulk of failures are codec issues, S3 issues, etc.
+// Stage values: open_source, gstreamer_pipeline, muxl_drain,
+// s3_complete, content_address_copy.
+var VODProcessErrorsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_vod_process_errors_total",
+	Help: "total number of VOD processing failures, by stage",
+}, []string{"stage"})
+
+// VODProcessDurationMS is the end-to-end wall time of one ProcessVOD
+// call, from task dequeue to final CopyObject. The wide buckets cover
+// realistic upload sizes (small phone clips through multi-hour
+// long-form videos).
+var VODProcessDurationMS = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "streamplace_vod_process_duration_ms",
+	Help:    "end-to-end wall time of one VOD processing run",
+	Buckets: []float64{500, 1000, 2500, 5000, 10000, 30000, 60000, 120000, 300000, 600000, 1800000, 3600000},
+})
+
+// VODInputBytes / VODOutputBytes are observed once per successful run.
+// Comparing them gives a transcode ratio (output/input) — e.g. opus->aac
+// usually produces a modestly larger AAC payload, while many users will
+// have inputs with surplus container overhead that gets trimmed.
+var VODInputBytes = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "streamplace_vod_input_bytes",
+	Help:    "size in bytes of the user upload being processed",
+	Buckets: prometheus.ExponentialBuckets(1<<20, 4, 8), // 1 MB ... 16 GB
+})
+
+var VODOutputBytes = promauto.NewHistogram(prometheus.HistogramOpts{
+	Name:    "streamplace_vod_output_bytes",
+	Help:    "size in bytes of the content-addressed fMP4 produced",
+	Buckets: prometheus.ExponentialBuckets(1<<20, 4, 8),
+})
+
+// S3 helpers — instrumented for both the VOD pipeline and any future
+// reusers of pkg/s3.ReaderAt / pkg/s3.MultipartWriter.
+
+var S3ReaderAtOpensTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_readerat_opens_total",
+	Help: "total number of ranged GetObject opens issued by pkg/s3.ReaderAt",
+})
+
+var S3ReaderAtReadsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_s3_readerat_reads_total",
+	Help: "total ReadAt calls, by whether they hit the open body (sequential) or forced a reopen",
+}, []string{"kind"}) // "sequential" or "seek"
+
+var S3MultipartPartsUploadedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_multipart_parts_uploaded_total",
+	Help: "total number of parts uploaded across all multipart uploads",
+})
+
+var S3MultipartBytesUploadedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_multipart_bytes_uploaded_total",
+	Help: "total bytes written via pkg/s3.MultipartWriter",
+})
+
 func ViewerInc(user string, protocol string) {
 	go func() {
 		viewersLock.Lock()

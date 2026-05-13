@@ -10,7 +10,15 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
+
+var s3Tracer = otel.Tracer("s3")
 
 // ReaderAt is an io.ReaderAt against an S3 object. It re-uses a single
 // open GetObject body for sequential reads and transparently closes &
@@ -38,22 +46,33 @@ type ReaderAt struct {
 // the HEAD and any subsequent GetObject requests; cancelling it aborts
 // in-flight reads and is the supported way to tear the ReaderAt down.
 func NewReaderAt(ctx context.Context, client *s3.Client, bucket, key string) (*ReaderAt, error) {
+	ctx, span := s3Tracer.Start(ctx, "s3.NewReaderAt", trace.WithAttributes(
+		attribute.String("bucket", bucket),
+		attribute.String("key", key),
+	))
+	defer span.End()
 	head, err := client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
 	})
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("head s3://%s/%s: %w", bucket, key, err)
 	}
 	if head.ContentLength == nil {
-		return nil, fmt.Errorf("s3://%s/%s missing content-length", bucket, key)
+		err := fmt.Errorf("s3://%s/%s missing content-length", bucket, key)
+		span.RecordError(err)
+		return nil, err
 	}
+	size := *head.ContentLength
+	span.SetAttributes(attribute.Int64("size_bytes", size))
+	log.Debug(ctx, "opened S3 ReaderAt", "bucket", bucket, "key", key, "size", size)
 	return &ReaderAt{
 		ctx:    ctx,
 		client: client,
 		bucket: bucket,
 		key:    key,
-		size:   *head.ContentLength,
+		size:   size,
 	}, nil
 }
 
@@ -74,11 +93,19 @@ func (r *ReaderAt) ReadAt(p []byte, off int64) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	reopened := false
 	if r.body == nil || off != r.pos {
 		_ = r.closeBodyLocked()
 		if err := r.openLocked(off); err != nil {
+			spmetrics.S3ReaderAtReadsTotal.WithLabelValues("seek").Inc()
 			return 0, err
 		}
+		reopened = true
+	}
+	if reopened {
+		spmetrics.S3ReaderAtReadsTotal.WithLabelValues("seek").Inc()
+	} else {
+		spmetrics.S3ReaderAtReadsTotal.WithLabelValues("sequential").Inc()
 	}
 
 	want := len(p)
@@ -102,16 +129,26 @@ func (r *ReaderAt) ReadAt(p []byte, off int64) (int, error) {
 }
 
 func (r *ReaderAt) openLocked(off int64) error {
-	resp, err := r.client.GetObject(r.ctx, &s3.GetObjectInput{
+	spmetrics.S3ReaderAtOpensTotal.Inc()
+	ctx, span := s3Tracer.Start(r.ctx, "s3.ReaderAt.open", trace.WithAttributes(
+		attribute.String("bucket", r.bucket),
+		attribute.String("key", r.key),
+		attribute.Int64("offset", off),
+	))
+	defer span.End()
+	resp, err := r.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(r.key),
 		Range:  aws.String(fmt.Sprintf("bytes=%d-", off)),
 	})
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "get_object")
 		return fmt.Errorf("get s3://%s/%s bytes=%d-: %w", r.bucket, r.key, off, err)
 	}
 	r.body = resp.Body
 	r.pos = off
+	log.Debug(r.ctx, "S3 ReaderAt ranged GET", "bucket", r.bucket, "key", r.key, "offset", off)
 	return nil
 }
 

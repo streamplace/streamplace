@@ -263,10 +263,10 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 				continue
 			}
 			initSeg = init
-			log.Log(ctx, "received init segment for S3 upload", "size", len(init))
+			log.Debug(ctx, "received init segment for S3 upload", "size", len(init))
 
 		case seg, ok := <-u.concat.SegCh:
-			log.Log(ctx, "received segment for S3 upload", "size", len(seg))
+			log.Debug(ctx, "received segment for S3 upload", "size", len(seg))
 			if !ok {
 				// Concatenator is done, complete any in-progress upload
 				err = completeUpload()

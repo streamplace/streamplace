@@ -3,6 +3,7 @@ package atproto
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -442,6 +443,28 @@ func ServerRepoListCollections(ctx context.Context) ([]string, error) {
 	return out, nil
 }
 
+// defaultListRecordsLimit / maxListRecordsLimit mirror the standard
+// com.atproto.repo.listRecords lexicon defaults so callers get
+// predictable pagination regardless of whether they hit a Streamplace
+// node or a stock PDS.
+const (
+	defaultListRecordsLimit = 50
+	maxListRecordsLimit     = 100
+)
+
+// ServerRepoListRecords returns records in a single collection of the
+// server's atproto repo, honoring the standard listRecords contract:
+//
+//   - filters strictly to the requested `collection`
+//   - paginates via `cursor` (opaque to the client; we use the last
+//     rkey of the prior page) and `limit` (clamped to [1, 100],
+//     defaulting to 50)
+//   - reverses the output slice when `reverse` is true; the natural
+//     MST walk order is lex-ascending rkey, which for TID-shaped
+//     rkeys is chronologically oldest-first
+//
+// `repo` is used only to build the `at://<repo>/<collection>/<rkey>`
+// URIs in the response; the underlying repo is always the server's own.
 func ServerRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatproto.RepoListRecords_Output, error) {
 	serverRepoLock.Lock()
 	defer serverRepoLock.Unlock()
@@ -450,10 +473,35 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoListRecords: failed to open repo: %w", err)
 	}
+
+	if limit <= 0 {
+		limit = defaultListRecordsLimit
+	}
+	if limit > maxListRecordsLimit {
+		limit = maxListRecordsLimit
+	}
+
+	prefix := collection + "/"
 	out := &comatproto.RepoListRecords_Output{
 		Records: []*comatproto.RepoListRecords_Record{},
 	}
-	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
+	var lastRkey string
+	err = r.ForEach(ctx, prefix, func(rpath string, c cid.Cid) error {
+		// ForEach walks lex-ascending from the prefix. As soon as we
+		// see a key that doesn't carry the prefix we're past the end
+		// of the requested collection — stop the walk.
+		if !strings.HasPrefix(rpath, prefix) {
+			return atrepo.ErrDoneIterating
+		}
+		rkey := strings.TrimPrefix(rpath, prefix)
+		// Cursor is the rkey of the last record on the previous page;
+		// skip until we're strictly past it.
+		if cursor != "" && rkey <= cursor {
+			return nil
+		}
+		if len(out.Records) >= limit {
+			return atrepo.ErrDoneIterating
+		}
 		raw, err := getBlock(ctx, ses, c)
 		if err != nil {
 			return fmt.Errorf("ServerRepoListRecords: %w", err)
@@ -463,15 +511,36 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 			return fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", rkey, err)
 		}
 		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
-			Uri:   fmt.Sprintf("at://%s/%s", repo, rkey),
+			Uri:   fmt.Sprintf("at://%s/%s", repo, rpath),
 			Cid:   c.String(),
 			Value: &lexutil.LexiconTypeDecoder{Val: val},
 		})
+		lastRkey = rkey
 		return nil
 	})
-	if err != nil {
+	// Repo.ForEach compares the underlying mst walker's error against
+	// atrepo.ErrDoneIterating with `==`, but the walker wraps callback
+	// errors with `%w` before bubbling them up — so the sentinel never
+	// matches the equality check. Use errors.Is on our side so the
+	// early-exit path is observable through the wrapped error.
+	if err != nil && !errors.Is(err, atrepo.ErrDoneIterating) {
 		return nil, fmt.Errorf("ServerRepoListRecords: error iterating records: %w", err)
 	}
+
+	// Surface a cursor whenever we returned a full page; clients can
+	// pass it back to fetch the next page. If we returned fewer than
+	// limit records there are definitely no more, so omit it.
+	if len(out.Records) == limit && lastRkey != "" {
+		cur := lastRkey
+		out.Cursor = &cur
+	}
+
+	if reverse != nil && *reverse {
+		for i, j := 0, len(out.Records)-1; i < j; i, j = i+1, j-1 {
+			out.Records[i], out.Records[j] = out.Records[j], out.Records[i]
+		}
+	}
+
 	return out, nil
 }
 

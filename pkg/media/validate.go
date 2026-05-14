@@ -185,7 +185,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	defer mm.newSegmentSubsMutex.RUnlock()
 	not := &NewSegmentNotification{
 		Segment:  seg,
-		Data:     canonical,
+		Data:     buf,
 		Metadata: meta,
 		Local:    local,
 	}

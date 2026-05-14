@@ -195,6 +195,15 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		return "", fmt.Errorf("write metafile: %w", err)
 	}
 
+	// A thumbnail is nice-to-have, not load-bearing: a failure here
+	// (codec quirk, odd segment) shouldn't sink an otherwise-good
+	// upload, so log and publish without it.
+	thumbnail, err := generateThumbnail(ctx, store, finalCID, metafile)
+	if err != nil {
+		log.Warn(ctx, "VOD thumbnail generation failed; publishing without thumbnail", "error", err)
+	}
+	span.SetAttributes(attribute.Bool("thumbnail_generated", len(thumbnail) > 0))
+
 	if err := publishRecords(ctx, publishParams{
 		cli:        cli,
 		state:      state,
@@ -204,6 +213,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		mimeType:   "video/mp4",
 		probe:      probe,
 		signingKey: signer.DIDKey,
+		thumbnail:  thumbnail,
 	}); err != nil {
 		recordErr(span, stagePublish, err)
 		return "", fmt.Errorf("publish records: %w", err)

@@ -101,6 +101,47 @@ func TestThumbnail(t *testing.T) {
 	}
 }
 
+// TestThumbnailFromSegment exercises the VOD thumbnail path
+// (ThumbnailFromSegment -> muxl flatten -> thumbnailFromFlatMP4). The
+// muxl flatten is wasm, not gstreamer, so it runs once up front; the new
+// decodebin-based gstreamer pipeline is what gets hammered under the
+// leak checker.
+func TestThumbnailFromSegment(t *testing.T) {
+	for _, tc := range thumbnailTestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			withNoGSTLeaks(t, func() {
+				bs, err := os.ReadFile(tc.fixtureFn())
+				require.NoError(t, err)
+
+				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+				defer cancel()
+
+				// flattenForThumbnail is muxl/wasm, not gstreamer — run it
+				// once to get a flat MP4, then hammer the gstreamer
+				// thumbnail pipeline under the leak checker.
+				flat, err := flattenForThumbnail(ctx, bs)
+				require.NoError(t, err)
+				require.NotEmpty(t, flat)
+
+				g, ctx := errgroup.WithContext(ctx)
+				for i := 0; i < streamplaceTestCount; i++ {
+					g.Go(func() error {
+						var thumbnail bytes.Buffer
+						if err := thumbnailFromFlatMP4(ctx, flat, &thumbnail, "jpeg"); err != nil {
+							return err
+						}
+						if thumbnail.Len() == 0 {
+							return fmt.Errorf("thumbnail buffer is empty")
+						}
+						return nil
+					})
+				}
+				require.NoError(t, g.Wait())
+			})
+		})
+	}
+}
+
 // This segment once caused a segfault in gst-libav.
 // It doesn't gotta work but it does gotta not crash.
 func TestThumbnailKryptonite(t *testing.T) {

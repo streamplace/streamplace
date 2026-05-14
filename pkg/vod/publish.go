@@ -1,6 +1,7 @@
 package vod
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -41,6 +42,10 @@ type publishParams struct {
 	// signingKey is the did:key of the ephemeral key that C2PA-signed
 	// this upload's segments. Recorded on every track record.
 	signingKey string
+	// thumbnail is a JPEG generated from ~halfway through the video, or
+	// nil if generation failed. Uploaded to the user's PDS and attached
+	// to the place.stream.video record when present.
+	thumbnail []byte
 }
 
 // publishRecords does the post-processing record publish:
@@ -97,7 +102,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		sourceTracks = append(sourceTracks, ref)
 	}
 
-	if err := publishVideo(ctx, client, p.in, p.probe, sourceTracks); err != nil {
+	if err := publishVideo(ctx, client, p.in, p.probe, sourceTracks, p.thumbnail); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "video")
 		return fmt.Errorf("publish video: %w", err)
@@ -223,8 +228,10 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, med
 // publishVideo creates the top-level place.stream.video record in the
 // user's repo, referencing the track records via sourceTracks. The
 // title defaults to the upload's filename hint, or "Untitled" if the
-// client didn't send one.
-func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.VODResult, tracks []*comatproto.RepoStrongRef) error {
+// client didn't send one. When thumbnail bytes are supplied they're
+// uploaded to the user's PDS and attached as the record's thumb blob;
+// an upload failure is logged but doesn't fail the publish.
+func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.VODResult, tracks []*comatproto.RepoStrongRef, thumbnail []byte) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishVideo", trace.WithAttributes(
 		attribute.Int("track_count", len(tracks)),
 		attribute.Int64("duration_ms", probe.DurationMS),
@@ -249,6 +256,16 @@ func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.
 	}
 	if duration > 0 {
 		rec.Duration = &duration
+	}
+
+	if len(thumbnail) > 0 {
+		var uploadOut comatproto.RepoUploadBlob_Output
+		if err := client.Do(ctx, xrpc.Procedure, thumbnailMimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumbnail), &uploadOut); err != nil {
+			log.Warn(ctx, "failed to upload VOD thumbnail blob; publishing without thumbnail", "error", err)
+		} else {
+			rec.Thumb = uploadOut.Blob
+			span.SetAttributes(attribute.Bool("thumb_uploaded", true))
+		}
 	}
 
 	rkey := spid.TIDClock.Next().String()

@@ -387,6 +387,23 @@ func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, 
 	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, initCh, segCh, nil)
 }
 
+// RunMuxlMp4 canonicalizes an MP4 (flat or fragmented) into a flat
+// faststart MP4 (ftyp+moov+mdat) via muxl's `mp4` subcommand. Fragmented
+// input — a per-track init segment plus moof+mdat fragments — is
+// flattened into a single moov with full sample tables; unknown
+// top-level boxes (e.g. the c2pa-uuid prefix on signed segments) are
+// skipped.
+//
+// Runs against wazero's fake clock: this is pure structural rewriting
+// with no signing, so the output is deterministic.
+func RunMuxlMp4(ctx context.Context, input io.Reader, output io.Writer) error {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "mp4", "-", "-"}, nil, false, input, output, nil, nil, nil, nil)
+}
+
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
 // If the init segment changes, you'll get a new init segment in the output.
 func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte) error {

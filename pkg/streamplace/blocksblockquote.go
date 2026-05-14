@@ -16,7 +16,7 @@ func init() {
 //
 // A block-level quotation.
 type BioBlocksBlockquote struct {
-	LexiconTypeID string           `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.blockquote"`
-	Facets        []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Plaintext     string           `json:"plaintext" cborgen:"plaintext"`
+	LexiconTypeID string              `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.blockquote"`
+	Facets        []*BioRichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Plaintext     string              `json:"plaintext" cborgen:"plaintext"`
 }

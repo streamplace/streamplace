@@ -40,10 +40,10 @@ Long-form rich text describing the user.
 
 **Properties:**
 
-| Name        | Type                                                                                 | Req'd | Description                                                | Constraints                               |
-| ----------- | ------------------------------------------------------------------------------------ | ----- | ---------------------------------------------------------- | ----------------------------------------- |
-| `plaintext` | `string`                                                                             | ✅    |                                                            | Max Length: 30000<br/>Max Graphemes: 3000 |
-| `facets`    | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet) | ❌    | Annotations of the description text (mentions, URLs, etc). |                                           |
+| Name        | Type                                                                                       | Req'd | Description                                                | Constraints                               |
+| ----------- | ------------------------------------------------------------------------------------------ | ----- | ---------------------------------------------------------- | ----------------------------------------- |
+| `plaintext` | `string`                                                                                   | ✅    |                                                            | Max Length: 30000<br/>Max Graphemes: 3000 |
+| `facets`    | Array of [`place.stream.bio.richtextFacet`](/lex-reference/place-stream-bio-richtextfacet) | ❌    | Annotations of the description text (mentions, URLs, etc). |                                           |
 
 ---
 
@@ -112,7 +112,7 @@ Long-form rich text describing the user.
           "description": "Annotations of the description text (mentions, URLs, etc).",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         }
       }

@@ -16,8 +16,8 @@ func init() {
 //
 // A section heading. Levels 1-3; deeper nesting is intentionally unsupported on bios.
 type BioBlocksHeader struct {
-	LexiconTypeID string           `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.header"`
-	Facets        []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Level         *int64           `json:"level,omitempty" cborgen:"level,omitempty"`
-	Plaintext     string           `json:"plaintext" cborgen:"plaintext"`
+	LexiconTypeID string              `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.header"`
+	Facets        []*BioRichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Level         *int64              `json:"level,omitempty" cborgen:"level,omitempty"`
+	Plaintext     string              `json:"plaintext" cborgen:"plaintext"`
 }

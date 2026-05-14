@@ -17,10 +17,10 @@ A block-level quotation.
 
 **Properties:**
 
-| Name        | Type                                                                                 | Req'd | Description | Constraints |
-| ----------- | ------------------------------------------------------------------------------------ | ----- | ----------- | ----------- |
-| `plaintext` | `string`                                                                             | ✅    |             |             |
-| `facets`    | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet) | ❌    |             |             |
+| Name        | Type                                                                                       | Req'd | Description | Constraints |
+| ----------- | ------------------------------------------------------------------------------------------ | ----- | ----------- | ----------- |
+| `plaintext` | `string`                                                                                   | ✅    |             |             |
+| `facets`    | Array of [`place.stream.bio.richtextFacet`](/lex-reference/place-stream-bio-richtextfacet) | ❌    |             |             |
 
 ---
 
@@ -43,7 +43,7 @@ A block-level quotation.
           "type": "array",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         }
       }

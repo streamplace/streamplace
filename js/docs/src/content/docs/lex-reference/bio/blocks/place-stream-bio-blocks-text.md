@@ -17,11 +17,11 @@ A paragraph of rich text.
 
 **Properties:**
 
-| Name        | Type                                                                                 | Req'd | Description | Constraints                       |
-| ----------- | ------------------------------------------------------------------------------------ | ----- | ----------- | --------------------------------- |
-| `plaintext` | `string`                                                                             | ✅    |             |                                   |
-| `facets`    | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet) | ❌    |             |                                   |
-| `textSize`  | `string`                                                                             | ❌    |             | Enum: `default`, `small`, `large` |
+| Name        | Type                                                                                       | Req'd | Description | Constraints                       |
+| ----------- | ------------------------------------------------------------------------------------------ | ----- | ----------- | --------------------------------- |
+| `plaintext` | `string`                                                                                   | ✅    |             |                                   |
+| `facets`    | Array of [`place.stream.bio.richtextFacet`](/lex-reference/place-stream-bio-richtextfacet) | ❌    |             |                                   |
+| `textSize`  | `string`                                                                                   | ❌    |             | Enum: `default`, `small`, `large` |
 
 ---
 
@@ -44,7 +44,7 @@ A paragraph of rich text.
           "type": "array",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         },
         "textSize": {

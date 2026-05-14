@@ -17,11 +17,11 @@ A section heading. Levels 1-3; deeper nesting is intentionally unsupported on bi
 
 **Properties:**
 
-| Name        | Type                                                                                 | Req'd | Description | Constraints       |
-| ----------- | ------------------------------------------------------------------------------------ | ----- | ----------- | ----------------- |
-| `plaintext` | `string`                                                                             | ✅    |             |                   |
-| `facets`    | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet) | ❌    |             |                   |
-| `level`     | `integer`                                                                            | ❌    |             | Min: 1<br/>Max: 3 |
+| Name        | Type                                                                                       | Req'd | Description | Constraints       |
+| ----------- | ------------------------------------------------------------------------------------------ | ----- | ----------- | ----------------- |
+| `plaintext` | `string`                                                                                   | ✅    |             |                   |
+| `facets`    | Array of [`place.stream.bio.richtextFacet`](/lex-reference/place-stream-bio-richtextfacet) | ❌    |             |                   |
+| `level`     | `integer`                                                                                  | ❌    |             | Min: 1<br/>Max: 3 |
 
 ---
 
@@ -44,7 +44,7 @@ A section heading. Levels 1-3; deeper nesting is intentionally unsupported on bi
           "type": "array",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         },
         "level": {

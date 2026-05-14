@@ -60,7 +60,7 @@
           "description": "Annotations of the description text (mentions, URLs, etc).",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         }
       }

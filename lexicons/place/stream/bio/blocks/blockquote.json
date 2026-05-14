@@ -14,7 +14,7 @@
           "type": "array",
           "items": {
             "type": "ref",
-            "ref": "place.stream.richtext.facet"
+            "ref": "place.stream.bio.richtextFacet"
           }
         }
       }

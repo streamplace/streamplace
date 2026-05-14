@@ -86,6 +86,18 @@ func main() {
 		streamplace.BioBlocksSchedule_Slot{},
 		streamplace.BioBlocksBskyPost{},
 		streamplace.BioBlocksEmbed{},
+		streamplace.BioRichtextFacet{},
+		streamplace.BioRichtextFacet_ByteSlice{},
+		streamplace.BioRichtextFacet_Id{},
+		streamplace.BioRichtextFacet_Bold{},
+		streamplace.BioRichtextFacet_Italic{},
+		streamplace.BioRichtextFacet_Code{},
+		streamplace.BioRichtextFacet_Highlight{},
+		streamplace.BioRichtextFacet_Underline{},
+		streamplace.BioRichtextFacet_Strikethrough{},
+		streamplace.BioRichtextFacet_Link{},
+		streamplace.BioRichtextFacet_AtMention{},
+		streamplace.BioRichtextFacet_DidMention{},
 	); err != nil {
 		panic(err)
 	}

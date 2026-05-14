@@ -16,8 +16,8 @@ func init() {
 //
 // A paragraph of rich text.
 type BioBlocksText struct {
-	LexiconTypeID string           `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.text"`
-	Facets        []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Plaintext     string           `json:"plaintext" cborgen:"plaintext"`
-	TextSize      *string          `json:"textSize,omitempty" cborgen:"textSize,omitempty"`
+	LexiconTypeID string              `json:"$type" cborgen:"$type,const=place.stream.bio.blocks.text"`
+	Facets        []*BioRichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Plaintext     string              `json:"plaintext" cborgen:"plaintext"`
+	TextSize      *string             `json:"textSize,omitempty" cborgen:"textSize,omitempty"`
 }

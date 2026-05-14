@@ -37,8 +37,8 @@ type BioPage struct {
 // Long-form rich text describing the user.
 type BioPage_Description struct {
 	// facets: Annotations of the description text (mentions, URLs, etc).
-	Facets    []*RichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
-	Plaintext string           `json:"plaintext" cborgen:"plaintext"`
+	Facets    []*BioRichtextFacet `json:"facets,omitempty" cborgen:"facets,omitempty"`
+	Plaintext string              `json:"plaintext" cborgen:"plaintext"`
 }
 
 // How the customizable body of the bio is arranged.

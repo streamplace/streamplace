@@ -5,10 +5,13 @@
 package streamplace
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
@@ -147,6 +150,105 @@ func (t *BioLayoutsPanels_BlockEntry_Block) UnmarshalJSON(b []byte) error {
 	case "place.stream.bio.blocks.embed":
 		t.BioBlocksEmbed = new(BioBlocksEmbed)
 		return json.Unmarshal(b, t.BioBlocksEmbed)
+	default:
+		return nil
+	}
+}
+
+func (t *BioLayoutsPanels_BlockEntry_Block) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.BioBlocksText != nil {
+		return t.BioBlocksText.MarshalCBOR(w)
+	}
+	if t.BioBlocksHeader != nil {
+		return t.BioBlocksHeader.MarshalCBOR(w)
+	}
+	if t.BioBlocksImage != nil {
+		return t.BioBlocksImage.MarshalCBOR(w)
+	}
+	if t.BioBlocksOrderedList != nil {
+		return t.BioBlocksOrderedList.MarshalCBOR(w)
+	}
+	if t.BioBlocksUnorderedList != nil {
+		return t.BioBlocksUnorderedList.MarshalCBOR(w)
+	}
+	if t.BioBlocksBlockquote != nil {
+		return t.BioBlocksBlockquote.MarshalCBOR(w)
+	}
+	if t.BioBlocksDivider != nil {
+		return t.BioBlocksDivider.MarshalCBOR(w)
+	}
+	if t.BioBlocksLink != nil {
+		return t.BioBlocksLink.MarshalCBOR(w)
+	}
+	if t.BioBlocksSocialLinks != nil {
+		return t.BioBlocksSocialLinks.MarshalCBOR(w)
+	}
+	if t.BioBlocksLivestream != nil {
+		return t.BioBlocksLivestream.MarshalCBOR(w)
+	}
+	if t.BioBlocksSchedule != nil {
+		return t.BioBlocksSchedule.MarshalCBOR(w)
+	}
+	if t.BioBlocksBskyPost != nil {
+		return t.BioBlocksBskyPost.MarshalCBOR(w)
+	}
+	if t.BioBlocksEmbed != nil {
+		return t.BioBlocksEmbed.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *BioLayoutsPanels_BlockEntry_Block) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.bio.blocks.text":
+		t.BioBlocksText = new(BioBlocksText)
+		return t.BioBlocksText.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.header":
+		t.BioBlocksHeader = new(BioBlocksHeader)
+		return t.BioBlocksHeader.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.image":
+		t.BioBlocksImage = new(BioBlocksImage)
+		return t.BioBlocksImage.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.orderedList":
+		t.BioBlocksOrderedList = new(BioBlocksOrderedList)
+		return t.BioBlocksOrderedList.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.unorderedList":
+		t.BioBlocksUnorderedList = new(BioBlocksUnorderedList)
+		return t.BioBlocksUnorderedList.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.blockquote":
+		t.BioBlocksBlockquote = new(BioBlocksBlockquote)
+		return t.BioBlocksBlockquote.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.divider":
+		t.BioBlocksDivider = new(BioBlocksDivider)
+		return t.BioBlocksDivider.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.link":
+		t.BioBlocksLink = new(BioBlocksLink)
+		return t.BioBlocksLink.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.socialLinks":
+		t.BioBlocksSocialLinks = new(BioBlocksSocialLinks)
+		return t.BioBlocksSocialLinks.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.livestream":
+		t.BioBlocksLivestream = new(BioBlocksLivestream)
+		return t.BioBlocksLivestream.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.schedule":
+		t.BioBlocksSchedule = new(BioBlocksSchedule)
+		return t.BioBlocksSchedule.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.bskyPost":
+		t.BioBlocksBskyPost = new(BioBlocksBskyPost)
+		return t.BioBlocksBskyPost.UnmarshalCBOR(bytes.NewReader(b))
+	case "place.stream.bio.blocks.embed":
+		t.BioBlocksEmbed = new(BioBlocksEmbed)
+		return t.BioBlocksEmbed.UnmarshalCBOR(bytes.NewReader(b))
 	default:
 		return nil
 	}

@@ -1,4 +1,3 @@
-import { zero } from "@streamplace/components";
 import { Image } from "expo-image";
 import React from "react";
 import {
@@ -17,8 +16,9 @@ import {
   PlaceStreamBioDefs,
   PlaceStreamBioLayoutsPanels,
   PlaceStreamBioPage,
-  PlaceStreamRichtextFacet,
+  PlaceStreamBioRichtextFacet,
 } from "streamplace";
+import { zero } from "../..";
 import { useTheme } from "../../lib/theme/theme";
 import { Text } from "../ui/text";
 import { View } from "../ui/view";
@@ -718,7 +718,7 @@ function RichTextView({
   facets,
 }: {
   plaintext: string;
-  facets?: PlaceStreamRichtextFacet.Main[];
+  facets?: PlaceStreamBioRichtextFacet.Main[];
 }) {
   if (!facets || facets.length === 0) {
     return (
@@ -735,7 +735,7 @@ function RichTextInline({
   facets,
 }: {
   plaintext: string;
-  facets?: PlaceStreamRichtextFacet.Main[];
+  facets?: PlaceStreamBioRichtextFacet.Main[];
 }) {
   if (!facets || facets.length === 0) {
     return <>{plaintext}</>;
@@ -748,7 +748,7 @@ function RichTextPlaintext({
   facets,
 }: {
   plaintext: string;
-  facets: PlaceStreamRichtextFacet.Main[];
+  facets: PlaceStreamBioRichtextFacet.Main[];
 }) {
   const sorted = [...facets].sort(
     (a, b) => a.index.byteStart - b.index.byteStart,

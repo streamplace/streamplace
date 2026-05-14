@@ -12,7 +12,7 @@ import {
   PlaceStreamBioBlocksUnorderedList,
   PlaceStreamBioLayoutsPanels,
   PlaceStreamBioPage,
-  PlaceStreamRichtextFacet,
+  PlaceStreamBioRichtextFacet,
 } from "streamplace";
 
 // Minimal subset of pub.leaflet.* shapes that we know how to translate. Fields
@@ -673,9 +673,42 @@ function makeDividerEntry(): PlaceStreamBioLayoutsPanels.BlockEntry {
   };
 }
 
+const LEAFLET_FACET_MAP: Record<string, string> = {
+  "pub.leaflet.richtext.facet#code": "place.stream.bio.richtextFacet#code",
+  "pub.leaflet.richtext.facet#bold": "place.stream.bio.richtextFacet#bold",
+  "pub.leaflet.richtext.facet#italic": "place.stream.bio.richtextFacet#italic",
+  "pub.leaflet.richtext.facet#highlight":
+    "place.stream.bio.richtextFacet#highlight",
+  "pub.leaflet.richtext.facet#underline":
+    "place.stream.bio.richtextFacet#underline",
+  "pub.leaflet.richtext.facet#strikethrough":
+    "place.stream.bio.richtextFacet#strikethrough",
+  "pub.leaflet.richtext.facet#link": "place.stream.bio.richtextFacet#link",
+  "pub.leaflet.richtext.facet#id": "place.stream.bio.richtextFacet#id",
+  "pub.leaflet.richtext.facet#atMention":
+    "place.stream.bio.richtextFacet#atMention",
+  "pub.leaflet.richtext.facet#didMention":
+    "place.stream.bio.richtextFacet#didMention",
+};
+
 function passthroughFacets(raw: unknown) {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
-  return raw as PlaceStreamRichtextFacet.Main[];
+  const facets = raw as Array<{
+    index?: unknown;
+    features?: Array<{ $type?: string; [k: string]: unknown }>;
+    [k: string]: unknown;
+  }>;
+  return facets.map((facet) => {
+    const features = Array.isArray(facet.features)
+      ? facet.features.map((f) => {
+          if (f.$type && LEAFLET_FACET_MAP[f.$type]) {
+            return { ...f, $type: LEAFLET_FACET_MAP[f.$type] };
+          }
+          return f;
+        })
+      : facet.features;
+    return { ...facet, features };
+  }) as PlaceStreamBioRichtextFacet.Main[];
 }
 
 function stringOr(value: unknown, fallback: string): string {

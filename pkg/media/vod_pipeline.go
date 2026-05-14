@@ -51,11 +51,11 @@ type VODResult struct {
 // reported frame rate in num/den form (often non-integer for variable-
 // frame-rate content).
 type VODVideoTrack struct {
-	Codec     string
-	Width     int
-	Height    int
-	FPSNum    int
-	FPSDen    int
+	Codec  string
+	Width  int
+	Height int
+	FPSNum int
+	FPSDen int
 }
 
 // VODAudioTrack is per-track probe metadata for an audio stream. Codec

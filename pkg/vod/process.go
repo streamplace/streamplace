@@ -45,6 +45,7 @@ const (
 	stagePipeline           = "gstreamer_pipeline"
 	stageStagingComplete    = "store_complete"
 	stageContentAddressCopy = "content_address_move"
+	stageMetafile           = "write_metafile"
 	stagePublish            = "publish_records"
 )
 
@@ -131,7 +132,8 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	counter := &countingWriter{}
 	final := io.MultiWriter(hasher, counter, staging)
 
-	probe, err := streamThroughMuxl(ctx, src, size, final)
+	metaBuilder := newMetafileBuilder(ctx, store)
+	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder)
 	if err != nil {
 		recordErr(span, stagePipeline, err)
 		// staging is aborted by the deferred Close
@@ -173,6 +175,12 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	if err := finalizeMove(ctx, store, stagingKey, contentKey); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
+	}
+
+	metafile := metaBuilder.Finalize(finalCID, counter.n)
+	if err := writeMetafile(ctx, store, finalCID, metafile); err != nil {
+		recordErr(span, stageMetafile, err)
+		return "", fmt.Errorf("write metafile: %w", err)
 	}
 
 	if err := publishRecords(ctx, publishParams{
@@ -266,11 +274,16 @@ func recordErr(span trace.Span, stage string, err error) {
 // forwards those bytes into the muxl concatenator; another goroutine
 // drains the concatenator's init+seg channels and writes them to dst.
 //
+// If metaBuilder is non-nil, a third goroutine consumes the rich event
+// channel and feeds events to it — used to build the per-blob metafile
+// sidecar (segment offsets/sizes/durations and per-track init blobs)
+// without re-parsing the bytes.
+//
 // The returned media.VODResult is the probe metadata gathered during
 // the pipeline run (codec/dimensions/duration). The CID is computed
 // by the caller from the bdasl.Writer tee'd into dst, since the hash
 // is only final once the last byte lands.
-func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer) (media.VODResult, error) {
+func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer, metaBuilder *metafileBuilder) (media.VODResult, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.streamThroughMuxl", trace.WithAttributes(
 		attribute.Int64("source_size_bytes", size),
 	))
@@ -325,16 +338,38 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 		consumeDone <- consumeConcatTraced(ctx, concat, dst, &initBytes, &segBytes, &initEmits, &segEmits)
 	}()
 
+	// Optional metafile builder: parallel consumer on the event channel.
+	// Buffered enough that a stall in the metafile path doesn't backpressure
+	// the byte consumer. EventCh always exists on the concatenator; if no
+	// builder was provided we still need to drain it so the wasm parser
+	// doesn't block.
+	metaDone := make(chan error, 1)
+	go func() {
+		var err error
+		for ev := range concat.EventCh {
+			if metaBuilder == nil {
+				continue
+			}
+			if oerr := metaBuilder.Observe(ev); oerr != nil {
+				err = oerr
+				// Keep draining the channel so upstream doesn't block;
+				// the first error wins.
+			}
+		}
+		metaDone <- err
+	}()
+
 	// Run gstreamer on this goroutine; mp4mux output bytes land at pw.
 	result, pipelineErr := media.RunVODPipeline(ctx, src, size, pw)
 	// Close pw so the forwarder sees EOF and can close the concat.
 	_ = pw.Close()
 
-	// Wait for both downstream goroutines. We collect any error but
+	// Wait for all downstream goroutines. We collect any error but
 	// prefer surfacing the pipeline error since downstream errors are
 	// often a consequence of it.
 	feedErr := <-feedDone
 	consumeErr := <-consumeDone
+	metaErr := <-metaDone
 
 	span.SetAttributes(
 		attribute.Int64("mp4mux_output_bytes", mp4muxBytes),
@@ -358,6 +393,11 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 		span.RecordError(consumeErr)
 		span.SetStatus(codes.Error, "consume")
 		return result, fmt.Errorf("muxl consume: %w", consumeErr)
+	}
+	if metaErr != nil {
+		span.RecordError(metaErr)
+		span.SetStatus(codes.Error, "metafile")
+		return result, fmt.Errorf("muxl metafile builder: %w", metaErr)
 	}
 	return result, nil
 }

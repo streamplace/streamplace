@@ -369,7 +369,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			Location: t.Location,
 		})
 	})
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um)
+	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore)
 	if err != nil {
 		return err
 	}

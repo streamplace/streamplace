@@ -80,7 +80,7 @@ const ContentPrefix = "vod/"
 
 // ProcessVOD runs the streaming pipeline for one VOD upload and returns
 // the BDASL CID of the resulting fMP4. Reads come from `in` via the
-// supplied Store; the output blob lands at ContentPrefix+<cid>.fmp4 in
+// supplied Store; the output blob lands at ContentPrefix+<cid>.mp4 in
 // the same Store; staging blobs are cleaned up on success or failure.
 //
 // The Store is the storage layer; it can be either a FileStore (single-
@@ -119,7 +119,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	span.SetAttributes(attribute.Int64("source_size_bytes", size))
 	spmetrics.VODInputBytes.Observe(float64(size))
 
-	stagingKey := StagingPrefix + in.UploadID + ".fmp4"
+	stagingKey := StagingPrefix + in.UploadID + ".mp4"
 	span.SetAttributes(attribute.String("staging_key", stagingKey))
 	staging, err := store.NewWriter(ctx, stagingKey, "video/mp4")
 	if err != nil {
@@ -165,7 +165,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	}
 
 	finalCID := hasher.CID()
-	contentKey := ContentPrefix + finalCID + ".fmp4"
+	contentKey := ContentPrefix + finalCID + ".mp4"
 	span.SetAttributes(
 		attribute.String("cid", finalCID),
 		attribute.String("content_key", contentKey),

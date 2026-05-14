@@ -49,7 +49,10 @@ func fixtureMetafile() *vod.Metafile {
 	}
 }
 
-const fixtureURI = "at://did:plc:abc/place.stream.video/rkey1"
+const (
+	fixtureURI = "at://did:plc:abc/place.stream.video/rkey1"
+	fixtureDID = "did:plc:abc"
+)
 
 func TestMasterPlaylist(t *testing.T) {
 	pl := masterPlaylist(fixtureMetafile(), fixtureURI, nil, nil)
@@ -80,7 +83,7 @@ func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureURI, nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, nil, nil)
 	require.NoError(t, err)
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
@@ -89,6 +92,11 @@ func TestMediaPlaylist_Video(t *testing.T) {
 	// allowed_segment_extensions check). URL-encoded as `.m4s`.
 	require.Contains(t, pl, "cid=bafyvideoinit.m4s")
 	require.Contains(t, pl, "cid=bafyblob.m4s")
+	// Owner DID carried for egress accounting.
+	require.Contains(t, pl, "did=did%3Aplc%3Aabc")
+	// cid must stay the last query param so the URL ends in `.m4s`;
+	// `.m4s&` would mean another param got sorted after it.
+	require.NotContains(t, pl, ".m4s&")
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
 	require.Contains(t, pl, "#EXTINF:1.000000,")
@@ -96,7 +104,7 @@ func TestMediaPlaylist_Video(t *testing.T) {
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {
-	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureURI, nil, nil)
+	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "TrackNotFound")
 }
@@ -106,7 +114,7 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// ticks each). Ask for [1s, 2s): should keep only segment 1.
 	start := int64(1_000_000_000)
 	end := int64(2_000_000_000)
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureURI, &start, &end)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)

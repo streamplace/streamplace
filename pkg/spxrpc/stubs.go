@@ -916,10 +916,11 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoBlob")
 	defer span.End()
 	cid := c.QueryParam("cid")
+	did := c.QueryParam("did")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context,cid string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetVideoBlob(ctx, cid)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context,cid string,did string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoBlob(ctx, cid, did)
 	if handleErr != nil {
 		return handleErr
 	}

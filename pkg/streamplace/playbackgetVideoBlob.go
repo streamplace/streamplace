@@ -14,11 +14,13 @@ import (
 // PlaybackGetVideoBlob calls the XRPC method "place.stream.playback.getVideoBlob".
 //
 // cid: BLAKE-3 BDASL CID of the requested blob.
-func PlaybackGetVideoBlob(ctx context.Context, c lexutil.LexClient, cid string) ([]byte, error) {
+// did: DID of the account that owns the record this blob is being served for. Used for egress/usage accounting, not for access control — the blob is served purely by CID.
+func PlaybackGetVideoBlob(ctx context.Context, c lexutil.LexClient, cid string, did string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	params["cid"] = cid
+	params["did"] = did
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.playback.getVideoBlob", params, nil, buf); err != nil {
 		return nil, err
 	}

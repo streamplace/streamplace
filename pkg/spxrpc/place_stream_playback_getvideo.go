@@ -47,7 +47,7 @@ func stubMisrouted(name string) error {
 		name+" auto-stub should have been overridden by NewServer; this is a wiring bug")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoBlob")
 }
 
@@ -67,12 +67,21 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, 
 // playlist generator appends `.m4s` to every URL it emits so
 // ffmpeg-based players don't refuse them; the handler ignores the
 // suffix entirely.
+//
+// `did` is the owning account, carried by the playlist for egress
+// accounting. It's validated here but doesn't gate serving — the blob
+// is content-addressed, so attribution is advisory (a client could
+// supply someone else's DID; resolving cid -> media.origin server-side
+// is the spoof-proof alternative we deliberately skipped).
 func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	ctx := c.Request().Context()
 	cid := strings.TrimSuffix(c.QueryParam("cid"), ".m4s")
 	cid = strings.TrimSuffix(cid, ".mp4")
 	if cid == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "cid is required")
+	}
+	if _, err := syntax.ParseDID(c.QueryParam("did")); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "did is required and must be a valid DID")
 	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
@@ -195,6 +204,13 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest,
 			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
 	}
+	// The authority must be a DID, not a handle: media playlists embed
+	// it in every getVideoBlob URL for egress accounting, and we want
+	// attribution keyed on the stable identifier.
+	ownerDID, err := aturi.Authority().AsDID()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "uri authority must be a DID: "+err.Error())
+	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}
@@ -226,7 +242,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	if track == "" {
 		body = masterPlaylist(meta, uri, startNS, endNS)
 	} else {
-		body, err = mediaPlaylist(meta, track, uri, startNS, endNS)
+		body, err = mediaPlaylist(meta, track, ownerDID.String(), startNS, endNS)
 		if err != nil {
 			return err
 		}
@@ -331,17 +347,20 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 // --- playlist generation -----------------------------------------------
 
 // blobURL is where the .m3u8 references segments + init blobs. Same
-// node, getVideoBlob endpoint, content-addressed.
+// node, getVideoBlob endpoint, content-addressed. `did` is the owning
+// account, carried so getVideoBlob can attribute egress without a
+// cid -> media.origin lookup.
 //
 // The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
 // demuxer refuses to fetch segment URLs whose extension isn't in its
-// `allowed_segment_extensions` list. By appending the (fake) suffix
-// to the cid query value we land on a URL that ends in `.m4s`,
-// which is allowlisted. The handler strips it back off before
-// looking up the blob.
-func blobURL(cid string) string {
-	q := url.Values{"cid": {cid + ".m4s"}}
-	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode()
+// `allowed_segment_extensions` list, and it checks the *end* of the
+// URL string. So `cid` (which carries the suffix) must be the last
+// query param — we can't let url.Values sort `did` after it. The
+// handler strips the suffix back off before looking up the blob.
+func blobURL(did, cid string) string {
+	q := url.Values{"did": {did}}
+	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode() +
+		"&cid=" + url.QueryEscape(cid) + ".m4s"
 }
 
 // trackPlaylistURL is the URL to a single-track media playlist served
@@ -416,8 +435,9 @@ func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) strin
 
 // mediaPlaylist emits a single-track HLS playlist with one
 // EXT-X-BYTERANGE per segment pointing at getVideoBlob, plus an
-// EXT-X-MAP for the per-track init segment.
-func mediaPlaylist(meta *vod.Metafile, trackID, uri string, startNS, endNS *int64) (string, error) {
+// EXT-X-MAP for the per-track init segment. `ownerDID` is threaded
+// into every getVideoBlob URL for egress accounting.
+func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID string, startNS, endNS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
@@ -446,10 +466,10 @@ func mediaPlaylist(meta *vod.Metafile, trackID, uri string, startNS, endNS *int6
 		"#EXT-X-INDEPENDENT-SEGMENTS",
 		fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration),
 		"#EXT-X-MEDIA-SEQUENCE:0",
-		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(t.InitCID)),
+		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(ownerDID, t.InitCID)),
 		"",
 	}
-	bURL := blobURL(t.BlobCID)
+	bURL := blobURL(ownerDID, t.BlobCID)
 	for _, seg := range segments {
 		durSec := float64(seg.DurationTicks) / float64(t.Timescale)
 		lines = append(lines,

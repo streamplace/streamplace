@@ -68,11 +68,13 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, 
 // ffmpeg-based players don't refuse them; the handler ignores the
 // suffix entirely.
 //
-// `did` is the owning account, carried by the playlist for egress
-// accounting. It's validated here but doesn't gate serving — the blob
-// is content-addressed, so attribution is advisory (a client could
-// supply someone else's DID; resolving cid -> media.origin server-side
-// is the spoof-proof alternative we deliberately skipped).
+// `did` is the owning account, carried by the playlist. For a known
+// content blob it's verified against the MediaTrack index — a DID that
+// doesn't own a track in the blob is rejected — and a ban on that
+// account makes the blob unavailable. The blob is still served purely
+// by CID; the (did, cid) pairing is just what makes labeler enforcement
+// spoof-resistant. Per-track init segments aren't in any MediaTrack and
+// serve unguarded (they're useless without the gated content blob).
 func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	ctx := c.Request().Context()
 	cid := strings.TrimSuffix(c.QueryParam("cid"), ".m4s")
@@ -80,9 +82,40 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	if cid == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "cid is required")
 	}
-	if _, err := syntax.ParseDID(c.QueryParam("did")); err != nil {
+	parsedDID, err := syntax.ParseDID(c.QueryParam("did"))
+	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "did is required and must be a valid DID")
 	}
+	did := parsedDID.String()
+
+	// Labeler enforcement. If this CID is a known content blob, the
+	// supplied `did` must actually own a track in it (a spoofed DID has
+	// no matching MediaTrack and fails as not-found), and that account
+	// must not be banned. CIDs with no MediaTrack — per-track init
+	// segments, or simply unknown CIDs — serve unguarded.
+	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
+	if err != nil {
+		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if len(tracks) > 0 {
+		owned := false
+		for _, t := range tracks {
+			if t.RepoDID == did {
+				owned = true
+				break
+			}
+		}
+		if !owned {
+			return echo.NewHTTPError(http.StatusNotFound, "BlobNotFound")
+		}
+		if banned, err := s.accountBanned(did); err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		} else if banned {
+			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
+		}
+	}
+
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}
@@ -229,6 +262,22 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	}
 
 	uri := aturi.String()
+
+	// Labeler enforcement: any label on the video record, or a ban on
+	// the owning account, makes the VOD unavailable. This is the
+	// playback entry point, so gating here blocks the whole flow before
+	// any blob URLs are handed out.
+	if labeled, err := s.recordLabeled(uri); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	} else if labeled {
+		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
+	}
+	if banned, err := s.accountBanned(ownerDID.String()); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	} else if banned {
+		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
+	}
+
 	resolved, err := s.resolveVideoBlob(ctx, uri)
 	if err != nil {
 		return err

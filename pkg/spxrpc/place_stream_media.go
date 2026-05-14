@@ -14,6 +14,12 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	// Labeler enforcement: a banned account can't start new uploads.
+	if banned, err := s.accountBanned(session.DID); err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	} else if banned {
+		return nil, echo.NewHTTPError(http.StatusForbidden, "account is not permitted to upload videos")
+	}
 	if s.uploadManager == nil {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "upload manager not configured")
 	}

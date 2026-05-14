@@ -359,6 +359,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return fmt.Errorf("make vod store: %w", err)
 	}
 	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
+		// Labeler enforcement: an account banned after starting an
+		// upload (but before processing) doesn't get a video published.
+		// The playback gates would hide it regardless, but skipping here
+		// avoids the wasted transcode and a dead record.
+		labels, err := mod.GetActiveLabels(t.RepoDID)
+		if err != nil {
+			return "", fmt.Errorf("vod-process: check account labels: %w", err)
+		}
+		if atproto.IsBanned(labels...) {
+			return "", fmt.Errorf("vod-process: account %s is banned; skipping upload %s", t.RepoDID, t.UploadID)
+		}
 		return vod.ProcessVOD(ctx, cli, state, vodStore, vod.Input{
 			UploadID: t.UploadID,
 			RepoDID:  t.RepoDID,

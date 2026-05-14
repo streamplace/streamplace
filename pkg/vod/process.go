@@ -42,6 +42,7 @@ var vodTracer = otel.Tracer("vod")
 const (
 	stageOpenSource         = "open_source"
 	stageStaging            = "start_staging"
+	stageSigner             = "create_signer"
 	stagePipeline           = "gstreamer_pipeline"
 	stageStagingComplete    = "store_complete"
 	stageContentAddressCopy = "content_address_move"
@@ -132,8 +133,19 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	counter := &countingWriter{}
 	final := io.MultiWriter(hasher, counter, staging)
 
+	// Ephemeral per-upload signing key. Generated here as muxing starts,
+	// used to C2PA-sign every segment, and dropped when this function
+	// returns — so once the upload is processed nobody can mint more
+	// signatures under its did:key.
+	signer, err := newUploadSigner(startTime)
+	if err != nil {
+		recordErr(span, stageSigner, err)
+		return "", fmt.Errorf("create upload signer: %w", err)
+	}
+	span.SetAttributes(attribute.String("signing_did", signer.DIDKey))
+
 	metaBuilder := newMetafileBuilder(ctx, store)
-	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder)
+	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder, signer.SignerInput)
 	if err != nil {
 		recordErr(span, stagePipeline, err)
 		// staging is aborted by the deferred Close
@@ -184,13 +196,14 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	}
 
 	if err := publishRecords(ctx, publishParams{
-		cli:      cli,
-		state:    state,
-		in:       in,
-		cid:      finalCID,
-		size:     counter.n,
-		mimeType: "video/mp4",
-		probe:    probe,
+		cli:        cli,
+		state:      state,
+		in:         in,
+		cid:        finalCID,
+		size:       counter.n,
+		mimeType:   "video/mp4",
+		probe:      probe,
+		signingKey: signer.DIDKey,
 	}); err != nil {
 		recordErr(span, stagePublish, err)
 		return "", fmt.Errorf("publish records: %w", err)
@@ -268,11 +281,14 @@ func recordErr(span trace.Span, stage string, err error) {
 // streamThroughMuxl wires up the goroutines that connect:
 //
 //	[gstreamer pipeline] -> mp4mux output (io.Pipe)
-//	                                      -> muxl concatenator -> dst
+//	                                      -> muxl sign-segment -> dst
 //
 // gstreamer writes the fMP4 stream to one end of an io.Pipe; a goroutine
-// forwards those bytes into the muxl concatenator; another goroutine
-// drains the concatenator's init+seg channels and writes them to dst.
+// forwards those bytes into muxl-sign's sign-segment subcommand, which
+// segments per-GoP and C2PA-signs each canonical segment; another
+// goroutine drains the init+seg channels and writes them to dst. The
+// segment bytes that land in dst are therefore signed
+// ([c2pa-uuid][muxl-uuid][moof][mdat] per track).
 //
 // If metaBuilder is non-nil, a third goroutine consumes the rich event
 // channel and feeds events to it — used to build the per-blob metafile
@@ -283,7 +299,7 @@ func recordErr(span trace.Span, stage string, err error) {
 // the pipeline run (codec/dimensions/duration). The CID is computed
 // by the caller from the bdasl.Writer tee'd into dst, since the hash
 // is only final once the last byte lands.
-func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer, metaBuilder *metafileBuilder) (media.VODResult, error) {
+func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.Writer, metaBuilder *metafileBuilder, signerInput muxl.SignerInput) (media.VODResult, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.streamThroughMuxl", trace.WithAttributes(
 		attribute.Int64("source_size_bytes", size),
 	))
@@ -303,10 +319,10 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 	var initEmits int64
 	var segEmits int64
 
-	// Forwarder: gstreamer mp4mux output -> muxl concatenator stdin.
+	// Forwarder: gstreamer mp4mux output -> muxl sign-segment stdin.
 	// Run as a goroutine because both ends are pipes; both sides need to
 	// be live for either to make progress.
-	concat := muxl.NewConcatenator(ctx)
+	concat := muxl.NewSigningSegmenter(ctx, signerInput)
 	feedDone := make(chan error, 1)
 	go func() {
 		defer close(feedDone)

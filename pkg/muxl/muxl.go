@@ -34,6 +34,9 @@ var moduleCounter atomic.Uint64
 // MuxlEvent represents one event from the muxl segmenter/concatenator
 // stdout stream. The wire format is `crate::cbor::CborEvent` on the muxl
 // Rust side — a `type`-tagged union with "init" and "segment" variants.
+// muxl-sign's `sign-segment` subcommand emits the same shape with a
+// "signed-segment" type tag (the per-track bytes carry a leading
+// c2pa-uuid box); we decode it into this same struct.
 // Fields not relevant to a given Type are left zero.
 type MuxlEvent struct {
 	Type   string `cbor:"type"`
@@ -403,6 +406,49 @@ func RunMuxlConcatenatorEvents(ctx context.Context, input io.Reader, initCh chan
 	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, nil, initCh, segCh, eventCh)
 }
 
+// RunMuxlSignSegment streams an fMP4 input through muxl-sign's
+// `sign-segment` subcommand: the muxl segmenter splits the input
+// per-GoP and C2PA-signs each canonical segment in place, so the bytes
+// routed to segCh are [c2pa-uuid][muxl-uuid][moof][mdat] per track. The
+// init/segment/event channels behave exactly like
+// RunMuxlConcatenatorEvents — the wire stream is the same DRISL event
+// format, just with a "signed-segment" type tag in place of "segment".
+//
+// Signing needs the real wall clock (c2pa-rs checks cert validity at
+// sign time and draws COSE nonces from real randomness), so unlike the
+// plain segmenter this runs with realClock=true and its output is not
+// byte-stable across runs. Only PEM-key signing is supported here;
+// in.Sign and in.Segment are ignored — the segment bytes come from the
+// input reader.
+func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
+	if len(in.KeyPEM) == 0 {
+		return fmt.Errorf("muxl: RunMuxlSignSegment requires SignerInput.KeyPEM")
+	}
+	if in.Alg == "" {
+		in.Alg = "es256k"
+	}
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	keysFS := fstest.MapFS{
+		"cert.pem":     {Data: in.CertPEM},
+		"key.pem":      {Data: in.KeyPEM},
+		"track.json":   {Data: in.TrackManifest},
+		"wrapper.json": {Data: in.WrapperManifest},
+	}
+	args := []string{
+		"muxl-wasm", "sign-segment",
+		"--cert", "/keys/cert.pem",
+		"--key", "/keys/key.pem",
+		"--alg", in.Alg,
+		"--track-manifest", "/keys/track.json",
+		"--wrapper-manifest", "/keys/wrapper.json",
+	}
+	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
+	return runMuxlWith(ctx, mod, args, fsCfg, true, input, nil, nil, initCh, segCh, eventCh)
+}
+
 // SignerInput is the per-call input bundle for RunMuxlSigner. Exactly one
 // of KeyPEM or Sign must be set:
 //
@@ -551,6 +597,39 @@ func NewConcatenator(ctx context.Context) *Concatenator {
 
 	go func() {
 		err := RunMuxlConcatenatorEvents(ctx, stdinReader, initCh, segCh, eventCh)
+		close(initCh)
+		close(segCh)
+		close(eventCh)
+		done <- err
+	}()
+
+	return c
+}
+
+// NewSigningSegmenter is the signing counterpart to NewConcatenator: it
+// drives muxl-sign's `sign-segment` subcommand instead of `concat`, so
+// the bytes emitted on SegCh are C2PA-signed canonical segments
+// ([c2pa-uuid][muxl-uuid][moof][mdat] per track). The Concatenator
+// plumbing (Write/Close + the three channels) is identical; only the
+// underlying wasm subcommand differs. Feed full fMP4 archives via
+// Write(); receive signed output on InitCh, SegCh, and EventCh.
+func NewSigningSegmenter(ctx context.Context, in SignerInput) *Concatenator {
+	initCh := make(chan []byte, 1)
+	segCh := make(chan []byte, 16)
+	eventCh := make(chan *MuxlEvent, 16)
+	stdinReader, stdinWriter := io.Pipe()
+	done := make(chan error, 1)
+
+	c := &Concatenator{
+		stdinWriter: stdinWriter,
+		InitCh:      initCh,
+		SegCh:       segCh,
+		EventCh:     eventCh,
+		done:        done,
+	}
+
+	go func() {
+		err := RunMuxlSignSegment(ctx, stdinReader, in, initCh, segCh, eventCh)
 		close(initCh)
 		close(segCh)
 		close(eventCh)
@@ -813,7 +892,7 @@ func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh
 				case initCh <- ev.Data:
 				}
 			}
-		case "segment":
+		case "segment", "signed-segment":
 			if segCh != nil {
 				keys := make([]string, 0, len(ev.Tracks))
 				for k := range ev.Tracks {

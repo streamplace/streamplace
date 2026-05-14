@@ -38,6 +38,9 @@ type publishParams struct {
 	size     int64
 	mimeType string
 	probe    media.VODResult
+	// signingKey is the did:key of the ephemeral key that C2PA-signed
+	// this upload's segments. Recorded on every track record.
+	signingKey string
 }
 
 // publishRecords does the post-processing record publish:
@@ -76,7 +79,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 
 	var sourceTracks []*comatproto.RepoStrongRef
 	if p.probe.Video != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "1", "video", p.probe.Video, nil)
+		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "1", "video", p.signingKey, p.probe.Video, nil)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "video_track")
@@ -85,7 +88,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		sourceTracks = append(sourceTracks, ref)
 	}
 	if p.probe.Audio != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "2", "audio", nil, p.probe.Audio)
+		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "2", "audio", p.signingKey, nil, p.probe.Audio)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "audio_track")
@@ -141,9 +144,11 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 // publishTrack creates one place.stream.media.track record in the
 // user's repo. trackID is the 1-indexed track within the MUXL
 // container ("1" for video, "2" for audio in our standard layout).
+// signingKey is the did:key whose ephemeral private half C2PA-signed
+// this upload's segments — the same key signs every track of an upload.
 // Exactly one of videoMeta / audioMeta should be non-nil; the other
 // is ignored.
-func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, mediaType string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
+func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.publishTrack", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.String("track_id", trackID),
@@ -181,6 +186,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, med
 				Blob:          cid,
 				TrackId:       trackID,
 				MediaType:     mediaType,
+				SigningKey:    &signingKey,
 			},
 		},
 		Metadata: meta,

@@ -113,11 +113,13 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 			b.trackInitCIDs[tid] = cid
 		}
 		b.runningOffset = int64(len(ev.Data))
-	case "segment":
+	case "segment", "signed-segment":
 		// Within a single segment event, per-track byte slices are
 		// concatenated in sorted key order (matching ParseMuxlEvents'
 		// byte-channel dispatch). Track that order here so offsets
-		// match the actual byte layout.
+		// match the actual byte layout. For "signed-segment" events
+		// each chunk carries a leading c2pa-uuid box; the offset math
+		// is unchanged since it derives from the actual chunk length.
 		keys := make([]string, 0, len(ev.Tracks))
 		for k := range ev.Tracks {
 			keys = append(keys, k)

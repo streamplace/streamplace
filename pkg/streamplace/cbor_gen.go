@@ -9279,9 +9279,13 @@ func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 5
+	fieldCount := 6
 
 	if t.Language == nil {
+		fieldCount--
+	}
+
+	if t.SigningKey == nil {
 		fieldCount--
 	}
 
@@ -9408,6 +9412,38 @@ func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error {
 	if _, err := cw.WriteString(string(t.MediaType)); err != nil {
 		return err
 	}
+
+	// t.SigningKey (string) (string)
+	if t.SigningKey != nil {
+
+		if len("signingKey") > 1000000 {
+			return xerrors.Errorf("Value in field \"signingKey\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("signingKey"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("signingKey")); err != nil {
+			return err
+		}
+
+		if t.SigningKey == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if len(*t.SigningKey) > 1000000 {
+				return xerrors.Errorf("Value in field t.SigningKey was too long")
+			}
+
+			if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(*t.SigningKey))); err != nil {
+				return err
+			}
+			if _, err := cw.WriteString(string(*t.SigningKey)); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -9436,7 +9472,7 @@ func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 9)
+	nameBuf := make([]byte, 10)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -9516,6 +9552,27 @@ func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.MediaType = string(sval)
+			}
+			// t.SigningKey (string) (string)
+		case "signingKey":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					sval, err := cbg.ReadStringWithMax(cr, 1000000)
+					if err != nil {
+						return err
+					}
+
+					t.SigningKey = (*string)(&sval)
+				}
 			}
 
 		default:

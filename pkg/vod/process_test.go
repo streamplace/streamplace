@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bdasl"
@@ -33,17 +34,18 @@ var gstWarmup sync.Once
 func warmGST() { gstWarmup.Do(gstinit.InitGST) }
 
 // TestStreamThroughMuxl is the end-to-end test for the gstreamer +
-// muxl-concatenator section of the VOD pipeline. It feeds the h264+opus
-// fixture through RunVODPipeline -> mp4mux -> muxl concatenator and
-// captures the result in a bytes.Buffer + bdasl.Writer. Asserts:
+// muxl-sign section of the VOD pipeline. It feeds the h264+opus fixture
+// through RunVODPipeline -> mp4mux -> muxl sign-segment and captures the
+// result in a bytes.Buffer + bdasl.Writer. Asserts:
 //
 //   - the output starts with an ftyp box
 //   - the output is non-trivial (> 1 KB)
-//   - the same input produces the same CID across runs (deterministic
-//     up to gstreamer + muxl wasm)
+//   - a CID is computable from the output
 //
-// The S3 multipart upload + content-addressed key rename are not
-// exercised here; those are tested separately in pkg/s3.
+// The output is NOT deterministic across runs: sign-segment embeds COSE
+// signatures with real-clock timestamps and nonces, so the CID shifts
+// every run. The S3 multipart upload + content-addressed key rename are
+// not exercised here; those are tested separately in pkg/s3.
 func TestStreamThroughMuxl(t *testing.T) {
 	warmGST()
 
@@ -54,6 +56,9 @@ func TestStreamThroughMuxl(t *testing.T) {
 	fixture, err := os.ReadFile(getFixture("5sec.mp4"))
 	require.NoError(t, err)
 
+	signer, err := newUploadSigner(time.Now())
+	require.NoError(t, err)
+
 	out := &bytes.Buffer{}
 	hasher := bdasl.NewWriter()
 
@@ -61,7 +66,7 @@ func TestStreamThroughMuxl(t *testing.T) {
 	// test can assert the CID without re-reading the output.
 	dst := teeWriter{hasher, out}
 
-	_, err = streamThroughMuxl(ctx, bytes.NewReader(fixture), int64(len(fixture)), dst, nil)
+	_, err = streamThroughMuxl(ctx, bytes.NewReader(fixture), int64(len(fixture)), dst, nil, signer.SignerInput)
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, out.Len(), 1024, "expected non-trivial fMP4 output, got %d bytes", out.Len())
@@ -114,12 +119,15 @@ func TestMetafileBuilder(t *testing.T) {
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
 
+	signer, err := newUploadSigner(time.Now())
+	require.NoError(t, err)
+
 	out := &bytes.Buffer{}
 	hasher := bdasl.NewWriter()
 	dst := teeWriter{hasher, out}
 
 	mb := newMetafileBuilder(ctx, store)
-	_, err = streamThroughMuxl(ctx, bytes.NewReader(fixture), int64(len(fixture)), dst, mb)
+	_, err = streamThroughMuxl(ctx, bytes.NewReader(fixture), int64(len(fixture)), dst, mb, signer.SignerInput)
 	require.NoError(t, err)
 
 	cid := hasher.CID()

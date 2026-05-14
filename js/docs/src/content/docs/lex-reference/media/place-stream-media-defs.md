@@ -51,12 +51,13 @@ A track backed by a MUXL container
 
 **Properties:**
 
-| Name        | Type     | Req'd | Description                                                           | Constraints |
-| ----------- | -------- | ----- | --------------------------------------------------------------------- | ----------- |
-| `blob`      | `string` | ✅    | BLAKE-3 content hash (BDASL CID) of the source video segment.         |             |
-| `trackId`   | `string` | ✅    | ID of the track within the MUXL container. 1-indexed for MP4 reasons. |             |
-| `mediaType` | `string` | ✅    | Type of the track: video, audio, or text.                             |             |
-| `language`  | `string` | ❌    | Language of the track, if applicable.                                 |             |
+| Name         | Type     | Req'd | Description                                                                                                                                                                 | Constraints   |
+| ------------ | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `blob`       | `string` | ✅    | BLAKE-3 content hash (BDASL CID) of the source video segment.                                                                                                               |               |
+| `trackId`    | `string` | ✅    | ID of the track within the MUXL container. 1-indexed for MP4 reasons.                                                                                                       |               |
+| `mediaType`  | `string` | ✅    | Type of the track: video, audio, or text.                                                                                                                                   |               |
+| `language`   | `string` | ❌    | Language of the track, if applicable.                                                                                                                                       |               |
+| `signingKey` | `string` | ❌    | did:key of the ephemeral key that C2PA-signed this track's segments. The private key is discarded once the track is produced, so it can only ever have signed this content. | Format: `did` |
 
 ---
 
@@ -122,6 +123,11 @@ A track backed by a MUXL container
         "language": {
           "type": "string",
           "description": "Language of the track, if applicable."
+        },
+        "signingKey": {
+          "type": "string",
+          "format": "did",
+          "description": "did:key of the ephemeral key that C2PA-signed this track's segments. The private key is discarded once the track is produced, so it can only ever have signed this content."
         }
       }
     }

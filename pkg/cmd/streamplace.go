@@ -359,7 +359,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return fmt.Errorf("make vod store: %w", err)
 	}
 	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
-		return vod.ProcessVOD(ctx, cli, state, mod, vodStore, vod.Input{
+		return vod.ProcessVOD(ctx, cli, state, vodStore, vod.Input{
 			UploadID: t.UploadID,
 			RepoDID:  t.RepoDID,
 			MimeType: t.MimeType,

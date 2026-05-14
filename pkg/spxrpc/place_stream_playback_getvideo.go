@@ -1,7 +1,6 @@
 package spxrpc
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -55,9 +54,17 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, 
 // HandleGetVideoBlob serves a content-addressed playback blob (primary
 // fMP4 or per-track init segment, indistinguishable from the
 // endpoint's POV) with HTTP Range support.
+//
+// Strips the cosmetic `.m4s` / `.mp4` suffix on the way in: ffmpeg's
+// HLS demuxer checks the URL extension against an allowlist
+// (`allowed_segment_extensions`) before fetching segments. The
+// playlist generator appends `.m4s` to every URL it emits so
+// ffmpeg-based players don't refuse them; the handler ignores the
+// suffix entirely.
 func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	ctx := c.Request().Context()
-	cid := c.QueryParam("cid")
+	cid := strings.TrimSuffix(c.QueryParam("cid"), ".m4s")
+	cid = strings.TrimSuffix(cid, ".mp4")
 	if cid == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "cid is required")
 	}
@@ -312,8 +319,15 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 
 // blobURL is where the .m3u8 references segments + init blobs. Same
 // node, getVideoBlob endpoint, content-addressed.
+//
+// The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
+// demuxer refuses to fetch segment URLs whose extension isn't in its
+// `allowed_segment_extensions` list. By appending the (fake) suffix
+// to the cid query value we land on a URL that ends in `.m4s`,
+// which is allowlisted. The handler strips it back off before
+// looking up the blob.
 func blobURL(cid string) string {
-	q := url.Values{"cid": {cid}}
+	q := url.Values{"cid": {cid + ".m4s"}}
 	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode()
 }
 
@@ -529,6 +543,3 @@ func yesNo(b bool) string {
 	return "NO"
 }
 
-// Force imports used in conditionally-compiled paths. bytes is used by
-// the Range parser; this stub keeps the linter quiet during refactors.
-var _ = bytes.NewReader

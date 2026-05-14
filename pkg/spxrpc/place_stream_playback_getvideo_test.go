@@ -81,8 +81,10 @@ func TestMediaPlaylist_Video(t *testing.T) {
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
 	require.Contains(t, pl, `#EXT-X-MAP:URI=`)
-	require.Contains(t, pl, "cid=bafyvideoinit")
-	require.Contains(t, pl, "cid=bafyblob")
+	// .m4s suffix on the cid query value (cosmetic, for ffmpeg's
+	// allowed_segment_extensions check). URL-encoded as `.m4s`.
+	require.Contains(t, pl, "cid=bafyvideoinit.m4s")
+	require.Contains(t, pl, "cid=bafyblob.m4s")
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
 	require.Contains(t, pl, "#EXTINF:1.000000,")

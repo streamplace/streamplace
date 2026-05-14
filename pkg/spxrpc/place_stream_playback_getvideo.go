@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/labstack/echo/v4"
 
@@ -20,6 +21,11 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
+
+// videoCollection is the only collection getVideoPlaylist currently
+// knows how to dispatch on. The lexicon accepts any AT-URI so we have
+// room to grow into other playable record types without a wire break.
+const videoCollection = "place.stream.video"
 
 // --- stubs for the auto-generated wrappers in stubs.go ------------------
 //
@@ -45,7 +51,7 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid 
 	return nil, stubMisrouted("getVideoBlob")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, did string, end *int, rkey string, start *int, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end *int, start *int, track string, uri string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoPlaylist")
 }
 
@@ -177,10 +183,17 @@ func parseSingleRange(header string, size int64) (int64, int64, error) {
 // after this single resolve.
 func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	ctx := c.Request().Context()
-	did := c.QueryParam("did")
-	rkey := c.QueryParam("rkey")
-	if did == "" || rkey == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "did and rkey are required")
+	rawURI := c.QueryParam("uri")
+	if rawURI == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "uri is required")
+	}
+	aturi, err := syntax.ParseATURI(rawURI)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "uri must be a valid AT-URI: "+err.Error())
+	}
+	if aturi.Collection() != videoCollection {
+		return echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
 	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
@@ -199,7 +212,8 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "start must be less than end")
 	}
 
-	resolved, err := s.resolveVideoBlob(ctx, did, rkey)
+	uri := aturi.String()
+	resolved, err := s.resolveVideoBlob(ctx, uri)
 	if err != nil {
 		return err
 	}
@@ -210,9 +224,9 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 
 	var body string
 	if track == "" {
-		body = masterPlaylist(meta, did, rkey, startNS, endNS)
+		body = masterPlaylist(meta, uri, startNS, endNS)
 	} else {
-		body, err = mediaPlaylist(meta, track, did, rkey, startNS, endNS)
+		body, err = mediaPlaylist(meta, track, uri, startNS, endNS)
 		if err != nil {
 			return err
 		}
@@ -250,8 +264,7 @@ type resolvedVideo struct {
 // the local index. The metafile holds catalogs for every track of the
 // blob, so picking any track's blob is sufficient — they all live in
 // the same container.
-func (s *Server) resolveVideoBlob(ctx context.Context, did, rkey string) (*resolvedVideo, error) {
-	uri := fmt.Sprintf("at://%s/place.stream.video/%s", did, rkey)
+func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVideo, error) {
 	video, err := s.model.GetVideoByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "playback: GetVideoByURI failed", "uri", uri, "error", err)
@@ -333,8 +346,8 @@ func blobURL(cid string) string {
 
 // trackPlaylistURL is the URL to a single-track media playlist served
 // by this same handler.
-func trackPlaylistURL(did, rkey, track string, startNS, endNS *int64) string {
-	q := url.Values{"did": {did}, "rkey": {rkey}, "track": {track}}
+func trackPlaylistURL(uri, track string, startNS, endNS *int64) string {
+	q := url.Values{"uri": {uri}, "track": {track}}
 	if startNS != nil {
 		q.Set("start", strconv.FormatInt(*startNS, 10))
 	}
@@ -348,7 +361,7 @@ func trackPlaylistURL(did, rkey, track string, startNS, endNS *int64) string {
 // per video track and one EXT-X-MEDIA per audio track. Time-range
 // params (if present) are propagated to the per-track media playlist
 // URLs so the player keeps the clip bounds.
-func masterPlaylist(meta *vod.Metafile, did, rkey string, startNS, endNS *int64) string {
+func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) string {
 	lines := []string{"#EXTM3U", "#EXT-X-VERSION:6", ""}
 
 	// Collect audio tracks in deterministic order, pick a default
@@ -363,7 +376,7 @@ func masterPlaylist(meta *vod.Metafile, did, rkey string, startNS, endNS *int64)
 			t.Codec,
 			yesNo(isDefault),
 			fmt.Sprintf("%d", channelsOrDefault(t.Channels)),
-			trackPlaylistURL(did, rkey, tid, startNS, endNS),
+			trackPlaylistURL(uri, tid, startNS, endNS),
 		))
 	}
 	if len(audioIDs) > 0 {
@@ -395,7 +408,7 @@ func masterPlaylist(meta *vod.Metafile, did, rkey string, startNS, endNS *int64)
 			streamInf += `,AUDIO="audio"`
 		}
 		lines = append(lines, streamInf)
-		lines = append(lines, trackPlaylistURL(did, rkey, tid, startNS, endNS))
+		lines = append(lines, trackPlaylistURL(uri, tid, startNS, endNS))
 	}
 
 	return strings.Join(lines, "\n") + "\n"
@@ -404,7 +417,7 @@ func masterPlaylist(meta *vod.Metafile, did, rkey string, startNS, endNS *int64)
 // mediaPlaylist emits a single-track HLS playlist with one
 // EXT-X-BYTERANGE per segment pointing at getVideoBlob, plus an
 // EXT-X-MAP for the per-track init segment.
-func mediaPlaylist(meta *vod.Metafile, trackID, did, rkey string, startNS, endNS *int64) (string, error) {
+func mediaPlaylist(meta *vod.Metafile, trackID, uri string, startNS, endNS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
@@ -542,4 +555,3 @@ func yesNo(b bool) string {
 	}
 	return "NO"
 }
-

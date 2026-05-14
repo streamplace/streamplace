@@ -13,17 +13,16 @@ description: Reference for the place.stream.playback.getVideoPlaylist lexicon
 
 **Type:** `query`
 
-Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash.
+Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.
 
 **Parameters:**
 
-| Name    | Type      | Req'd | Description                                                                                                             | Constraints   |
-| ------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `did`   | `string`  | ✅    | DID of the video creator (the repo holding the place.stream.video record).                                              | Format: `did` |
-| `rkey`  | `string`  | ✅    | Record key of the place.stream.video record.                                                                            |               |
-| `track` | `string`  | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist. |               |
-| `start` | `integer` | ❌    | Start time in nanoseconds from the beginning of the video. Defaults to 0.                                               |               |
-| `end`   | `integer` | ❌    | End time in nanoseconds. Omit to include all remaining content.                                                         |               |
+| Name    | Type      | Req'd | Description                                                                                                             | Constraints      |
+| ------- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `uri`   | `string`  | ✅    | AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).                                    | Format: `at-uri` |
+| `track` | `string`  | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist. |                  |
+| `start` | `integer` | ❌    | Start time in nanoseconds from the beginning of the video. Defaults to 0.                                               |                  |
+| `end`   | `integer` | ❌    | End time in nanoseconds. Omit to include all remaining content.                                                         |                  |
 
 **Output:**
 
@@ -33,9 +32,10 @@ Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is 
 _Schema not defined._
 **Possible Errors:**
 
-- `VideoNotFound`: No place.stream.video record indexed for this DID and rkey.
+- `VideoNotFound`: No record indexed at the supplied AT-URI.
 - `TrackNotFound`: The requested track ID is not present in the video's blob.
-- `BlobNotFound`: The video record references a blob this node hasn't indexed an origin for.
+- `BlobNotFound`: The record references a blob this node hasn't indexed an origin for.
+- `UnsupportedCollection`: The AT-URI points at a collection this endpoint doesn't know how to play back.
 
 ---
 
@@ -48,19 +48,15 @@ _Schema not defined._
   "defs": {
     "main": {
       "type": "query",
-      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash.",
+      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
       "parameters": {
         "type": "params",
-        "required": ["did", "rkey"],
+        "required": ["uri"],
         "properties": {
-          "did": {
+          "uri": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the video creator (the repo holding the place.stream.video record)."
-          },
-          "rkey": {
-            "type": "string",
-            "description": "Record key of the place.stream.video record."
+            "format": "at-uri",
+            "description": "AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>)."
           },
           "track": {
             "type": "string",
@@ -82,7 +78,7 @@ _Schema not defined._
       "errors": [
         {
           "name": "VideoNotFound",
-          "description": "No place.stream.video record indexed for this DID and rkey."
+          "description": "No record indexed at the supplied AT-URI."
         },
         {
           "name": "TrackNotFound",
@@ -90,7 +86,11 @@ _Schema not defined._
         },
         {
           "name": "BlobNotFound",
-          "description": "The video record references a blob this node hasn't indexed an origin for."
+          "description": "The record references a blob this node hasn't indexed an origin for."
+        },
+        {
+          "name": "UnsupportedCollection",
+          "description": "The AT-URI points at a collection this endpoint doesn't know how to play back."
         }
       ]
     }

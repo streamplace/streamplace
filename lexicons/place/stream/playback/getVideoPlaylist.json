@@ -4,19 +4,15 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash.",
+      "description": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
       "parameters": {
         "type": "params",
-        "required": ["did", "rkey"],
+        "required": ["uri"],
         "properties": {
-          "did": {
+          "uri": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the video creator (the repo holding the place.stream.video record)."
-          },
-          "rkey": {
-            "type": "string",
-            "description": "Record key of the place.stream.video record."
+            "format": "at-uri",
+            "description": "AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>)."
           },
           "track": {
             "type": "string",
@@ -38,7 +34,7 @@
       "errors": [
         {
           "name": "VideoNotFound",
-          "description": "No place.stream.video record indexed for this DID and rkey."
+          "description": "No record indexed at the supplied AT-URI."
         },
         {
           "name": "TrackNotFound",
@@ -46,7 +42,11 @@
         },
         {
           "name": "BlobNotFound",
-          "description": "The video record references a blob this node hasn't indexed an origin for."
+          "description": "The record references a blob this node hasn't indexed an origin for."
+        },
+        {
+          "name": "UnsupportedCollection",
+          "description": "The AT-URI points at a collection this endpoint doesn't know how to play back."
         }
       ]
     }

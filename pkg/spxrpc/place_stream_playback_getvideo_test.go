@@ -49,8 +49,10 @@ func fixtureMetafile() *vod.Metafile {
 	}
 }
 
+const fixtureURI = "at://did:plc:abc/place.stream.video/rkey1"
+
 func TestMasterPlaylist(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), "did:plc:abc", "rkey1", nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, nil, nil)
 	require.Contains(t, pl, "#EXTM3U")
 	require.Contains(t, pl, "#EXT-X-VERSION:6")
 	// Audio media line for the default (AAC) track.
@@ -62,21 +64,23 @@ func TestMasterPlaylist(t *testing.T) {
 	require.Contains(t, pl, `RESOLUTION=1920x1080`)
 	require.Contains(t, pl, `CODECS="avc1.64002a,mp4a.40.2"`)
 	require.Contains(t, pl, `AUDIO="audio"`)
-	// Both per-track URIs go through getVideoPlaylist with the correct
-	// did/rkey/track triple.
+	// Both per-track URIs go through getVideoPlaylist with the AT-URI
+	// passed verbatim plus a track ID. URL-encoded `:` is `%3A` and
+	// `/` is `%2F`.
+	require.Contains(t, pl, "uri=at%3A%2F%2Fdid%3Aplc%3Aabc%2Fplace.stream.video%2Frkey1")
 	require.Contains(t, pl, `track=1`)
 	require.Contains(t, pl, `track=2`)
 }
 
 func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 	start, end := int64(1_000_000_000), int64(2_000_000_000)
-	pl := masterPlaylist(fixtureMetafile(), "did:plc:abc", "rkey1", &start, &end)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, &start, &end)
 	require.Contains(t, pl, "start=1000000000")
 	require.Contains(t, pl, "end=2000000000")
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", "did:plc:abc", "rkey1", nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureURI, nil, nil)
 	require.NoError(t, err)
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
@@ -92,7 +96,7 @@ func TestMediaPlaylist_Video(t *testing.T) {
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {
-	_, err := mediaPlaylist(fixtureMetafile(), "99", "did:plc:abc", "rkey1", nil, nil)
+	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureURI, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "TrackNotFound")
 }
@@ -102,7 +106,7 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// ticks each). Ask for [1s, 2s): should keep only segment 1.
 	start := int64(1_000_000_000)
 	end := int64(2_000_000_000)
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", "did:plc:abc", "rkey1", &start, &end)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureURI, &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
@@ -110,12 +114,12 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 
 func TestParseSingleRange(t *testing.T) {
 	cases := []struct {
-		name       string
-		header     string
-		size       int64
-		wantStart  int64
-		wantEnd    int64
-		wantErr    bool
+		name      string
+		header    string
+		size      int64
+		wantStart int64
+		wantEnd   int64
+		wantErr   bool
 	}{
 		{name: "open ended", header: "bytes=100-", size: 1000, wantStart: 100, wantEnd: 999},
 		{name: "closed", header: "bytes=100-200", size: 1000, wantStart: 100, wantEnd: 200},
@@ -144,6 +148,6 @@ func TestParseSingleRange(t *testing.T) {
 // Make sure all .m3u8 outputs use LF line endings (no CRLF), match
 // the HLS spec recommendation.
 func TestPlaylistLineEndings(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), "did:plc:abc", "rkey1", nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, nil, nil)
 	require.False(t, strings.Contains(pl, "\r"), "playlist should not contain carriage returns")
 }

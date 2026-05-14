@@ -13,26 +13,24 @@ import (
 
 // PlaybackGetVideoPlaylist calls the XRPC method "place.stream.playback.getVideoPlaylist".
 //
-// did: DID of the video creator (the repo holding the place.stream.video record).
 // end: End time in nanoseconds. Omit to include all remaining content.
-// rkey: Record key of the place.stream.video record.
 // start: Start time in nanoseconds from the beginning of the video. Defaults to 0.
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
-func PlaybackGetVideoPlaylist(ctx context.Context, c lexutil.LexClient, did string, end int64, rkey string, start int64, track string) ([]byte, error) {
+// uri: AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).
+func PlaybackGetVideoPlaylist(ctx context.Context, c lexutil.LexClient, end int64, start int64, track string, uri string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
-	params["did"] = did
 	if end != 0 {
 		params["end"] = end
 	}
-	params["rkey"] = rkey
 	if start != 0 {
 		params["start"] = start
 	}
 	if track != "" {
 		params["track"] = track
 	}
+	params["uri"] = uri
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.playback.getVideoPlaylist", params, nil, buf); err != nil {
 		return nil, err
 	}

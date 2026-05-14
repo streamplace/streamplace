@@ -929,7 +929,6 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoPlaylist")
 	defer span.End()
-	did := c.QueryParam("did")
 
 	var end *int
 	if p := c.QueryParam("end"); p != "" {
@@ -939,7 +938,6 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 		}
 		end = &end_val
 	}
-	rkey := c.QueryParam("rkey")
 
 	var start *int
 	if p := c.QueryParam("start"); p != "" {
@@ -950,10 +948,11 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 		start = &start_val
 	}
 	track := c.QueryParam("track")
+	uri := c.QueryParam("uri")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,did string,end *int,rkey string,start *int,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, did, end, rkey, start, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end *int,start *int,track string,uri string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, end, start, track, uri)
 	if handleErr != nil {
 		return handleErr
 	}

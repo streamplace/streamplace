@@ -737,7 +737,7 @@
     },
     "/xrpc/place.stream.playback.getVideoPlaylist": {
       "get": {
-        "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash.",
+        "summary": "Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getVideoBlob, addressed by content hash. The `uri` is an AT-URI pointing at a playable record — today only place.stream.video records are supported, but the surface is collection-agnostic so other record types can join later.",
         "operationId": "place.stream.playback.getVideoPlaylist",
         "tags": ["place.stream.playback"],
         "responses": {
@@ -768,6 +768,9 @@
                         },
                         {
                           "const": "BlobNotFound"
+                        },
+                        {
+                          "const": "UnsupportedCollection"
                         }
                       ]
                     },
@@ -782,24 +785,14 @@
         },
         "parameters": [
           {
-            "name": "did",
+            "name": "uri",
             "in": "query",
             "required": true,
-            "description": "DID of the video creator (the repo holding the place.stream.video record).",
+            "description": "AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).",
             "schema": {
               "type": "string",
-              "description": "DID of the video creator (the repo holding the place.stream.video record).",
-              "format": "did"
-            }
-          },
-          {
-            "name": "rkey",
-            "in": "query",
-            "required": true,
-            "description": "Record key of the place.stream.video record.",
-            "schema": {
-              "type": "string",
-              "description": "Record key of the place.stream.video record."
+              "description": "AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).",
+              "format": "uri"
             }
           },
           {

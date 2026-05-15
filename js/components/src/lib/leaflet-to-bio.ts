@@ -485,6 +485,7 @@ function translateImage(
       const link = (blob.ref as { $link?: string }).$link;
       if (link) {
         image = new BlobRef(
+          // FIXME: update atproto packages and use Cid from lex-data
           CID.parse(link) as any,
           blob.mimeType as string,
           blob.size as number,

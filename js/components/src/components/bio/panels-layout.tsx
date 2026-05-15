@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { LayoutChangeEvent } from "react-native";
 import { PlaceStreamBioLayoutsPanels } from "streamplace";
 import { View } from "../ui/view";
@@ -20,6 +20,10 @@ export function PanelsLayout({
   const [heights, setHeights] = useState<(number | null)[]>(() =>
     new Array(panels.length).fill(null),
   );
+
+  useEffect(() => {
+    setHeights(new Array(panels.length).fill(null));
+  }, [panels.length]);
 
   const allMeasured = heights.every((h) => h !== null) && containerWidth > 0;
 

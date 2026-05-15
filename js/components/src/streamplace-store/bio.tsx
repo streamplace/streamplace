@@ -212,6 +212,21 @@ function resolveLeafletRef(
   did: string,
 ): { repo: string; rkey: string } {
   const trimmed = source.trim();
+
+  if (
+    trimmed.startsWith("https://leaflet.pub/p/") ||
+    trimmed.startsWith("http://leaflet.pub/p/")
+  ) {
+    const url = new URL(trimmed);
+    const parts = url.pathname.replace(/^\/p\//, "").split("/");
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      throw new Error(
+        `Invalid Leaflet URL. Expected format: https://leaflet.pub/p/<did>/<rkey>. Got: ${source}`,
+      );
+    }
+    return { repo: parts[0], rkey: parts[1] };
+  }
+
   if (trimmed.startsWith("at://")) {
     const path = trimmed.slice("at://".length);
     const parts = path.split("/");
@@ -225,7 +240,7 @@ function resolveLeafletRef(
   // assume the user's own PDS.
   if (trimmed.includes("/")) {
     throw new Error(
-      "Source must be an AT-URI starting with 'at://' or a bare rkey.",
+      "Source must be an AT-URI starting with 'at://', a Leaflet URL, or a bare rkey.",
     );
   }
   return { repo: did, rkey: trimmed };

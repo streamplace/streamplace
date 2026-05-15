@@ -36,6 +36,24 @@ import { Modal, Pressable, ScrollView } from "react-native";
 import { parseAtUriPath } from "src/linking-config";
 import type { PlaceStreamBioDefs, PlaceStreamBioPage } from "streamplace";
 
+function parseLeafletSourceAuthority(source: string): string | null {
+  const trimmed = source.trim();
+  const atUri = parseAtUriPath(trimmed);
+  if (atUri) return atUri.authority;
+
+  if (
+    trimmed.startsWith("https://leaflet.pub/p/") ||
+    trimmed.startsWith("http://leaflet.pub/p/")
+  ) {
+    try {
+      const parts = new URL(trimmed).pathname.replace(/^\/p\//, "").split("/");
+      if (parts[0]) return parts[0];
+    } catch {}
+  }
+
+  return null;
+}
+
 function parseSocialUrl(
   url: string,
 ): Pick<PlaceStreamBioDefs.Social, "platform" | "handle"> {
@@ -149,13 +167,16 @@ export function BioSettings() {
     setImporting(true);
     setImportError(null);
     setWarnings([]);
-    let parsedUri = parseAtUriPath(leafletSource);
-    if (parsedUri === null || parsedUri === undefined || !did) {
-      setImportError("Invalid DID");
+    const authority = parseLeafletSourceAuthority(leafletSource);
+    if (!authority || !did) {
+      setImportError("Invalid source");
+      setImporting(false);
       return;
     }
-    if (parsedUri?.authority != did) {
+    if (authority !== did) {
       setImportError("This is not your record");
+      setImporting(false);
+      return;
     }
     resolveDIDDocument(did);
     try {
@@ -175,13 +196,13 @@ export function BioSettings() {
     if (!leafletSource.trim()) return;
     setImportError(null);
     setImporting(true);
-    let parsedUri = parseAtUriPath(leafletSource);
-    if (parsedUri === null || parsedUri === undefined || !did) {
-      setImportError("Invalid DID");
+    const authority = parseLeafletSourceAuthority(leafletSource);
+    if (!authority || !did) {
+      setImportError("Invalid source");
       setImporting(false);
       return;
     }
-    if (parsedUri?.authority != did) {
+    if (authority !== did) {
       setImportError("This is not your record");
       setImporting(false);
       return;
@@ -315,7 +336,7 @@ export function BioSettings() {
                 <Text color="muted" size="sm" style={{ marginTop: 4 }}>
                   {t(
                     "import-from-leaflet-desc",
-                    "Paste a leaflet-flavored site.standard.document AT-uri",
+                    "Paste a leaflet.pub public URL or compatible AT uri",
                   )}
                 </Text>
                 <View
@@ -324,7 +345,7 @@ export function BioSettings() {
                 >
                   <View style={{ flex: 1 }}>
                     <Input
-                      placeholder="at://did:plc:.../site.standard.document/abc123"
+                      placeholder="https://leaflet.pub/p/did:plc:.../abc123"
                       value={leafletSource}
                       onChangeText={setLeafletSource}
                     />

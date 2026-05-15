@@ -44,7 +44,7 @@ function useStreamerBio(did: string | undefined) {
         const json = await res.json();
         if (!cancelled) setBio(json.value as PlaceStreamBioPage.Record);
       } catch {
-        // streamer has no bio or PDS is unreachable — render nothing
+        // streamer has no bio or PDS is unreachable: render nothing
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -141,7 +141,9 @@ export function StreamTabs({
               </Text>
             </View>
           ) : bio ? (
-            <BioViewer bio={bio} did={profile.did} />
+            <View style={[zero.w.percent[100]]}>
+              <BioViewer bio={bio} did={profile.did} />
+            </View>
           ) : (
             <View style={[zero.p[4]]}>
               <Text color="muted" size="sm">

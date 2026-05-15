@@ -107,7 +107,7 @@ function PlayerWithProvider(
   const useScrollableLayout =
     !isPortraitLandscapeCase && !shouldShowChatSidePanel;
 
-  // collapse state for the scrollable layout — tap avatar/handle to toggle
+  // collapse state for the scrollable layout,— tap avatar/handle to toggle
   const collapsedRef = useRef(false);
   const [collapsed, setCollapsed] = useState(false);
   const scrollableVideoHeightValue = useSharedValue(0);
@@ -130,7 +130,7 @@ function PlayerWithProvider(
   }, [showUnavailable, screenWidth, segDims.width, segDims.height]);
 
   useEffect(() => {
-    // sync height when segment dims change, or on mount — skip if currently collapsed
+    // sync height when segment dims change, or on mount, skip if currently collapsed
     if (!collapsedRef.current) {
       scrollableVideoHeightValue.value = normalScrollableVideoHeight;
     }

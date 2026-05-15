@@ -154,42 +154,7 @@ export function LeafletPanelRangeSelector({
 
   return (
     <View>
-      {pendingStart !== null && (
-        <View
-          direction="row"
-          align="center"
-          style={{
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            marginBottom: 4,
-            gap: 8,
-          }}
-        >
-          <View
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 5,
-              backgroundColor: nextColor,
-            }}
-          />
-          <Text size="sm" color="muted" style={{ flex: 1 }}>
-            Click another block to complete this panel range
-          </Text>
-          <Pressable
-            onPress={() => {
-              setPendingStart(null);
-              setHoverIdx(null);
-            }}
-          >
-            <Text size="sm" color="muted">
-              Cancel
-            </Text>
-          </Pressable>
-        </View>
-      )}
-
-      {pendingStart === null && ranges.length === 0 && (
+      {pendingStart === null ? (
         <Text
           size="sm"
           color="muted"
@@ -197,6 +162,41 @@ export function LeafletPanelRangeSelector({
         >
           Click the first block of a panel range to start selecting
         </Text>
+      ) : (
+        pendingStart !== null && (
+          <View
+            direction="row"
+            align="center"
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              marginBottom: 4,
+              gap: 8,
+            }}
+          >
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: nextColor,
+              }}
+            />
+            <Text size="sm" color="muted" style={{ flex: 1 }}>
+              Click another block to complete this panel range
+            </Text>
+            <Pressable
+              onPress={() => {
+                setPendingStart(null);
+                setHoverIdx(null);
+              }}
+            >
+              <Text size="sm" color="muted">
+                Cancel
+              </Text>
+            </Pressable>
+          </View>
+        )
       )}
 
       {blocks.map((block, i) => {

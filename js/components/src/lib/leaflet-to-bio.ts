@@ -1,4 +1,5 @@
 import { BlobRef } from "@atproto/api";
+import { CID } from "multiformats/cid";
 import {
   PlaceStreamBioBlocksBlockquote,
   PlaceStreamBioBlocksBskyPost,
@@ -15,12 +16,9 @@ import {
   PlaceStreamBioRichtextFacet,
 } from "streamplace";
 
-// Minimal subset of pub.leaflet.* shapes that we know how to translate. Fields
+// Minimal subset of pub.leaflet.* shapes that we can translate. Fields
 // we don't read are intentionally absent so unknown leaflet block variants fall
 // through to the catch-all branch and produce a warning.
-//
-// Keep these structural — they're parsed from JSON returned by the leaflet
-// author's PDS, so we never trust the values blindly.
 
 interface LeafletAspectRatio {
   width: number;
@@ -66,7 +64,7 @@ export interface LeafletFlatBlock {
   pageIdx: number;
   label: string;
   blockType: string;
-  // Passed through to leafletRangesToBio — do not access from UI code
+  // Passed through to leafletRangesToBio, **do not access from UI code**
   _entry: unknown;
 }
 
@@ -282,23 +280,7 @@ export interface LeafletToBioResult {
   warnings: string[];
 }
 
-/**
- * Translate a pub.leaflet.document record into a place.stream.bio record.
- *
- * Mapping:
- * - doc.description           → bio.description (no facets — leaflet's description is plain string)
- * - linearDocument pages      → flattened into one column, joined by divider blocks between pages
- * - canvas pages              → blocks read in array order (positions discarded), divider between pages
- * - leaflet text/header/...   → identical streamplace block, $type rewritten
- * - leaflet button            → bio link block
- * - leaflet website / iframe  → bio embed block
- * - leaflet horizontalRule    → bio divider
- * - leaflet code/math/poll/page, unknown blocks → skipped + warning
- *
- * Streamplace-only fields on `preserve` (socials, and any livestream/schedule/socialLinks
- * blocks in the prior layout) are NOT copied over — the body is replaced wholesale.
- * The caller can do a smarter merge if desired; we keep the translator pure.
- */
+// Translate a pub.leaflet.document record into a place.stream.bio record.
 export function leafletDocToBio(
   doc: LeafletDoc,
   opts: LeafletToBioOptions = {},
@@ -488,7 +470,28 @@ function translateImage(
   // The blob ref must be re-referenced under the user's PDS for the new record.
   // When importing from the user's own leaflet doc this is a no-op (same PDS,
   // same CID); cross-PDS imports require the caller to re-upload first.
-  const image = block.image;
+  let image = block.image;
+  if (!(image instanceof BlobRef)) {
+    // Raw JSON from fetch() *won't hydrate into BlobRef instances*. We need to reconstruct these
+    if (
+      image &&
+      typeof image === "object" &&
+      "$type" in image &&
+      "ref" in image &&
+      "mimeType" in image &&
+      "size" in image
+    ) {
+      const blob = image as Record<string, unknown>;
+      const link = (blob.ref as { $link?: string }).$link;
+      if (link) {
+        image = new BlobRef(
+          CID.parse(link) as any,
+          blob.mimeType as string,
+          blob.size as number,
+        );
+      }
+    }
+  }
   if (!(image instanceof BlobRef)) return null;
   const ar = block.aspectRatio as LeafletAspectRatio | undefined;
   if (!ar || typeof ar.width !== "number" || typeof ar.height !== "number") {

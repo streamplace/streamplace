@@ -121,6 +121,29 @@ export function BioSettings() {
     }
   }, [bio]);
 
+  useEffect(() => {
+    if (!bio?.importedFrom || !did) return;
+    const source = bio.importedFrom;
+    setLeafletSource(source);
+
+    const preload = async () => {
+      try {
+        const doc = await fetchLeafletDoc(source);
+        const { blocks, warnings: w } = extractLeafletBlocks(doc);
+        if (blocks.length > 0) {
+          setRangeBlocks(blocks);
+          setRangeDoc(doc);
+          setRangeSource(source);
+          setRanges(autoSplitRanges(blocks));
+          setWarnings(w);
+        }
+      } catch {
+        // we can disregard errors here
+      }
+    };
+    preload();
+  }, [bio?.importedFrom, did]);
+
   const handleImport = async () => {
     if (!leafletSource.trim()) return;
     setImporting(true);
@@ -163,6 +186,13 @@ export function BioSettings() {
       setImporting(false);
       return;
     }
+
+    if (leafletSource.trim() === rangeSource && rangeBlocks) {
+      setLeafletSource("");
+      setImporting(false);
+      return;
+    }
+
     try {
       resolveDIDDocument(did);
       const doc = await fetchLeafletDoc(leafletSource.trim());
@@ -285,7 +315,7 @@ export function BioSettings() {
                 <Text color="muted" size="sm" style={{ marginTop: 4 }}>
                   {t(
                     "import-from-leaflet-desc",
-                    "Paste a pub.leaflet.document AT-URI or rkey to import your leaflet page into a Streamplace bio.",
+                    "Paste a leaflet-flavored site.standard.document AT-uri",
                   )}
                 </Text>
                 <View

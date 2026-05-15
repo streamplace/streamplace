@@ -53,6 +53,7 @@
     "i18next-resources-to-backend": "^1.2.1",
     "intl-pluralrules": "^2.0.1",
     "lucide-react-native": "^0.562.0",
+    "multiformats": "9.9.0",
     "react-i18next": "^15.7.3",
     "react-native": "^0.83.2",
     "react-native-edge-to-edge": "^1.6.2",

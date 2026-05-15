@@ -119,12 +119,12 @@ export function useImportBioFromRanges() {
     if (!did || !pdsAgent) throw new Error("No DID or PDS agent");
     const { repo, rkey } = resolveLeafletRef(source, did);
     const importedFrom = `at://${repo}/${LEAFLET_COLLECTION}/${rkey}`;
-    const prior = await readExistingBio(pdsAgent, did);
+    //const prior = await readExistingBio(pdsAgent, did);
     const { bio, warnings } = leafletRangesToBio(
       doc as Parameters<typeof leafletRangesToBio>[0],
       blocks,
       ranges,
-      { importedFrom, preserve: prior },
+      { importedFrom },
     );
     await putBio(bio);
     return { bio, warnings };
@@ -222,7 +222,7 @@ function resolveLeafletRef(
     }
     return { repo: parts[0], rkey: parts[2] };
   }
-  // Bare rkey — assume the user's own PDS.
+  // assume the user's own PDS.
   if (trimmed.includes("/")) {
     throw new Error(
       "Source must be an AT-URI starting with 'at://' or a bare rkey.",

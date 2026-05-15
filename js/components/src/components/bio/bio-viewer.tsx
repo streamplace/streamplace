@@ -22,6 +22,7 @@ import { zero } from "../..";
 import { useTheme } from "../../lib/theme/theme";
 import { Text } from "../ui/text";
 import { View } from "../ui/view";
+import { PanelsLayout } from "./panels-layout";
 
 export interface BioViewerProps {
   bio: PlaceStreamBioPage.Record;
@@ -33,7 +34,14 @@ export function BioViewer({ bio, did }: BioViewerProps) {
 
   return (
     <View
-      style={{ maxWidth: 800, width: "100%", alignSelf: "center", padding: 16 }}
+      style={{
+        maxWidth: 1920,
+        width: "100%",
+        alignSelf: "center",
+        padding: 16,
+        justifyContent: "center",
+        alignContent: "center",
+      }}
     >
       <BioHeader bio={bio} />
       {bio.layout && <BioLayout layout={bio.layout} did={did} />}
@@ -45,16 +53,31 @@ function BioHeader({ bio }: { bio: PlaceStreamBioPage.Record }) {
   const { zero: zt } = useTheme();
 
   return (
-    <View style={[zero.mb[8], zt.bg.muted, zero.r.md, zero.p[4]]}>
-      {bio.description && (
-        <RichTextView
-          plaintext={bio.description.plaintext}
-          facets={bio.description.facets}
-        />
-      )}
-      {bio.socials && bio.socials.length > 0 && (
-        <SocialRow socials={bio.socials} />
-      )}
+    <View style={[zero.mx.auto]}>
+      <View
+        style={[
+          zero.mb[8],
+          zt.bg.muted,
+          zero.r.md,
+          zero.p[4],
+          zero.layout.flex.row,
+          { maxWidth: "1200px" },
+        ]}
+      >
+        {bio.description && (
+          <View style={[zero.flex.values[3]]}>
+            <RichTextView
+              plaintext={bio.description.plaintext}
+              facets={bio.description.facets}
+            />
+          </View>
+        )}
+        {bio.socials && bio.socials.length > 0 && (
+          <View style={[zero.flex.values[1]]}>
+            <SocialRow socials={bio.socials} />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -90,14 +113,7 @@ function SocialLink({ social }: { social: PlaceStreamBioDefs.Social }) {
   const label = PLATFORM_LABELS[social.platform] ?? social.platform;
 
   return (
-    <View
-      style={{
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        backgroundColor: zt.bg.muted as string,
-      }}
-    >
+    <View style={[zero.px[2], zero.py[1], zt.bg.card, zero.r.full]}>
       <Text size="sm">
         {label}
         {social.handle ? ` ${social.handle}` : ""}
@@ -121,35 +137,16 @@ function BioLayout({
     return (
       <PanelsLayout
         panels={(layout as PlaceStreamBioLayoutsPanels.Main).panels}
-        did={did}
+        renderPanel={(panel, panelIdx) =>
+          panel.blocks.map((entry, blockIdx) => (
+            <BlockEntryView key={blockIdx} entry={entry} did={did} />
+          ))
+        }
       />
     );
   }
 
   return <Text color="muted">Unsupported layout: {t ?? "(no type)"}</Text>;
-}
-
-function PanelsLayout({
-  panels,
-  did,
-}: {
-  panels: PlaceStreamBioLayoutsPanels.Panel[];
-  did?: string;
-}) {
-  return (
-    <View direction="row" style={{ flexWrap: "wrap", gap: 16 }}>
-      {panels.map((panel, panelIdx) => (
-        <View
-          key={panelIdx}
-          style={{ flex: 1, flexGrow: 1, flexShrink: 1, minWidth: 200 }}
-        >
-          {panel.blocks.map((entry, blockIdx) => (
-            <BlockEntryView key={blockIdx} entry={entry} did={did} />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
 }
 
 function BlockEntryView({
@@ -302,7 +299,8 @@ function ImageBlock({
   const { zero: zt } = useTheme();
   const ar = block.aspectRatio;
   const ratio = ar && ar.height > 0 ? ar.width / ar.height : 16 / 9;
-  const src = did ? blobUrl(did, block.image.ref.toString()) : undefined;
+  //@ts-expect-error FIXME: do proper ser/de for block types
+  const src = did ? blobUrl(did, block.image.ref.$link.toString()) : undefined;
 
   return (
     <View
@@ -722,7 +720,7 @@ function RichTextView({
 }) {
   if (!facets || facets.length === 0) {
     return (
-      <Text size="base" style={{ lineHeight: 1.5 }}>
+      <Text size="base" leading="tight">
         {plaintext}
       </Text>
     );

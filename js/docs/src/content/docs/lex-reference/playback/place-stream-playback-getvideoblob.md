@@ -17,10 +17,11 @@ Fetch a content-addressed MUXL playback blob by CID. Serves either a primary fMP
 
 **Parameters:**
 
-| Name  | Type     | Req'd | Description                                                                                                                                                         | Constraints   |
-| ----- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `did` | `string` | ✅    | DID of the account that owns the record this blob is being served for. Used for egress/usage accounting, not for access control — the blob is served purely by CID. | Format: `did` |
-| `cid` | `string` | ✅    | BLAKE-3 BDASL CID of the requested blob.                                                                                                                            |               |
+| Name  | Type     | Req'd | Description                                                                                                                                                                  | Constraints   |
+| ----- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `did` | `string` | ✅    | DID of the account that owns the record this blob is being served for. Used for egress/usage accounting, not for access control — the blob is served purely by CID.          | Format: `did` |
+| `cid` | `string` | ✅    | BLAKE-3 BDASL CID of the requested blob.                                                                                                                                     |               |
+| `sid` | `string` | ❌    | Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control. |               |
 
 **Output:**
 
@@ -56,6 +57,10 @@ _Schema not defined._
           "cid": {
             "type": "string",
             "description": "BLAKE-3 BDASL CID of the requested blob."
+          },
+          "sid": {
+            "type": "string",
+            "description": "Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control."
           }
         }
       },

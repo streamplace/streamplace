@@ -742,6 +742,16 @@
               "type": "string",
               "description": "BLAKE-3 BDASL CID of the requested blob."
             }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "description": "Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control.",
+            "schema": {
+              "type": "string",
+              "description": "Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control."
+            }
           }
         ]
       }
@@ -834,6 +844,16 @@
             "schema": {
               "type": "integer",
               "description": "End time in nanoseconds. Omit to include all remaining content."
+            }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and embeds it in every sub-playlist URL it returns. Players never have to construct it themselves — they just follow the URLs the master playlist hands them, which carry the sid into media-playlist + segment requests. Used downstream to correlate a player's playlist + segment fetches for view-count accounting.",
+            "schema": {
+              "type": "string",
+              "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and embeds it in every sub-playlist URL it returns. Players never have to construct it themselves — they just follow the URLs the master playlist hands them, which carry the sid into media-playlist + segment requests. Used downstream to correlate a player's playlist + segment fetches for view-count accounting."
             }
           }
         ]

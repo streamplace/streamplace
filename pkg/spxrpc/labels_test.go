@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	testLabeler   = "did:plc:labeler"
-	testOwner     = "did:plc:owner"
-	testOtherUser = "did:plc:someoneelse"
+	testLabeler    = "did:plc:labeler"
+	testOwner      = "did:plc:owner"
+	testOtherUser  = "did:plc:someoneelse"
 	testContentCID = "bafkrcontentblob"
 	testInitCID    = "bafkrinitsegment"
 )

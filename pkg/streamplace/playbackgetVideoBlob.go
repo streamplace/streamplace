@@ -15,12 +15,16 @@ import (
 //
 // cid: BLAKE-3 BDASL CID of the requested blob.
 // did: DID of the account that owns the record this blob is being served for. Used for egress/usage accounting, not for access control — the blob is served purely by CID.
-func PlaybackGetVideoBlob(ctx context.Context, c lexutil.LexClient, cid string, did string) ([]byte, error) {
+// sid: Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control.
+func PlaybackGetVideoBlob(ctx context.Context, c lexutil.LexClient, cid string, did string, sid string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	params["cid"] = cid
 	params["did"] = did
+	if sid != "" {
+		params["sid"] = sid
+	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.playback.getVideoBlob", params, nil, buf); err != nil {
 		return nil, err
 	}

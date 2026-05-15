@@ -18,9 +18,23 @@ import (
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
+
+// sessionIDOrNew returns the caller's sid if it's well-formed, otherwise
+// gives you a fresh tid
+func sessionIDOrNew(supplied string) (string, error) {
+	if supplied != "" {
+		_, err := syntax.ParseTID(supplied)
+		if err != nil {
+			return "", fmt.Errorf("invalid session ID: %w", err)
+		}
+		return supplied, nil
+	}
+	return spid.TID(), nil
+}
 
 // videoCollection is the only collection getVideoPlaylist currently
 // knows how to dispatch on. The lexicon accepts any AT-URI so we have
@@ -47,11 +61,11 @@ func stubMisrouted(name string) error {
 		name+" auto-stub should have been overridden by NewServer; this is a wiring bug")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid string, did string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid string, did string, sid string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoBlob")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end *int, start *int, track string, uri string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end *int, sid string, start *int, track string, uri string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoPlaylist")
 }
 
@@ -261,6 +275,15 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "start must be less than end")
 	}
 
+	// Reuse the caller's sid when present (i.e. the player followed a
+	// URL we previously handed it) so the master/media/segment requests
+	// of one playback session share an identifier. Generate a fresh one
+	// when the player is making its first request.
+	sid, err := sessionIDOrNew(c.QueryParam("sid"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
 	uri := aturi.String()
 
 	// Labeler enforcement: any label on the video record, or a ban on
@@ -289,9 +312,9 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 
 	var body string
 	if track == "" {
-		body = masterPlaylist(meta, uri, startNS, endNS)
+		body = masterPlaylist(meta, uri, sid, startNS, endNS)
 	} else {
-		body, err = mediaPlaylist(meta, track, ownerDID.String(), startNS, endNS)
+		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, startNS, endNS)
 		if err != nil {
 			return err
 		}
@@ -398,24 +421,34 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 // blobURL is where the .m3u8 references segments + init blobs. Same
 // node, getVideoBlob endpoint, content-addressed. `did` is the owning
 // account, carried so getVideoBlob can attribute egress without a
-// cid -> media.origin lookup.
+// cid -> media.origin lookup. `sid` is the playback session identifier
+// the handler will eventually correlate against playlist requests for
+// view-count accounting.
 //
 // The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
 // demuxer refuses to fetch segment URLs whose extension isn't in its
 // `allowed_segment_extensions` list, and it checks the *end* of the
 // URL string. So `cid` (which carries the suffix) must be the last
-// query param — we can't let url.Values sort `did` after it. The
+// query param — we can't let url.Values sort other keys after it. The
 // handler strips the suffix back off before looking up the blob.
-func blobURL(did, cid string) string {
+func blobURL(did, cid, sid string) string {
 	q := url.Values{"did": {did}}
+	if sid != "" {
+		q.Set("sid", sid)
+	}
 	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode() +
 		"&cid=" + url.QueryEscape(cid) + ".m4s"
 }
 
 // trackPlaylistURL is the URL to a single-track media playlist served
-// by this same handler.
-func trackPlaylistURL(uri, track string, startNS, endNS *int64) string {
+// by this same handler. `sid` is propagated from the master playlist
+// so the player's media-playlist + segment requests all share an
+// identifier.
+func trackPlaylistURL(uri, track, sid string, startNS, endNS *int64) string {
 	q := url.Values{"uri": {uri}, "track": {track}}
+	if sid != "" {
+		q.Set("sid", sid)
+	}
 	if startNS != nil {
 		q.Set("start", strconv.FormatInt(*startNS, 10))
 	}
@@ -428,8 +461,10 @@ func trackPlaylistURL(uri, track string, startNS, endNS *int64) string {
 // masterPlaylist emits an HLS multi-variant master, one EXT-X-STREAM-INF
 // per video track and one EXT-X-MEDIA per audio track. Time-range
 // params (if present) are propagated to the per-track media playlist
-// URLs so the player keeps the clip bounds.
-func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) string {
+// URLs so the player keeps the clip bounds. `sid` is threaded into
+// every sub-playlist URL so the per-track requests + downstream
+// segment fetches share one playback-session identifier.
+func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) string {
 	lines := []string{"#EXTM3U", "#EXT-X-VERSION:6", ""}
 
 	// Collect audio tracks in deterministic order, pick a default
@@ -444,7 +479,7 @@ func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) strin
 			t.Codec,
 			yesNo(isDefault),
 			fmt.Sprintf("%d", channelsOrDefault(t.Channels)),
-			trackPlaylistURL(uri, tid, startNS, endNS),
+			trackPlaylistURL(uri, tid, sid, startNS, endNS),
 		))
 	}
 	if len(audioIDs) > 0 {
@@ -476,7 +511,7 @@ func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) strin
 			streamInf += `,AUDIO="audio"`
 		}
 		lines = append(lines, streamInf)
-		lines = append(lines, trackPlaylistURL(uri, tid, startNS, endNS))
+		lines = append(lines, trackPlaylistURL(uri, tid, sid, startNS, endNS))
 	}
 
 	return strings.Join(lines, "\n") + "\n"
@@ -485,8 +520,9 @@ func masterPlaylist(meta *vod.Metafile, uri string, startNS, endNS *int64) strin
 // mediaPlaylist emits a single-track HLS playlist with one
 // EXT-X-BYTERANGE per segment pointing at getVideoBlob, plus an
 // EXT-X-MAP for the per-track init segment. `ownerDID` is threaded
-// into every getVideoBlob URL for egress accounting.
-func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID string, startNS, endNS *int64) (string, error) {
+// into every getVideoBlob URL for egress accounting, and `sid` for
+// view-count correlation against the request that built this playlist.
+func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid string, startNS, endNS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
@@ -515,10 +551,10 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID string, startNS, endNS 
 		"#EXT-X-INDEPENDENT-SEGMENTS",
 		fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration),
 		"#EXT-X-MEDIA-SEQUENCE:0",
-		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(ownerDID, t.InitCID)),
+		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(ownerDID, t.InitCID, sid)),
 		"",
 	}
-	bURL := blobURL(ownerDID, t.BlobCID)
+	bURL := blobURL(ownerDID, t.BlobCID, sid)
 	for _, seg := range segments {
 		durSec := float64(seg.DurationTicks) / float64(t.Timescale)
 		lines = append(lines,

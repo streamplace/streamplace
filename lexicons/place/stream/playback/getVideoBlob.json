@@ -17,6 +17,10 @@
           "cid": {
             "type": "string",
             "description": "BLAKE-3 BDASL CID of the requested blob."
+          },
+          "sid": {
+            "type": "string",
+            "description": "Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control."
           }
         }
       },

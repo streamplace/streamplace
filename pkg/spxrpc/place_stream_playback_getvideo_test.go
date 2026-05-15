@@ -1,11 +1,18 @@
 package spxrpc
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
+	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -52,10 +59,14 @@ func fixtureMetafile() *vod.Metafile {
 const (
 	fixtureURI = "at://did:plc:abc/place.stream.video/rkey1"
 	fixtureDID = "did:plc:abc"
+	// A real atproto TID — the same shape the handler hands out via
+	// spid.TID() — so URL-embedding round-trips through ParseTID
+	// without any encoding surprises.
+	fixtureSID = "3jzfcijpj2z2a"
 )
 
 func TestMasterPlaylist(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil)
 	require.Contains(t, pl, "#EXTM3U")
 	require.Contains(t, pl, "#EXT-X-VERSION:6")
 	// Audio media line for the default (AAC) track.
@@ -73,17 +84,22 @@ func TestMasterPlaylist(t *testing.T) {
 	require.Contains(t, pl, "uri=at%3A%2F%2Fdid%3Aplc%3Aabc%2Fplace.stream.video%2Frkey1")
 	require.Contains(t, pl, `track=1`)
 	require.Contains(t, pl, `track=2`)
+	// Session ID gets pushed into every per-track playlist URL so the
+	// follow-up media-playlist + segment requests can be correlated.
+	require.Contains(t, pl, "sid="+fixtureSID)
+	require.Equal(t, 2, strings.Count(pl, "sid="+fixtureSID),
+		"sid should appear once per track URL (audio + video variant)")
 }
 
 func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 	start, end := int64(1_000_000_000), int64(2_000_000_000)
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, &start, &end)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, &start, &end)
 	require.Contains(t, pl, "start=1000000000")
 	require.Contains(t, pl, "end=2000000000")
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, nil, nil)
 	require.NoError(t, err)
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
@@ -95,8 +111,11 @@ func TestMediaPlaylist_Video(t *testing.T) {
 	// Owner DID carried for egress accounting.
 	require.Contains(t, pl, "did=did%3Aplc%3Aabc")
 	// cid must stay the last query param so the URL ends in `.m4s`;
-	// `.m4s&` would mean another param got sorted after it.
+	// `.m4s&` would mean another param got sorted after it. The sid
+	// gets sorted between did and cid, so it can't break this.
 	require.NotContains(t, pl, ".m4s&")
+	// Session ID is on every segment + init URL.
+	require.Contains(t, pl, "sid="+fixtureSID)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
 	require.Contains(t, pl, "#EXTINF:1.000000,")
@@ -104,7 +123,7 @@ func TestMediaPlaylist_Video(t *testing.T) {
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {
-	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, nil, nil)
+	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, fixtureSID, nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "TrackNotFound")
 }
@@ -114,10 +133,57 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// ticks each). Ask for [1s, 2s): should keep only segment 1.
 	start := int64(1_000_000_000)
 	end := int64(2_000_000_000)
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, &start, &end)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
+}
+
+func TestMediaPlaylist_EmptySIDOmitsParam(t *testing.T) {
+	// Belt-and-suspenders for direct callers: passing an empty sid
+	// shouldn't put a stray `sid=` in the URLs (URL-builder uses
+	// url.Values.Set only when non-empty).
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, "", nil, nil)
+	require.NoError(t, err)
+	require.NotContains(t, pl, "sid=")
+}
+
+func TestSessionIDOrNew(t *testing.T) {
+	t.Run("supplied is reused", func(t *testing.T) {
+		// A well-formed TID like the player would have gotten from a
+		// prior master-playlist response.
+		valid := spid.TID()
+		got, err := sessionIDOrNew(valid)
+		require.NoError(t, err)
+		require.Equal(t, valid, got)
+	})
+	t.Run("empty mints a fresh tid", func(t *testing.T) {
+		got, err := sessionIDOrNew("")
+		require.NoError(t, err)
+		// The fresh sid is itself a valid TID — players that round-trip
+		// it through ParseTID won't reject our output.
+		_, err = syntax.ParseTID(got)
+		require.NoError(t, err)
+		// TIDs embed a timestamp + random clock id, so back-to-back
+		// calls never collide.
+		got2, err := sessionIDOrNew("")
+		require.NoError(t, err)
+		require.NotEqual(t, got, got2)
+	})
+	t.Run("invalid is rejected", func(t *testing.T) {
+		for _, bad := range []string{
+			"has space",      // whitespace
+			"has/slash",      // URL-illegal char
+			"has?question",   // ditto
+			"tooshort",       // < 13 chars
+			"toolongtoolong", // > 13 chars
+			"1111111111111",  // 13 chars but '1' isn't in the TID alphabet
+			"zabcdefghijkl",  // 13 chars but 'z' isn't a valid first char
+		} {
+			_, err := sessionIDOrNew(bad)
+			require.Error(t, err, "expected %q to be rejected", bad)
+		}
+	})
 }
 
 func TestParseSingleRange(t *testing.T) {
@@ -153,9 +219,39 @@ func TestParseSingleRange(t *testing.T) {
 	}
 }
 
+// TestHandleGetVideoPlaylist_RejectsBadSID exercises the handler-side
+// validation. Validation runs before any DB / blob lookups, so the
+// test doesn't need a populated model or playbackStore content — just
+// the playbackStore presence check the handler does up front.
+func TestHandleGetVideoPlaylist_RejectsBadSID(t *testing.T) {
+	store, err := blob.NewFileStore(t.TempDir())
+	require.NoError(t, err)
+	s := &Server{playbackStore: store}
+
+	for _, tc := range []struct {
+		name string
+		sid  string
+	}{
+		{"contains space", "has space"},
+		{"contains slash", "has/slash"},
+		{"too long", strings.Repeat("x", 65)},
+		{"wrong tid alphabet", "1111111111111"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet,
+				"/xrpc/place.stream.playback.getVideoPlaylist?uri="+
+					"at%3A%2F%2Fdid%3Aplc%3Aabc%2Fplace.stream.video%2Fr1"+
+					"&sid="+url.QueryEscape(tc.sid), nil)
+			c := echo.New().NewContext(req, httptest.NewRecorder())
+			he := requireHTTPError(t, s.HandleGetVideoPlaylist(c))
+			require.Equal(t, http.StatusBadRequest, he.Code)
+		})
+	}
+}
+
 // Make sure all .m3u8 outputs use LF line endings (no CRLF), match
 // the HLS spec recommendation.
 func TestPlaylistLineEndings(t *testing.T) {
-	pl := masterPlaylist(fixtureMetafile(), fixtureURI, nil, nil)
+	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, nil, nil)
 	require.False(t, strings.Contains(pl, "\r"), "playlist should not contain carriage returns")
 }

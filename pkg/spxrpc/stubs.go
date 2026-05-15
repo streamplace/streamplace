@@ -917,10 +917,11 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	defer span.End()
 	cid := c.QueryParam("cid")
 	did := c.QueryParam("did")
+	sid := c.QueryParam("sid")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context,cid string,did string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetVideoBlob(ctx, cid, did)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context,cid string,did string,sid string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoBlob(ctx, cid, did, sid)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -939,6 +940,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 		}
 		end = &end_val
 	}
+	sid := c.QueryParam("sid")
 
 	var start *int
 	if p := c.QueryParam("start"); p != "" {
@@ -952,8 +954,8 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 	uri := c.QueryParam("uri")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end *int,start *int,track string,uri string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, end, start, track, uri)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end *int,sid string,start *int,track string,uri string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, end, sid, start, track, uri)
 	if handleErr != nil {
 		return handleErr
 	}

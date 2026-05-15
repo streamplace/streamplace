@@ -1,4 +1,5 @@
 import {
+  Admonition,
   Button,
   Checkbox,
   ContentMetadataForm,
@@ -276,20 +277,19 @@ const ImageUploadComponent = ({
           )}
         </>
       )}
-      {/* <View style={{ marginTop: 8 }}>
-        <Admonition variant="info" size="sm">
-          <Text size="sm">
-            You are required to disclose if your content is not suitable for
-            certain viewers.
-          </Text>
-          <Pressable onPress={onGoToMetadata}>
-            <Text size="sm" color={zero.colors.blue[400]}>
-              Go to the metadata page{" "}
-              <ArrowRight size="14" style={{ marginVertical: -2 }} />
-            </Text>
-          </Pressable>
-        </Admonition>
-      </View> */}
+      {selectedImage &&
+        selectedImage instanceof Blob &&
+        selectedImage.size > 975000 && (
+          <View style={{ marginTop: 8 }}>
+            <Admonition variant="warning" size="sm">
+              <Text size="sm">
+                Heads up: this image is larger than 975KB (it's
+                {" " + selectedImage.size} bytes). Bluesky post creation might
+                fail.
+              </Text>
+            </Admonition>
+          </View>
+        )}
     </View>
   );
 };

@@ -133,7 +133,7 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}
-	key := vod.ContentPrefix + cid + ".mp4"
+	key := vod.BlobsPrefix + cid + ".mp4"
 	r, err := s.playbackStore.Open(ctx, key)
 	if err != nil {
 		if errors.Is(err, blob.ErrNotFound) {
@@ -314,7 +314,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	if track == "" {
 		body = masterPlaylist(meta, uri, sid, startNS, endNS)
 	} else {
-		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, startNS, endNS)
+		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, s.cli.VODCDNURL, startNS, endNS)
 		if err != nil {
 			return err
 		}
@@ -391,10 +391,10 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 	return &resolvedVideo{blobCID: track.Blob}, nil
 }
 
-// fetchMetafile reads vod/<cid>.json from the playback store and
+// fetchMetafile reads blobs/<cid>.json from the playback store and
 // JSON-decodes it. Cached by the underlying store (S3/disk-page-cache).
 func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, error) {
-	key := vod.ContentPrefix + cid + ".json"
+	key := vod.BlobsPrefix + cid + ".json"
 	r, err := s.playbackStore.Open(ctx, key)
 	if err != nil {
 		if errors.Is(err, blob.ErrNotFound) {
@@ -418,23 +418,38 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 
 // --- playlist generation -----------------------------------------------
 
-// blobURL is where the .m3u8 references segments + init blobs. Same
-// node, getVideoBlob endpoint, content-addressed. `did` is the owning
-// account, carried so getVideoBlob can attribute egress without a
-// cid -> media.origin lookup. `sid` is the playback session identifier
-// the handler will eventually correlate against playlist requests for
-// view-count accounting.
+// blobURL is where the .m3u8 references segments + init blobs.
+// Behaviour depends on whether a CDN sits in front of the bucket:
 //
-// The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
-// demuxer refuses to fetch segment URLs whose extension isn't in its
-// `allowed_segment_extensions` list, and it checks the *end* of the
-// URL string. So `cid` (which carries the suffix) must be the last
-// query param — we can't let url.Values sort other keys after it. The
-// handler strips the suffix back off before looking up the blob.
-func blobURL(did, cid, sid string) string {
+//   - cdnURL == "": self-hosted mode. The playlist links back to our
+//     own getVideoBlob endpoint, content-addressed by query param.
+//     The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
+//     demuxer refuses to fetch segment URLs whose extension isn't in
+//     its `allowed_segment_extensions` list, and it checks the *end*
+//     of the URL string. So `cid` (which carries the suffix) must be
+//     the last query param — we can't let url.Values sort other keys
+//     after it. The handler strips the suffix back off before lookup.
+//
+//   - cdnURL != "": CDN-fronted mode. The playlist links straight at
+//     the configured CDN, which in turn serves blobs/<cid>.mp4 out of
+//     the bucket. The `blobs/` prefix is baked in — operators point
+//     --vod-cdn-url at the bucket root, and we know the layout from
+//     vod.BlobsPrefix. We don't need the `.m4s` trick here because the
+//     path itself carries `.mp4`; query params come after (browser HLS
+//     players don't care).
+//
+// `did` is the owning account, carried in either mode so the request
+// is attributable for egress accounting. `sid` is the playback session
+// id used for view-count correlation; the CDN passes both through to
+// access logs.
+func blobURL(cdnURL, did, cid, sid string) string {
 	q := url.Values{"did": {did}}
 	if sid != "" {
 		q.Set("sid", sid)
+	}
+	if cdnURL != "" {
+		return strings.TrimRight(cdnURL, "/") + "/" + vod.BlobsPrefix +
+			url.PathEscape(cid) + ".mp4?" + q.Encode()
 	}
 	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode() +
 		"&cid=" + url.QueryEscape(cid) + ".m4s"
@@ -518,11 +533,12 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) 
 }
 
 // mediaPlaylist emits a single-track HLS playlist with one
-// EXT-X-BYTERANGE per segment pointing at getVideoBlob, plus an
-// EXT-X-MAP for the per-track init segment. `ownerDID` is threaded
-// into every getVideoBlob URL for egress accounting, and `sid` for
+// EXT-X-BYTERANGE per segment pointing at the blob host (CDN or local),
+// plus an EXT-X-MAP for the per-track init segment. `ownerDID` is
+// threaded into every blob URL for egress accounting and `sid` for
 // view-count correlation against the request that built this playlist.
-func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid string, startNS, endNS *int64) (string, error) {
+// `cdnURL` is the configured CDN root, or "" for self-hosted serving.
+func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, startNS, endNS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
@@ -551,10 +567,10 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid string, startNS, e
 		"#EXT-X-INDEPENDENT-SEGMENTS",
 		fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration),
 		"#EXT-X-MEDIA-SEQUENCE:0",
-		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(ownerDID, t.InitCID, sid)),
+		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(cdnURL, ownerDID, t.InitCID, sid)),
 		"",
 	}
-	bURL := blobURL(ownerDID, t.BlobCID, sid)
+	bURL := blobURL(cdnURL, ownerDID, t.BlobCID, sid)
 	for _, seg := range segments {
 		durSec := float64(seg.DurationTicks) / float64(t.Timescale)
 		lines = append(lines,

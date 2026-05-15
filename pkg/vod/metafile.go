@@ -60,7 +60,7 @@ type MetafileSegment struct {
 // metafileBuilder consumes the rich event stream from the muxl
 // concatenator and incrementally assembles a Metafile. It also writes
 // each per-track init segment to the blob.Store eagerly, since they're
-// content-addressed (`vod/<initCid>.mp4`) and idempotent on retry.
+// content-addressed (`blobs/<initCid>.mp4`) and idempotent on retry.
 //
 // The builder doesn't know the primary blob's CID until the whole
 // stream has been hashed by the upstream bdasl.Writer; the caller
@@ -197,7 +197,7 @@ func (b *metafileBuilder) Finalize(cid string, size int64) *Metafile {
 }
 
 // writeMetafile JSON-encodes m and writes it to the store at
-// vod/<cid>.json. Wraps the upload in a span so the cost is visible.
+// blobs/<cid>.json. Wraps the upload in a span so the cost is visible.
 func writeMetafile(ctx context.Context, store blob.Store, cid string, m *Metafile) error {
 	ctx, span := vodTracer.Start(ctx, "vod.writeMetafile", trace.WithAttributes(
 		attribute.String("cid", cid),
@@ -210,7 +210,7 @@ func writeMetafile(ctx context.Context, store blob.Store, cid string, m *Metafil
 		span.RecordError(err)
 		return fmt.Errorf("marshal metafile: %w", err)
 	}
-	key := ContentPrefix + cid + ".json"
+	key := BlobsPrefix + cid + ".json"
 	w, err := store.NewWriter(ctx, key, "application/json")
 	if err != nil {
 		span.RecordError(err)
@@ -244,7 +244,7 @@ func writeInitBlob(ctx context.Context, store blob.Store, initBytes []byte) (str
 		return "", fmt.Errorf("hash init bytes: %w", err)
 	}
 	cid := hasher.CID()
-	key := ContentPrefix + cid + ".mp4"
+	key := BlobsPrefix + cid + ".mp4"
 	w, err := store.NewWriter(ctx, key, "video/mp4")
 	if err != nil {
 		return "", fmt.Errorf("open init writer: %w", err)

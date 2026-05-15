@@ -76,12 +76,17 @@ type Input struct {
 // dedicated prefix so a periodic janitor can sweep abandoned uploads.
 const StagingPrefix = "vod-staging/"
 
-// ContentPrefix is the prefix for the final, content-addressed object.
-const ContentPrefix = "vod/"
+// BlobsPrefix is where finalized, content-addressed blobs land in the
+// Store: `<BlobsPrefix><cid>.mp4` for content + init segments,
+// `<BlobsPrefix><cid>.json` for metafiles. The prefix is intentionally
+// content-agnostic — the blob doesn't know what kind of video it's for
+// or whether it's a primary fmp4, a per-track init, or a metafile.
+// CDN deployments map `<vod-cdn-url>/blobs/...` straight at this layout.
+const BlobsPrefix = "blobs/"
 
 // ProcessVOD runs the streaming pipeline for one VOD upload and returns
 // the BDASL CID of the resulting fMP4. Reads come from `in` via the
-// supplied Store; the output blob lands at ContentPrefix+<cid>.mp4 in
+// supplied Store; the output blob lands at BlobsPrefix+<cid>.mp4 in
 // the same Store; staging blobs are cleaned up on success or failure.
 //
 // The Store is the storage layer; it can be either a FileStore (single-
@@ -177,7 +182,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	}
 
 	finalCID := hasher.CID()
-	contentKey := ContentPrefix + finalCID + ".mp4"
+	contentKey := BlobsPrefix + finalCID + ".mp4"
 	span.SetAttributes(
 		attribute.String("cid", finalCID),
 		attribute.String("content_key", contentKey),

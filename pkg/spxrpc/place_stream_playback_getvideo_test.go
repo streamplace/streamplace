@@ -99,7 +99,7 @@ func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "", nil, nil)
 	require.NoError(t, err)
 	require.Contains(t, pl, "#EXT-X-PLAYLIST-TYPE:VOD")
 	require.Contains(t, pl, "#EXT-X-INDEPENDENT-SEGMENTS")
@@ -123,7 +123,7 @@ func TestMediaPlaylist_Video(t *testing.T) {
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {
-	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, fixtureSID, nil, nil)
+	_, err := mediaPlaylist(fixtureMetafile(), "99", fixtureDID, fixtureSID, "", nil, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "TrackNotFound")
 }
@@ -133,7 +133,7 @@ func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// ticks each). Ask for [1s, 2s): should keep only segment 1.
 	start := int64(1_000_000_000)
 	end := int64(2_000_000_000)
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, &start, &end)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "", &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
@@ -143,9 +143,57 @@ func TestMediaPlaylist_EmptySIDOmitsParam(t *testing.T) {
 	// Belt-and-suspenders for direct callers: passing an empty sid
 	// shouldn't put a stray `sid=` in the URLs (URL-builder uses
 	// url.Values.Set only when non-empty).
-	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, "", nil, nil)
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, "", "", nil, nil)
 	require.NoError(t, err)
 	require.NotContains(t, pl, "sid=")
+}
+
+// TestMediaPlaylist_CDN exercises CDN-fronted output: segment + init
+// URLs are absolute and point at the configured CDN under the baked-in
+// blobs/ prefix, with did/sid as query params after the .mp4 path.
+// The XRPC path must NOT appear.
+func TestMediaPlaylist_CDN(t *testing.T) {
+	const cdn = "https://cdn.example.com"
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, cdn, nil, nil)
+	require.NoError(t, err)
+	// Both the init segment and the content blob are served from the
+	// CDN — no /xrpc/place.stream.playback.getVideoBlob anywhere.
+	require.NotContains(t, pl, "/xrpc/place.stream.playback.getVideoBlob")
+	require.Contains(t, pl, cdn+"/blobs/bafyvideoinit.mp4?")
+	require.Contains(t, pl, cdn+"/blobs/bafyblob.mp4?")
+	// Egress-accounting fields ride along on every blob URL.
+	require.Contains(t, pl, "did=did%3Aplc%3Aabc")
+	require.Contains(t, pl, "sid="+fixtureSID)
+	// Byte-range + duration markers are unchanged — CDN doesn't affect
+	// the segment layout, just the host of the blob.
+	require.Contains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
+	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
+}
+
+func TestMediaPlaylist_CDNTrailingSlashNormalized(t *testing.T) {
+	// `--vod-cdn-url=https://cdn.example.com/` shouldn't double-slash
+	// between the base and the baked-in blobs/ prefix.
+	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "https://cdn.example.com/", nil, nil)
+	require.NoError(t, err)
+	require.NotContains(t, pl, "//blobs/")
+	require.Contains(t, pl, "https://cdn.example.com/blobs/bafyblob.mp4?")
+}
+
+func TestBlobURL_CDNWithPathPrefix(t *testing.T) {
+	// A CDN URL with its own path is preserved verbatim; we still
+	// append the baked-in blobs/<cid>.mp4 layout under it. Lets ops
+	// front one CDN over multiple bucket sub-trees.
+	got := blobURL("https://cdn.example.com/vods", "did:plc:abc", "bafyblob", "tid123")
+	require.Equal(t, "https://cdn.example.com/vods/blobs/bafyblob.mp4?did=did%3Aplc%3Aabc&sid=tid123", got)
+}
+
+func TestBlobURL_SelfHosted(t *testing.T) {
+	// Empty cdnURL keeps the existing XRPC URL shape. The .m4s suffix
+	// stays at the end of the URL string for ffmpeg.
+	got := blobURL("", "did:plc:abc", "bafyblob", "tid123")
+	require.Equal(t,
+		"/xrpc/place.stream.playback.getVideoBlob?did=did%3Aplc%3Aabc&sid=tid123&cid=bafyblob.m4s",
+		got)
 }
 
 func TestSessionIDOrNew(t *testing.T) {

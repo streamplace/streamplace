@@ -105,7 +105,7 @@ func (t teeWriter) Write(p []byte) (int, error) {
 //   - tracks keyed by stringified track ID
 //   - per-track codec/timescale + video width/height OR audio rate/channels
 //   - segments with strictly increasing offsets and non-zero sizes
-//   - each track's initCid was written into the store at vod/<initCid>.mp4
+//   - each track's initCid was written into the store at blobs/<initCid>.mp4
 func TestMetafileBuilder(t *testing.T) {
 	warmGST()
 
@@ -163,7 +163,7 @@ func TestMetafileBuilder(t *testing.T) {
 			}
 		}
 		// Init blob was actually written into the store.
-		r, err := store.Open(ctx, "vod/"+tr.InitCID+".mp4")
+		r, err := store.Open(ctx, BlobsPrefix+tr.InitCID+".mp4")
 		require.NoError(t, err, "init blob for track %s not written", tid)
 		require.Positive(t, r.Size())
 		require.NoError(t, r.Close())

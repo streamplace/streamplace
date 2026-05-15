@@ -47,7 +47,7 @@ func TestGenerateThumbnail(t *testing.T) {
 	// generateThumbnail reads the content blob from the store. The real
 	// ProcessVOD writes it via the staging writer + finalizeMove; this
 	// test drives streamThroughMuxl directly, so place it by hand.
-	w, err := store.NewWriter(ctx, ContentPrefix+cid+".mp4", "video/mp4")
+	w, err := store.NewWriter(ctx, BlobsPrefix+cid+".mp4", "video/mp4")
 	require.NoError(t, err)
 	_, err = w.Write(out.Bytes())
 	require.NoError(t, err)

@@ -580,12 +580,13 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 // process. S3 if it's configured (production / multi-node); otherwise
 // the local DataDir. Either way the same Store is used to read the
 // user upload AND write the content-addressed VOD output — uploads
-// land under "uploads/" and VOD output lands under "vod/" within the
-// Store's namespace.
+// land under "uploads/" and content blobs land under "blobs/<cid>.mp4"
+// / "blobs/<cid>.json" (content-agnostic, since the blob doesn't know
+// what kind of video it's for).
 //
 // FileStore is rooted at DataDir so it can see the upload manager's
-// "uploads/<id>" tree alongside its own "vod/" tree; S3Store is rooted
-// at the configured bucket for the same reason.
+// "uploads/<id>" tree alongside the content-addressed "blobs/" tree;
+// S3Store is rooted at the configured bucket for the same reason.
 //
 // Mirrors upload.New's multi-node-requires-S3 invariant: in single-node
 // file mode the upload and the produced VOD share local disk; in

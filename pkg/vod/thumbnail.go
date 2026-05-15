@@ -63,12 +63,12 @@ func generateThumbnail(ctx context.Context, store blob.Store, cid string, meta *
 		attribute.Int64("segment_size", seg.Size),
 	)
 
-	initSeg, err := readWholeBlob(ctx, store, ContentPrefix+video.InitCID+".mp4")
+	initSeg, err := readWholeBlob(ctx, store, BlobsPrefix+video.InitCID+".mp4")
 	if err != nil {
 		return nil, fmt.Errorf("read init blob: %w", err)
 	}
 
-	content, err := store.Open(ctx, ContentPrefix+cid+".mp4")
+	content, err := store.Open(ctx, BlobsPrefix+cid+".mp4")
 	if err != nil {
 		return nil, fmt.Errorf("open content blob: %w", err)
 	}

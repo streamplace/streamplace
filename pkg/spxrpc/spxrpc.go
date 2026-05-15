@@ -43,7 +43,7 @@ type Server struct {
 	uploadManager   *upload.Manager
 	// playbackStore is where VOD blobs + metafiles + per-track init
 	// segments live. Matches the blob.Store the VOD processor writes
-	// into (vod/<cid>.mp4 + vod/<cid>.json + vod/<initCid>.mp4).
+	// into (vod.BlobsPrefix + <cid>.{mp4,json}).
 	playbackStore blob.Store
 	aliases       map[string]string
 }

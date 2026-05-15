@@ -99,7 +99,7 @@ func TestRecordLabeled(t *testing.T) {
 // something to return once the labeler gate lets a request through.
 func writeBlob(t *testing.T, store blob.Store, cid string) {
 	t.Helper()
-	w, err := store.NewWriter(context.Background(), vod.ContentPrefix+cid+".mp4", "video/mp4")
+	w, err := store.NewWriter(context.Background(), vod.BlobsPrefix+cid+".mp4", "video/mp4")
 	require.NoError(t, err)
 	_, err = w.Write([]byte("not really an mp4, but enough bytes to serve"))
 	require.NoError(t, err)

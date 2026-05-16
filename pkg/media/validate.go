@@ -23,7 +23,6 @@ import (
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/muxl"
 )
 
 type ManifestAndCert struct {
@@ -117,36 +116,17 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 	}
 
-	// Strip the synthesized flat-MP4 wrapper (ftyp + c2pa-uuid + moov +
-	// mdat-envelope-header) and keep just the canonical-segment bundle
-	// inside the outer mdat. The bundle is the new canonical Streamplace
-	// archive shape: every signed canonical segment inside it is an
-	// independently-verifiable c2pa .m4s asset (`s2pa(muxl(data))`), and
-	// the wrapper is re-synthesizable on demand from the catalogs in each
-	// segment's muxl-uuid. Validation above ran against the full flat MP4
-	// (which c2pa-rs understands); the archive stores the canonical
-	// bytes.
-	_, stripSpan := tracer.Start(ctx, "ValidateMP4.StripFlatMP4Wrapper", trace.WithAttributes(
-		attribute.Int("flat_mp4_bytes", len(buf)),
-	))
-	canonical, err := muxl.StripFlatMP4WrapperToBundle(buf)
-	stripSpan.End()
-	if err != nil {
-		return fmt.Errorf("failed to strip flat-mp4 wrapper to canonical bundle: %w", err)
-	}
-
 	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
-		attribute.Int("bytes", len(canonical)),
-		attribute.Int("flat_mp4_bytes", len(buf)),
+		attribute.Int("bytes", len(buf)),
 	))
-	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "m4s")
+	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "mp4")
 	if err != nil {
 		fileSpan.End()
 		return err
 	}
 	defer fd.Close()
 
-	r := bytes.NewReader(canonical)
+	r := bytes.NewReader(buf)
 	if _, err := io.Copy(fd, r); err != nil {
 		fileSpan.End()
 		return err
@@ -173,7 +153,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		RepoDID:            repoDID,
 		StartTime:          meta.StartTime.Time(),
 		Title:              meta.Title,
-		Size:               len(canonical),
+		Size:               len(buf),
 		MediaData:          mediaData,
 		ContentWarnings:    localdb.ContentWarningsSlice(meta.ContentWarnings),
 		ContentRights:      meta.ContentRights,

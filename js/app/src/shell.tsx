@@ -186,11 +186,13 @@ function HomeNavigator() {
         component={SupportScreen}
         options={{ title: "Support", ...headerScreenOptions }}
       />
-      <HomeStack.Screen
-        name="Upload"
-        component={UploadScreen}
-        options={{ title: "Upload Video", ...headerScreenOptions }}
-      />
+      {!isNative && (
+        <HomeStack.Screen
+          name="Upload"
+          component={UploadScreen}
+          options={{ title: "Upload Video", ...headerScreenOptions }}
+        />
+      )}
     </HomeStack.Navigator>
   );
 }

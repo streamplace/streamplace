@@ -391,6 +391,13 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_BETA_INVITE {
+				log.Debug(ctx, "deleting beta invite", "uri", uri)
+				if err := atsync.Model.DeleteBetaInvite(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete beta invite", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

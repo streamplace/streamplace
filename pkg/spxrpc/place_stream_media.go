@@ -20,6 +20,14 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	} else if banned {
 		return nil, echo.NewHTTPError(http.StatusForbidden, "account is not permitted to upload videos")
 	}
+	// Beta gate: in production the operator names a trusted invite
+	// issuer via --beta-invite-did and only accounts with a "vod"
+	// invite from that repo can upload. With no issuer configured we
+	// fall back to the --allowed-streams allowlist that livestreaming
+	// uses (which itself is open by default for dev / self-hosted).
+	if err := s.allowVODUpload(ctx, session.DID); err != nil {
+		return nil, echo.NewHTTPError(http.StatusForbidden, err.Error())
+	}
 	if s.uploadManager == nil {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "upload manager not configured")
 	}

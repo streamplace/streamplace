@@ -434,6 +434,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return atsync.StartFirehose(ctx)
 		})
 	}
+
+	// Make sure the beta-invite issuer's repo is registered so the
+	// firehose path indexes its place.stream.beta.invite records. The
+	// first call also backfills any invites that were published before
+	// we came online; subsequent runs are cached and no-op.
+	if cli.BetaInviteDID != "" {
+		go func() {
+			if _, err := atsync.SyncBlueskyRepoCached(ctx, cli.BetaInviteDID); err != nil {
+				log.Error(ctx, "failed to sync beta-invite issuer repo; gating will rely on the firehose alone",
+					"did", cli.BetaInviteDID, "err", err)
+			}
+		}()
+	}
 	for _, labeler := range cli.Labelers {
 		group.Go(func() error {
 			return atsync.StartLabelerFirehose(ctx, labeler)

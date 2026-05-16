@@ -147,6 +147,10 @@ type Model interface {
 	DeleteMediaOrigin(ctx context.Context, uri string) error
 	GetMediaOriginByURI(ctx context.Context, uri string) (*MediaOrigin, error)
 	GetMediaOriginsByBlob(ctx context.Context, blob string) ([]*MediaOrigin, error)
+
+	UpsertBetaInvite(ctx context.Context, v *BetaInvite) error
+	DeleteBetaInvite(ctx context.Context, uri string) error
+	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
 }
 
 var DBRevision = 4
@@ -223,6 +227,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Video{},
 		MediaTrack{},
 		MediaOrigin{},
+		BetaInvite{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

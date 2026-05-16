@@ -52,6 +52,7 @@ func main() {
 		streamplace.MediaDefs_SourceClip{},
 		streamplace.MediaTrack_CommonMetadata{},
 		streamplace.Video_Connection{},
+		streamplace.BetaInvite{},
 	); err != nil {
 		panic(err)
 	}

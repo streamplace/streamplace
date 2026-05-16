@@ -795,6 +795,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
 
+	case *streamplace.BetaInvite:
+		// Invite records grant a specific account access to a named
+		// beta feature. We index all of them as they fly past; gate
+		// callers filter by RepoDID to a single operator-configured
+		// issuer (the `--beta-invite-did` flag), so anyone else
+		// minting these records is harmless noise.
+		inv := &model.BetaInvite{
+			URI:       aturi.String(),
+			CID:       cid,
+			RepoDID:   userDID,
+			RKey:      rkey.String(),
+			DID:       rec.Did,
+			Feature:   rec.Feature,
+			Record:    *recCBOR,
+			IndexedAt: now,
+		}
+		if err := atsync.Model.UpsertBetaInvite(ctx, inv); err != nil {
+			return fmt.Errorf("failed to upsert beta invite: %w", err)
+		}
+		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

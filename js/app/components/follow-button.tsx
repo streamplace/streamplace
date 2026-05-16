@@ -1,7 +1,7 @@
 import { Button, Icon, Text, zero } from "@streamplace/components";
-import { Plus } from "lucide-react-native";
+import { Bell, BellOff, Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
 import { useStore } from "store";
 import { useStreamplaceUrl } from "store/hooks";
 
@@ -27,9 +27,13 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [followUri, setFollowUri] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<
+    boolean | null
+  >(null);
   const streamplaceUrl = useStreamplaceUrl();
   const followUser = useStore((state) => state.followUser);
   const unfollowUser = useStore((state) => state.unfollowUser);
+  const pdsAgent = useStore((state) => state.pdsAgent);
 
   // Hide button if not logged in or viewing own stream
   if (!currentUserDID || currentUserDID === streamerDID) return null;
@@ -76,6 +80,33 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     };
   }, [currentUserDID, streamerDID]);
 
+  // Fetch notification preference when following
+  useEffect(() => {
+    if (!isFollowing || !currentUserDID || !streamerDID) {
+      setNotificationsEnabled(null);
+      return;
+    }
+    let cancelled = false;
+
+    const fetchNotificationPreference = async () => {
+      if (!pdsAgent) return;
+      try {
+        const result =
+          await pdsAgent.place.stream.graph.getNotificationPreference({
+            repoDID: streamerDID,
+          });
+        if (!cancelled) setNotificationsEnabled(result.data.enabled);
+      } catch {
+        // non-fatal
+      }
+    };
+
+    fetchNotificationPreference();
+    return () => {
+      cancelled = true;
+    };
+  }, [isFollowing, currentUserDID, streamerDID]);
+
   const handleFollow = async () => {
     setError(null);
     setIsFollowing(true); // Optimistic
@@ -107,6 +138,21 @@ const FollowButton: React.FC<FollowButtonProps> = ({
     }
   };
 
+  const handleToggleNotifications = async () => {
+    if (notificationsEnabled === null) return;
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next); // Optimistic
+    if (!pdsAgent) return;
+    try {
+      await pdsAgent.place.stream.graph.setNotificationPreference({
+        repoDID: streamerDID,
+        enabled: next,
+      });
+    } catch {
+      setNotificationsEnabled(!next); // Revert on failure
+    }
+  };
+
   return (
     <View
       style={[
@@ -131,6 +177,16 @@ const FollowButton: React.FC<FollowButtonProps> = ({
             ? "Following"
             : "Follow"}
       </Button>
+      {isFollowing && notificationsEnabled !== null && (
+        <TouchableOpacity
+          onPress={handleToggleNotifications}
+          testID={
+            notificationsEnabled ? "notification-bell" : "notification-bell-off"
+          }
+        >
+          <Icon icon={notificationsEnabled ? Bell : BellOff} size="sm" />
+        </TouchableOpacity>
+      )}
       {error && <Text style={[{ color: "#c00" }, zero.ml[2]]}>{error}</Text>}
     </View>
   );

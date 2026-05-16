@@ -293,6 +293,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
+	e.GET("/xrpc/place.stream.graph.getNotificationPreference", s.HandlePlaceStreamGraphGetNotificationPreference)
+	e.POST("/xrpc/place.stream.graph.setNotificationPreference", s.HandlePlaceStreamGraphSetNotificationPreference)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
 	e.GET("/xrpc/place.stream.live.getLiveUsers", s.HandlePlaceStreamLiveGetLiveUsers)
@@ -495,6 +497,38 @@ func (s *Server) HandlePlaceStreamGraphGetFollowingUser(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context,subjectDID string,userDID string) (*placestream.GraphGetFollowingUser_Output, error)
 	out, handleErr = s.handlePlaceStreamGraphGetFollowingUser(ctx, subjectDID, userDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGraphGetNotificationPreference(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGraphGetNotificationPreference")
+	defer span.End()
+	repoDID := c.QueryParam("repoDID")
+	var out *placestream.GraphGetNotificationPreference_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGraphGetNotificationPreference(ctx context.Context,repoDID string) (*placestream.GraphGetNotificationPreference_Output, error)
+	out, handleErr = s.handlePlaceStreamGraphGetNotificationPreference(ctx, repoDID)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGraphSetNotificationPreference(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGraphSetNotificationPreference")
+	defer span.End()
+
+	var body placestream.GraphSetNotificationPreference_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.GraphSetNotificationPreference_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGraphSetNotificationPreference(ctx context.Context,body *placestream.GraphSetNotificationPreference_Input) (*placestream.GraphSetNotificationPreference_Output, error)
+	out, handleErr = s.handlePlaceStreamGraphSetNotificationPreference(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

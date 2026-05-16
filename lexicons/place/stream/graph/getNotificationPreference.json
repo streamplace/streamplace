@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.graph.getNotificationPreference",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get whether a user has notifications enabled for a streamer.",
+      "parameters": {
+        "type": "params",
+        "required": ["repoDID"],
+        "properties": {
+          "repoDID": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer's repo."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["enabled"],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether notifications are enabled. Defaults to true if no preference has been set."
+            }
+          }
+        }
+      }
+    }
+  }
+}

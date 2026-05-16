@@ -4759,6 +4759,170 @@ func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) (err error) {
 
 	return nil
 }
+func (t *GraphNotificationPreference) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.LexiconTypeID (string) (string)
+	if len("$type") > 1000000 {
+		return xerrors.Errorf("Value in field \"$type\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("$type"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("$type")); err != nil {
+		return err
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("place.stream.graph.notificationPreference"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("place.stream.graph.notificationPreference")); err != nil {
+		return err
+	}
+
+	// t.Enabled (bool) (bool)
+	if len("enabled") > 1000000 {
+		return xerrors.Errorf("Value in field \"enabled\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("enabled"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("enabled")); err != nil {
+		return err
+	}
+
+	if err := cbg.WriteBool(w, t.Enabled); err != nil {
+		return err
+	}
+
+	// t.RepoDID (string) (string)
+	if len("repoDID") > 1000000 {
+		return xerrors.Errorf("Value in field \"repoDID\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("repoDID"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("repoDID")); err != nil {
+		return err
+	}
+
+	if len(t.RepoDID) > 1000000 {
+		return xerrors.Errorf("Value in field t.RepoDID was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.RepoDID))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.RepoDID)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *GraphNotificationPreference) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = GraphNotificationPreference{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("GraphNotificationPreference: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 7)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.LexiconTypeID (string) (string)
+		case "$type":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.LexiconTypeID = string(sval)
+			}
+			// t.Enabled (bool) (bool)
+		case "enabled":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+			if maj != cbg.MajOther {
+				return fmt.Errorf("booleans must be major type 7")
+			}
+			switch extra {
+			case 20:
+				t.Enabled = false
+			case 21:
+				t.Enabled = true
+			default:
+				return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+			}
+			// t.RepoDID (string) (string)
+		case "repoDID":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.RepoDID = string(sval)
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)

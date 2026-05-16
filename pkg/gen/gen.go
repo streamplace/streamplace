@@ -30,6 +30,7 @@ func main() {
 		streamplace.ChatGate{},
 		streamplace.ChatPinnedRecord{},
 		streamplace.MultistreamTarget{},
+		streamplace.GraphNotificationPreference{},
 		streamplace.BroadcastOrigin{},
 		streamplace.BroadcastSyndication{},
 		streamplace.MetadataConfiguration{},

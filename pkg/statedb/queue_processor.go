@@ -182,6 +182,13 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 
 	log.Log(ctx, "found followers", "count", len(followersDIDs))
 
+	followersDIDs, err = state.filterNotificationRecipients(ctx, userDID, followersDIDs)
+	if err != nil {
+  	return err
+	}
+
+	log.Log(ctx, "filtered followers", "count", len(followersDIDs))
+
 	notifications, err := state.GetManyNotificationTokens(followersDIDs)
 	if err != nil {
 		return err
@@ -278,4 +285,22 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		}
 	}
 	return nil
+}
+
+func (state *StatefulDB) filterNotificationRecipients(ctx context.Context, streamerDID string, dids []string) ([]string, error) {
+	optedOut, err := state.GetOptedOutFollowerDIDs(ctx, streamerDID, dids)
+	if err != nil {
+		return nil, err
+	}
+	optedOutSet := make(map[string]bool, len(optedOut))
+	for _, did := range optedOut {
+		optedOutSet[did] = true
+	}
+	filtered := make([]string, 0, len(dids))
+	for _, did := range dids {
+		if !optedOutSet[did] {
+			filtered = append(filtered, did)
+		}
+	}
+	return filtered, nil
 }

@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.graph.notificationPreference",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A user's notification preference for a streamer.",
+      "record": {
+        "type": "object",
+        "required": ["repoDID", "enabled"],
+        "properties": {
+          "repoDID": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer's repo."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether push notifications are enabled for this streamer."
+          }
+        }
+      }
+    }
+  }
+}

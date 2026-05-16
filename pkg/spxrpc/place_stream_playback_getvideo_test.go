@@ -395,7 +395,7 @@ func TestComposeClipBounds(t *testing.T) {
 			name: "non-clip, no query: full video",
 		},
 		{
-			name: "non-clip, query bounds: passthrough",
+			name:             "non-clip, query bounds: passthrough",
 			queryStart:       intPtr(1_000),
 			queryEnd:         intPtr(2_000),
 			wantStart:        1_000,
@@ -404,7 +404,7 @@ func TestComposeClipBounds(t *testing.T) {
 			wantEndPresent:   true,
 		},
 		{
-			name: "clip, no query: returns full clip in parent timeline",
+			name:             "clip, no query: returns full clip in parent timeline",
 			clipStart:        5_000,
 			clipEnd:          intPtr(10_000),
 			wantStart:        5_000,
@@ -413,7 +413,7 @@ func TestComposeClipBounds(t *testing.T) {
 			wantEndPresent:   true,
 		},
 		{
-			name: "clip + query within bounds: translated by clipStart",
+			name:             "clip + query within bounds: translated by clipStart",
 			clipStart:        5_000,
 			clipEnd:          intPtr(10_000),
 			queryStart:       intPtr(1_000),
@@ -424,7 +424,7 @@ func TestComposeClipBounds(t *testing.T) {
 			wantEndPresent:   true,
 		},
 		{
-			name: "clip + query overshoots clip end: clamped",
+			name:             "clip + query overshoots clip end: clamped",
 			clipStart:        5_000,
 			clipEnd:          intPtr(10_000),
 			queryStart:       intPtr(1_000),
@@ -435,7 +435,7 @@ func TestComposeClipBounds(t *testing.T) {
 			wantEndPresent:   true,
 		},
 		{
-			name: "clip + query at 0: translates to clipStart",
+			name:             "clip + query at 0: translates to clipStart",
 			clipStart:        5_000,
 			clipEnd:          intPtr(10_000),
 			queryStart:       intPtr(0),

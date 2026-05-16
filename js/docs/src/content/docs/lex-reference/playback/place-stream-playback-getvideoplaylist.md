@@ -21,8 +21,8 @@ Get an HLS CMAF playlist for a video. Returns a master playlist when `track` is 
 | ------- | --------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | `uri`   | `string`  | ✅    | AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).                                                                                                                                                                                                                                                                                                                                      | Format: `at-uri` |
 | `track` | `string`  | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.                                                                                                                                                                                                                                                                                                   |                  |
-| `start` | `integer` | ❌    | Start time in nanoseconds from the beginning of the video. Defaults to 0.                                                                                                                                                                                                                                                                                                                                                 |                  |
-| `end`   | `integer` | ❌    | End time in nanoseconds. Omit to include all remaining content.                                                                                                                                                                                                                                                                                                                                                           |                  |
+| `start` | `integer` | ❌    | Start time in milliseconds from the beginning of the video. Defaults to 0. For a place.stream.video record whose source is a place.stream.media.defs#sourceClip, this is in the clip's local timeline (0 == the clip's start).                                                                                                                                                                                            |                  |
+| `end`   | `integer` | ❌    | End time in milliseconds. Omit to include all remaining content. Local to the clip's timeline when playing back a sourceClip record.                                                                                                                                                                                                                                                                                      |                  |
 | `sid`   | `string`  | ❌    | Opaque playback session identifier. Omit on the master playlist request; the server generates one and embeds it in every sub-playlist URL it returns. Players never have to construct it themselves — they just follow the URLs the master playlist hands them, which carry the sid into media-playlist + segment requests. Used downstream to correlate a player's playlist + segment fetches for view-count accounting. |                  |
 
 **Output:**
@@ -65,11 +65,11 @@ _Schema not defined._
           },
           "start": {
             "type": "integer",
-            "description": "Start time in nanoseconds from the beginning of the video. Defaults to 0."
+            "description": "Start time in milliseconds from the beginning of the video. Defaults to 0. For a place.stream.video record whose source is a place.stream.media.defs#sourceClip, this is in the clip's local timeline (0 == the clip's start)."
           },
           "end": {
             "type": "integer",
-            "description": "End time in nanoseconds. Omit to include all remaining content."
+            "description": "End time in milliseconds. Omit to include all remaining content. Local to the clip's timeline when playing back a sourceClip record."
           },
           "sid": {
             "type": "string",

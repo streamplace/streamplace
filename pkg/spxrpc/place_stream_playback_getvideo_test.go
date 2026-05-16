@@ -1,18 +1,24 @@
 package spxrpc
 
 import (
+	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
+	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -92,10 +98,10 @@ func TestMasterPlaylist(t *testing.T) {
 }
 
 func TestMasterPlaylist_PropagatesTimeRange(t *testing.T) {
-	start, end := int64(1_000_000_000), int64(2_000_000_000)
+	start, end := int64(1_000), int64(2_000) // milliseconds
 	pl := masterPlaylist(fixtureMetafile(), fixtureURI, fixtureSID, &start, &end)
-	require.Contains(t, pl, "start=1000000000")
-	require.Contains(t, pl, "end=2000000000")
+	require.Contains(t, pl, "start=1000")
+	require.Contains(t, pl, "end=2000")
 }
 
 func TestMediaPlaylist_Video(t *testing.T) {
@@ -130,9 +136,9 @@ func TestMediaPlaylist_UnknownTrack(t *testing.T) {
 
 func TestMediaPlaylist_TimeRangeFilters(t *testing.T) {
 	// Video track has two 1-second segments (timescale 6000, 6000
-	// ticks each). Ask for [1s, 2s): should keep only segment 1.
-	start := int64(1_000_000_000)
-	end := int64(2_000_000_000)
+	// ticks each). Ask for [1000ms, 2000ms): should keep only segment 1.
+	start := int64(1_000)
+	end := int64(2_000)
 	pl, err := mediaPlaylist(fixtureMetafile(), "1", fixtureDID, fixtureSID, "", &start, &end)
 	require.NoError(t, err)
 	require.NotContains(t, pl, `#EXT-X-BYTERANGE:2000@100`)
@@ -232,6 +238,227 @@ func TestSessionIDOrNew(t *testing.T) {
 			require.Error(t, err, "expected %q to be rejected", bad)
 		}
 	})
+}
+
+// videoRecordCBOR marshals a *streamplace.Video to CBOR for stuffing
+// into model.Video.Record so resolveVideoBlob's decode path can
+// round-trip it back.
+func videoRecordCBOR(t *testing.T, v *streamplace.Video) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	require.NoError(t, v.MarshalCBOR(&buf))
+	return buf.Bytes()
+}
+
+// TestResolveVideoBlob_SourceClip walks the playback-resolve path for
+// a clip record: the clip's `Video` field points at a parent video
+// whose sourceTracks lead to a real MediaTrack + blob CID. resolve
+// should return the parent's blob CID and surface the clip's bounds.
+func TestResolveVideoBlob_SourceClip(t *testing.T) {
+	ctx := context.Background()
+	m, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	s := &Server{model: m}
+
+	const (
+		owner     = "did:plc:owner"
+		trackURI  = "at://did:plc:owner/place.stream.media.track/parent-track"
+		parentURI = "at://did:plc:owner/place.stream.video/parent"
+		clipURI   = "at://did:plc:owner/place.stream.video/clipof"
+		parentCID = "bafyparentblob"
+	)
+
+	require.NoError(t, m.UpsertMediaTrack(ctx, &model.MediaTrack{
+		URI:       trackURI,
+		RepoDID:   owner,
+		Blob:      parentCID,
+		TrackID:   "1",
+		MediaType: "video",
+	}))
+
+	parent := &streamplace.Video{
+		LexiconTypeID: "place.stream.video",
+		Title:         "parent",
+		Source: &streamplace.Video_Source{
+			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+				LexiconTypeID: "place.stream.media.defs#sourceTracks",
+				Tracks: []*comatproto.RepoStrongRef{
+					{Uri: trackURI, Cid: "bafyrefcid"},
+				},
+			},
+		},
+	}
+	require.NoError(t, m.UpsertVideo(ctx, &model.Video{
+		URI:       parentURI,
+		CID:       "bafyparentrec",
+		RepoDID:   owner,
+		RKey:      "parent",
+		Title:     parent.Title,
+		Record:    videoRecordCBOR(t, parent),
+		IndexedAt: time.Now().UTC(),
+	}))
+
+	clip := &streamplace.Video{
+		LexiconTypeID: "place.stream.video",
+		Title:         "5s..10s of parent",
+		Source: &streamplace.Video_Source{
+			MediaDefs_SourceClip: &streamplace.MediaDefs_SourceClip{
+				LexiconTypeID: "place.stream.media.defs#sourceClip",
+				Video:         parentURI,
+				Start:         5_000,
+				End:           10_000,
+			},
+		},
+	}
+	require.NoError(t, m.UpsertVideo(ctx, &model.Video{
+		URI:       clipURI,
+		CID:       "bafycliprec",
+		RepoDID:   owner,
+		RKey:      "clipof",
+		Title:     clip.Title,
+		Record:    videoRecordCBOR(t, clip),
+		IndexedAt: time.Now().UTC(),
+	}))
+
+	t.Run("non-clip parent resolves with no bounds", func(t *testing.T) {
+		got, err := s.resolveVideoBlob(ctx, parentURI)
+		require.NoError(t, err)
+		require.Equal(t, parentCID, got.blobCID)
+		require.Equal(t, int64(0), got.clipStartMS)
+		require.Nil(t, got.clipEndMS)
+	})
+
+	t.Run("clip resolves to parent blob + surfaces bounds", func(t *testing.T) {
+		got, err := s.resolveVideoBlob(ctx, clipURI)
+		require.NoError(t, err)
+		require.Equal(t, parentCID, got.blobCID, "clip should serve the parent's content")
+		require.Equal(t, int64(5_000), got.clipStartMS)
+		require.NotNil(t, got.clipEndMS)
+		require.Equal(t, int64(10_000), *got.clipEndMS)
+	})
+
+	t.Run("clip-of-clip is rejected", func(t *testing.T) {
+		// A second clip pointing at the first clip should fail —
+		// resolve only follows one hop and demands sourceTracks on
+		// the parent.
+		const nestedURI = "at://did:plc:owner/place.stream.video/nested"
+		nested := &streamplace.Video{
+			LexiconTypeID: "place.stream.video",
+			Title:         "nested clip",
+			Source: &streamplace.Video_Source{
+				MediaDefs_SourceClip: &streamplace.MediaDefs_SourceClip{
+					LexiconTypeID: "place.stream.media.defs#sourceClip",
+					Video:         clipURI,
+					Start:         100,
+					End:           200,
+				},
+			},
+		}
+		require.NoError(t, m.UpsertVideo(ctx, &model.Video{
+			URI:       nestedURI,
+			CID:       "bafynested",
+			RepoDID:   owner,
+			RKey:      "nested",
+			Title:     nested.Title,
+			Record:    videoRecordCBOR(t, nested),
+			IndexedAt: time.Now().UTC(),
+		}))
+		_, err := s.resolveVideoBlob(ctx, nestedURI)
+		require.Error(t, err)
+		he, ok := err.(*echo.HTTPError)
+		require.True(t, ok)
+		require.Equal(t, http.StatusUnprocessableEntity, he.Code)
+	})
+}
+
+func TestComposeClipBounds(t *testing.T) {
+	intPtr := func(v int64) *int64 { return &v }
+	deref := func(p *int64) (int64, bool) {
+		if p == nil {
+			return 0, false
+		}
+		return *p, true
+	}
+
+	for _, tc := range []struct {
+		name             string
+		clipStart        int64
+		clipEnd          *int64 // nil = not a clip
+		queryStart       *int64
+		queryEnd         *int64
+		wantStart        int64
+		wantStartPresent bool
+		wantEnd          int64
+		wantEndPresent   bool
+	}{
+		{
+			name: "non-clip, no query: full video",
+		},
+		{
+			name: "non-clip, query bounds: passthrough",
+			queryStart:       intPtr(1_000),
+			queryEnd:         intPtr(2_000),
+			wantStart:        1_000,
+			wantStartPresent: true,
+			wantEnd:          2_000,
+			wantEndPresent:   true,
+		},
+		{
+			name: "clip, no query: returns full clip in parent timeline",
+			clipStart:        5_000,
+			clipEnd:          intPtr(10_000),
+			wantStart:        5_000,
+			wantStartPresent: true,
+			wantEnd:          10_000,
+			wantEndPresent:   true,
+		},
+		{
+			name: "clip + query within bounds: translated by clipStart",
+			clipStart:        5_000,
+			clipEnd:          intPtr(10_000),
+			queryStart:       intPtr(1_000),
+			queryEnd:         intPtr(2_000),
+			wantStart:        6_000,
+			wantStartPresent: true,
+			wantEnd:          7_000,
+			wantEndPresent:   true,
+		},
+		{
+			name: "clip + query overshoots clip end: clamped",
+			clipStart:        5_000,
+			clipEnd:          intPtr(10_000),
+			queryStart:       intPtr(1_000),
+			queryEnd:         intPtr(60_000),
+			wantStart:        6_000,
+			wantStartPresent: true,
+			wantEnd:          10_000,
+			wantEndPresent:   true,
+		},
+		{
+			name: "clip + query at 0: translates to clipStart",
+			clipStart:        5_000,
+			clipEnd:          intPtr(10_000),
+			queryStart:       intPtr(0),
+			wantStart:        5_000,
+			wantStartPresent: true,
+			wantEnd:          10_000,
+			wantEndPresent:   true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gotStart, gotEnd := composeClipBounds(tc.clipStart, tc.clipEnd, tc.queryStart, tc.queryEnd)
+			s, sp := deref(gotStart)
+			e, ep := deref(gotEnd)
+			require.Equal(t, tc.wantStartPresent, sp, "start presence")
+			require.Equal(t, tc.wantEndPresent, ep, "end presence")
+			if sp {
+				require.Equal(t, tc.wantStart, s, "start value")
+			}
+			if ep {
+				require.Equal(t, tc.wantEnd, e, "end value")
+			}
+		})
+	}
 }
 
 func TestParseSingleRange(t *testing.T) {

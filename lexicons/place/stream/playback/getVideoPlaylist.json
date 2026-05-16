@@ -20,11 +20,11 @@
           },
           "start": {
             "type": "integer",
-            "description": "Start time in nanoseconds from the beginning of the video. Defaults to 0."
+            "description": "Start time in milliseconds from the beginning of the video. Defaults to 0. For a place.stream.video record whose source is a place.stream.media.defs#sourceClip, this is in the clip's local timeline (0 == the clip's start)."
           },
           "end": {
             "type": "integer",
-            "description": "End time in nanoseconds. Omit to include all remaining content."
+            "description": "End time in milliseconds. Omit to include all remaining content. Local to the clip's timeline when playing back a sourceClip record."
           },
           "sid": {
             "type": "string",

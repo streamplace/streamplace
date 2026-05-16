@@ -263,15 +263,15 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	}
 
 	track := c.QueryParam("track")
-	startNS, err := optionalInt64Param(c, "start")
+	startMS, err := optionalInt64Param(c, "start")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	endNS, err := optionalInt64Param(c, "end")
+	endMS, err := optionalInt64Param(c, "end")
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	if startNS != nil && endNS != nil && *startNS >= *endNS {
+	if startMS != nil && endMS != nil && *startMS >= *endMS {
 		return echo.NewHTTPError(http.StatusBadRequest, "start must be less than end")
 	}
 
@@ -310,11 +310,22 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		return err
 	}
 
+	// Compose query-param start/end with any record-level clip bounds.
+	// Query params live in the *clip's* local timeline (0 == start of
+	// the clip); filterSegments wants bounds in the parent video's
+	// timeline. For non-clip records clipStartMS == 0 and clipEndMS ==
+	// nil, so the math collapses to identity.
+	effectiveStartMS, effectiveEndMS := composeClipBounds(resolved.clipStartMS, resolved.clipEndMS, startMS, endMS)
+
 	var body string
 	if track == "" {
-		body = masterPlaylist(meta, uri, sid, startNS, endNS)
+		// Master playlist's sub-playlist URLs carry the *unmodified*
+		// query-param start/end (clip-local). Each per-track follow-up
+		// request re-resolves the clip and composes bounds again on the
+		// server side, so the propagation stays in clip-local time.
+		body = masterPlaylist(meta, uri, sid, startMS, endMS)
 	} else {
-		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, s.cli.VODCDNURL, startNS, endNS)
+		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}
@@ -341,18 +352,89 @@ func optionalInt64Param(c echo.Context, name string) (*int64, error) {
 	return &n, nil
 }
 
-// resolvedVideo carries the primary blob CID for a video record, plus
-// any record-level clip bounds (place.stream.media.defs#sourceClip)
-// once we add that to the resolution path.
+// resolvedVideo carries everything HandleGetVideoPlaylist needs to
+// emit a playlist for a given video URI: the primary blob CID to fetch
+// the metafile from, and (for sourceClip records) the parent-timeline
+// bounds the playback should be restricted to.
+//
+// For direct sourceTracks records both clip fields are zero values
+// (clipEndMS == nil meaning "no upper bound"); for sourceClip records
+// they carry the bounds the record names, in milliseconds against the
+// parent video's timeline.
 type resolvedVideo struct {
-	blobCID string
+	blobCID     string
+	clipStartMS int64
+	clipEndMS   *int64
 }
 
-// resolveVideoBlob walks video -> first track -> muxlTrack.blob using
-// the local index. The metafile holds catalogs for every track of the
-// blob, so picking any track's blob is sufficient — they all live in
-// the same container.
+// resolveVideoBlob loads the place.stream.video record at uri and walks
+// it to a content blob the player can read segments out of.
+//
+// Two source shapes are supported, mirroring the union in the video
+// lexicon:
+//
+//   - place.stream.media.defs#sourceTracks: the canonical case. We
+//     grab the first track of the bundle and use its muxlTrack.blob
+//     as the primary blob CID; the metafile keyed at that CID
+//     catalogs every track in the same container.
+//
+//   - place.stream.media.defs#sourceClip: the record is a "clip" of
+//     another video. We re-resolve the parent (which itself must be a
+//     plain sourceTracks record — we don't chain clips) and surface
+//     the clip's start/end millisecond bounds so the handler can
+//     restrict the emitted segments.
 func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVideo, error) {
+	videoRec, err := s.loadVideoRecord(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case videoRec.Source != nil && videoRec.Source.MediaDefs_SourceTracks != nil:
+		blobCID, err := s.firstTrackBlob(ctx, videoRec.Source.MediaDefs_SourceTracks)
+		if err != nil {
+			return nil, err
+		}
+		return &resolvedVideo{blobCID: blobCID}, nil
+
+	case videoRec.Source != nil && videoRec.Source.MediaDefs_SourceClip != nil:
+		clip := videoRec.Source.MediaDefs_SourceClip
+		if clip.Video == "" {
+			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "sourceClip missing parent video URI")
+		}
+		if clip.Start < 0 || clip.End <= clip.Start {
+			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "sourceClip bounds must be 0 <= start < end")
+		}
+		parentRec, err := s.loadVideoRecord(ctx, clip.Video)
+		if err != nil {
+			return nil, err
+		}
+		// One level only — clip-of-clip is rejected to keep playback
+		// resolution bounded and predictable.
+		if parentRec.Source == nil || parentRec.Source.MediaDefs_SourceTracks == nil {
+			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity,
+				"sourceClip's parent video must use sourceTracks (clip-of-clip is not supported)")
+		}
+		blobCID, err := s.firstTrackBlob(ctx, parentRec.Source.MediaDefs_SourceTracks)
+		if err != nil {
+			return nil, err
+		}
+		end := clip.End
+		return &resolvedVideo{
+			blobCID:     blobCID,
+			clipStartMS: clip.Start,
+			clipEndMS:   &end,
+		}, nil
+
+	default:
+		return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "video record has no playable source")
+	}
+}
+
+// loadVideoRecord pulls the place.stream.video record at uri out of
+// the local index and CBOR-decodes it. Returns a typed error suitable
+// for surfacing back to the client (404, 422, 500).
+func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*streamplace.Video, error) {
 	video, err := s.model.GetVideoByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "playback: GetVideoByURI failed", "uri", uri, "error", err)
@@ -361,7 +443,6 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 	if video == nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "VideoNotFound")
 	}
-
 	rec, err := lexutil.CborDecodeValue(video.Record)
 	if err != nil {
 		log.Error(ctx, "playback: decode video record failed", "uri", uri, "error", err)
@@ -372,23 +453,29 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 		return nil, echo.NewHTTPError(http.StatusInternalServerError,
 			fmt.Sprintf("video record at %s decoded as %T, expected *streamplace.Video", uri, rec))
 	}
-	if videoRec.Source == nil || videoRec.Source.MediaDefs_SourceTracks == nil ||
-		len(videoRec.Source.MediaDefs_SourceTracks.Tracks) == 0 {
-		return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "video record has no tracks")
+	return videoRec, nil
+}
+
+// firstTrackBlob returns the muxlTrack.blob CID of the first ref in a
+// sourceTracks bundle. The metafile at that CID describes every track
+// in the same container, so any track's blob is enough.
+func (s *Server) firstTrackBlob(ctx context.Context, src *streamplace.MediaDefs_SourceTracks) (string, error) {
+	if len(src.Tracks) == 0 {
+		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "video record has no tracks")
 	}
-	firstRef := videoRec.Source.MediaDefs_SourceTracks.Tracks[0]
+	firstRef := src.Tracks[0]
 	if firstRef == nil || firstRef.Uri == "" {
-		return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "video record's first track ref is empty")
+		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "video record's first track ref is empty")
 	}
 	track, err := s.model.GetMediaTrackByURI(ctx, firstRef.Uri)
 	if err != nil {
 		log.Error(ctx, "playback: GetMediaTrackByURI failed", "uri", firstRef.Uri, "error", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return "", echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	if track == nil || track.Blob == "" {
-		return nil, echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
+		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
-	return &resolvedVideo{blobCID: track.Blob}, nil
+	return track.Blob, nil
 }
 
 // fetchMetafile reads blobs/<cid>.json from the playback store and
@@ -459,16 +546,16 @@ func blobURL(cdnURL, did, cid, sid string) string {
 // by this same handler. `sid` is propagated from the master playlist
 // so the player's media-playlist + segment requests all share an
 // identifier.
-func trackPlaylistURL(uri, track, sid string, startNS, endNS *int64) string {
+func trackPlaylistURL(uri, track, sid string, startMS, endMS *int64) string {
 	q := url.Values{"uri": {uri}, "track": {track}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}
-	if startNS != nil {
-		q.Set("start", strconv.FormatInt(*startNS, 10))
+	if startMS != nil {
+		q.Set("start", strconv.FormatInt(*startMS, 10))
 	}
-	if endNS != nil {
-		q.Set("end", strconv.FormatInt(*endNS, 10))
+	if endMS != nil {
+		q.Set("end", strconv.FormatInt(*endMS, 10))
 	}
 	return "/xrpc/place.stream.playback.getVideoPlaylist?" + q.Encode()
 }
@@ -479,7 +566,7 @@ func trackPlaylistURL(uri, track, sid string, startNS, endNS *int64) string {
 // URLs so the player keeps the clip bounds. `sid` is threaded into
 // every sub-playlist URL so the per-track requests + downstream
 // segment fetches share one playback-session identifier.
-func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) string {
+func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) string {
 	lines := []string{"#EXTM3U", "#EXT-X-VERSION:6", ""}
 
 	// Collect audio tracks in deterministic order, pick a default
@@ -494,7 +581,7 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) 
 			t.Codec,
 			yesNo(isDefault),
 			fmt.Sprintf("%d", channelsOrDefault(t.Channels)),
-			trackPlaylistURL(uri, tid, sid, startNS, endNS),
+			trackPlaylistURL(uri, tid, sid, startMS, endMS),
 		))
 	}
 	if len(audioIDs) > 0 {
@@ -526,7 +613,7 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) 
 			streamInf += `,AUDIO="audio"`
 		}
 		lines = append(lines, streamInf)
-		lines = append(lines, trackPlaylistURL(uri, tid, sid, startNS, endNS))
+		lines = append(lines, trackPlaylistURL(uri, tid, sid, startMS, endMS))
 	}
 
 	return strings.Join(lines, "\n") + "\n"
@@ -538,12 +625,12 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startNS, endNS *int64) 
 // threaded into every blob URL for egress accounting and `sid` for
 // view-count correlation against the request that built this playlist.
 // `cdnURL` is the configured CDN root, or "" for self-hosted serving.
-func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, startNS, endNS *int64) (string, error) {
+func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, startMS, endMS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
-	segments := filterSegments(t.Segments, t.Timescale, startNS, endNS)
+	segments := filterSegments(t.Segments, t.Timescale, startMS, endMS)
 
 	var maxDurSec float64
 	for _, s := range segments {
@@ -583,22 +670,61 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, st
 	return strings.Join(lines, "\n") + "\n", nil
 }
 
+// composeClipBounds maps clip-local (queryStart, queryEnd) bounds and
+// record-level (clipStartMS, clipEndMS) bounds into the parent
+// video's timeline that filterSegments operates on. Either side can
+// be nil/zero to mean "no bound on this end":
+//
+//   - clipStartMS == 0 + clipEndMS == nil: not a clip; the record is
+//     a plain sourceTracks video. The returned bounds are just the
+//     query params.
+//
+//   - For a clip, query bounds are translated by adding clipStartMS;
+//     the end is clamped to clipEndMS so a player asking for more
+//     than the clip can't escape it.
+func composeClipBounds(clipStartMS int64, clipEndMS, queryStartMS, queryEndMS *int64) (*int64, *int64) {
+	effStart := clipStartMS
+	if queryStartMS != nil {
+		effStart += *queryStartMS
+	}
+
+	var effEnd *int64
+	if queryEndMS != nil {
+		e := clipStartMS + *queryEndMS
+		if clipEndMS != nil && e > *clipEndMS {
+			e = *clipEndMS
+		}
+		effEnd = &e
+	} else if clipEndMS != nil {
+		e := *clipEndMS
+		effEnd = &e
+	}
+
+	var startPtr *int64
+	if effStart > 0 {
+		startPtr = &effStart
+	}
+	return startPtr, effEnd
+}
+
 // filterSegments returns the subset of segments that overlap
-// [startNS, endNS). Segments are GOP-aligned, so any segment whose
+// [startMS, endMS). Segments are GOP-aligned, so any segment whose
 // time span intersects the requested range is included in full —
-// no sub-segment splitting.
-func filterSegments(segments []vod.MetafileSegment, timescale uint32, startNS, endNS *int64) []vod.MetafileSegment {
-	if startNS == nil && endNS == nil {
+// no sub-segment splitting. Bounds are in the parent video's
+// timeline; clip-record local times must be composed by the caller
+// before they get here.
+func filterSegments(segments []vod.MetafileSegment, timescale uint32, startMS, endMS *int64) []vod.MetafileSegment {
+	if startMS == nil && endMS == nil {
 		return segments
 	}
 	tsf := float64(timescale)
 	startTicks := int64(0)
 	endTicks := int64(1 << 62)
-	if startNS != nil {
-		startTicks = int64(float64(*startNS) / 1e9 * tsf)
+	if startMS != nil {
+		startTicks = int64(float64(*startMS) / 1e3 * tsf)
 	}
-	if endNS != nil {
-		endTicks = int64(float64(*endNS) / 1e9 * tsf)
+	if endMS != nil {
+		endTicks = int64(float64(*endMS) / 1e3 * tsf)
 	}
 
 	out := segments[:0:0]

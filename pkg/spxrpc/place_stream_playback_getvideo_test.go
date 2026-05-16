@@ -1,14 +1,12 @@
 package spxrpc
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -240,16 +238,6 @@ func TestSessionIDOrNew(t *testing.T) {
 	})
 }
 
-// videoRecordCBOR marshals a *streamplace.Video to CBOR for stuffing
-// into model.Video.Record so resolveVideoBlob's decode path can
-// round-trip it back.
-func videoRecordCBOR(t *testing.T, v *streamplace.Video) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	require.NoError(t, v.MarshalCBOR(&buf))
-	return buf.Bytes()
-}
-
 // TestResolveVideoBlob_SourceClip walks the playback-resolve path for
 // a clip record: the clip's `Video` field points at a parent video
 // whose sourceTracks lead to a real MediaTrack + blob CID. resolve
@@ -267,14 +255,23 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		clipURI   = "at://did:plc:owner/place.stream.video/clipof"
 		parentCID = "bafyparentblob"
 	)
+	parseURI := func(s string) syntax.ATURI {
+		u, err := syntax.ParseATURI(s)
+		require.NoError(t, err)
+		return u
+	}
 
-	require.NoError(t, m.UpsertMediaTrack(ctx, &model.MediaTrack{
-		URI:       trackURI,
-		RepoDID:   owner,
-		Blob:      parentCID,
-		TrackID:   "1",
-		MediaType: "video",
-	}))
+	require.NoError(t, m.UpsertMediaTrack(ctx, &streamplace.MediaTrack{
+		LexiconTypeID: "place.stream.media.track",
+		Track: &streamplace.MediaTrack_Track{
+			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
+				LexiconTypeID: "place.stream.media.defs#muxlTrack",
+				Blob:          parentCID,
+				TrackId:       "1",
+				MediaType:     "video",
+			},
+		},
+	}, parseURI(trackURI)))
 
 	parent := &streamplace.Video{
 		LexiconTypeID: "place.stream.video",
@@ -288,15 +285,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, &model.Video{
-		URI:       parentURI,
-		CID:       "bafyparentrec",
-		RepoDID:   owner,
-		RKey:      "parent",
-		Title:     parent.Title,
-		Record:    videoRecordCBOR(t, parent),
-		IndexedAt: time.Now().UTC(),
-	}))
+	require.NoError(t, m.UpsertVideo(ctx, parent, parseURI(parentURI)))
 
 	clip := &streamplace.Video{
 		LexiconTypeID: "place.stream.video",
@@ -310,15 +299,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, &model.Video{
-		URI:       clipURI,
-		CID:       "bafycliprec",
-		RepoDID:   owner,
-		RKey:      "clipof",
-		Title:     clip.Title,
-		Record:    videoRecordCBOR(t, clip),
-		IndexedAt: time.Now().UTC(),
-	}))
+	require.NoError(t, m.UpsertVideo(ctx, clip, parseURI(clipURI)))
 
 	t.Run("non-clip parent resolves with no bounds", func(t *testing.T) {
 		got, err := s.resolveVideoBlob(ctx, parentURI)
@@ -354,15 +335,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, m.UpsertVideo(ctx, &model.Video{
-			URI:       nestedURI,
-			CID:       "bafynested",
-			RepoDID:   owner,
-			RKey:      "nested",
-			Title:     nested.Title,
-			Record:    videoRecordCBOR(t, nested),
-			IndexedAt: time.Now().UTC(),
-		}))
+		require.NoError(t, m.UpsertVideo(ctx, nested, parseURI(nestedURI)))
 		_, err := s.resolveVideoBlob(ctx, nestedURI)
 		require.Error(t, err)
 		he, ok := err.(*echo.HTTPError)

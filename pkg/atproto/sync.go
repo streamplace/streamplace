@@ -731,64 +731,30 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	case *streamplace.Video:
 		// Index the video record so playback can resolve it by URI
 		// without needing to round-trip back to the user's PDS.
-		v := &model.Video{
-			URI:       aturi.String(),
-			CID:       cid,
-			RepoDID:   userDID,
-			RKey:      rkey.String(),
-			Title:     rec.Title,
-			Record:    *recCBOR,
-			IndexedAt: now,
-		}
-		v.DurationMS = &rec.Duration
-		if err := atsync.Model.UpsertVideo(ctx, v); err != nil {
+		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
 
 	case *streamplace.MediaTrack:
-		// Pull the muxlTrack subobject — that's where the blob CID
-		// and track-within-container metadata live. Tracks not
-		// backed by a muxlTrack (we don't define any other shape
-		// yet) are skipped with a warning.
+		// Tracks not backed by a muxlTrack (we don't define any other
+		// shape yet) are skipped with a warning — there'd be no blob
+		// to key the row off of.
 		if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
 			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
 			return nil
 		}
-		mt := rec.Track.MediaDefs_MuxlTrack
-		t := &model.MediaTrack{
-			URI:       aturi.String(),
-			CID:       cid,
-			RepoDID:   userDID,
-			RKey:      rkey.String(),
-			Blob:      mt.Blob,
-			TrackID:   mt.TrackId,
-			MediaType: mt.MediaType,
-			Language:  mt.Language,
-			Record:    *recCBOR,
-			IndexedAt: now,
-		}
-		if err := atsync.Model.UpsertMediaTrack(ctx, t); err != nil {
+		if err := atsync.Model.UpsertMediaTrack(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media track: %w", err)
 		}
+		mt := rec.Track.MediaDefs_MuxlTrack
 		log.Debug(ctx, "indexed media track", "uri", aturi.String(), "blob", mt.Blob, "mediaType", mt.MediaType)
 
 	case *streamplace.MediaOrigin:
 		// Origin records are published by streamplace nodes (not users)
-		// against their own server-repo DID. The userDID here is the
-		// publishing server's DID — same field, different semantics.
-		o := &model.MediaOrigin{
-			URI:       aturi.String(),
-			CID:       cid,
-			ServerDID: userDID,
-			RKey:      rkey.String(),
-			Blob:      rec.Blob,
-			Size:      rec.Size,
-			MimeType:  rec.MimeType,
-			Record:    *recCBOR,
-			IndexedAt: now,
-		}
-		if err := atsync.Model.UpsertMediaOrigin(ctx, o); err != nil {
+		// against their own server-repo DID. The aturi's authority is
+		// the publishing server.
+		if err := atsync.Model.UpsertMediaOrigin(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media origin: %w", err)
 		}
 		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
@@ -799,17 +765,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// callers filter by RepoDID to a single operator-configured
 		// issuer (the `--beta-invite-did` flag), so anyone else
 		// minting these records is harmless noise.
-		inv := &model.BetaInvite{
-			URI:       aturi.String(),
-			CID:       cid,
-			RepoDID:   userDID,
-			RKey:      rkey.String(),
-			DID:       rec.Did,
-			Feature:   rec.Feature,
-			Record:    *recCBOR,
-			IndexedAt: now,
-		}
-		if err := atsync.Model.UpsertBetaInvite(ctx, inv); err != nil {
+		if err := atsync.Model.UpsertBetaInvite(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert beta invite: %w", err)
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)

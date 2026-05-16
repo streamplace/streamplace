@@ -3,12 +3,13 @@ package spxrpc
 import (
 	"context"
 	"testing"
-	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 const (
@@ -19,16 +20,15 @@ const (
 
 func putInvite(t *testing.T, m model.Model, repoDID, subjectDID, feature string) {
 	t.Helper()
-	require.NoError(t, m.UpsertBetaInvite(context.Background(), &model.BetaInvite{
-		URI:       "at://" + repoDID + "/place.stream.beta.invite/" + feature + "-" + subjectDID,
-		CID:       "bafycidplaceholder",
-		RepoDID:   repoDID,
-		RKey:      feature + "-" + subjectDID,
-		DID:       subjectDID,
-		Feature:   feature,
-		Record:    []byte{0xa0}, // empty CBOR map, never decoded in this path
-		IndexedAt: time.Now().UTC(),
-	}))
+	rkey := feature + "-" + subjectDID
+	aturi, err := syntax.ParseATURI("at://" + repoDID + "/place.stream.beta.invite/" + rkey)
+	require.NoError(t, err)
+	require.NoError(t, m.UpsertBetaInvite(context.Background(), &streamplace.BetaInvite{
+		LexiconTypeID: "place.stream.beta.invite",
+		Did:           subjectDID,
+		Feature:       feature,
+		CreatedAt:     "2026-01-01T00:00:00Z",
+	}, aturi))
 }
 
 func TestAllowVODUpload_InviteMode(t *testing.T) {

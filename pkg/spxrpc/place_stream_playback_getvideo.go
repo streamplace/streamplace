@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/labstack/echo/v4"
 
 	"stream.place/streamplace/pkg/blob"
@@ -432,26 +431,16 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 }
 
 // loadVideoRecord pulls the place.stream.video record at uri out of
-// the local index and CBOR-decodes it. Returns a typed error suitable
-// for surfacing back to the client (404, 422, 500).
+// the local index. Returns a typed error suitable for surfacing back
+// to the client (404, 500).
 func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*streamplace.Video, error) {
-	video, err := s.model.GetVideoByURI(ctx, uri)
+	videoRec, err := s.model.GetVideoByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "playback: GetVideoByURI failed", "uri", uri, "error", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if video == nil {
+	if videoRec == nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "VideoNotFound")
-	}
-	rec, err := lexutil.CborDecodeValue(video.Record)
-	if err != nil {
-		log.Error(ctx, "playback: decode video record failed", "uri", uri, "error", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	videoRec, ok := rec.(*streamplace.Video)
-	if !ok {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError,
-			fmt.Sprintf("video record at %s decoded as %T, expected *streamplace.Video", uri, rec))
 	}
 	return videoRec, nil
 }
@@ -472,10 +461,14 @@ func (s *Server) firstTrackBlob(ctx context.Context, src *streamplace.MediaDefs_
 		log.Error(ctx, "playback: GetMediaTrackByURI failed", "uri", firstRef.Uri, "error", err)
 		return "", echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if track == nil || track.Blob == "" {
+	if track == nil || track.Track == nil || track.Track.MediaDefs_MuxlTrack == nil {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
-	return track.Blob, nil
+	blob := track.Track.MediaDefs_MuxlTrack.Blob
+	if blob == "" {
+		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
+	}
+	return blob, nil
 }
 
 // fetchMetafile reads blobs/<cid>.json from the playback store and

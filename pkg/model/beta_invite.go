@@ -1,16 +1,21 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/spid"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
-// BetaInvite is the indexed view of a place.stream.beta.invite record.
-// One row per (RepoDID, DID, Feature) triple: a single account can
-// grant a single feature to a given DID at most once at a time.
-//
-// The trust model is "we believe whoever owns the record's repo": at
+// BetaInvite is the indexed view of a place.stream.beta.invite
+// record. One row per (RepoDID, DID, Feature) triple; all three sit
+// in the composite index since HasBetaInvite filters by exactly that
+// shape. The trust model is "we believe whoever owns the repo": at
 // the gate, callers must filter by RepoDID to the operator-configured
 // `--beta-invite-did` so a random user's repo can't mint invites for
 // our node.
@@ -18,15 +23,35 @@ type BetaInvite struct {
 	URI       string    `gorm:"primaryKey;column:uri"`
 	CID       string    `gorm:"column:cid"`
 	RepoDID   string    `gorm:"column:repo_did;index:idx_invites_lookup,priority:1"`
-	RKey      string    `gorm:"column:rkey"`
 	DID       string    `gorm:"column:did;index:idx_invites_lookup,priority:2"`
 	Feature   string    `gorm:"column:feature;index:idx_invites_lookup,priority:3"`
 	Record    []byte    `gorm:"column:record"`
 	IndexedAt time.Time `gorm:"column:indexed_at"`
 }
 
-func (m *DBModel) UpsertBetaInvite(ctx context.Context, v *BetaInvite) error {
-	return m.DB.WithContext(ctx).Save(v).Error
+func (m *DBModel) UpsertBetaInvite(ctx context.Context, rec *streamplace.BetaInvite, aturi syntax.ATURI) error {
+	repoDID, err := aturi.Authority().AsDID()
+	if err != nil {
+		return fmt.Errorf("invalid ATURI authority: %w", err)
+	}
+	cid, err := spid.GetCID(rec)
+	if err != nil {
+		return fmt.Errorf("get beta invite CID: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := rec.MarshalCBOR(&buf); err != nil {
+		return fmt.Errorf("marshal beta invite record: %w", err)
+	}
+	inv := &BetaInvite{
+		URI:       aturi.String(),
+		CID:       cid.String(),
+		RepoDID:   repoDID.String(),
+		DID:       rec.Did,
+		Feature:   rec.Feature,
+		Record:    buf.Bytes(),
+		IndexedAt: aqtime.FromTime(time.Now().UTC()).Time().UTC(),
+	}
+	return m.DB.WithContext(ctx).Save(inv).Error
 }
 
 func (m *DBModel) DeleteBetaInvite(ctx context.Context, uri string) error {

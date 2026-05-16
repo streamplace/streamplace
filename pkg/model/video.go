@@ -1,34 +1,66 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/spid"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
-// Video is the indexed view of a place.stream.video record. Indexing
-// happens via the firehose for any user repo we're observing.
-//
-// The Record column holds the CBOR-encoded record bytes; everything
-// else is a denormalized projection used to make playback queries
-// (by author, recency, etc.) cheap. Title and Duration are surfaced
-// since they're tiny and ubiquitously needed by listing UIs.
+// Video is the indexed view of a place.stream.video record. Every
+// non-identity field — title, duration, source, etc — lives inside
+// the CBOR Record blob; callers decode it via ToRecord (or rely on
+// the getters that return *streamplace.Video directly). Only
+// indexed fields and the URI/CID identity earn their own column.
 type Video struct {
-	URI        string    `gorm:"primaryKey;column:uri"`
-	CID        string    `gorm:"column:cid"`
-	RepoDID    string    `gorm:"column:repo_did;index:idx_videos_repo_created,priority:1"`
-	Repo       *Repo     `gorm:"foreignKey:DID;references:RepoDID"`
-	RKey       string    `gorm:"column:rkey"`
-	Title      string    `gorm:"column:title"`
-	DurationMS *int64    `gorm:"column:duration_ms"`
-	Record     []byte    `gorm:"column:record"`
-	IndexedAt  time.Time `gorm:"column:indexed_at;index:idx_videos_repo_created,priority:2"`
+	URI       string    `gorm:"primaryKey;column:uri"`
+	CID       string    `gorm:"column:cid"`
+	RepoDID   string    `gorm:"column:repo_did;index:idx_videos_repo_indexed,priority:1"`
+	Record    []byte    `gorm:"column:record"`
+	IndexedAt time.Time `gorm:"column:indexed_at;index:idx_videos_repo_indexed,priority:2"`
 }
 
-func (m *DBModel) UpsertVideo(ctx context.Context, v *Video) error {
+// ToRecord decodes the stored CBOR into the typed lexicon struct.
+func (v *Video) ToRecord() (*streamplace.Video, error) {
+	rec, err := lexutil.CborDecodeValue(v.Record)
+	if err != nil {
+		return nil, fmt.Errorf("decode video record: %w", err)
+	}
+	video, ok := rec.(*streamplace.Video)
+	if !ok {
+		return nil, fmt.Errorf("video record decoded as %T, expected *streamplace.Video", rec)
+	}
+	return video, nil
+}
+
+func (m *DBModel) UpsertVideo(ctx context.Context, rec *streamplace.Video, aturi syntax.ATURI) error {
+	repoDID, err := aturi.Authority().AsDID()
+	if err != nil {
+		return fmt.Errorf("invalid ATURI authority: %w", err)
+	}
+	cid, err := spid.GetCID(rec)
+	if err != nil {
+		return fmt.Errorf("get video CID: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := rec.MarshalCBOR(&buf); err != nil {
+		return fmt.Errorf("marshal video record: %w", err)
+	}
+	v := &Video{
+		URI:       aturi.String(),
+		CID:       cid.String(),
+		RepoDID:   repoDID.String(),
+		Record:    buf.Bytes(),
+		IndexedAt: aqtime.FromTime(time.Now().UTC()).Time().UTC(),
+	}
 	return m.DB.WithContext(ctx).Save(v).Error
 }
 
@@ -36,27 +68,27 @@ func (m *DBModel) DeleteVideo(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Video{}).Error
 }
 
-func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*Video, error) {
+func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*streamplace.Video, error) {
 	var v Video
-	err := m.DB.WithContext(ctx).Preload("Repo").Where("uri = ?", uri).First(&v).Error
+	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&v).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("get video by uri: %w", err)
 	}
-	return &v, nil
+	return v.ToRecord()
 }
 
-// GetLatestVideosForRepo returns the most recent N videos published
-// by the given user. Used to populate per-streamer VOD feeds.
+// GetLatestVideosForRepo returns the most recent N video rows by a
+// given repo. Model rows (not decoded records) so the caller has
+// URI/CID identity for each entry; call ToRecord on a row to decode.
 func (m *DBModel) GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error) {
 	if limit <= 0 {
 		limit = 25
 	}
 	var out []*Video
 	err := m.DB.WithContext(ctx).
-		Preload("Repo").
 		Where("repo_did = ?", repoDID).
 		Order("indexed_at DESC").
 		Limit(limit).

@@ -21,6 +21,8 @@ type MediaDefs_MuxlTrack struct {
 	MediaType string `json:"mediaType" cborgen:"mediaType"`
 	// signingKey: did:key of the ephemeral key that C2PA-signed this track's segments. The private key is discarded once the track is produced, so it can only ever have signed this content.
 	SigningKey *string `json:"signingKey,omitempty" cborgen:"signingKey,omitempty"`
+	// size: Size in bytes of the source video segment.
+	Size *int64 `json:"size,omitempty" cborgen:"size,omitempty"`
 	// trackId: ID of the track within the MUXL container. 1-indexed for MP4 reasons.
 	TrackId string `json:"trackId" cborgen:"trackId"`
 }

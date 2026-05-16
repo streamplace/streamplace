@@ -21,6 +21,7 @@ func main() {
 		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
 		streamplace.RichtextFacet{},
+		streamplace.RichtextVideoFacet{},
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_BadgeSelections{},
 		streamplace.ChatProfile_StreamerBadgeSelection{},

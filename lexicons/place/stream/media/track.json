@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A track for a video stream, either part of the source or a custom additional track.",
+      "description": "A track for a video stream, either part of the source or a custom additional track. One of: video, audio, subtitles.",
       "key": "tid",
       "record": {
         "required": ["track"],
@@ -25,8 +25,8 @@
             "description": "If this is a derived track like a transcode or a transcript, what was the parent track?"
           },
           "metadata": {
-            "type": "ref",
-            "ref": "place.stream.media.track#commonMetadata"
+            "type": "union",
+            "refs": ["place.stream.media.track#commonMetadata"]
           }
         }
       }
@@ -39,6 +39,10 @@
         "language": {
           "type": "string",
           "description": "IETF BCP 47 language tag corresponding to the content of this track"
+        },
+        "duration": {
+          "type": "integer",
+          "description": "duration of this track in milliseconds"
         },
         "video": {
           "type": "ref",

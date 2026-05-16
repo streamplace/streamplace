@@ -46,6 +46,10 @@
           "type": "string",
           "description": "BLAKE-3 content hash (BDASL CID) of the source video segment."
         },
+        "size": {
+          "type": "integer",
+          "description": "Size in bytes of the source video segment."
+        },
         "trackId": {
           "type": "string",
           "description": "ID of the track within the MUXL container. 1-indexed for MP4 reasons."

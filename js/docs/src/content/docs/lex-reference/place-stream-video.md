@@ -22,13 +22,14 @@ Some audiovisual content.
 | Name                | Type                                                                                                                                                                                                                              | Req'd | Description                                                                                                                                                                                       | Constraints                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | `title`             | `string`                                                                                                                                                                                                                          | ✅    | Title of the video referenced by this record                                                                                                                                                      | Max Length: 1400<br/>Max Graphemes: 140       |
-| `source`            | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ❌    | What is the source of this video?                                                                                                                                                                 |                                               |
+| `source`            | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ✅    | What is the source of this video?                                                                                                                                                                 |                                               |
 | `description`       | `string`                                                                                                                                                                                                                          | ❌    | Description of this video                                                                                                                                                                         | Max Length: 50000<br/>Max Graphemes: 5000     |
-| `duration`          | `integer`                                                                                                                                                                                                                         | ❌    | Duration of the video in milliseconds                                                                                                                                                             |                                               |
-| `descriptionFacets` | Array of [`place.stream.richtext.facet`](/lex-reference/place-stream-richtext-facet)                                                                                                                                              | ❌    | Annotations of text (mentions, URLs, etc)                                                                                                                                                         |                                               |
+| `duration`          | `integer`                                                                                                                                                                                                                         | ✅    | Duration of the video in milliseconds                                                                                                                                                             |                                               |
+| `descriptionFacets` | Array of [`place.stream.richtext.videoFacet`](/lex-reference/place-stream-richtext-videofacet)                                                                                                                                    | ❌    | Annotations of text (mentions, URLs, etc)                                                                                                                                                         |                                               |
 | `thumb`             | `blob`                                                                                                                                                                                                                            | ❌    | Thumbnail image for the video.                                                                                                                                                                    | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 | `connections`       | Array of Union of:<br/>&nbsp;&nbsp;[`#connection`](#connection)                                                                                                                                                                   | ❌    | Free-form list of atproto records related in some way to this video                                                                                                                               |                                               |
-| `contentPolicy`     | [`place.stream.metadata.configuration`](/lex-reference/place-stream-metadata-configuration)                                                                                                                                       | ❌    | copyright, distribution, and content warning data                                                                                                                                                 |                                               |
+| `contentWarnings`   | [`place.stream.metadata.contentWarnings`](/lex-reference/place-stream-metadata-contentwarnings)                                                                                                                                   | ❌    | content warning data for this VOD                                                                                                                                                                 |                                               |
+| `contentRights`     | [`place.stream.metadata.contentRights`](/lex-reference/place-stream-metadata-contentrights)                                                                                                                                       | ❌    | copyright and licensing information for this VOD                                                                                                                                                  |                                               |
 | `activity`          | Union of:<br/>&nbsp;&nbsp;[`place.stream.defs#activityGame`](/lex-reference/place-stream-defs#activitygame)<br/>&nbsp;&nbsp;[`place.stream.defs#activityLabel`](/lex-reference/place-stream-defs#activitylabel)                   | ❌    | The game or activity in the video.                                                                                                                                                                |                                               |
 | `tags`              | Array of `string`                                                                                                                                                                                                                 | ❌    | Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language). | Max Items: 10                                 |
 
@@ -48,20 +49,6 @@ Some audiovisual content.
 
 ---
 
-<a name="videosourcecontent"></a>
-
-### `videoSourceContent`
-
-**Type:** `object`
-
-**Properties:**
-
-| Name  | Type                                                                                                                                   | Req'd | Description                                                                  | Constraints |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------- | ----------- |
-| `ref` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | place.stream.media.source record providing the content for this video record |             |
-
----
-
 ## Lexicon Source
 
 ```json
@@ -74,7 +61,7 @@ Some audiovisual content.
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title"],
+        "required": ["title", "source", "duration"],
         "type": "object",
         "properties": {
           "title": {
@@ -106,7 +93,7 @@ Some audiovisual content.
             "description": "Annotations of text (mentions, URLs, etc)",
             "items": {
               "type": "ref",
-              "ref": "place.stream.richtext.facet"
+              "ref": "place.stream.richtext.videoFacet"
             }
           },
           "thumb": {
@@ -123,10 +110,15 @@ Some audiovisual content.
               "refs": ["#connection"]
             }
           },
-          "contentPolicy": {
-            "description": "copyright, distribution, and content warning data",
+          "contentWarnings": {
+            "description": "content warning data for this VOD",
             "type": "ref",
-            "ref": "place.stream.metadata.configuration"
+            "ref": "place.stream.metadata.contentWarnings"
+          },
+          "contentRights": {
+            "description": "copyright and licensing information for this VOD",
+            "type": "ref",
+            "ref": "place.stream.metadata.contentRights"
           },
           "activity": {
             "type": "union",
@@ -153,16 +145,6 @@ Some audiovisual content.
       "type": "object",
       "properties": {
         "ref": {
-          "type": "ref",
-          "ref": "com.atproto.repo.strongRef"
-        }
-      }
-    },
-    "videoSourceContent": {
-      "type": "object",
-      "properties": {
-        "ref": {
-          "description": "place.stream.media.source record providing the content for this video record",
           "type": "ref",
           "ref": "com.atproto.repo.strongRef"
         }

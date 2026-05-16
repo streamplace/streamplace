@@ -84,7 +84,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 
 	var sourceTracks []*comatproto.RepoStrongRef
 	if p.probe.Video != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "1", "video", p.signingKey, p.probe.Video, nil)
+		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "1", "video", p.signingKey, p.probe.Video, nil)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "video_track")
@@ -93,7 +93,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		sourceTracks = append(sourceTracks, ref)
 	}
 	if p.probe.Audio != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, "2", "audio", p.signingKey, nil, p.probe.Audio)
+		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "2", "audio", p.signingKey, nil, p.probe.Audio)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, "audio_track")
@@ -149,11 +149,14 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 // publishTrack creates one place.stream.media.track record in the
 // user's repo. trackID is the 1-indexed track within the MUXL
 // container ("1" for video, "2" for audio in our standard layout).
+// blobSize is the byte size of the shared MUXL container blob;
+// durationMS is the source duration in milliseconds (same for every
+// track of one upload since they all read from the same container).
 // signingKey is the did:key whose ephemeral private half C2PA-signed
 // this upload's segments — the same key signs every track of an upload.
 // Exactly one of videoMeta / audioMeta should be non-nil; the other
 // is ignored.
-func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
+func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobSize, durationMS int64, trackID, mediaType, signingKey string, videoMeta *media.VODVideoTrack, audioMeta *media.VODAudioTrack) (*comatproto.RepoStrongRef, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.publishTrack", trace.WithAttributes(
 		attribute.String("cid", cid),
 		attribute.String("track_id", trackID),
@@ -161,7 +164,10 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, med
 	))
 	defer span.End()
 
-	meta := &streamplace.MediaTrack_CommonMetadata{}
+	meta := &streamplace.MediaTrack_CommonMetadata{
+		LexiconTypeID: "place.stream.media.track#commonMetadata",
+		Duration:      &durationMS,
+	}
 	if videoMeta != nil {
 		meta.Video = &streamplace.Segment_Video{
 			Codec:  "h264",
@@ -189,12 +195,15 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid, trackID, med
 			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          cid,
+				Size:          &blobSize,
 				TrackId:       trackID,
 				MediaType:     mediaType,
 				SigningKey:    &signingKey,
 			},
 		},
-		Metadata: meta,
+		Metadata: &streamplace.MediaTrack_Metadata{
+			MediaTrack_CommonMetadata: meta,
+		},
 	}
 
 	rkey := spid.TIDClock.Next().String()
@@ -247,15 +256,13 @@ func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.
 	rec := &streamplace.Video{
 		LexiconTypeID: constants.PLACE_STREAM_VIDEO,
 		Title:         title,
+		Duration:      duration,
 		Source: &streamplace.Video_Source{
 			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks:        tracks,
 			},
 		},
-	}
-	if duration > 0 {
-		rec.Duration = &duration
 	}
 
 	if len(thumbnail) > 0 {

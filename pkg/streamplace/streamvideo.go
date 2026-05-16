@@ -25,16 +25,18 @@ type Video struct {
 	Activity *Video_Activity `json:"activity,omitempty" cborgen:"activity,omitempty"`
 	// connections: Free-form list of atproto records related in some way to this video
 	Connections []*Video_Connections_Elem `json:"connections,omitempty" cborgen:"connections,omitempty"`
-	// contentPolicy: copyright, distribution, and content warning data
-	ContentPolicy *MetadataConfiguration `json:"contentPolicy,omitempty" cborgen:"contentPolicy,omitempty"`
+	// contentRights: copyright and licensing information for this VOD
+	ContentRights *MetadataContentRights `json:"contentRights,omitempty" cborgen:"contentRights,omitempty"`
+	// contentWarnings: content warning data for this VOD
+	ContentWarnings *MetadataContentWarnings `json:"contentWarnings,omitempty" cborgen:"contentWarnings,omitempty"`
 	// description: Description of this video
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// descriptionFacets: Annotations of text (mentions, URLs, etc)
-	DescriptionFacets []*RichtextFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
+	DescriptionFacets []*RichtextVideoFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
 	// duration: Duration of the video in milliseconds
-	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
+	Duration int64 `json:"duration" cborgen:"duration"`
 	// source: What is the source of this video?
-	Source *Video_Source `json:"source,omitempty" cborgen:"source,omitempty"`
+	Source *Video_Source `json:"source" cborgen:"source"`
 	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
 	Tags []string `json:"tags,omitempty" cborgen:"tags,omitempty"`
 	// thumb: Thumbnail image for the video.
@@ -239,10 +241,4 @@ func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
-}
-
-// Video_VideoSourceContent is a "videoSourceContent" in the place.stream.video schema.
-type Video_VideoSourceContent struct {
-	// ref: place.stream.media.source record providing the content for this video record
-	Ref *comatproto.RepoStrongRef `json:"ref,omitempty" cborgen:"ref,omitempty"`
 }

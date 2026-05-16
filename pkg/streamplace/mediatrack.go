@@ -20,8 +20,8 @@ func init() {
 }
 
 type MediaTrack struct {
-	LexiconTypeID string                     `json:"$type" cborgen:"$type,const=place.stream.media.track"`
-	Metadata      *MediaTrack_CommonMetadata `json:"metadata,omitempty" cborgen:"metadata,omitempty"`
+	LexiconTypeID string               `json:"$type" cborgen:"$type,const=place.stream.media.track"`
+	Metadata      *MediaTrack_Metadata `json:"metadata,omitempty" cborgen:"metadata,omitempty"`
 	// parentTrack: If this is a derived track like a transcode or a transcript, what was the parent track?
 	ParentTrack *comatproto.RepoStrongRef `json:"parentTrack,omitempty" cborgen:"parentTrack,omitempty"`
 	Track       *MediaTrack_Track         `json:"track" cborgen:"track"`
@@ -33,10 +33,67 @@ type MediaTrack struct {
 //
 // Metadata common to all media types. Contains subobjects for other media types.
 type MediaTrack_CommonMetadata struct {
-	Audio *Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
+	LexiconTypeID string         `json:"$type" cborgen:"$type,const=place.stream.media.track#commonMetadata"`
+	Audio         *Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
+	// duration: duration of this track in milliseconds
+	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
 	// language: IETF BCP 47 language tag corresponding to the content of this track
 	Language *string        `json:"language,omitempty" cborgen:"language,omitempty"`
 	Video    *Segment_Video `json:"video,omitempty" cborgen:"video,omitempty"`
+}
+
+type MediaTrack_Metadata struct {
+	MediaTrack_CommonMetadata *MediaTrack_CommonMetadata
+}
+
+func (t *MediaTrack_Metadata) MarshalJSON() ([]byte, error) {
+	if t.MediaTrack_CommonMetadata != nil {
+		t.MediaTrack_CommonMetadata.LexiconTypeID = "place.stream.media.track#commonMetadata"
+		return json.Marshal(t.MediaTrack_CommonMetadata)
+	}
+	return nil, fmt.Errorf("can not marshal empty union as JSON")
+}
+
+func (t *MediaTrack_Metadata) UnmarshalJSON(b []byte) error {
+	typ, err := lexutil.TypeExtract(b)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.media.track#commonMetadata":
+		t.MediaTrack_CommonMetadata = new(MediaTrack_CommonMetadata)
+		return json.Unmarshal(b, t.MediaTrack_CommonMetadata)
+	default:
+		return nil
+	}
+}
+
+func (t *MediaTrack_Metadata) MarshalCBOR(w io.Writer) error {
+
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	if t.MediaTrack_CommonMetadata != nil {
+		return t.MediaTrack_CommonMetadata.MarshalCBOR(w)
+	}
+	return fmt.Errorf("can not marshal empty union as CBOR")
+}
+
+func (t *MediaTrack_Metadata) UnmarshalCBOR(r io.Reader) error {
+	typ, b, err := lexutil.CborTypeExtractReader(r)
+	if err != nil {
+		return err
+	}
+
+	switch typ {
+	case "place.stream.media.track#commonMetadata":
+		t.MediaTrack_CommonMetadata = new(MediaTrack_CommonMetadata)
+		return t.MediaTrack_CommonMetadata.UnmarshalCBOR(bytes.NewReader(b))
+	default:
+		return nil
+	}
 }
 
 type MediaTrack_Track struct {

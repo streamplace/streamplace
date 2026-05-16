@@ -1,6 +1,6 @@
 ---
-title: place.stream.richtext.facet
-description: Reference for the place.stream.richtext.facet lexicon
+title: place.stream.richtext.videoFacet
+description: Reference for the place.stream.richtext.videoFacet lexicon
 ---
 
 **Lexicon Version:** 1
@@ -13,7 +13,7 @@ description: Reference for the place.stream.richtext.facet lexicon
 
 **Type:** `object`
 
-Annotation of a sub-string within rich text in a livestream chat message.
+Annotation of a sub-string within rich text in a VOD description or comment.
 
 **Properties:**
 
@@ -29,11 +29,11 @@ Annotation of a sub-string within rich text in a livestream chat message.
 ```json
 {
   "lexicon": 1,
-  "id": "place.stream.richtext.facet",
+  "id": "place.stream.richtext.videoFacet",
   "defs": {
     "main": {
       "type": "object",
-      "description": "Annotation of a sub-string within rich text in a livestream chat message.",
+      "description": "Annotation of a sub-string within rich text in a VOD description or comment.",
       "required": ["index", "features"],
       "properties": {
         "index": {

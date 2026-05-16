@@ -7,7 +7,7 @@
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title"],
+        "required": ["title", "source", "duration"],
         "type": "object",
         "properties": {
           "title": {
@@ -37,7 +37,10 @@
           "descriptionFacets": {
             "type": "array",
             "description": "Annotations of text (mentions, URLs, etc)",
-            "items": { "type": "ref", "ref": "place.stream.richtext.facet" }
+            "items": {
+              "type": "ref",
+              "ref": "place.stream.richtext.videoFacet"
+            }
           },
           "thumb": {
             "description": "Thumbnail image for the video.",
@@ -53,10 +56,15 @@
               "refs": ["#connection"]
             }
           },
-          "contentPolicy": {
-            "description": "copyright, distribution, and content warning data",
+          "contentWarnings": {
+            "description": "content warning data for this VOD",
             "type": "ref",
-            "ref": "place.stream.metadata.configuration"
+            "ref": "place.stream.metadata.contentWarnings"
+          },
+          "contentRights": {
+            "description": "copyright and licensing information for this VOD",
+            "type": "ref",
+            "ref": "place.stream.metadata.contentRights"
           },
           "activity": {
             "type": "union",
@@ -83,16 +91,6 @@
       "type": "object",
       "properties": {
         "ref": {
-          "type": "ref",
-          "ref": "com.atproto.repo.strongRef"
-        }
-      }
-    },
-    "videoSourceContent": {
-      "type": "object",
-      "properties": {
-        "ref": {
-          "description": "place.stream.media.source record providing the content for this video record",
           "type": "ref",
           "ref": "com.atproto.repo.strongRef"
         }

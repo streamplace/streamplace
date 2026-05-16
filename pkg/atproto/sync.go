@@ -740,9 +740,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Record:    *recCBOR,
 			IndexedAt: now,
 		}
-		if rec.Duration != nil {
-			v.DurationMS = rec.Duration
-		}
+		v.DurationMS = &rec.Duration
 		if err := atsync.Model.UpsertVideo(ctx, v); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}

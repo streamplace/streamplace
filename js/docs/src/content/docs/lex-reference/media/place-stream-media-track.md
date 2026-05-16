@@ -13,7 +13,7 @@ description: Reference for the place.stream.media.track lexicon
 
 **Type:** `record`
 
-A track for a video stream, either part of the source or a custom additional track.
+A track for a video stream, either part of the source or a custom additional track. One of: video, audio, subtitles.
 
 **Record Key:** `tid`
 
@@ -24,7 +24,7 @@ A track for a video stream, either part of the source or a custom additional tra
 | `track`       | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#muxlTrack`](/lex-reference/place-stream-media-defs#muxltrack)                      | ✅    |                                                                                                      |                  |
 | `video`       | `string`                                                                                                                               | ❌    | If this is a derived track like a transcode or a transcript, what was the source place.stream.video? | Format: `at-uri` |
 | `parentTrack` | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | If this is a derived track like a transcode or a transcript, what was the parent track?              |                  |
-| `metadata`    | [`place.stream.media.track#commonMetadata`](/lex-reference/place-stream-media-track#commonmetadata)                                    | ❌    |                                                                                                      |                  |
+| `metadata`    | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.track#commonMetadata`](/lex-reference/place-stream-media-track#commonmetadata)          | ❌    |                                                                                                      |                  |
 
 ---
 
@@ -41,6 +41,7 @@ Metadata common to all media types. Contains subobjects for other media types.
 | Name       | Type                                                                      | Req'd | Description                                                         | Constraints |
 | ---------- | ------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------- | ----------- |
 | `language` | `string`                                                                  | ❌    | IETF BCP 47 language tag corresponding to the content of this track |             |
+| `duration` | `integer`                                                                 | ❌    | duration of this track in milliseconds                              |             |
 | `video`    | [`place.stream.segment#video`](/lex-reference/place-stream-segment#video) | ❌    |                                                                     |             |
 | `audio`    | [`place.stream.segment#audio`](/lex-reference/place-stream-segment#audio) | ❌    |                                                                     |             |
 
@@ -55,7 +56,7 @@ Metadata common to all media types. Contains subobjects for other media types.
   "defs": {
     "main": {
       "type": "record",
-      "description": "A track for a video stream, either part of the source or a custom additional track.",
+      "description": "A track for a video stream, either part of the source or a custom additional track. One of: video, audio, subtitles.",
       "key": "tid",
       "record": {
         "required": ["track"],
@@ -76,8 +77,8 @@ Metadata common to all media types. Contains subobjects for other media types.
             "description": "If this is a derived track like a transcode or a transcript, what was the parent track?"
           },
           "metadata": {
-            "type": "ref",
-            "ref": "place.stream.media.track#commonMetadata"
+            "type": "union",
+            "refs": ["place.stream.media.track#commonMetadata"]
           }
         }
       }
@@ -90,6 +91,10 @@ Metadata common to all media types. Contains subobjects for other media types.
         "language": {
           "type": "string",
           "description": "IETF BCP 47 language tag corresponding to the content of this track"
+        },
+        "duration": {
+          "type": "integer",
+          "description": "duration of this track in milliseconds"
         },
         "video": {
           "type": "ref",

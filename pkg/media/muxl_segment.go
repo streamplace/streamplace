@@ -2,6 +2,7 @@ package media
 
 import (
 	"bytes"
+	"errors"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
@@ -13,8 +14,15 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"io"
 )
+
+// MuxlBufferSize is the upper bound on how much fragmented-mp4 from
+// gst we'll hold in memory ahead of the muxl-wasm segmenter. A
+// well-behaved wasm drains continuously and never gets near this cap;
+// a stuck wasm fills it up, after which Writes return
+// ErrBoundedBufferOverflow and we error out the pipeline rather than
+// jamming the whole MKV ingest chain with backpressure.
+const MuxlBufferSize = 10 * 1024 * 1024
 
 func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (*gst.Element, error) {
 	ctx = log.WithLogValues(ctx, "func", "MuxlSegmentElem")
@@ -78,9 +86,9 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 
 	initCh := make(chan []byte)
 	segCh := make(chan []byte)
-	r, w := io.Pipe()
+	buf := newBoundedBuffer(MuxlBufferSize)
 	go func() {
-		err := muxl.RunMuxlSegmenter(ctx, r, initCh, segCh)
+		err := muxl.RunMuxlSegmenter(ctx, buf, initCh, segCh)
 		if err != nil {
 			log.Error(ctx, "error running muxl segmenter", "error", err)
 		}
@@ -88,7 +96,7 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 
 	go func() {
 		<-ctx.Done()
-		r.Close()
+		buf.Close()
 	}()
 
 	go func() {
@@ -119,7 +127,37 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, w),
+		NewSampleFunc: func(s *app.Sink) gst.FlowReturn {
+			sample := s.PullSample()
+			if sample == nil {
+				return gst.FlowOK
+			}
+			gstBuf := sample.GetBuffer()
+			bs := gstBuf.Map(gst.MapRead).Bytes()
+			defer gstBuf.Unmap()
+			if _, err := buf.Write(bs); err != nil {
+				if errors.Is(err, ErrBoundedBufferOverflow) {
+					size, _, max := buf.Stats()
+					log.Error(ctx, "muxl buffer overflow — tearing pipeline down",
+						"buffered_bytes", size, "max_bytes", max, "incoming_bytes", len(bs))
+					s.ErrorMessage(gst.DomainCore, gst.CoreErrorFailed,
+						"muxl segmenter stuck", err.Error())
+				} else {
+					log.Error(ctx, "error writing to muxl buffer", "error", err)
+				}
+				return gst.FlowError
+			}
+			return gst.FlowOK
+		},
+		// Closing the bounded buffer when gst signals EOS gives the
+		// wasm an EOF on stdin so it can flush trailing init/segment
+		// events. Without this, the wasm only sees EOF when ctx is
+		// canceled in cleanup — which also kills the consumer
+		// goroutine that would have delivered those events to cb.
+		EOSFunc: func(_ *app.Sink) {
+			log.Debug(ctx, "muxl appsink got EOS — closing buffer to flush wasm")
+			buf.Close()
+		},
 	})
 
 	return bin.Element, nil

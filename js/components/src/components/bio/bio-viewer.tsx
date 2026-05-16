@@ -299,8 +299,7 @@ function ImageBlock({
   const { zero: zt } = useTheme();
   const ar = block.aspectRatio;
   const ratio = ar && ar.height > 0 ? ar.width / ar.height : 16 / 9;
-  //@ts-expect-error FIXME: do proper ser/de for block types
-  const src = did ? blobUrl(did, block.image.ref.$link.toString()) : undefined;
+  const src = did ? blobUrl(did, block.image.ref.toString()) : undefined;
 
   return (
     <View

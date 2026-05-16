@@ -84,6 +84,7 @@ export function PanelsLayout({
         {containerWidth > 0 && (
           <View
             direction="row"
+            align="start"
             style={{
               position: "absolute",
               top: -99999,

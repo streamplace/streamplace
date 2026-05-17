@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -175,12 +176,24 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.e.ServeHTTP(w, r)
 }
 
+const AccountDeactivated = "AccountDeactivated"
+
 func (s *Server) ErrorHandlingMiddleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			err := next(c)
 			if err == nil {
 				return nil
+			}
+			// this can mean we missed a PDS migration and need to refresh identity
+			if strings.Contains(err.Error(), AccountDeactivated) {
+				session, _ := oatproxy.GetOAuthSession(c.Request().Context())
+				if session != nil {
+					_, err := s.ATSync.RefreshIdentity(c.Request().Context(), session.DID)
+					if err != nil {
+						return err
+					}
+				}
 			}
 			httpError, ok := err.(*echo.HTTPError)
 			if ok {

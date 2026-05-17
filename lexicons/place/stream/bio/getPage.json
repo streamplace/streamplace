@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.getPage",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get a user's bio page.",
+      "parameters": {
+        "type": "params",
+        "required": ["repo"],
+        "properties": {
+          "repo": {
+            "type": "string",
+            "format": "at-identifier",
+            "description": "The DID of the user whose bio to fetch."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "place.stream.bio.page"
+        }
+      },
+      "errors": [
+        {
+          "name": "BioNotFound",
+          "description": "The user has no bio page."
+        }
+      ]
+    }
+  }
+}

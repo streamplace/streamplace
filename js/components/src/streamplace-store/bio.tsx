@@ -1,4 +1,3 @@
-import { Response } from "@atproto/api/dist/client/types/com/atproto/repo/getRecord";
 import { PlaceStreamBioPage } from "streamplace";
 import {
   leafletDocToBio,
@@ -12,7 +11,7 @@ import {
   useDID,
   useStreamplaceStore,
 } from "./streamplace-store";
-import { usePDSAgent } from "./xrpc";
+import { usePDSAgent, usePossiblyUnauthedPDSAgent } from "./xrpc";
 
 const BIO_COLLECTION = "place.stream.bio.page";
 const BIO_RKEY = "self";
@@ -24,38 +23,29 @@ export function useBio() {
 
 export function useGetBio() {
   const did = useDID();
-  const pdsAgent = usePDSAgent();
+  const agent = usePossiblyUnauthedPDSAgent();
   const store = getStreamplaceStoreFromContext();
 
   return async () => {
-    if (!did || !pdsAgent) {
-      throw new Error("No DID or PDS agent");
+    if (!did || !agent) {
+      throw new Error("No DID or agent");
     }
-    let res: Response | undefined;
     try {
-      res = await pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: BIO_COLLECTION,
-        rkey: BIO_RKEY,
-      });
-    } catch (e) {
-      if (
-        e.error?.status === 400 &&
-        e.error?.data?.error?.includes("Record not found")
-      ) {
+      const res = await agent.place.stream.bio.getPage({ repo: did });
+      if (PlaceStreamBioPage.isRecord(res.data)) {
+        const bio = res.data as PlaceStreamBioPage.Record;
+        store.setState({ bio });
+        return bio;
+      }
+      return null;
+    } catch (e: any) {
+      if (e?.error === "BioNotFound") {
         store.setState({ bio: null });
         return null;
       }
       console.error("Failed to get bio record", e);
       return null;
     }
-
-    if (res && PlaceStreamBioPage.isRecord(res.data.value)) {
-      const bio = res.data.value as PlaceStreamBioPage.Record;
-      store.setState({ bio });
-      return bio;
-    }
-    return null;
   };
 }
 

@@ -299,6 +299,7 @@ function ImageBlock({
   const { zero: zt } = useTheme();
   const ar = block.aspectRatio;
   const ratio = ar && ar.height > 0 ? ar.width / ar.height : 16 / 9;
+  console.log("image cid", block.image.ref.toString());
   const src = did ? blobUrl(did, block.image.ref.toString()) : undefined;
 
   return (

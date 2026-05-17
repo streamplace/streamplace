@@ -164,6 +164,7 @@ type CLI struct {
 	GamesAPIClientKey           string
 	GamesAPIClientSecret        string
 	BetaInviteDID               string
+	ViewLogFlushInterval        time.Duration
 }
 
 // ContentFilters represents the content filtering configuration
@@ -936,6 +937,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "DID of the atproto account whose place.stream.beta.invite records this node trusts. When set, uploading VODs requires an invite from that account; when empty, falls back to the --allowed-streams allowlist used by livestreaming.",
 				Destination: &cli.BetaInviteDID,
 				Sources:     urfavecli.EnvVars("SP_BETA_INVITE_DID"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "view-log-flush-interval",
+				Usage:       "How often the view-log writer rotates its buffer to the VOD blob store. Set to 0 to disable view-event logging entirely (no view counts will be available downstream). Files land at view-logs/<server-did>/<window>.jsonl.gz alongside the VOD content blobs.",
+				Value:       5 * time.Minute,
+				Destination: &cli.ViewLogFlushInterval,
+				Sources:     urfavecli.EnvVars("SP_VIEW_LOG_FLUSH_INTERVAL"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "legacy-segmentation",

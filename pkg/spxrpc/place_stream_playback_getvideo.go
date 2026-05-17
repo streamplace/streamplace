@@ -142,7 +142,24 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	defer r.Close()
+	rangeStart, rangeEnd := parseRangeForLog(c.Request().Header.Get("Range"), r.Size())
+	s.logSegmentRequest(c, cid, did, c.QueryParam("sid"), rangeStart, rangeEnd)
 	return serveBlobRange(c, r, "video/mp4")
+}
+
+// parseRangeForLog is the lenient counterpart of parseSingleRange used
+// only for the view-log: returns zero values when the header is absent
+// or malformed (logging shouldn't 416 the request the way serving
+// does). End is inclusive when present, matching RFC 7233.
+func parseRangeForLog(header string, size int64) (int64, int64) {
+	if header == "" {
+		return 0, 0
+	}
+	start, end, err := parseSingleRange(header, size)
+	if err != nil {
+		return 0, 0
+	}
+	return start, end
 }
 
 // serveBlobRange writes a blob.Reader to the echo response, honoring
@@ -317,6 +334,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	effectiveStartMS, effectiveEndMS := composeClipBounds(resolved.clipStartMS, resolved.clipEndMS, startMS, endMS)
 
 	var body string
+	kind := "master"
 	if track == "" {
 		// Master playlist's sub-playlist URLs carry the *unmodified*
 		// query-param start/end (clip-local). Each per-track follow-up
@@ -328,7 +346,9 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		if err != nil {
 			return err
 		}
+		kind = "media"
 	}
+	s.logManifestRequest(c, uri, sid, track, kind)
 
 	c.Response().Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	c.Response().Header().Set("Cache-Control", "public, max-age=60")

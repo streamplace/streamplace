@@ -43,6 +43,7 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/viewlog"
 	"stream.place/streamplace/pkg/vod"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -358,6 +359,21 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return fmt.Errorf("make vod store: %w", err)
 	}
+	viewLog, err := makeViewLog(ctx, cli, vodStore, ldb)
+	if err != nil {
+		return fmt.Errorf("make view log: %w", err)
+	}
+	if viewLog != nil {
+		group.Go(func() error {
+			viewLog.Run(ctx)
+			return nil
+		})
+		defer func() {
+			if err := viewLog.Close(); err != nil {
+				log.Error(ctx, "view log close", "error", err)
+			}
+		}()
+	}
 	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
 		// Labeler enforcement: an account banned after starting an
 		// upload (but before processing) doesn't get a video published.
@@ -380,7 +396,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			Location: t.Location,
 		})
 	})
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore)
+	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
 	if err != nil {
 		return err
 	}
@@ -623,6 +639,34 @@ func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
 	root := cli.DataFilePath(nil)
 	log.Log(ctx, "VOD store: file", "root", root)
 	return blob.NewFileStore(root)
+}
+
+// makeViewLog returns the configured view-event log writer, or nil if
+// the operator has disabled it (--view-log-flush-interval=0) or there's
+// no place to write logs to (no VOD store). The writer reuses the VOD
+// blob.Store under a `view-logs/<server-did>/` prefix; if the operator
+// runs S3-backed VOD, view logs land in the same bucket alongside the
+// content blobs and pick up the bucket's lifecycle policy for free.
+func makeViewLog(ctx context.Context, cli *config.CLI, vodStore blob.Store, ldb localdb.LocalDB) (*viewlog.Writer, error) {
+	if cli.ViewLogFlushInterval <= 0 {
+		log.Log(ctx, "view log: disabled (view-log-flush-interval=0)")
+		return nil, nil
+	}
+	if vodStore == nil {
+		log.Log(ctx, "view log: no VOD store wired; skipping")
+		return nil, nil
+	}
+	w, err := viewlog.NewWriter(viewlog.Config{
+		Store:      vodStore,
+		NodeDID:    cli.ServerDID(),
+		FlushAfter: cli.ViewLogFlushInterval,
+		Salts:      viewlog.NewSaltManager(ldb),
+	})
+	if err != nil {
+		return nil, err
+	}
+	log.Log(ctx, "view log: enabled", "flush_interval", cli.ViewLogFlushInterval, "node_did", cli.ServerDID())
+	return w, nil
 }
 
 var ErrCaughtSignal = errors.New("caught signal")

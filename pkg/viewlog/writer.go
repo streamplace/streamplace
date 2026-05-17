@@ -73,7 +73,7 @@ func NewWriter(cfg Config) (*Writer, error) {
 	}
 	w := &Writer{
 		store:      cfg.Store,
-		keyPrefix:  fmt.Sprintf("view-logs/%s/", cfg.NodeDID),
+		keyPrefix:  fmt.Sprintf("%s%s/", viewLogsPrefix, cfg.NodeDID),
 		flushAfter: cfg.FlushAfter,
 		maxBytes:   cfg.MaxBytes,
 		salts:      cfg.Salts,
@@ -190,7 +190,7 @@ func (w *Writer) flushNow(ctx context.Context, reason string) {
 		log.Error(ctx, "viewlog: gzip close", "error", err)
 		return
 	}
-	key := w.keyPrefix + oldOpenedAt.UTC().Format("2006-01-02T15-04-05.000Z") + ".jsonl.gz"
+	key := w.keyPrefix + oldOpenedAt.UTC().Format(keyTimeFormat) + ".jsonl.gz"
 	writer, err := w.store.NewWriter(ctx, key, "application/gzip")
 	if err != nil {
 		log.Error(ctx, "viewlog: open store writer", "error", err, "key", key)

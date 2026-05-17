@@ -396,6 +396,28 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			Location: t.Location,
 		})
 	})
+	// View-count aggregator runs the log → record pipeline for one
+	// window. Same function-pointer pattern as the VOD processor so
+	// statedb stays free of viewlog's transitive deps. The scheduler
+	// goroutine fires per --view-count-aggregate-interval; statedb's
+	// unique TaskKey makes the cross-node race a no-op for losers.
+	if vodStore != nil && cli.ViewCountAggregateInterval > 0 {
+		state.SetViewCountAggregator(func(ctx context.Context, t statedb.ViewCountAggregateTask) error {
+			return viewlog.RunAggregation(ctx, viewlog.RunAggregationInput{
+				Store:       vodStore,
+				CLI:         cli,
+				WindowStart: t.WindowStart,
+				WindowEnd:   t.WindowEnd,
+				ReadMargin:  2 * cli.ViewLogFlushInterval,
+			})
+		})
+		group.Go(func() error {
+			return viewlog.ScheduleAggregations(ctx, state, viewlog.ScheduleConfig{
+				Interval: cli.ViewCountAggregateInterval,
+				Lag:      cli.ViewCountAggregateLag,
+			})
+		})
+	}
 	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
 	if err != nil {
 		return err

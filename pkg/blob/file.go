@@ -121,6 +121,51 @@ func (s *FileStore) Move(ctx context.Context, srcKey, dstKey string) error {
 	return nil
 }
 
+func (s *FileStore) List(ctx context.Context, prefix string) ([]string, error) {
+	// Walk anchored at the longest directory whose path is fully fixed
+	// by prefix; the trailing component (which may be a partial
+	// filename) becomes a string-prefix filter on every visited key.
+	// This matches the S3 semantics: "foo/bar" matches both
+	// "foo/bar.json" and "foo/bar/baz".
+	slashIdx := strings.LastIndex(prefix, "/")
+	walkRel := ""
+	if slashIdx >= 0 {
+		walkRel = prefix[:slashIdx]
+	}
+	walkRoot := s.absPath(walkRel)
+	var out []string
+	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			if errors.Is(walkErr, os.ErrNotExist) {
+				return filepath.SkipAll
+			}
+			return walkErr
+		}
+		if d.IsDir() {
+			// Skip the per-store staging area; partial writes shouldn't
+			// appear in callers' listings.
+			if path == s.stagingDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		rel, err := filepath.Rel(s.root, path)
+		if err != nil {
+			return err
+		}
+		key := filepath.ToSlash(rel)
+		if !strings.HasPrefix(key, prefix) {
+			return nil
+		}
+		out = append(out, key)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("blob file list %s: %w", prefix, err)
+	}
+	return out, nil
+}
+
 func (s *FileStore) Delete(ctx context.Context, key string) error {
 	path := s.absPath(key)
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {

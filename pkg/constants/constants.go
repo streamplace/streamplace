@@ -24,6 +24,7 @@ var PLACE_STREAM_BADGE_ISSUANCE = "place.stream.badge.issuance"               //
 var PLACE_STREAM_VIDEO = "place.stream.video"                                 //nolint:all
 var PLACE_STREAM_MEDIA_TRACK = "place.stream.media.track"                     //nolint:all
 var PLACE_STREAM_MEDIA_ORIGIN = "place.stream.media.origin"                   //nolint:all
+var PLACE_STREAM_MEDIA_VIEW_COUNT = "place.stream.media.viewCount"            //nolint:all
 var PLACE_STREAM_BETA_INVITE = "place.stream.beta.invite"                     //nolint:all
 
 // Streamplace badge types

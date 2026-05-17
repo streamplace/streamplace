@@ -24,6 +24,7 @@ var TaskNotification = "notification"
 var TaskChat = "chat"
 var TaskFinalizeLivestream = "finalize_livestream"
 var TaskVODProcess = "vod_process"
+var TaskViewCountAggregate = "view_count_aggregate"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -52,6 +53,15 @@ type VODProcessTask struct {
 	Size     int64  `json:"size"`
 	Backend  string `json:"backend"`
 	Location string `json:"location"`
+}
+
+// ViewCountAggregateTask is the payload for one aggregation window.
+// Enqueued by every streamplace node at the configured interval; the
+// unique task key (built from WindowStart/End) ensures only one node's
+// enqueue + dequeue actually runs each window.
+type ViewCountAggregateTask struct {
+	WindowStart time.Time `json:"windowStart"`
+	WindowEnd   time.Time `json:"windowEnd"`
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -89,6 +99,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processFinalizeLivestreamTask(ctx, task)
 	case TaskVODProcess:
 		return state.processVODProcessTask(ctx, task)
+	case TaskViewCountAggregate:
+		return state.processViewCountAggregateTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
@@ -119,6 +131,33 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		return fmt.Errorf("vod processing: %w", err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
+	return state.CompleteTask(ctx, task.ID)
+}
+
+// ViewCountAggregator runs the view-log → place.stream.media.viewCount
+// aggregation for one window. Same function-pointer indirection trick
+// as VODProcessor: pkg/statedb stays ignorant of pkg/viewlog (which
+// pulls in blob storage + atproto publishing).
+type ViewCountAggregator func(ctx context.Context, t ViewCountAggregateTask) error
+
+func (state *StatefulDB) SetViewCountAggregator(f ViewCountAggregator) {
+	state.viewCountAggregator = f
+}
+
+func (state *StatefulDB) processViewCountAggregateTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processViewCountAggregateTask")
+	var t ViewCountAggregateTask
+	if err := json.Unmarshal(task.Payload, &t); err != nil {
+		return err
+	}
+	if state.viewCountAggregator == nil {
+		log.Warn(ctx, "no view-count aggregator configured; dropping task",
+			"windowStart", t.WindowStart, "windowEnd", t.WindowEnd)
+		return state.CompleteTask(ctx, task.ID)
+	}
+	if err := state.viewCountAggregator(ctx, t); err != nil {
+		return fmt.Errorf("view-count aggregation: %w", err)
+	}
 	return state.CompleteTask(ctx, task.ID)
 }
 

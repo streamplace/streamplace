@@ -26,6 +26,7 @@ export type HomeStackParamList = {
   Login: undefined;
   Multi: { config: string };
   Support: undefined;
+  Upload: undefined;
 };
 
 // Main tab navigator

@@ -30,6 +30,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
@@ -45,6 +46,7 @@ import (
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/upload"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
@@ -64,6 +66,8 @@ type StreamplaceAPI struct {
 	FirebaseNotifier notifications.FirebaseNotifier
 	MediaManager     *media.MediaManager
 	MediaSigner      media.MediaSigner
+	UploadManager    *upload.Manager
+	PlaybackStore    blob.Store
 	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
@@ -95,7 +99,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -107,6 +111,8 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		FirebaseNotifier: noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
+		UploadManager:    um,
+		PlaybackStore:    playbackStore,
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
@@ -155,7 +161,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.Aliases)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.PlaybackStore, a.Aliases)
 	if err != nil {
 		return nil, err
 	}
@@ -209,14 +215,26 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
 	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
 	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+	if a.UploadManager != nil {
+		// Don't wrap in middlewarestd.Handler (go-http-metrics): its
+		// responseWriterInterceptor doesn't implement Unwrap, which would
+		// hide net/http.ResponseController.SetReadDeadline from tusd and
+		// produce one NetworkTimeoutError warning per PATCH chunk.
+		apiRouter.Handler("HEAD", "/api/upload/:id", a.UploadManager)
+		apiRouter.Handler("PATCH", "/api/upload/:id", a.UploadManager)
+		apiRouter.Handler("DELETE", "/api/upload/:id", a.UploadManager)
+		apiRouter.Handler("OPTIONS", "/api/upload/:id", a.UploadManager)
+	}
 	apiRouter.NotFound = a.HandleAPI404(ctx)
 	apiRouterHandler := a.RateLimitMiddleware(ctx)(apiRouter)
 	xrpcHandler := a.RateLimitMiddleware(ctx)(xrpc)
 	router.Handler("GET", "/api/*resource", apiRouterHandler)
+	router.Handler("HEAD", "/api/*resource", apiRouterHandler)
 	router.Handler("POST", "/api/*resource", apiRouterHandler)
 	router.Handler("PUT", "/api/*resource", apiRouterHandler)
 	router.Handler("PATCH", "/api/*resource", apiRouterHandler)
 	router.Handler("DELETE", "/api/*resource", apiRouterHandler)
+	router.Handler("OPTIONS", "/api/*resource", apiRouterHandler)
 	router.Handler("GET", "/xrpc/*resource", xrpcHandler)
 	router.Handler("POST", "/xrpc/*resource", xrpcHandler)
 	router.Handler("PUT", "/xrpc/*resource", xrpcHandler)
@@ -278,7 +296,20 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	})
 	handler := sloghttp.Recovery(router)
 	handler = cors.AllowAll().Handler(handler)
-	handler = sloghttp.New(slog.Default())(handler)
+	// sloghttp.New wraps the ResponseWriter with a bodyWriter that doesn't
+	// implement Unwrap, which hides net/http.ResponseController.SetReadDeadline
+	// from tusd and floods the logs with one NetworkTimeoutError warning per
+	// PATCH chunk. Skip it for /api/upload/* so the response writer stays
+	// unwrapped on the upload path; tusd has its own per-request logging.
+	preLog := handler
+	logged := sloghttp.New(slog.Default())(handler)
+	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+			preLog.ServeHTTP(w, r)
+			return
+		}
+		logged.ServeHTTP(w, r)
+	})
 	handler = a.RateLimitMiddleware(ctx)(handler)
 	redirectMiddleware, err := a.RedirectMiddleware()
 	if err != nil {
@@ -844,7 +875,21 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 
 func (a *StreamplaceAPI) ServerWithShutdown(ctx context.Context, handler http.Handler, serve func(*http.Server) error) error {
 	ctx, cancel := context.WithCancel(ctx)
-	handler = gziphandler.GzipHandler(handler)
+	// gziphandler wraps the ResponseWriter without an Unwrap method, which
+	// hides net/http.ResponseController.SetReadDeadline from tusd and produces
+	// one NetworkTimeoutError warning per PATCH chunk (plus, more importantly,
+	// prevents tusd from extending the read deadline mid-upload so chunks
+	// taking longer than the default NetworkTimeout will fail). Skip gzip for
+	// /api/upload/*; compressing opaque upload bytes is pointless anyway.
+	raw := handler
+	gzipped := gziphandler.GzipHandler(handler)
+	handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, upload.BasePath) {
+			raw.ServeHTTP(w, r)
+			return
+		}
+		gzipped.ServeHTTP(w, r)
+	})
 	server := http.Server{Handler: handler}
 	var serveErr error
 	go func() {

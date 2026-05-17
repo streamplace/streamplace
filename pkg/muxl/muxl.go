@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,13 +31,93 @@ var muxlTracer = otel.Tracer("muxl")
 
 var moduleCounter atomic.Uint64
 
-// MuxlEvent represents an event from the muxl segmenter.
+// MuxlEvent represents one event from the muxl segmenter/concatenator
+// stdout stream. The wire format is `crate::cbor::CborEvent` on the muxl
+// Rust side — a `type`-tagged union with "init" and "segment" variants.
+// muxl-sign's `sign-segment` subcommand emits the same shape with a
+// "signed-segment" type tag (the per-track bytes carry a leading
+// c2pa-uuid box); we decode it into this same struct.
+// Fields not relevant to a given Type are left zero.
 type MuxlEvent struct {
-	Type   string // "INIT" or "SEGM"
-	Number uint32 // segment number (only for SEGM)
-	Tracks map[string][]byte
-	Data   []byte
+	Type   string `cbor:"type"`
+	Number uint32 `cbor:"number,omitempty"`
+
+	// --- Init event ---
+	// Data is the full ftyp+moov for ALL tracks combined — same bytes
+	// the live ingest path writes straight to its output.
+	Data []byte `cbor:"data,omitempty"`
+	// Catalog describes per-track codec/dimensions/timescale/etc.
+	Catalog *MuxlCatalog `cbor:"catalog,omitempty"`
+	// TrackInits is per-track standalone ftyp+moov bytes (one per track)
+	// keyed by stringified track ID. Used to construct HLS per-track
+	// init segments addressable by their own BDASL CID.
+	TrackInits map[string][]byte `cbor:"track_inits,omitempty"`
+
+	// --- Segment event ---
+	// Tracks is per-track moof+mdat bytes keyed by stringified track ID.
+	Tracks map[string][]byte `cbor:"tracks,omitempty"`
+	// Durations is per-track segment duration in timescale ticks.
+	Durations map[string]uint64 `cbor:"durations,omitempty"`
+	// SampleCounts is per-track sample (frame) count for this segment.
+	SampleCounts map[string]uint32 `cbor:"sample_counts,omitempty"`
+	// BodySize is the total bytes this segment contributes to the
+	// concatenated output (sum of len(Tracks[*])).
+	BodySize uint64 `cbor:"body_size,omitempty"`
+	// DurationUs is the segment's playable wall duration in microseconds.
+	DurationUs uint64 `cbor:"duration_us,omitempty"`
 }
+
+// MuxlCatalog mirrors `crate::catalog::Catalog` from muxl (the Rust
+// authoritative type). We mirror only the fields the metafile pipeline
+// needs; unknown fields are ignored on decode.
+type MuxlCatalog struct {
+	Video *MuxlCatalogVideo `cbor:"video,omitempty"`
+	Audio *MuxlCatalogAudio `cbor:"audio,omitempty"`
+}
+
+type MuxlCatalogVideo struct {
+	Renditions map[string]MuxlVideoConfig `cbor:"renditions"`
+}
+
+type MuxlCatalogAudio struct {
+	Renditions map[string]MuxlAudioConfig `cbor:"renditions"`
+}
+
+type MuxlVideoConfig struct {
+	Codec       string        `cbor:"codec"`
+	Container   MuxlContainer `cbor:"container"`
+	CodedWidth  uint32        `cbor:"codedWidth"`
+	CodedHeight uint32        `cbor:"codedHeight"`
+}
+
+type MuxlAudioConfig struct {
+	Codec            string        `cbor:"codec"`
+	Container        MuxlContainer `cbor:"container"`
+	SampleRate       uint32        `cbor:"sampleRate"`
+	NumberOfChannels uint32        `cbor:"numberOfChannels"`
+}
+
+// MuxlContainer is the tagged-union container descriptor. Kind is
+// either "cmaf" (the streamplace default) or "legacy". For "cmaf"
+// the timescale/trackId fields are populated; for "legacy" they are
+// zero.
+type MuxlContainer struct {
+	Kind      string `cbor:"kind"`
+	Timescale uint32 `cbor:"timescale,omitempty"`
+	TrackID   uint32 `cbor:"trackId,omitempty"`
+}
+
+// TrackID returns the configured CMAF track ID, or 0 for legacy.
+func (c MuxlVideoConfig) TrackID() uint32 { return c.Container.TrackID }
+
+// TrackID returns the configured CMAF track ID, or 0 for legacy.
+func (c MuxlAudioConfig) TrackID() uint32 { return c.Container.TrackID }
+
+// Timescale returns the media timescale (ticks per second), or 0 for legacy.
+func (c MuxlVideoConfig) Timescale() uint32 { return c.Container.Timescale }
+
+// Timescale returns the media timescale (ticks per second), or 0 for legacy.
+func (c MuxlAudioConfig) Timescale() uint32 { return c.Container.Timescale }
 
 // muxl.wasm is built from rust/muxl-wasm via `make muxl-wasm`. It bundles
 // the full muxl-sign CLI — both unsigned subcommands (segment, concat,
@@ -303,17 +384,86 @@ func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, 
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, initCh, segCh, nil)
+}
+
+// RunMuxlMp4 canonicalizes an MP4 (flat or fragmented) into a flat
+// faststart MP4 (ftyp+moov+mdat) via muxl's `mp4` subcommand. Fragmented
+// input — a per-track init segment plus moof+mdat fragments — is
+// flattened into a single moov with full sample tables; unknown
+// top-level boxes (e.g. the c2pa-uuid prefix on signed segments) are
+// skipped.
+//
+// Runs against wazero's fake clock: this is pure structural rewriting
+// with no signing, so the output is deterministic.
+func RunMuxlMp4(ctx context.Context, input io.Reader, output io.Writer) error {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "mp4", "-", "-"}, nil, false, input, output, nil, nil, nil, nil)
 }
 
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
 // If the init segment changes, you'll get a new init segment in the output.
 func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte) error {
+	return RunMuxlConcatenatorEvents(ctx, input, initCh, segCh, nil)
+}
+
+// RunMuxlConcatenatorEvents is the rich-event variant of
+// RunMuxlConcatenator: in addition to routing bytes to initCh/segCh,
+// each decoded *MuxlEvent is also sent on eventCh (if non-nil) so the
+// caller can inspect per-segment metadata (durations, sample counts,
+// per-track init segments) for sidecar metafile generation.
+func RunMuxlConcatenatorEvents(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
 	mod, err := getModule(ctx)
 	if err != nil {
 		return err
 	}
-	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, nil, initCh, segCh)
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "concat"}, nil, false, input, nil, nil, initCh, segCh, eventCh)
+}
+
+// RunMuxlSignSegment streams an fMP4 input through muxl-sign's
+// `sign-segment` subcommand: the muxl segmenter splits the input
+// per-GoP and C2PA-signs each canonical segment in place, so the bytes
+// routed to segCh are [c2pa-uuid][muxl-uuid][moof][mdat] per track. The
+// init/segment/event channels behave exactly like
+// RunMuxlConcatenatorEvents — the wire stream is the same DRISL event
+// format, just with a "signed-segment" type tag in place of "segment".
+//
+// Signing needs the real wall clock (c2pa-rs checks cert validity at
+// sign time and draws COSE nonces from real randomness), so unlike the
+// plain segmenter this runs with realClock=true and its output is not
+// byte-stable across runs. Only PEM-key signing is supported here;
+// in.Sign and in.Segment are ignored — the segment bytes come from the
+// input reader.
+func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
+	if len(in.KeyPEM) == 0 {
+		return fmt.Errorf("muxl: RunMuxlSignSegment requires SignerInput.KeyPEM")
+	}
+	if in.Alg == "" {
+		in.Alg = "es256k"
+	}
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	keysFS := fstest.MapFS{
+		"cert.pem":     {Data: in.CertPEM},
+		"key.pem":      {Data: in.KeyPEM},
+		"track.json":   {Data: in.TrackManifest},
+		"wrapper.json": {Data: in.WrapperManifest},
+	}
+	args := []string{
+		"muxl-wasm", "sign-segment",
+		"--cert", "/keys/cert.pem",
+		"--key", "/keys/key.pem",
+		"--alg", in.Alg,
+		"--track-manifest", "/keys/track.json",
+		"--wrapper-manifest", "/keys/wrapper.json",
+	}
+	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
+	return runMuxlWith(ctx, mod, args, fsCfg, true, input, nil, nil, initCh, segCh, eventCh)
 }
 
 // SignerInput is the per-call input bundle for RunMuxlSigner. Exactly one
@@ -406,7 +556,7 @@ func RunMuxlSigner(ctx context.Context, in SignerInput) ([]byte, error) {
 	}
 	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
 	var output bytes.Buffer
-	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, in.Sign, nil, nil); err != nil {
+	if err := runMuxlWith(ctx, mod, args, fsCfg, true, bytes.NewReader(in.Segment), &output, in.Sign, nil, nil, nil); err != nil {
 		return nil, err
 	}
 	span.SetAttributes(attribute.Int("output_bytes", output.Len()))
@@ -428,17 +578,29 @@ type Concatenator struct {
 	stdinWriter *io.PipeWriter
 	InitCh      chan []byte
 	SegCh       chan []byte
-	done        chan error
+	// EventCh emits the full *MuxlEvent for every wasm event in
+	// addition to the byte-level dispatch on InitCh/SegCh. Use this
+	// when you need per-segment metadata (durations, sample counts,
+	// per-track init segments) — for instance, building the HLS
+	// metafile sidecar. Closed alongside InitCh/SegCh on shutdown.
+	EventCh chan *MuxlEvent
+	done    chan error
 }
 
 // NewConcatenator starts the WASM concat process in the background.
-// Write full fMP4 archives via Write(), receive processed output on InitCh and SegCh.
+// Write full fMP4 archives via Write(), receive processed output on
+// InitCh, SegCh, and EventCh.
+//
 // InitCh receives a new init segment only when the track configuration changes.
 // SegCh receives raw segment data (moof+mdat) that can be concatenated after an init.
-// Both channels are closed when the concatenator finishes (after Close + WASM exit).
+// EventCh receives the full *MuxlEvent — same data plus per-segment metadata
+// (durations, sample counts, per-track init segments) needed by the HLS
+// metafile builder. All three channels are closed when the concatenator
+// finishes (after Close + WASM exit).
 func NewConcatenator(ctx context.Context) *Concatenator {
 	initCh := make(chan []byte, 1)
 	segCh := make(chan []byte, 16)
+	eventCh := make(chan *MuxlEvent, 16)
 	stdinReader, stdinWriter := io.Pipe()
 	done := make(chan error, 1)
 
@@ -446,13 +608,48 @@ func NewConcatenator(ctx context.Context) *Concatenator {
 		stdinWriter: stdinWriter,
 		InitCh:      initCh,
 		SegCh:       segCh,
+		EventCh:     eventCh,
 		done:        done,
 	}
 
 	go func() {
-		err := RunMuxlConcatenator(ctx, stdinReader, initCh, segCh)
+		err := RunMuxlConcatenatorEvents(ctx, stdinReader, initCh, segCh, eventCh)
 		close(initCh)
 		close(segCh)
+		close(eventCh)
+		done <- err
+	}()
+
+	return c
+}
+
+// NewSigningSegmenter is the signing counterpart to NewConcatenator: it
+// drives muxl-sign's `sign-segment` subcommand instead of `concat`, so
+// the bytes emitted on SegCh are C2PA-signed canonical segments
+// ([c2pa-uuid][muxl-uuid][moof][mdat] per track). The Concatenator
+// plumbing (Write/Close + the three channels) is identical; only the
+// underlying wasm subcommand differs. Feed full fMP4 archives via
+// Write(); receive signed output on InitCh, SegCh, and EventCh.
+func NewSigningSegmenter(ctx context.Context, in SignerInput) *Concatenator {
+	initCh := make(chan []byte, 1)
+	segCh := make(chan []byte, 16)
+	eventCh := make(chan *MuxlEvent, 16)
+	stdinReader, stdinWriter := io.Pipe()
+	done := make(chan error, 1)
+
+	c := &Concatenator{
+		stdinWriter: stdinWriter,
+		InitCh:      initCh,
+		SegCh:       segCh,
+		EventCh:     eventCh,
+		done:        done,
+	}
+
+	go func() {
+		err := RunMuxlSignSegment(ctx, stdinReader, in, initCh, segCh, eventCh)
+		close(initCh)
+		close(segCh)
+		close(eventCh)
 		done <- err
 	}()
 
@@ -519,7 +716,7 @@ var stderrWriter func(ctx context.Context, instanceID uint64) io.Writer = func(c
 // wall clock and real randomness — c2pa-rs needs both for cert validity
 // checks and COSE sign nonces. The segmenter intentionally runs against
 // wazero's fake clock so its output stays byte-stable across runs.
-func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, signFn func([]byte) ([]byte, error), initCh chan []byte, segCh chan []byte) error {
+func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, fsCfg wazero.FSConfig, realClock bool, input io.Reader, stdout io.Writer, signFn func([]byte) ([]byte, error), initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
 	instanceID := moduleCounter.Add(1)
 	instanceName := fmt.Sprintf("muxl-%d", instanceID)
 
@@ -564,7 +761,7 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 
 	var stdoutReader *io.PipeReader
 	var stdoutWriter *io.PipeWriter
-	parseEvents := initCh != nil && segCh != nil
+	parseEvents := initCh != nil || segCh != nil || eventCh != nil
 	if parseEvents {
 		stdoutReader, stdoutWriter = io.Pipe()
 		cfg = cfg.WithStdout(stdoutWriter)
@@ -633,7 +830,7 @@ func runMuxlWith(ctx context.Context, mod wazero.CompiledModule, args []string, 
 
 	if parseEvents {
 		_, parseSpan := muxlTracer.Start(ctx, "muxl.wasm.parseEvents")
-		err := ParseMuxlEvents(ctx, stdoutReader, initCh, segCh)
+		err := ParseMuxlEvents(ctx, stdoutReader, initCh, segCh, eventCh)
 		parseSpan.End()
 		if err != nil {
 			return fmt.Errorf("parsing events: %w", err)
@@ -680,7 +877,18 @@ func SignerToCallback(signer cryptoSigner, byteLen int) func([]byte) ([]byte, er
 	}
 }
 
-func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh chan []byte) error {
+// ParseMuxlEvents decodes the muxl wasm's DRISL event stream and
+// dispatches each event. Bytes are routed to initCh/segCh (legacy API,
+// used by live ingest). If eventCh is non-nil it ALSO receives the
+// full *MuxlEvent — used by callers that need the per-segment metadata
+// (durations, sample counts, per-track init segments) to build a
+// metafile sidecar. Any/all of the three channels may be nil.
+//
+// Per-segment per-track bytes are concatenated for segCh in sorted
+// track-ID order (lex on the stringified ID) so the byte layout of the
+// concatenated output is deterministic. Same ordering is what the
+// metafile builder uses to compute per-track byte offsets.
+func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
 	decoder := drisl.NewDecoder(r)
 
 	for {
@@ -689,20 +897,44 @@ func ParseMuxlEvents(ctx context.Context, r io.Reader, initCh chan []byte, segCh
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if ev.Type == "init" {
-			initCh <- ev.Data
-		} else if ev.Type == "segment" {
-			combined := []byte{}
-			for _, data := range ev.Tracks {
-				combined = append(combined, data...)
+		if err != nil {
+			return fmt.Errorf("decode muxl event: %w", err)
+		}
+		switch ev.Type {
+		case "init":
+			if initCh != nil {
+				select {
+				case <-ctx.Done():
+					return nil
+				case initCh <- ev.Data:
+				}
 			}
+		case "segment", "signed-segment":
+			if segCh != nil {
+				keys := make([]string, 0, len(ev.Tracks))
+				for k := range ev.Tracks {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+				combined := []byte{}
+				for _, k := range keys {
+					combined = append(combined, ev.Tracks[k]...)
+				}
+				select {
+				case <-ctx.Done():
+					return nil
+				case segCh <- combined:
+				}
+			}
+		default:
+			return fmt.Errorf("unknown event type: %s", ev.Type)
+		}
+		if eventCh != nil {
 			select {
 			case <-ctx.Done():
 				return nil
-			case segCh <- combined:
+			case eventCh <- &ev:
 			}
-		} else {
-			return fmt.Errorf("unknown event type: %s", ev.Type)
 		}
 	}
 

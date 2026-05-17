@@ -38,6 +38,10 @@ type StatefulDB struct {
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
 	OATProxy     *oatproxy.OATProxy
+	// vodProcessor runs the gstreamer + muxl + S3 pipeline for a VOD
+	// upload task. Installed via SetVODProcessor at bootstrap so
+	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.
+	vodProcessor VODProcessor
 }
 
 // list tables here so we can migrate them
@@ -55,6 +59,8 @@ var StatefulDBModels = []any{
 	ModerationAuditLog{},
 	Storage{},
 	BroadcastOrigin{},
+	S3Segment{},
+	Upload{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

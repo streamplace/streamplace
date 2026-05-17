@@ -25,6 +25,7 @@ import (
 	urfavecli "github.com/urfave/cli/v3"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
@@ -41,6 +42,12 @@ import (
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
+	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/vod"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	_ "github.com/go-gst/go-glib/glib"
 	_ "github.com/go-gst/go-gst/gst"
@@ -343,7 +350,37 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb)
+	um, err := upload.New(ctx, cli, state)
+	if err != nil {
+		return err
+	}
+	vodStore, err := makeVODStore(ctx, cli)
+	if err != nil {
+		return fmt.Errorf("make vod store: %w", err)
+	}
+	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
+		// Labeler enforcement: an account banned after starting an
+		// upload (but before processing) doesn't get a video published.
+		// The playback gates would hide it regardless, but skipping here
+		// avoids the wasted transcode and a dead record.
+		labels, err := mod.GetActiveLabels(t.RepoDID)
+		if err != nil {
+			return "", fmt.Errorf("vod-process: check account labels: %w", err)
+		}
+		if atproto.IsBanned(labels...) {
+			return "", fmt.Errorf("vod-process: account %s is banned; skipping upload %s", t.RepoDID, t.UploadID)
+		}
+		return vod.ProcessVOD(ctx, cli, state, vodStore, vod.Input{
+			UploadID: t.UploadID,
+			RepoDID:  t.RepoDID,
+			MimeType: t.MimeType,
+			Filename: t.Filename,
+			Size:     t.Size,
+			Backend:  t.Backend,
+			Location: t.Location,
+		})
+	})
+	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore)
 	if err != nil {
 		return err
 	}
@@ -396,6 +433,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		group.Go(func() error {
 			return atsync.StartFirehose(ctx)
 		})
+	}
+
+	// Make sure the beta-invite issuer's repo is registered so the
+	// firehose path indexes its place.stream.beta.invite records. The
+	// first call also backfills any invites that were published before
+	// we came online; subsequent runs are cached and no-op.
+	if cli.BetaInviteDID != "" {
+		go func() {
+			if _, err := atsync.SyncBlueskyRepoCached(ctx, cli.BetaInviteDID); err != nil {
+				log.Error(ctx, "failed to sync beta-invite issuer repo; gating will rely on the firehose alone",
+					"did", cli.BetaInviteDID, "err", err)
+			}
+		}()
 	}
 	for _, labeler := range cli.Labelers {
 		group.Go(func() error {
@@ -537,6 +587,42 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	return group.Wait()
+}
+
+// makeVODStore picks the blob.Store backing VOD output for this
+// process. S3 if it's configured (production / multi-node); otherwise
+// the local DataDir. Either way the same Store is used to read the
+// user upload AND write the content-addressed VOD output — uploads
+// land under "uploads/" and content blobs land under "blobs/<cid>.mp4"
+// / "blobs/<cid>.json" (content-agnostic, since the blob doesn't know
+// what kind of video it's for).
+//
+// FileStore is rooted at DataDir so it can see the upload manager's
+// "uploads/<id>" tree alongside the content-addressed "blobs/" tree;
+// S3Store is rooted at the configured bucket for the same reason.
+//
+// Mirrors upload.New's multi-node-requires-S3 invariant: in single-node
+// file mode the upload and the produced VOD share local disk; in
+// multi-node S3 mode any station can pick up a queued VOD task and
+// land output in shared storage.
+func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
+	if cli.S3Configured() {
+		s3client := awss3.New(awss3.Options{
+			Region: cli.S3Region,
+			Credentials: credentials.NewStaticCredentialsProvider(
+				cli.S3AccessKeyID,
+				cli.S3SecretAccessKey,
+				"",
+			),
+			BaseEndpoint: aws.String(cli.S3Endpoint),
+			UsePathStyle: true,
+		})
+		log.Log(ctx, "VOD store: S3", "bucket", cli.S3Bucket)
+		return blob.NewS3Store(s3client, cli.S3Bucket), nil
+	}
+	root := cli.DataFilePath(nil)
+	log.Log(ctx, "VOD store: file", "root", root)
+	return blob.NewFileStore(root)
 }
 
 var ErrCaughtSignal = errors.New("caught signal")

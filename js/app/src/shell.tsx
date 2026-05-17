@@ -65,6 +65,7 @@ import PopoutLivestream from "src/screens/popout-livestream";
 import PopoutMultistream from "src/screens/popout-multistream";
 import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
 import SupportScreen from "src/screens/support";
+import UploadScreen from "src/screens/upload";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -185,6 +186,13 @@ function HomeNavigator() {
         component={SupportScreen}
         options={{ title: "Support", ...headerScreenOptions }}
       />
+      {!isNative && (
+        <HomeStack.Screen
+          name="Upload"
+          component={UploadScreen}
+          options={{ title: "Upload Video", ...headerScreenOptions }}
+        />
+      )}
     </HomeStack.Navigator>
   );
 }

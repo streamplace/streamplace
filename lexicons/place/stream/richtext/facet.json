@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "object",
-      "description": "Annotation of a sub-string within rich text.",
+      "description": "Annotation of a sub-string within rich text in a livestream chat message.",
       "required": ["index", "features"],
       "properties": {
         "index": { "type": "ref", "ref": "app.bsky.richtext.facet#byteSlice" },

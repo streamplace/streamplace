@@ -43,11 +43,11 @@ Media file representing a segment of a livestream
 
 **Properties:**
 
-| Name       | Type      | Req'd | Description | Constraints  |
-| ---------- | --------- | ----- | ----------- | ------------ |
-| `codec`    | `string`  | ✅    |             | Enum: `opus` |
-| `rate`     | `integer` | ✅    |             |              |
-| `channels` | `integer` | ✅    |             |              |
+| Name       | Type      | Req'd | Description | Constraints         |
+| ---------- | --------- | ----- | ----------- | ------------------- |
+| `codec`    | `string`  | ✅    |             | Enum: `opus`, `aac` |
+| `rate`     | `integer` | ✅    |             |                     |
+| `channels` | `integer` | ✅    |             |                     |
 
 ---
 
@@ -174,7 +174,7 @@ Media file representing a segment of a livestream
       "properties": {
         "codec": {
           "type": "string",
-          "enum": ["opus"]
+          "enum": ["opus", "aac"]
         },
         "rate": {
           "type": "integer"

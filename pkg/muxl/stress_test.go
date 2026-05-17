@@ -271,7 +271,7 @@ func TestSha256Bench(t *testing.T) {
 			"--iterations", strconv.Itoa(iters),
 			"--mode", mode,
 		}
-		err := runMuxlWith(ctx, mod, args, nil, true, nil, &stdout, nil, nil, nil)
+		err := runMuxlWith(ctx, mod, args, nil, true, nil, &stdout, nil, nil, nil, nil)
 		require.NoError(t, err)
 		return strings.TrimSpace(stdout.String())
 	}

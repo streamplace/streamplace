@@ -21,6 +21,10 @@ var PLACE_STREAM_LIVE_RECOMMENDATIONS = "place.stream.live.recommendations"   //
 var PLACE_STREAM_LIVE_VIEWERCOUNT = "place.stream.live.viewerCount"           //nolint:all                      //nolint:all
 var PLACE_STREAM_BADGE_DEF = "place.stream.badge.def"                         //nolint:all
 var PLACE_STREAM_BADGE_ISSUANCE = "place.stream.badge.issuance"               //nolint:all
+var PLACE_STREAM_VIDEO = "place.stream.video"                                 //nolint:all
+var PLACE_STREAM_MEDIA_TRACK = "place.stream.media.track"                     //nolint:all
+var PLACE_STREAM_MEDIA_ORIGIN = "place.stream.media.origin"                   //nolint:all
+var PLACE_STREAM_BETA_INVITE = "place.stream.beta.invite"                     //nolint:all
 
 // Streamplace badge types
 const (

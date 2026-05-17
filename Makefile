@@ -388,6 +388,19 @@ go-lexicons:
 	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
 	&& $(MAKE) lexgen-types \
 	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
+	&& echo 'package streamplace' > pkg/streamplace/cbor_gen.go \
+    && echo 'import "io"' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *Video_Connection) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *Video_Connection) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+    && echo 'func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
+	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
 	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
 	&& go run ./pkg/gen/gen_stubs.go \
 	&& go run ./pkg/gen/gen.go \

@@ -21,6 +21,7 @@ func main() {
 		streamplace.Segment_Framerate{},
 		streamplace.ChatMessage{},
 		streamplace.RichtextFacet{},
+		streamplace.RichtextVideoFacet{},
 		streamplace.ChatProfile{},
 		streamplace.ChatProfile_BadgeSelections{},
 		streamplace.ChatProfile_StreamerBadgeSelection{},
@@ -44,6 +45,15 @@ func main() {
 		streamplace.BadgeIssuance{},
 		streamplace.Defs_ActivityGame{},
 		streamplace.Defs_ActivityLabel{},
+		streamplace.Video{},
+		streamplace.MediaTrack{},
+		streamplace.MediaOrigin{},
+		streamplace.MediaDefs_MuxlTrack{},
+		streamplace.MediaDefs_SourceTracks{},
+		streamplace.MediaDefs_SourceClip{},
+		streamplace.MediaTrack_CommonMetadata{},
+		streamplace.Video_Connection{},
+		streamplace.BetaInvite{},
 	); err != nil {
 		panic(err)
 	}

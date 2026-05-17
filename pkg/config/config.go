@@ -155,6 +155,7 @@ type CLI struct {
 	S3AccessKeyID               string
 	S3SecretAccessKey           string
 	S3Region                    string
+	VODCDNURL                   string
 	DisableSyndication          bool
 	LegacySegmentation          bool
 	MuxlInitialMemoryMB         int
@@ -162,6 +163,7 @@ type CLI struct {
 	GamesAPIURL                 string
 	GamesAPIClientKey           string
 	GamesAPIClientSecret        string
+	BetaInviteDID               string
 }
 
 // ContentFilters represents the content filtering configuration
@@ -922,6 +924,18 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "us-east-1",
 				Destination: &cli.S3Region,
 				Sources:     urfavecli.EnvVars("SP_S3_REGION"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "vod-cdn-url",
+				Usage:       "Static CDN URL fronting the VOD blob store. When set, HLS playlists emit segment + init-segment URLs of the form <vod-cdn-url>/<cid>.mp4?did=...&sid=... instead of the self-hosted getVideoBlob endpoint. Omit for self-contained deployments.",
+				Destination: &cli.VODCDNURL,
+				Sources:     urfavecli.EnvVars("SP_VOD_CDN_URL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "beta-invite-did",
+				Usage:       "DID of the atproto account whose place.stream.beta.invite records this node trusts. When set, uploading VODs requires an invite from that account; when empty, falls back to the --allowed-streams allowlist used by livestreaming.",
+				Destination: &cli.BetaInviteDID,
+				Sources:     urfavecli.EnvVars("SP_BETA_INVITE_DID"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "legacy-segmentation",

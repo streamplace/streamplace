@@ -16,6 +16,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
@@ -23,6 +24,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/upload"
 )
 
 type Server struct {
@@ -38,10 +40,15 @@ type Server struct {
 	op              *oatproxy.OATProxy
 	localDB         localdb.LocalDB
 	mm              *media.MediaManager
-	aliases         map[string]string
+	uploadManager   *upload.Manager
+	// playbackStore is where VOD blobs + metafiles + per-track init
+	// segments live. Matches the blob.Store the VOD processor writes
+	// into (vod.BlobsPrefix + <cid>.{mp4,json}).
+	playbackStore blob.Store
+	aliases       map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, aliases map[string]string) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:               e,
@@ -56,6 +63,8 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		op:              op,
 		localDB:         ldb,
 		mm:              mm,
+		uploadManager:   um,
+		playbackStore:   playbackStore,
 		aliases:         aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())
@@ -80,6 +89,14 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
+	// Override the auto-generated playback stubs: the wrapper in
+	// stubs.go hard-codes status 200 + content-type, but we need
+	// 206 Partial Content for HTTP Range on getVideoBlob and the
+	// `application/vnd.apple.mpegurl` MIME for getVideoPlaylist.
+	// Registering AFTER RegisterHandlersPlaceStream wins because
+	// echo's last-write-wins for exact-match routes.
+	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandleGetVideoBlob)
+	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandleGetVideoPlaylist)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil

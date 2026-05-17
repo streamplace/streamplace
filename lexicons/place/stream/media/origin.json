@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.media.origin",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["blob", "size", "mimeType"],
+        "properties": {
+          "blob": {
+            "type": "string",
+            "description": "BLAKE-3 content hash (BDASL CID) of the blob."
+          },
+          "size": {
+            "type": "integer",
+            "description": "Size of the blob in bytes."
+          },
+          "mimeType": {
+            "type": "string",
+            "description": "MIME type of the blob (e.g. video/mp4)."
+          }
+        }
+      }
+    }
+  }
+}

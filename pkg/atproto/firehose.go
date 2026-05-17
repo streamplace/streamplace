@@ -370,6 +370,34 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_VIDEO {
+				log.Debug(ctx, "deleting video", "uri", uri)
+				if err := atsync.Model.DeleteVideo(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete video", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_MEDIA_TRACK {
+				log.Debug(ctx, "deleting media track", "uri", uri)
+				if err := atsync.Model.DeleteMediaTrack(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete media track", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_MEDIA_ORIGIN {
+				log.Debug(ctx, "deleting media origin", "uri", uri)
+				if err := atsync.Model.DeleteMediaOrigin(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete media origin", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_BETA_INVITE {
+				log.Debug(ctx, "deleting beta invite", "uri", uri)
+				if err := atsync.Model.DeleteBetaInvite(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete beta invite", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

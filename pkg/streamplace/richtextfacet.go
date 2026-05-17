@@ -17,7 +17,7 @@ import (
 
 // RichtextFacet is a "main" in the place.stream.richtext.facet schema.
 //
-// Annotation of a sub-string within rich text.
+// Annotation of a sub-string within rich text in a livestream chat message.
 type RichtextFacet struct {
 	Features []*RichtextFacet_Features_Elem   `json:"features" cborgen:"features"`
 	Index    *appbsky.RichtextFacet_ByteSlice `json:"index" cborgen:"index"`

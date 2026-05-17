@@ -23,6 +23,7 @@ import (
 var TaskNotification = "notification"
 var TaskChat = "chat"
 var TaskFinalizeLivestream = "finalize_livestream"
+var TaskVODProcess = "vod_process"
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -37,6 +38,20 @@ type ChatTask struct {
 
 type FinalizeLivestreamTask struct {
 	LivestreamURI string `json:"livestreamURI"`
+}
+
+// VODProcessTask is enqueued by the upload manager when a resumable user
+// upload completes. The processor probes the file, generates MUXL tracks,
+// and creates the place.stream.video record set. The actual processing is
+// not yet implemented — for now this just acknowledges receipt.
+type VODProcessTask struct {
+	UploadID string `json:"uploadId"`
+	RepoDID  string `json:"repoDID"`
+	MimeType string `json:"mimeType"`
+	Filename string `json:"filename,omitempty"`
+	Size     int64  `json:"size"`
+	Backend  string `json:"backend"`
+	Location string `json:"location"`
 }
 
 func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
@@ -72,9 +87,39 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processChatMessageTask(ctx, task)
 	case TaskFinalizeLivestream:
 		return state.processFinalizeLivestreamTask(ctx, task)
+	case TaskVODProcess:
+		return state.processVODProcessTask(ctx, task)
 	default:
 		return fmt.Errorf("unknown task type: %s", task.Type)
 	}
+}
+
+// VODProcessor runs the gstreamer + muxl + S3 pipeline for one upload
+// and returns the resulting BDASL CID. The function-pointer indirection
+// keeps pkg/statedb from importing pkg/vod (which transitively pulls in
+// gstreamer); the bootstrap (pkg/cmd) installs the concrete
+// implementation at startup.
+type VODProcessor func(ctx context.Context, t VODProcessTask) (cid string, err error)
+
+func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = f }
+
+func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
+	var t VODProcessTask
+	if err := json.Unmarshal(task.Payload, &t); err != nil {
+		return err
+	}
+	if state.vodProcessor == nil {
+		log.Warn(ctx, "no VOD processor configured; dropping task",
+			"uploadId", t.UploadID, "did", t.RepoDID)
+		return state.CompleteTask(ctx, task.ID)
+	}
+	cid, err := state.vodProcessor(ctx, t)
+	if err != nil {
+		return fmt.Errorf("vod processing: %w", err)
+	}
+	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
+	return state.CompleteTask(ctx, task.ID)
 }
 
 func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task *AppTask) error {

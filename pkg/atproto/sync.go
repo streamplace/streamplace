@@ -728,6 +728,48 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
 
+	case *streamplace.Video:
+		// Index the video record so playback can resolve it by URI
+		// without needing to round-trip back to the user's PDS.
+		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert video: %w", err)
+		}
+		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
+
+	case *streamplace.MediaTrack:
+		// Tracks not backed by a muxlTrack (we don't define any other
+		// shape yet) are skipped with a warning — there'd be no blob
+		// to key the row off of.
+		if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
+			return nil
+		}
+		if err := atsync.Model.UpsertMediaTrack(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert media track: %w", err)
+		}
+		mt := rec.Track.MediaDefs_MuxlTrack
+		log.Debug(ctx, "indexed media track", "uri", aturi.String(), "blob", mt.Blob, "mediaType", mt.MediaType)
+
+	case *streamplace.MediaOrigin:
+		// Origin records are published by streamplace nodes (not users)
+		// against their own server-repo DID. The aturi's authority is
+		// the publishing server.
+		if err := atsync.Model.UpsertMediaOrigin(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert media origin: %w", err)
+		}
+		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
+
+	case *streamplace.BetaInvite:
+		// Invite records grant a specific account access to a named
+		// beta feature. We index all of them as they fly past; gate
+		// callers filter by RepoDID to a single operator-configured
+		// issuer (the `--beta-invite-did` flag), so anyone else
+		// minting these records is harmless noise.
+		if err := atsync.Model.UpsertBetaInvite(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert beta invite: %w", err)
+		}
+		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

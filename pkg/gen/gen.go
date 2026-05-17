@@ -53,6 +53,7 @@ func main() {
 		streamplace.MediaDefs_SourceClip{},
 		streamplace.MediaTrack_CommonMetadata{},
 		streamplace.MediaViewCount{},
+		streamplace.MediaViewCount_TrackUsage{},
 		streamplace.Video_Connection{},
 		streamplace.BetaInvite{},
 	); err != nil {

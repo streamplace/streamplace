@@ -22,10 +22,24 @@ type MediaViewCount struct {
 	Methodology string `json:"methodology" cborgen:"methodology"`
 	// thresholdSegments: Floor on segment_request count per (sid, video) for the "any-segment" methodology. Defaults to 1.
 	ThresholdSegments *int64 `json:"thresholdSegments,omitempty" cborgen:"thresholdSegments,omitempty"`
+	// tracks: Per-track totals of bytes + playback duration actually transferred over the window. Computed by intersecting each segment_request's HTTP Range with the metafile's per-track byte layout, so the numbers are objective regardless of the chosen view-counting methodology.
+	Tracks []*MediaViewCount_TrackUsage `json:"tracks,omitempty" cborgen:"tracks,omitempty"`
 	// video: AT-URI of the place.stream.video this count is for.
 	Video string `json:"video" cborgen:"video"`
 	// windowEnd: Exclusive upper bound of the aggregation window.
 	WindowEnd string `json:"windowEnd" cborgen:"windowEnd"`
 	// windowStart: Inclusive lower bound of the aggregation window.
 	WindowStart string `json:"windowStart" cborgen:"windowStart"`
+}
+
+// MediaViewCount_TrackUsage is a "trackUsage" in the place.stream.media.viewCount schema.
+//
+// One row of the tracks array: bytes + duration transferred for a single muxlTrack inside the video's MUXL container over the window. trackId matches the muxlTrack record's `trackId` field.
+type MediaViewCount_TrackUsage struct {
+	// bytes: Total bytes served from this track's byte ranges over the window. Sum across attributed segment_requests' Range intersections with the track's segment offsets.
+	Bytes int64 `json:"bytes" cborgen:"bytes"`
+	// durationMs: Total playback duration served from this track, in milliseconds. Per HLS segment in the range: (overlap bytes / segment bytes) * segment duration, so partial-segment fetches credit a proportional share of duration.
+	DurationMs int64 `json:"durationMs" cborgen:"durationMs"`
+	// trackId: Stringified u32 matching the MUXL container's per-track id.
+	TrackId string `json:"trackId" cborgen:"trackId"`
 }

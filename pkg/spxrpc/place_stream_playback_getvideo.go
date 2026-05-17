@@ -148,12 +148,18 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 }
 
 // parseRangeForLog is the lenient counterpart of parseSingleRange used
-// only for the view-log: returns zero values when the header is absent
-// or malformed (logging shouldn't 416 the request the way serving
-// does). End is inclusive when present, matching RFC 7233.
+// only for the view-log. When the request carries no Range header it
+// served the whole blob — return [0, size-1] so the aggregator can
+// credit every track's bytes. When the header is malformed (the
+// serving path 416's) we still log [0, 0] which the aggregator treats
+// as zero-bytes; logging shouldn't propagate parse failures.
+// End is inclusive in both cases, matching RFC 7233.
 func parseRangeForLog(header string, size int64) (int64, int64) {
 	if header == "" {
-		return 0, 0
+		if size <= 0 {
+			return 0, 0
+		}
+		return 0, size - 1
 	}
 	start, end, err := parseSingleRange(header, size)
 	if err != nil {

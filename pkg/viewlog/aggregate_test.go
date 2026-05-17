@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/vod"
 )
 
 // loadStore returns an in-memory-ish FileStore + a writer pointed at
@@ -297,4 +298,200 @@ func TestViewCountRkeyShape(t *testing.T) {
 	rLater, err := viewCountRkey(videoURI, windowStart.Add(5*time.Minute))
 	require.NoError(t, err)
 	require.NotEqual(t, r, rLater)
+}
+
+// fixtureMetafile returns a small two-track metafile suitable for
+// driving the overlap math. Track 1 is video, track 2 is audio; both
+// at timescale 1000 so 1 tick == 1 ms (makes test arithmetic trivial).
+// Three segments per track, contiguous, video bytes laid out before
+// audio bytes within each segment — same order the writer uses.
+func fixtureMetafile() *vod.Metafile {
+	return &vod.Metafile{
+		BlobCID:  "bafyfixture",
+		BlobSize: 1500,
+		Tracks: map[string]vod.MetafileTrack{
+			"1": {
+				Type:      "video",
+				Timescale: 1000,
+				Segments: []vod.MetafileSegment{
+					{Offset: 0, Size: 400, DurationTicks: 2000},   // [0..399] = 2s
+					{Offset: 500, Size: 400, DurationTicks: 2000}, // [500..899] = 2s
+					{Offset: 1000, Size: 400, DurationTicks: 2000},
+				},
+			},
+			"2": {
+				Type:      "audio",
+				Timescale: 1000,
+				Segments: []vod.MetafileSegment{
+					{Offset: 400, Size: 100, DurationTicks: 2000},  // [400..499] = 2s
+					{Offset: 900, Size: 100, DurationTicks: 2000},  // [900..999] = 2s
+					{Offset: 1400, Size: 100, DurationTicks: 2000},
+				},
+			},
+		},
+	}
+}
+
+func TestRangeOverlapInTrack(t *testing.T) {
+	meta := fixtureMetafile()
+	video := meta.Tracks["1"]
+	audio := meta.Tracks["2"]
+
+	t.Run("exact segment", func(t *testing.T) {
+		b, d := rangeOverlapInTrack(0, 399, video)
+		require.Equal(t, int64(400), b)
+		require.Equal(t, int64(2000), d, "full segment ⇒ full duration")
+	})
+	t.Run("half a segment", func(t *testing.T) {
+		// First 200 bytes of segment 0 = half the bytes, half the duration.
+		b, d := rangeOverlapInTrack(0, 199, video)
+		require.Equal(t, int64(200), b)
+		require.Equal(t, int64(1000), d, "byte-proportional duration credit")
+	})
+	t.Run("range spanning two video segments + gap", func(t *testing.T) {
+		// [350..599]: last 50 of seg0 video + audio gap + first 100 of seg1 video.
+		b, d := rangeOverlapInTrack(350, 599, video)
+		require.Equal(t, int64(50+100), b)
+		// 50/400 * 2000 + 100/400 * 2000 = 250 + 500 = 750ms.
+		require.Equal(t, int64(750), d)
+	})
+	t.Run("range hits only audio offsets", func(t *testing.T) {
+		b, _ := rangeOverlapInTrack(400, 499, video)
+		require.Equal(t, int64(0), b, "audio bytes don't credit the video track")
+		b, d := rangeOverlapInTrack(400, 499, audio)
+		require.Equal(t, int64(100), b)
+		require.Equal(t, int64(2000), d)
+	})
+	t.Run("whole blob fetch", func(t *testing.T) {
+		// [0..1499] covers every segment in both tracks.
+		b, d := rangeOverlapInTrack(0, 1499, video)
+		require.Equal(t, int64(400*3), b)
+		require.Equal(t, int64(2000*3), d)
+		b, d = rangeOverlapInTrack(0, 1499, audio)
+		require.Equal(t, int64(100*3), b)
+		require.Equal(t, int64(2000*3), d)
+	})
+	t.Run("empty range", func(t *testing.T) {
+		b, d := rangeOverlapInTrack(100, 50, video)
+		require.Equal(t, int64(0), b)
+		require.Equal(t, int64(0), d)
+	})
+	t.Run("zero timescale punts", func(t *testing.T) {
+		bad := vod.MetafileTrack{Timescale: 0, Segments: []vod.MetafileSegment{{Offset: 0, Size: 100, DurationTicks: 1000}}}
+		b, d := rangeOverlapInTrack(0, 99, bad)
+		require.Equal(t, int64(0), b)
+		require.Equal(t, int64(0), d)
+	})
+}
+
+func TestAggregateWindowTrackUsage(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	const (
+		videoA = "at://did:plc:alice/place.stream.video/v1"
+		cidA   = "bafyfixture"
+		sid    = "session1"
+	)
+
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: videoA, SID: sid})
+	// Three segment_requests: video-seg0, audio-seg0, video-seg1.
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: cidA, SID: sid, RangeStart: 0, RangeEnd: 399})
+	w.Log(ctx, Event{Ts: now.Add(2 * time.Second), Type: EventTypeSegmentRequest, CID: cidA, SID: sid, RangeStart: 400, RangeEnd: 499})
+	w.Log(ctx, Event{Ts: now.Add(3 * time.Second), Type: EventTypeSegmentRequest, CID: cidA, SID: sid, RangeStart: 500, RangeEnd: 899})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart: now.Add(-time.Minute),
+		WindowEnd:   now.Add(time.Minute),
+		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			require.Equal(t, cidA, cid)
+			return fixtureMetafile(), nil
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Equal(t, int64(1), res.VideoCounts[0].Count)
+	require.Equal(t, 1, res.MetafilesLoaded, "metafile cache: one fetch even though three segment_requests share the CID")
+
+	byTID := map[string]TrackUsage{}
+	for _, t := range res.VideoCounts[0].Tracks {
+		byTID[t.TrackID] = t
+	}
+	require.Equal(t, TrackUsage{TrackID: "1", Bytes: 800, DurationMS: 4000}, byTID["1"], "two video segments fully fetched")
+	require.Equal(t, TrackUsage{TrackID: "2", Bytes: 100, DurationMS: 2000}, byTID["2"], "one audio segment fully fetched")
+}
+
+func TestAggregateWindowVideoWithUsageButNoCount(t *testing.T) {
+	// Bytes flowed for a sid that never qualified as a view (e.g. an
+	// orphan blob fetch from a previously-manifested sid that gets
+	// thresholded out). The objective totals still ship.
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	const (
+		videoA = "at://did:plc:alice/place.stream.video/v1"
+		cidA   = "bafyfixture"
+	)
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: videoA, SID: "lurker"})
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: cidA, SID: "lurker", RangeStart: 0, RangeEnd: 399})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart:       now.Add(-time.Minute),
+		WindowEnd:         now.Add(time.Minute),
+		ThresholdSegments: 5, // far above the one segment fetched
+		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			return fixtureMetafile(), nil
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Equal(t, int64(0), res.VideoCounts[0].Count, "below threshold ⇒ no view")
+	require.Len(t, res.VideoCounts[0].Tracks, 1, "but the bytes are still reported")
+	require.Equal(t, "1", res.VideoCounts[0].Tracks[0].TrackID)
+	require.Equal(t, int64(400), res.VideoCounts[0].Tracks[0].Bytes)
+}
+
+func TestAggregateWindowMissingMetafileDoesNotPoison(t *testing.T) {
+	// A segment_request whose CID has no metafile still counts toward
+	// the sid view (the threshold cares about request count, not byte
+	// math) — it just contributes zero bytes/duration.
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	const videoA = "at://did:plc:alice/place.stream.video/v1"
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: videoA, SID: "sid"})
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: "bafymissing", SID: "sid", RangeStart: 0, RangeEnd: 100})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart: now.Add(-time.Minute),
+		WindowEnd:   now.Add(time.Minute),
+		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			return nil, nil // not found
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Equal(t, int64(1), res.VideoCounts[0].Count)
+	require.Empty(t, res.VideoCounts[0].Tracks, "no metafile ⇒ no per-track credit")
 }

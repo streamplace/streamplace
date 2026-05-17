@@ -15,6 +15,7 @@ import (
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/vod"
 )
 
 // MethodologyAnySegment is the initial counting heuristic: a distinct
@@ -24,6 +25,11 @@ import (
 // algorithm that produced it; later methodologies (ms-from-metafile,
 // client-reported, …) ship under their own tags.
 const MethodologyAnySegment = "any-segment"
+
+// MetafileFetcher resolves a blob CID to its parsed metafile. The
+// aggregator calls it once per unique CID seen in the window's
+// segment_request events; tests can substitute a fake.
+type MetafileFetcher func(ctx context.Context, cid string) (*vod.Metafile, error)
 
 // AggregateInput bundles the window + tunables for one aggregation
 // pass. WindowStart is inclusive, WindowEnd is exclusive — matches the
@@ -39,13 +45,30 @@ type AggregateInput struct {
 	// Defaults to 1 hour, which is generously larger than the writer's
 	// flush interval.
 	ReadMargin time.Duration
+	// FetchMetafile resolves a CID to its parsed metafile. Defaults to
+	// reading blobs/<cid>.json from the same store the logs live in.
+	// A nil return + nil error means "metafile not found" and the
+	// segment_request is counted toward the sid view but contributes
+	// zero bytes / duration.
+	FetchMetafile MetafileFetcher
 }
 
 // VideoCount is one row in the AggregateResult: distinct qualifying
-// sids per place.stream.video over the window.
+// sids per place.stream.video over the window plus per-track totals
+// of bytes + duration transferred.
 type VideoCount struct {
 	VideoURI string
 	Count    int64
+	Tracks   []TrackUsage
+}
+
+// TrackUsage is the objective half of the aggregator's output: how
+// many bytes + how much playback duration were served from one
+// muxlTrack inside the window. Methodology-independent.
+type TrackUsage struct {
+	TrackID    string
+	Bytes      int64
+	DurationMS int64
 }
 
 // AggregateResult is the return shape of AggregateWindow. The caller
@@ -55,16 +78,22 @@ type AggregateResult struct {
 	VideoCounts []VideoCount
 	// FilesRead and EventsRead surface aggregation effort for ops
 	// observability; not load-bearing for the records themselves.
-	FilesRead  int
-	EventsRead int
+	FilesRead       int
+	EventsRead      int
+	MetafilesLoaded int
 }
 
 // AggregateWindow lists every view-log file under view-logs/ whose
-// filename timestamp falls in [WindowStart, WindowEnd), reads each as
-// gzipped JSONL, and counts distinct (sid, video) pairs that crossed
-// the segment threshold. Manifest events provide the sid → video URI
-// mapping segment events inherit from; segment_requests for a sid we
-// never saw a manifest_request for are unattributed and dropped.
+// filename timestamp falls in [WindowStart - ReadMargin, WindowEnd),
+// reads each as gzipped JSONL, and produces per-video totals:
+//
+//   - Count: distinct sids that hit ≥ ThresholdSegments segment_requests
+//   - Tracks: per-track bytes + duration credited by intersecting each
+//     segment_request's HTTP Range with the metafile's byte layout
+//
+// Manifest events provide the sid → video URI mapping segment events
+// inherit from; segment_requests for a sid we never saw a manifest
+// for are unattributed and dropped (no video to credit).
 func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (*AggregateResult, error) {
 	if in.WindowEnd.Before(in.WindowStart) || in.WindowEnd.Equal(in.WindowStart) {
 		return nil, fmt.Errorf("viewlog: AggregateWindow needs a positive window, got start=%s end=%s",
@@ -77,6 +106,12 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 	readMargin := in.ReadMargin
 	if readMargin <= 0 {
 		readMargin = time.Hour
+	}
+	fetchMetafile := in.FetchMetafile
+	if fetchMetafile == nil {
+		fetchMetafile = func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			return fetchMetafileFromStore(ctx, store, cid)
+		}
 	}
 
 	keys, err := store.List(ctx, viewLogsPrefix)
@@ -126,6 +161,19 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 		video string
 	}
 	segments := make(map[pair]int)
+	// trackTotals accumulates objective bytes + duration per
+	// (video, track). Methodology-independent; the published record
+	// carries both alongside the heuristic Count.
+	type trackKey struct {
+		video   string
+		trackID string
+	}
+	trackTotals := make(map[trackKey]*TrackUsage)
+	// metafileCache: one fetch per CID across the whole window. The
+	// nil value is cached too, so a missing metafile doesn't trigger
+	// repeated fetches.
+	metafileCache := make(map[string]*vod.Metafile)
+	metafilesLoaded := 0
 
 	var eventsRead int
 	for _, pf := range picked {
@@ -154,6 +202,44 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 				}
 				segments[pair{sid: ev.SID, video: video}]++
 				eventsRead++
+
+				// Per-track byte/duration accounting needs the
+				// metafile that maps blob offsets to per-track
+				// segments. Cache once per CID; nil cache entries
+				// mean "tried + missing" so we don't refetch.
+				if ev.CID == "" || ev.RangeEnd < ev.RangeStart {
+					return
+				}
+				meta, cached := metafileCache[ev.CID]
+				if !cached {
+					m, err := fetchMetafile(ctx, ev.CID)
+					if err != nil {
+						log.Debug(ctx, "viewlog: fetch metafile",
+							"cid", ev.CID, "error", err)
+					}
+					meta = m
+					metafileCache[ev.CID] = meta
+					if meta != nil {
+						metafilesLoaded++
+					}
+				}
+				if meta == nil {
+					return
+				}
+				for tid, track := range meta.Tracks {
+					bytes, durMS := rangeOverlapInTrack(ev.RangeStart, ev.RangeEnd, track)
+					if bytes == 0 {
+						continue
+					}
+					k := trackKey{video: video, trackID: tid}
+					tu, ok := trackTotals[k]
+					if !ok {
+						tu = &TrackUsage{TrackID: tid}
+						trackTotals[k] = tu
+					}
+					tu.Bytes += bytes
+					tu.DurationMS += durMS
+				}
 			}
 		}); err != nil {
 			// Per-file read failures are logged + skipped rather than
@@ -172,20 +258,87 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 		}
 	}
 
-	out := make([]VideoCount, 0, len(perVideo))
-	for v, c := range perVideo {
-		out = append(out, VideoCount{VideoURI: v, Count: c})
+	// Group tracks under each video. A video can show up here with
+	// zero qualifying sids (bytes were transferred but every sid fell
+	// below threshold) — emit it anyway so the objective totals
+	// aren't lost.
+	videoSet := make(map[string]struct{})
+	for v := range perVideo {
+		videoSet[v] = struct{}{}
+	}
+	tracksByVideo := make(map[string][]TrackUsage)
+	for k, tu := range trackTotals {
+		tracksByVideo[k.video] = append(tracksByVideo[k.video], *tu)
+		videoSet[k.video] = struct{}{}
+	}
+
+	out := make([]VideoCount, 0, len(videoSet))
+	for v := range videoSet {
+		tracks := tracksByVideo[v]
+		// Stable per-video track order so re-runs produce byte-
+		// identical records.
+		sort.Slice(tracks, func(i, j int) bool { return tracks[i].TrackID < tracks[j].TrackID })
+		out = append(out, VideoCount{
+			VideoURI: v,
+			Count:    perVideo[v],
+			Tracks:   tracks,
+		})
 	}
 	// Sort for deterministic output (mostly for tests + record-key
 	// stability when callers iterate in slice order).
 	sort.Slice(out, func(i, j int) bool { return out[i].VideoURI < out[j].VideoURI })
 
 	return &AggregateResult{
-		Window:      AggregateInput{WindowStart: in.WindowStart, WindowEnd: in.WindowEnd, ThresholdSegments: threshold},
-		VideoCounts: out,
-		FilesRead:   len(picked),
-		EventsRead:  eventsRead,
+		Window:          AggregateInput{WindowStart: in.WindowStart, WindowEnd: in.WindowEnd, ThresholdSegments: threshold, ReadMargin: readMargin},
+		VideoCounts:     out,
+		FilesRead:       len(picked),
+		EventsRead:      eventsRead,
+		MetafilesLoaded: metafilesLoaded,
 	}, nil
+}
+
+// rangeOverlapInTrack returns the (bytes, durationMS) credit one
+// HTTP Range request earns against a single muxlTrack's byte layout.
+//
+// HLS playback typically issues one byte-range request per
+// EXT-X-BYTERANGE entry, so the request usually matches one
+// MetafileSegment exactly. Partial overlaps (chunked range fetches,
+// resumed downloads) credit a proportional share of duration so the
+// numbers stay roughly honest under either pattern.
+//
+// rangeStart and rangeEnd are inclusive (RFC 7233). track.Segments'
+// Offset is the absolute byte offset within the blob; Size is the
+// segment's byte length; DurationTicks is the segment's playback
+// length in track timescale units.
+func rangeOverlapInTrack(rangeStart, rangeEnd int64, track vod.MetafileTrack) (bytes, durationMS int64) {
+	if rangeEnd < rangeStart || track.Timescale == 0 {
+		return 0, 0
+	}
+	for _, seg := range track.Segments {
+		if seg.Size <= 0 {
+			continue
+		}
+		segLast := seg.Offset + seg.Size - 1
+		overlapStart := rangeStart
+		if seg.Offset > overlapStart {
+			overlapStart = seg.Offset
+		}
+		overlapEnd := rangeEnd
+		if segLast < overlapEnd {
+			overlapEnd = segLast
+		}
+		if overlapEnd < overlapStart {
+			continue
+		}
+		overlap := overlapEnd - overlapStart + 1
+		bytes += overlap
+		// Byte-proportional duration: (overlap / size) * segment-ms.
+		// Avoid float math so deterministic runs produce identical
+		// records.
+		segDurMS := int64(seg.DurationTicks) * 1000 / int64(track.Timescale)
+		durationMS += segDurMS * overlap / seg.Size
+	}
+	return bytes, durationMS
 }
 
 // viewLogsPrefix is the top of the per-node log tree, shared by every
@@ -214,6 +367,31 @@ func parseViewLogKeyTime(key string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return t.UTC(), true
+}
+
+// fetchMetafileFromStore is the default MetafileFetcher: read
+// blobs/<cid>.json from the same blob.Store the logs live in.
+// Returns (nil, nil) when the metafile is missing so callers can
+// distinguish "no such metafile" from "store error".
+func fetchMetafileFromStore(ctx context.Context, store blob.Store, cid string) (*vod.Metafile, error) {
+	key := vod.BlobsPrefix + cid + ".json"
+	r, err := store.Open(ctx, key)
+	if err != nil {
+		if errors.Is(err, blob.ErrNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("open metafile %s: %w", key, err)
+	}
+	defer r.Close()
+	body := make([]byte, r.Size())
+	if _, err := r.ReadAt(body, 0); err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("read metafile %s: %w", key, err)
+	}
+	var meta vod.Metafile
+	if err := json.Unmarshal(body, &meta); err != nil {
+		return nil, fmt.Errorf("parse metafile %s: %w", key, err)
+	}
+	return &meta, nil
 }
 
 // readJSONLGz opens key, gunzips, and calls fn for each decoded Event.

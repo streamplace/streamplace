@@ -10562,9 +10562,13 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 8
+	fieldCount := 9
 
 	if t.ThresholdSegments == nil {
+		fieldCount--
+	}
+
+	if t.Tracks == nil {
 		fieldCount--
 	}
 
@@ -10634,6 +10638,35 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.Video)); err != nil {
 		return err
+	}
+
+	// t.Tracks ([]*streamplace.MediaViewCount_TrackUsage) (slice)
+	if t.Tracks != nil {
+
+		if len("tracks") > 1000000 {
+			return xerrors.Errorf("Value in field \"tracks\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("tracks"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("tracks")); err != nil {
+			return err
+		}
+
+		if len(t.Tracks) > 8192 {
+			return xerrors.Errorf("Slice value in field t.Tracks was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajArray, uint64(len(t.Tracks))); err != nil {
+			return err
+		}
+		for _, v := range t.Tracks {
+			if err := v.MarshalCBOR(cw); err != nil {
+				return err
+			}
+
+		}
 	}
 
 	// t.IndexedAt (string) (string)
@@ -10851,6 +10884,55 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Video = string(sval)
 			}
+			// t.Tracks ([]*streamplace.MediaViewCount_TrackUsage) (slice)
+		case "tracks":
+
+			maj, extra, err = cr.ReadHeader()
+			if err != nil {
+				return err
+			}
+
+			if extra > 8192 {
+				return fmt.Errorf("t.Tracks: array too large (%d)", extra)
+			}
+
+			if maj != cbg.MajArray {
+				return fmt.Errorf("expected cbor array")
+			}
+
+			if extra > 0 {
+				t.Tracks = make([]*MediaViewCount_TrackUsage, extra)
+			}
+
+			for i := 0; i < int(extra); i++ {
+				{
+					var maj byte
+					var extra uint64
+					var err error
+					_ = maj
+					_ = extra
+					_ = err
+
+					{
+
+						b, err := cr.ReadByte()
+						if err != nil {
+							return err
+						}
+						if b != cbg.CborNull[0] {
+							if err := cr.UnreadByte(); err != nil {
+								return err
+							}
+							t.Tracks[i] = new(MediaViewCount_TrackUsage)
+							if err := t.Tracks[i].UnmarshalCBOR(cr); err != nil {
+								return xerrors.Errorf("unmarshaling t.Tracks[i] pointer: %w", err)
+							}
+						}
+
+					}
+
+				}
+			}
 			// t.IndexedAt (string) (string)
 		case "indexedAt":
 
@@ -10930,6 +11012,203 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 
 					t.ThresholdSegments = (*int64)(&extraI)
 				}
+			}
+
+		default:
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(r, func(cid.Cid) {}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+func (t *MediaViewCount_TrackUsage) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+
+	cw := cbg.NewCborWriter(w)
+
+	if _, err := cw.Write([]byte{163}); err != nil {
+		return err
+	}
+
+	// t.Bytes (int64) (int64)
+	if len("bytes") > 1000000 {
+		return xerrors.Errorf("Value in field \"bytes\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("bytes"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("bytes")); err != nil {
+		return err
+	}
+
+	if t.Bytes >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.Bytes)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.Bytes-1)); err != nil {
+			return err
+		}
+	}
+
+	// t.TrackId (string) (string)
+	if len("trackId") > 1000000 {
+		return xerrors.Errorf("Value in field \"trackId\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("trackId"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("trackId")); err != nil {
+		return err
+	}
+
+	if len(t.TrackId) > 1000000 {
+		return xerrors.Errorf("Value in field t.TrackId was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.TrackId))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.TrackId)); err != nil {
+		return err
+	}
+
+	// t.DurationMs (int64) (int64)
+	if len("durationMs") > 1000000 {
+		return xerrors.Errorf("Value in field \"durationMs\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("durationMs"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("durationMs")); err != nil {
+		return err
+	}
+
+	if t.DurationMs >= 0 {
+		if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(t.DurationMs)); err != nil {
+			return err
+		}
+	} else {
+		if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-t.DurationMs-1)); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *MediaViewCount_TrackUsage) UnmarshalCBOR(r io.Reader) (err error) {
+	*t = MediaViewCount_TrackUsage{}
+
+	cr := cbg.NewCborReader(r)
+
+	maj, extra, err := cr.ReadHeader()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	}()
+
+	if maj != cbg.MajMap {
+		return fmt.Errorf("cbor input should be of type map")
+	}
+
+	if extra > cbg.MaxLength {
+		return fmt.Errorf("MediaViewCount_TrackUsage: map struct too large (%d)", extra)
+	}
+
+	n := extra
+
+	nameBuf := make([]byte, 10)
+	for i := uint64(0); i < n; i++ {
+		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			// Field doesn't exist on this type, so ignore it
+			if err := cbg.ScanForLinks(cr, func(cid.Cid) {}); err != nil {
+				return err
+			}
+			continue
+		}
+
+		switch string(nameBuf[:nameLen]) {
+		// t.Bytes (int64) (int64)
+		case "bytes":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.Bytes = int64(extraI)
+			}
+			// t.TrackId (string) (string)
+		case "trackId":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.TrackId = string(sval)
+			}
+			// t.DurationMs (int64) (int64)
+		case "durationMs":
+			{
+				maj, extra, err := cr.ReadHeader()
+				if err != nil {
+					return err
+				}
+				var extraI int64
+				switch maj {
+				case cbg.MajUnsignedInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 positive overflow")
+					}
+				case cbg.MajNegativeInt:
+					extraI = int64(extra)
+					if extraI < 0 {
+						return fmt.Errorf("int64 negative overflow")
+					}
+					extraI = -1 - extraI
+				default:
+					return fmt.Errorf("wrong type for int64 field: %d", maj)
+				}
+
+				t.DurationMs = int64(extraI)
 			}
 
 		default:

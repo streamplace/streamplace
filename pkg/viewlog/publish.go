@@ -2,11 +2,10 @@ package viewlog
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -79,7 +78,12 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 			ThresholdSegments: &threshold,
 			IndexedAt:         indexedAt,
 		}
-		rkey := viewCountRkey(vc.VideoURI, in.WindowStart)
+		rkey, err := viewCountRkey(vc.VideoURI, in.WindowStart)
+		if err != nil {
+			log.Error(ctx, "viewlog: build viewCount rkey",
+				"video", vc.VideoURI, "error", err)
+			continue
+		}
 		if err := atproto.CommitServerRepoRecord(ctx, in.CLI, constants.PLACE_STREAM_MEDIA_VIEW_COUNT, rkey, rec); err != nil {
 			// Don't bail on a single record failure — keep publishing
 			// the rest and surface the error in logs. The window will
@@ -93,13 +97,21 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 }
 
 // viewCountRkey derives a deterministic rkey for one (video, window)
-// pair, so re-runs over the same window overwrite the prior record
-// instead of appending. SHA-256 hex truncated to 24 chars fits inside
-// atproto's rkey character class and gives plenty of collision room.
-func viewCountRkey(videoURI string, windowStart time.Time) string {
-	h := sha256.New()
-	h.Write([]byte(videoURI))
-	h.Write([]byte{0})
-	h.Write([]byte(windowStart.UTC().Format(time.RFC3339)))
-	return hex.EncodeToString(h.Sum(nil))[:24]
+// pair so re-runs over the same window overwrite the prior record
+// instead of appending. Shape: `<windowStart-as-tid>-<video-rkey>`,
+// where windowStart-as-tid is a TID with clock id 0 (every node
+// agrees on this encoding) and video-rkey is the AT-URI's record key
+// (itself a TID for place.stream.video). Both halves are tid-shaped
+// so the joined rkey looks like atproto throughout.
+func viewCountRkey(videoURI string, windowStart time.Time) (string, error) {
+	aturi, err := syntax.ParseATURI(videoURI)
+	if err != nil {
+		return "", fmt.Errorf("parse video AT-URI %q: %w", videoURI, err)
+	}
+	videoTID := aturi.RecordKey().String()
+	if videoTID == "" {
+		return "", fmt.Errorf("video AT-URI %q has no record key", videoURI)
+	}
+	windowTID := syntax.NewTIDFromTime(windowStart.UTC(), 0).String()
+	return windowTID + "-" + videoTID, nil
 }

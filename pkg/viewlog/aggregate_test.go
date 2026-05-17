@@ -3,9 +3,11 @@ package viewlog
 import (
 	"context"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/blob"
@@ -268,12 +270,31 @@ func TestAggregateTaskKeyIsDeterministic(t *testing.T) {
 }
 
 func TestViewCountRkeyShape(t *testing.T) {
-	r := viewCountRkey("at://did:plc:alice/place.stream.video/v1", time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC))
-	require.Len(t, r, 24)
-	for _, c := range r {
-		require.True(t, (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),
-			"rkey character %q outside atproto's allowed set", c)
-	}
-	// Same inputs → same key (idempotent overwrites on rerun).
-	require.Equal(t, r, viewCountRkey("at://did:plc:alice/place.stream.video/v1", time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)))
+	videoURI := "at://did:plc:alice/place.stream.video/3jw5xvr5gck2a"
+	windowStart := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+
+	r, err := viewCountRkey(videoURI, windowStart)
+	require.NoError(t, err)
+	require.Contains(t, r, "-", "rkey is <windowTID>-<videoTID>")
+
+	parts := strings.SplitN(r, "-", 2)
+	require.Len(t, parts, 2)
+	// Both halves should be parseable as TIDs (the joined whole is
+	// not — atproto's TID is 13 chars exactly, the joined form has
+	// 27).
+	_, err = syntax.ParseTID(parts[0])
+	require.NoError(t, err, "window half should be a valid TID")
+	_, err = syntax.ParseTID(parts[1])
+	require.NoError(t, err, "video half should be a valid TID")
+	require.Equal(t, "3jw5xvr5gck2a", parts[1], "video half is the AT-URI's record key")
+
+	// Same inputs → same rkey (idempotent overwrites on rerun).
+	r2, err := viewCountRkey(videoURI, windowStart)
+	require.NoError(t, err)
+	require.Equal(t, r, r2)
+
+	// Different window → different rkey.
+	rLater, err := viewCountRkey(videoURI, windowStart.Add(5*time.Minute))
+	require.NoError(t, err)
+	require.NotEqual(t, r, rLater)
 }

@@ -54,7 +54,6 @@ func (t *BioBlocksOrderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error
 func (t *BioBlocksUnorderedList_ListItem_Content) MarshalCBOR(w io.Writer) error     { return nil }
 func (t *BioBlocksUnorderedList_ListItem_Content) UnmarshalCBOR(r io.Reader) error   { return nil }
 
-
 func (t *BioRichtextFacet) MarshalCBOR(w io.Writer) error              { return nil }
 func (t *BioRichtextFacet) UnmarshalCBOR(r io.Reader) error            { return nil }
 func (t *BioRichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error    { return nil }

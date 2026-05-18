@@ -166,7 +166,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 
 	meta := &streamplace.MediaTrack_CommonMetadata{
 		LexiconTypeID: "place.stream.media.track#commonMetadata",
-		Duration:      &durationMS,
+		DurationMs:    &durationMS,
 	}
 	if videoMeta != nil {
 		meta.Video = &streamplace.Segment_Video{
@@ -256,7 +256,7 @@ func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.
 	rec := &streamplace.Video{
 		LexiconTypeID: constants.PLACE_STREAM_VIDEO,
 		Title:         title,
-		Duration:      duration,
+		DurationMs:    duration,
 		Source: &streamplace.Video_Source{
 			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",

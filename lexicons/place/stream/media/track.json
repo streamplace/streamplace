@@ -40,7 +40,7 @@
           "type": "string",
           "description": "IETF BCP 47 language tag corresponding to the content of this track"
         },
-        "duration": {
+        "durationMs": {
           "type": "integer",
           "description": "duration of this track in milliseconds"
         },

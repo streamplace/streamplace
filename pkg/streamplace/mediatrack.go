@@ -35,8 +35,8 @@ type MediaTrack struct {
 type MediaTrack_CommonMetadata struct {
 	LexiconTypeID string         `json:"$type" cborgen:"$type,const=place.stream.media.track#commonMetadata"`
 	Audio         *Segment_Audio `json:"audio,omitempty" cborgen:"audio,omitempty"`
-	// duration: duration of this track in milliseconds
-	Duration *int64 `json:"duration,omitempty" cborgen:"duration,omitempty"`
+	// durationMs: duration of this track in milliseconds
+	DurationMs *int64 `json:"durationMs,omitempty" cborgen:"durationMs,omitempty"`
 	// language: IETF BCP 47 language tag corresponding to the content of this track
 	Language *string        `json:"language,omitempty" cborgen:"language,omitempty"`
 	Video    *Segment_Video `json:"video,omitempty" cborgen:"video,omitempty"`

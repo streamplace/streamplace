@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
@@ -78,6 +79,48 @@ func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*streamplace.V
 		return nil, fmt.Errorf("get video by uri: %w", err)
 	}
 	return v.ToRecord()
+}
+
+// GetVideoView is the hydrated read path for place.stream.media.getVideo:
+// the video record, its author (DID + handle), and a summary of every
+// indexed place.stream.media.viewCount record for the video. Returns
+// (nil, nil) when no video matches the URI so callers can surface a
+// 404 without inspecting any model types.
+func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error) {
+	var row Video
+	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get video by uri: %w", err)
+	}
+	rec, err := row.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+
+	author := &bsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
+	repo, err := m.GetRepo(row.RepoDID)
+	if err != nil {
+		return nil, fmt.Errorf("hydrate author repo: %w", err)
+	}
+	if repo != nil {
+		author.Handle = repo.Handle
+	}
+
+	summary, err := m.viewCountSummary(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+
+	return &streamplace.MediaGetVideo_VideoView{
+		Uri:        row.URI,
+		Cid:        row.CID,
+		Author:     author,
+		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		ViewCounts: summary,
+	}, nil
 }
 
 // GetLatestVideosForRepo returns the most recent N video rows by a

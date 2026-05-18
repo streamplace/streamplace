@@ -42,6 +42,11 @@ type StatefulDB struct {
 	// upload task. Installed via SetVODProcessor at bootstrap so
 	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.
 	vodProcessor VODProcessor
+	// viewCountAggregator collapses a window of view-log files into
+	// place.stream.media.viewCount records. Installed via
+	// SetViewCountAggregator at bootstrap so pkg/statedb doesn't have
+	// to depend on the blob.Store-heavy pkg/viewlog.
+	viewCountAggregator ViewCountAggregator
 }
 
 // list tables here so we can migrate them

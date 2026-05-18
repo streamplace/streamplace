@@ -47,6 +47,7 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/viewlog"
 
 	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
 	"github.com/slok/go-http-metrics/middleware"
@@ -68,6 +69,7 @@ type StreamplaceAPI struct {
 	MediaSigner      media.MediaSigner
 	UploadManager    *upload.Manager
 	PlaybackStore    blob.Store
+	ViewLog          *viewlog.Writer
 	XRPCServer       *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
@@ -99,7 +101,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -113,6 +115,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		MediaSigner:      ms,
 		UploadManager:    um,
 		PlaybackStore:    playbackStore,
+		ViewLog:          viewLog,
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
@@ -161,7 +164,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.PlaybackStore, a.Aliases)
+	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.PlaybackStore, a.ViewLog, a.Aliases)
 	if err != nil {
 		return nil, err
 	}

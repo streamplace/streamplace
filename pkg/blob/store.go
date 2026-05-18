@@ -66,6 +66,15 @@ type Store interface {
 	// doesn't belong to this Store (wrong scheme, wrong bucket, path
 	// outside the configured root).
 	ParseLocation(location string) (key string, ok bool)
+
+	// List enumerates every key whose forward-slash-relative-to-root
+	// path starts with prefix. The prefix is treated as a literal
+	// string match against keys (matches the S3 ListObjectsV2 prefix
+	// semantics, not a directory boundary), so "foo/bar" matches
+	// "foo/bar.json" and "foo/bar/baz". An empty prefix lists every
+	// key. The internal staging area (if any) is excluded. Order is
+	// implementation-defined; callers should sort if they need it.
+	List(ctx context.Context, prefix string) ([]string, error)
 }
 
 // Reader is the random-access read half of a blob. Implementations

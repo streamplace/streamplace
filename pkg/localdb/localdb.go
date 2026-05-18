@@ -26,6 +26,9 @@ type LocalDB interface {
 	DeleteSegment(ctx context.Context, id string) error
 	StartSegmentCleaner(ctx context.Context) error
 	SegmentCleaner(ctx context.Context) error
+	GetViewLogSalt(date string) ([]byte, error)
+	PutViewLogSalt(date string, salt []byte) error
+	DeleteViewLogSaltsBefore(date string) error
 }
 
 type LocalDatabase struct {
@@ -71,6 +74,7 @@ func MakeDB(dbURL string) (LocalDB, error) {
 	for _, model := range []any{
 		Segment{},
 		Thumbnail{},
+		ViewLogSalt{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

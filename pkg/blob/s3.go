@@ -103,6 +103,32 @@ func (s *S3Store) Move(ctx context.Context, srcKey, dstKey string) error {
 	return nil
 }
 
+func (s *S3Store) List(ctx context.Context, prefix string) ([]string, error) {
+	var out []string
+	var continuation *string
+	for {
+		resp, err := s.client.ListObjectsV2(ctx, &awss3.ListObjectsV2Input{
+			Bucket:            aws.String(s.bucket),
+			Prefix:            aws.String(prefix),
+			ContinuationToken: continuation,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("blob s3 list %s: %w", prefix, err)
+		}
+		for _, obj := range resp.Contents {
+			if obj.Key == nil {
+				continue
+			}
+			out = append(out, *obj.Key)
+		}
+		if resp.IsTruncated == nil || !*resp.IsTruncated {
+			break
+		}
+		continuation = resp.NextContinuationToken
+	}
+	return out, nil
+}
+
 func (s *S3Store) Delete(ctx context.Context, key string) error {
 	_, err := s.client.DeleteObject(ctx, &awss3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),

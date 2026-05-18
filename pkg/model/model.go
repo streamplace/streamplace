@@ -151,6 +151,11 @@ type Model interface {
 	UpsertBetaInvite(ctx context.Context, rec *streamplace.BetaInvite, aturi syntax.ATURI) error
 	DeleteBetaInvite(ctx context.Context, uri string) error
 	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
+
+	UpsertMediaViewCount(ctx context.Context, rec *streamplace.MediaViewCount, aturi syntax.ATURI) error
+	DeleteMediaViewCount(ctx context.Context, uri string) error
+	GetMediaViewCountByURI(ctx context.Context, uri string) (*streamplace.MediaViewCount, error)
+	GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error)
 }
 
 var DBRevision = 4
@@ -227,6 +232,7 @@ func MakeDB(dbURL string) (Model, error) {
 		Video{},
 		MediaTrack{},
 		MediaOrigin{},
+		MediaViewCount{},
 		BetaInvite{},
 	} {
 		err = db.AutoMigrate(model)

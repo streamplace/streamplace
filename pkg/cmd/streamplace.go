@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
@@ -43,6 +44,7 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/viewlog"
 	"stream.place/streamplace/pkg/vod"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -358,6 +360,21 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return fmt.Errorf("make vod store: %w", err)
 	}
+	viewLog, err := makeViewLog(ctx, cli, vodStore, ldb)
+	if err != nil {
+		return fmt.Errorf("make view log: %w", err)
+	}
+	if viewLog != nil {
+		group.Go(func() error {
+			viewLog.Run(ctx)
+			return nil
+		})
+		defer func() {
+			if err := viewLog.Close(); err != nil {
+				log.Error(ctx, "view log close", "error", err)
+			}
+		}()
+	}
 	state.SetVODProcessor(func(ctx context.Context, t statedb.VODProcessTask) (string, error) {
 		// Labeler enforcement: an account banned after starting an
 		// upload (but before processing) doesn't get a video published.
@@ -380,7 +397,64 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			Location: t.Location,
 		})
 	})
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore)
+	// View-count aggregator runs the log → record pipeline for one
+	// window. Same function-pointer pattern as the VOD processor so
+	// statedb stays free of viewlog's transitive deps. The scheduler
+	// goroutine fires per --view-count-aggregate-interval; statedb's
+	// unique TaskKey makes the cross-node race a no-op for losers.
+	if vodStore != nil && cli.ViewCountAggregateInterval > 0 {
+		// Resolver: for a blob CID, return strongRefs of every
+		// place.stream.media.track record whose muxlTrack lives in
+		// that blob, keyed by in-container trackId. Used by the
+		// aggregator to attribute bytes/duration to the right track
+		// record (the streamer's original track records or, later,
+		// user-contributed transcript/transcode tracks).
+		fetchTrackRefs := func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+			rows, err := mod.GetMediaTracksByBlob(ctx, cid)
+			if err != nil {
+				return nil, err
+			}
+			out := make(map[string]*comatproto.RepoStrongRef, len(rows))
+			for _, row := range rows {
+				rec, err := row.ToRecord()
+				if err != nil {
+					log.Warn(ctx, "viewlog refs: decode track record",
+						"uri", row.URI, "error", err)
+					continue
+				}
+				if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+					continue
+				}
+				tid := rec.Track.MediaDefs_MuxlTrack.TrackId
+				if tid == "" {
+					continue
+				}
+				out[tid] = &comatproto.RepoStrongRef{
+					LexiconTypeID: "com.atproto.repo.strongRef",
+					Uri:           row.URI,
+					Cid:           row.CID,
+				}
+			}
+			return out, nil
+		}
+		state.SetViewCountAggregator(func(ctx context.Context, t statedb.ViewCountAggregateTask) error {
+			return viewlog.RunAggregation(ctx, viewlog.RunAggregationInput{
+				Store:          vodStore,
+				CLI:            cli,
+				WindowStart:    t.WindowStart,
+				WindowEnd:      t.WindowEnd,
+				ReadMargin:     2 * cli.ViewLogFlushInterval,
+				FetchTrackRefs: fetchTrackRefs,
+			})
+		})
+		group.Go(func() error {
+			return viewlog.ScheduleAggregations(ctx, state, viewlog.ScheduleConfig{
+				Interval: cli.ViewCountAggregateInterval,
+				Lag:      cli.ViewCountAggregateLag,
+			})
+		})
+	}
+	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
 	if err != nil {
 		return err
 	}
@@ -623,6 +697,34 @@ func makeVODStore(ctx context.Context, cli *config.CLI) (blob.Store, error) {
 	root := cli.DataFilePath(nil)
 	log.Log(ctx, "VOD store: file", "root", root)
 	return blob.NewFileStore(root)
+}
+
+// makeViewLog returns the configured view-event log writer, or nil if
+// the operator has disabled it (--view-log-flush-interval=0) or there's
+// no place to write logs to (no VOD store). The writer reuses the VOD
+// blob.Store under a `view-logs/<server-did>/` prefix; if the operator
+// runs S3-backed VOD, view logs land in the same bucket alongside the
+// content blobs and pick up the bucket's lifecycle policy for free.
+func makeViewLog(ctx context.Context, cli *config.CLI, vodStore blob.Store, ldb localdb.LocalDB) (*viewlog.Writer, error) {
+	if cli.ViewLogFlushInterval <= 0 {
+		log.Log(ctx, "view log: disabled (view-log-flush-interval=0)")
+		return nil, nil
+	}
+	if vodStore == nil {
+		log.Log(ctx, "view log: no VOD store wired; skipping")
+		return nil, nil
+	}
+	w, err := viewlog.NewWriter(viewlog.Config{
+		Store:      vodStore,
+		NodeDID:    cli.ServerDID(),
+		FlushAfter: cli.ViewLogFlushInterval,
+		Salts:      viewlog.NewSaltManager(ldb),
+	})
+	if err != nil {
+		return nil, err
+	}
+	log.Log(ctx, "view log: enabled", "flush_interval", cli.ViewLogFlushInterval, "node_did", cli.ServerDID())
+	return w, nil
 }
 
 var ErrCaughtSignal = errors.New("caught signal")

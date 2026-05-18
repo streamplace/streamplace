@@ -26,6 +26,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/upload"
+	"stream.place/streamplace/pkg/viewlog"
 )
 
 type Server struct {
@@ -46,10 +47,14 @@ type Server struct {
 	// segments live. Matches the blob.Store the VOD processor writes
 	// into (vod.BlobsPrefix + <cid>.{mp4,json}).
 	playbackStore blob.Store
-	aliases       map[string]string
+	// viewLog records playback request events (manifest + segment
+	// fetches) for later view-count aggregation. Optional; nil when
+	// --view-log-flush-interval is 0 or no playback store is wired.
+	viewLog *viewlog.Writer
+	aliases map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, aliases map[string]string) (*Server, error) {
+func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
 	e := echo.New()
 	s := &Server{
 		e:               e,
@@ -66,6 +71,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		mm:              mm,
 		uploadManager:   um,
 		playbackStore:   playbackStore,
+		viewLog:         viewLog,
 		aliases:         aliases,
 	}
 	e.Use(s.ErrorHandlingMiddleware())

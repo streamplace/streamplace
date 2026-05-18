@@ -1820,6 +1820,62 @@
         }
       }
     },
+    "/xrpc/place.stream.media.getVideo": {
+      "get": {
+        "summary": "Get a hydrated view of a place.stream.video record — the record itself plus author info plus aggregated view counts summed across every reporting node we've indexed. View counts come from place.stream.media.viewCount records; consumers see one number per metric, with the underlying multi-reporter detail collapsed away.",
+        "operationId": "place.stream.media.getVideo",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.media.getVideo_videoView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "VideoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "description": "AT-URI of the place.stream.video record.",
+            "schema": {
+              "type": "string",
+              "description": "AT-URI of the place.stream.video record.",
+              "format": "uri"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.live.denyTeleport": {
       "post": {
         "summary": "Deny an incoming teleport request.",
@@ -4221,7 +4277,7 @@
         },
         "required": ["message", "status", "createdAt"]
       },
-      "place.stream.livestream_livestreamView": {
+      "place.stream.media.getVideo_videoView": {
         "type": "object",
         "properties": {
           "uri": {
@@ -4236,16 +4292,12 @@
             "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
           },
           "record": {},
-          "indexedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "viewerCount": {
-            "$ref": "#/components/schemas/place.stream.livestream_viewerCount",
-            "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly."
+          "viewCounts": {
+            "$ref": "#/components/schemas/place.stream.media.getVideo_viewCountSummary",
+            "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
           }
         },
-        "required": ["uri", "cid", "author", "record", "indexedAt"]
+        "required": ["uri", "cid", "author", "record", "viewCounts"]
       },
       "app.bsky.actor.defs_profileViewBasic": {
         "type": "object",
@@ -4583,6 +4635,59 @@
           }
         },
         "required": ["uri", "title", "description"]
+      },
+      "place.stream.media.getVideo_viewCountSummary": {
+        "type": "object",
+        "description": "Sums across every place.stream.media.viewCount record indexed for this video, regardless of reporter or window. The underlying records are window-bounded; the consumer sees a running total.",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "description": "Sum of `count` across every indexed report.",
+            "minimum": 0
+          },
+          "bytes": {
+            "type": "integer",
+            "description": "Sum of bytes transferred across every track row in every indexed report.",
+            "minimum": 0
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "Sum of playback duration (ms) across every track row in every indexed report.",
+            "minimum": 0
+          },
+          "reporters": {
+            "type": "integer",
+            "description": "Number of distinct streamplace nodes that have contributed at least one viewCount record for this video.",
+            "minimum": 0
+          }
+        },
+        "required": ["count", "bytes", "durationMs", "reporters"]
+      },
+      "place.stream.livestream_livestreamView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "record": {},
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "viewerCount": {
+            "$ref": "#/components/schemas/place.stream.livestream_viewerCount",
+            "description": "The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly."
+          }
+        },
+        "required": ["uri", "cid", "author", "record", "indexedAt"]
       },
       "place.stream.livestream_viewerCount": {
         "type": "object",

@@ -2,6 +2,7 @@ package statedb
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
@@ -18,6 +19,19 @@ func (state *StatefulDB) LoadOAuthSession(id string) (*oatproxy.OAuthSession, er
 			return nil, nil
 		}
 		return nil, err
+	}
+	if session.Status() != oatproxy.OAuthSessionStateReady || session.Status() != oatproxy.OAuthSessionStateReadyUpstream {
+		return &session, nil
+	}
+	r, err := state.model.GetRepo(session.DID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo: %w", err)
+	}
+	if r == nil {
+		return nil, fmt.Errorf("repo not found even though we have a valid session!? repodid=%s", session.DID)
+	}
+	if r.PDS != session.PDSUrl {
+		return nil, fmt.Errorf("pds mismatch (old: %s, new: %s): please log in again", session.PDSUrl, r.PDS)
 	}
 	return &session, nil
 }

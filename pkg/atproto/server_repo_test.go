@@ -169,21 +169,23 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 		require.NoError(t, CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, s, vc))
 	}
 
-	// limit=2: first page returns the two smallest rkeys + a cursor.
+	// Default order is reverse-lexical (newest TID first). limit=2:
+	// first page returns the two largest rkeys + a cursor pointing at
+	// the smaller of the two.
 	page1, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "", 2, "did:web:server2.example.com", nil)
 	require.NoError(t, err)
 	require.Len(t, page1.Records, 2)
-	require.Contains(t, page1.Records[0].Uri, "did:plc:a")
-	require.Contains(t, page1.Records[1].Uri, "did:plc:b")
+	require.Contains(t, page1.Records[0].Uri, "did:plc:e")
+	require.Contains(t, page1.Records[1].Uri, "did:plc:d")
 	require.NotNil(t, page1.Cursor)
-	require.Equal(t, "did:plc:b", *page1.Cursor)
+	require.Equal(t, "did:plc:d", *page1.Cursor)
 
-	// Pass the cursor back for the second page.
+	// Pass the cursor back for the second page — keeps going down.
 	page2, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, *page1.Cursor, 2, "did:web:server2.example.com", nil)
 	require.NoError(t, err)
 	require.Len(t, page2.Records, 2)
 	require.Contains(t, page2.Records[0].Uri, "did:plc:c")
-	require.Contains(t, page2.Records[1].Uri, "did:plc:d")
+	require.Contains(t, page2.Records[1].Uri, "did:plc:b")
 	require.NotNil(t, page2.Cursor)
 
 	// Third page has the final record; cursor must be omitted since
@@ -191,14 +193,29 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 	page3, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, *page2.Cursor, 2, "did:web:server2.example.com", nil)
 	require.NoError(t, err)
 	require.Len(t, page3.Records, 1)
-	require.Contains(t, page3.Records[0].Uri, "did:plc:e")
+	require.Contains(t, page3.Records[0].Uri, "did:plc:a")
 	require.Nil(t, page3.Cursor)
 
-	// reverse=true flips the slice order within a page.
+	// reverse=true flips back to lex-ascending (oldest first).
 	rev := true
 	revOut, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "", 100, "did:web:server2.example.com", &rev)
 	require.NoError(t, err)
 	require.Len(t, revOut.Records, 5)
-	require.Contains(t, revOut.Records[0].Uri, "did:plc:e")
-	require.Contains(t, revOut.Records[4].Uri, "did:plc:a")
+	require.Contains(t, revOut.Records[0].Uri, "did:plc:a")
+	require.Contains(t, revOut.Records[4].Uri, "did:plc:e")
+
+	// reverse=true also paginates in lex-ascending order.
+	revPage1, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "", 2, "did:web:server2.example.com", &rev)
+	require.NoError(t, err)
+	require.Len(t, revPage1.Records, 2)
+	require.Contains(t, revPage1.Records[0].Uri, "did:plc:a")
+	require.Contains(t, revPage1.Records[1].Uri, "did:plc:b")
+	require.NotNil(t, revPage1.Cursor)
+	require.Equal(t, "did:plc:b", *revPage1.Cursor)
+
+	revPage2, err := ServerRepoListRecords(context.Background(), constants.PLACE_STREAM_LIVE_VIEWERCOUNT, *revPage1.Cursor, 2, "did:web:server2.example.com", &rev)
+	require.NoError(t, err)
+	require.Len(t, revPage2.Records, 2)
+	require.Contains(t, revPage2.Records[0].Uri, "did:plc:c")
+	require.Contains(t, revPage2.Records[1].Uri, "did:plc:d")
 }

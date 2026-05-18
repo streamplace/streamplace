@@ -459,12 +459,21 @@ const (
 //   - paginates via `cursor` (opaque to the client; we use the last
 //     rkey of the prior page) and `limit` (clamped to [1, 100],
 //     defaulting to 50)
-//   - reverses the output slice when `reverse` is true; the natural
-//     MST walk order is lex-ascending rkey, which for TID-shaped
-//     rkeys is chronologically oldest-first
+//   - **natural order is reverse-lexical (descending rkey)**, so for
+//     TID-shaped rkeys callers get newest-first by default. The
+//     `reverse` param flips back to ascending for callers that want
+//     chronological order.
 //
 // `repo` is used only to build the `at://<repo>/<collection>/<rkey>`
 // URIs in the response; the underlying repo is always the server's own.
+//
+// The implementation walks the MST once to collect (rkey, cid) pairs
+// (cheap — these entries are already in memory after a normal repo
+// load), sorts them in the requested direction, then fetches the
+// record bodies only for the page we're returning. Per-call cost
+// scales with the collection's record count, not with the page size,
+// which is fine for server-repo-sized collections (origins, view
+// counts) but worth revisiting if a collection ever explodes.
 func ServerRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatproto.RepoListRecords_Output, error) {
 	serverRepoLock.Lock()
 	defer serverRepoLock.Unlock()
@@ -482,10 +491,14 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 	}
 
 	prefix := collection + "/"
-	out := &comatproto.RepoListRecords_Output{
-		Records: []*comatproto.RepoListRecords_Record{},
+
+	// 1. Walk every rkey in the collection. No body fetches here;
+	//    those happen below only for the records we end up returning.
+	type entry struct {
+		rkey string
+		c    cid.Cid
 	}
-	var lastRkey string
+	var entries []entry
 	err = r.ForEach(ctx, prefix, func(rpath string, c cid.Cid) error {
 		// ForEach walks lex-ascending from the prefix. As soon as we
 		// see a key that doesn't carry the prefix we're past the end
@@ -493,29 +506,10 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		if !strings.HasPrefix(rpath, prefix) {
 			return atrepo.ErrDoneIterating
 		}
-		rkey := strings.TrimPrefix(rpath, prefix)
-		// Cursor is the rkey of the last record on the previous page;
-		// skip until we're strictly past it.
-		if cursor != "" && rkey <= cursor {
-			return nil
-		}
-		if len(out.Records) >= limit {
-			return atrepo.ErrDoneIterating
-		}
-		raw, err := getBlock(ctx, ses, c)
-		if err != nil {
-			return fmt.Errorf("ServerRepoListRecords: %w", err)
-		}
-		val, err := lexutil.CborDecodeValue(raw)
-		if err != nil {
-			return fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", rkey, err)
-		}
-		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
-			Uri:   fmt.Sprintf("at://%s/%s", repo, rpath),
-			Cid:   c.String(),
-			Value: &lexutil.LexiconTypeDecoder{Val: val},
+		entries = append(entries, entry{
+			rkey: strings.TrimPrefix(rpath, prefix),
+			c:    c,
 		})
-		lastRkey = rkey
 		return nil
 	})
 	// Repo.ForEach compares the underlying mst walker's error against
@@ -527,18 +521,66 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		return nil, fmt.Errorf("ServerRepoListRecords: error iterating records: %w", err)
 	}
 
-	// Surface a cursor whenever we returned a full page; clients can
-	// pass it back to fetch the next page. If we returned fewer than
-	// limit records there are definitely no more, so omit it.
-	if len(out.Records) == limit && lastRkey != "" {
-		cur := lastRkey
-		out.Cursor = &cur
+	// 2. Order: newest-first by default (descending rkey, which is
+	//    descending TID-time for TID-shaped rkeys). `reverse=true`
+	//    flips back to oldest-first.
+	ascending := reverse != nil && *reverse
+	sort.Slice(entries, func(i, j int) bool {
+		if ascending {
+			return entries[i].rkey < entries[j].rkey
+		}
+		return entries[i].rkey > entries[j].rkey
+	})
+
+	// 3. Apply cursor. Cursor is the last rkey of the previous page;
+	//    skip past it in the active direction.
+	start := 0
+	if cursor != "" {
+		for i, e := range entries {
+			past := false
+			if ascending {
+				past = e.rkey > cursor
+			} else {
+				past = e.rkey < cursor
+			}
+			if past {
+				start = i
+				break
+			}
+			start = i + 1
+		}
+	}
+	end := start + limit
+	if end > len(entries) {
+		end = len(entries)
+	}
+	page := entries[start:end]
+
+	// 4. Fetch + decode bodies only for the page.
+	out := &comatproto.RepoListRecords_Output{
+		Records: make([]*comatproto.RepoListRecords_Record, 0, len(page)),
+	}
+	for _, e := range page {
+		raw, err := getBlock(ctx, ses, e.c)
+		if err != nil {
+			return nil, fmt.Errorf("ServerRepoListRecords: %w", err)
+		}
+		val, err := lexutil.CborDecodeValue(raw)
+		if err != nil {
+			return nil, fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", e.rkey, err)
+		}
+		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
+			Uri:   fmt.Sprintf("at://%s/%s%s", repo, prefix, e.rkey),
+			Cid:   e.c.String(),
+			Value: &lexutil.LexiconTypeDecoder{Val: val},
+		})
 	}
 
-	if reverse != nil && *reverse {
-		for i, j := 0, len(out.Records)-1; i < j; i, j = i+1, j-1 {
-			out.Records[i], out.Records[j] = out.Records[j], out.Records[i]
-		}
+	// 5. Surface a cursor whenever there are more entries past this
+	//    page. If end == len(entries) we've returned everything left.
+	if end < len(entries) && len(page) > 0 {
+		cur := page[len(page)-1].rkey
+		out.Cursor = &cur
 	}
 
 	return out, nil

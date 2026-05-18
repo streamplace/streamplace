@@ -95,6 +95,11 @@ export function KebabMenu({ dropdownPortalContainer }: KebabMenuProps) {
               setReportModalOpen={setReportModalOpen}
               setReportSubject={setReportSubject}
             />
+            <ReportBioPageItem
+              profile={profile}
+              setReportModalOpen={setReportModalOpen}
+              setReportSubject={setReportSubject}
+            />
             <ReportUserItem
               profile={profile}
               setReportModalOpen={setReportModalOpen}
@@ -143,6 +148,36 @@ function ReportStreamItem({
       disabled={!livestream}
     >
       <Text>Report Livestream...</Text>
+    </DropdownMenuItem>
+  );
+}
+
+function ReportBioPageItem({
+  profile,
+  setReportModalOpen,
+  setReportSubject,
+}: {
+  profile: AppBskyActorDefs.ProfileViewBasic | null;
+  setReportModalOpen: (open: boolean) => void;
+  setReportSubject: (subject: ReportSubject) => void;
+}) {
+  const { onOpenChange } = useRootContext();
+
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        if (!profile?.did) return;
+        onOpenChange?.(false);
+        setReportModalOpen(true);
+        setReportSubject({
+          $type: "com.atproto.admin.defs#repoRef",
+
+          did: profile.did,
+        });
+      }}
+      disabled={!profile?.did}
+    >
+      <Text>Report Bio Page...</Text>
     </DropdownMenuItem>
   );
 }

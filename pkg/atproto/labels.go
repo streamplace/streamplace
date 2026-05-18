@@ -94,6 +94,21 @@ func IsBanned(labels ...*comatproto.LabelDefs_Label) bool {
 	return false
 }
 
+// IsRecordHidden returns true if a specific record should not be served, based on
+// labels applied to the record's AT-URI (not the account).
+func IsRecordHidden(labels ...*comatproto.LabelDefs_Label) bool {
+	for _, l := range labels {
+		if strings.HasPrefix(l.Uri, "did:") {
+			continue // account label, handled by IsBanned
+		}
+		switch l.Val {
+		case LabelHide, LabelTakedown, LabelSuspend, LabelDMCAViolation:
+			return true
+		}
+	}
+	return false
+}
+
 // IsViewerBanned returns true if the DID should be excluded from view count
 // aggregation. This includes all standard banned labels plus !no-viewers.
 func IsViewerBanned(labels ...*comatproto.LabelDefs_Label) bool {

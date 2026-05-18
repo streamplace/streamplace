@@ -1,20 +1,25 @@
 import { useRootContext } from "@rn-primitives/dropdown-menu";
 import { Image } from "expo-image";
 import { Cog } from "lucide-react-native";
-import { useState } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
+import type { PlaceStreamBioPage } from "streamplace";
 import {
+  BioViewer,
   ContentRights,
   ContentWarnings,
   formatHandle,
   formatHandleWithAt,
-  useAuthor,
-  useAvatar,
+  useAvatars,
+  useCanModerate,
+  useLivestream,
+  useLivestreamInfo,
+  usePossiblyUnauthedPDSAgent,
   useStreamplaceStore,
   useTitle,
   zero,
@@ -40,6 +45,7 @@ import {
   Text,
   useTheme,
 } from "../../ui";
+import { ResponsiveDialog } from "../../ui/dialog";
 
 export function ContextMenu({
   dropdownPortalContainer,
@@ -103,6 +109,38 @@ export function ContextMenu({
   const segment = useLivestreamStore((x) => x.segment);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showUpdateTitleDialog, setShowUpdateTitleDialog] = useState(false);
+  const [showBioPage, setShowBioPage] = useState(false);
+  const [bio, setBio] = useState<PlaceStreamBioPage.Record | null>(null);
+  const [bioLoading, setBioLoading] = useState(false);
+
+  const agent = usePossiblyUnauthedPDSAgent();
+  useEffect(() => {
+    if (!profile?.did || !agent) return;
+    let cancelled = false;
+    setBioLoading(true);
+    setBio(null);
+    (async () => {
+      try {
+        const res = await agent.place.stream.bio.getPage({ repo: profile.did });
+        if (!cancelled && res.success) {
+          setBio(res.data as PlaceStreamBioPage.Record);
+        }
+      } catch {
+        // streamer has no bio
+      } finally {
+        if (!cancelled) setBioLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.did, agent]);
+
+  const modPermissions = useCanModerate(profile?.did);
+  const { updateLivestream, isLoading: isUpdateTitleLoading } =
+    useUpdateLivestreamRecord();
+  const livestreamRecord = useLivestream();
 
   // Get content rights from the latest segment
   const contentRights = segment?.contentRights;
@@ -138,38 +176,144 @@ export function ContextMenu({
 
   // rerender when dropdown portal container changes so we swap portals 'seamlessly'
   return (
-    <DropdownMenu onOpenChange={setIsOpen} key={dropdownPortalContainer}>
-      <DropdownMenuTrigger>
-        <Animated.View style={[iconRotate]}>
-          <Cog color={th.theme.colors.foreground} />
-        </Animated.View>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        side="top"
-        align="end"
-        portalHost={dropdownPortalContainer}
-      >
-        {Platform.OS !== "web" && (
-          <DropdownMenuGroup title="Streamer">
-            <View
-              style={[
-                zero.layout.flex.row,
-                zero.layout.flex.center,
-                zero.gap.all[3],
-                { flex: 1, minWidth: 0 },
-              ]}
-            >
-              {avatar && (
-                <Image
-                  key="avatar"
-                  source={{
-                    uri: avatar,
+    <>
+      <DropdownMenu onOpenChange={setIsOpen} key={dropdownPortalContainer}>
+        <DropdownMenuTrigger>
+          <Animated.View style={[iconRotate]}>
+            <Cog color={th.theme.colors.foreground} />
+          </Animated.View>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          side="top"
+          align="end"
+          portalHost={dropdownPortalContainer}
+        >
+          {Platform.OS !== "web" && (
+            <DropdownMenuGroup title="Streamer">
+              <View
+                style={[
+                  zero.layout.flex.row,
+                  zero.layout.flex.center,
+                  zero.gap.all[3],
+                  { flex: 1, minWidth: 0 },
+                ]}
+              >
+                {profile?.did && avatars[profile?.did]?.avatar && (
+                  <Image
+                    key="avatar"
+                    source={{
+                      uri: avatars[profile?.did]?.avatar,
+                    }}
+                    style={{ width: 42, height: 42, borderRadius: 999 }}
+                    contentFit="cover"
+                  />
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View
+                    style={[
+                      zero.layout.flex.row,
+                      zero.layout.flex.alignCenter,
+                      zero.gap.all[2],
+                    ]}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        if (profile?.handle) {
+                          const url = `https://bsky.app/profile/${formatHandle(profile)}`;
+                          Linking.openURL(url);
+                        }
+                      }}
+                    >
+                      <Text>{profile && formatHandleWithAt(profile)}</Text>
+                    </Pressable>
+                    {/*{did && profile && (
+                    <FollowButton streamerDID={profile?.did} currentUserDID={did} />
+                  )}*/}
+                  </View>
+                  <Text
+                    color="muted"
+                    size="sm"
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {ls?.record.title || "Stream Title"}
+                  </Text>
+                </View>
+              </View>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={graphManager.isLoading || !profile?.did}
+                onPress={async () => {
+                  try {
+                    if (graphManager.isFollowing) {
+                      await graphManager.unfollow();
+                    } else {
+                      await graphManager.follow();
+                    }
+                  } catch (err) {
+                    console.error("Follow/unfollow error:", err);
+                  }
+                }}
+              >
+                <Text
+                  color={graphManager.isFollowing ? "destructive" : "default"}
+                >
+                  {graphManager.isLoading
+                    ? "Loading..."
+                    : graphManager.isFollowing
+                      ? "Unfollow"
+                      : "Follow"}
+                </Text>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {Platform.OS === "ios" || Platform.OS === "android" ? (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <View
+                      style={[
+                        zero.flex.values[1],
+                        isMobile
+                          ? zero.layout.flex.row
+                          : zero.layout.flex.column,
+                        zero.layout.flex.spaceBetween,
+                        zero.pr[4],
+                      ]}
+                    >
+                      <Text>Bio</Text>
+                    </View>
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent
+                    portalHost={dropdownPortalContainer}
+                  ></DropdownMenuSubContent>
+                </DropdownMenuSub>
+              ) : (
+                <DropdownMenuItem
+                  onPress={() => {
+                    if (profile?.handle) {
+                      const url = `https://bsky.app/profile/${formatHandle(profile)}`;
+                      Linking.openURL(url);
+                    }
                   }}
-                  style={{ width: 42, height: 42, borderRadius: 999 }}
-                  contentFit="cover"
-                />
+                >
+                  <Text>View Profile on Bluesky</Text>
+                </DropdownMenuItem>
               )}
-              <View style={{ flex: 1, minWidth: 0 }}>
+            </DropdownMenuGroup>
+          )}
+
+          {Platform.OS !== "web" && modPermissions.canManageLivestream && (
+            <DropdownMenuGroup title="Stream Settings">
+              <UpdateStreamTitleItem
+                setShowUpdateTitleDialog={setShowUpdateTitleDialog}
+                isUpdateTitleLoading={isUpdateTitleLoading}
+                livestream={livestreamRecord}
+              />
+            </DropdownMenuGroup>
+          )}
+
+          <DropdownMenuGroup>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger subMenuTitle="Quality">
                 <View
                   style={[
                     zero.layout.flex.row,
@@ -200,45 +344,43 @@ export function ContextMenu({
                   {useTitle()}
                 </Text>
               </View>
-            </View>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={graphManager.isLoading || !profile?.did}
-              onPress={async () => {
-                try {
-                  if (graphManager.isFollowing) {
-                    await graphManager.unfollow();
-                  } else {
-                    await graphManager.follow();
-                  }
-                } catch (err) {
-                  console.error("Follow/unfollow error:", err);
-                }
-              }}
-            >
-              <Text
-                color={graphManager.isFollowing ? "destructive" : "default"}
-              >
-                {graphManager.isLoading
-                  ? "Loading..."
-                  : graphManager.isFollowing
-                    ? "Unfollow"
-                    : "Follow"}
-              </Text>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onPress={() => {
-                if (profile?.handle) {
-                  const url = `https://bsky.app/profile/${formatHandle(profile)}`;
-                  Linking.openURL(url);
-                }
-              }}
-            >
-              <Text>View Profile on Bluesky</Text>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        )}
+            )}
+            {contentRights && Object.keys(contentRights).length > 0 && (
+              <ContentRights
+                contentRights={contentRights}
+                size="xs"
+                color="muted"
+              />
+            )}
+          </View>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {showUpdateTitleDialog && (
+        <UpdateStreamTitleDialog
+          livestream={livestreamRecord}
+          streamerDID={profile?.did}
+          updateLivestream={updateLivestream}
+          isLoading={isUpdateTitleLoading}
+          onClose={() => setShowUpdateTitleDialog(false)}
+        />
+      )}
+      {bio && (
+        <ResponsiveDialog
+          open={showBioPage}
+          onOpenChange={setShowBioPage}
+          title={profile?.handle ?? "Bio"}
+          showCloseButton
+          size="lg"
+          position="center"
+        >
+          <ScrollView>
+            <BioViewer bio={bio} did={profile?.did} />
+          </ScrollView>
+        </ResponsiveDialog>
+      )}
+    </>
+  );
+}
 
         <DropdownMenuGroup>
           <DropdownMenuSub>

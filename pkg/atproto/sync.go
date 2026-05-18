@@ -770,6 +770,17 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
 
+	case *streamplace.MediaViewCount:
+		// View-count records are published by streamplace nodes (in
+		// their server repos) reporting on traffic they observed.
+		// Multiple reporters publish records for the same video; the
+		// query layer (place.stream.media.getVideo) sums across them.
+		if err := atsync.Model.UpsertMediaViewCount(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert media view count: %w", err)
+		}
+		log.Debug(ctx, "indexed media view count",
+			"uri", aturi.String(), "video", rec.Video, "count", rec.Count, "reporter", userDID)
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

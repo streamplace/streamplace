@@ -10562,11 +10562,7 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 9
-
-	if t.ThresholdSegments == nil {
-		fieldCount--
-	}
+	fieldCount := 7
 
 	if t.Tracks == nil {
 		fieldCount--
@@ -10715,29 +10711,6 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.Methodology (string) (string)
-	if len("methodology") > 1000000 {
-		return xerrors.Errorf("Value in field \"methodology\" was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("methodology"))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string("methodology")); err != nil {
-		return err
-	}
-
-	if len(t.Methodology) > 1000000 {
-		return xerrors.Errorf("Value in field t.Methodology was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.Methodology))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.Methodology)); err != nil {
-		return err
-	}
-
 	// t.WindowStart (string) (string)
 	if len("windowStart") > 1000000 {
 		return xerrors.Errorf("Value in field \"windowStart\" was too long")
@@ -10759,38 +10732,6 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	}
 	if _, err := cw.WriteString(string(t.WindowStart)); err != nil {
 		return err
-	}
-
-	// t.ThresholdSegments (int64) (int64)
-	if t.ThresholdSegments != nil {
-
-		if len("thresholdSegments") > 1000000 {
-			return xerrors.Errorf("Value in field \"thresholdSegments\" was too long")
-		}
-
-		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("thresholdSegments"))); err != nil {
-			return err
-		}
-		if _, err := cw.WriteString(string("thresholdSegments")); err != nil {
-			return err
-		}
-
-		if t.ThresholdSegments == nil {
-			if _, err := cw.Write(cbg.CborNull); err != nil {
-				return err
-			}
-		} else {
-			if *t.ThresholdSegments >= 0 {
-				if err := cw.WriteMajorTypeHeader(cbg.MajUnsignedInt, uint64(*t.ThresholdSegments)); err != nil {
-					return err
-				}
-			} else {
-				if err := cw.WriteMajorTypeHeader(cbg.MajNegativeInt, uint64(-*t.ThresholdSegments-1)); err != nil {
-					return err
-				}
-			}
-		}
-
 	}
 	return nil
 }
@@ -10820,7 +10761,7 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 17)
+	nameBuf := make([]byte, 11)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -10955,17 +10896,6 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.WindowEnd = string(sval)
 			}
-			// t.Methodology (string) (string)
-		case "methodology":
-
-			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
-				if err != nil {
-					return err
-				}
-
-				t.Methodology = string(sval)
-			}
 			// t.WindowStart (string) (string)
 		case "windowStart":
 
@@ -10976,42 +10906,6 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) (err error) {
 				}
 
 				t.WindowStart = string(sval)
-			}
-			// t.ThresholdSegments (int64) (int64)
-		case "thresholdSegments":
-			{
-
-				b, err := cr.ReadByte()
-				if err != nil {
-					return err
-				}
-				if b != cbg.CborNull[0] {
-					if err := cr.UnreadByte(); err != nil {
-						return err
-					}
-					maj, extra, err := cr.ReadHeader()
-					if err != nil {
-						return err
-					}
-					var extraI int64
-					switch maj {
-					case cbg.MajUnsignedInt:
-						extraI = int64(extra)
-						if extraI < 0 {
-							return fmt.Errorf("int64 positive overflow")
-						}
-					case cbg.MajNegativeInt:
-						extraI = int64(extra)
-						if extraI < 0 {
-							return fmt.Errorf("int64 negative overflow")
-						}
-						extraI = -1 - extraI
-					default:
-						return fmt.Errorf("wrong type for int64 field: %d", maj)
-					}
-
-					t.ThresholdSegments = (*int64)(&extraI)
-				}
 			}
 
 		default:
@@ -11058,26 +10952,19 @@ func (t *MediaViewCount_TrackUsage) MarshalCBOR(w io.Writer) error {
 		}
 	}
 
-	// t.TrackId (string) (string)
-	if len("trackId") > 1000000 {
-		return xerrors.Errorf("Value in field \"trackId\" was too long")
+	// t.Track (atproto.RepoStrongRef) (struct)
+	if len("track") > 1000000 {
+		return xerrors.Errorf("Value in field \"track\" was too long")
 	}
 
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("trackId"))); err != nil {
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("track"))); err != nil {
 		return err
 	}
-	if _, err := cw.WriteString(string("trackId")); err != nil {
+	if _, err := cw.WriteString(string("track")); err != nil {
 		return err
 	}
 
-	if len(t.TrackId) > 1000000 {
-		return xerrors.Errorf("Value in field t.TrackId was too long")
-	}
-
-	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.TrackId))); err != nil {
-		return err
-	}
-	if _, err := cw.WriteString(string(t.TrackId)); err != nil {
+	if err := t.Track.MarshalCBOR(cw); err != nil {
 		return err
 	}
 
@@ -11173,16 +11060,25 @@ func (t *MediaViewCount_TrackUsage) UnmarshalCBOR(r io.Reader) (err error) {
 
 				t.Bytes = int64(extraI)
 			}
-			// t.TrackId (string) (string)
-		case "trackId":
+			// t.Track (atproto.RepoStrongRef) (struct)
+		case "track":
 
 			{
-				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+
+				b, err := cr.ReadByte()
 				if err != nil {
 					return err
 				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+					t.Track = new(atproto.RepoStrongRef)
+					if err := t.Track.UnmarshalCBOR(cr); err != nil {
+						return xerrors.Errorf("unmarshaling t.Track pointer: %w", err)
+					}
+				}
 
-				t.TrackId = string(sval)
 			}
 			// t.DurationMs (int64) (int64)
 		case "durationMs":

@@ -4,18 +4,11 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "A streamplace node's report of view counts for one place.stream.video over a closed time window. Published in the reporting node's server repo (not the streamer's), so a video served by multiple nodes accumulates multiple records — consumers are expected to sum across trusted reporters. The rkey is conventionally `<windowStart-as-tid>-<video-rkey>` so re-running the aggregator over the same window is idempotent. The methodology field documents the floor used to count a session (e.g. \"any-segment\" = any sid that fetched ≥ threshold segment_requests); the embedded `tracks` array carries objective per-track bytes + duration totals that don't depend on the methodology.",
+      "description": "A streamplace node's report of view counts for one place.stream.video over a closed time window. Published in the reporting node's server repo (not the streamer's), so a video served by multiple nodes accumulates multiple records — consumers are expected to sum across trusted reporters. The rkey is conventionally `<windowStart-as-tid>-<video-rkey>` so re-running the aggregator over the same window is idempotent. Counts represent the reporting node's best effort given the data it has; the `tracks` array carries the objective byte / duration totals it observed.",
       "key": "any",
       "record": {
         "type": "object",
-        "required": [
-          "video",
-          "count",
-          "windowStart",
-          "windowEnd",
-          "methodology",
-          "indexedAt"
-        ],
+        "required": ["video", "count", "windowStart", "windowEnd", "indexedAt"],
         "properties": {
           "video": {
             "type": "string",
@@ -25,7 +18,7 @@
           "count": {
             "type": "integer",
             "minimum": 0,
-            "description": "Number of distinct sessions that qualified as a view over [windowStart, windowEnd) by the stated methodology."
+            "description": "Number of distinct sessions the reporting node observed as a view over [windowStart, windowEnd)."
           },
           "windowStart": {
             "type": "string",
@@ -37,18 +30,9 @@
             "format": "datetime",
             "description": "Exclusive upper bound of the aggregation window."
           },
-          "methodology": {
-            "type": "string",
-            "description": "Identifier for the counting algorithm. \"any-segment\" means: a distinct sid that fetched at least `thresholdSegments` segments for this video over the window. Future methodologies (e.g. \"ms-from-metafile\") will use new tags so older records remain interpretable."
-          },
-          "thresholdSegments": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Floor on segment_request count per (sid, video) for the \"any-segment\" methodology. Defaults to 1."
-          },
           "tracks": {
             "type": "array",
-            "description": "Per-track totals of bytes + playback duration actually transferred over the window. Computed by intersecting each segment_request's HTTP Range with the metafile's per-track byte layout, so the numbers are objective regardless of the chosen view-counting methodology.",
+            "description": "Per-track totals of bytes + playback duration the reporting node served over the window. Each entry references the place.stream.media.track record whose bytes were transferred, so user-contributed tracks (transcripts, transcodes published by other accounts) attribute naturally to their own records.",
             "items": {
               "type": "ref",
               "ref": "#trackUsage"
@@ -64,17 +48,18 @@
     },
     "trackUsage": {
       "type": "object",
-      "description": "One row of the tracks array: bytes + duration transferred for a single muxlTrack inside the video's MUXL container over the window. trackId matches the muxlTrack record's `trackId` field.",
-      "required": ["trackId", "bytes", "durationMs"],
+      "description": "One row of the tracks array: bytes + duration transferred for a single place.stream.media.track record over the window.",
+      "required": ["track", "bytes", "durationMs"],
       "properties": {
-        "trackId": {
-          "type": "string",
-          "description": "Stringified u32 matching the MUXL container's per-track id."
+        "track": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef",
+          "description": "Strong reference to the place.stream.media.track record whose bytes were transferred."
         },
         "bytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "Total bytes served from this track's byte ranges over the window. Sum across attributed segment_requests' Range intersections with the track's segment offsets."
+          "description": "Total bytes served from this track over the window. Sum across attributed segment_requests' Range intersections with the track's segment offsets in the metafile."
         },
         "durationMs": {
           "type": "integer",

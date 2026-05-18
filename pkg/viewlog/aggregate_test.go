@@ -7,12 +7,31 @@ import (
 	"testing"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/vod"
 )
+
+// fixtureTrackRefs returns the strongRefs that pair with the fixture
+// metafile, keyed by in-container trackId. Same shape the real
+// resolver in cmd/streamplace.go produces from MediaTrack rows.
+func fixtureTrackRefs() map[string]*comatproto.RepoStrongRef {
+	return map[string]*comatproto.RepoStrongRef{
+		"1": {
+			LexiconTypeID: "com.atproto.repo.strongRef",
+			Uri:           "at://did:plc:alice/place.stream.media.track/track-video-1",
+			Cid:           "bafytrack1",
+		},
+		"2": {
+			LexiconTypeID: "com.atproto.repo.strongRef",
+			Uri:           "at://did:plc:alice/place.stream.media.track/track-audio-2",
+			Cid:           "bafytrack2",
+		},
+	}
+}
 
 // loadStore returns an in-memory-ish FileStore + a writer pointed at
 // it, sharing the same NodeDID across test cases so the file naming
@@ -323,8 +342,8 @@ func fixtureMetafile() *vod.Metafile {
 				Type:      "audio",
 				Timescale: 1000,
 				Segments: []vod.MetafileSegment{
-					{Offset: 400, Size: 100, DurationTicks: 2000},  // [400..499] = 2s
-					{Offset: 900, Size: 100, DurationTicks: 2000},  // [900..999] = 2s
+					{Offset: 400, Size: 100, DurationTicks: 2000}, // [400..499] = 2s
+					{Offset: 900, Size: 100, DurationTicks: 2000}, // [900..999] = 2s
 					{Offset: 1400, Size: 100, DurationTicks: 2000},
 				},
 			},
@@ -407,6 +426,7 @@ func TestAggregateWindowTrackUsage(t *testing.T) {
 
 	store, err := blob.NewFileStore(root)
 	require.NoError(t, err)
+	refs := fixtureTrackRefs()
 	res, err := AggregateWindow(context.Background(), store, AggregateInput{
 		WindowStart: now.Add(-time.Minute),
 		WindowEnd:   now.Add(time.Minute),
@@ -414,18 +434,26 @@ func TestAggregateWindowTrackUsage(t *testing.T) {
 			require.Equal(t, cidA, cid)
 			return fixtureMetafile(), nil
 		},
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+			require.Equal(t, cidA, cid)
+			return refs, nil
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.VideoCounts, 1)
 	require.Equal(t, int64(1), res.VideoCounts[0].Count)
 	require.Equal(t, 1, res.MetafilesLoaded, "metafile cache: one fetch even though three segment_requests share the CID")
 
-	byTID := map[string]TrackUsage{}
+	byURI := map[string]TrackUsage{}
 	for _, t := range res.VideoCounts[0].Tracks {
-		byTID[t.TrackID] = t
+		byURI[t.Track.Uri] = t
 	}
-	require.Equal(t, TrackUsage{TrackID: "1", Bytes: 800, DurationMS: 4000}, byTID["1"], "two video segments fully fetched")
-	require.Equal(t, TrackUsage{TrackID: "2", Bytes: 100, DurationMS: 2000}, byTID["2"], "one audio segment fully fetched")
+	require.Equal(t,
+		TrackUsage{Track: refs["1"], Bytes: 800, DurationMS: 4000},
+		byURI[refs["1"].Uri], "two video segments fully fetched")
+	require.Equal(t,
+		TrackUsage{Track: refs["2"], Bytes: 100, DurationMS: 2000},
+		byURI[refs["2"].Uri], "one audio segment fully fetched")
 }
 
 func TestAggregateWindowVideoWithUsageButNoCount(t *testing.T) {
@@ -449,6 +477,7 @@ func TestAggregateWindowVideoWithUsageButNoCount(t *testing.T) {
 
 	store, err := blob.NewFileStore(root)
 	require.NoError(t, err)
+	refs := fixtureTrackRefs()
 	res, err := AggregateWindow(context.Background(), store, AggregateInput{
 		WindowStart:       now.Add(-time.Minute),
 		WindowEnd:         now.Add(time.Minute),
@@ -456,13 +485,58 @@ func TestAggregateWindowVideoWithUsageButNoCount(t *testing.T) {
 		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
 			return fixtureMetafile(), nil
 		},
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+			return refs, nil
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.VideoCounts, 1)
 	require.Equal(t, int64(0), res.VideoCounts[0].Count, "below threshold ⇒ no view")
 	require.Len(t, res.VideoCounts[0].Tracks, 1, "but the bytes are still reported")
-	require.Equal(t, "1", res.VideoCounts[0].Tracks[0].TrackID)
+	require.Equal(t, refs["1"].Uri, res.VideoCounts[0].Tracks[0].Track.Uri)
 	require.Equal(t, int64(400), res.VideoCounts[0].Tracks[0].Bytes)
+}
+
+func TestAggregateWindowTidWithoutStrongRefIsDropped(t *testing.T) {
+	// A track that has a metafile entry but no place.stream.media.track
+	// record (e.g. mid-publish, or the record was deleted) doesn't get
+	// a usage row — we can't reference it. The sid view still counts.
+	root := t.TempDir()
+	now := time.Date(2026, 5, 17, 12, 0, 0, 0, time.UTC)
+	w := newAggTestWriter(t, root, "did:web:node1", now)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go w.Run(ctx)
+
+	const (
+		videoA = "at://did:plc:alice/place.stream.video/v1"
+		cidA   = "bafyfixture"
+	)
+	w.Log(ctx, Event{Ts: now, Type: EventTypeManifestRequest, VideoURI: videoA, SID: "sid"})
+	// Range hits both video (track "1") and audio (track "2"), but the
+	// resolver only knows about track "1".
+	w.Log(ctx, Event{Ts: now.Add(time.Second), Type: EventTypeSegmentRequest, CID: cidA, SID: "sid", RangeStart: 0, RangeEnd: 499})
+	require.NoError(t, w.Close())
+
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	refs := fixtureTrackRefs()
+	partial := map[string]*comatproto.RepoStrongRef{"1": refs["1"]}
+	res, err := AggregateWindow(context.Background(), store, AggregateInput{
+		WindowStart: now.Add(-time.Minute),
+		WindowEnd:   now.Add(time.Minute),
+		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
+			return fixtureMetafile(), nil
+		},
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+			return partial, nil
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, res.VideoCounts, 1)
+	require.Equal(t, int64(1), res.VideoCounts[0].Count)
+	require.Len(t, res.VideoCounts[0].Tracks, 1, "only the resolved track gets a row")
+	require.Equal(t, refs["1"].Uri, res.VideoCounts[0].Tracks[0].Track.Uri)
 }
 
 func TestAggregateWindowMissingMetafileDoesNotPoison(t *testing.T) {

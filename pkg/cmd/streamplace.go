@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
@@ -402,13 +403,48 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// goroutine fires per --view-count-aggregate-interval; statedb's
 	// unique TaskKey makes the cross-node race a no-op for losers.
 	if vodStore != nil && cli.ViewCountAggregateInterval > 0 {
+		// Resolver: for a blob CID, return strongRefs of every
+		// place.stream.media.track record whose muxlTrack lives in
+		// that blob, keyed by in-container trackId. Used by the
+		// aggregator to attribute bytes/duration to the right track
+		// record (the streamer's original track records or, later,
+		// user-contributed transcript/transcode tracks).
+		fetchTrackRefs := func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+			rows, err := mod.GetMediaTracksByBlob(ctx, cid)
+			if err != nil {
+				return nil, err
+			}
+			out := make(map[string]*comatproto.RepoStrongRef, len(rows))
+			for _, row := range rows {
+				rec, err := row.ToRecord()
+				if err != nil {
+					log.Warn(ctx, "viewlog refs: decode track record",
+						"uri", row.URI, "error", err)
+					continue
+				}
+				if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+					continue
+				}
+				tid := rec.Track.MediaDefs_MuxlTrack.TrackId
+				if tid == "" {
+					continue
+				}
+				out[tid] = &comatproto.RepoStrongRef{
+					LexiconTypeID: "com.atproto.repo.strongRef",
+					Uri:           row.URI,
+					Cid:           row.CID,
+				}
+			}
+			return out, nil
+		}
 		state.SetViewCountAggregator(func(ctx context.Context, t statedb.ViewCountAggregateTask) error {
 			return viewlog.RunAggregation(ctx, viewlog.RunAggregationInput{
-				Store:       vodStore,
-				CLI:         cli,
-				WindowStart: t.WindowStart,
-				WindowEnd:   t.WindowEnd,
-				ReadMargin:  2 * cli.ViewLogFlushInterval,
+				Store:          vodStore,
+				CLI:            cli,
+				WindowStart:    t.WindowStart,
+				WindowEnd:      t.WindowEnd,
+				ReadMargin:     2 * cli.ViewLogFlushInterval,
+				FetchTrackRefs: fetchTrackRefs,
 			})
 		})
 		group.Go(func() error {

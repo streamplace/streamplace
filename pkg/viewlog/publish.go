@@ -24,12 +24,13 @@ var aggregateTracer = otel.Tracer("viewlog")
 // RunAggregationInput plumbs everything the bootstrap-installed
 // aggregator function needs to do one window pass end-to-end.
 type RunAggregationInput struct {
-	Store         blob.Store
-	CLI           *config.CLI
-	WindowStart   time.Time
-	WindowEnd     time.Time
-	ReadMargin    time.Duration
-	FetchMetafile MetafileFetcher
+	Store          blob.Store
+	CLI            *config.CLI
+	WindowStart    time.Time
+	WindowEnd      time.Time
+	ReadMargin     time.Duration
+	FetchMetafile  MetafileFetcher
+	FetchTrackRefs TrackRefFetcher
 }
 
 // RunAggregation reads logs for the window, computes per-video view
@@ -46,10 +47,11 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 	defer span.End()
 
 	result, err := AggregateWindow(ctx, in.Store, AggregateInput{
-		WindowStart:   in.WindowStart,
-		WindowEnd:     in.WindowEnd,
-		ReadMargin:    in.ReadMargin,
-		FetchMetafile: in.FetchMetafile,
+		WindowStart:    in.WindowStart,
+		WindowEnd:      in.WindowEnd,
+		ReadMargin:     in.ReadMargin,
+		FetchMetafile:  in.FetchMetafile,
+		FetchTrackRefs: in.FetchTrackRefs,
 	})
 	if err != nil {
 		return fmt.Errorf("aggregate window: %w", err)
@@ -68,26 +70,23 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 	)
 
 	indexedAt := aqtime.FromTime(time.Now().UTC()).String()
-	threshold := int64(result.Window.ThresholdSegments)
 	for _, vc := range result.VideoCounts {
 		tracks := make([]*streamplace.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
 		for _, t := range vc.Tracks {
 			tracks = append(tracks, &streamplace.MediaViewCount_TrackUsage{
-				TrackId:    t.TrackID,
+				Track:      t.Track,
 				Bytes:      t.Bytes,
 				DurationMs: t.DurationMS,
 			})
 		}
 		rec := &streamplace.MediaViewCount{
-			LexiconTypeID:     constants.PLACE_STREAM_MEDIA_VIEW_COUNT,
-			Video:             vc.VideoURI,
-			Count:             vc.Count,
-			WindowStart:       in.WindowStart.UTC().Format(time.RFC3339),
-			WindowEnd:         in.WindowEnd.UTC().Format(time.RFC3339),
-			Methodology:       MethodologyAnySegment,
-			ThresholdSegments: &threshold,
-			Tracks:            tracks,
-			IndexedAt:         indexedAt,
+			LexiconTypeID: constants.PLACE_STREAM_MEDIA_VIEW_COUNT,
+			Video:         vc.VideoURI,
+			Count:         vc.Count,
+			WindowStart:   in.WindowStart.UTC().Format(time.RFC3339),
+			WindowEnd:     in.WindowEnd.UTC().Format(time.RFC3339),
+			Tracks:        tracks,
+			IndexedAt:     indexedAt,
 		}
 		rkey, err := viewCountRkey(vc.VideoURI, in.WindowStart)
 		if err != nil {

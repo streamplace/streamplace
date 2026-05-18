@@ -13,30 +13,39 @@ import (
 	"strings"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
+
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/vod"
 )
-
-// MethodologyAnySegment is the initial counting heuristic: a distinct
-// sid that fetched at least `ThresholdSegments` segments for a video
-// inside the aggregation window. Recorded on every published view-
-// count record so consumers can interpret the number against the
-// algorithm that produced it; later methodologies (ms-from-metafile,
-// client-reported, …) ship under their own tags.
-const MethodologyAnySegment = "any-segment"
 
 // MetafileFetcher resolves a blob CID to its parsed metafile. The
 // aggregator calls it once per unique CID seen in the window's
 // segment_request events; tests can substitute a fake.
 type MetafileFetcher func(ctx context.Context, cid string) (*vod.Metafile, error)
 
+// TrackRefFetcher resolves a blob CID to the strongRefs of the
+// place.stream.media.track records whose muxlTrack lives in that
+// blob, keyed by the muxlTrack's in-container trackId. The aggregator
+// looks each in-container tid up to attribute bytes/duration to the
+// owning track record — user-contributed tracks (transcripts,
+// transcodes) attribute to their own record, the original tracks
+// attribute to the streamer's record.
+//
+// Returning a nil map (no error) is fine; the corresponding bytes
+// just don't get a per-track row in the output.
+type TrackRefFetcher func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error)
+
 // AggregateInput bundles the window + tunables for one aggregation
 // pass. WindowStart is inclusive, WindowEnd is exclusive — matches the
 // AT-URI record's wire shape.
 type AggregateInput struct {
-	WindowStart       time.Time
-	WindowEnd         time.Time
+	WindowStart time.Time
+	WindowEnd   time.Time
+	// ThresholdSegments is the floor on segment_requests per (sid,
+	// video) before that sid counts as a view. Defaults to 1.
+	// Operator-level knob, not surfaced on the published record.
 	ThresholdSegments int
 	// ReadMargin extends the file-listing window backwards so a file
 	// opened slightly before WindowStart (whose events may straddle
@@ -51,6 +60,13 @@ type AggregateInput struct {
 	// segment_request is counted toward the sid view but contributes
 	// zero bytes / duration.
 	FetchMetafile MetafileFetcher
+	// FetchTrackRefs resolves a CID to the strongRefs of the
+	// place.stream.media.track records whose muxlTrack lives in that
+	// blob, keyed by in-container trackId. Required for per-track
+	// usage rows; when nil or returning no entry for a given tid the
+	// bytes/duration credit for that track is dropped (the sid view
+	// still counts).
+	FetchTrackRefs TrackRefFetcher
 }
 
 // VideoCount is one row in the AggregateResult: distinct qualifying
@@ -64,9 +80,10 @@ type VideoCount struct {
 
 // TrackUsage is the objective half of the aggregator's output: how
 // many bytes + how much playback duration were served from one
-// muxlTrack inside the window. Methodology-independent.
+// place.stream.media.track record inside the window. The strongRef
+// points at the track record whose bytes were transferred.
 type TrackUsage struct {
-	TrackID    string
+	Track      *comatproto.RepoStrongRef
 	Bytes      int64
 	DurationMS int64
 }
@@ -162,17 +179,19 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 	}
 	segments := make(map[pair]int)
 	// trackTotals accumulates objective bytes + duration per
-	// (video, track). Methodology-independent; the published record
-	// carries both alongside the heuristic Count.
+	// (video, track-record). Keyed on (video, trackURI) since the
+	// strongRef's URI is globally unique — same CID across two
+	// videos (parent + clip) still attributes to the right tracks.
 	type trackKey struct {
-		video   string
-		trackID string
+		video    string
+		trackURI string
 	}
 	trackTotals := make(map[trackKey]*TrackUsage)
-	// metafileCache: one fetch per CID across the whole window. The
-	// nil value is cached too, so a missing metafile doesn't trigger
-	// repeated fetches.
+	// metafileCache + trackRefCache: one fetch per CID across the
+	// whole window. The nil values are cached too, so a missing
+	// metafile / refs lookup doesn't trigger repeated fetches.
 	metafileCache := make(map[string]*vod.Metafile)
+	trackRefCache := make(map[string]map[string]*comatproto.RepoStrongRef)
 	metafilesLoaded := 0
 
 	var eventsRead int
@@ -203,10 +222,12 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 				segments[pair{sid: ev.SID, video: video}]++
 				eventsRead++
 
-				// Per-track byte/duration accounting needs the
+				// Per-track byte/duration accounting needs (a) the
 				// metafile that maps blob offsets to per-track
-				// segments. Cache once per CID; nil cache entries
-				// mean "tried + missing" so we don't refetch.
+				// segments and (b) the strongRef for each track's
+				// place.stream.media.track record. Both cached per
+				// CID; nil cache entries mean "tried + missing" so
+				// we don't refetch.
 				if ev.CID == "" || ev.RangeEnd < ev.RangeStart {
 					return
 				}
@@ -226,15 +247,35 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 				if meta == nil {
 					return
 				}
+				refs, refsCached := trackRefCache[ev.CID]
+				if !refsCached {
+					if in.FetchTrackRefs != nil {
+						r, err := in.FetchTrackRefs(ctx, ev.CID)
+						if err != nil {
+							log.Debug(ctx, "viewlog: fetch track refs",
+								"cid", ev.CID, "error", err)
+						}
+						refs = r
+					}
+					trackRefCache[ev.CID] = refs
+				}
 				for tid, track := range meta.Tracks {
 					bytes, durMS := rangeOverlapInTrack(ev.RangeStart, ev.RangeEnd, track)
 					if bytes == 0 {
 						continue
 					}
-					k := trackKey{video: video, trackID: tid}
+					ref := refs[tid]
+					if ref == nil {
+						// No track record found for this in-container
+						// tid. Drop the credit — a TrackUsage row
+						// without a stable strongRef wouldn't be
+						// useful to consumers.
+						continue
+					}
+					k := trackKey{video: video, trackURI: ref.Uri}
 					tu, ok := trackTotals[k]
 					if !ok {
-						tu = &TrackUsage{TrackID: tid}
+						tu = &TrackUsage{Track: ref}
 						trackTotals[k] = tu
 					}
 					tu.Bytes += bytes
@@ -276,8 +317,12 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 	for v := range videoSet {
 		tracks := tracksByVideo[v]
 		// Stable per-video track order so re-runs produce byte-
-		// identical records.
-		sort.Slice(tracks, func(i, j int) bool { return tracks[i].TrackID < tracks[j].TrackID })
+		// identical records. Sort on the strongRef URI (globally
+		// unique) since that's the only stable identity now that
+		// in-container tids aren't surfaced.
+		sort.Slice(tracks, func(i, j int) bool {
+			return tracks[i].Track.Uri < tracks[j].Track.Uri
+		})
 		out = append(out, VideoCount{
 			VideoURI: v,
 			Count:    perVideo[v],

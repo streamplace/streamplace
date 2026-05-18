@@ -1,10 +1,9 @@
 import {
   BioViewer,
-  getPDSServiceEndpoint,
-  resolveDIDDocument,
   Text,
   useAvatars,
   useLivestreamInfo,
+  usePossiblyUnauthedPDSAgent,
   useTheme,
   View,
   zero,
@@ -15,12 +14,10 @@ import { useEffect, useState } from "react";
 import { Pressable } from "react-native";
 import type { PlaceStreamBioPage } from "streamplace";
 
-const BIO_COLLECTION = "place.stream.bio.page";
-const BIO_RKEY = "self";
-
 function useStreamerBio(did: string | undefined) {
   const [bio, setBio] = useState<PlaceStreamBioPage.Record | null>(null);
   const [loading, setLoading] = useState(false);
+  const agent = usePossiblyUnauthedPDSAgent();
 
   useEffect(() => {
     if (!did) return;
@@ -28,21 +25,14 @@ function useStreamerBio(did: string | undefined) {
     setLoading(true);
     setBio(null);
 
+    if (!agent) return;
+
     (async () => {
       try {
-        const didDoc = await resolveDIDDocument(did);
-        const pdsEndpoint = getPDSServiceEndpoint(didDoc);
-        const params = new URLSearchParams({
-          repo: did,
-          collection: BIO_COLLECTION,
-          rkey: BIO_RKEY,
-        });
-        const res = await fetch(
-          `${pdsEndpoint}/xrpc/com.atproto.repo.getRecord?${params}`,
-        );
-        if (!res.ok) return;
-        const json = await res.json();
-        if (!cancelled) setBio(json.value as PlaceStreamBioPage.Record);
+        let res = await agent.place.stream.bio.getPage({ repo: did });
+        if (!res.success) return;
+        const json = res.data;
+        if (!cancelled) setBio(json as PlaceStreamBioPage.Record);
       } catch {
         // streamer has no bio or PDS is unreachable: render nothing
       } finally {

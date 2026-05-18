@@ -10,6 +10,6 @@ path = "src/main.rs"
 
 [dependencies]
 
-muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "87d9fc2f5093589a1c018b01669d5cf31644dffc", package = "muxl-sign" }
+muxl-sign = { git = "https://github.com/streamplace/muxl.git", rev = "51f920dc5aab2688c97fe86e85835685e6497b3c", package = "muxl-sign" }
 # temporary local version to test
 # muxl-sign = { path = "../../../muxl/crates/muxl-sign" }

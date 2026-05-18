@@ -7,7 +7,7 @@
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title", "source", "duration"],
+        "required": ["title", "source", "durationMs"],
         "type": "object",
         "properties": {
           "title": {
@@ -30,7 +30,7 @@
             "maxGraphemes": 5000,
             "description": "Description of this video"
           },
-          "duration": {
+          "durationMs": {
             "type": "integer",
             "description": "Duration of the video in milliseconds"
           },

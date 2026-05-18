@@ -38,12 +38,12 @@ Metadata common to all media types. Contains subobjects for other media types.
 
 **Properties:**
 
-| Name       | Type                                                                      | Req'd | Description                                                         | Constraints |
-| ---------- | ------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------- | ----------- |
-| `language` | `string`                                                                  | ❌    | IETF BCP 47 language tag corresponding to the content of this track |             |
-| `duration` | `integer`                                                                 | ❌    | duration of this track in milliseconds                              |             |
-| `video`    | [`place.stream.segment#video`](/lex-reference/place-stream-segment#video) | ❌    |                                                                     |             |
-| `audio`    | [`place.stream.segment#audio`](/lex-reference/place-stream-segment#audio) | ❌    |                                                                     |             |
+| Name         | Type                                                                      | Req'd | Description                                                         | Constraints |
+| ------------ | ------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------- | ----------- |
+| `language`   | `string`                                                                  | ❌    | IETF BCP 47 language tag corresponding to the content of this track |             |
+| `durationMs` | `integer`                                                                 | ❌    | duration of this track in milliseconds                              |             |
+| `video`      | [`place.stream.segment#video`](/lex-reference/place-stream-segment#video) | ❌    |                                                                     |             |
+| `audio`      | [`place.stream.segment#audio`](/lex-reference/place-stream-segment#audio) | ❌    |                                                                     |             |
 
 ---
 
@@ -92,7 +92,7 @@ Metadata common to all media types. Contains subobjects for other media types.
           "type": "string",
           "description": "IETF BCP 47 language tag corresponding to the content of this track"
         },
-        "duration": {
+        "durationMs": {
           "type": "integer",
           "description": "duration of this track in milliseconds"
         },

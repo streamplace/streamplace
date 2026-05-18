@@ -33,8 +33,8 @@ type Video struct {
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// descriptionFacets: Annotations of text (mentions, URLs, etc)
 	DescriptionFacets []*RichtextVideoFacet `json:"descriptionFacets,omitempty" cborgen:"descriptionFacets,omitempty"`
-	// duration: Duration of the video in milliseconds
-	Duration int64 `json:"duration" cborgen:"duration"`
+	// durationMs: Duration of the video in milliseconds
+	DurationMs int64 `json:"durationMs" cborgen:"durationMs"`
 	// source: What is the source of this video?
 	Source *Video_Source `json:"source" cborgen:"source"`
 	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).

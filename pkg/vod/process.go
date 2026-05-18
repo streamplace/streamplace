@@ -44,6 +44,7 @@ const (
 	stageStaging            = "start_staging"
 	stageSigner             = "create_signer"
 	stagePipeline           = "gstreamer_pipeline"
+	stageEmptyOutput        = "empty_muxl_output"
 	stageStagingComplete    = "store_complete"
 	stageContentAddressCopy = "content_address_move"
 	stageMetafile           = "write_metafile"
@@ -175,6 +176,12 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		)
 	}
 	spmetrics.VODOutputBytes.Observe(float64(counter.n))
+
+	if counter.n == 0 {
+		err := errors.New("muxl produced zero bytes")
+		recordErr(span, stageEmptyOutput, err)
+		return "", err
+	}
 
 	if err := completeStaging(ctx, staging, stagingKey); err != nil {
 		recordErr(span, stageStagingComplete, err)

@@ -24,7 +24,7 @@ Some audiovisual content.
 | `title`             | `string`                                                                                                                                                                                                                          | ✅    | Title of the video referenced by this record                                                                                                                                                      | Max Length: 1400<br/>Max Graphemes: 140       |
 | `source`            | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ✅    | What is the source of this video?                                                                                                                                                                 |                                               |
 | `description`       | `string`                                                                                                                                                                                                                          | ❌    | Description of this video                                                                                                                                                                         | Max Length: 50000<br/>Max Graphemes: 5000     |
-| `duration`          | `integer`                                                                                                                                                                                                                         | ✅    | Duration of the video in milliseconds                                                                                                                                                             |                                               |
+| `durationMs`        | `integer`                                                                                                                                                                                                                         | ✅    | Duration of the video in milliseconds                                                                                                                                                             |                                               |
 | `descriptionFacets` | Array of [`place.stream.richtext.videoFacet`](/lex-reference/place-stream-richtext-videofacet)                                                                                                                                    | ❌    | Annotations of text (mentions, URLs, etc)                                                                                                                                                         |                                               |
 | `thumb`             | `blob`                                                                                                                                                                                                                            | ❌    | Thumbnail image for the video.                                                                                                                                                                    | Accept: `image/*`<br/>Max Size: 1000000 bytes |
 | `connections`       | Array of Union of:<br/>&nbsp;&nbsp;[`#connection`](#connection)                                                                                                                                                                   | ❌    | Free-form list of atproto records related in some way to this video                                                                                                                               |                                               |
@@ -61,7 +61,7 @@ Some audiovisual content.
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title", "source", "duration"],
+        "required": ["title", "source", "durationMs"],
         "type": "object",
         "properties": {
           "title": {
@@ -84,7 +84,7 @@ Some audiovisual content.
             "maxGraphemes": 5000,
             "description": "Description of this video"
           },
-          "duration": {
+          "durationMs": {
             "type": "integer",
             "description": "Duration of the video in milliseconds"
           },

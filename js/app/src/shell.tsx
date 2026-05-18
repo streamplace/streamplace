@@ -66,6 +66,7 @@ import PopoutMultistream from "src/screens/popout-multistream";
 import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
 import SupportScreen from "src/screens/support";
 import UploadScreen from "src/screens/upload";
+import VideoScreen from "src/screens/video";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -577,6 +578,11 @@ export default function Shell() {
           <RootStack.Screen
             name="MobileGoLive"
             component={MobileGoLive}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="VodPlayerDemo"
+            component={VideoScreen}
             options={{ headerShown: false }}
           />
 

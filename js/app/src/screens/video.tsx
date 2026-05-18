@@ -1,4 +1,5 @@
 import { Text, useStreamplaceStore, View, zero } from "@streamplace/components";
+import { Platform } from "react-native";
 import { Player } from "../../components/mobile/player";
 
 const BBB_HLS_URL = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
@@ -10,12 +11,20 @@ function usePlaybackUrl(src?: string): string {
   return `${serverUrl}/api/playback/${src}/hls/index.m3u8`;
 }
 
+function useQuerySrc(routeSrc?: string): string | undefined {
+  if (Platform.OS === "web") {
+    const qUrl = new URLSearchParams(window.location.search).get("url");
+    if (qUrl) return qUrl;
+  }
+  return routeSrc;
+}
+
 export default function VideoScreen({
   route,
 }: {
   route?: { params?: { src?: string } };
 }) {
-  const src = route?.params?.src;
+  const src = useQuerySrc(route?.params?.src);
   const url = usePlaybackUrl(src);
 
   return (

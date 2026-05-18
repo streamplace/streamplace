@@ -90,11 +90,14 @@ func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (*stre
 
 // viewCountSummary sums every place.stream.media.viewCount record
 // indexed for the given video — across reporters and across windows
-// — into the lexicon-defined summary shape. Returns (nil, nil) when
-// no records exist so callers can distinguish "no data" from "zero
-// data". Internal to the model package; consumers see only the
-// hydrated VideoView from GetVideoView.
+// — into the lexicon-defined summary shape. Always returns a non-nil
+// summary (with zeroes when no records exist) so the view shape stays
+// consistent: consumers can render `count` / `bytes` / `durationMs`
+// unconditionally without a nil check. Internal to the model
+// package; consumers see only the hydrated VideoView from
+// GetVideoView.
 func (m *DBModel) viewCountSummary(ctx context.Context, videoURI string) (*streamplace.MediaGetVideo_ViewCountSummary, error) {
+	out := &streamplace.MediaGetVideo_ViewCountSummary{}
 	var rows []*MediaViewCount
 	err := m.DB.WithContext(ctx).
 		Where("video_uri = ?", videoURI).
@@ -102,10 +105,6 @@ func (m *DBModel) viewCountSummary(ctx context.Context, videoURI string) (*strea
 	if err != nil {
 		return nil, fmt.Errorf("list view counts for video: %w", err)
 	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	out := &streamplace.MediaGetVideo_ViewCountSummary{}
 	reporters := make(map[string]struct{})
 	for _, row := range rows {
 		rec, err := row.ToRecord()

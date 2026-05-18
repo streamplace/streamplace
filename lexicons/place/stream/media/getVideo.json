@@ -32,7 +32,7 @@
     },
     "videoView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record"],
+      "required": ["uri", "cid", "author", "record", "viewCounts"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -44,7 +44,7 @@
         "viewCounts": {
           "type": "ref",
           "ref": "#viewCountSummary",
-          "description": "Aggregated view counts across every indexed reporter. Absent when no place.stream.media.viewCount records have been observed yet."
+          "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
         }
       }
     },

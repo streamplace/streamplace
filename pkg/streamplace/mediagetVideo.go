@@ -17,8 +17,8 @@ type MediaGetVideo_VideoView struct {
 	Cid    string                              `json:"cid" cborgen:"cid"`
 	Record *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
 	Uri    string                              `json:"uri" cborgen:"uri"`
-	// viewCounts: Aggregated view counts across every indexed reporter. Absent when no place.stream.media.viewCount records have been observed yet.
-	ViewCounts *MediaGetVideo_ViewCountSummary `json:"viewCounts,omitempty" cborgen:"viewCounts,omitempty"`
+	// viewCounts: Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally.
+	ViewCounts *MediaGetVideo_ViewCountSummary `json:"viewCounts" cborgen:"viewCounts"`
 }
 
 // MediaGetVideo_ViewCountSummary is a "viewCountSummary" in the place.stream.media.getVideo schema.

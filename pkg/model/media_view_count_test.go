@@ -63,7 +63,11 @@ func TestGetVideoView_NoViewCounts(t *testing.T) {
 	require.NotNil(t, view)
 	require.Equal(t, videoURI, view.Uri)
 	require.Equal(t, owner, view.Author.Did)
-	require.Nil(t, view.ViewCounts, "no viewCount records ⇒ summary is omitted")
+	require.NotNil(t, view.ViewCounts, "summary is always present; zero-valued when no records")
+	require.Equal(t, int64(0), view.ViewCounts.Count)
+	require.Equal(t, int64(0), view.ViewCounts.Bytes)
+	require.Equal(t, int64(0), view.ViewCounts.DurationMs)
+	require.Equal(t, int64(0), view.ViewCounts.Reporters)
 }
 
 func TestGetVideoView_SumsAcrossReporters(t *testing.T) {

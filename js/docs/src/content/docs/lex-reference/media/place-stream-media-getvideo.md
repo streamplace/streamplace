@@ -42,13 +42,13 @@ Get a hydrated view of a place.stream.video record — the record itself plus au
 
 **Properties:**
 
-| Name         | Type                                                                                                                                             | Req'd | Description                                                                                                                       | Constraints      |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `uri`        | `string`                                                                                                                                         | ✅    |                                                                                                                                   | Format: `at-uri` |
-| `cid`        | `string`                                                                                                                                         | ✅    |                                                                                                                                   | Format: `cid`    |
-| `author`     | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                                                   |                  |
-| `record`     | `unknown`                                                                                                                                        | ✅    |                                                                                                                                   |                  |
-| `viewCounts` | [`#viewCountSummary`](#viewcountsummary)                                                                                                         | ❌    | Aggregated view counts across every indexed reporter. Absent when no place.stream.media.viewCount records have been observed yet. |                  |
+| Name         | Type                                                                                                                                             | Req'd | Description                                                                                                                                                                                                                    | Constraints      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| `uri`        | `string`                                                                                                                                         | ✅    |                                                                                                                                                                                                                                | Format: `at-uri` |
+| `cid`        | `string`                                                                                                                                         | ✅    |                                                                                                                                                                                                                                | Format: `cid`    |
+| `author`     | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                                                                                                                                                |                  |
+| `record`     | `unknown`                                                                                                                                        | ✅    |                                                                                                                                                                                                                                |                  |
+| `viewCounts` | [`#viewCountSummary`](#viewcountsummary)                                                                                                         | ✅    | Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally. |                  |
 
 ---
 
@@ -108,7 +108,7 @@ Sums across every place.stream.media.viewCount record indexed for this video, re
     },
     "videoView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record"],
+      "required": ["uri", "cid", "author", "record", "viewCounts"],
       "properties": {
         "uri": {
           "type": "string",
@@ -128,7 +128,7 @@ Sums across every place.stream.media.viewCount record indexed for this video, re
         "viewCounts": {
           "type": "ref",
           "ref": "#viewCountSummary",
-          "description": "Aggregated view counts across every indexed reporter. Absent when no place.stream.media.viewCount records have been observed yet."
+          "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
         }
       }
     },

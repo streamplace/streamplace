@@ -4294,10 +4294,10 @@
           "record": {},
           "viewCounts": {
             "$ref": "#/components/schemas/place.stream.media.getVideo_viewCountSummary",
-            "description": "Aggregated view counts across every indexed reporter. Absent when no place.stream.media.viewCount records have been observed yet."
+            "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
           }
         },
-        "required": ["uri", "cid", "author", "record"]
+        "required": ["uri", "cid", "author", "record", "viewCounts"]
       },
       "app.bsky.actor.defs_profileViewBasic": {
         "type": "object",

@@ -480,8 +480,11 @@ func audioChainSpec(codec string, caps *gst.Structure) (specs []elemSpec, transc
 			out = append(out, elemSpec{name: "aacparse"})
 			return out, false, nil
 		case 1:
-			// MP3 — decode, re-encode to AAC.
-			out = append(out, elemSpec{name: "mpegaudioparse"}, elemSpec{name: "mpg123audiodec"})
+			// MP3 — decode via avdec_mp3 (gst-libav), re-encode to AAC.
+			// Using avdec_mp3 instead of mpg123audiodec because we don't
+			// have an mpg123.wrap for the static build and libav is
+			// already linked.
+			out = append(out, elemSpec{name: "mpegaudioparse"}, elemSpec{name: "avdec_mp3"})
 			out = append(out, transcodeToAAC...)
 			return out, true, nil
 		default:

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -71,6 +72,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	app.Version = build.Version
 	app.Commands = []*urfavecli.Command{
 		makeSelfTestCommand(build),
+		makeMP3TestCommand(build),
 		makeStreamCommand(build),
 		makeLiveCommand(build),
 		makeSignCommand(build),
@@ -766,6 +768,75 @@ func makeSelfTestCommand(build *config.BuildFlags) *urfavecli.Command {
 			return nil
 		},
 	}
+}
+
+// makeMP3TestCommand runs the MP3-output side of the VOD pipeline on a
+// local file. Useful for verifying the MP3 in / MP3 out and AAC in /
+// MP3 out paths without spinning up the full ProcessVOD scaffolding.
+// The transcoded MP3 lands at the second positional path.
+func makeMP3TestCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:      "mp3-test",
+		Usage:     "transcode/passthrough an audio file through RunMP3Pipeline",
+		ArgsUsage: "[input] [output]",
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			args := cmd.Args()
+			if args.Len() != 2 {
+				return fmt.Errorf("usage: streamplace mp3-test [input] [output]")
+			}
+			return runMP3Test(ctx, args.Get(0), args.Get(1))
+		},
+	}
+}
+
+func runMP3Test(ctx context.Context, inputPath, outputPath string) error {
+	gstinit.InitGST()
+
+	f, err := os.Open(inputPath)
+	if err != nil {
+		return fmt.Errorf("open input %s: %w", inputPath, err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("stat input %s: %w", inputPath, err)
+	}
+
+	outFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("create output %s: %w", outputPath, err)
+	}
+	defer outFile.Close()
+
+	fmt.Printf("mp3-test: %s -> %s (input %d bytes)\n", inputPath, outputPath, info.Size())
+
+	counter := &mp3TestCountingWriter{w: outFile}
+	start := time.Now()
+	result, err := media.RunMP3Pipeline(ctx, f, info.Size(), counter)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		fmt.Printf("mp3-test: FAILED after %s, wrote %d bytes: %v\n", elapsed, counter.n, err)
+		return err
+	}
+	fmt.Printf("mp3-test: OK in %s — wrote %d bytes, duration=%dms transcoded=%t\n",
+		elapsed, counter.n, result.DurationMS, result.Transcoded)
+	if result.Audio != nil {
+		fmt.Printf("  input audio: codec=%s rate=%d channels=%d\n",
+			result.Audio.Codec, result.Audio.Rate, result.Audio.Channels)
+	}
+	return nil
+}
+
+type mp3TestCountingWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (c *mp3TestCountingWriter) Write(p []byte) (int, error) {
+	n, err := c.w.Write(p)
+	c.n += int64(n)
+	return n, err
 }
 
 func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {

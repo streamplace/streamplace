@@ -326,3 +326,17 @@ issue-badges-recipient-did = DID do destinatário
 issue-badges-recipient-did-placeholder = did:plc:...
 issue-badges-tap-to-issue = Toque para emitir
 issue-badges-your-definitions = Suas definições de emblemas
+
+bio = Bio
+bio-preview = Prévia
+confirm-import = Confirmar Importação
+confirm-import-title = Confirmar Importação
+description-placeholder = Escreva algo sobre você...
+edit-description = Editar Descrição
+import = Importar
+import-anyway = Importar mesmo assim
+import-from-leaflet = Importar do Leaflet
+import-from-leaflet-desc = Cole um URL público do leaflet.pub ou AT uri compatível
+save-bio = Salvar Bio
+select-panels = Selecionar Painéis
+social-links = Links Sociais

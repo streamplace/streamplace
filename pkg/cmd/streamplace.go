@@ -7,7 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -805,14 +804,14 @@ func runVODTest(ctx context.Context, path string) error {
 	fmt.Printf("vod-test: processing %s (%d bytes)\n", path, info.Size())
 
 	start := time.Now()
-	result, err := media.RunVODPipeline(ctx, f, info.Size(), io.Discard)
+	result, outBytes, err := vod.ProcessToDiscard(ctx, f, info.Size())
 	elapsed := time.Since(start)
 
 	if err != nil {
 		fmt.Printf("vod-test: pipeline FAILED after %s: %v\n", elapsed, err)
 		return err
 	}
-	fmt.Printf("vod-test: pipeline OK in %s, duration=%dms\n", elapsed, result.DurationMS)
+	fmt.Printf("vod-test: pipeline OK in %s, duration=%dms, output=%d bytes\n", elapsed, result.DurationMS, outBytes)
 	if result.Video != nil {
 		fmt.Printf("  video: codec=%s %dx%d fps=%d/%d\n",
 			result.Video.Codec, result.Video.Width, result.Video.Height,

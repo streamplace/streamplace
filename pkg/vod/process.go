@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -293,6 +294,36 @@ type countingWriter struct{ n int64 }
 func (c *countingWriter) Write(p []byte) (int, error) {
 	c.n += int64(len(p))
 	return len(p), nil
+}
+
+// ProcessToDiscard runs the full VOD media path — gstreamer remux, muxl
+// sign-segment, and metafile assembly — exactly as ProcessVOD does, but
+// throws the bytes away instead of staging, finalizing, and publishing
+// them. It needs no statedb, CLI, or PDS, which makes it the engine
+// behind `streamplace vod-test`: a way to run the parts of the pipeline
+// that have crashed or stalled in production against an arbitrary local
+// file. Returns the probe metadata and the number of fMP4 bytes produced.
+func ProcessToDiscard(ctx context.Context, src io.ReaderAt, size int64) (media.VODResult, int64, error) {
+	signer, err := newUploadSigner(time.Now())
+	if err != nil {
+		return media.VODResult{}, 0, fmt.Errorf("create upload signer: %w", err)
+	}
+	// The metafile builder writes per-track init blobs into a Store; a
+	// throwaway temp dir stands in for the real one so we exercise the
+	// same wasm-parsing/metafile code production runs.
+	dir, err := os.MkdirTemp("", "vod-test-")
+	if err != nil {
+		return media.VODResult{}, 0, fmt.Errorf("temp dir: %w", err)
+	}
+	defer os.RemoveAll(dir)
+	store, err := blob.NewFileStore(dir)
+	if err != nil {
+		return media.VODResult{}, 0, fmt.Errorf("file store: %w", err)
+	}
+	mb := newMetafileBuilder(ctx, store)
+	counter := &countingWriter{}
+	result, err := streamThroughMuxl(ctx, src, size, counter, mb, signer.SignerInput)
+	return result, counter.n, err
 }
 
 // recordErr is a small helper to attach the standard error attributes

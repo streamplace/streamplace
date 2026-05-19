@@ -43,6 +43,22 @@ var vodTracer = otel.Tracer("vod")
 // visible in the logs rather than silent between start and finish.
 const vodProgressLogInterval = 5 * time.Second
 
+const (
+	// vodStageHeartbeat is how often runVODStage logs a "still working"
+	// line for a post-pipeline stage (S3 upload/move, metafile, thumbnail,
+	// publish), so a slow or wedged backend call is visible rather than
+	// silent. It keeps ticking until the stage actually returns.
+	vodStageHeartbeat = 5 * time.Second
+	// vodStageTimeout bounds any single post-pipeline stage. These call
+	// out to S3 and the user's PDS; a wedged connection should fail the
+	// task — freeing the worker — well before the 30-minute task lock
+	// expires and a second worker picks the same upload up. NOTE: it can
+	// only interrupt stages that honor the context; completeStaging's
+	// underlying Writer.Complete() takes none, so there the timeout bounds
+	// only the logging, not the call itself.
+	vodStageTimeout = 10 * time.Minute
+)
+
 // stage labels for spmetrics.VODProcessErrorsTotal — keep these in sync
 // with whatever the dashboard / alert routing keys off.
 const (
@@ -189,7 +205,9 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		return "", err
 	}
 
-	if err := completeStaging(ctx, staging, stagingKey); err != nil {
+	if err := runVODStage(ctx, stageStagingComplete, func(ctx context.Context) error {
+		return completeStaging(ctx, staging, stagingKey)
+	}); err != nil {
 		recordErr(span, stageStagingComplete, err)
 		return "", fmt.Errorf("complete staging upload: %w", err)
 	}
@@ -202,13 +220,17 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		attribute.String("content_url", store.URL(contentKey)),
 	)
 
-	if err := finalizeMove(ctx, store, stagingKey, contentKey); err != nil {
+	if err := runVODStage(ctx, stageContentAddressCopy, func(ctx context.Context) error {
+		return finalizeMove(ctx, store, stagingKey, contentKey)
+	}); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
 	}
 
 	metafile := metaBuilder.Finalize(finalCID, counter.n)
-	if err := writeMetafile(ctx, store, finalCID, metafile); err != nil {
+	if err := runVODStage(ctx, stageMetafile, func(ctx context.Context) error {
+		return writeMetafile(ctx, store, finalCID, metafile)
+	}); err != nil {
 		recordErr(span, stageMetafile, err)
 		return "", fmt.Errorf("write metafile: %w", err)
 	}
@@ -216,22 +238,28 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	// A thumbnail is nice-to-have, not load-bearing: a failure here
 	// (codec quirk, odd segment) shouldn't sink an otherwise-good
 	// upload, so log and publish without it.
-	thumbnail, err := generateThumbnail(ctx, store, finalCID, metafile)
-	if err != nil {
+	var thumbnail []byte
+	if err := runVODStage(ctx, "thumbnail", func(ctx context.Context) error {
+		var err error
+		thumbnail, err = generateThumbnail(ctx, store, finalCID, metafile)
+		return err
+	}); err != nil {
 		log.Warn(ctx, "VOD thumbnail generation failed; publishing without thumbnail", "error", err)
 	}
 	span.SetAttributes(attribute.Bool("thumbnail_generated", len(thumbnail) > 0))
 
-	if err := publishRecords(ctx, publishParams{
-		cli:        cli,
-		state:      state,
-		in:         in,
-		cid:        finalCID,
-		size:       counter.n,
-		mimeType:   "video/mp4",
-		probe:      probe,
-		signingKey: signer.DIDKey,
-		thumbnail:  thumbnail,
+	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
+		return publishRecords(ctx, publishParams{
+			cli:        cli,
+			state:      state,
+			in:         in,
+			cid:        finalCID,
+			size:       counter.n,
+			mimeType:   "video/mp4",
+			probe:      probe,
+			signingKey: signer.DIDKey,
+			thumbnail:  thumbnail,
+		})
 	}); err != nil {
 		recordErr(span, stagePublish, err)
 		return "", fmt.Errorf("publish records: %w", err)
@@ -252,6 +280,42 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 // completeStaging wraps the writer Complete call in its own span so
 // we can see how much of total processing time is spent waiting for
 // the storage layer to acknowledge the upload.
+// runVODStage runs one post-pipeline stage with an entry/exit log, a
+// heartbeat while it's in flight, and a hard timeout. The heartbeat turns
+// a silent hang into a visible "stage X still running after Ns" trail and
+// keeps ticking until fn returns — so a stage that ignores the deadline
+// (e.g. completeStaging) is still observable past the timeout. The timeout
+// frees the worker when a context-aware stage wedges. The stage error (or
+// the context error on timeout) is returned unwrapped; the caller adds the
+// stage label and the upload ID is attached upstream.
+func runVODStage(ctx context.Context, name string, fn func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, vodStageTimeout)
+	defer cancel()
+	start := time.Now()
+	log.Log(ctx, "vod stage starting", "stage", name)
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(vodStageHeartbeat)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				log.Log(ctx, "vod stage in progress", "stage", name,
+					"elapsed_seconds", time.Since(start).Seconds())
+			}
+		}
+	}()
+
+	err := fn(ctx)
+	close(done)
+	log.Log(ctx, "vod stage finished", "stage", name,
+		"elapsed_seconds", time.Since(start).Seconds(), "ok", err == nil)
+	return err
+}
+
 func completeStaging(ctx context.Context, staging blob.Writer, stagingKey string) error {
 	_, span := vodTracer.Start(ctx, "vod.completeStaging", trace.WithAttributes(
 		attribute.String("staging_key", stagingKey),

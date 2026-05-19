@@ -109,7 +109,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 	ss.hls = media.NewM3U8(allRenditions)
 
-	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	// ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
 
 	close(ss.started)
 
@@ -194,7 +194,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
 
-	ss.s3Upload(ctx, notif)
+	// ss.s3Upload(ctx, notif)
 
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {

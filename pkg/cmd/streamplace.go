@@ -467,7 +467,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	})
 
 	group.Go(func() error {
-		return state.ProcessQueue(ctx)
+		return state.ProcessQueue(ctx, cli.VODConcurrency)
 	})
 
 	if cli.TracingEndpoint != "" {

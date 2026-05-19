@@ -167,6 +167,7 @@ type CLI struct {
 	ViewLogFlushInterval        time.Duration
 	ViewCountAggregateInterval  time.Duration
 	ViewCountAggregateLag       time.Duration
+	VODConcurrency              int
 }
 
 // ContentFilters represents the content filtering configuration
@@ -801,6 +802,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       60 * time.Second,
 				Destination: &cli.StreamSessionTimeout,
 				Sources:     urfavecli.EnvVars("SP_STREAM_SESSION_TIMEOUT"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "vod-concurrency",
+				Usage:       "number of VOD processing tasks to run in parallel on this node",
+				Value:       2,
+				Destination: &cli.VODConcurrency,
+				Sources:     urfavecli.EnvVars("SP_VOD_CONCURRENCY"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "legacy-segment-cleaner",

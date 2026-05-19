@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -71,6 +72,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 	app.Version = build.Version
 	app.Commands = []*urfavecli.Command{
 		makeSelfTestCommand(build),
+		makeVODTestCommand(build),
 		makeStreamCommand(build),
 		makeLiveCommand(build),
 		makeSignCommand(build),
@@ -766,6 +768,61 @@ func makeSelfTestCommand(build *config.BuildFlags) *urfavecli.Command {
 			return nil
 		},
 	}
+}
+
+// makeVODTestCommand runs the VOD gstreamer pipeline on a local file
+// and prints probe results. Useful for reproducing gstreamer-side
+// crashes against the static binary without needing the full server
+// scaffolding (DB, blob store, signer). The pipeline output is
+// discarded — this is a "did it crash or not" smoke test.
+func makeVODTestCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:      "vod-test",
+		Usage:     "run the VOD gstreamer pipeline on a local file",
+		ArgsUsage: "[file]",
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			args := cmd.Args()
+			if args.Len() != 1 {
+				return fmt.Errorf("usage: streamplace vod-test [file]")
+			}
+			return runVODTest(ctx, args.First())
+		},
+	}
+}
+
+func runVODTest(ctx context.Context, path string) error {
+	gstinit.InitGST()
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", path, err)
+	}
+	fmt.Printf("vod-test: processing %s (%d bytes)\n", path, info.Size())
+
+	start := time.Now()
+	result, err := media.RunVODPipeline(ctx, f, info.Size(), io.Discard)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		fmt.Printf("vod-test: pipeline FAILED after %s: %v\n", elapsed, err)
+		return err
+	}
+	fmt.Printf("vod-test: pipeline OK in %s, duration=%dms\n", elapsed, result.DurationMS)
+	if result.Video != nil {
+		fmt.Printf("  video: codec=%s %dx%d fps=%d/%d\n",
+			result.Video.Codec, result.Video.Width, result.Video.Height,
+			result.Video.FPSNum, result.Video.FPSDen)
+	}
+	if result.Audio != nil {
+		fmt.Printf("  audio: codec=%s rate=%d channels=%d\n",
+			result.Audio.Codec, result.Audio.Rate, result.Audio.Channels)
+	}
+	return nil
 }
 
 func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {

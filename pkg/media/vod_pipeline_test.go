@@ -72,3 +72,33 @@ func TestRunVODPipeline_h264AAC_RocketLeague(t *testing.T) {
 	require.GreaterOrEqual(t, out.Len(), 8)
 	require.Equal(t, "ftyp", string(out.Bytes()[4:8]), "expected output to start with ftyp box")
 }
+
+// TestRunVODPipeline_h264AAC_TheFinals is a regression test for a
+// parsebin/aacparse interaction that crashes the static gstreamer-full
+// build with a stack overflow. The fixture is a 10s h264+AAC clip
+// transcoded from a "THE FINALS" gameplay recording — both codecs are
+// fully supported, but something about this particular AAC track
+// causes parsebin's caps_notify_cb to re-run autoplug every time
+// aacparse fixes its src caps. Each cycle plugs another aacparse in
+// front of the previous one, recursing until SIGSEGV.
+//
+// Reproduces in static gstreamer-full builds (`make static-test`) and
+// crashes the entire test binary when triggered. Dynamic dev builds
+// against system gstreamer don't hit it. Expected post-fix behavior:
+// pipeline runs to completion and emits a normal fMP4 stream.
+func TestRunVODPipeline_h264AAC_TheFinals(t *testing.T) {
+	gstinit.InitGST()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = log.WithLogValues(ctx, "test", "TestRunVODPipeline_h264AAC_TheFinals")
+
+	fixture, err := os.ReadFile(remote.RemoteFixture("fc0911e573e846532982a8069bbf1829b73818dd08e536f48039eed8cfab454e/THE-FINALS-2026-05-16-7-44-18-PM.h264.tiny.mp4"))
+	require.NoError(t, err)
+
+	out := &bytes.Buffer{}
+	_, err = RunVODPipeline(ctx, bytes.NewReader(fixture), int64(len(fixture)), out)
+	require.NoError(t, err)
+	require.Greater(t, out.Len(), 1024, "expected non-trivial fMP4 output")
+	require.GreaterOrEqual(t, out.Len(), 8)
+	require.Equal(t, "ftyp", string(out.Bytes()[4:8]), "expected output to start with ftyp box")
+}

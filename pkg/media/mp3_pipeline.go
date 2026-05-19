@@ -82,8 +82,15 @@ func RunMP3Pipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	}
 
 	parsebin, err := gst.NewElementWithProperties("parsebin", map[string]any{
-		"name":               "mp3-parsebin",
-		"expose-all-streams": true,
+		"name": "mp3-parsebin",
+		// expose-all-streams=false: for inputs that need a parser to
+		// fixate caps (e.g. MP3 in MP3+ID3v2, where id3demux ->
+		// mpegaudioparse needs to see actual frames before rate /
+		// channels are known) parsebin's default expose-all-streams=true
+		// races pad-added against the caps fixation. Setting false makes
+		// parsebin wait until the audio pad has stable caps before
+		// surfacing it to us.
+		"expose-all-streams": false,
 	})
 	if err != nil {
 		return result, fmt.Errorf("create parsebin: %w", err)
@@ -119,7 +126,11 @@ func RunMP3Pipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		audioCaps string
 	)
 
-	handlerID, err := parsebin.Connect("pad-added", func(_ *gst.Element, pad *gst.Pad) {
+	// processPad runs the per-pad wiring logic once we have caps. It's
+	// extracted so we can defer it via notify::caps for inputs (like MP3
+	// in MP3+ID3v2) where parsebin exposes the pad before the chain has
+	// fully fixated caps.
+	processPad := func(pad *gst.Pad) {
 		mu.Lock()
 		defer mu.Unlock()
 		if padErr != nil {
@@ -127,7 +138,7 @@ func RunMP3Pipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		}
 		caps := padCaps(pad)
 		if caps == nil {
-			log.Warn(ctx, "parsebin pad missing caps; ignoring", "pad", pad.GetName())
+			log.Warn(ctx, "parsebin pad still missing caps; ignoring", "pad", pad.GetName())
 			return
 		}
 		s := caps.GetStructureAt(0)
@@ -137,7 +148,7 @@ func RunMP3Pipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 		}
 		capsName := s.Name()
 		padCtx := log.WithLogValues(ctx, "pad", pad.GetName(), "caps", capsName)
-		log.Debug(padCtx, "parsebin pad-added")
+		log.Debug(padCtx, "parsebin pad ready")
 		switch {
 		case strings.HasPrefix(capsName, "video/"):
 			log.Debug(padCtx, "ignoring video pad (mp3-only pipeline)")
@@ -166,6 +177,32 @@ func RunMP3Pipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			span.SetAttributes(attribute.Bool("audio_transcode", transcoded))
 		default:
 			log.Warn(padCtx, "non-A/V parsebin pad; ignoring")
+		}
+	}
+
+	handlerID, err := parsebin.Connect("pad-added", func(_ *gst.Element, pad *gst.Pad) {
+		if padCaps(pad) != nil {
+			processPad(pad)
+			return
+		}
+		// Caps not ready yet — wait for them via notify::caps.
+		// sync.Once guards against re-running if caps notify fires
+		// repeatedly (caps can be refined multiple times as a parser
+		// learns more about the stream).
+		log.Debug(ctx, "parsebin pad has no caps yet; deferring", "pad", pad.GetName())
+		var once sync.Once
+		if _, cerr := pad.Connect("notify::caps", func() {
+			if padCaps(pad) == nil {
+				return
+			}
+			once.Do(func() { processPad(pad) })
+		}); cerr != nil {
+			mu.Lock()
+			if padErr == nil {
+				padErr = fmt.Errorf("connect notify::caps: %w", cerr)
+				pipeline.Error("notify::caps connect failed", cerr)
+			}
+			mu.Unlock()
 		}
 	})
 	if err != nil {

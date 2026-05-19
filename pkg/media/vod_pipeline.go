@@ -21,10 +21,23 @@ import (
 
 var vodPipelineTracer = otel.Tracer("vod-pipeline")
 
+// elementaryStreamCaps lists the caps names that come out of a
+// demuxer as already-elementary (one codec per pad). We use this set
+// in parsebin's autoplug-continue callback to tell parsebin "stop
+// here, don't plug another parser" — wireVideoChain and
+// wireAudioChain plug all the parsing/decoding we need downstream.
+// Keep this in sync with the codecs handled there.
+var elementaryStreamCaps = map[string]bool{
+	"video/x-h264": true,
+	"video/x-h265": true, // unsupported; we want a clean ErrUnsupportedCodec, not a crash
+	"audio/mpeg":   true, // AAC (only — MP3 has no decoder linked, will fail in audioChainSpec)
+	"audio/x-opus": true,
+}
+
 // ErrUnsupportedCodec is returned by RunVODPipeline when the input
-// contains a stream we can't process. Currently: any non-h264 video, or
-// audio in a codec we don't recognize at all (anything we recognize and
-// is not AAC gets transcoded to AAC).
+// contains a stream we can't process. Currently: any non-h264 video,
+// or audio that isn't AAC or Opus. Opus is the only audio codec we
+// transcode (to AAC via fdkaacenc); AAC passes through.
 var ErrUnsupportedCodec = errors.New("unsupported codec")
 
 // VODResult bundles probe-derived metadata that the caller needs for
@@ -128,6 +141,33 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	if err := srcBin.Link(parsebin); err != nil {
 		return result, fmt.Errorf("link src bin -> parsebin: %w", err)
 	}
+
+	// Tell parsebin's autoplug machinery to stop at the elementary-stream
+	// pads coming out of the demuxer. We plug our own h264parse / aacparse
+	// / mpegaudioparse / opusdec etc. in wireVideoChain and wireAudioChain
+	// downstream, so parsebin doesn't need to add another parser on top.
+	//
+	// Returning FALSE here is also our workaround for a parsebin bug
+	// where audio/mpeg (AAC) triggers an unbounded recursion: aacparse-0
+	// fixes its src caps on the first frame, the resulting "caps" notify
+	// re-enters parsebin's pad_added_cb, which plugs aacparse-1, whose
+	// caps notify plugs aacparse-2, and so on until the cgo stack
+	// overflows and the process crashes. Stopping autoplug before any
+	// parser is added keeps that loop from ever starting.
+	autoplugID, err := parsebin.Connect("autoplug-continue", func(_ *gst.Element, _ *gst.Pad, caps *gst.Caps) bool {
+		if caps == nil {
+			return true
+		}
+		s := caps.GetStructureAt(0)
+		if s == nil {
+			return true
+		}
+		return !elementaryStreamCaps[s.Name()]
+	})
+	if err != nil {
+		return result, fmt.Errorf("connect autoplug-continue: %w", err)
+	}
+	defer parsebin.HandlerDisconnect(autoplugID)
 
 	mp4mux, err := gst.NewElementWithProperties("mp4mux", map[string]any{
 		"name":              "vod-mp4mux",
@@ -467,36 +507,26 @@ var transcodeToAAC = []elemSpec{
 
 // audioChainSpec returns the per-element chain needed to land the given
 // codec on mp4mux's audio sink, plus a flag indicating whether the chain
-// re-encodes (i.e., input != AAC).
+// re-encodes (i.e., input != AAC). Only the codecs whose decoders/encoders
+// are actually linked into the static build are supported here: AAC
+// (aacparse passthrough) and Opus (opusdec → fdkaacenc). MP3, Vorbis,
+// FLAC, etc. are rejected with ErrUnsupportedCodec — the decoders they'd
+// need (mpg123audiodec / vorbisdec / flacdec) aren't in the plugin list
+// in the Makefile.
 func audioChainSpec(codec string, caps *gst.Structure) (specs []elemSpec, transcoded bool, err error) {
 	out := []elemSpec{{name: "queue"}}
 	switch codec {
 	case "audio/mpeg":
 		v, _ := caps.GetValue("mpegversion")
 		ver, _ := v.(int)
-		switch ver {
-		case 2, 4:
-			// AAC (mpegversion 2 = MPEG-2 AAC, 4 = MPEG-4 AAC); pass through.
-			out = append(out, elemSpec{name: "aacparse"})
-			return out, false, nil
-		case 1:
-			// MP3 — decode, re-encode to AAC.
-			out = append(out, elemSpec{name: "mpegaudioparse"}, elemSpec{name: "mpg123audiodec"})
-			out = append(out, transcodeToAAC...)
-			return out, true, nil
-		default:
+		if ver != 2 && ver != 4 {
 			return nil, false, fmt.Errorf("%w: audio/mpeg mpegversion=%d", ErrUnsupportedCodec, ver)
 		}
+		// AAC (mpegversion 2 = MPEG-2 AAC, 4 = MPEG-4 AAC); pass through.
+		out = append(out, elemSpec{name: "aacparse"})
+		return out, false, nil
 	case "audio/x-opus":
 		out = append(out, elemSpec{name: "opusdec"})
-		out = append(out, transcodeToAAC...)
-		return out, true, nil
-	case "audio/x-vorbis":
-		out = append(out, elemSpec{name: "vorbisdec"})
-		out = append(out, transcodeToAAC...)
-		return out, true, nil
-	case "audio/x-flac":
-		out = append(out, elemSpec{name: "flacdec"})
 		out = append(out, transcodeToAAC...)
 		return out, true, nil
 	default:

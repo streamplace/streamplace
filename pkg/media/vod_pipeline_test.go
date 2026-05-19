@@ -92,7 +92,7 @@ func TestRunVODPipeline_h264AAC_TheFinals(t *testing.T) {
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "test", "TestRunVODPipeline_h264AAC_TheFinals")
 
-	fixture, err := os.ReadFile(remote.RemoteFixture("fc0911e573e846532982a8069bbf1829b73818dd08e536f48039eed8cfab454e/THE-FINALS-2026-05-16-7-44-18-PM.h264.tiny.mp4"))
+	fixture, err := os.ReadFile(remote.RemoteFixture("8d03302f5fcf2b5e13e2be48af5340dbd28b2d77ac1875a693c52adff45438c4/THE-FINALS-2026-05-16-7-44-18-PM.h264.tiny.10s.mp4"))
 	require.NoError(t, err)
 
 	out := &bytes.Buffer{}

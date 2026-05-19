@@ -272,6 +272,14 @@ static-test:
 	&& PKG_CONFIG_PATH=$(shell realpath $(BUILDDIR)/meson-uninstalled) \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
+# Run `streamplace vod-test` against a known set of fixture VODs using
+# the static binary at ./build-linux-amd64/streamplace. Skips cleanly
+# on cross-compiled targets where the amd64 binary can't run on the
+# build host. Driven by hack/test-vod.sh.
+.PHONY: test-vod
+test-vod:
+	bash hack/test-vod.sh
+
 #   _____  ________      __
 #  |  __ \|  ____\ \    / /
 #  | |  | | |__   \ \  / /

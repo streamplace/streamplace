@@ -19,8 +19,8 @@ jobs:
         include:
           - name: linux-amd64
             cmd: >-
-              make linux-amd64 && make static-test && make check && make
-              ci-lexicons
+              make linux-amd64 && make test-vod && make static-test && make
+              check && make ci-lexicons
           - name: linux-arm64
             cmd: "make linux-arm64"
           - name: windows-amd64

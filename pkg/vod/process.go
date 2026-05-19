@@ -37,6 +37,11 @@ import (
 
 var vodTracer = otel.Tracer("vod")
 
+// vodProgressLogInterval is how often consumeConcatTraced emits an
+// info-level heartbeat while segments flow, so a long-running mux is
+// visible in the logs rather than silent between start and finish.
+const vodProgressLogInterval = 5 * time.Second
+
 // stage labels for spmetrics.VODProcessErrorsTotal — keep these in sync
 // with whatever the dashboard / alert routing keys off.
 const (
@@ -448,8 +453,15 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 // input that doesn't happen, but the loop handles it for free.
 func consumeConcatTraced(ctx context.Context, c *muxl.Concatenator, dst io.Writer, initBytes, segBytes, initEmits, segEmits *int64) error {
 	initCh, segCh := c.InitCh, c.SegCh
+	start := time.Now()
+	ticker := time.NewTicker(vodProgressLogInterval)
+	defer ticker.Stop()
 	for initCh != nil || segCh != nil {
 		select {
+		case <-ticker.C:
+			log.Log(ctx, "muxl progress",
+				"seg_emits", *segEmits, "seg_bytes", *segBytes,
+				"elapsed_seconds", time.Since(start).Seconds())
 		case init, ok := <-initCh:
 			if !ok {
 				initCh = nil

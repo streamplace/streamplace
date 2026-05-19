@@ -128,7 +128,12 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 	}
 	cid, err := state.vodProcessor(ctx, t)
 	if err != nil {
-		return fmt.Errorf("vod processing: %w", err)
+		// Include the upload ID in the error string itself: this error is
+		// logged upstream in ProcessQueue with the loop's context, which
+		// does not carry the per-task "uploadId" log value, so without it
+		// the failure (e.g. a publish-records track error) can't be tied
+		// back to an upload.
+		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
 	return state.CompleteTask(ctx, task.ID)

@@ -18,6 +18,7 @@ export * from "./loader";
 export * from "./menu";
 export * from "./portal";
 export * from "./resizeable";
+export * from "./select";
 export * from "./slider";
 export * from "./text";
 export * from "./textarea";

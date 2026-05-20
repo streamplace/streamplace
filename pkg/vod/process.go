@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -139,6 +140,13 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	counter := &countingWriter{}
 	final := io.MultiWriter(hasher, counter, staging)
 
+	// Start a progress reporter that polls the byte counter and writes
+	// percentage updates to the DB every 2 seconds. It stops when the
+	// pipeline completes (progressDone closed) or the context is cancelled.
+	progressDone := make(chan struct{})
+	defer close(progressDone)
+	go reportProgress(ctx, state, in.UploadID, counter, size, progressDone, 2*time.Second)
+
 	// Ephemeral per-upload signing key. Generated here as muxing starts,
 	// used to C2PA-sign every segment, and dropped when this function
 	// returns — so once the upload is processed nobody can mint more
@@ -154,11 +162,11 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder, signer.SignerInput)
 	if err != nil {
 		recordErr(span, stagePipeline, err)
-		// staging is aborted by the deferred Close
 		return "", err
 	}
+	_ = state.SetUploadProgress(ctx, in.UploadID, 85)
 	span.SetAttributes(
-		attribute.Int64("output_size_bytes", counter.n),
+		attribute.Int64("output_size_bytes", counter.load()),
 		attribute.Int64("probe_duration_ms", probe.DurationMS),
 	)
 	if probe.Video != nil {
@@ -175,9 +183,9 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 			attribute.Int("probe_audio_channels", probe.Audio.Channels),
 		)
 	}
-	spmetrics.VODOutputBytes.Observe(float64(counter.n))
+	spmetrics.VODOutputBytes.Observe(float64(counter.load()))
 
-	if counter.n == 0 {
+	if counter.load() == 0 {
 		err := errors.New("muxl produced zero bytes")
 		recordErr(span, stageEmptyOutput, err)
 		return "", err
@@ -187,6 +195,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		recordErr(span, stageStagingComplete, err)
 		return "", fmt.Errorf("complete staging upload: %w", err)
 	}
+	_ = state.SetUploadProgress(ctx, in.UploadID, 90)
 
 	finalCID := hasher.CID()
 	contentKey := BlobsPrefix + finalCID + ".mp4"
@@ -200,32 +209,23 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
 	}
+	_ = state.SetUploadProgress(ctx, in.UploadID, 95)
 
-	metafile := metaBuilder.Finalize(finalCID, counter.n)
+	metafile := metaBuilder.Finalize(finalCID, counter.load())
 	if err := writeMetafile(ctx, store, finalCID, metafile); err != nil {
 		recordErr(span, stageMetafile, err)
 		return "", fmt.Errorf("write metafile: %w", err)
 	}
-
-	// A thumbnail is nice-to-have, not load-bearing: a failure here
-	// (codec quirk, odd segment) shouldn't sink an otherwise-good
-	// upload, so log and publish without it.
-	thumbnail, err := generateThumbnail(ctx, store, finalCID, metafile)
-	if err != nil {
-		log.Warn(ctx, "VOD thumbnail generation failed; publishing without thumbnail", "error", err)
-	}
-	span.SetAttributes(attribute.Bool("thumbnail_generated", len(thumbnail) > 0))
 
 	if err := publishRecords(ctx, publishParams{
 		cli:        cli,
 		state:      state,
 		in:         in,
 		cid:        finalCID,
-		size:       counter.n,
+		size:       counter.load(),
 		mimeType:   "video/mp4",
 		probe:      probe,
 		signingKey: signer.DIDKey,
-		thumbnail:  thumbnail,
 	}); err != nil {
 		recordErr(span, stagePublish, err)
 		return "", fmt.Errorf("publish records: %w", err)
@@ -237,7 +237,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 		"cid", finalCID,
 		"url", store.URL(contentKey),
 		"input_size", size,
-		"output_size", counter.n,
+		"output_size", counter.load(),
 		"duration_ms", time.Since(startTime).Milliseconds(),
 	)
 	return finalCID, nil
@@ -281,13 +281,42 @@ func finalizeMove(ctx context.Context, store blob.Store, stagingKey, contentKey 
 	return nil
 }
 
-// countingWriter is an io.Writer that tallies bytes written. Used to
-// observe output size without buffering or hashing it twice.
-type countingWriter struct{ n int64 }
+// countingWriter is an io.Writer that tallies bytes written via an
+// atomic counter so a progress goroutine can read it concurrently.
+type countingWriter struct{ n atomic.Int64 }
 
 func (c *countingWriter) Write(p []byte) (int, error) {
-	c.n += int64(len(p))
+	c.n.Add(int64(len(p)))
 	return len(p), nil
+}
+
+func (c *countingWriter) load() int64 { return c.n.Load() }
+
+// reportProgress periodically reads the byte counter and writes a
+// percentage to the DB until doneCh closes. The estimate is
+// counter.bytes / inputSize, capped at 90 so the remaining stages
+// (staging complete, finalize, publish) each have visible increments.
+func reportProgress(ctx context.Context, state *statedb.StatefulDB, uploadID string, counter *countingWriter, inputSize int64, doneCh <-chan struct{}, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-doneCh:
+			return
+		case <-ticker.C:
+			if inputSize <= 0 {
+				continue
+			}
+			pct := int(float64(counter.load()) / float64(inputSize) * 100)
+			if pct > 90 {
+				pct = 90
+			}
+			if pct < 5 {
+				pct = 5
+			}
+			_ = state.SetUploadProgress(ctx, uploadID, pct)
+		}
+	}
 }
 
 // recordErr is a small helper to attach the standard error attributes

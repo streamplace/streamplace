@@ -1,8 +1,8 @@
 package vod
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -22,6 +22,12 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
+// trackRefJSON is the shape stored in Upload.TrackURIs.
+type trackRefJSON struct {
+	URI string `json:"uri"`
+	CID string `json:"cid"`
+}
+
 // XRPCClient is the subset of indigo's xrpc.Client we actually call.
 // Pulled out as an interface so tests / dev wrappers can substitute.
 // Mirrors pkg/director's XRPCClient for consistency.
@@ -29,23 +35,17 @@ type XRPCClient interface {
 	Do(ctx context.Context, method string, contentType string, path string, queryParams map[string]any, body any, out any) error
 }
 
-// publishParams bundles everything needed to publish the four records
-// (one origin + two tracks + one video) that describe a processed VOD.
+// publishParams bundles everything needed to publish the origin + track
+// records for a processed VOD and store the results on the Upload row.
 type publishParams struct {
-	cli      *config.CLI
-	state    *statedb.StatefulDB
-	in       Input
-	cid      string
-	size     int64
-	mimeType string
-	probe    media.VODResult
-	// signingKey is the did:key of the ephemeral key that C2PA-signed
-	// this upload's segments. Recorded on every track record.
+	cli        *config.CLI
+	state      *statedb.StatefulDB
+	in         Input
+	cid        string
+	size       int64
+	mimeType   string
+	probe      media.VODResult
 	signingKey string
-	// thumbnail is a JPEG generated from ~halfway through the video, or
-	// nil if generation failed. Uploaded to the user's PDS and attached
-	// to the place.stream.video record when present.
-	thumbnail []byte
 }
 
 // publishRecords does the post-processing record publish:
@@ -54,14 +54,12 @@ type publishParams struct {
 //     this blob is fetchable from us). Idempotent: rkey is the CID.
 //  2. place.stream.media.track in the USER's repo, one per A/V track,
 //     via the user's stored OAuth session.
-//  3. place.stream.video in the USER's repo, source = sourceTracks
-//     referencing the strongRefs returned by step 2.
+//  3. Stores the resulting track URIs + duration on the Upload row so
+//     the client can poll getUploadStatus and create the
+//     place.stream.video record itself (with full metadata) via Publish.
 //
-// Errors are surfaced to the caller; the calling task processor's
-// retry behavior will then re-run the whole pipeline. The origin
-// record is idempotent on retry; the track + video records are not
-// yet (a retry would produce duplicates). We accept that for V1; a
-// follow-up will track created rkeys on the Upload row.
+// The video record is intentionally NOT created here — the client
+// controls when it becomes visible and supplies the metadata.
 func publishRecords(ctx context.Context, p publishParams) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishRecords", trace.WithAttributes(
 		attribute.String("cid", p.cid),
@@ -82,7 +80,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		return fmt.Errorf("get user xrpc client: %w", err)
 	}
 
-	var sourceTracks []*comatproto.RepoStrongRef
+	var trackRefs []trackRefJSON
 	if p.probe.Video != nil {
 		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "1", "video", p.signingKey, p.probe.Video, nil)
 		if err != nil {
@@ -90,7 +88,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 			span.SetStatus(codes.Error, "video_track")
 			return fmt.Errorf("publish video track: %w", err)
 		}
-		sourceTracks = append(sourceTracks, ref)
+		trackRefs = append(trackRefs, trackRefJSON{URI: ref.Uri, CID: ref.Cid})
 	}
 	if p.probe.Audio != nil {
 		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "2", "audio", p.signingKey, nil, p.probe.Audio)
@@ -99,15 +97,23 @@ func publishRecords(ctx context.Context, p publishParams) error {
 			span.SetStatus(codes.Error, "audio_track")
 			return fmt.Errorf("publish audio track: %w", err)
 		}
-		sourceTracks = append(sourceTracks, ref)
+		trackRefs = append(trackRefs, trackRefJSON{URI: ref.Uri, CID: ref.Cid})
 	}
 
-	if err := publishVideo(ctx, client, p.in, p.probe, sourceTracks, p.thumbnail); err != nil {
+	trackURIsJSON, err := json.Marshal(trackRefs)
+	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "video")
-		return fmt.Errorf("publish video: %w", err)
+		span.SetStatus(codes.Error, "marshal_tracks")
+		return fmt.Errorf("marshal track refs: %w", err)
+	}
+	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, string(trackURIsJSON), p.probe.DurationMS); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "store_tracks")
+		return fmt.Errorf("store track refs: %w", err)
 	}
 
+	span.SetAttributes(attribute.Int("track_count", len(trackRefs)))
+	span.SetStatus(codes.Ok, "")
 	return nil
 }
 
@@ -232,71 +238,6 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 		Uri:           out.Uri,
 		Cid:           out.Cid,
 	}, nil
-}
-
-// publishVideo creates the top-level place.stream.video record in the
-// user's repo, referencing the track records via sourceTracks. The
-// title defaults to the upload's filename hint, or "Untitled" if the
-// client didn't send one. When thumbnail bytes are supplied they're
-// uploaded to the user's PDS and attached as the record's thumb blob;
-// an upload failure is logged but doesn't fail the publish.
-func publishVideo(ctx context.Context, client XRPCClient, in Input, probe media.VODResult, tracks []*comatproto.RepoStrongRef, thumbnail []byte) error {
-	ctx, span := vodTracer.Start(ctx, "vod.publishVideo", trace.WithAttributes(
-		attribute.Int("track_count", len(tracks)),
-		attribute.Int64("duration_ms", probe.DurationMS),
-	))
-	defer span.End()
-
-	title := in.Filename
-	if title == "" {
-		title = "Untitled"
-	}
-	duration := probe.DurationMS
-
-	rec := &streamplace.Video{
-		LexiconTypeID: constants.PLACE_STREAM_VIDEO,
-		Title:         title,
-		DurationMs:    duration,
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
-				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks:        tracks,
-			},
-		},
-	}
-
-	if len(thumbnail) > 0 {
-		var uploadOut comatproto.RepoUploadBlob_Output
-		if err := client.Do(ctx, xrpc.Procedure, thumbnailMimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumbnail), &uploadOut); err != nil {
-			log.Warn(ctx, "failed to upload VOD thumbnail blob; publishing without thumbnail", "error", err)
-		} else {
-			rec.Thumb = uploadOut.Blob
-			span.SetAttributes(attribute.Bool("thumb_uploaded", true))
-		}
-	}
-
-	rkey := spid.TIDClock.Next().String()
-	inp := comatproto.RepoPutRecord_Input{
-		Collection: constants.PLACE_STREAM_VIDEO,
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
-		Rkey:       rkey,
-		Repo:       in.RepoDID,
-	}
-	out := comatproto.RepoPutRecord_Output{}
-	if err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out); err != nil {
-		span.RecordError(err)
-		return fmt.Errorf("putRecord video: %w", err)
-	}
-	span.SetAttributes(
-		attribute.String("uri", out.Uri),
-		attribute.String("cid", out.Cid),
-	)
-	log.Log(ctx, "published video record",
-		"title", title,
-		"uri", out.Uri,
-		"duration_ms", duration,
-	)
-	return nil
 }
 
 // getUserXRPCClient resolves the user's stored OAuth session, refreshes

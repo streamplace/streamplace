@@ -1820,6 +1820,83 @@
         }
       }
     },
+    "/xrpc/place.stream.media.getUploadStatus": {
+      "get": {
+        "summary": "Get the processing status of a previously created upload. Only accessible by the DID that created the upload.",
+        "operationId": "place.stream.media.getUploadStatus",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "Current processing status of the upload."
+                    },
+                    "tracks": {
+                      "type": "array",
+                      "description": "Published track records. Present when status is 'done'.",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.media.getUploadStatus_trackRef"
+                      }
+                    },
+                    "durationMs": {
+                      "type": "integer",
+                      "description": "Duration of the processed video in milliseconds. Present when status is 'done'."
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error message. Present when status is 'error'."
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "query",
+            "required": true,
+            "description": "The upload ID returned by place.stream.media.createUpload.",
+            "schema": {
+              "type": "string",
+              "description": "The upload ID returned by place.stream.media.createUpload."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.media.getVideo": {
       "get": {
         "summary": "Get a hydrated view of a place.stream.video record — the record itself plus author info plus aggregated view counts summed across every reporting node we've indexed. View counts come from place.stream.media.viewCount records; consumers see one number per metric, with the underlying multi-reporter detail collapsed away.",
@@ -4276,6 +4353,19 @@
           }
         },
         "required": ["message", "status", "createdAt"]
+      },
+      "place.stream.media.getUploadStatus_trackRef": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "cid"]
       },
       "place.stream.media.getVideo_videoView": {
         "type": "object",

@@ -2,7 +2,9 @@ package spxrpc
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -31,6 +33,9 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	if s.uploadManager == nil {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "upload manager not configured")
 	}
+	if !strings.HasPrefix(body.MimeType, "video/") {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "mimeType must be a video/* type")
+	}
 
 	filename := ""
 	if body.Filename != nil {
@@ -53,6 +58,63 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 		UploadToken: res.UploadToken,
 		ExpiresAt:   res.ExpiresAt.UTC().Format("2006-01-02T15:04:05.000Z"),
 	}, nil
+}
+
+func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uploadId string) (*placestream.MediaGetUploadStatus_Output, error) {
+	session, _ := oatproxy.GetOAuthSession(ctx)
+	if session == nil {
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
+	}
+	if uploadId == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "uploadId is required")
+	}
+	upload, err := s.statefulDB.GetUpload(ctx, uploadId)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	if upload == nil || upload.RepoDID != session.DID {
+		return nil, echo.NewHTTPError(http.StatusNotFound, "upload not found")
+	}
+
+	out := &placestream.MediaGetUploadStatus_Output{}
+
+	switch upload.ProcessingStatus {
+	case "done":
+		out.Status = "done"
+		if upload.DurationMS > 0 {
+			d := upload.DurationMS
+			out.DurationMs = &d
+		}
+		if upload.TrackURIs != "" {
+			var refs []struct {
+				URI string `json:"uri"`
+				CID string `json:"cid"`
+			}
+			if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err == nil {
+				for _, r := range refs {
+					out.Tracks = append(out.Tracks, &placestream.MediaGetUploadStatus_TrackRef{
+						Uri: r.URI,
+						Cid: r.CID,
+					})
+				}
+			}
+		}
+	case "error":
+		out.Status = "error"
+		if upload.ProcessingError != "" {
+			msg := upload.ProcessingError
+			out.Error = &msg
+		}
+	case "processing":
+		out.Status = "processing"
+		p := upload.ProcessingProgress
+		out.Progress = &p
+	default:
+		// "" or any other value: upload not yet fully received
+		out.Status = "pending"
+	}
+
+	return out, nil
 }
 
 // requestBaseURL returns the scheme+host of the inbound HTTP request, used

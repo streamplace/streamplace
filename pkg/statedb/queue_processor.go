@@ -126,8 +126,17 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 			"uploadId", t.UploadID, "did", t.RepoDID)
 		return state.CompleteTask(ctx, task.ID)
 	}
+	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
+	}
 	cid, err := state.vodProcessor(ctx, t)
 	if err != nil {
+		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
+			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
+		}
+		// Complete the task so it doesn't retry — most VOD failures are
+		// permanent (unsupported codec, corrupted file, etc.).
+		_ = state.CompleteTask(ctx, task.ID)
 		return fmt.Errorf("vod processing: %w", err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)

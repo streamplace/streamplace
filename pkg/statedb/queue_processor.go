@@ -171,13 +171,21 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 			"uploadId", t.UploadID, "did", t.RepoDID)
 		return state.CompleteTask(ctx, task.ID)
 	}
+	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
+	}
 	cid, err := state.vodProcessor(ctx, t)
 	if err != nil {
-		// Include the upload ID in the error string itself: this error is
-		// logged upstream in ProcessQueue with the loop's context, which
-		// does not carry the per-task "uploadId" log value, so without it
-		// the failure (e.g. a publish-records track error) can't be tied
-		// back to an upload.
+		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
+			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
+		}
+		// Complete the task so it doesn't retry — most VOD failures are
+		// permanent (unsupported codec, corrupted file, etc.).
+		_ = state.CompleteTask(ctx, task.ID)
+		// Include the upload ID in the error string: this error is logged
+		// upstream in ProcessQueue with the loop's context, which doesn't
+		// carry the per-task "uploadId" log value, so without it the failure
+		// (e.g. a publish-records track error) can't be tied to an upload.
 		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)

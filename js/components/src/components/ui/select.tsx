@@ -1,9 +1,8 @@
 import { Check, ChevronDown } from "lucide-react-native";
 import { forwardRef } from "react";
 import { View } from "react-native";
-import { zero } from "../..";
 import { useTheme } from "../../lib/theme/theme";
-import { flex } from "../../ui";
+import { flex, gap, py } from "../../ui";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -12,8 +11,6 @@ import {
   ResponsiveDropdownMenuContent,
 } from "./dropdown";
 import { Text } from "./text";
-
-const { layout, px, py, borders, r, gap } = zero;
 
 export interface SelectItem {
   label: string;

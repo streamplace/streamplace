@@ -1,3 +1,4 @@
+import { TID } from "@atproto/common-web";
 import {
   Admonition,
   Button,
@@ -388,7 +389,7 @@ export default function UploadScreen() {
         }
       }
 
-      const rkey = `${Date.now()}`;
+      const rkey = TID.next().toString();
       const putRes = await agent.com.atproto.repo.putRecord({
         repo: agent.did,
         collection: "place.stream.video",

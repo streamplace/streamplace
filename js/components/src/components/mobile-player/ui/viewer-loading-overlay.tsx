@@ -1,5 +1,6 @@
 import { Play } from "lucide-react-native";
 import { useEffect } from "react";
+import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,6 +16,7 @@ import {
 
 export function ViewerLoadingOverlay() {
   const status = usePlayerStore((x) => x.status);
+  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
   const { theme, zero: zt } = useTheme();
   const opacity = useSharedValue(0);
 
@@ -40,27 +42,46 @@ export function ViewerLoadingOverlay() {
     return null; // No overlay when stopped
   }
 
-  let spinner = <Loader size="large" />;
-  if (status === PlayerStatus.PAUSE) {
-    spinner = <Play size="$12" color={theme.colors.foreground} />;
-  }
+  const isPaused = status === PlayerStatus.PAUSE;
 
   return (
-    <Animated.View
-      style={[
-        {
-          position: "absolute",
-          width: "100%",
-          height: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.3)",
-          pointerEvents: "none",
-        },
-        animatedStyle,
-      ]}
-    >
-      {spinner}
-    </Animated.View>
+    <>
+      <Animated.View
+        style={[
+          {
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.3)",
+            pointerEvents: "none",
+          },
+          animatedStyle,
+        ]}
+      >
+        {!isPaused && <Loader size="large" />}
+      </Animated.View>
+      {isPaused && (
+        <Pressable
+          onPress={togglePlayPause}
+          style={{
+            position: "absolute",
+            alignSelf: "center",
+            top: "50%",
+            marginTop: -32,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            borderRadius: 999,
+            padding: 16,
+          }}
+        >
+          <Play
+            size={32}
+            color={theme.colors.foreground}
+            fill={theme.colors.foreground}
+          />
+        </Pressable>
+      )}
+    </>
   );
 }

@@ -56,7 +56,7 @@ func TestCachingReaderAt(t *testing.T) {
 		require.Equal(t, errors.Is(werr, io.EOF), errors.Is(gerr, io.EOF), "EOF parity at off=%d", off)
 	}
 
-	check(0, 100*1024)         // sequential across many blocks
+	check(0, 100*1024)          // sequential across many blocks
 	check(5*1024*1024, 64*1024) // jump
 	check(123, 3)               // tiny read
 	check(64*1024-10, 40)       // spans a block boundary

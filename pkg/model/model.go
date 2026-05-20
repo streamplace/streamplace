@@ -156,6 +156,7 @@ type Model interface {
 	DeleteMediaViewCount(ctx context.Context, uri string) error
 	GetMediaViewCountByURI(ctx context.Context, uri string) (*streamplace.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error)
+	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string) (*streamplace.MediaGetVideoList_Output, error)
 }
 
 var DBRevision = 4

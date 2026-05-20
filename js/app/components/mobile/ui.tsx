@@ -168,6 +168,7 @@ export function MobileUi({
       <GestureDetector gesture={combined}>
         <View
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
+          pointerEvents="box-none"
         >
           <Animated.View
             style={[

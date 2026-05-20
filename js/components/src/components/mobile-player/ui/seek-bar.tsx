@@ -15,6 +15,7 @@ export function SeekBar() {
   const bufferedEnd = usePlayerStore((x) => x.bufferedEnd);
   const seekTo = usePlayerStore((x) => x.seekTo);
 
+  const videoRef = usePlayerStore((x) => x.videoRef);
   const seekingRef = useRef(false);
   const [seekValue, setSeekValue] = useState(0);
 
@@ -36,8 +37,16 @@ export function SeekBar() {
     if (seekingRef.current) {
       seekTo(seekValue);
       seekingRef.current = false;
+      if (
+        videoRef &&
+        typeof videoRef === "object" &&
+        "current" in videoRef &&
+        videoRef.current
+      ) {
+        videoRef.current.play().catch(() => {});
+      }
     }
-  }, [seekValue, seekTo]);
+  }, [seekValue, seekTo, videoRef]);
 
   if (mode !== "vod" || duration <= 0) return null;
 

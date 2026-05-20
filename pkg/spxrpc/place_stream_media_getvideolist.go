@@ -12,7 +12,7 @@ import (
 
 // handlePlaceStreamMediaGetVideoList returns a paginated, hydrated
 // list of video records for a given repo DID.
-func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, repo string, limit *int, cursor *string) (*placestream.MediaGetVideoList_Output, error) {
+func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, cursor string, limit int, repo string) (*placestream.MediaGetVideoList_Output, error) {
 	if repo == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "repo is required")
 	}
@@ -21,16 +21,11 @@ func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, repo st
 	}
 
 	l := 25
-	if limit != nil && *limit > 0 && *limit <= 100 {
-		l = *limit
+	if limit > 0 && limit <= 100 {
+		l = limit
 	}
 
-	c := ""
-	if cursor != nil {
-		c = *cursor
-	}
-
-	out, err := s.model.GetVideoList(ctx, repo, l, c)
+	out, err := s.model.GetVideoList(ctx, repo, l, cursor)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

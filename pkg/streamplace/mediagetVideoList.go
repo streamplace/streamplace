@@ -12,24 +12,27 @@ import (
 
 // MediaGetVideoList_Output is the output of a place.stream.media.getVideoList call.
 type MediaGetVideoList_Output struct {
-	Cursor  *string                     `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
-	Videos  []*MediaGetVideo_VideoView  `json:"videos" cborgen:"videos"`
+	// cursor: Pagination cursor for the next page, if any.
+	Cursor *string                    `json:"cursor,omitempty" cborgen:"cursor,omitempty"`
+	Videos []*MediaGetVideo_VideoView `json:"videos" cborgen:"videos"`
 }
 
 // MediaGetVideoList calls the XRPC method "place.stream.media.getVideoList".
 //
+// cursor: Pagination cursor from a previous response.
+// limit: Maximum number of videos to return.
 // repo: DID of the repo whose videos to list.
-func MediaGetVideoList(ctx context.Context, c lexutil.LexClient, repo string, limit *int, cursor *string) (*MediaGetVideoList_Output, error) {
+func MediaGetVideoList(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, repo string) (*MediaGetVideoList_Output, error) {
 	var out MediaGetVideoList_Output
 
 	params := map[string]interface{}{}
+	if cursor != "" {
+		params["cursor"] = cursor
+	}
+	if limit != 0 {
+		params["limit"] = limit
+	}
 	params["repo"] = repo
-	if limit != nil {
-		params["limit"] = *limit
-	}
-	if cursor != nil {
-		params["cursor"] = *cursor
-	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.media.getVideoList", params, nil, &out); err != nil {
 		return nil, err
 	}

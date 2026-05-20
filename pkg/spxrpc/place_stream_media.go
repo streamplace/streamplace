@@ -107,7 +107,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 		}
 	case "processing":
 		out.Status = "processing"
-		p := upload.ProcessingProgress
+		p := int64(upload.ProcessingProgress)
 		out.Progress = &p
 	default:
 		// "" or any other value: upload not yet fully received

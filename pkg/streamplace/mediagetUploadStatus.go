@@ -17,7 +17,7 @@ type MediaGetUploadStatus_Output struct {
 	// error: Error message. Present when status is 'error'.
 	Error *string `json:"error,omitempty" cborgen:"error,omitempty"`
 	// progress: Processing progress percentage (0-100). Only meaningful when status is 'processing'.
-	Progress *int `json:"progress,omitempty" cborgen:"progress,omitempty"`
+	Progress *int64 `json:"progress,omitempty" cborgen:"progress,omitempty"`
 	// status: Current processing status of the upload.
 	Status string `json:"status" cborgen:"status"`
 	// tracks: Published track records. Present when status is 'done'.

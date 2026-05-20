@@ -8,7 +8,6 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
-	"net/http"
 	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -728,28 +727,23 @@ func (s *Server) HandlePlaceStreamMediaGetVideo(c echo.Context) error {
 func (s *Server) HandlePlaceStreamMediaGetVideoList(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaGetVideoList")
 	defer span.End()
-	repo := c.QueryParam("repo")
-	limitStr := c.QueryParam("limit")
-	cursorStr := c.QueryParam("cursor")
+	cursor := c.QueryParam("cursor")
 
-	var limit *int
-	if limitStr != "" {
-		l, err := strconv.Atoi(limitStr)
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "limit must be an integer")
+			return err
 		}
-		limit = &l
+	} else {
+		limit = 25
 	}
-
-	var cursor *string
-	if cursorStr != "" {
-		cursor = &cursorStr
-	}
-
+	repo := c.QueryParam("repo")
 	var out *placestream.MediaGetVideoList_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,repo string, limit *int, cursor *string) (*placestream.MediaGetVideoList_Output, error)
-	out, handleErr = s.handlePlaceStreamMediaGetVideoList(ctx, repo, limit, cursor)
+	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,cursor string,limit int,repo string) (*placestream.MediaGetVideoList_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaGetVideoList(ctx, cursor, limit, repo)
 	if handleErr != nil {
 		return handleErr
 	}

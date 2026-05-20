@@ -37,7 +37,7 @@
               "type": "array",
               "items": {
                 "type": "ref",
-                "ref": "lex:place.stream.media.getVideo#videoView"
+                "ref": "place.stream.media.getVideo#videoView"
               }
             },
             "cursor": {

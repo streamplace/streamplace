@@ -28,12 +28,13 @@ Get the processing status of a previously created upload. Only accessible by the
 
 **Schema Type:** `object`
 
-| Name         | Type                              | Req'd | Description                                                                     | Constraints                                            |
-| ------------ | --------------------------------- | ----- | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `status`     | `string`                          | ✅    | Current processing status of the upload.                                        | Known Values: `pending`, `processing`, `done`, `error` |
-| `tracks`     | Array of [`#trackRef`](#trackref) | ❌    | Published track records. Present when status is 'done'.                         |                                                        |
-| `durationMs` | `integer`                         | ❌    | Duration of the processed video in milliseconds. Present when status is 'done'. |                                                        |
-| `error`      | `string`                          | ❌    | Error message. Present when status is 'error'.                                  |                                                        |
+| Name         | Type                              | Req'd | Description                                                                          | Constraints                                            |
+| ------------ | --------------------------------- | ----- | ------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `status`     | `string`                          | ✅    | Current processing status of the upload.                                             | Known Values: `pending`, `processing`, `done`, `error` |
+| `progress`   | `integer`                         | ❌    | Processing progress percentage (0-100). Only meaningful when status is 'processing'. | Min: 0<br/>Max: 100                                    |
+| `tracks`     | Array of [`#trackRef`](#trackref) | ❌    | Published track records. Present when status is 'done'.                              |                                                        |
+| `durationMs` | `integer`                         | ❌    | Duration of the processed video in milliseconds. Present when status is 'done'.      |                                                        |
+| `error`      | `string`                          | ❌    | Error message. Present when status is 'error'.                                       |                                                        |
 
 **Possible Errors:**
 
@@ -86,6 +87,12 @@ Get the processing status of a previously created upload. Only accessible by the
               "type": "string",
               "knownValues": ["pending", "processing", "done", "error"],
               "description": "Current processing status of the upload."
+            },
+            "progress": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Processing progress percentage (0-100). Only meaningful when status is 'processing'."
             },
             "tracks": {
               "type": "array",

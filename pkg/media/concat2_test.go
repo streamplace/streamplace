@@ -18,6 +18,79 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+// TestAddConcatDemuxerUnblocksOnCancel is a regression test for a
+// goroutine leak: addConcatDemuxer waits for EOS on both the video and
+// audio demux src pads before returning. A segment that only ever emits
+// EOS on one pad (audio-only, malformed, or a session torn down before
+// the stream completes) used to wedge the goroutine — and the demux
+// bin's GStreamer state — forever, with no way for the parent context
+// to interrupt it. Over a long-lived server these accumulated until a
+// restart.
+//
+// We feed the audio-only fixture so exactly one EOS ever fires, then
+// cancel the context. The fix makes addConcatDemuxer observe
+// cancellation and return; before the fix this blocks forever and the
+// test trips its deadline.
+func TestAddConcatDemuxerUnblocksOnCancel(t *testing.T) {
+	ctx := log.WithLogValues(context.Background(), "test", "TestAddConcatDemuxerUnblocksOnCancel")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	pipeline, err := gst.NewPipeline("TestAddConcatDemuxerUnblocksOnCancel")
+	require.NoError(t, err)
+
+	// Minimal stand-in for the concat bin's wiring: a streamsynchronizer
+	// whose two request sink pads are the link points addConcatDemuxer
+	// expects, with fakesinks downstream so data actually flows.
+	bin := gst.NewBin("concat-bin")
+	streamsync, err := gst.NewElementWithProperties("streamsynchronizer", map[string]any{"name": "ss"})
+	require.NoError(t, err)
+	require.NoError(t, bin.Add(streamsync))
+
+	videoSink := streamsync.GetRequestPad("sink_%u")
+	require.NotNil(t, videoSink)
+	audioSink := streamsync.GetRequestPad("sink_%u")
+	require.NotNil(t, audioSink)
+
+	for i, srcName := range []string{"src_0", "src_1"} {
+		fakesink, err := gst.NewElementWithProperties("fakesink", map[string]any{
+			"name": fmt.Sprintf("fakesink_%d", i),
+			"sync": false,
+		})
+		require.NoError(t, err)
+		require.NoError(t, bin.Add(fakesink))
+		require.Equal(t, gst.PadLinkOK,
+			streamsync.GetStaticPad(srcName).Link(fakesink.GetStaticPad("sink")))
+	}
+
+	require.NoError(t, pipeline.Add(bin.Element))
+
+	go func() { _ = HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.BlockSetState(gst.StateNull) }()
+
+	data, err := os.ReadFile(getFixture("duration-mismatch-audio.mp4"))
+	require.NoError(t, err)
+	seg := &bus.Seg{Data: data, Filepath: "duration-mismatch-audio.mp4"}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- addConcatDemuxer(ctx, bin, seg, videoSink, audioSink, true)
+	}()
+
+	// Let the single audio EOS arrive and be consumed, leaving
+	// addConcatDemuxer blocked on the second (video) EOS that never comes.
+	time.Sleep(2 * time.Second)
+	cancel()
+
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(15 * time.Second):
+		t.Fatal("addConcatDemuxer did not return after context cancellation — eosCh leak still present")
+	}
+}
+
 func TestConcatBin(t *testing.T) {
 	withNoGSTLeaks(t, func() {
 

@@ -13,42 +13,38 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/muxl"
 )
 
 // ThumbnailFromSegment generates a thumbnail from a single VOD segment.
-// initSeg is the combined init (ftyp+moov for every track); segment is
-// the signed m4s chunk(s) for one muxl segment. The two are reassembled
-// into a fragmented MP4, flattened to a faststart MP4 via muxl, then
-// decoded for a frame.
+// initSeg is the per-track fmp4 init (ftyp+moov); segment is the signed
+// m4s chunk(s) for one muxl segment. The two are concatenated into a
+// fragmented MP4 and decoded directly for a frame.
+//
+// We feed the fragmented init+segment straight to decodebin rather than
+// muxl-flattening it to a flat MP4 first. A flat moov carries a
+// movie-level duration — for a single mid-stream segment that's the whole
+// VOD's duration, wildly inconsistent with the one segment present, which
+// trips qtdemux's track-vs-movie duration heuristics; the fmp4 init has no
+// movie duration at all. The c2pa-uuid box that prefixes a signed segment
+// is a top-level box qtdemux skips.
 //
 // It deliberately does NOT go through Thumbnail: that path's
 // ConcatDemuxBin front-end hardcodes opusparse for livestream audio and
-// deadlocks on VOD's AAC. thumbnailFromFlatMP4 uses decodebin instead,
-// which is codec-agnostic.
+// deadlocks on VOD's AAC. decodebin is codec-agnostic.
 func ThumbnailFromSegment(ctx context.Context, initSeg, segment []byte, w io.Writer, format string) error {
 	fmp4 := make([]byte, 0, len(initSeg)+len(segment))
 	fmp4 = append(fmp4, initSeg...)
 	fmp4 = append(fmp4, segment...)
 
-	flattenStart := time.Now()
-	flat, err := flattenForThumbnail(ctx, fmp4)
-	if err != nil {
-		return fmt.Errorf("flatten segment for thumbnail: %w", err)
-	}
-	log.Log(ctx, "thumbnail: flattened segment",
-		"ms", time.Since(flattenStart).Milliseconds(),
-		"in_bytes", len(fmp4), "flat_bytes", len(flat))
-
 	decodeStart := time.Now()
-	err = thumbnailFromFlatMP4(ctx, flat, w, format)
+	err := thumbnailFromMP4(ctx, fmp4, w, format)
 	log.Log(ctx, "thumbnail: decoded frame",
-		"ms", time.Since(decodeStart).Milliseconds(), "ok", err == nil)
+		"ms", time.Since(decodeStart).Milliseconds(), "in_bytes", len(fmp4), "ok", err == nil)
 	return err
 }
 
-// thumbnailFromFlatMP4 renders a single frame from a flat, video-only
-// MP4 using decodebin for demux+decode. Unlike Thumbnail's
+// thumbnailFromMP4 renders a single frame from a video-only MP4 (flat or
+// fragmented) using decodebin for demux+decode. Unlike Thumbnail's
 // ConcatDemuxBin path (hardcoded to opus audio for livestreaming),
 // decodebin is codec-agnostic, so it handles VOD content's h264/AAC.
 //
@@ -56,8 +52,8 @@ func ThumbnailFromSegment(ctx context.Context, initSeg, segment []byte, w io.Wri
 // gst-launch parser (`decodebin ! videoconvert`), so a lone video pad
 // links cleanly with no manual pad-added handler — manual pad-added
 // closures are a go-gst GC hazard (see ConcatDemuxBin's workarounds).
-func thumbnailFromFlatMP4(ctx context.Context, flat []byte, w io.Writer, format string) error {
-	ctx = log.WithLogValues(ctx, "function", "thumbnailFromFlatMP4")
+func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format string) error {
+	ctx = log.WithLogValues(ctx, "function", "thumbnailFromMP4")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -68,7 +64,7 @@ func thumbnailFromFlatMP4(ctx context.Context, flat []byte, w io.Writer, format 
 	case "png":
 		encoder = "pngenc snapshot=true"
 	default:
-		log.Error(ctx, "thumbnailFromFlatMP4: expected jpeg or png", "format", format)
+		log.Error(ctx, "thumbnailFromMP4: expected jpeg or png", "format", format)
 		encoder = "jpegenc"
 	}
 
@@ -138,24 +134,6 @@ func thumbnailFromFlatMP4(ctx context.Context, flat []byte, w io.Writer, format 
 		}
 		return fmt.Errorf("thumbnail pipeline ended without producing a frame")
 	}
-}
-
-// flattenForThumbnail turns a video-only fragmented MP4 — a per-track
-// init segment followed by one or more moof+mdat fragments — into a flat
-// faststart MP4 (moov up front, full sample tables) via muxl. The
-// Thumbnail demux path stalls on fragmented input fed through a
-// push-mode appsrc (qtdemux waits for fragments that never arrive), so
-// it needs a real flat MP4. muxl skips the unknown c2pa-uuid/muxl-uuid
-// boxes that prefix signed segments.
-func flattenForThumbnail(ctx context.Context, fmp4 []byte) ([]byte, error) {
-	var out bytes.Buffer
-	if err := muxl.RunMuxlMp4(ctx, bytes.NewReader(fmp4), &out); err != nil {
-		return nil, fmt.Errorf("muxl flatten: %w", err)
-	}
-	if out.Len() == 0 {
-		return nil, fmt.Errorf("muxl flatten produced no output")
-	}
-	return out.Bytes(), nil
 }
 
 func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) error {

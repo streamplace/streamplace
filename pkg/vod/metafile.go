@@ -234,6 +234,21 @@ func writeMetafile(ctx context.Context, store blob.Store, cid string, m *Metafil
 	return nil
 }
 
+// readMetafile loads and decodes the metafile written by writeMetafile
+// (blobs/<cid>.json). Used by server-side thumbnail backfill, which needs
+// the per-track segment table to pick a frame to render.
+func readMetafile(ctx context.Context, store blob.Store, cid string) (*Metafile, error) {
+	data, err := readWholeBlob(ctx, store, BlobsPrefix+cid+".json")
+	if err != nil {
+		return nil, fmt.Errorf("open metafile: %w", err)
+	}
+	var m Metafile
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("decode metafile: %w", err)
+	}
+	return &m, nil
+}
+
 // writeInitBlob writes per-track init bytes to the blob.Store keyed by
 // their BDASL CID. Content-addressed and idempotent: if a previous run
 // (or another VOD with the same init bytes) already wrote this blob,

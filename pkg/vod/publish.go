@@ -106,7 +106,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		span.SetStatus(codes.Error, "marshal_tracks")
 		return fmt.Errorf("marshal track refs: %w", err)
 	}
-	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, string(trackURIsJSON), p.probe.DurationMS); err != nil {
+	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, string(trackURIsJSON), p.probe.DurationMS, p.cid); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "store_tracks")
 		return fmt.Errorf("store track refs: %w", err)

@@ -2051,6 +2051,86 @@
         ]
       }
     },
+    "/xrpc/place.stream.media.publishVideo": {
+      "post": {
+        "summary": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.",
+        "operationId": "place.stream.media.publishVideo",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "AT-URI of the created place.stream.video record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "CID of the created place.stream.video record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "UploadNotFound"
+                        },
+                        {
+                          "const": "UploadNotReady"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uploadId": {
+                    "type": "string",
+                    "description": "The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done')."
+                  },
+                  "record": {
+                    "$ref": "#/components/schemas/place.stream.video",
+                    "description": "A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none."
+                  }
+                },
+                "required": ["uploadId", "record"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.live.denyTeleport": {
       "post": {
         "summary": "Deny an incoming teleport request.",
@@ -4850,6 +4930,9 @@
           }
         },
         "required": ["count", "bytes", "durationMs", "reporters"]
+      },
+      "place.stream.video": {
+        "description": "Unknown type"
       },
       "place.stream.livestream_livestreamView": {
         "type": "object",

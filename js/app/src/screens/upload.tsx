@@ -1,4 +1,3 @@
-import { TID } from "@atproto/common-web";
 import {
   Admonition,
   Button,
@@ -389,16 +388,16 @@ export default function UploadScreen() {
         }
       }
 
-      const rkey = TID.next().toString();
-      const putRes = await agent.com.atproto.repo.putRecord({
-        repo: agent.did,
-        collection: "place.stream.video",
-        rkey,
+      // Publish server-side: the server owns the authoritative source
+      // tracks + durationMs (overriding whatever we sent) and backfills a
+      // generated thumbnail when we didn't supply one.
+      const res = await agent.place.stream.media.publishVideo({
+        uploadId: phase.uploadId,
         record,
       });
 
-      if (!putRes.success) throw new Error("putRecord failed");
-      setPhase({ kind: "done", videoUri: putRes.data.uri });
+      if (!res.success) throw new Error("publishVideo failed");
+      setPhase({ kind: "done", videoUri: res.data.uri });
     } catch (err) {
       setPhase({
         kind: "error",

@@ -36,6 +36,11 @@ type Upload struct {
 	// for the client to create a place.stream.video record.
 	TrackURIs  string `gorm:"column:track_uris"`
 	DurationMS int64  `gorm:"column:duration_ms"`
+	// ContentCID is the BDASL CID of the processed fMP4 blob. Stored so the
+	// server can locate the content blob + metafile later (e.g. for
+	// publishVideo's thumbnail generation) without re-deriving it from the
+	// published track records.
+	ContentCID string `gorm:"column:content_cid"`
 }
 
 func (Upload) TableName() string {
@@ -83,7 +88,7 @@ func (state *StatefulDB) SetUploadProgress(ctx context.Context, id string, progr
 		Update("processing_progress", progress).Error
 }
 
-func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, trackURIsJSON string, durationMS int64) error {
+func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, trackURIsJSON string, durationMS int64, contentCID string) error {
 	return state.DB.WithContext(ctx).Model(&Upload{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
@@ -91,6 +96,7 @@ func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, trac
 			"processing_progress": 100,
 			"track_uris":          trackURIsJSON,
 			"duration_ms":         durationMS,
+			"content_cid":         contentCID,
 		}).Error
 }
 

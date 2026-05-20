@@ -306,6 +306,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.media.getUploadStatus", s.HandlePlaceStreamMediaGetUploadStatus)
 	e.GET("/xrpc/place.stream.media.getVideo", s.HandlePlaceStreamMediaGetVideo)
 	e.GET("/xrpc/place.stream.media.getVideoList", s.HandlePlaceStreamMediaGetVideoList)
+	e.POST("/xrpc/place.stream.media.publishVideo", s.HandlePlaceStreamMediaPublishVideo)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
@@ -744,6 +745,24 @@ func (s *Server) HandlePlaceStreamMediaGetVideoList(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,cursor string,limit int,repo string) (*placestream.MediaGetVideoList_Output, error)
 	out, handleErr = s.handlePlaceStreamMediaGetVideoList(ctx, cursor, limit, repo)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaPublishVideo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaPublishVideo")
+	defer span.End()
+
+	var body placestream.MediaPublishVideo_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaPublishVideo_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context,body *placestream.MediaPublishVideo_Input) (*placestream.MediaPublishVideo_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaPublishVideo(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

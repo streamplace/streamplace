@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
@@ -39,6 +40,63 @@ var elementaryStreamCaps = map[string]bool{
 // or audio that isn't AAC or Opus. Opus is the only audio codec we
 // transcode (to AAC via fdkaacenc); AAC passes through.
 var ErrUnsupportedCodec = errors.New("unsupported codec")
+
+// ErrPipelineStalled is returned when the pipeline produces no output for
+// vodStallTimeout. The motivating case: a demuxer that reaches PLAYING but
+// never produces a usable pad (e.g. the parsebin/aacparse recursion, or a
+// codec gstreamer can't handle), leaving RunVODPipeline blocked forever on
+// the bus. The watchdog converts that silent hang into this error.
+var ErrPipelineStalled = errors.New("vod pipeline stalled")
+
+const (
+	// vodStallTimeout bounds how long the pipeline may produce zero new
+	// output before we treat it as hung, cancel the context, and return
+	// ErrPipelineStalled. A healthy stream emits its first fragment within
+	// well under a second of PLAYING and fragments steadily thereafter, so
+	// 30s of total silence means something wedged upstream.
+	vodStallTimeout = 30 * time.Second
+	// vodProgressInterval is the heartbeat/stall-check cadence. Each tick
+	// logs a progress line and checks for a stall.
+	vodProgressInterval = 5 * time.Second
+)
+
+// progressWriter wraps the appsink output writer to track how much fMP4 has
+// been emitted and when the last write happened. The watchdog reads these
+// to log a heartbeat and to detect a stall. All fields are touched from the
+// gstreamer streaming thread (Write) and the watchdog goroutine (the
+// readers), so access is atomic.
+type progressWriter struct {
+	w        io.Writer
+	bytes    atomic.Int64
+	samples  atomic.Int64
+	lastNano atomic.Int64 // UnixNano of the most recent non-empty write
+	stalled  atomic.Bool
+}
+
+func newProgressWriter(w io.Writer) *progressWriter {
+	p := &progressWriter{w: w}
+	p.lastNano.Store(time.Now().UnixNano())
+	return p
+}
+
+func (p *progressWriter) Write(b []byte) (int, error) {
+	n, err := p.w.Write(b)
+	if n > 0 {
+		p.bytes.Add(int64(n))
+		p.samples.Add(1)
+		p.lastNano.Store(time.Now().UnixNano())
+	}
+	return n, err
+}
+
+// resetTimer marks "now" as the last-progress point. Called when the
+// pipeline reaches PLAYING so the stall clock measures from the moment
+// output could legitimately start, not from pipeline construction.
+func (p *progressWriter) resetTimer() { p.lastNano.Store(time.Now().UnixNano()) }
+
+func (p *progressWriter) idle() time.Duration {
+	return time.Since(time.Unix(0, p.lastNano.Load()))
+}
 
 // VODResult bundles probe-derived metadata that the caller needs for
 // downstream record creation. Populated incrementally by the pad-added
@@ -108,6 +166,10 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	log.Debug(ctx, "creating pipeline", "source_size", size)
 
 	var result VODResult
+
+	// Tracks fMP4 bytes flowing out of the appsink so the watchdog below
+	// can emit progress and notice a stall.
+	prog := newProgressWriter(out)
 
 	pipeline, err := gst.NewPipeline("vod-process")
 	if err != nil {
@@ -198,7 +260,7 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, out),
+		NewSampleFunc: WriterNewSample(ctx, prog),
 	})
 
 	// padErr captures the first wiring error from pad-added so we can
@@ -302,7 +364,51 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 	}
 	log.Debug(ctx, "pipeline transitioned to PLAYING")
 
-	if err := <-busErr; err != nil {
+	// Watchdog + heartbeat. The bus loop polls ctx.Err() every ~1s, so a
+	// cancel here unblocks the <-busErr wait below; without it a demuxer
+	// that reaches PLAYING but never emits output hangs this goroutine
+	// indefinitely. The same ticker logs an info-level progress line so a
+	// healthy run is visible and a stall ("output_bytes=0" repeating) is
+	// obvious before the timeout even fires.
+	prog.resetTimer()
+	watchdogDone := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(vodProgressInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchdogDone:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				idle := prog.idle()
+				bytes, samples := prog.bytes.Load(), prog.samples.Load()
+				if idle >= vodStallTimeout {
+					prog.stalled.Store(true)
+					log.Error(ctx, "vod pipeline stalled; cancelling",
+						"output_bytes", bytes, "samples", samples,
+						"idle_seconds", idle.Seconds())
+					cancel()
+					return
+				}
+				log.Log(ctx, "vod pipeline progress",
+					"output_bytes", bytes, "samples", samples,
+					"idle_seconds", idle.Seconds())
+			}
+		}
+	}()
+
+	busErrVal := <-busErr
+	close(watchdogDone)
+	if busErrVal != nil {
+		if prog.stalled.Load() {
+			err := fmt.Errorf("%w: no output for %s (%d bytes in %d samples)",
+				ErrPipelineStalled, vodStallTimeout, prog.bytes.Load(), prog.samples.Load())
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "stalled")
+			return result, err
+		}
 		mu.Lock()
 		pe := padErr
 		mu.Unlock()
@@ -311,9 +417,9 @@ func RunVODPipeline(ctx context.Context, src io.ReaderAt, size int64, out io.Wri
 			span.SetStatus(codes.Error, "pad-wiring")
 			return result, pe
 		}
-		span.RecordError(err)
+		span.RecordError(busErrVal)
 		span.SetStatus(codes.Error, "bus")
-		return result, fmt.Errorf("pipeline: %w", err)
+		return result, fmt.Errorf("pipeline: %w", busErrVal)
 	}
 	log.Debug(ctx, "pipeline EOS reached cleanly")
 

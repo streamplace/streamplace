@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
 
@@ -63,6 +65,7 @@ func generateThumbnail(ctx context.Context, store blob.Store, cid string, meta *
 		attribute.Int64("segment_size", seg.Size),
 	)
 
+	readStart := time.Now()
 	initSeg, err := readWholeBlob(ctx, store, BlobsPrefix+video.InitCID+".mp4")
 	if err != nil {
 		return nil, fmt.Errorf("read init blob: %w", err)
@@ -77,6 +80,12 @@ func generateThumbnail(ctx context.Context, store blob.Store, cid string, meta *
 	if _, err := io.ReadFull(io.NewSectionReader(content, seg.Offset, seg.Size), segBytes); err != nil {
 		return nil, fmt.Errorf("read segment bytes: %w", err)
 	}
+	// Timing breadcrumb: blob read vs. render (flatten + decode, logged
+	// inside ThumbnailFromSegment) so a slow thumbnail names its own step.
+	log.Log(ctx, "thumbnail: read inputs",
+		"ms", time.Since(readStart).Milliseconds(),
+		"init_bytes", len(initSeg), "segment_bytes", len(segBytes),
+		"segment_index", idx, "segment_count", len(video.Segments))
 
 	var thumb bytes.Buffer
 	if err := media.ThumbnailFromSegment(ctx, initSeg, segBytes, &thumb, thumbnailFormat); err != nil {

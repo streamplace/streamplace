@@ -101,11 +101,10 @@ func TestThumbnail(t *testing.T) {
 	}
 }
 
-// TestThumbnailFromSegment exercises the VOD thumbnail path
-// (ThumbnailFromSegment -> muxl flatten -> thumbnailFromFlatMP4). The
-// muxl flatten is wasm, not gstreamer, so it runs once up front; the new
-// decodebin-based gstreamer pipeline is what gets hammered under the
-// leak checker.
+// TestThumbnailFromSegment exercises the VOD thumbnail decode path
+// (thumbnailFromMP4) by hammering the decodebin pipeline on each fixture
+// under the leak checker. The fragmented fmp4 fixtures are fed straight to
+// decodebin — no muxl flatten — matching what ThumbnailFromSegment now does.
 func TestThumbnailFromSegment(t *testing.T) {
 	for _, tc := range thumbnailTestCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -116,18 +115,11 @@ func TestThumbnailFromSegment(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 				defer cancel()
 
-				// flattenForThumbnail is muxl/wasm, not gstreamer — run it
-				// once to get a flat MP4, then hammer the gstreamer
-				// thumbnail pipeline under the leak checker.
-				flat, err := flattenForThumbnail(ctx, bs)
-				require.NoError(t, err)
-				require.NotEmpty(t, flat)
-
 				g, ctx := errgroup.WithContext(ctx)
 				for i := 0; i < streamplaceTestCount; i++ {
 					g.Go(func() error {
 						var thumbnail bytes.Buffer
-						if err := thumbnailFromFlatMP4(ctx, flat, &thumbnail, "jpeg"); err != nil {
+						if err := thumbnailFromMP4(ctx, bs, &thumbnail, "jpeg"); err != nil {
 							return err
 						}
 						if thumbnail.Len() == 0 {

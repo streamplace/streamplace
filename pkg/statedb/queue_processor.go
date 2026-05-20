@@ -11,6 +11,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
@@ -25,6 +26,19 @@ var TaskChat = "chat"
 var TaskFinalizeLivestream = "finalize_livestream"
 var TaskVODProcess = "vod_process"
 var TaskViewCountAggregate = "view_count_aggregate"
+
+// nonVODTaskTypes is every task type handled by the general queue worker.
+// VOD processing runs on its own dedicated pool (see ProcessQueue) so a
+// slow remux can't block these lighter tasks, so VOD is deliberately
+// excluded here. Keep this list in sync when adding a new task type that
+// is NOT VOD — anything missing from both this list and the VOD pool will
+// never be dequeued.
+var nonVODTaskTypes = []string{
+	TaskNotification,
+	TaskChat,
+	TaskFinalizeLivestream,
+	TaskViewCountAggregate,
+}
 
 type NotificationTask struct {
 	Livestream  *streamplace.Livestream_LivestreamView
@@ -64,28 +78,59 @@ type ViewCountAggregateTask struct {
 	WindowEnd   time.Time `json:"windowEnd"`
 }
 
-func (state *StatefulDB) ProcessQueue(ctx context.Context) error {
+// ProcessQueue runs the task queue until ctx is cancelled. VOD tasks are
+// handled by a dedicated pool of vodConcurrency workers, so a slow remux
+// can't block quick uploads behind it (or starve the lighter tasks);
+// everything else runs on a single general worker. DequeueTask uses
+// FOR UPDATE SKIP LOCKED on Postgres, so the workers never claim the same
+// row. vodConcurrency is clamped to at least 1.
+func (state *StatefulDB) ProcessQueue(ctx context.Context, vodConcurrency int) error {
+	if vodConcurrency < 1 {
+		vodConcurrency = 1
+	}
+	log.Log(ctx, "starting task queue", "vod_concurrency", vodConcurrency)
+
+	group, ctx := errgroup.WithContext(ctx)
+
+	// General worker: everything except VOD.
+	group.Go(func() error {
+		return state.runQueueWorker(ctx, "queue_processor", nonVODTaskTypes)
+	})
+
+	// Dedicated VOD pool.
+	for i := 0; i < vodConcurrency; i++ {
+		workerID := fmt.Sprintf("vod_worker_%d", i)
+		group.Go(func() error {
+			return state.runQueueWorker(ctx, workerID, []string{TaskVODProcess})
+		})
+	}
+
+	return group.Wait()
+}
+
+// runQueueWorker pulls and processes tasks of the given types until ctx is
+// cancelled. A failed task is only logged here; it stays locked until its
+// lease expires and then becomes eligible for retry (capped by max_tries),
+// matching the queue's existing retry semantics. Empty dequeues back off
+// on a 1s timer or a queue poke.
+func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, taskTypes []string) error {
 	for {
-		task, err := state.DequeueTask(ctx, "queue_processor")
+		task, err := state.DequeueTask(ctx, workerID, taskTypes...)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 		if task != nil {
-			err := state.processTask(ctx, task)
-			if err != nil {
-				log.Error(ctx, "failed to process task", "err", err)
+			if err := state.processTask(ctx, task); err != nil {
+				log.Error(ctx, "failed to process task", "err", err, "worker", workerID)
 			}
-		} else {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(1 * time.Second):
-				continue
-			case <-state.pokeQueue:
-				continue
-			}
+			continue
 		}
-
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(1 * time.Second):
+		case <-state.pokeQueue:
+		}
 	}
 }
 
@@ -126,9 +171,22 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 			"uploadId", t.UploadID, "did", t.RepoDID)
 		return state.CompleteTask(ctx, task.ID)
 	}
+	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
+	}
 	cid, err := state.vodProcessor(ctx, t)
 	if err != nil {
-		return fmt.Errorf("vod processing: %w", err)
+		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
+			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
+		}
+		// Complete the task so it doesn't retry — most VOD failures are
+		// permanent (unsupported codec, corrupted file, etc.).
+		_ = state.CompleteTask(ctx, task.ID)
+		// Include the upload ID in the error string: this error is logged
+		// upstream in ProcessQueue with the loop's context, which doesn't
+		// carry the per-task "uploadId" log value, so without it the failure
+		// (e.g. a publish-records track error) can't be tied to an upload.
+		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
 	return state.CompleteTask(ctx, task.ID)

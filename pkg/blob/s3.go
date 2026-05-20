@@ -49,7 +49,18 @@ func (s *S3Store) Open(ctx context.Context, key string) (Reader, error) {
 		}
 		return nil, err
 	}
-	return ra, nil
+	// Wrap in an LRU block cache. The bare ReaderAt reopens a ranged
+	// GetObject on every non-sequential read; a demuxer seeking around a
+	// large MP4 turns that into tens of thousands of round-trips. The
+	// cache serves those from a bounded set of 16 MB blocks, and only
+	// ever issues aligned full-block reads to the ReaderAt — each one a
+	// single clean sequential GET. Close on the cache closes the ReaderAt.
+	cached, err := s3pkg.NewCachingReaderAt(ra, ra.Size(), s3pkg.DefaultCacheBlockSize, s3pkg.DefaultCacheBlocks)
+	if err != nil {
+		_ = ra.Close()
+		return nil, err
+	}
+	return cached, nil
 }
 
 func (s *S3Store) NewWriter(ctx context.Context, key, contentType string) (Writer, error) {

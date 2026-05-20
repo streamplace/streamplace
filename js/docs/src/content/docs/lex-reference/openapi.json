@@ -1820,6 +1820,89 @@
         }
       }
     },
+    "/xrpc/place.stream.media.getUploadStatus": {
+      "get": {
+        "summary": "Get the processing status of a previously created upload. Only accessible by the DID that created the upload.",
+        "operationId": "place.stream.media.getUploadStatus",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "Current processing status of the upload."
+                    },
+                    "progress": {
+                      "type": "integer",
+                      "description": "Processing progress percentage (0-100). Only meaningful when status is 'processing'.",
+                      "minimum": 0,
+                      "maximum": 100
+                    },
+                    "tracks": {
+                      "type": "array",
+                      "description": "Published track records. Present when status is 'done'.",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.media.getUploadStatus_trackRef"
+                      }
+                    },
+                    "durationMs": {
+                      "type": "integer",
+                      "description": "Duration of the processed video in milliseconds. Present when status is 'done'."
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error message. Present when status is 'error'."
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uploadId",
+            "in": "query",
+            "required": true,
+            "description": "The upload ID returned by place.stream.media.createUpload.",
+            "schema": {
+              "type": "string",
+              "description": "The upload ID returned by place.stream.media.createUpload."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.media.getVideo": {
       "get": {
         "summary": "Get a hydrated view of a place.stream.video record — the record itself plus author info plus aggregated view counts summed across every reporting node we've indexed. View counts come from place.stream.media.viewCount records; consumers see one number per metric, with the underlying multi-reporter detail collapsed away.",
@@ -1874,6 +1957,178 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.media.getVideoList": {
+      "get": {
+        "summary": "List videos for a given repo DID, newest first. Returns hydrated video views with author info and view counts.",
+        "operationId": "place.stream.media.getVideoList",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "videos": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.media.getVideo_videoView"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "description": "Pagination cursor for the next page, if any."
+                    }
+                  },
+                  "required": ["videos"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RepoNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "DID of the repo whose videos to list.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the repo whose videos to list.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of videos to return.",
+            "schema": {
+              "type": "integer",
+              "description": "Maximum number of videos to return.",
+              "default": 25,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Pagination cursor from a previous response.",
+            "schema": {
+              "type": "string",
+              "description": "Pagination cursor from a previous response."
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.media.publishVideo": {
+      "post": {
+        "summary": "Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.",
+        "operationId": "place.stream.media.publishVideo",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "AT-URI of the created place.stream.video record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "CID of the created place.stream.video record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "UploadNotFound"
+                        },
+                        {
+                          "const": "UploadNotReady"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uploadId": {
+                    "type": "string",
+                    "description": "The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done')."
+                  },
+                  "record": {
+                    "$ref": "#/components/schemas/place.stream.video",
+                    "description": "A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none."
+                  }
+                },
+                "required": ["uploadId", "record"]
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.live.denyTeleport": {
@@ -4277,6 +4532,19 @@
         },
         "required": ["message", "status", "createdAt"]
       },
+      "place.stream.media.getUploadStatus_trackRef": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "cid"]
+      },
       "place.stream.media.getVideo_videoView": {
         "type": "object",
         "properties": {
@@ -4662,6 +4930,9 @@
           }
         },
         "required": ["count", "bytes", "durationMs", "reporters"]
+      },
+      "place.stream.video": {
+        "description": "Unknown type"
       },
       "place.stream.livestream_livestreamView": {
         "type": "object",

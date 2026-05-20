@@ -1,15 +1,72 @@
 package media
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/log"
 )
+
+// newReadTracer returns a function that records each ReadAt the source
+// issues. When the SP_READ_TRACE env var names a file, every call is
+// written there as "readAt pos=N size=M"; that capture can be replayed
+// against the pkg/s3 CachingReaderAt simulation (TestCachingReaderAtSim)
+// to model cache behavior on real demuxer access patterns. It's a
+// development aid only — with the env var unset it returns a no-op and
+// costs nothing. Writes go through a buffered channel so file I/O never
+// blocks the gstreamer streaming thread; the writer drains and flushes
+// when ctx is cancelled.
+func newReadTracer(ctx context.Context) func(pos, size int64) {
+	path := os.Getenv("SP_READ_TRACE")
+	if path == "" {
+		return func(int64, int64) {}
+	}
+	fd, err := os.Create(path)
+	if err != nil {
+		log.Error(ctx, "SP_READ_TRACE disabled: could not create trace file", "path", path, "error", err)
+		return func(int64, int64) {}
+	}
+	log.Log(ctx, "SP_READ_TRACE enabled", "path", path)
+
+	lines := make(chan string, 4096)
+	go func() {
+		w := bufio.NewWriter(fd)
+		defer func() {
+			// Drain whatever is still queued, then flush + close.
+			for {
+				select {
+				case s := <-lines:
+					fmt.Fprintln(w, s)
+				default:
+					_ = w.Flush()
+					_ = fd.Close()
+					return
+				}
+			}
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case s := <-lines:
+				fmt.Fprintln(w, s)
+			}
+		}
+	}()
+
+	return func(pos, size int64) {
+		select {
+		case lines <- fmt.Sprintf("readAt pos=%d size=%d", pos, size):
+		case <-ctx.Done():
+		}
+	}
+}
 
 // RandomAccessSrcBin wraps an appsrc element in random-access (BYTES) mode
 // inside a gst.Bin with a single ghost src pad named "src". The element is
@@ -24,6 +81,7 @@ import (
 // when they're done with the bin so any in-flight ReadAt — particularly the
 // S3 case, where ReadAt is an HTTP request — can abort cleanly.
 func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size int64) (*gst.Bin, error) {
+	ctx = log.WithLogValues(ctx, "func", "RandomAccessSrcBin")
 	if size < 0 {
 		return nil, fmt.Errorf("size must be non-negative, got %d", size)
 	}
@@ -55,6 +113,8 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 	var pos int64
 	var eos bool
 
+	trace := newReadTracer(ctx)
+
 	source.SetCallbacks(&app.SourceCallbacks{
 		NeedDataFunc: func(self *app.Source, length uint) {
 			if ctx.Err() != nil {
@@ -78,6 +138,7 @@ func RandomAccessSrcBin(ctx context.Context, name string, src io.ReaderAt, size 
 				n = remaining
 			}
 			buf := make([]byte, n)
+			trace(pos, n)
 			read, err := src.ReadAt(buf, pos)
 			if read > 0 {
 				gbuf := gst.NewBufferWithSize(int64(read))

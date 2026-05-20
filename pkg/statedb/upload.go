@@ -25,6 +25,22 @@ type Upload struct {
 	CompletedAt *time.Time `gorm:"column:completed_at"`
 	CreatedAt   time.Time  `gorm:"column:created_at"`
 	UpdatedAt   time.Time  `gorm:"column:updated_at"`
+
+	// Processing fields — set by the VOD pipeline after the TUS upload finishes.
+	// ProcessingStatus is "", "processing", "done", or "error".
+	ProcessingStatus   string `gorm:"column:processing_status"`
+	ProcessingError    string `gorm:"column:processing_error"`
+	ProcessingProgress int    `gorm:"column:processing_progress;default:0"`
+	// TrackURIs is a JSON array of {"uri":"at://...","cid":"..."} objects
+	// populated once the track records are published and the video is ready
+	// for the client to create a place.stream.video record.
+	TrackURIs  string `gorm:"column:track_uris"`
+	DurationMS int64  `gorm:"column:duration_ms"`
+	// ContentCID is the BDASL CID of the processed fMP4 blob. Stored so the
+	// server can locate the content blob + metafile later (e.g. for
+	// publishVideo's thumbnail generation) without re-deriving it from the
+	// published track records.
+	ContentCID string `gorm:"column:content_cid"`
 }
 
 func (Upload) TableName() string {
@@ -54,6 +70,42 @@ func (state *StatefulDB) CompleteUpload(ctx context.Context, id string, location
 		Updates(map[string]any{
 			"completed_at": &now,
 			"location":     location,
+		}).Error
+}
+
+func (state *StatefulDB) SetUploadProcessing(ctx context.Context, id string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"processing_status":   "processing",
+			"processing_progress": 0,
+		}).Error
+}
+
+func (state *StatefulDB) SetUploadProgress(ctx context.Context, id string, progress int) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).
+		Where("id = ?", id).
+		Update("processing_progress", progress).Error
+}
+
+func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, trackURIsJSON string, durationMS int64, contentCID string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"processing_status":   "done",
+			"processing_progress": 100,
+			"track_uris":          trackURIsJSON,
+			"duration_ms":         durationMS,
+			"content_cid":         contentCID,
+		}).Error
+}
+
+func (state *StatefulDB) SetUploadFailed(ctx context.Context, id string, errMsg string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"processing_status": "error",
+			"processing_error":  errMsg,
 		}).Error
 }
 

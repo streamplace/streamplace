@@ -24,14 +24,10 @@ export function srcToUrl(
     if (props.src.startsWith("http://") || props.src.startsWith("https://")) {
       const segments = props.src.split(/[./]/);
       const suffix = segments[segments.length - 1];
-      if (protocolSuffixes[suffix]) {
-        return {
-          url: props.src,
-          protocol: protocolSuffixes[suffix],
-        };
-      } else {
-        throw new Error(`unknown playback protocol: ${suffix}`);
-      }
+      return {
+        url: props.src,
+        protocol: protocolSuffixes[suffix] ?? PlayerProtocol.HLS,
+      };
     }
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {

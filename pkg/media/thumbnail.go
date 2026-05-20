@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -29,11 +30,21 @@ func ThumbnailFromSegment(ctx context.Context, initSeg, segment []byte, w io.Wri
 	fmp4 := make([]byte, 0, len(initSeg)+len(segment))
 	fmp4 = append(fmp4, initSeg...)
 	fmp4 = append(fmp4, segment...)
+
+	flattenStart := time.Now()
 	flat, err := flattenForThumbnail(ctx, fmp4)
 	if err != nil {
 		return fmt.Errorf("flatten segment for thumbnail: %w", err)
 	}
-	return thumbnailFromFlatMP4(ctx, flat, w, format)
+	log.Log(ctx, "thumbnail: flattened segment",
+		"ms", time.Since(flattenStart).Milliseconds(),
+		"in_bytes", len(fmp4), "flat_bytes", len(flat))
+
+	decodeStart := time.Now()
+	err = thumbnailFromFlatMP4(ctx, flat, w, format)
+	log.Log(ctx, "thumbnail: decoded frame",
+		"ms", time.Since(decodeStart).Milliseconds(), "ok", err == nil)
+	return err
 }
 
 // thumbnailFromFlatMP4 renders a single frame from a flat, video-only

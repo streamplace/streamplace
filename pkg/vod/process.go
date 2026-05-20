@@ -57,6 +57,12 @@ const (
 	// underlying Writer.Complete() takes none, so there the timeout bounds
 	// only the logging, not the call itself.
 	vodStageTimeout = 10 * time.Minute
+	// vodThumbnailTimeout bounds the thumbnail stage specifically. A
+	// thumbnail is non-fatal nice-to-have (we publish without it on
+	// failure) and a healthy one renders in well under a second, so it
+	// gets a much tighter bound than the storage/publish stages — a stuck
+	// decode shouldn't hold an otherwise-finished VOD for 10 minutes.
+	vodThumbnailTimeout = 45 * time.Second
 )
 
 // stage labels for spmetrics.VODProcessErrorsTotal — keep these in sync
@@ -239,7 +245,7 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	// (codec quirk, odd segment) shouldn't sink an otherwise-good
 	// upload, so log and publish without it.
 	var thumbnail []byte
-	if err := runVODStage(ctx, "thumbnail", func(ctx context.Context) error {
+	if err := runVODStageWithin(ctx, "thumbnail", vodThumbnailTimeout, func(ctx context.Context) error {
 		var err error
 		thumbnail, err = generateThumbnail(ctx, store, finalCID, metafile)
 		return err
@@ -277,10 +283,12 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	return finalCID, nil
 }
 
-// completeStaging wraps the writer Complete call in its own span so
-// we can see how much of total processing time is spent waiting for
-// the storage layer to acknowledge the upload.
-// runVODStage runs one post-pipeline stage with an entry/exit log, a
+// runVODStage runs a post-pipeline stage with the default stage timeout.
+func runVODStage(ctx context.Context, name string, fn func(context.Context) error) error {
+	return runVODStageWithin(ctx, name, vodStageTimeout, fn)
+}
+
+// runVODStageWithin runs one post-pipeline stage with an entry/exit log, a
 // heartbeat while it's in flight, and a hard timeout. The heartbeat turns
 // a silent hang into a visible "stage X still running after Ns" trail and
 // keeps ticking until fn returns — so a stage that ignores the deadline
@@ -288,8 +296,8 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 // frees the worker when a context-aware stage wedges. The stage error (or
 // the context error on timeout) is returned unwrapped; the caller adds the
 // stage label and the upload ID is attached upstream.
-func runVODStage(ctx context.Context, name string, fn func(context.Context) error) error {
-	ctx, cancel := context.WithTimeout(ctx, vodStageTimeout)
+func runVODStageWithin(ctx context.Context, name string, timeout time.Duration, fn func(context.Context) error) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	start := time.Now()
 	log.Log(ctx, "vod stage starting", "stage", name)
@@ -316,6 +324,9 @@ func runVODStage(ctx context.Context, name string, fn func(context.Context) erro
 	return err
 }
 
+// completeStaging wraps the writer Complete call in its own span so we
+// can see how much of total processing time is spent waiting for the
+// storage layer to acknowledge the upload.
 func completeStaging(ctx context.Context, staging blob.Writer, stagingKey string) error {
 	_, span := vodTracer.Start(ctx, "vod.completeStaging", trace.WithAttributes(
 		attribute.String("staging_key", stagingKey),
@@ -360,21 +371,22 @@ func (c *countingWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// ProcessToDiscard runs the full VOD media path — gstreamer remux, muxl
-// sign-segment, and metafile assembly — exactly as ProcessVOD does, but
-// throws the bytes away instead of staging, finalizing, and publishing
-// them. It needs no statedb, CLI, or PDS, which makes it the engine
-// behind `streamplace vod-test`: a way to run the parts of the pipeline
-// that have crashed or stalled in production against an arbitrary local
-// file. Returns the probe metadata and the number of fMP4 bytes produced.
+// ProcessToDiscard runs the full VOD media path against a local file —
+// gstreamer remux, muxl sign-segment, metafile assembly, AND thumbnail
+// generation — exactly as ProcessVOD does, into a throwaway temp store
+// that's deleted on return. The only things it skips vs production are the
+// S3 staging upload and the record publish (no statedb, CLI, or PDS
+// needed), which makes it the engine behind `streamplace vod-test`: a way
+// to reproduce pipeline crashes/stalls — including thumbnail-decode hangs —
+// against an arbitrary file. Returns the probe metadata and output bytes.
 func ProcessToDiscard(ctx context.Context, src io.ReaderAt, size int64) (media.VODResult, int64, error) {
 	signer, err := newUploadSigner(time.Now())
 	if err != nil {
 		return media.VODResult{}, 0, fmt.Errorf("create upload signer: %w", err)
 	}
-	// The metafile builder writes per-track init blobs into a Store; a
-	// throwaway temp dir stands in for the real one so we exercise the
-	// same wasm-parsing/metafile code production runs.
+	// A throwaway temp dir stands in for the production blob store, so the
+	// metafile init blobs, the content blob, and the thumbnail's reads all
+	// exercise the same code paths.
 	dir, err := os.MkdirTemp("", "vod-test-")
 	if err != nil {
 		return media.VODResult{}, 0, fmt.Errorf("temp dir: %w", err)
@@ -384,10 +396,45 @@ func ProcessToDiscard(ctx context.Context, src io.ReaderAt, size int64) (media.V
 	if err != nil {
 		return media.VODResult{}, 0, fmt.Errorf("file store: %w", err)
 	}
+
 	mb := newMetafileBuilder(ctx, store)
+	// Write the muxl output into the store (hashed + counted) so it can be
+	// finalized to a content-addressed blob the thumbnail stage can read,
+	// mirroring ProcessVOD instead of writing straight to /dev/null.
+	stagingKey := StagingPrefix + "vod-test.mp4"
+	staging, err := store.NewWriter(ctx, stagingKey, "video/mp4")
+	if err != nil {
+		return media.VODResult{}, 0, fmt.Errorf("staging writer: %w", err)
+	}
+	defer staging.Close()
+
+	hasher := bdasl.NewWriter()
 	counter := &countingWriter{}
-	result, err := streamThroughMuxl(ctx, src, size, counter, mb, signer.SignerInput)
-	return result, counter.n, err
+	final := io.MultiWriter(hasher, counter, staging)
+	result, err := streamThroughMuxl(ctx, src, size, final, mb, signer.SignerInput)
+	if err != nil {
+		return result, counter.n, err
+	}
+	if err := staging.Complete(); err != nil {
+		return result, counter.n, fmt.Errorf("complete staging: %w", err)
+	}
+
+	cid := hasher.CID()
+	if err := store.Move(ctx, stagingKey, BlobsPrefix+cid+".mp4"); err != nil {
+		return result, counter.n, fmt.Errorf("finalize: %w", err)
+	}
+	metafile := mb.Finalize(cid, counter.n)
+
+	// Thumbnail is non-fatal in production; here we run it unbounded so a
+	// hang is observable (the per-step timing logs inside generateThumbnail
+	// show where it wedges). Failures are logged, not returned.
+	if thumb, terr := generateThumbnail(ctx, store, cid, metafile); terr != nil {
+		log.Warn(ctx, "vod-test: thumbnail generation failed", "error", terr)
+	} else {
+		log.Log(ctx, "vod-test: thumbnail generated", "bytes", len(thumb))
+	}
+
+	return result, counter.n, nil
 }
 
 // recordErr is a small helper to attach the standard error attributes

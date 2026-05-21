@@ -14,7 +14,6 @@ import {
   useDID,
   useFetchLeafletDoc,
   useGetBio,
-  useImportBioFromLeaflet,
   useImportBioFromRanges,
   usePutBio,
   useTheme,
@@ -22,17 +21,9 @@ import {
   View,
   zero,
 } from "@streamplace/components";
-import {
-  ArrowLeft,
-  Check,
-  Download,
-  Plus,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react-native";
+import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { parseAtUriPath } from "src/linking-config";
 import type { PlaceStreamBioDefs, PlaceStreamBioPage } from "streamplace";
 
@@ -101,7 +92,6 @@ export function BioSettings() {
   const bio = useBio();
   const getBio = useGetBio();
   const putBio = usePutBio();
-  const importBioFromLeaflet = useImportBioFromLeaflet();
   const did = useDID();
   const { theme, zero: z } = useTheme();
 
@@ -122,7 +112,6 @@ export function BioSettings() {
   const [rangeDoc, setRangeDoc] = useState<object | null>(null);
   const [rangeSource, setRangeSource] = useState("");
   const [rangeImporting, setRangeImporting] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const fetchLeafletDoc = useFetchLeafletDoc();
   const importBioFromRanges = useImportBioFromRanges();
@@ -141,56 +130,8 @@ export function BioSettings() {
 
   useEffect(() => {
     if (!bio?.importedFrom || !did) return;
-    const source = bio.importedFrom;
-    setLeafletSource(source);
-
-    const preload = async () => {
-      try {
-        const doc = await fetchLeafletDoc(source);
-        const { blocks, warnings: w } = extractLeafletBlocks(doc);
-        if (blocks.length > 0) {
-          setRangeBlocks(blocks);
-          setRangeDoc(doc);
-          setRangeSource(source);
-          setRanges(autoSplitRanges(blocks));
-          setWarnings(w);
-        }
-      } catch {
-        // we can disregard errors here
-      }
-    };
-    preload();
+    setLeafletSource(bio.importedFrom);
   }, [bio?.importedFrom, did]);
-
-  const handleImport = async () => {
-    if (!leafletSource.trim()) return;
-    setImporting(true);
-    setImportError(null);
-    setWarnings([]);
-    const authority = parseLeafletSourceAuthority(leafletSource);
-    if (!authority || !did) {
-      setImportError("Invalid source");
-      setImporting(false);
-      return;
-    }
-    if (authority !== did) {
-      setImportError("This is not your record");
-      setImporting(false);
-      return;
-    }
-    resolveDIDDocument(did);
-    try {
-      const result = await importBioFromLeaflet({
-        source: leafletSource.trim(),
-      });
-      setWarnings(result.warnings);
-      setLeafletSource("");
-    } catch (e: any) {
-      setImportError(e?.message ?? "Import failed");
-    } finally {
-      setImporting(false);
-    }
-  };
 
   const handleOpenRangeSelector = async () => {
     if (!leafletSource.trim()) return;
@@ -209,7 +150,6 @@ export function BioSettings() {
     }
 
     if (leafletSource.trim() === rangeSource && rangeBlocks) {
-      setLeafletSource("");
       setImporting(false);
       return;
     }
@@ -236,23 +176,7 @@ export function BioSettings() {
     }
   };
 
-  const selectedBlockCount = ranges.reduce(
-    (sum, r) => sum + (r.endIdx - r.startIdx + 1),
-    0,
-  );
-  const totalBlocks = rangeBlocks?.length ?? 0;
-  const unselectedCount = totalBlocks - selectedBlockCount;
-
-  const handleConfirmRanges = () => {
-    if (unselectedCount > 0) {
-      setShowConfirmModal(true);
-      return;
-    }
-    doRangeImport();
-  };
-
   const doRangeImport = async () => {
-    setShowConfirmModal(false);
     if (!rangeDoc || !rangeBlocks || ranges.length === 0) return;
     setRangeImporting(true);
     try {
@@ -279,8 +203,16 @@ export function BioSettings() {
   };
 
   const handleSave = async () => {
+    // if new url, don't save yet
+    if (leafletSource.trim() && leafletSource.trim() !== rangeSource) {
+      await handleOpenRangeSelector();
+      return;
+    }
     setSaving(true);
     try {
+      if (rangeBlocks) {
+        await doRangeImport();
+      }
       const now = new Date().toISOString();
       const updated: PlaceStreamBioPage.Record = {
         $type: "place.stream.bio.page",
@@ -323,6 +255,8 @@ export function BioSettings() {
     setEdited(true);
   };
 
+  const showSave = edited || rangeBlocks !== null;
+
   return (
     <ScrollView>
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
@@ -349,24 +283,6 @@ export function BioSettings() {
                       value={leafletSource}
                       onChangeText={setLeafletSource}
                     />
-                  </View>
-                  <View style={[zero.layout.flex.center]}>
-                    <Button
-                      onPress={handleImport}
-                      loading={importing}
-                      disabled={!leafletSource.trim() || !did}
-                      size="md"
-                      width="min"
-                      style={[]}
-                      leftIcon={
-                        <Download
-                          size={16}
-                          color={theme.colors.primaryForeground}
-                        />
-                      }
-                    >
-                      {t("import", "Import")}
-                    </Button>
                   </View>
                   <View style={[zero.layout.flex.center]}>
                     <Button
@@ -404,43 +320,15 @@ export function BioSettings() {
                   <View
                     direction="row"
                     align="center"
-                    justify="between"
-                    style={{ marginBottom: 12 }}
+                    style={[zero.gap.all[2], { marginBottom: 12 }]}
                   >
-                    <View
-                      direction="row"
-                      align="center"
-                      style={[zero.gap.all[2]]}
-                    >
-                      <Pressable onPress={closeRangeSelector}>
-                        <ArrowLeft size={18} color={theme.colors.foreground} />
-                      </Pressable>
-                      <Text size="lg" weight="bold">
-                        {t("select-panels", "Select Panels")}
-                      </Text>
-                    </View>
-                    <Button
-                      onPress={handleConfirmRanges}
-                      loading={rangeImporting}
-                      disabled={ranges.length === 0}
-                      size="sm"
-                      width="min"
-                      leftIcon={
-                        <Check
-                          size={14}
-                          color={theme.colors.primaryForeground}
-                        />
-                      }
-                    >
-                      {t("confirm-import", "Confirm Import")}
-                    </Button>
-                  </View>
-
-                  {unselectedCount > 0 && ranges.length > 0 && (
-                    <Text size="sm" color="muted" style={{ marginBottom: 8 }}>
-                      {unselectedCount} of {totalBlocks} blocks will be dropped
+                    <Pressable onPress={closeRangeSelector}>
+                      <ArrowLeft size={18} color={theme.colors.foreground} />
+                    </Pressable>
+                    <Text size="lg" weight="bold">
+                      {t("select-panels", "Select Panels")}
                     </Text>
-                  )}
+                  </View>
 
                   <LeafletPanelRangeSelector
                     blocks={rangeBlocks}
@@ -546,10 +434,13 @@ export function BioSettings() {
               </View>
             </MenuGroup>
 
-            {edited && (
+            {showSave && (
               <MenuGroup>
                 <View style={[zero.p[4]]}>
-                  <Button onPress={handleSave} loading={saving}>
+                  <Button
+                    onPress={handleSave}
+                    loading={saving || rangeImporting}
+                  >
                     <Save size={16} style={{ marginRight: 4 }} />
                     {t("save-bio", "Save Bio")}
                   </Button>
@@ -559,67 +450,6 @@ export function BioSettings() {
           </MenuContainer>
         </View>
       </View>
-      <Modal
-        visible={showConfirmModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowConfirmModal(false)}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: theme.colors.card,
-              borderRadius: 12,
-              padding: 24,
-              maxWidth: 400,
-              width: "100%",
-            }}
-          >
-            <View
-              direction="row"
-              align="center"
-              justify="between"
-              style={{ marginBottom: 16 }}
-            >
-              <Text size="lg" weight="bold">
-                {t("confirm-import-title", "Confirm Import")}
-              </Text>
-              <Pressable onPress={() => setShowConfirmModal(false)}>
-                <X size={18} color={theme.colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <Text size="sm" color="muted" style={{ marginBottom: 16 }}>
-              {unselectedCount} block(s) are not in any panel and will be
-              dropped. Continue?
-            </Text>
-            <View direction="row" style={[zero.gap.all[2]]}>
-              <Button
-                variant="secondary"
-                size="md"
-                width="min"
-                onPress={() => setShowConfirmModal(false)}
-              >
-                {t("cancel", "Cancel")}
-              </Button>
-              <Button
-                size="md"
-                onPress={doRangeImport}
-                loading={rangeImporting}
-              >
-                {t("import-anyway", "Import Anyway")}
-              </Button>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }

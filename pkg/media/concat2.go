@@ -143,6 +143,10 @@ func ConcatBin(ctx context.Context, segCh <-chan *bus.Seg, doH264Parse bool) (*g
 				}
 				err := addConcatDemuxer(ctx, bin, seg, syncPadVideoSink, syncPadAudioSink, doH264Parse)
 				if err != nil {
+					if ctx.Err() != nil {
+						// Session ended mid-segment; not a pipeline error.
+						return
+					}
 					log.Error(ctx, "failed to add concat demuxer", "error", err)
 					bin.Error(err.Error(), err)
 					return
@@ -193,7 +197,10 @@ func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVi
 		return fmt.Errorf("failed to link demux bin audio src pad to sync audio sink pad: %v", linked)
 	}
 
-	eosCh := make(chan struct{})
+	// Buffered so the probe never blocks: if the context is cancelled
+	// below we stop receiving, but a late EOS must still be able to land
+	// without stranding the probe's calling thread.
+	eosCh := make(chan struct{}, 2)
 	eos := func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		if pad.GetDirection() != gst.PadDirectionSource {
 			return gst.PadProbeOK
@@ -207,9 +214,7 @@ func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVi
 		if !unlinked {
 			log.Error(ctx, "failed to unlink pad", "name", pad.GetName(), "direction", pad.GetDirection(), "error", unlinked)
 		}
-		go func() {
-			eosCh <- struct{}{}
-		}()
+		eosCh <- struct{}{}
 		return gst.PadProbeRemove
 	}
 	demuxBinPadVideoSrc.AddProbe(gst.PadProbeTypeEventBoth, eos)
@@ -219,8 +224,23 @@ func addConcatDemuxer(ctx context.Context, bin *gst.Bin, seg *bus.Seg, syncPadVi
 		return fmt.Errorf("failed to set state: %w", err)
 	}
 
-	<-eosCh
-	<-eosCh
+	// Wait for EOS on both demux src pads. A segment that never emits EOS
+	// on both pads (audio-only, malformed, or a session torn down before
+	// the stream completes) would otherwise wedge this goroutine — and the
+	// demux bin's GStreamer state — forever. Bail out on cancellation.
+	for range 2 {
+		select {
+		case <-eosCh:
+		case <-ctx.Done():
+			if rmErr := bin.Remove(demuxBin.Element); rmErr != nil {
+				log.Error(ctx, "failed to remove demux bin after cancel", "error", rmErr)
+			}
+			if stErr := demuxBin.SetState(gst.StateNull); stErr != nil {
+				log.Error(ctx, "failed to set demux bin to null after cancel", "error", stErr)
+			}
+			return ctx.Err()
+		}
+	}
 
 	err = bin.Remove(demuxBin.Element)
 	if err != nil {

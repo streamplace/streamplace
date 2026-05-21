@@ -233,6 +233,12 @@ export function BioSettings() {
     }
   };
 
+  const bioHasContent = !!(
+    bio?.layout ||
+    bio?.description?.plaintext ||
+    bio?.socials?.length
+  );
+
   const addSocial = () => {
     setSocials([...socials, { platform: "website", url: "", handle: "" }]);
     setEdited(true);
@@ -328,7 +334,7 @@ export function BioSettings() {
         </MenuGroup>
       )}
 
-      {!isWide && bio && (
+      {!isWide && bioHasContent && (
         <MenuGroup>
           <View style={[zero.p[4]]}>
             <Text size="xl" weight="bold">
@@ -451,7 +457,7 @@ export function BioSettings() {
           >
             <View style={{ width: 500 }}>{formSections}</View>
             <View style={{ flex: 1, maxWidth: 1150 }}>
-              {bio && (
+              {bioHasContent && (
                 <MenuContainer>
                   <MenuGroup>
                     <View style={[zero.p[4]]}>

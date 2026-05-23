@@ -8,9 +8,23 @@ import {
 } from "@streamplace/components";
 import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
+import { useEffect, useMemo, useState } from "react";
 import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
+
+const langNames = new Intl.DisplayNames(["en"], { type: "language" });
+
+const displayTag = (tag: string): string => {
+  if (tag.startsWith("lang:")) {
+    try {
+      return langNames.of(tag.slice(5)) ?? tag;
+    } catch {
+      return tag;
+    }
+  }
+  return tag;
+};
 
 interface StreamCardProps {
   size?: StreamCardSize;
@@ -44,15 +58,48 @@ const StreamCard = ({
   const { theme } = useTheme();
   const isWeb = Platform.OS === "web";
 
+  const tagItems = tags.length > 0 ? tags : category;
+  const tagsKey = tagItems.join(",");
+
+  const [rowWidth, setRowWidth] = useState(0);
+  const [itemWidths, setItemWidths] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setItemWidths({});
+  }, [activity, tagsKey]);
+
+  const visibleTagCount = useMemo(() => {
+    if (rowWidth === 0) return tagItems.length;
+    const activityW = activity ? (itemWidths["activity"] ?? 0) : 0;
+    let used = activityW;
+    let count = 0;
+    for (let i = 0; i < tagItems.length; i++) {
+      const w = itemWidths[`tag-${i}`];
+      if (w === undefined) {
+        count++;
+        continue;
+      }
+      const gap = used > 0 ? 6 : 0;
+      if (used + gap + w <= rowWidth) {
+        used += gap + w;
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [rowWidth, itemWidths, tagItems, activity]);
+
   // Define dynamic styles
   const borderRadius = 12;
-  const contentPadding = 12;
+  const contentPaddingHoriz = 12;
+  const contentPaddingVertical = 2.65;
   const avatarSize = 40;
   const livePillHeight = 30;
   const livePillPaddingHorizontal = 4;
 
-  const verticalContentSectionHeight = avatarSize + 2 * contentPadding;
-  const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
+  const contentSectionHeight = avatarSize + 2 * contentPaddingVertical;
+  const contentSectionWidth = avatarSize * 2 + contentPaddingHoriz;
 
   return (
     <LiquidGlassView
@@ -99,8 +146,8 @@ const StreamCard = ({
             style={[
               {
                 position: "absolute",
-                top: contentPadding,
-                right: contentPadding,
+                top: contentPaddingHoriz,
+                right: contentPaddingVertical,
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 borderRadius: 999,
                 borderWidth: 1,
@@ -123,11 +170,12 @@ const StreamCard = ({
       <View
         style={[
           {
-            padding: contentPadding,
+            paddingHorizontal: contentPaddingHoriz,
+            paddingVertical: contentPaddingVertical,
             alignItems: layoutHorizontal ? "flex-start" : "center",
             justifyContent: "flex-end",
-            gap: contentPadding,
-            width: layoutHorizontal ? horizontalContentSectionWidth : "auto",
+            gap: contentPaddingHoriz,
+            width: layoutHorizontal ? contentSectionWidth : "auto",
             flex: 1,
             flexDirection: layoutHorizontal ? "column" : "row",
           },
@@ -139,6 +187,7 @@ const StreamCard = ({
             {
               width: avatarSize,
               height: avatarSize,
+              marginVertical: layoutHorizontal ? 0 : contentPaddingVertical * 4,
               borderRadius: avatarSize / 2,
               overflow: "hidden",
               flexShrink: 0,
@@ -177,7 +226,7 @@ const StreamCard = ({
             { justifyContent: "space-around" },
             { alignItems: "flex-start" },
             {
-              gap: contentPadding / 4,
+              gap: contentPaddingHoriz / 4,
               width: layoutHorizontal ? "100%" : 0,
               minHeight: 0,
               zIndex: 12,
@@ -215,23 +264,33 @@ const StreamCard = ({
           {((activity && category.length > 0) || tags.length > 0) && (
             <View
               style={{
-                flexWrap: "wrap",
+                flexWrap: "nowrap",
                 gap: 6,
                 alignItems: "center",
+                alignSelf: "stretch",
                 flexDirection: "row",
+                overflow: "hidden",
               }}
+              onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}
             >
               {activity && (
                 <Text
                   size="sm"
-                  style={{ color: theme.colors.ring }}
+                  style={{ flexShrink: 0 }}
+                  color={hexToRgba(theme.colors.primaryForeground, 0.85)}
                   numberOfLines={1}
                   ellipsizeMode="tail"
+                  onLayout={(e) =>
+                    setItemWidths((prev) => ({
+                      ...prev,
+                      activity: e.nativeEvent.layout.width,
+                    }))
+                  }
                 >
                   {activity}
                 </Text>
               )}
-              {(tags.length > 0 ? tags : category).map((cat, index) => (
+              {tagItems.slice(0, visibleTagCount).map((cat, index) => (
                 <View
                   key={index}
                   style={[
@@ -241,8 +300,15 @@ const StreamCard = ({
                       borderColor: theme.colors.border,
                       backgroundColor: hexToRgba(theme.colors.secondary, 0.3),
                       paddingHorizontal: 8,
+                      flexShrink: 0,
                     },
                   ]}
+                  onLayout={(e) =>
+                    setItemWidths((prev) => ({
+                      ...prev,
+                      [`tag-${index}`]: e.nativeEvent.layout.width,
+                    }))
+                  }
                 >
                   <Text
                     size="sm"
@@ -250,7 +316,7 @@ const StreamCard = ({
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {cat}
+                    {displayTag(cat)}
                   </Text>
                 </View>
               ))}

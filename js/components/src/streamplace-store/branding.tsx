@@ -119,6 +119,7 @@ export function useFetchEnvConfig() {
       if (result.data.playbackWorkerUrl) {
         store.setState({ playbackWorkerUrl: result.data.playbackWorkerUrl });
       }
+      store.setState({ gamesEnabled: result.data.gamesEnabled ?? false });
     } catch (err) {
       console.error("Failed to fetch env config:", err);
     }

@@ -12,6 +12,8 @@ import (
 
 // ConfigGetEnv_Output is the output of a place.stream.config.getEnv call.
 type ConfigGetEnv_Output struct {
+	// gamesEnabled: Whether the games API is configured and available
+	GamesEnabled *bool `json:"gamesEnabled,omitempty" cborgen:"gamesEnabled,omitempty"`
 	// playbackWorkerUrl: URL of the Cloudflare playback router worker
 	PlaybackWorkerUrl *string `json:"playbackWorkerUrl,omitempty" cborgen:"playbackWorkerUrl,omitempty"`
 }

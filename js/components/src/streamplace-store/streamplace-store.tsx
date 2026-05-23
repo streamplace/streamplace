@@ -62,6 +62,9 @@ export interface StreamplaceState {
   playbackWorkerUrl: string | null;
   setPlaybackWorkerUrl: (url: string | null) => void;
 
+  gamesEnabled: boolean;
+  setGamesEnabled: (enabled: boolean) => void;
+
   // Branding state
   branding: Record<string, BrandingAsset> | null;
   brandingLoading: boolean;
@@ -137,6 +140,9 @@ export const makeStreamplaceStore = ({
     playbackWorkerUrl: null,
     setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>
       set({ playbackWorkerUrl }),
+
+    gamesEnabled: false,
+    setGamesEnabled: (gamesEnabled: boolean) => set({ gamesEnabled }),
 
     // Content metadata
     contentMetadata: null,

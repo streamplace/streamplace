@@ -128,7 +128,7 @@ const StreamCard = ({
             flex: layoutHorizontal ? 0 : undefined,
             minWidth: layoutHorizontal
               ? inMobileMode
-                ? "40%"
+                ? "45%"
                 : "63%"
               : "100%",
             // native seems to be unable to adjust widths properly?

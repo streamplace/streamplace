@@ -38,11 +38,13 @@ interface StreamCardProps {
   activity?: string;
   tags?: string[];
   isLive?: boolean;
+  showAvatar?: boolean;
 }
 
 const StreamCard = ({
   size = "sm",
   horizontal = false,
+  showAvatar = true,
   thumbnailUrl,
   avatarUrl,
   title,
@@ -54,6 +56,7 @@ const StreamCard = ({
   isLive = true,
 }: StreamCardProps) => {
   const layoutHorizontal = horizontal;
+  const inMobileMode = horizontal && !showAvatar;
   const { url } = useStreamplaceNode();
   const { theme } = useTheme();
   const isWeb = Platform.OS === "web";
@@ -95,8 +98,8 @@ const StreamCard = ({
   const contentPaddingHoriz = 12;
   const contentPaddingVertical = 2.65;
   const avatarSize = 40;
-  const livePillHeight = 30;
-  const livePillPaddingHorizontal = 4;
+  const livePillHeight = inMobileMode ? 20 : 30;
+  const livePillPaddingHorizontal = inMobileMode ? 2 : 4;
 
   const contentSectionHeight = avatarSize + 2 * contentPaddingVertical;
   const contentSectionWidth = avatarSize * 2 + contentPaddingHoriz;
@@ -123,7 +126,11 @@ const StreamCard = ({
         style={[
           {
             flex: layoutHorizontal ? 0 : undefined,
-            minWidth: layoutHorizontal ? "63%" : "100%",
+            minWidth: layoutHorizontal
+              ? inMobileMode
+                ? "40%"
+                : "63%"
+              : "100%",
             // native seems to be unable to adjust widths properly?
             maxHeight: !isWeb ? "76.5%" : "100%",
             position: "relative",
@@ -146,8 +153,8 @@ const StreamCard = ({
             style={[
               {
                 position: "absolute",
-                top: contentPaddingHoriz,
-                right: contentPaddingVertical,
+                top: contentPaddingVertical * 2,
+                right: contentPaddingVertical * 2,
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 borderRadius: 999,
                 borderWidth: 1,
@@ -161,7 +168,10 @@ const StreamCard = ({
               },
             ]}
           >
-            <PlayerUI.DehydratedViewers viewers={viewers} />
+            <PlayerUI.DehydratedViewers
+              viewers={viewers}
+              size={inMobileMode ? "sm" : "md"}
+            />
           </View>
         )}
       </View>
@@ -182,42 +192,46 @@ const StreamCard = ({
         ]}
       >
         {/* Avatar */}
-        <View
-          style={[
-            {
-              width: avatarSize,
-              height: avatarSize,
-              marginVertical: layoutHorizontal ? 0 : contentPaddingVertical * 4,
-              borderRadius: avatarSize / 2,
-              overflow: "hidden",
-              flexShrink: 0,
-            },
-          ]}
-        >
-          {/* dynamically switching between these src crashes android */}
-          {avatarUrl && (
-            <View style={[zero.flex.values[1]]} key="avatar">
-              <Image
-                key="avatar"
-                source={{
-                  uri: avatarUrl,
-                }}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-              />
-            </View>
-          )}
-          {!avatarUrl && (
-            <View key="avatar-placeholder">
-              <Image
-                key="avatar"
-                source={require("./../../assets/images/goose.png")}
-                style={{ width: "100%", height: "100%" }}
-                contentFit="cover"
-              />
-            </View>
-          )}
-        </View>
+        {showAvatar && (
+          <View
+            style={[
+              {
+                width: avatarSize,
+                height: avatarSize,
+                marginVertical: layoutHorizontal
+                  ? 0
+                  : contentPaddingVertical * 4,
+                borderRadius: avatarSize / 2,
+                overflow: "hidden",
+                flexShrink: 0,
+              },
+            ]}
+          >
+            {/* dynamically switching between these src crashes android */}
+            {avatarUrl && (
+              <View style={[zero.flex.values[1]]} key="avatar">
+                <Image
+                  key="avatar"
+                  source={{
+                    uri: avatarUrl,
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              </View>
+            )}
+            {!avatarUrl && (
+              <View key="avatar-placeholder">
+                <Image
+                  key="avatar"
+                  source={require("./../../assets/images/goose.png")}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Text content */}
         <View
@@ -240,6 +254,7 @@ const StreamCard = ({
                   lineHeight: 16,
                 },
               ]}
+              size={showAvatar ? "base" : "base"}
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -264,12 +279,13 @@ const StreamCard = ({
           {((activity && category.length > 0) || tags.length > 0) && (
             <View
               style={{
-                flexWrap: "nowrap",
-                gap: 6,
+                flexWrap: inMobileMode ? "wrap" : "nowrap",
+                gap: inMobileMode ? 4 : 8,
                 alignItems: "center",
                 alignSelf: "stretch",
                 flexDirection: "row",
                 overflow: "hidden",
+                maxHeight: inMobileMode ? 40 : undefined,
               }}
               onLayout={(e) => {
                 const width = e.nativeEvent?.layout?.width;
@@ -283,7 +299,7 @@ const StreamCard = ({
                 <Text
                   size="sm"
                   style={{ flexShrink: 0 }}
-                  color={hexToRgba(theme.colors.primaryForeground, 0.85)}
+                  color={hexToRgba(theme.colors.accentForeground, 0.85)}
                   numberOfLines={1}
                   ellipsizeMode="tail"
                   onLayout={(e) => {
@@ -300,7 +316,10 @@ const StreamCard = ({
                   {activity}
                 </Text>
               )}
-              {tagItems.slice(0, visibleTagCount).map((cat, index) => (
+              {(inMobileMode
+                ? tagItems
+                : tagItems.slice(0, visibleTagCount)
+              ).map((cat, index) => (
                 <View
                   key={index}
                   style={[
@@ -325,7 +344,7 @@ const StreamCard = ({
                   }}
                 >
                   <Text
-                    size="sm"
+                    size={inMobileMode ? "xs" : "sm"}
                     color={hexToRgba(theme.colors.primaryForeground, 0.85)}
                     numberOfLines={1}
                     ellipsizeMode="tail"

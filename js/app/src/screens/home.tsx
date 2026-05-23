@@ -107,11 +107,13 @@ function HomeScreenItem({
   size,
   avatarUrl,
   horizontal = false,
+  showAvatar = true,
 }: {
   item: PlaceStreamLivestream.LivestreamView;
   size: StreamCardSize;
   avatarUrl?: string;
   horizontal?: boolean;
+  showAvatar?: boolean;
 }) {
   const user = item.author.handle || item.author.did;
   return (
@@ -132,6 +134,7 @@ function HomeScreenItem({
           (item.record as PlaceStreamLivestream.Record).title || "A livestream!"
         }
         horizontal={horizontal}
+        showAvatar={showAvatar}
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
@@ -215,6 +218,8 @@ export default function HomeScreen({
   let cols = getHomeScreenCols(width);
   let size = getHomeScreenItemSize(width);
 
+  // Use horizontal (SBS) layout for all items on single-column breakpoint
+  const useHorizontalAll = cols === 1;
   // Only use horizontal layout for first card when we have enough columns (3+)
   const useHorizontalFirst = cols >= 3;
   const firstRowCols = useHorizontalFirst ? cols - 1 : cols;
@@ -336,7 +341,7 @@ export default function HomeScreen({
                 { flexDirection: "row" },
                 {
                   gap: 24,
-                  marginBottom: 24,
+                  marginBottom: useHorizontalAll ? 12 : 24,
                   width: "100%",
                 },
               ]}
@@ -358,7 +363,10 @@ export default function HomeScreen({
                     item={item}
                     size={size}
                     avatarUrl={avis[item.author.did]?.avatar}
-                    horizontal={itemIndex == 0 && useHorizontalFirst}
+                    horizontal={
+                      useHorizontalAll || (itemIndex == 0 && useHorizontalFirst)
+                    }
+                    showAvatar={!useHorizontalAll}
                   />
                 </View>
               ))}
@@ -384,7 +392,7 @@ export default function HomeScreen({
                   key={`row-${rowIndex}`}
                   style={[
                     { flexDirection: "row" },
-                    { gap: 24, marginBottom: 24 },
+                    { gap: 24, marginBottom: useHorizontalAll ? 12 : 24 },
                   ]}
                 >
                   {row.map((item, itemIndex) =>
@@ -397,6 +405,8 @@ export default function HomeScreen({
                           item={item}
                           size={size}
                           avatarUrl={avis[item.author.did]?.avatar}
+                          horizontal={useHorizontalAll}
+                          showAvatar={!useHorizontalAll}
                         />
                       </View>
                     ) : (

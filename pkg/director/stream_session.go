@@ -314,7 +314,7 @@ func shouldNotify(lsv *streamplace.Livestream_LivestreamView) bool {
 // thumbnailInterval is how often we refresh a user's thumbnail while they're
 // live. A missing or older thumbnail (e.g. the user just went live) is
 // regenerated immediately on the next segment.
-const thumbnailInterval = 30 * time.Second
+const thumbnailInterval = 12 * time.Second
 
 func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *media.NewSegmentNotification) error {
 	lock := thumbnail.GetThumbnailLock(repoDID)

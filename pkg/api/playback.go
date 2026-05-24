@@ -262,7 +262,7 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 // thumbnailMaxAge is how stale a thumbnail may be before we treat the user as
 // offline and stop serving it. It must comfortably exceed thumbnailInterval (the
 // rate at which live thumbnails are refreshed) to avoid flickering mid-stream.
-const thumbnailMaxAge = 2 * time.Minute
+const thumbnailMaxAge = 24 * time.Hour
 
 func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

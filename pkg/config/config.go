@@ -1271,7 +1271,9 @@ func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*
 }
 
 // ThumbnailFilePath returns the path to a user's current thumbnail. There is a
-// single, continually-overwritten thumbnail per user.
+// single, continually-overwritten thumbnail per user. The user is a DID
+// (e.g. did:plc:...); DataFilePath strips the colons so the filename is safe on
+// Windows.
 func (cli *CLI) ThumbnailFilePath(user string) string {
 	return cli.DataFilePath([]string{ThumbnailsDir, fmt.Sprintf("%s.jpg", user)})
 }

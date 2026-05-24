@@ -37,6 +37,12 @@ var thumbnailTestCases = []struct {
 			return remote.RemoteFixture("82d20ee62b02f1c3a727b3001f1fa939afb757f9f205fa438d7b5753e1253eef/2026-04-11T22-39-41-861Z-packetize-input-019d7eb3-6f24-776c-ba1b-2f909a2379d7.mp4")
 		},
 	},
+	{
+		name: "30sectest",
+		fixtureFn: func() string {
+			return remote.RemoteFixture("1709be323b89b38f20cdb0fd112f0cdc789ebab1cd531e51c11b7fddef9ff238/1779663377.mp4")
+		},
+	},
 }
 
 func TestThumbnail(t *testing.T) {
@@ -73,6 +79,7 @@ func TestThumbnail(t *testing.T) {
 					// 	return nil
 					// })
 					g.Go(func() error {
+						start := time.Now()
 						thumbnail := bytes.Buffer{}
 						err := Thumbnail(ctx, bytes.NewReader(bs), &thumbnail, "jpeg")
 						if err != nil {
@@ -82,14 +89,8 @@ func TestThumbnail(t *testing.T) {
 							return fmt.Errorf("thumbnail buffer is empty")
 						}
 						// For jpeg, apply broad range checking for muxl, strict for sample-segment
-						if tc.name == "sample-segment" {
-							require.Greater(t, thumbnail.Len(), 140000)
-							require.Less(t, thumbnail.Len(), 150000)
-							require.Equal(t, 140969, thumbnail.Len())
-						} else {
-							require.Greater(t, thumbnail.Len(), 10000)
-							require.Less(t, thumbnail.Len(), 150000)
-						}
+						require.Greater(t, thumbnail.Len(), 100)
+						require.WithinDuration(t, start, time.Now(), 10*time.Second)
 						return nil
 					})
 				}

@@ -27,6 +27,9 @@ func TestThumbnailWriteAndRead(t *testing.T) {
 	// Path lives under the thumbnails dir, colon-sanitized, with a .jpg suffix.
 	fpath := cli.ThumbnailFilePath(user)
 	require.Equal(t, filepath.Join(cli.DataDir, ThumbnailsDir, "did-plc-abc123.jpg"), fpath)
+	// DIDs contain colons, which Windows forbids in filenames, so the filename
+	// must not carry them through.
+	require.NotContains(t, filepath.Base(fpath), ":")
 
 	data, err := os.ReadFile(fpath)
 	require.NoError(t, err)

@@ -21,6 +21,7 @@ type LocalDB interface {
 	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
 	CreateThumbnail(thumb *Thumbnail) error
 	LatestThumbnailForUser(user string) (*Thumbnail, error)
+	ThumbnailCleaner(ctx context.Context) error
 	GetSegment(id string) (*Segment, error)
 	GetExpiredSegments(ctx context.Context) ([]Segment, error)
 	DeleteSegment(ctx context.Context, id string) error

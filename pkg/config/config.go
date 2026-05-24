@@ -37,6 +37,7 @@ import (
 
 const SPDataDir = "$SP_DATA_DIR"
 const SegmentsDir = "segments"
+const ThumbnailsDir = "thumbnails"
 
 type BuildFlags struct {
 	Version   string
@@ -1267,6 +1268,46 @@ func (cli *CLI) SegmentFileCreate(user string, aqt aqtime.AQTime, ext string) (*
 	fname := fmt.Sprintf("%s.%s", aqt.FileSafeString(), ext)
 	yr, mon, day, hr, min, _, _ := aqt.Parts()
 	return cli.DataFileCreate([]string{SegmentsDir, user, yr, mon, day, hr, min, fname}, false)
+}
+
+// ThumbnailFilePath returns the path to a user's current thumbnail. There is a
+// single, continually-overwritten thumbnail per user.
+func (cli *CLI) ThumbnailFilePath(user string) string {
+	return cli.DataFilePath([]string{ThumbnailsDir, fmt.Sprintf("%s.jpg", user)})
+}
+
+// ThumbnailModTime returns the modification time of a user's thumbnail and
+// whether it exists. The mod time doubles as a "last seen live" signal.
+func (cli *CLI) ThumbnailModTime(user string) (time.Time, bool) {
+	fi, err := os.Stat(cli.ThumbnailFilePath(user))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return fi.ModTime(), true
+}
+
+// ThumbnailWrite atomically (re)writes a user's thumbnail. The image is written
+// to a temp file via the supplied function and renamed into place, so readers
+// (and PDS uploads) never observe a half-written thumbnail.
+func (cli *CLI) ThumbnailWrite(user string, write func(io.Writer) error) error {
+	final := cli.ThumbnailFilePath(user)
+	dir := filepath.Dir(final)
+	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		return fmt.Errorf("error creating thumbnail dir %s: %w", dir, err)
+	}
+	tmp, err := os.CreateTemp(dir, "thumb-*.jpg")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // no-op once the rename below succeeds
+	if err := write(tmp); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), final)
 }
 
 // read a file from our data dir

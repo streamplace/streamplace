@@ -25,12 +25,6 @@ func StartSegmentCleaner(ctx context.Context, localDB localdb.LocalDB, cli *conf
 			case <-ctx.Done():
 				return nil
 			case <-time.After(60 * time.Second):
-				// Keep only the latest thumbnail per user; the rest accumulate
-				// forever and bloat the database. Log and continue on error so a
-				// thumbnail hiccup can't take down the segment cleaner.
-				if err := localDB.ThumbnailCleaner(ctx); err != nil {
-					log.Error(ctx, "Failed to clean thumbnails", "error", err)
-				}
 				expiredSegments, err := localDB.GetExpiredSegments(ctx)
 				if err != nil {
 					return err

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"time"
 
@@ -310,42 +311,27 @@ func shouldNotify(lsv *streamplace.Livestream_LivestreamView) bool {
 	return *settings.PushNotification
 }
 
+// thumbnailInterval is how often we refresh a user's thumbnail while they're
+// live. A missing or older thumbnail (e.g. the user just went live) is
+// regenerated immediately on the next segment.
+const thumbnailInterval = 30 * time.Second
+
 func (ss *StreamSession) Thumbnail(ctx context.Context, repoDID string, not *media.NewSegmentNotification) error {
-	lock := thumbnail.GetThumbnailLock(not.Segment.RepoDID)
-	locked := lock.TryLock()
-	if !locked {
+	lock := thumbnail.GetThumbnailLock(repoDID)
+	if !lock.TryLock() {
 		// we're already generating a thumbnail for this user, skip
 		return nil
 	}
 	defer lock.Unlock()
-	oldThumb, err := ss.localDB.LatestThumbnailForUser(not.Segment.RepoDID)
-	if err != nil {
-		return err
-	}
-	if oldThumb != nil && not.Segment.StartTime.Sub(oldThumb.Segment.StartTime) < time.Minute {
-		// we have a thumbnail <60sec old, skip generating a new one
+
+	if mt, ok := ss.cli.ThumbnailModTime(repoDID); ok && time.Since(mt) < thumbnailInterval {
+		// current thumbnail is still fresh, keep it
 		return nil
 	}
-	r := bytes.NewReader(not.Data)
-	aqt := aqtime.FromTime(not.Segment.StartTime)
-	fd, err := ss.cli.SegmentFileCreate(not.Segment.RepoDID, aqt, "jpeg")
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	err = media.Thumbnail(ctx, r, fd, "jpeg")
-	if err != nil {
-		return err
-	}
-	thumb := &localdb.Thumbnail{
-		Format:    "jpeg",
-		SegmentID: not.Segment.ID,
-	}
-	err = ss.localDB.CreateThumbnail(thumb)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return ss.cli.ThumbnailWrite(repoDID, func(w io.Writer) error {
+		return media.Thumbnail(ctx, bytes.NewReader(not.Data), w, "jpeg")
+	})
 }
 
 // UpdateStatus signals the background worker to update status (non-blocking)

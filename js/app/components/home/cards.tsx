@@ -13,18 +13,17 @@ import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-// const langNames = new Intl.DisplayNames(["en"], { type: "language" });
-
 const displayTag = (tag: string): string => {
+  // could be top level but we want to make sure RN polyfill runs first
+  const langNames = new Intl.DisplayNames(["en"], { type: "language" });
+  if (tag.startsWith("lang:")) {
+    try {
+      return langNames.of(tag.slice(5)) ?? tag;
+    } catch {
+      return tag;
+    }
+  }
   return tag;
-  // if (tag.startsWith("lang:")) {
-  //   try {
-  //     return langNames.of(tag.slice(5)) ?? tag;
-  //   } catch {
-  //     return tag;
-  //   }
-  // }
-  // return tag;
 };
 
 interface StreamCardProps {
@@ -272,7 +271,13 @@ const StreamCard = ({
                 flexDirection: "row",
                 overflow: "hidden",
               }}
-              onLayout={(e) => setRowWidth(e.nativeEvent.layout.width)}
+              onLayout={(e) => {
+                const width = e.nativeEvent?.layout?.width;
+                if (!width) {
+                  return;
+                }
+                setRowWidth(width);
+              }}
             >
               {activity && (
                 <Text
@@ -281,12 +286,16 @@ const StreamCard = ({
                   color={hexToRgba(theme.colors.primaryForeground, 0.85)}
                   numberOfLines={1}
                   ellipsizeMode="tail"
-                  onLayout={(e) =>
+                  onLayout={(e) => {
+                    const width = e.nativeEvent?.layout?.width;
+                    if (!width) {
+                      return;
+                    }
                     setItemWidths((prev) => ({
                       ...prev,
-                      activity: e.nativeEvent.layout.width,
-                    }))
-                  }
+                      activity: width,
+                    }));
+                  }}
                 >
                   {activity}
                 </Text>
@@ -304,12 +313,16 @@ const StreamCard = ({
                       flexShrink: 0,
                     },
                   ]}
-                  onLayout={(e) =>
+                  onLayout={(e) => {
+                    const width = e.nativeEvent?.layout?.width;
+                    if (!width) {
+                      return;
+                    }
                     setItemWidths((prev) => ({
                       ...prev,
-                      [`tag-${index}`]: e.nativeEvent.layout.width,
-                    }))
-                  }
+                      [`tag-${index}`]: width,
+                    }));
+                  }}
                 >
                   <Text
                     size="sm"

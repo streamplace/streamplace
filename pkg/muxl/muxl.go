@@ -259,13 +259,13 @@ func init() {
 	wasmRuntime = wazero.NewRuntime(ctx)
 	wasi_snapshot_preview1.MustInstantiate(ctx, wasmRuntime)
 
-	// Register the `streamplace` host module that muxl.wasm imports. The
+	// Register the `muxl` host module that muxl.wasm imports. The
 	// imports are declared unconditionally on the wasm side (they're part
 	// of the binary's import table whether or not the corresponding wasm
 	// path is exercised) so the host module must always exist. PEM-mode
 	// sign invocations simply never call into host_sign; in-wasm SHA-256
 	// invocations never call into host_sha256.
-	_, err := wasmRuntime.NewHostModuleBuilder("streamplace").
+	_, err := wasmRuntime.NewHostModuleBuilder("muxl").
 		NewFunctionBuilder().
 		WithFunc(hostSign).
 		Export("host_sign").
@@ -274,12 +274,12 @@ func init() {
 		Export("host_sha256").
 		Instantiate(ctx)
 	if err != nil {
-		panic(fmt.Errorf("registering streamplace host module: %w", err))
+		panic(fmt.Errorf("registering muxl host module: %w", err))
 	}
 }
 
 // hostSha256 is the trampoline behind muxl-sign's
-// `streamplace.host_sha256` import. Reads the input from wasm linear
+// `muxl.host_sha256` import. Reads the input from wasm linear
 // memory at (dataPtr, dataLen), hashes it with native Go's SHA-256
 // (which has hardware-accelerated paths via the `crypto/sha256` package
 // on amd64/arm64), and writes the 32-byte digest back at outPtr.
@@ -310,7 +310,7 @@ func hostSha256(ctx context.Context, mod api.Module, dataPtr, dataLen, outPtr ui
 	}
 }
 
-// hostSign is the trampoline behind muxl-sign's `streamplace.host_sign`
+// hostSign is the trampoline behind muxl-sign's `muxl.host_sign`
 // import. It looks up the per-instance closure registered by
 // RunMuxlSigner, hands it the bytes to sign, and writes the signature
 // back into wasm memory. Returns the signature length on success or

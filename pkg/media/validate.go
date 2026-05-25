@@ -166,11 +166,22 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		DeleteAfter:        deleteAfter,
 		Published:          meta.Published,
 	}
+	// The bytes archived above are the bare canonical .m4s, but the live
+	// distribution pipelines (HLS transmux, WebRTC, transcode, thumbnail) and
+	// the replication forwarders still consume a presentation MP4. Synthesize
+	// a flat MP4 over the canonical segments for the notification; the segment
+	// bytes (and their signatures) pass through verbatim in the mdat envelope,
+	// so a receiving node re-validates it unchanged.
+	var playable bytes.Buffer
+	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(buf), "flat", &playable); err != nil {
+		return fmt.Errorf("wrap segment for distribution: %w", err)
+	}
+
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()
 	not := &NewSegmentNotification{
 		Segment:  seg,
-		Data:     buf,
+		Data:     playable.Bytes(),
 		Metadata: meta,
 		Local:    local,
 	}

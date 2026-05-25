@@ -419,6 +419,63 @@ func RunMuxlMp4(ctx context.Context, input io.Reader, output io.Writer) error {
 	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "mp4", "-", "-"}, nil, false, input, output, nil, nil, nil, nil)
 }
 
+// RunMuxlWrap synthesizes a presentation MP4 from a MUXL wrapper — a bare
+// .m4s segment stream, a MUXL fMP4, or a flat MP4 — via muxl's `wrap`
+// subcommand. format is "fmp4" (appendable: ftyp+moov(init) + verbatim
+// segments) or "flat" (finalized faststart). The segment bytes, and any
+// C2PA/S2PA signatures over them, pass through untouched; only the
+// ftyp+moov header is synthesized from the segments' embedded catalogs.
+//
+// This is the inbound header-synthesis that makes a stored canonical .m4s
+// understandable to gstreamer / transmux / players. Deterministic (fake
+// clock — pure structural assembly, no signing).
+func RunMuxlWrap(ctx context.Context, input io.Reader, format string, output io.Writer) error {
+	if format == "" {
+		format = "fmp4"
+	}
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "wrap", "-", "-", "--format", format}, nil, false, input, output, nil, nil, nil, nil)
+}
+
+// RunMuxlWrapInit synthesizes only the per-stream init segment (ftyp+moov)
+// from a MUXL wrapper's embedded catalogs — the HLS EXT-X-MAP target.
+// Equivalent to `wrap --format fmp4 --init-only`.
+func RunMuxlWrapInit(ctx context.Context, input io.Reader, output io.Writer) error {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "wrap", "-", "-", "--format", "fmp4", "--init-only"}, nil, false, input, output, nil, nil, nil, nil)
+}
+
+// RunMuxlVerify validates the C2PA/S2PA signatures on a signed MUXL wrapper
+// (bare .m4s stream, fMP4, or flat MP4) entirely inside the wasm sandbox via
+// muxl-sign's `verify` subcommand, returning the manifest+cert+validation
+// JSON document:
+//
+//	{"segments":[{"track_id":N,"manifest":{..},"cert":"<pem chain>",
+//	              "validation_results":{..},"validation_state":".."}, ..]}
+//
+// one entry per canonical segment. This replaces the iroh-streamplace c2pa
+// uniffi binding (get_manifest_and_cert) for segment validation: each
+// segment verifies standalone as the "m4s" asset it was signed as, so no
+// synthesized header is involved in the hash. Runs against the real clock so
+// any cert-validity-window checks observe wall time.
+func RunMuxlVerify(ctx context.Context, input io.Reader) (string, error) {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return "", err
+	}
+	var out bytes.Buffer
+	if err := runMuxlWith(ctx, mod, []string{"muxl-wasm", "verify"}, nil, true, input, &out, nil, nil, nil, nil); err != nil {
+		return "", err
+	}
+	return out.String(), nil
+}
+
 // Given a bunch of MUXL-compatible fMP4 archives containing init and segment chunks, concatenate them into a single fMP4 archive.
 // If the init segment changes, you'll get a new init segment in the output.
 func RunMuxlConcatenator(ctx context.Context, input io.Reader, initCh chan []byte, segCh chan []byte) error {
@@ -449,12 +506,15 @@ func RunMuxlConcatenatorEvents(ctx context.Context, input io.Reader, initCh chan
 // Signing needs the real wall clock (c2pa-rs checks cert validity at
 // sign time and draws COSE nonces from real randomness), so unlike the
 // plain segmenter this runs with realClock=true and its output is not
-// byte-stable across runs. Only PEM-key signing is supported here;
-// in.Sign and in.Segment are ignored — the segment bytes come from the
-// input reader.
+// byte-stable across runs. in.Segment is ignored — the segment bytes come
+// from the input reader. The signing backend matches RunMuxlSigner:
+// exactly one of in.KeyPEM (in-wasm PEM signing) or in.Sign (host-callback,
+// for hardware-backed keys via the wasm host_sign import) must be set.
 func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, initCh chan []byte, segCh chan []byte, eventCh chan *MuxlEvent) error {
-	if len(in.KeyPEM) == 0 {
-		return fmt.Errorf("muxl: RunMuxlSignSegment requires SignerInput.KeyPEM")
+	hasKey := len(in.KeyPEM) > 0
+	hasSign := in.Sign != nil
+	if hasKey == hasSign {
+		return fmt.Errorf("muxl: exactly one of SignerInput.KeyPEM or SignerInput.Sign must be set")
 	}
 	if in.Alg == "" {
 		in.Alg = "es256k"
@@ -465,20 +525,24 @@ func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, in
 	}
 	keysFS := fstest.MapFS{
 		"cert.pem":     {Data: in.CertPEM},
-		"key.pem":      {Data: in.KeyPEM},
 		"track.json":   {Data: in.TrackManifest},
 		"wrapper.json": {Data: in.WrapperManifest},
 	}
 	args := []string{
 		"muxl-wasm", "sign-segment",
 		"--cert", "/keys/cert.pem",
-		"--key", "/keys/key.pem",
 		"--alg", in.Alg,
 		"--track-manifest", "/keys/track.json",
 		"--wrapper-manifest", "/keys/wrapper.json",
 	}
+	if hasKey {
+		keysFS["key.pem"] = &fstest.MapFile{Data: in.KeyPEM}
+		args = append(args, "--key", "/keys/key.pem")
+	} else {
+		args = append(args, "--host-sign")
+	}
 	fsCfg := wazero.NewFSConfig().WithFSMount(keysFS, "/keys")
-	return runMuxlWith(ctx, mod, args, fsCfg, true, input, nil, nil, initCh, segCh, eventCh)
+	return runMuxlWith(ctx, mod, args, fsCfg, true, input, nil, in.Sign, initCh, segCh, eventCh)
 }
 
 // SignerInput is the per-call input bundle for RunMuxlSigner. Exactly one

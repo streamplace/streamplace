@@ -3348,6 +3348,7 @@ dependencies = [
  "muxl",
  "serde",
  "serde_bytes",
+ "serde_json",
  "sha1",
  "sha2 0.10.9",
  "spki 0.7.3",

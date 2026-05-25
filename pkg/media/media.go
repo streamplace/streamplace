@@ -21,6 +21,7 @@ import (
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
@@ -43,6 +44,8 @@ type MediaManager struct {
 	cli                 *config.CLI
 	hlsRunning          map[string]*M3U8
 	hlsRunningMut       sync.Mutex
+	liveWindows         map[string]*livehls.Writer
+	liveWindowsMut      sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
@@ -123,6 +126,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	return &MediaManager{
 		cli:          cli,
 		hlsRunning:   map[string]*M3U8{},
+		liveWindows:  map[string]*livehls.Writer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,
 		bus:          bus,

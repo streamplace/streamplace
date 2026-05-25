@@ -137,6 +137,14 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		return err
 	}
 	fileSpan.End()
+
+	// Fold the validated segment into the streamer's live-HLS window, off the
+	// critical path. This runs for every segment — locally signed or
+	// replicated from another node — so any node that validates a stream's
+	// segments can serve its live HLS. WithoutCancel keeps the feed alive past
+	// this request's context.
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), repoDID, buf)
+
 	var deleteAfter *time.Time
 	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
 		secs := *meta.DistributionPolicy.DeleteAfterSeconds

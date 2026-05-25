@@ -392,6 +392,26 @@ func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, eventCh chan *
 	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, nil, nil, eventCh)
 }
 
+// RunMuxlUnwrapEvents re-derives the per-track event stream from a STORED
+// MUXL wrapper (bare .m4s, fMP4, or flat MP4) via muxl's `unwrap --events`.
+// It decodes the same DRISL event stream as RunMuxlSegmenterEvents (init +
+// per-GoP segment), but the per-track bytes are the stored canonical segments
+// verbatim — any C2PA/S2PA signature is preserved — with durations and sample
+// counts recomputed from the moofs. This is the unified entry point for
+// driving live HLS / live-to-VOD / DVR off already-stored signed segments
+// (e.g. from ValidateMP4, covering both local and replicated segments).
+//
+// Deterministic (fake clock): pure structural re-derivation, no signing.
+// eventCh is NOT closed by this call; the caller closes it once the function
+// returns.
+func RunMuxlUnwrapEvents(ctx context.Context, input io.Reader, eventCh chan *MuxlEvent) error {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "unwrap", "--events", "-"}, nil, false, input, nil, nil, nil, nil, eventCh)
+}
+
 // RunMuxlWrap synthesizes a presentation MP4 from a MUXL wrapper — a bare
 // .m4s segment stream, a MUXL fMP4, or a flat MP4 — via muxl's `wrap`
 // subcommand. format is "fmp4" (appendable: ftyp+moov(init) + verbatim

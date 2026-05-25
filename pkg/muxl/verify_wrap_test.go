@@ -192,6 +192,46 @@ func TestSignSegmentStampsCawgDate(t *testing.T) {
 	require.WithinDuration(t, time.Now(), ts, 10*time.Minute, "dc:date should be ~now (sign time)")
 }
 
+// TestRunMuxlUnwrapEvents confirms re-deriving the per-track event stream
+// from stored signed segments: one init event (catalog + per-track inits) and
+// one segment event per GoP, with non-zero durations and the per-track bytes
+// preserved verbatim — each still leads with the c2pa uuid box.
+func TestRunMuxlUnwrapEvents(t *testing.T) {
+	m4s := signedM4sStream(t)
+
+	eventCh := make(chan *MuxlEvent, 16)
+	errCh := make(chan error, 1)
+	go func() {
+		err := RunMuxlUnwrapEvents(context.Background(), bytes.NewReader(m4s), eventCh)
+		close(eventCh)
+		errCh <- err
+	}()
+
+	initEvents, segEvents := 0, 0
+	for ev := range eventCh {
+		switch ev.Type {
+		case "init":
+			initEvents++
+			require.NotEmpty(t, ev.TrackInits, "init event carries per-track init segments")
+			require.NotNil(t, ev.Catalog, "init event carries the catalog")
+		case "segment":
+			segEvents++
+			require.NotEmpty(t, ev.Tracks, "segment event has tracks")
+			for tid, d := range ev.Durations {
+				require.Greater(t, d, uint64(0), "track %s duration must be > 0", tid)
+			}
+			for tid, b := range ev.Tracks {
+				require.GreaterOrEqual(t, len(b), 8, "track %s segment too short", tid)
+				require.Equal(t, "uuid", string(b[4:8]),
+					"track %s segment must be the verbatim signed .m4s (leads with a uuid box)", tid)
+			}
+		}
+	}
+	require.NoError(t, <-errCh)
+	require.Equal(t, 1, initEvents, "exactly one init event")
+	require.GreaterOrEqual(t, segEvents, 2, "expected multiple GoP segment events")
+}
+
 // TestRunMuxlWrap confirms the inbound header-synthesis: a bare signed .m4s
 // stream wraps into a playable fMP4 (and an init-only header), with the
 // segment bytes carried through verbatim.

@@ -146,7 +146,6 @@ type CLI struct {
 	WebsocketURL                string
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
-	LiveHLSDir                  string
 	AdminDIDs                   []string
 	Syndicate                   []string
 	PlayerTelemetry             bool
@@ -752,12 +751,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Usage:       "directory to log segment validation to",
 				Destination: &cli.SegmentDebugDir,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_DEBUG_DIR"),
-			},
-			&urfavecli.StringFlag{
-				Name:        "live-hls-dir",
-				Usage:       "if set, write a live MUXL fMP4 + HLS playlists per stream under this directory (opt-in; experimental)",
-				Destination: &cli.LiveHLSDir,
-				Sources:     urfavecli.EnvVars("SP_LIVE_HLS_DIR"),
 			},
 			&urfavecli.StringFlag{
 				Name:  "tickets",

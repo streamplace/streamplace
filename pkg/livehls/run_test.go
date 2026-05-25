@@ -13,8 +13,8 @@ import (
 )
 
 // TestRunProducesLiveHLSFromFmp4 drives a real fMP4 through the muxl wasm
-// segmenter and the live HLS writer, then checks that the growing fMP4 and
-// the per-track byte-range index/playlists are internally consistent.
+// segmenter into the in-memory live HLS window, then checks the per-track
+// segments and playlists are internally consistent.
 func TestRunProducesLiveHLSFromFmp4(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
@@ -23,18 +23,9 @@ func TestRunProducesLiveHLSFromFmp4(t *testing.T) {
 		t.Fatalf("read fixture: %v", err)
 	}
 
-	var out bytes.Buffer
-	w, err := Run(context.Background(), bytes.NewReader(fmp4), &out)
+	w, err := Run(context.Background(), bytes.NewReader(fmp4))
 	if err != nil {
 		t.Fatalf("Run: %v", err)
-	}
-
-	if out.Len() == 0 {
-		t.Fatal("no fMP4 bytes written")
-	}
-	// The growing fMP4 must begin with the init segment (ftyp box).
-	if out.Len() < 8 || string(out.Bytes()[4:8]) != "ftyp" {
-		t.Fatalf("output fMP4 should start with an ftyp box, got %q", firstFourCC(out.Bytes()))
 	}
 
 	tids := w.TrackIDs()
@@ -46,25 +37,26 @@ func TestRunProducesLiveHLSFromFmp4(t *testing.T) {
 	for _, tid := range tids {
 		tr := w.Track(tid)
 		for _, s := range tr.Segments {
-			// Every indexed byte range must lie within the bytes we appended.
-			if s.Size <= 0 || s.Offset < int64(len("ftyp")) || s.Offset+s.Size > int64(out.Len()) {
-				t.Errorf("track %s segment byte range out of bounds: %+v (fmp4 %d bytes)", tid, s, out.Len())
+			if s.Size() <= 0 {
+				t.Errorf("track %s segment %d is empty", tid, s.Seq)
+			}
+			if w.SegmentData(tid, s.Seq) == nil {
+				t.Errorf("track %s segment %d not retrievable by media sequence", tid, s.Seq)
 			}
 			totalSegs++
 		}
-		pl := w.MediaPlaylist(tid, "init.mp4", "blob.fmp4")
-		for _, want := range []string{"#EXTM3U", "#EXT-X-MAP:", "#EXT-X-BYTERANGE:"} {
+		pl := w.MediaPlaylist(tid, "init.mp4", segURI)
+		for _, want := range []string{"#EXTM3U", "#EXT-X-MAP:", "#EXTINF:"} {
 			if !strings.Contains(pl, want) {
 				t.Errorf("track %s media playlist missing %q:\n%s", tid, want, pl)
 			}
 		}
-		// Live (not finalized) → no ENDLIST yet.
 		if strings.Contains(pl, "#EXT-X-ENDLIST") {
 			t.Errorf("live playlist should not have ENDLIST before Finalize")
 		}
 	}
 	if totalSegs == 0 {
-		t.Fatal("no segments indexed")
+		t.Fatal("no segments produced")
 	}
 
 	m := w.MasterPlaylist(func(tid string) string { return "t" + tid + ".m3u8" })
@@ -72,20 +64,13 @@ func TestRunProducesLiveHLSFromFmp4(t *testing.T) {
 		t.Errorf("master playlist malformed:\n%s", m)
 	}
 
-	t.Logf("live HLS: %d tracks, %d segments, %d fMP4 bytes", len(tids), totalSegs, out.Len())
-}
-
-func firstFourCC(b []byte) string {
-	if len(b) >= 8 {
-		return string(b[4:8])
-	}
-	return ""
+	t.Logf("live HLS: %d tracks, %d segments", len(tids), totalSegs)
 }
 
 // TestRunSignedProducesSignedLiveHLS drives the same fixture through the
-// signing segmenter and checks that each appended segment is a signed m4s —
-// i.e. its byte range begins with a uuid box (the c2pa/S2PA prefix). Skips if
-// the sibling muxl repo's test keys aren't present.
+// signing segmenter and checks each windowed segment is a signed m4s — i.e.
+// its bytes begin with a uuid box (the c2pa/S2PA prefix). Skips if the sibling
+// muxl repo's test keys aren't present.
 func TestRunSignedProducesSignedLiveHLS(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
@@ -106,27 +91,26 @@ func TestRunSignedProducesSignedLiveHLS(t *testing.T) {
 
 	manifest := []byte(`{"title":"livehls signed test","assertions":[{"label":"c2pa.actions","data":{"actions":[{"action":"c2pa.created"}]}}]}`)
 
-	var out bytes.Buffer
 	w, err := RunSigned(context.Background(), bytes.NewReader(fmp4), muxl.SignerInput{
 		CertPEM:         certPEM,
 		KeyPEM:          keyPEM,
 		TrackManifest:   manifest,
 		WrapperManifest: manifest,
-	}, &out)
+	})
 	if err != nil {
 		t.Fatalf("RunSigned: %v", err)
 	}
 
-	body := out.Bytes()
 	signedSegs := 0
 	for _, tid := range w.TrackIDs() {
 		for _, s := range w.Track(tid).Segments {
-			if s.Offset+s.Size > int64(len(body)) {
-				t.Fatalf("segment out of range: %+v (%d bytes)", s, len(body))
+			data := w.SegmentData(tid, s.Seq)
+			if len(data) < 8 {
+				t.Fatalf("track %s segment %d too short: %d bytes", tid, s.Seq, len(data))
 			}
 			// A signed canonical segment leads with the c2pa uuid box.
-			if got := string(body[s.Offset+4 : s.Offset+8]); got != "uuid" {
-				t.Errorf("track %s segment should start with a uuid box, got %q", tid, got)
+			if got := string(data[4:8]); got != "uuid" {
+				t.Errorf("track %s segment %d should start with a uuid box, got %q", tid, s.Seq, got)
 			}
 			signedSegs++
 		}
@@ -134,5 +118,5 @@ func TestRunSignedProducesSignedLiveHLS(t *testing.T) {
 	if signedSegs == 0 {
 		t.Fatal("no signed segments produced")
 	}
-	t.Logf("signed live HLS: %d segments, %d fMP4 bytes", signedSegs, len(body))
+	t.Logf("signed live HLS: %d segments", signedSegs)
 }

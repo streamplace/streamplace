@@ -2,6 +2,7 @@ package livehls
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -33,9 +34,10 @@ func segEvent(v, a []byte) *muxl.MuxlEvent {
 	}
 }
 
-func TestWriterAppendsVerbatimAndIndexes(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewWriter(&buf)
+func segURI(seq uint64) string { return fmt.Sprintf("seg%d.m4s", seq) }
+
+func TestWriterStoresSegmentsInMemory(t *testing.T) {
+	w := NewWriter()
 	if err := w.Observe(initEvent()); err != nil {
 		t.Fatal(err)
 	}
@@ -50,47 +52,50 @@ func TestWriterAppendsVerbatimAndIndexes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// fMP4 = INIT + (v1,a1) + (v2,a2): per-segment tracks in sorted id order.
-	want := bytes.Join([][]byte{[]byte("INIT"), v1, a1, v2, a2}, nil)
-	if !bytes.Equal(buf.Bytes(), want) {
-		t.Fatalf("fmp4 bytes mismatch: got %d bytes, want %d", buf.Len(), len(want))
-	}
-
-	// Track 1 (video): seg0 @ len("INIT")=4, seg1 @ 4+100+40=144.
+	// Track 1 (video): two segments, media sequences 0 and 1.
 	tr1 := w.Track("1")
 	if tr1.Type != "video" || tr1.Width != 1280 || tr1.Height != 720 {
 		t.Errorf("track1 config wrong: %+v", tr1)
 	}
-	if len(tr1.Segments) != 2 ||
-		tr1.Segments[0] != (Segment{Offset: 4, Size: 100, DurationTicks: 90000, SampleCount: 30}) ||
-		tr1.Segments[1] != (Segment{Offset: 144, Size: 110, DurationTicks: 90000, SampleCount: 30}) {
-		t.Errorf("track1 segments wrong: %+v", tr1.Segments)
+	if len(tr1.Segments) != 2 {
+		t.Fatalf("track1 should have 2 segments, got %d", len(tr1.Segments))
+	}
+	if tr1.Segments[0].Seq != 0 || tr1.Segments[0].Size() != 100 ||
+		tr1.Segments[0].DurationTicks != 90000 || tr1.Segments[0].SampleCount != 30 {
+		t.Errorf("track1 seg0 wrong: %+v", tr1.Segments[0])
+	}
+	if tr1.Segments[1].Seq != 1 || tr1.Segments[1].Size() != 110 {
+		t.Errorf("track1 seg1 wrong: %+v", tr1.Segments[1])
+	}
+	// Segment bytes are served verbatim from memory, addressed by media seq.
+	if !bytes.Equal(w.SegmentData("1", 0), v1) || !bytes.Equal(w.SegmentData("1", 1), v2) {
+		t.Errorf("track1 SegmentData did not return the verbatim segment bytes")
+	}
+	if string(w.InitSegment("1")) != "VINIT" {
+		t.Errorf("track1 init = %q, want VINIT", w.InitSegment("1"))
 	}
 
-	// Track 2 (audio): seg0 @ 4+100=104, seg1 @ 144+110=254.
+	// Track 2 (audio).
 	tr2 := w.Track("2")
 	if tr2.Type != "audio" || tr2.SampleRate != 48000 || tr2.Channels != 2 {
 		t.Errorf("track2 config wrong: %+v", tr2)
 	}
-	if tr2.Segments[0].Offset != 104 || tr2.Segments[0].Size != 40 ||
-		tr2.Segments[1].Offset != 254 || tr2.Segments[1].Size != 42 {
-		t.Errorf("track2 segments wrong: %+v", tr2.Segments)
+	if !bytes.Equal(w.SegmentData("2", 0), a1) || !bytes.Equal(w.SegmentData("2", 1), a2) {
+		t.Errorf("track2 SegmentData did not return the verbatim segment bytes")
 	}
 }
 
 func TestMediaPlaylistLiveThenFinalize(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewWriter(&buf)
+	w := NewWriter()
 	_ = w.Observe(initEvent())
 	_ = w.Observe(segEvent(bytes.Repeat([]byte{1}, 100), bytes.Repeat([]byte{2}, 40)))
 
-	pl := w.MediaPlaylist("1", "init1.mp4", "blob.fmp4")
+	pl := w.MediaPlaylist("1", "init1.mp4", segURI)
 	for _, want := range []string{
 		`#EXT-X-MAP:URI="init1.mp4"`,
 		"#EXT-X-MEDIA-SEQUENCE:0",
 		"#EXTINF:1.000000,",
-		"#EXT-X-BYTERANGE:100@4",
-		"blob.fmp4",
+		"seg0.m4s",
 	} {
 		if !strings.Contains(pl, want) {
 			t.Errorf("live playlist missing %q:\n%s", want, pl)
@@ -101,36 +106,40 @@ func TestMediaPlaylistLiveThenFinalize(t *testing.T) {
 	}
 
 	w.Finalize()
-	pl = w.MediaPlaylist("1", "init1.mp4", "blob.fmp4")
+	pl = w.MediaPlaylist("1", "init1.mp4", segURI)
 	if !strings.Contains(pl, "#EXT-X-ENDLIST") || !strings.Contains(pl, "#EXT-X-PLAYLIST-TYPE:VOD") {
 		t.Errorf("finalized playlist must be a VOD playlist with ENDLIST:\n%s", pl)
 	}
 }
 
 func TestSlidingWindowEvictsAndAdvancesMediaSequence(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewWriter(&buf, WithWindow(2))
+	w := NewWriter(WithWindow(2))
 	_ = w.Observe(initEvent())
 	for i := 0; i < 4; i++ {
 		_ = w.Observe(segEvent([]byte{byte(i)}, []byte{byte(i)}))
 	}
 	tr := w.Track("1")
 	if len(tr.Segments) != 2 {
-		t.Fatalf("window=2 should cap the playlist at 2 segments, got %d", len(tr.Segments))
+		t.Fatalf("window=2 should cap the window at 2 segments, got %d", len(tr.Segments))
 	}
-	// 4 emitted, 2 retained → 2 evicted → media sequence 2.
-	if !strings.Contains(w.MediaPlaylist("1", "i", "b"), "#EXT-X-MEDIA-SEQUENCE:2") {
+	// 4 emitted, 2 retained → media sequences 2 and 3 remain.
+	if tr.Segments[0].Seq != 2 || tr.Segments[1].Seq != 3 {
+		t.Errorf("expected retained seqs [2,3], got [%d,%d]", tr.Segments[0].Seq, tr.Segments[1].Seq)
+	}
+	if !strings.Contains(w.MediaPlaylist("1", "i", segURI), "#EXT-X-MEDIA-SEQUENCE:2") {
 		t.Errorf("expected EXT-X-MEDIA-SEQUENCE:2 after evicting 2 segments")
 	}
-	// Bytes are never truncated: all 4 segments (both tracks) plus init remain.
-	if buf.Len() != len("INIT")+4*2 {
-		t.Errorf("underlying fmp4 should retain all bytes, got %d", buf.Len())
+	// Evicted segments are gone from memory; retained ones are served.
+	if w.SegmentData("1", 0) != nil {
+		t.Errorf("evicted segment 0 should no longer be retained")
+	}
+	if w.SegmentData("1", 3) == nil {
+		t.Errorf("segment 3 should still be retained")
 	}
 }
 
 func TestMasterPlaylist(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewWriter(&buf)
+	w := NewWriter()
 	_ = w.Observe(initEvent())
 	_ = w.Observe(segEvent(bytes.Repeat([]byte{1}, 100), bytes.Repeat([]byte{2}, 40)))
 

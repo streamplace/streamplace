@@ -1,31 +1,35 @@
-// Package livehls is the "muxl hls for livestreams" write side: it turns the
-// muxl event stream (init + canonical segments) into a growing, appendable
-// fMP4 plus a per-track byte-range index, and serves live HLS playlists.
+// Package livehls is the in-memory "muxl HLS for livestreams" window: it turns
+// the muxl event stream (init + canonical segments) into a sliding window of
+// recent segments held in memory, plus the HLS playlists that address them.
 //
-// The model follows MUXL's presentation layering: the canonical segments are
-// appended verbatim (so any C2PA/S2PA signature over a segment is preserved),
-// and the index records each segment's absolute byte range within the fMP4.
-// Playback is plain HLS — EXT-X-MAP for the init plus EXT-X-BYTERANGE per
-// segment — with an increasing EXT-X-MEDIA-SEQUENCE and no EXT-X-ENDLIST until
+// Nothing is written to the filesystem. The canonical .m4s segments are the
+// durable unit (archived elsewhere, by ValidateMP4); this window only keeps
+// the most recent few for live playback and serves them straight from RAM:
+//
+//   - per-track init segment (ftyp+moov) — the EXT-X-MAP target
+//   - a windowed ring of recent canonical segments, addressed by a monotonic
+//     media-sequence number
+//
+// The segment bytes are appended verbatim, so any C2PA/S2PA signature over a
+// segment is preserved and a player fetches exactly what was signed. Playback
+// is plain fMP4 HLS — EXT-X-MAP for the init plus one URI per segment — with
+// an advancing EXT-X-MEDIA-SEQUENCE and no EXT-X-ENDLIST until
 // [Writer.Finalize] (which turns the live playlist into a VOD playlist).
 //
-// fMP4 is the appendable format (the flat MP4 used for finalized VOD cannot be
-// written incrementally), so this is the format a live stream uses. The index
-// JSON shape matches pkg/vod.Metafile so the same read side can serve it.
+// Typical use, driven off the muxl event stream a stream's segments arrive on
+// (locally signed or replicated from another node):
 //
-// Typical use, driven off muxl.RunMuxlSegmenter / RunMuxlSignSegment events:
-//
-//	w := livehls.NewWriter(fmp4File, livehls.WithWindow(6))
-//	for ev := range eventCh {
-//	    if err := w.Observe(ev); err != nil { ... }
-//	    publish(w.MediaPlaylist(trackID, initURL, blobURL))
+//	w := livehls.NewWriter(livehls.WithWindow(6))
+//	w.Observe(initEvent)
+//	for ev := range segmentEvents {
+//	    w.Observe(ev)
 //	}
-//	w.Finalize()
+//	// serve w.MasterPlaylist(...), w.MediaPlaylist(...), w.InitSegment(tid),
+//	// w.SegmentData(tid, seq) over HTTP.
 package livehls
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"sort"
 	"strconv"
@@ -35,126 +39,99 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// Segment is one canonical segment's byte range within the growing fMP4.
-// JSON tags match pkg/vod.MetafileSegment.
+// Segment is one canonical segment held in the live window: a track's
+// verbatim [c2pa?][muxl][moof][mdat] bytes plus the timing the playlist needs.
 type Segment struct {
-	Offset        int64  `json:"offset"`
-	Size          int64  `json:"size"`
-	DurationTicks uint64 `json:"durationTicks"`
-	SampleCount   uint32 `json:"sampleCount"`
+	// Seq is the monotonic media-sequence number, assigned in arrival order
+	// and never reused — the value a player addresses the segment by and the
+	// basis for EXT-X-MEDIA-SEQUENCE.
+	Seq           uint64
+	DurationTicks uint64
+	SampleCount   uint32
+	data          []byte
 }
 
-// Track is the per-track config plus its (windowed) segment index. JSON tags
-// match pkg/vod.MetafileTrack so the existing playback read side can consume
-// the index unchanged.
+// Size is the segment's byte length.
+func (s Segment) Size() int { return len(s.data) }
+
+// Track is the per-track config plus its (windowed) in-memory segments.
 type Track struct {
-	Type       string    `json:"type"`
-	Codec      string    `json:"codec"`
-	Timescale  uint32    `json:"timescale"`
-	Segments   []Segment `json:"segments"`
-	Width      uint32    `json:"width,omitempty"`
-	Height     uint32    `json:"height,omitempty"`
-	Channels   uint32    `json:"channels,omitempty"`
-	SampleRate uint32    `json:"sampleRate,omitempty"`
+	Type       string
+	Codec      string
+	Timescale  uint32
+	Width      uint32
+	Height     uint32
+	Channels   uint32
+	SampleRate uint32
 
-	// init is the per-track ftyp+moov (EXT-X-MAP target); not serialized.
-	init []byte
-	// mediaSeq is the number of segments evicted from the head of the
-	// playlist window — i.e. EXT-X-MEDIA-SEQUENCE.
-	mediaSeq uint64
+	Segments []Segment
+
+	// init is the per-track ftyp+moov (EXT-X-MAP target); not part of the
+	// window. nextSeq is the next media-sequence number to hand out.
+	init    []byte
+	nextSeq uint64
 }
 
-// InitSegment returns the per-track init (ftyp+moov) bytes for trackID, the
-// EXT-X-MAP target, or nil if unknown.
-func (w *Writer) InitSegment(trackID string) []byte {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if t := w.tracks[trackID]; t != nil {
-		return t.init
-	}
-	return nil
-}
-
-// Writer assembles a live MUXL fMP4 and its HLS index incrementally. It is
-// safe for concurrent Observe and playlist reads.
+// Writer assembles an in-memory live HLS window from the muxl event stream.
+// Safe for concurrent Observe and read/serve.
 type Writer struct {
 	mu       sync.Mutex
-	out      io.Writer
-	running  int64 // bytes appended to out so far (= next segment offset)
 	tracks   map[string]*Track
-	order    []string // track ids, first-seen order
-	window   int      // max segments per media playlist; 0 = keep all
+	order    []string // track ids, sorted
+	window   int      // max segments retained per track; 0 = keep all
 	finished bool
 }
 
 // Option configures a Writer.
 type Option func(*Writer)
 
-// WithWindow keeps at most n segments per track in the live playlist (a
-// sliding window), advancing EXT-X-MEDIA-SEQUENCE as older segments fall off.
-// The underlying fMP4 bytes are not truncated; only the playlist window
-// slides. n <= 0 keeps every segment (an "event" playlist).
+// WithWindow keeps at most n segments per track in memory (a sliding window),
+// advancing EXT-X-MEDIA-SEQUENCE as older segments are evicted. n <= 0 keeps
+// every segment (an "event"/VOD-style window — unbounded memory, avoid for
+// 24/7 streams).
 func WithWindow(n int) Option {
 	return func(w *Writer) { w.window = n }
 }
 
-// NewWriter returns a live HLS writer that appends the init and segments to
-// out (a file, blob multipart writer, etc.).
-func NewWriter(out io.Writer, opts ...Option) *Writer {
-	w := &Writer{out: out, tracks: map[string]*Track{}}
+// NewWriter returns an empty in-memory live HLS window.
+func NewWriter(opts ...Option) *Writer {
+	w := &Writer{tracks: map[string]*Track{}}
 	for _, opt := range opts {
 		opt(w)
 	}
 	return w
 }
 
-// Observe appends one muxl event to the fMP4 and updates the index. Events
-// must arrive in stream order (init first, then segments in emission order),
-// since byte offsets are computed from the cumulative bytes written.
+// Observe folds one muxl event into the window. An "init" event supplies the
+// per-track init segments and catalog; "segment"/"signed-segment" events
+// append each track's canonical-segment bytes (copied — the caller may reuse
+// its buffer) and evict beyond the window.
 func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	switch ev.Type {
 	case "init":
-		// The combined ftyp+moov is written once at the head of the fMP4 so
-		// the file is a valid, self-contained MUXL fMP4; players use the
-		// per-track EXT-X-MAP init and byte-range into the segments, skipping
-		// this header.
-		if _, err := w.out.Write(ev.Data); err != nil {
-			return fmt.Errorf("livehls: write init: %w", err)
-		}
-		w.running += int64(len(ev.Data))
 		for tid, initBytes := range ev.TrackInits {
-			t := w.track(tid)
-			t.init = append([]byte(nil), initBytes...)
+			w.track(tid).init = append([]byte(nil), initBytes...)
 		}
 		if ev.Catalog != nil {
 			w.applyCatalog(ev.Catalog)
 		}
 
 	case "segment", "signed-segment":
-		// Per-track chunks are concatenated in sorted track-id order, matching
-		// the byte layout muxl emits; track that order so offsets line up. A
-		// signed-segment chunk carries a leading c2pa-uuid box, which only
-		// changes its length — the offset math is unchanged.
 		for _, tid := range sortedKeys(ev.Tracks) {
-			chunk := ev.Tracks[tid]
-			if _, err := w.out.Write(chunk); err != nil {
-				return fmt.Errorf("livehls: write segment (track %s): %w", tid, err)
-			}
 			t := w.track(tid)
 			t.Segments = append(t.Segments, Segment{
-				Offset:        w.running,
-				Size:          int64(len(chunk)),
+				Seq:           t.nextSeq,
 				DurationTicks: ev.Durations[tid],
 				SampleCount:   ev.SampleCounts[tid],
+				data:          append([]byte(nil), ev.Tracks[tid]...),
 			})
-			w.running += int64(len(chunk))
+			t.nextSeq++
 			if w.window > 0 && len(t.Segments) > w.window {
 				drop := len(t.Segments) - w.window
 				t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
-				t.mediaSeq += uint64(drop)
 			}
 		}
 
@@ -172,14 +149,15 @@ func (w *Writer) Finalize() {
 	w.finished = true
 }
 
-// TrackIDs returns the known track ids in first-seen order.
+// TrackIDs returns the known track ids in sorted order.
 func (w *Writer) TrackIDs() []string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return append([]string(nil), w.order...)
 }
 
-// Track returns a snapshot of the track's current index, or nil if unknown.
+// Track returns a snapshot of the track's current windowed segments (segment
+// byte payloads are shared, not copied), or nil if unknown.
 func (w *Writer) Track(trackID string) *Track {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -193,11 +171,38 @@ func (w *Writer) Track(trackID string) *Track {
 	return &cp
 }
 
+// InitSegment returns the per-track init (ftyp+moov) bytes — the EXT-X-MAP
+// target — or nil if unknown.
+func (w *Writer) InitSegment(trackID string) []byte {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if t := w.tracks[trackID]; t != nil {
+		return t.init
+	}
+	return nil
+}
+
+// SegmentData returns the bytes of the segment with media-sequence seq for
+// trackID, or nil if it's unknown or has already slid out of the window.
+func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	t := w.tracks[trackID]
+	if t == nil {
+		return nil
+	}
+	for _, s := range t.Segments {
+		if s.Seq == seq {
+			return s.data
+		}
+	}
+	return nil
+}
+
 // MediaPlaylist renders the live HLS media playlist for trackID. initURL is
-// the EXT-X-MAP target (the per-track init); blobURL is the URL of the growing
-// fMP4 that the EXT-X-BYTERANGE entries address. Returns "" for an unknown
-// track.
-func (w *Writer) MediaPlaylist(trackID, initURL, blobURL string) string {
+// the EXT-X-MAP target (the per-track init); segURI maps a segment's
+// media-sequence number to its URI. Returns "" for an unknown track.
+func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) string) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	t := w.tracks[trackID]
@@ -215,18 +220,22 @@ func (w *Writer) MediaPlaylist(trackID, initURL, blobURL string) string {
 	if target < 1 {
 		target = 1
 	}
+	mediaSeq := uint64(0)
+	if len(t.Segments) > 0 {
+		mediaSeq = t.Segments[0].Seq
+	}
 
 	var b strings.Builder
 	b.WriteString("#EXTM3U\n#EXT-X-VERSION:7\n")
 	fmt.Fprintf(&b, "#EXT-X-TARGETDURATION:%d\n", target)
-	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n", t.mediaSeq)
+	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n", mediaSeq)
 	b.WriteString("#EXT-X-INDEPENDENT-SEGMENTS\n")
 	if w.finished {
 		b.WriteString("#EXT-X-PLAYLIST-TYPE:VOD\n")
 	}
 	fmt.Fprintf(&b, "#EXT-X-MAP:URI=%q\n", initURL)
 	for _, s := range t.Segments {
-		fmt.Fprintf(&b, "#EXTINF:%.6f,\n#EXT-X-BYTERANGE:%d@%d\n%s\n", s.seconds(t.Timescale), s.Size, s.Offset, blobURL)
+		fmt.Fprintf(&b, "#EXTINF:%.6f,\n%s\n", s.seconds(t.Timescale), segURI(s.Seq))
 	}
 	if w.finished {
 		b.WriteString("#EXT-X-ENDLIST\n")
@@ -290,8 +299,7 @@ func (w *Writer) track(tid string) *Track {
 	return t
 }
 
-// applyCatalog fills per-track config from the muxl catalog, mirroring
-// vod.metafileBuilder.Finalize.
+// applyCatalog fills per-track config from the muxl catalog.
 func (w *Writer) applyCatalog(cat *muxl.MuxlCatalog) {
 	if cat.Video != nil {
 		for _, c := range cat.Video.Renditions {
@@ -327,7 +335,7 @@ func (t *Track) peakBitrate() int {
 	var bytes int64
 	var ticks uint64
 	for _, s := range t.Segments {
-		bytes += s.Size
+		bytes += int64(s.Size())
 		ticks += s.DurationTicks
 	}
 	if ticks == 0 || t.Timescale == 0 {

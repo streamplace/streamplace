@@ -15,20 +15,25 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
-	"stream.place/streamplace/pkg/aqio"
 	"stream.place/streamplace/pkg/aqtime"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
-type ManifestAndCert struct {
+// segmentValidation mirrors one entry of muxl-sign `verify`'s output: the
+// manifest + cert + validation results for a single canonical segment (one
+// track). Provenance is validated in-wasm now, so this replaces the old
+// iroh-streamplace get_manifest_and_cert ManifestAndCert blob.
+type segmentValidation struct {
+	TrackID           uint32                      `json:"track_id"`
 	Manifest          c2patypes.Manifest          `json:"manifest"`
 	Cert              string                      `json:"cert"`
 	ValidationResults c2patypes.ValidationResults `json:"validation_results"`
+	ValidationState   string                      `json:"validation_state"`
 }
 
 func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local bool) error {
@@ -285,48 +290,60 @@ func ValidateMP4MediaC2PA(ctx context.Context, buf []byte) (*ValidationResult, e
 	))
 	defer span.End()
 
-	var maniCert ManifestAndCert
-	// uniffi → c2pa-rs Reader: parses + verifies the COSE_Sign1 signature,
-	// validates ingredient manifests, and serializes the manifest tree
-	// out as JSON. This is the heaviest single step in the validate
-	// path and a strong candidate for the long-tail spike.
-	gmcCtx, gmcSpan := tracer.Start(ctx, "ValidateMP4Media.iroh.GetManifestAndCert")
-	maniStr, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(buf)))
-	gmcSpan.End()
-	_ = gmcCtx
+	// Validate every canonical segment entirely inside the muxl wasm. `verify`
+	// unwraps any wrapper — a bare .m4s stream, a MUXL fMP4, or the legacy
+	// signed flat MP4 — into its per-track signed segments and runs c2pa-rs's
+	// Reader over each as the standalone "m4s" asset it was signed as. This
+	// replaces the iroh-streamplace get_manifest_and_cert binding: the c2pa
+	// dependency no longer leaves the wasm sandbox.
+	_, verifySpan := tracer.Start(ctx, "ValidateMP4Media.muxl.Verify")
+	out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(buf))
+	verifySpan.End()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("muxl verify failed: %w", err)
 	}
 
+	var doc struct {
+		Segments []segmentValidation `json:"segments"`
+	}
 	_, unmarshalSpan := tracer.Start(ctx, "ValidateMP4Media.UnmarshalManifest", trace.WithAttributes(
-		attribute.Int("json_bytes", len(maniStr)),
+		attribute.Int("json_bytes", len(out)),
 	))
-	err = json.Unmarshal([]byte(maniStr), &maniCert)
+	err = json.Unmarshal([]byte(out), &doc)
 	unmarshalSpan.End()
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal manifest and cert: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal verify output: %w", err)
+	}
+	if len(doc.Segments) == 0 {
+		return nil, fmt.Errorf("no signed canonical segments found in input")
 	}
 
-	activeManifest := maniCert.ValidationResults.ActiveManifest
-	if activeManifest != nil {
-		if activeManifest.Failure == nil {
-			return nil, fmt.Errorf("active manifest failure array not found?!")
+	// Every track's segment must validate — a tampered audio track fails the
+	// whole GoP, not just the primary one.
+	for _, seg := range doc.Segments {
+		if am := seg.ValidationResults.ActiveManifest; am != nil && len(am.Failure) > 0 {
+			bs, _ := json.Marshal(am.Failure)
+			return nil, fmt.Errorf("track %d active manifest has failures: %s", seg.TrackID, string(bs))
 		}
-		if len(activeManifest.Failure) > 0 {
-			bs, _ := json.Marshal(activeManifest.Failure)
-			return nil, fmt.Errorf("active manifest has failures: %s", string(bs))
+		if seg.ValidationState == "Invalid" {
+			return nil, fmt.Errorf("track %d canonical segment failed c2pa validation", seg.TrackID)
 		}
 	}
+
+	// The primary (first) segment carries the segment-level metadata + cert.
+	// All tracks share the same manifest body (segment == wrapper manifest at
+	// sign time), so this preserves the old wrapper-manifest semantics.
+	primary := doc.Segments[0]
 
 	_, certSpan := tracer.Start(ctx, "ValidateMP4Media.ParseES256KCert")
-	pub, err := signers.ParseES256KCert([]byte(maniCert.Cert))
+	pub, err := signers.ParseES256KCert([]byte(primary.Cert))
 	certSpan.End()
 	if err != nil {
 		return nil, err
 	}
 
 	assCtx, assSpan := tracer.Start(ctx, "ValidateMP4Media.ParseSegmentAssertions")
-	meta, err := ParseSegmentAssertions(assCtx, &maniCert.Manifest)
+	meta, err := ParseSegmentAssertions(assCtx, &primary.Manifest)
 	assSpan.End()
 	if err != nil {
 		return nil, err
@@ -336,7 +353,7 @@ func ValidateMP4MediaC2PA(ctx context.Context, buf []byte) (*ValidationResult, e
 		Pub:       pub,
 		Meta:      meta,
 		MediaData: nil, // filled in by ValidateMP4MediaData
-		Manifest:  &maniCert.Manifest,
-		Cert:      maniCert.Cert,
+		Manifest:  &primary.Manifest,
+		Cert:      primary.Cert,
 	}, nil
 }

@@ -12,17 +12,17 @@ import (
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/aqio"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 // TestSignMP4Roundtrip exercises the full muxl-sign integration: build a
-// signer, sign a fixture, then read the signed output back through c2pa-rs
-// (via the existing iroh_streamplace bindings used by ValidateMP4Media) to
-// confirm the manifest is well-formed and carries our streamer's identity.
+// signer, sign a fixture, then read the signed output back through the
+// in-wasm verify (muxl.RunMuxlVerify — the same path ValidateMP4 now uses) to
+// confirm each canonical segment validates and carries our streamer's
+// identity.
 func TestSignMP4Roundtrip(t *testing.T) {
 	ctx := context.Background()
 
@@ -61,13 +61,20 @@ func TestSignMP4Roundtrip(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, signed)
 
-	maniStr, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(signed)))
+	out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(signed))
 	require.NoError(t, err)
 
-	var maniCert ManifestAndCert
-	require.NoError(t, json.Unmarshal([]byte(maniStr), &maniCert))
-
-	require.NotNil(t, maniCert.Manifest.Title)
-	require.Equal(t, "TestSignMP4Roundtrip", *maniCert.Manifest.Title)
-	require.NotEmpty(t, maniCert.Cert, "wrapper manifest should expose a cert chain")
+	var doc struct {
+		Segments []struct {
+			Manifest c2patypes.Manifest `json:"manifest"`
+			Cert     string             `json:"cert"`
+		} `json:"segments"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &doc))
+	require.NotEmpty(t, doc.Segments, "verify should return canonical segments")
+	for i, seg := range doc.Segments {
+		require.NotNil(t, seg.Manifest.Title, "segment %d has a title", i)
+		require.Equal(t, "TestSignMP4Roundtrip", *seg.Manifest.Title)
+		require.NotEmpty(t, seg.Cert, "segment %d manifest should expose a cert chain", i)
+	}
 }

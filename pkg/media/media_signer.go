@@ -31,7 +31,6 @@ import (
 var signerTracer = otel.Tracer("signer")
 
 type MediaSigner interface {
-	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
 	// SignSegmentStream streams an fMP4 input through muxl-sign's per-segment
 	// signer, emitting one signed-segment event per GoP on eventCh. The
 	// segment bytes routed in each event are bare canonical .m4s
@@ -95,64 +94,6 @@ func (ms *MediaSignerLocal) Streamer() string {
 	return ms.StreamerName
 }
 
-func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
-	startTime := time.Now()
-	ctx, span := signerTracer.Start(ctx, "SignMP4", trace.WithAttributes(
-		attribute.String("streamer", ms.StreamerName),
-		attribute.Int64("segment_start_ms", start),
-	))
-	defer span.End()
-
-	// --- 1. Build manifest. -------------------------------------------------
-	manifestBs, err := ms.buildManifest(ctx, start)
-	if err != nil {
-		return nil, err
-	}
-
-	// --- 2. Read segment bytes. ---------------------------------------------
-	_, readSpan := signerTracer.Start(ctx, "SignMP4.ReadInput")
-	bs, err := io.ReadAll(input)
-	readSpan.SetAttributes(attribute.Int("bytes", len(bs)))
-	readSpan.End()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read input: %w", err)
-	}
-
-	// --- 3. Pick signing backend. -------------------------------------------
-	signerInput := muxl.SignerInput{
-		Segment:         bs,
-		CertPEM:         ms.Cert,
-		TrackManifest:   manifestBs,
-		WrapperManifest: manifestBs,
-	}
-	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
-		_, marshalSpan := signerTracer.Start(ctx, "SignMP4.MarshalKeyPEM")
-		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
-		marshalSpan.End()
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal signing key: %w", err)
-		}
-		signerInput.KeyPEM = keyPEM
-		span.SetAttributes(attribute.String("backend", "pem"))
-	} else {
-		signerInput.Sign = muxl.SignerToCallback(ms.Signer, 32)
-		span.SetAttributes(
-			attribute.String("backend", "host-callback"),
-			attribute.String("signer_type", fmt.Sprintf("%T", ms.Signer)),
-		)
-	}
-
-	// --- 4. Sign via wasm. --------------------------------------------------
-	signed, err := muxl.RunMuxlSigner(ctx, signerInput)
-	if err != nil {
-		return nil, fmt.Errorf("muxl-sign failed: %w", err)
-	}
-	span.SetAttributes(attribute.Int("signed_bytes", len(signed)))
-
-	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return signed, nil
-}
-
 // buildManifest produces the C2PA manifest JSON for this signer: a prebuilt
 // manifest if set, else the model-driven ManifestBuilder, else a minimal
 // fallback. `start` seeds the cawg.metadata/dc:date — for the streaming
@@ -197,9 +138,9 @@ func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]b
 // SignSegmentStream streams an fMP4 input through muxl-sign's per-segment
 // signer, emitting one signed-segment event per GoP on eventCh. The manifest
 // is built once for the stream; muxl-sign stamps each segment's signing time
-// into cawg.metadata/dc:date as it signs. The signing backend mirrors
-// SignMP4: an *ecdsa.PrivateKey is marshaled to PEM and signed in-wasm,
-// otherwise the host-callback path keeps the key out of the sandbox.
+// into cawg.metadata/dc:date as it signs. Signing backend: an
+// *ecdsa.PrivateKey is marshaled to PEM and signed in-wasm, otherwise the
+// host-callback path keeps the key out of the sandbox.
 func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
 	ctx, span := signerTracer.Start(ctx, "SignSegmentStream", trace.WithAttributes(
 		attribute.String("streamer", ms.StreamerName),

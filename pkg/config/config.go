@@ -158,7 +158,6 @@ type CLI struct {
 	S3Region                    string
 	VODCDNURL                   string
 	DisableSyndication          bool
-	LegacySegmentation          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
 	GamesAPIURL                 string
@@ -969,13 +968,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       10 * time.Minute,
 				Destination: &cli.ViewCountAggregateLag,
 				Sources:     urfavecli.EnvVars("SP_VIEW_COUNT_AGGREGATE_LAG"),
-			},
-			&urfavecli.BoolFlag{
-				Name:        "legacy-segmentation",
-				Usage:       "switch back from MUXL to legacy segmentation in case streams have problems (shouldn't need!)",
-				Value:       false,
-				Sources:     urfavecli.EnvVars("SP_LEGACY_SEGMENTATION"),
-				Destination: &cli.LegacySegmentation,
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",

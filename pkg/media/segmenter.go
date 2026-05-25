@@ -180,37 +180,6 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	tracer := otel.Tracer("signer")
 	streamer := ms.Streamer()
 
-	if mm.cli.LegacySegmentation {
-		log.Warn(ctx, "using legacy segmentation", "streamer", streamer)
-		// Legacy: gst muxes a whole flat MP4 per GoP; sign-per-track signs it
-		// in one shot, then validate.
-		sign := func(ctx context.Context, bs []byte, now int64) error {
-			ctx, span := tracer.Start(ctx, "SegmentAndSign", trace.WithAttributes(
-				attribute.String("streamer", streamer),
-				attribute.Int("input_bytes", len(bs)),
-				attribute.Int64("segment_start_ms", now),
-			))
-			defer span.End()
-			startTime := time.Now()
-			defer func() {
-				spmetrics.SegmentDeliveryDuration.WithLabelValues(streamer).
-					Observe(float64(time.Since(startTime).Milliseconds()))
-			}()
-			signedBs, err := ms.SignMP4(ctx, bytes.NewReader(bs), now)
-			if err != nil {
-				span.SetAttributes(attribute.String("error", "sign"))
-				return fmt.Errorf("error calling SignMP4: %w", err)
-			}
-			if err := mm.ValidateMP4(ctx, bytes.NewReader(signedBs), true); err != nil {
-				span.SetAttributes(attribute.String("error", "validate"))
-				mm.cli.DumpDebugSegment(ctx, "just-signed-segment.mp4", bytes.NewReader(signedBs))
-				return fmt.Errorf("error validating just-signed segment: %w", err)
-			}
-			return nil
-		}
-		return SegmentElem(ctx, mm.cli, streamer, false, sign)
-	}
-
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP
 	// arrives as a bare canonical .m4s, which ValidateMP4 verifies, archives
 	// (as .m4s), and distributes. muxl-sign stamps the signing time into the

@@ -13,17 +13,18 @@ import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-const langNames = new Intl.DisplayNames(["en"], { type: "language" });
+// const langNames = new Intl.DisplayNames(["en"], { type: "language" });
 
 const displayTag = (tag: string): string => {
-  if (tag.startsWith("lang:")) {
-    try {
-      return langNames.of(tag.slice(5)) ?? tag;
-    } catch {
-      return tag;
-    }
-  }
   return tag;
+  // if (tag.startsWith("lang:")) {
+  //   try {
+  //     return langNames.of(tag.slice(5)) ?? tag;
+  //   } catch {
+  //     return tag;
+  //   }
+  // }
+  // return tag;
 };
 
 interface StreamCardProps {

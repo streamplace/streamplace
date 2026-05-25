@@ -387,6 +387,21 @@ func RunMuxlSegmenter(ctx context.Context, input io.Reader, initCh chan []byte, 
 	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, initCh, segCh, nil)
 }
 
+// RunMuxlSegmenterEvents is the rich-event variant of RunMuxlSegmenter:
+// instead of routing raw bytes, it decodes the segmenter's DRISL stream and
+// delivers each *MuxlEvent (init + per-GoP segment, carrying the catalog,
+// per-track init segments, durations, and sample counts) on eventCh. This is
+// the unsigned counterpart of RunMuxlSignSegment, suitable for driving the
+// live HLS writer (pkg/livehls) without a signing key. eventCh is NOT closed
+// by this call; the caller closes it once the function returns.
+func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, eventCh chan *MuxlEvent) error {
+	mod, err := getModule(ctx)
+	if err != nil {
+		return err
+	}
+	return runMuxlWith(ctx, mod, []string{"muxl-wasm", "segment", "-", "--stdout"}, nil, false, input, nil, nil, nil, nil, eventCh)
+}
+
 // RunMuxlMp4 canonicalizes an MP4 (flat or fragmented) into a flat
 // faststart MP4 (ftyp+moov+mdat) via muxl's `mp4` subcommand. Fragmented
 // input — a per-track init segment plus moof+mdat fragments — is

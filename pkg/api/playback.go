@@ -11,12 +11,10 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
@@ -261,6 +259,11 @@ func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handl
 	})
 }
 
+// thumbnailMaxAge is how stale a thumbnail may be before we treat the user as
+// offline and stop serving it. It must comfortably exceed thumbnailInterval (the
+// rate at which live thumbnails are refreshed) to avoid flickering mid-stream.
+const thumbnailMaxAge = 24 * time.Hour
+
 func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		ctx = log.WithLogValues(r.Context(), "func", "HandleThumbnailPlayback")
@@ -274,44 +277,16 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		if !a.CLI.WideOpen {
-			ls, err := a.Model.GetLatestLivestreamForRepo(user)
-			if err != nil {
-				errors.WriteHTTPInternalServerError(w, "could not get livestream", err)
-				return
-			}
-			if ls == nil {
-				errors.WriteHTTPNotFound(w, "livestream not found", err)
-				return
-			}
-			lsrv, err := ls.ToLivestreamView()
-			if err != nil {
-				errors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
-				return
-			}
-			lsr, ok := lsrv.Record.Val.(*streamplace.Livestream)
-			if !ok {
-				errors.WriteHTTPInternalServerError(w, "livestream is not a streamplace livestream", nil)
-				return
-			}
-			if lsr.EndedAt != nil {
-				errors.WriteHTTPNotFound(w, "livestream has ended", nil)
-				return
-			}
-		}
-		thumb, err := a.LocalDB.LatestThumbnailForUser(user)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)
+		fpath := a.CLI.ThumbnailFilePath(user)
+		mt, ok := a.CLI.ThumbnailModTime(user)
+		if !ok {
+			errors.WriteHTTPNotFound(w, "thumbnail not found", nil)
 			return
 		}
-		if thumb == nil {
-			errors.WriteHTTPNotFound(w, "thumbnail not found", err)
-			return
-		}
-		aqt := aqtime.FromTime(thumb.Segment.StartTime)
-		fpath, err := a.CLI.SegmentFilePath(user, fmt.Sprintf("%s.%s", aqt.String(), thumb.Format))
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not get segment file path", err)
+		// A thumbnail that hasn't been refreshed recently means the user is no
+		// longer live, so don't serve a stale preview. WideOpen (dev) skips this.
+		if !a.CLI.WideOpen && time.Since(mt) > thumbnailMaxAge {
+			errors.WriteHTTPNotFound(w, "no recent thumbnail", nil)
 			return
 		}
 		log.Debug(ctx, "serving thumbnail", "fpath", fpath)

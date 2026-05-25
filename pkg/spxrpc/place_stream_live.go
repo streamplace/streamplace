@@ -20,7 +20,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -421,36 +420,18 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	livestream.LastSeenAt = &now
 
 	if livestream.Thumb == nil {
-		// Step 1: get latest thumbnail from localDB and upload to user's PDS
+		// Upload the user's current thumbnail to their PDS as the livestream image.
 		var thumb *lexutil.LexBlob
-		dbThumb, err := s.localDB.LatestThumbnailForUser(session.DID)
+		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
 		if err != nil {
-			log.Error(ctx, "failed to get latest thumbnail", "err", err)
-		}
-		if dbThumb != nil {
-			aqt := aqtime.FromTime(dbThumb.Segment.StartTime)
-			fpath, err := s.cli.SegmentFilePath(session.DID, fmt.Sprintf("%s.%s", aqt.String(), dbThumb.Format))
+			log.Error(ctx, "failed to read thumbnail file", "err", err)
+		} else {
+			var uploadOut comatproto.RepoUploadBlob_Output
+			err = client.Do(ctx, xrpc.Procedure, "image/jpeg", "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumbData), &uploadOut)
 			if err != nil {
-				log.Error(ctx, "failed to get thumbnail file path", "err", err)
+				log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
 			} else {
-				thumbData, err := os.ReadFile(fpath)
-				if err != nil {
-					log.Error(ctx, "failed to read thumbnail file", "err", err)
-				} else {
-					mimeType := "image/jpeg"
-					if dbThumb.Format == "png" {
-						mimeType = "image/png"
-					}
-
-					// Step 2: upload to user's PDS
-					var uploadOut comatproto.RepoUploadBlob_Output
-					err = client.Do(ctx, xrpc.Procedure, mimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumbData), &uploadOut)
-					if err != nil {
-						log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
-					} else {
-						thumb = uploadOut.Blob
-					}
-				}
+				thumb = uploadOut.Blob
 			}
 		}
 		livestream.Thumb = thumb

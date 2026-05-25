@@ -165,7 +165,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 	pipelineSlice := []string{
 		"decodebin name=decode ! videoconvert ! videoscale ! videorate ! capsfilter name=capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! ",
 		encoder,
-		" ! appsink name=appsink",
+		" ! appsink sync=false name=appsink",
 		"fakesink name=audiofakesink sync=false",
 	}
 

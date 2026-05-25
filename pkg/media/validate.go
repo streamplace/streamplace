@@ -124,7 +124,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
 		attribute.Int("bytes", len(buf)),
 	))
-	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "mp4")
+	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "m4s")
 	if err != nil {
 		fileSpan.End()
 		return err
@@ -251,8 +251,16 @@ func ValidateMP4Media(ctx context.Context, buf []byte) (*ValidationResult, error
 	var mediaData *localdb.SegmentMediaData
 	var validationResult *ValidationResult
 	g.Go(func() error {
+		// gstreamer needs a parseable MP4, but the bytes on the wire/disk are
+		// bare canonical .m4s. Synthesize a flat MP4 header over them — the
+		// per-track uuid-prefixed segments land in the mdat envelope with
+		// correct co64 offsets, exactly the shape qtdemux already parses.
+		var flat bytes.Buffer
+		if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(buf), "flat", &flat); err != nil {
+			return fmt.Errorf("wrap segment for media parse: %w", err)
+		}
 		var err error
-		mediaData, err = ValidateMP4MediaData(ctx, buf)
+		mediaData, err = ValidateMP4MediaData(ctx, flat.Bytes())
 		return err
 	})
 	g.Go(func() error {

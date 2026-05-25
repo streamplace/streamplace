@@ -2,18 +2,22 @@ package media
 
 import (
 	"bytes"
+	"context"
+	_ "embed"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
-
-	"context"
-	_ "embed"
-	"fmt"
-	"io"
 )
 
 func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Parse bool, cb func(ctx context.Context, buf []byte, now int64) error) (*gst.Element, error) {
@@ -76,46 +80,54 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 		return nil, fmt.Errorf("failed to link mp4mux to appsink: %w", err)
 	}
 
-	initCh := make(chan []byte)
-	segCh := make(chan []byte)
 	r, w := io.Pipe()
-	go func() {
-		err := muxl.RunMuxlSegmenter(ctx, r, initCh, segCh)
-		if err != nil {
-			log.Error(ctx, "error running muxl segmenter", "error", err)
-		}
-	}()
-
 	go func() {
 		<-ctx.Done()
 		r.Close()
 	}()
 
-	go func() {
-		var initSeg []byte
-		select {
-		case <-ctx.Done():
-			return
-		case initSeg = <-initCh:
-			log.Debug(ctx, "got init segment", "size", len(initSeg))
-		}
-		for {
+	if cli.LiveHLSDir != "" {
+		// Opt-in (experimental): drive the new rich-event segmenter and feed
+		// a live HLS writer. The per-GoP fMP4 delivered to cb is reconstructed
+		// to be byte-identical to the default path (init + sorted-track-concat),
+		// so signing/validation downstream is unaffected.
+		go runMuxlLiveHLS(ctx, cli, streamer, r, cb)
+	} else {
+		initCh := make(chan []byte)
+		segCh := make(chan []byte)
+		go func() {
+			err := muxl.RunMuxlSegmenter(ctx, r, initCh, segCh)
+			if err != nil {
+				log.Error(ctx, "error running muxl segmenter", "error", err)
+			}
+		}()
+
+		go func() {
+			var initSeg []byte
 			select {
 			case <-ctx.Done():
 				return
-			case seg := <-segCh:
-				log.Debug(ctx, "got segment", "size", len(seg))
-				fullSeg := []byte{}
-				fullSeg = append(fullSeg, initSeg...)
-				fullSeg = append(fullSeg, seg...)
-				cli.DumpDebugSegment(ctx, "muxl_segment_input.fmp4", bytes.NewReader(fullSeg))
-				err := cb(ctx, fullSeg, time.Now().UnixMilli())
-				if err != nil {
-					log.Error(ctx, "error calling callback", "error", err)
+			case initSeg = <-initCh:
+				log.Debug(ctx, "got init segment", "size", len(initSeg))
+			}
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case seg := <-segCh:
+					log.Debug(ctx, "got segment", "size", len(seg))
+					fullSeg := []byte{}
+					fullSeg = append(fullSeg, initSeg...)
+					fullSeg = append(fullSeg, seg...)
+					cli.DumpDebugSegment(ctx, "muxl_segment_input.fmp4", bytes.NewReader(fullSeg))
+					err := cb(ctx, fullSeg, time.Now().UnixMilli())
+					if err != nil {
+						log.Error(ctx, "error calling callback", "error", err)
+					}
 				}
 			}
-		}
-	}()
+		}()
+	}
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
@@ -123,4 +135,82 @@ func MuxlSegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH2
 	})
 
 	return bin.Element, nil
+}
+
+// runMuxlLiveHLS consumes the muxl segmenter's rich event stream from r and
+// (a) reconstructs the per-GoP fMP4 the default path delivers to cb — init +
+// the per-track segment bytes concatenated in sorted track-id order, exactly
+// as ParseMuxlEvents/segCh does — and (b) feeds every event into a live HLS
+// writer, appending to a growing fMP4 and refreshing the playlists under
+// cli.LiveHLSDir/<streamer>/. Best-effort: live HLS errors are logged, never
+// fatal to the (signing) callback path.
+func runMuxlLiveHLS(ctx context.Context, cli *config.CLI, streamer string, r io.Reader, cb func(context.Context, []byte, int64) error) {
+	streamDir := filepath.Join(cli.LiveHLSDir, fileSafeName(streamer))
+	if err := os.MkdirAll(streamDir, 0o755); err != nil {
+		log.Error(ctx, "live-hls: mkdir failed", "dir", streamDir, "error", err)
+		return
+	}
+	f, err := os.Create(filepath.Join(streamDir, "live.fmp4"))
+	if err != nil {
+		log.Error(ctx, "live-hls: create fmp4 failed", "error", err)
+		return
+	}
+	defer f.Close()
+	lw := livehls.NewWriter(f)
+
+	eventCh := make(chan *muxl.MuxlEvent, 16)
+	errCh := make(chan error, 1)
+	go func() {
+		err := muxl.RunMuxlSegmenterEvents(ctx, r, eventCh)
+		close(eventCh)
+		errCh <- err
+	}()
+
+	var initSeg []byte
+	for ev := range eventCh {
+		if err := lw.Observe(ev); err != nil {
+			log.Error(ctx, "live-hls: observe failed", "error", err)
+		}
+		switch ev.Type {
+		case "init":
+			initSeg = ev.Data
+			log.Debug(ctx, "got init segment", "size", len(initSeg))
+		case "segment", "signed-segment":
+			seg := concatTracksSorted(ev.Tracks)
+			fullSeg := make([]byte, 0, len(initSeg)+len(seg))
+			fullSeg = append(fullSeg, initSeg...)
+			fullSeg = append(fullSeg, seg...)
+			cli.DumpDebugSegment(ctx, "muxl_segment_input.fmp4", bytes.NewReader(fullSeg))
+			if err := cb(ctx, fullSeg, time.Now().UnixMilli()); err != nil {
+				log.Error(ctx, "error calling callback", "error", err)
+			}
+			if err := lw.WriteHLSDir(streamDir, "live.fmp4"); err != nil {
+				log.Error(ctx, "live-hls: write playlists failed", "error", err)
+			}
+		}
+	}
+	if err := <-errCh; err != nil && ctx.Err() == nil {
+		log.Error(ctx, "error running muxl segmenter (live-hls)", "error", err)
+	}
+}
+
+// concatTracksSorted joins per-track segment bytes in sorted track-id order,
+// matching muxl.ParseMuxlEvents' segCh byte layout so the reconstructed fMP4
+// is identical to the default path's.
+func concatTracksSorted(tracks map[string][]byte) []byte {
+	keys := make([]string, 0, len(tracks))
+	for k := range tracks {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var out []byte
+	for _, k := range keys {
+		out = append(out, tracks[k]...)
+	}
+	return out
+}
+
+// fileSafeName makes a streamer identifier safe to use as a directory name.
+func fileSafeName(s string) string {
+	return strings.NewReplacer("/", "-", ":", "-", "\\", "-", " ", "_").Replace(s)
 }

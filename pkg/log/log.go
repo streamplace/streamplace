@@ -65,7 +65,7 @@ func SetColorLogger(color string) {
 	// set global logger with custom options
 	slog.SetDefault(slog.New(
 		tint.NewHandler(realStderr, &tint.Options{
-			Level: slog.LevelDebug,
+			Level: slog.LevelInfo,
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 				if a.Key != "time" {
 					return a

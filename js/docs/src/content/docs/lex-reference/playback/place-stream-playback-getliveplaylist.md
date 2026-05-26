@@ -17,11 +17,11 @@ Get an HLS CMAF playlist for a live stream. Returns a master playlist when `trac
 
 **Parameters:**
 
-| Name    | Type     | Req'd | Description                                                                                                                                                                                      | Constraints   |
-| ------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| `did`   | `string` | ✅    | DID of the streamer whose live stream to play back.                                                                                                                                              | Format: `did` |
-| `track` | `string` | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.                                                                          |               |
-| `sid`   | `string` | ❌    | Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation. |               |
+| Name       | Type     | Req'd | Description                                                                                                                                                                                      | Constraints |
+| ---------- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `streamer` | `string` | ✅    | The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.                                                                                    |             |
+| `track`    | `string` | ❌    | Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.                                                                          |             |
+| `sid`      | `string` | ❌    | Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation. |             |
 
 **Output:**
 
@@ -49,12 +49,11 @@ _Schema not defined._
       "description": "Get an HLS CMAF playlist for a live stream. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getLiveSegment. Segments come from an in-memory sliding window fed as the stream is ingested (or replicated to this node), so a playlist is only available while the stream is live here.",
       "parameters": {
         "type": "params",
-        "required": ["did"],
+        "required": ["streamer"],
         "properties": {
-          "did": {
+          "streamer": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the streamer whose live stream to play back."
+            "description": "The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID."
           },
           "track": {
             "type": "string",

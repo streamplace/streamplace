@@ -18,8 +18,8 @@ func TestLiveSegmentURL(t *testing.T) {
 	require.Contains(t, u, "track=1")
 	require.Contains(t, u, "sid=3kabc")
 	require.Contains(t, u, "seg=42.m4s")
-	// DID is percent-encoded in the query.
-	require.Contains(t, u, "did=did%3Aplc%3Aabc123")
+	// The resolved streamer DID is percent-encoded under the streamer param.
+	require.Contains(t, u, "streamer=did%3Aplc%3Aabc123")
 
 	// init segment URL (no sid).
 	ui := liveSegmentURL("did:plc:abc123", "2", "init", "")
@@ -34,5 +34,5 @@ func TestLiveTrackPlaylistURL(t *testing.T) {
 	require.True(t, strings.HasPrefix(u, "/xrpc/place.stream.playback.getLivePlaylist?"))
 	require.Contains(t, u, "track=1")
 	require.Contains(t, u, "sid=3ksid")
-	require.Contains(t, u, "did=did%3Aplc%3Axyz")
+	require.Contains(t, u, "streamer=did%3Aplc%3Axyz")
 }

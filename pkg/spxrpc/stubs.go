@@ -979,13 +979,13 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLivePlaylist")
 	defer span.End()
-	did := c.QueryParam("did")
 	sid := c.QueryParam("sid")
+	streamer := c.QueryParam("streamer")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,did string,sid string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, did, sid, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -995,14 +995,14 @@ func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error 
 func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveSegment")
 	defer span.End()
-	did := c.QueryParam("did")
 	seg := c.QueryParam("seg")
 	sid := c.QueryParam("sid")
+	streamer := c.QueryParam("streamer")
 	track := c.QueryParam("track")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,did string,seg string,sid string,track string) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, did, seg, sid, track)
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
 	if handleErr != nil {
 		return handleErr
 	}

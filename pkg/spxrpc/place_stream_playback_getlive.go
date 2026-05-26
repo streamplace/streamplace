@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 )
 
@@ -21,12 +20,33 @@ import (
 // getLiveSegment, vnd.apple.mpegurl on getLivePlaylist). NewServer registers
 // custom echo routes that override them; these exist only to satisfy the build.
 
-func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, did string, sid string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context, sid string, streamer string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLivePlaylist")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, did string, seg string, sid string, track string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, seg string, sid string, streamer string, track string) (io.Reader, error) {
 	return nil, stubMisrouted("getLiveSegment")
+}
+
+// resolveStreamer turns a `streamer` query param — an alias, a DID
+// (did:plc/did:web/did:key), or a Bluesky handle — into the streamer's DID,
+// which is how the live window is keyed. Handles are resolved via the atproto
+// sync cache; anything already a DID passes through unchanged.
+func (s *Server) resolveStreamer(ctx context.Context, streamer string) (string, error) {
+	if alias, ok := s.aliases[streamer]; ok {
+		streamer = alias
+	}
+	if streamer == "" {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "streamer is required")
+	}
+	if strings.HasPrefix(streamer, "did:") {
+		return streamer, nil
+	}
+	repo, err := s.ATSync.SyncBlueskyRepoCached(ctx, streamer)
+	if err != nil {
+		return "", echo.NewHTTPError(http.StatusBadRequest, "could not resolve streamer handle: "+err.Error())
+	}
+	return repo.DID, nil
 }
 
 // --- getLivePlaylist ----------------------------------------------------
@@ -37,11 +57,11 @@ func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context, di
 // so a playlist exists only while the stream is live here. Open playback,
 // gated only on an account ban (auth middleware can layer on later).
 func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
-	parsedDID, err := syntax.ParseDID(c.QueryParam("did"))
+	ctx := c.Request().Context()
+	did, err := s.resolveStreamer(ctx, c.QueryParam("streamer"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "did is required and must be a valid DID")
+		return err
 	}
-	did := parsedDID.String()
 
 	if banned, err := s.accountBanned(did); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -61,6 +81,8 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	// Sub-playlist + segment URLs carry the resolved DID, so follow-up requests
+	// skip handle resolution and stay stable across a session.
 	track := c.QueryParam("track")
 	var body string
 	if track == "" {
@@ -94,11 +116,11 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 // The bytes are the verbatim signed segment, so provenance travels with
 // playback.
 func (s *Server) HandleGetLiveSegment(c echo.Context) error {
-	parsedDID, err := syntax.ParseDID(c.QueryParam("did"))
+	ctx := c.Request().Context()
+	did, err := s.resolveStreamer(ctx, c.QueryParam("streamer"))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "did is required and must be a valid DID")
+		return err
 	}
-	did := parsedDID.String()
 	track := c.QueryParam("track")
 	if track == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "track is required")
@@ -149,10 +171,10 @@ func (s *Server) HandleGetLiveSegment(c echo.Context) error {
 // --- url builders -------------------------------------------------------
 
 // liveTrackPlaylistURL is the URL to a single-track live media playlist served
-// by this same handler. sid is propagated so a player's playlist + segment
-// requests share an identifier.
+// by this same handler. did is the resolved streamer DID; sid is propagated so
+// a player's playlist + segment requests share an identifier.
 func liveTrackPlaylistURL(did, track, sid string) string {
-	q := url.Values{"did": {did}, "track": {track}}
+	q := url.Values{"streamer": {did}, "track": {track}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}
@@ -164,7 +186,7 @@ func liveTrackPlaylistURL(did, track, sid string) string {
 // query token) to satisfy ffmpeg's segment-extension allowlist — the handler
 // strips it back off.
 func liveSegmentURL(did, track, seg, sid string) string {
-	q := url.Values{"did": {did}, "track": {track}}
+	q := url.Values{"streamer": {did}, "track": {track}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}

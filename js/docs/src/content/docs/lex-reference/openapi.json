@@ -688,14 +688,13 @@
         },
         "parameters": [
           {
-            "name": "did",
+            "name": "streamer",
             "in": "query",
             "required": true,
-            "description": "DID of the streamer whose live stream to play back.",
+            "description": "The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.",
             "schema": {
               "type": "string",
-              "description": "DID of the streamer whose live stream to play back.",
-              "format": "did"
+              "description": "The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID."
             }
           },
           {
@@ -765,14 +764,13 @@
         },
         "parameters": [
           {
-            "name": "did",
+            "name": "streamer",
             "in": "query",
             "required": true,
-            "description": "DID of the streamer.",
+            "description": "The streamer: a DID or a Bluesky handle (resolved to its DID).",
             "schema": {
               "type": "string",
-              "description": "DID of the streamer.",
-              "format": "did"
+              "description": "The streamer: a DID or a Bluesky handle (resolved to its DID)."
             }
           },
           {

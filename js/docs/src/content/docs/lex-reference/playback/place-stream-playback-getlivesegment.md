@@ -17,12 +17,12 @@ Fetch a single live HLS segment, or a track's init segment, from the in-memory l
 
 **Parameters:**
 
-| Name    | Type     | Req'd | Description                                                                                                                                                          | Constraints   |
-| ------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `did`   | `string` | ✅    | DID of the streamer.                                                                                                                                                 | Format: `did` |
-| `track` | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                                                              |               |
-| `seg`   | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.                                              |               |
-| `sid`   | `string` | ❌    | Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control. |               |
+| Name       | Type     | Req'd | Description                                                                                                                                                          | Constraints |
+| ---------- | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `streamer` | `string` | ✅    | The streamer: a DID or a Bluesky handle (resolved to its DID).                                                                                                       |             |
+| `track`    | `string` | ✅    | Track ID (stringified u32 matching the MUXL container).                                                                                                              |             |
+| `seg`      | `string` | ✅    | `init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.                                              |             |
+| `sid`      | `string` | ❌    | Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control. |             |
 
 **Output:**
 
@@ -49,12 +49,11 @@ _Schema not defined._
       "description": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.",
       "parameters": {
         "type": "params",
-        "required": ["did", "track", "seg"],
+        "required": ["streamer", "track", "seg"],
         "properties": {
-          "did": {
+          "streamer": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the streamer."
+            "description": "The streamer: a DID or a Bluesky handle (resolved to its DID)."
           },
           "track": {
             "type": "string",

@@ -13,17 +13,17 @@ import (
 
 // PlaybackGetLivePlaylist calls the XRPC method "place.stream.playback.getLivePlaylist".
 //
-// did: DID of the streamer whose live stream to play back.
 // sid: Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation.
+// streamer: The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
-func PlaybackGetLivePlaylist(ctx context.Context, c lexutil.LexClient, did string, sid string, track string) ([]byte, error) {
+func PlaybackGetLivePlaylist(ctx context.Context, c lexutil.LexClient, sid string, streamer string, track string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
-	params["did"] = did
 	if sid != "" {
 		params["sid"] = sid
 	}
+	params["streamer"] = streamer
 	if track != "" {
 		params["track"] = track
 	}

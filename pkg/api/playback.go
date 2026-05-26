@@ -51,12 +51,7 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		var answer *webrtc.SessionDescription
-		if a.CLI.NewWebRTCPlayback {
-			answer, err = a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "")
-		} else {
-			answer, err = a.MediaManager.WebRTCPlayback(ctx, user, rendition, &offer)
-		}
+		answer, err := a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "")
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error playing back: %s", err.Error()), err)
 			return

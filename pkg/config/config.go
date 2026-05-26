@@ -121,7 +121,6 @@ type CLI struct {
 	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
 	DiscordWebhooks             []*discordtypes.Webhook
-	NewWebRTCPlayback           bool
 	AppleTeamID                 string
 	AndroidCertFingerprint      string
 	Labelers                    []string
@@ -612,13 +611,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return json.Unmarshal([]byte(s), &cli.DiscordWebhooks)
 				},
 				Sources: urfavecli.EnvVars("SP_DISCORD_WEBHOOKS"),
-			},
-			&urfavecli.BoolFlag{
-				Name:        "new-webrtc-playback",
-				Usage:       "enable new webrtc playback",
-				Value:       true,
-				Destination: &cli.NewWebRTCPlayback,
-				Sources:     urfavecli.EnvVars("SP_NEW_WEBRTC_PLAYBACK"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "apple-team-id",

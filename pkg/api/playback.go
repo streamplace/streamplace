@@ -174,7 +174,6 @@ func NoCache(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-
 // thumbnailMaxAge is how stale a thumbnail may be before we treat the user as
 // offline and stop serving it. It must comfortably exceed thumbnailInterval (the
 // rate at which live thumbnails are refreshed) to avoid flickering mid-stream.

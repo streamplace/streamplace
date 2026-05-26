@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,7 +13,6 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/spmetrics"
 )
 
 func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
@@ -176,88 +174,6 @@ func NoCache(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-const SessionExpireTime = 30 * time.Second
-
-func (a *StreamplaceAPI) SessionSeen(ctx context.Context, user string, session string) {
-	now := time.Now()
-	go func() {
-		a.sessionsLock.Lock()
-		defer a.sessionsLock.Unlock()
-		if _, ok := a.sessions[user]; !ok {
-			a.sessions[user] = map[string]time.Time{}
-		}
-		if _, ok := a.sessions[user][session]; !ok {
-			log.Warn(ctx, "ViewerInc", "user", user, "session", session)
-			spmetrics.ViewerInc(user, "hls")
-			a.Bus.IncrementViewerCount(user, "local")
-		}
-		a.sessions[user][session] = now
-	}()
-}
-
-func (a *StreamplaceAPI) ExpireSessions(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(5 * time.Second):
-			a.sessionsLock.Lock()
-			for user, sessions := range a.sessions {
-				for session, seen := range sessions {
-					if time.Since(seen) > SessionExpireTime {
-						delete(sessions, session)
-						spmetrics.ViewerDec(user, "hls")
-						a.Bus.DecrementViewerCount(user, "local")
-					}
-				}
-			}
-			a.sessionsLock.Unlock()
-		}
-	}
-}
-
-func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
-	return NoCache(func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		file := p.ByName("file")
-		if file == "" {
-			errors.WriteHTTPBadRequest(w, "file required", nil)
-			return
-		}
-		m3u8, err := a.Director.GetM3U8(ctx, user)
-		if err != nil {
-			errors.WriteHTTPNotFound(w, "could not get m3u8", err)
-			return
-		}
-		session := r.URL.Query().Get("session")
-		rendition := r.URL.Query().Get("rendition")
-		buf, err := m3u8.GetFile(file, session, rendition)
-		if err != nil {
-			errors.WriteHTTPNotFound(w, "segment not found", err)
-			return
-		}
-
-		if strings.HasSuffix(file, ".m3u8") {
-			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-		} else {
-			if session != "" {
-				a.SessionSeen(ctx, user, session)
-			}
-			w.Header().Set("Content-Type", "video/mp2t")
-		}
-
-		http.ServeContent(w, r, file, time.Now(), bytes.NewReader(buf))
-	})
-}
 
 // thumbnailMaxAge is how stale a thumbnail may be before we treat the user as
 // offline and stop serving it. It must comfortably exceed thumbnailInterval (the

@@ -528,10 +528,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	group.Go(func() error {
-		return a.ExpireSessions(ctx)
-	})
-
-	group.Go(func() error {
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
 

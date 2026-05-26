@@ -87,8 +87,6 @@ type StreamplaceAPI struct {
 
 	// override tls port for http redirect server if we're using systemd file descriptors
 	HTTPRedirectTLSPort *int
-	sessions            map[string]map[string]time.Time
-	sessionsLock        sync.RWMutex
 
 	rtmpSessions             map[string]*media.RTMPSession
 	rtmpSessionsLock         sync.Mutex
@@ -124,8 +122,6 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
 		op:               op,
-		sessions:         make(map[string]map[string]time.Time),
-		sessionsLock:     sync.RWMutex{},
 		rtmpSessions:     make(map[string]*media.RTMPSession),
 		rtmpSessionsLock: sync.Mutex{},
 		LocalDB:          ldb,
@@ -202,7 +198,6 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
-	addHandle(apiRouter, "GET", "/api/playback/:user/hls/*file", a.HandleHLSPlayback(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)

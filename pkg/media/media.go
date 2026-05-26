@@ -42,8 +42,6 @@ const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
-	hlsRunning          map[string]*M3U8
-	hlsRunningMut       sync.Mutex
 	liveWindows         map[string]*livehls.Writer
 	liveWindowsMut      sync.Mutex
 	httpPipes           map[string]io.Writer
@@ -125,7 +123,6 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}
 	return &MediaManager{
 		cli:          cli,
-		hlsRunning:   map[string]*M3U8{},
 		liveWindows:  map[string]*livehls.Writer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,

@@ -126,9 +126,13 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	// segment's canonical bytes after it. MUXL segments carry per-track
 	// monotonic tfdt, so this is a valid fMP4 timeline with no remux.
 	//
-	// TODO: the init is synthesized once from the first segment. A mid-stream
-	// catalog change (e.g. a resolution switch) re-emits moov, which a single
-	// qtdemux won't accept live — same gap as the live HLS window.
+	// The init reflects the first segment's catalog and is never re-emitted.
+	// muxl derives the catalog from the moov and does not parse the H.264
+	// bitstream, so a mid-stream resolution/orientation change (carried in-band
+	// as new SPS/PPS at a keyframe) is invisible to it: no second moov appears,
+	// the parameter sets pass through verbatim to h264parse/flvmux, and the
+	// init's declared dimensions simply stay at the initial config. Reflecting
+	// such a change in container metadata would require parsing SPS/PPS.
 	pr, pw := io.Pipe()
 	go func() {
 		segChan := mm.bus.SubscribeSegment(ctx, user, rendition)

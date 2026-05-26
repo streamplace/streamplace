@@ -2,12 +2,19 @@ package media
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/log"
 )
+
+// ErrPipelineDone is a sentinel a pipeline element can raise (via
+// pipeline.Error) to signal it finished its job and the bus handler should
+// exit cleanly rather than treat it as a failure — e.g. the thumbnailer once
+// it has grabbed its frame.
+var ErrPipelineDone = errors.New("pipeline done")
 
 func HandleBusMessages(ctx context.Context, pipeline *gst.Pipeline) error {
 	return HandleBusMessagesCustom(ctx, pipeline, nil)
@@ -31,8 +38,8 @@ func HandleBusMessagesCustom(ctx context.Context, pipeline *gst.Pipeline, handle
 			return nil
 		case gst.MessageError: // Error messages are always fatal
 			err := msg.ParseError()
-			if err.Error() == fmt.Sprintf("%s: %s", ErrConcatDone.Error(), ErrConcatDone.Error()) {
-				log.Debug(ctx, "got ErrConcatDone, exiting")
+			if err.Error() == fmt.Sprintf("%s: %s", ErrPipelineDone.Error(), ErrPipelineDone.Error()) {
+				log.Debug(ctx, "got ErrPipelineDone, exiting")
 				return nil
 			}
 			log.Error(ctx, "gstreamer error", "error", err.Error())

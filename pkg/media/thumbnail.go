@@ -125,7 +125,7 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 	select {
 	case <-thumbCh:
 		// Got the frame; wind the pipeline down so HandleBusMessages returns.
-		pipeline.Error(ErrConcatDone.Error(), ErrConcatDone)
+		pipeline.Error(ErrPipelineDone.Error(), ErrPipelineDone)
 		<-errCh
 		return nil
 	case err := <-errCh:
@@ -272,7 +272,7 @@ func Thumbnail(ctx context.Context, r io.Reader, w io.Writer, format string) err
 
 	<-thumbCh
 	// signals the pipeline to clean up cleanly
-	pipeline.Error(ErrConcatDone.Error(), ErrConcatDone)
+	pipeline.Error(ErrPipelineDone.Error(), ErrPipelineDone)
 
 	busErr := <-errCh
 

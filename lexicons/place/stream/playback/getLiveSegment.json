@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.playback.getLiveSegment",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.",
+      "parameters": {
+        "type": "params",
+        "required": ["did", "track", "seg"],
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did",
+            "description": "DID of the streamer."
+          },
+          "track": {
+            "type": "string",
+            "description": "Track ID (stringified u32 matching the MUXL container)."
+          },
+          "seg": {
+            "type": "string",
+            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored."
+          },
+          "sid": {
+            "type": "string",
+            "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+          }
+        }
+      },
+      "output": {
+        "encoding": "video/mp4"
+      },
+      "errors": [
+        {
+          "name": "StreamNotLive",
+          "description": "No live window for this streamer on this node."
+        },
+        {
+          "name": "SegmentNotFound",
+          "description": "The requested segment has slid out of the window, or never existed."
+        }
+      ]
+    }
+  }
+}

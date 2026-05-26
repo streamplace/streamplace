@@ -641,6 +641,173 @@
         }
       }
     },
+    "/xrpc/place.stream.playback.getLivePlaylist": {
+      "get": {
+        "summary": "Get an HLS CMAF playlist for a live stream. Returns a master playlist when `track` is omitted, or a single-track media playlist when `track` is supplied. The playlist references each segment + per-track init segment via getLiveSegment. Segments come from an in-memory sliding window fed as the stream is ingested (or replicated to this node), so a playlist is only available while the stream is live here.",
+        "operationId": "place.stream.playback.getLivePlaylist",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "*/*": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "StreamNotLive"
+                        },
+                        {
+                          "const": "TrackNotFound"
+                        },
+                        {
+                          "const": "StreamUnavailable"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "DID of the streamer whose live stream to play back.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the streamer whose live stream to play back.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": false,
+            "description": "Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.",
+            "schema": {
+              "type": "string",
+              "description": "Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist."
+            }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation.",
+            "schema": {
+              "type": "string",
+              "description": "Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation."
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.playback.getLiveSegment": {
+      "get": {
+        "summary": "Fetch a single live HLS segment, or a track's init segment, from the in-memory live window. `seg` is `init` for the EXT-X-MAP init segment, otherwise the segment's media-sequence number; a cosmetic `.m4s` suffix is accepted (and ignored) so ffmpeg-based HLS players will fetch it. HTTP Range is honored. Segments are the verbatim signed canonical .m4s, so provenance travels with playback.",
+        "operationId": "place.stream.playback.getLiveSegment",
+        "tags": ["place.stream.playback"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "video/mp4": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "StreamNotLive"
+                        },
+                        {
+                          "const": "SegmentNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "DID of the streamer.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the streamer.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": true,
+            "description": "Track ID (stringified u32 matching the MUXL container).",
+            "schema": {
+              "type": "string",
+              "description": "Track ID (stringified u32 matching the MUXL container)."
+            }
+          },
+          {
+            "name": "seg",
+            "in": "query",
+            "required": true,
+            "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored.",
+            "schema": {
+              "type": "string",
+              "description": "`init` for the track's init segment, or the segment's media-sequence number. A trailing `.m4s` is accepted and ignored."
+            }
+          },
+          {
+            "name": "sid",
+            "in": "query",
+            "required": false,
+            "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control.",
+            "schema": {
+              "type": "string",
+              "description": "Opaque playback session identifier, propagated from the media playlist that referenced this segment. Logged for view-count correlation; not used for access control."
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.playback.getPlaybackServer": {
       "get": {
         "summary": "Get available playback servers for a livestream.",

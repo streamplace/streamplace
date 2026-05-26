@@ -3322,6 +3322,7 @@ dependencies = [
 [[package]]
 name = "muxl"
 version = "0.1.0"
+source = "git+https://github.com/streamplace/muxl.git?rev=a1cfe7a4250835a55fb440d02221ce6206d45408#a1cfe7a4250835a55fb440d02221ce6206d45408"
 dependencies = [
  "blake3",
  "clap",
@@ -3337,6 +3338,7 @@ dependencies = [
 [[package]]
 name = "muxl-sign"
 version = "0.1.0"
+source = "git+https://github.com/streamplace/muxl.git?rev=a1cfe7a4250835a55fb440d02221ce6206d45408#a1cfe7a4250835a55fb440d02221ce6206d45408"
 dependencies = [
  "c2pa 0.58.0 (git+https://github.com/streamplace/c2pa-rs.git?rev=81d737bd)",
  "clap",

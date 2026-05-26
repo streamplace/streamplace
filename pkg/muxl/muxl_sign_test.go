@@ -2,7 +2,6 @@ package muxl
 
 import (
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,10 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/test/remote"
 )
-
-func init() {
-	stderrWriter = func(_ context.Context, _ uint64) io.Writer { return os.Stderr }
-}
 
 // TestConcatenatorRealSegments drives the wasm Concatenator with real
 // signed flat MP4 segments and confirms it

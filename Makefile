@@ -291,14 +291,13 @@ test-vod:
 
 .PHONY: dev-setup
 dev-setup:
-	$(MAKE) -j16 app-cached dev-setup-meson muxl-wasm
+	$(MAKE) -j16 app-cached dev-setup-meson
 
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
-	$(MAKE) muxl-wasm
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
 	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
@@ -312,14 +311,6 @@ dev-setup-meson:
 dev-setup-meson-configure:
 	meson setup --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
 	meson configure --default-library=shared $(BUILDDIR) $(SHARED_OPTS)
-
-.PHONY: muxl-wasm
-muxl-wasm:
-	rustup target add wasm32-wasip1
-	if [ "$(BUILDOS)" = "darwin" ]; then stat "$$(brew --prefix)/opt/llvm/bin/clang" >/dev/null 2>&1 || (echo "llvm not installed, run 'brew install llvm' and try again" && exit 1); fi \
-	&& export PATH="$$(brew --prefix)/opt/llvm/bin:$$PATH" \
-	&& CC="" cargo build -p muxl-wasm --target wasm32-wasip1 --release \
-	&& cp target/wasm32-wasip1/release/muxl-wasm.wasm pkg/muxl/muxl.wasm
 
 .PHONY: dev-rust
 dev-rust: .build/bin/uniffi-bindgen-go-forked
@@ -335,7 +326,7 @@ dev-rust: .build/bin/uniffi-bindgen-go-forked
 	&& mv $(BUILDDIR)/lib/libiroh_streamplace.$$EXT.tmp $(BUILDDIR)/lib/libiroh_streamplace.$$EXT
 
 .PHONY: dev-test
-dev-test: muxl-wasm
+dev-test:
 	go install github.com/jstemmer/go-junit-report/v2@latest \
 	&& PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	LD_LIBRARY_PATH=$(shell realpath $(BUILDDIR))/lib \
@@ -634,11 +625,11 @@ desktop-windows-amd64:
 	&& mv "js/desktop/out/make/squirrel.windows/x64/Streamplace-$(VERSION_ELECTRON) Setup.exe" ./bin/streamplace-desktop-$(VERSION)-windows-amd64.exe
 
 .PHONY: streamplace
-streamplace: app-cached meson-setup-static muxl-wasm
+streamplace: app-cached meson-setup-static
 	meson compile -C $(BUILDDIR) streamplace | grep -v drectve
 
 .PHONY: archive
-archive: app-cached meson-setup-static godeps muxl-wasm
+archive: app-cached meson-setup-static godeps
 	meson compile -C $(BUILDDIR) archive | grep -v drectve
 
 .PHONY: linux-amd64

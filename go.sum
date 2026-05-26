@@ -909,6 +909,8 @@ github.com/klauspost/compress v1.18.0/go.mod h1:2Pp+KzxcywXVXMr50+X0Q/Lsb43OQHYW
 github.com/klauspost/cpuid/v2 v2.0.1/go.mod h1:FInQzS24/EEf25PyTYn52gqo7WaD8xa0213Md/qVLRg=
 github.com/klauspost/cpuid/v2 v2.2.10 h1:tBs3QSyvjDyFTq3uoc/9xFpCuOsJQFNPiAhYdw2skhE=
 github.com/klauspost/cpuid/v2 v2.2.10/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
+github.com/klauspost/cpuid/v2 v2.3.0 h1:S4CRMLnYUhGeDFDqkGriYKdfoFlDnMtqTiI/sFzhA9Y=
+github.com/klauspost/cpuid/v2 v2.3.0/go.mod h1:hqwkgyIinND0mEev00jJYCxPNVRVXFQeu1XKlok6oO0=
 github.com/kolesa-team/go-webp v1.0.5 h1:GZQHJBaE8dsNKZltfwqsL0qVJ7vqHXsfA+4AHrQW3pE=
 github.com/kolesa-team/go-webp v1.0.5/go.mod h1:QmJu0YHXT3ex+4SgUvs+a+1SFCDcCqyZg+LbIuNNTnE=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
@@ -1375,6 +1377,8 @@ github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAy
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507 h1:e8M3qPLr37NxEjlr18TaAwGP+OVyherVjgUG5VVmgWI=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507/go.mod h1:Pm2I1+iDXn/hLbF7XCg/DsZi6uDCiOo7hZGWprSM7k0=
+github.com/streamplace/muxl/go v0.0.0-20260526201538-22bb7055201b h1:PyMsuvIibqAXi81+nNJPtqW6SedDHyhu22gGffwd/DI=
+github.com/streamplace/muxl/go v0.0.0-20260526201538-22bb7055201b/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
 github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44 h1:b38ToXNQCvKqBlx0SeQYUOhx6uqqnrF5AL6B0Z3zzdk=
 github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44/go.mod h1:j1+zdhe1IC0+PTE2rIXk2LqYn4Lz2x9SJaV3eHkQyfs=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -1801,6 +1805,8 @@ golang.org/x/sys v0.17.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/sys v0.20.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/sys v0.42.0 h1:omrd2nAlyT5ESRdCLYdm3+fMfNFE/+Rf4bDIQImRJeo=
 golang.org/x/sys v0.42.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+golang.org/x/sys v0.45.0 h1:dO4czNzziLiiXplLQgBCEpCvXQ3dnkn0SdaZSYdQ+FY=
+golang.org/x/sys v0.45.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
 golang.org/x/telemetry v0.0.0-20240228155512-f48c80bd79b2/go.mod h1:TeRTkGYfJXctD9OcfyVLyj2J3IxLnKwHJR8f4D8a3YE=
 golang.org/x/telemetry v0.0.0-20260209163413-e7419c687ee4 h1:bTLqdHv7xrGlFbvf5/TXNxy/iUwwdkjhqQTJDjW7aj0=
 golang.org/x/telemetry v0.0.0-20260209163413-e7419c687ee4/go.mod h1:g5NllXBEermZrmR51cJDQxmJUHUOfRAaNyWBM+R+548=

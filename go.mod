@@ -64,7 +64,6 @@ require (
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/muxl/go v0.0.0-00010101000000-000000000000
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -97,7 +96,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-isatty v0.0.20
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	gorm.io/gorm v1.26.1
 )
 
@@ -354,7 +353,7 @@ require (
 	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.6 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kolesa-team/go-webp v1.0.5 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.14 // indirect
@@ -488,6 +487,7 @@ require (
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
+	github.com/streamplace/muxl/go v0.0.0-20260526201538-22bb7055201b // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/supranational/blst v0.3.15 // indirect
@@ -572,5 +572,3 @@ require (
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
-
-replace github.com/streamplace/muxl/go => ../muxl/go

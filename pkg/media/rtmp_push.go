@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/streamplace"
@@ -31,8 +32,8 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	pipelineSlice := []string{
 		"appsrc name=muxlsrc ! qtdemux name=demux",
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
-		"h264parse name=videoparse ! muxer.video",
-		"opusparse name=audioparse ! opusdec ! audioresample ! fdkaacenc ! muxer.audio",
+		fmt.Sprintf("%s name=videoqueue ! h264parse ! muxer.video", constants.Queue2Big),
+		fmt.Sprintf("%s name=audioqueue ! opusparse ! opusdec ! audioresample ! fdkaacenc ! muxer.audio", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -134,7 +135,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	// init's declared dimensions simply stay at the initial config. Reflecting
 	// such a change in container metadata would require parsing SPS/PPS.
 	pr, pw := io.Pipe()
-	go func() {
+	muxlLoop := func() {
 		segChan := mm.bus.SubscribeSegment(ctx, user, rendition)
 		defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
 		first := true
@@ -144,6 +145,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 				pw.CloseWithError(ctx.Err())
 				return
 			case seg := <-segChan.C:
+				log.Debug(ctx, "segment received", "file", seg.Filepath)
 				if len(seg.Muxl) == 0 {
 					log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 					continue
@@ -154,17 +156,24 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 						pw.CloseWithError(fmt.Errorf("synthesize init segment: %w", err))
 						return
 					}
+					log.Debug(ctx, "init segment synthesized", "size", init.Len())
 					if _, err := pw.Write(init.Bytes()); err != nil {
+						log.Error(ctx, "failed to write init segment", "error", err)
+						pw.CloseWithError(err)
 						return
 					}
 					first = false
 				}
+				log.Debug(ctx, "writing segment", "size", len(seg.Muxl))
 				if _, err := pw.Write(seg.Muxl); err != nil {
+					log.Error(ctx, "failed to write segment", "error", err)
+					pw.CloseWithError(err)
 					return
 				}
 			}
 		}
-	}()
+	}
+	go muxlLoop()
 
 	muxlSrc, err := pipeline.GetElementByName("muxlsrc")
 	if err != nil {
@@ -174,11 +183,11 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		NeedDataFunc: ReaderNeedDataIncremental(ctx, pr),
 	})
 
-	videoParse, err := pipeline.GetElementByName("videoparse")
+	videoQueue, err := pipeline.GetElementByName("videoqueue")
 	if err != nil {
 		return fmt.Errorf("failed to get video parse element from pipeline: %w", err)
 	}
-	audioParse, err := pipeline.GetElementByName("audioparse")
+	audioQueue, err := pipeline.GetElementByName("audioqueue")
 	if err != nil {
 		return fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
 	}
@@ -194,9 +203,9 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		var sink *gst.Pad
 		switch {
 		case strings.HasPrefix(name, "video_"):
-			sink = videoParse.GetStaticPad("sink")
+			sink = videoQueue.GetStaticPad("sink")
 		case strings.HasPrefix(name, "audio_"):
-			sink = audioParse.GetStaticPad("sink")
+			sink = audioQueue.GetStaticPad("sink")
 		default:
 			log.Debug(ctx, "ignoring demux pad", "name", name)
 			return

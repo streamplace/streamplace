@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -11,8 +12,9 @@ import (
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
-	"stream.place/streamplace/pkg/bus"
+	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -27,6 +29,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	targetURL := rec.Url
 
 	pipelineSlice := []string{
+		"appsrc name=muxlsrc ! qtdemux name=demux",
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
 		"h264parse name=videoparse ! muxer.video",
 		"opusparse name=audioparse ! opusdec ! audioresample ! fdkaacenc ! muxer.audio",
@@ -117,83 +120,88 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		}
 	}()
 
-	segBuffer := make(chan *bus.Seg, 1024)
+	// Reassemble the streamer's source segments into one continuous fMP4
+	// stream for a single qtdemux: synthesize the init (ftyp+moov) from the
+	// first segment's embedded catalog, then blindly concatenate every
+	// segment's canonical bytes after it. MUXL segments carry per-track
+	// monotonic tfdt, so this is a valid fMP4 timeline with no remux.
+	//
+	// TODO: the init is synthesized once from the first segment. A mid-stream
+	// catalog change (e.g. a resolution switch) re-emits moov, which a single
+	// qtdemux won't accept live — same gap as the live HLS window.
+	pr, pw := io.Pipe()
 	go func() {
 		segChan := mm.bus.SubscribeSegment(ctx, user, rendition)
 		defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
+		first := true
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debug(ctx, "exiting segment reader")
+				pw.CloseWithError(ctx.Err())
 				return
-			case file := <-segChan.C:
-				log.Debug(ctx, "got segment", "file", file.Filepath)
-				segBuffer <- file
-			}
-		}
-	}()
-
-	segCh := make(chan *bus.Seg)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				log.Debug(ctx, "exiting segment reader")
-				return
-			case seg := <-segBuffer:
-				select {
-				case <-ctx.Done():
+			case seg := <-segChan.C:
+				if len(seg.Muxl) == 0 {
+					log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
+					continue
+				}
+				if first {
+					var init bytes.Buffer
+					if err := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(seg.Muxl), &init); err != nil {
+						pw.CloseWithError(fmt.Errorf("synthesize init segment: %w", err))
+						return
+					}
+					if _, err := pw.Write(init.Bytes()); err != nil {
+						return
+					}
+					first = false
+				}
+				if _, err := pw.Write(seg.Muxl); err != nil {
 					return
-				case segCh <- seg:
 				}
 			}
 		}
 	}()
 
-	concatBin, err := ConcatBin(ctx, segCh, true)
+	muxlSrc, err := pipeline.GetElementByName("muxlsrc")
 	if err != nil {
-		return fmt.Errorf("failed to create concat bin: %w", err)
+		return fmt.Errorf("failed to get appsrc element from pipeline: %w", err)
 	}
-
-	err = pipeline.Add(concatBin.Element)
-	if err != nil {
-		return fmt.Errorf("failed to add concat bin to pipeline: %w", err)
-	}
-
-	videoPad := concatBin.GetStaticPad("video_0")
-	if videoPad == nil {
-		return fmt.Errorf("video pad not found")
-	}
-
-	audioPad := concatBin.GetStaticPad("audio_0")
-	if audioPad == nil {
-		return fmt.Errorf("audio pad not found")
-	}
+	app.SrcFromElement(muxlSrc).SetCallbacks(&app.SourceCallbacks{
+		NeedDataFunc: ReaderNeedDataIncremental(ctx, pr),
+	})
 
 	videoParse, err := pipeline.GetElementByName("videoparse")
 	if err != nil {
-		return fmt.Errorf("failed to get video sink element from pipeline: %w", err)
+		return fmt.Errorf("failed to get video parse element from pipeline: %w", err)
 	}
-	videoParsePad := videoParse.GetStaticPad("sink")
-	if videoParsePad == nil {
-		return fmt.Errorf("video parse pad not found")
-	}
-	linked := videoPad.Link(videoParsePad)
-	if linked != gst.PadLinkOK {
-		return fmt.Errorf("failed to link video pad to video parse pad: %v", linked)
-	}
-
 	audioParse, err := pipeline.GetElementByName("audioparse")
 	if err != nil {
 		return fmt.Errorf("failed to get audio parse element from pipeline: %w", err)
 	}
-	audioParsePad := audioParse.GetStaticPad("sink")
-	if audioParsePad == nil {
-		return fmt.Errorf("audio parse pad not found")
+
+	// qtdemux exposes its track pads only after parsing the moov, so link them
+	// on pad-added: video → h264parse, audio → opusparse.
+	demux, err := pipeline.GetElementByName("demux")
+	if err != nil {
+		return fmt.Errorf("failed to get demux element from pipeline: %w", err)
 	}
-	linked = audioPad.Link(audioParsePad)
-	if linked != gst.PadLinkOK {
-		return fmt.Errorf("failed to link audio pad to audio parse pad: %v", linked)
+	if _, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
+		name := pad.GetName()
+		var sink *gst.Pad
+		switch {
+		case strings.HasPrefix(name, "video_"):
+			sink = videoParse.GetStaticPad("sink")
+		case strings.HasPrefix(name, "audio_"):
+			sink = audioParse.GetStaticPad("sink")
+		default:
+			log.Debug(ctx, "ignoring demux pad", "name", name)
+			return
+		}
+		if linked := pad.Link(sink); linked != gst.PadLinkOK {
+			log.Error(ctx, "failed to link demux pad", "name", name, "result", linked)
+		}
+	}); err != nil {
+		return fmt.Errorf("failed to connect demux pad-added: %w", err)
 	}
 
 	errCh := make(chan error)

@@ -190,6 +190,7 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 	not := &NewSegmentNotification{
 		Segment:  seg,
 		Data:     playable.Bytes(),
+		Muxl:     buf,
 		Metadata: meta,
 		Local:    local,
 	}

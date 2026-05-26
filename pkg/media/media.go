@@ -57,8 +57,14 @@ type MediaManager struct {
 }
 
 type NewSegmentNotification struct {
-	Segment  *localdb.Segment
-	Data     []byte
+	Segment *localdb.Segment
+	// Data is the presentation flat MP4 (ftyp+moov+mdat envelope) consumed by
+	// the GStreamer pipelines (WebRTC packetize, thumbnail).
+	Data []byte
+	// Muxl is the bare canonical .m4s: blindly concatenatable signed segments
+	// with no container header. Consumers synthesize whatever wrapper they
+	// need. The long-term wire format; Data retires once all consumers are MUXL.
+	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
 }

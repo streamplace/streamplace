@@ -200,6 +200,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
 			Filepath:  notif.Segment.ID,
 			Data:      notif.Data,
+			Muxl:      notif.Muxl,
 			Published: notif.Metadata.Published,
 		})
 	})

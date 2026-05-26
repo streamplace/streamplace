@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,15 +16,12 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
-	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
-	"stream.place/streamplace/pkg/spmetrics"
 )
 
 var signerTracer = otel.Tracer("signer")
@@ -39,7 +35,6 @@ type MediaSigner interface {
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
-	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error
 }
 
 var DoReplay = false
@@ -170,78 +165,6 @@ func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Read
 	}
 
 	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
-}
-
-func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error {
-	startTime := time.Now()
-	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
-	defer span.End()
-	// for _, ingredient := range ingredients {
-	// 	_, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(ingredient)))
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	// title := "livestream"
-	mani := obj{
-		"title": "Livestream Clip",
-		// "assertions": []obj{
-		// 	{
-		// 		"label": "c2pa.actions",
-		// 		"data": obj{
-		// 			"actions": []obj{
-		// 				{"action": "c2pa.created"},
-		// 				{"action": "c2pa.published"},
-		// 			},
-		// 		},
-		// 	},
-		// 	{
-		// 		"label": StreamplaceMetadata,
-		// 		"data": obj{
-		// 			"@context": obj{
-		// 				"dc": "http://purl.org/dc/elements/1.1/",
-		// 			},
-		// 			"dc:creator": ms.StreamerName,
-		// 			"dc:title":   []string{title},
-		// 			"dc:date":    []string{aqtime.FromMillis(start).String()},
-		// 		},
-		// 	},
-		// },
-	}
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
-	manifestBs, err := json.Marshal(mani)
-	if err != nil {
-		return fmt.Errorf("failed to marshal manifest: %w", err)
-	}
-	var manifest c2patypes.ManifestDefinition
-	err = json.Unmarshal(manifestBs, &manifest)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal manifest: %w", err)
-	}
-	span.End()
-
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
-	rustCallbackSigner := &RustCallbackSigner{
-		Signer: ms.Signer,
-	}
-	many := c2patypes.NewManyStreams()
-	for _, ingredient := range ingredients {
-		many.AddStream(ingredient)
-	}
-	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), base64.StdEncoding.EncodeToString(ms.Cert), many, rustCallbackSigner, c2patypes.NewWriter(output))
-	if err != nil {
-		return err
-	}
-	span.End()
-
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
-	defer ctx.Done()
-	if err != nil {
-		return fmt.Errorf("failed to get output bytes: %w", err)
-	}
-	span.End()
-	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return nil
 }
 
 // don't call externally! this is used as a callback for the rust library

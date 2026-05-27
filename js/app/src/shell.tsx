@@ -447,13 +447,18 @@ export default function Shell() {
   }, []);
 
   const notificationToken = useNotificationToken();
+  const did = useStore((state) => state.oauthSession?.did);
   const hydrated = useHydrated();
 
+  // Re-register when the token changes OR once the logged-in DID resolves, so a
+  // token acquired before the OAuth session finishes restoring still gets its
+  // repoDID association registered (otherwise the user is excluded from
+  // follower livestream notifications).
   useEffect(() => {
     if (notificationToken) {
       registerNotificationToken();
     }
-  }, [notificationToken]);
+  }, [notificationToken, did]);
 
   // Handle incoming push notification routing
   const notificationDestination = useNotificationDestination();

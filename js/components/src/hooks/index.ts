@@ -11,3 +11,4 @@ export * from "./usePlayerDimensions";
 export * from "./usePointerDevice";
 export * from "./useSegmentDimensions";
 export * from "./useSegmentTiming";
+export * from "./useTitle";

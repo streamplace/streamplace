@@ -31,6 +31,22 @@ export function useVideoStore<U>(selector: (state: VideoState) => U): U {
   return useStore(store, selector);
 }
 
+// A shared, never-populated store used as a fallback so the optional hook
+// below can call useStore unconditionally even when no VideoProvider is
+// mounted (e.g. when the player is in "live" mode).
+const emptyVideoStore = makeVideoStore({ aturi: "" });
+
+// Like useVideoStore, but reads against an empty store instead of throwing
+// when there's no VideoProvider in the tree. Useful for mode-generic hooks
+// (see useTitle) that may run outside a video context.
+export function useVideoStoreOptional<U>(
+  selector: (state: VideoState) => U,
+): U {
+  const context = useContext(VideoContext);
+  const store = context?.store ?? emptyVideoStore;
+  return useStore(store, selector);
+}
+
 /* Convenience selectors/hooks */
 export const useVideo = () => useVideoStore((x) => x.video);
 

@@ -16,12 +16,13 @@ import {
   usePlayerStore,
   useSegment,
   useSegmentDimensions,
+  VideoProvider,
   View,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -55,16 +56,27 @@ export function Player(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  return (
+  const inner = (
     <RotationProvider enabled={Platform.OS !== "web"}>
-      <LivestreamProvider src={props.src ?? ""}>
-        <StatusBar hidden={true} />
-        <PlayerProvider defaultId={props.playerId || undefined}>
-          <PlayerWithProvider {...props} />
-        </PlayerProvider>
-      </LivestreamProvider>
+      <StatusBar hidden={true} />
+      <PlayerProvider defaultId={props.playerId || undefined}>
+        <PlayerWithProvider {...props} />
+      </PlayerProvider>
     </RotationProvider>
   );
+  if (props.mode === "vod") {
+    return (
+      <LivestreamProvider src="">
+        <VideoProvider aturi={props.src ?? ""}>{inner}</VideoProvider>
+      </LivestreamProvider>
+    );
+  }
+  if (props.mode === "live") {
+    return (
+      <LivestreamProvider src={props.src ?? ""}>{inner}</LivestreamProvider>
+    );
+  }
+  throw new Error(`Unknown mode: ${props.mode}`);
 }
 
 function PlayerWithProvider(
@@ -73,7 +85,10 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  const [showChat, setShowChat] = useState(true);
+  let [showChat, setShowChat] = useState(props.mode === "live");
+  if (props.mode === "vod") {
+    showChat = false;
+  }
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -157,6 +172,30 @@ function PlayerWithProvider(
   const livestream = useLivestream();
   const localLivestreamURI = useLivestreamStore((x) => x.localLivestreamURI);
 
+  let chatSection: React.ReactNode = null;
+  if (props.mode === "vod") {
+    chatSection = null;
+  } else if (isPortraitLandscapeCase) {
+    chatSection = (
+      <>
+        <MobileUi hideMobileChat={true} showChat />
+        {!showUnavailable && (
+          <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
+        )}
+      </>
+    );
+  } else if (shouldShowChatSidePanel) {
+    chatSection = (
+      <DesktopChatPanel
+        chatVisible={chatVisible}
+        chatPanelWidth={chatPanelWidth}
+        setShowChat={setShowChat}
+      />
+    );
+  } else if (!showUnavailable) {
+    chatSection = <View />;
+  }
+
   if (isStreamingElsewhere) {
     return (
       <View style={[layout.flex.center, h.percent[100], gap.all[4]]}>
@@ -197,24 +236,7 @@ function PlayerWithProvider(
               <Text>Back</Text>
             </View>
           </Button>
-          {userProfile?.did && (
-            <Button
-              style={[w.percent[40]]}
-              onPress={() =>
-                navigation.navigate("Stream", {
-                  user: userProfile?.did,
-                })
-              }
-            >
-              <View
-                centered
-                style={[layout.flex.center, layout.flex.row, gap.all[1]]}
-              >
-                <Text>Your stream</Text>
-                <ArrowRight />
-              </View>
-            </Button>
-          )}
+          {chatSection}
         </View>
       </View>
     );
@@ -265,22 +287,7 @@ function PlayerWithProvider(
                 showUnavailable={showUnavailable}
               />
             </View>
-            {isPortraitLandscapeCase ? (
-              <>
-                <MobileUi hideMobileChat={true} showChat />
-                {!showUnavailable && (
-                  <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
-                )}
-              </>
-            ) : shouldShowChatSidePanel ? (
-              <DesktopChatPanel
-                chatVisible={chatVisible}
-                chatPanelWidth={chatPanelWidth}
-                setShowChat={setShowChat}
-              />
-            ) : (
-              !showUnavailable && <View />
-            )}
+            {chatSection}
           </View>
         </PlayerProvider>
       </LivestreamProvider>

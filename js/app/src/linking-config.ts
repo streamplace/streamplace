@@ -128,7 +128,7 @@ export const SCREEN_PATHS = {
   PopoutInfoWidget: "widgets/info",
   PopoutMultistream: "widgets/multistream",
   PopoutLivestream: "widgets/livestream",
-  VodPlayerDemo: "vod-player-demo",
+  VodPlayerDemo: ":user/video/:tid",
 } as const;
 
 /**

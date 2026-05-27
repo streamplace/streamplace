@@ -3,6 +3,7 @@ import {
   PlaceStreamChatMessage,
   PlaceStreamChatPinnedRecord,
   PlaceStreamLivestream,
+  PlaceStreamMediaGetVideo,
 } from "./lexicons";
 
 export interface LivestreamViewHydrated
@@ -18,4 +19,8 @@ export interface ChatMessageViewHydrated
 export interface PinnedRecordViewHydrated
   extends PlaceStreamChatDefs.PinnedRecordView {
   record: PlaceStreamChatPinnedRecord.Record;
+}
+
+export interface VideoViewHydrated extends PlaceStreamMediaGetVideo.VideoView {
+  record: PlaceStreamLivestream.Record;
 }

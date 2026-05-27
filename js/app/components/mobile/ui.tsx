@@ -160,7 +160,18 @@ export function MobileUi({
   const hover = Gesture.Hover().onChange(onPlayerHover);
   const pan = Gesture.Pan().onChange(onPlayerHover);
   const tap = Gesture.Tap().onEnd(onPlayerHover);
-
+  let chatSection: React.ReactNode = null;
+  if (
+    mode !== "vod" &&
+    !hideMobileChat &&
+    !isSelfAndNotLive &&
+    playerIsReady &&
+    isPortrait
+  ) {
+    chatSection = (
+      <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+    );
+  }
   const combined = Gesture.Race(hover, pan, tap);
   return (
     <>
@@ -301,10 +312,7 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {hideMobileChat ||
-        (isPortrait && !isSelfAndNotLive && playerIsReady && (
-          <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
-        ))}
+      {chatSection}
     </>
   );
 }

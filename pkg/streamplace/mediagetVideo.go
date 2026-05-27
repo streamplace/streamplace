@@ -16,6 +16,7 @@ type MediaGetVideo_VideoView struct {
 	Author *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
 	Cid    string                              `json:"cid" cborgen:"cid"`
 	Record *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
+	Tracks []*MediaTrack_TrackView             `json:"tracks,omitempty" cborgen:"tracks,omitempty"`
 	Uri    string                              `json:"uri" cborgen:"uri"`
 	// viewCounts: Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally.
 	ViewCounts *MediaGetVideo_ViewCountSummary `json:"viewCounts" cborgen:"viewCounts"`

@@ -4732,6 +4732,12 @@
           "viewCounts": {
             "$ref": "#/components/schemas/place.stream.media.getVideo_viewCountSummary",
             "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/place.stream.media.track_trackView"
+            }
           }
         },
         "required": ["uri", "cid", "author", "record", "viewCounts"]
@@ -5099,6 +5105,24 @@
           }
         },
         "required": ["count", "bytes", "durationMs", "reporters"]
+      },
+      "place.stream.media.track_trackView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "author": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "record": {}
+        },
+        "required": ["uri", "cid", "author", "record"]
       },
       "place.stream.video": {
         "description": "Unknown type"

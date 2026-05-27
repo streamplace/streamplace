@@ -4,6 +4,7 @@ import {
   PlaceStreamChatPinnedRecord,
   PlaceStreamLivestream,
   PlaceStreamMediaGetVideo,
+  PlaceStreamMediaTrack,
 } from "./lexicons";
 
 export interface LivestreamViewHydrated
@@ -23,4 +24,9 @@ export interface PinnedRecordViewHydrated
 
 export interface VideoViewHydrated extends PlaceStreamMediaGetVideo.VideoView {
   record: PlaceStreamLivestream.Record;
+  tracks: TrackViewHydrated[];
+}
+
+export interface TrackViewHydrated extends PlaceStreamMediaTrack.TrackView {
+  record: PlaceStreamMediaTrack.Record;
 }

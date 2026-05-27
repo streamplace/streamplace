@@ -105,7 +105,10 @@ func TestGenerateVideoCard(t *testing.T) {
 	require.NoError(t, err)
 	linkStr := string(linkCard)
 	require.True(t, strings.Contains(linkStr, "iame.li"), "should contain the author handle")
-	require.True(t, strings.Contains(linkStr, video.Title), "should contain the video title")
+	require.True(t, strings.Contains(linkStr, "<title>"+video.Title+"</title>"),
+		"page title should be the video's own title")
+	require.True(t, strings.Contains(linkStr, `content="`+video.Title+`"`),
+		"og:title/twitter:title should be the video's own title")
 	require.True(t, strings.Contains(linkStr,
 		"https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:2zmxikig2sj7gqaezl5gntae/"+thumbCID+"@jpeg"),
 		"og:image should be the video thumbnail served via the bsky CDN")

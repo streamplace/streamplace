@@ -223,7 +223,7 @@ export function NativeVideo(props?: {
       <VideoView
         ref={videoRef}
         player={player}
-        nativeControls={fullscreen}
+        nativeControls={fullscreen || mode === "vod"}
         onFullscreenEnter={() => {
           setFullscreen(true);
         }}

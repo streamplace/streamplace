@@ -214,24 +214,19 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *streampl
 		imageURL = cardURL.String()
 	}
 
-	titleStr := fmt.Sprintf("@%s's video on ", authorHandle)
-
-	// Define all meta tags
+	// Define all meta tags. The title/description pair is appended after we
+	// resolve the node's branding title below: the card headline is the
+	// video's own title, and the author + node go in the description.
 	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: video.Title},
-
 		// Facebook Meta Tags
 		{Type: "property", Key: "og:url", Content: outURL},
 		{Type: "property", Key: "og:type", Content: "video.other"},
-		{Type: "property", Key: "og:description", Content: video.Title},
 		{Type: "property", Key: "og:image", Content: imageURL},
 
 		// Twitter Meta Tags
 		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
 		{Type: "property", Key: "twitter:domain", Content: u.Host},
 		{Type: "property", Key: "twitter:url", Content: outURL},
-		{Type: "name", Key: "twitter:description", Content: video.Title},
 		{Type: "name", Key: "twitter:image", Content: imageURL},
 	}
 
@@ -261,20 +256,21 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *streampl
 		}
 	}
 
-	// do twitter/og title after
-	metaTags = append(metaTags, MetaTag{
-		Type:    "property",
-		Key:     "og:title",
-		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
-	})
-	metaTags = append(metaTags, MetaTag{
-		Type:    "name",
-		Key:     "twitter:title",
-		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
-	})
+	// The card headline is the video's own title; the author + node name go
+	// in the description. Appended after the branding loop so the description
+	// can reference the resolved branding title.
+	title := video.Title
+	description := fmt.Sprintf("@%s's video on %s", authorHandle, brandingTitle)
+	metaTags = append(metaTags,
+		MetaTag{Type: "name", Key: "description", Content: description},
+		MetaTag{Type: "property", Key: "og:description", Content: description},
+		MetaTag{Type: "property", Key: "og:title", Content: title},
+		MetaTag{Type: "name", Key: "twitter:description", Content: description},
+		MetaTag{Type: "name", Key: "twitter:title", Content: title},
+	)
 
 	return l.GenerateHTML(ctx, &PageConfig{
-		Title:     fmt.Sprintf("%s%s", titleStr, brandingTitle),
+		Title:     title,
 		Metas:     metaTags,
 		SentryDSN: sentryDSN,
 	})

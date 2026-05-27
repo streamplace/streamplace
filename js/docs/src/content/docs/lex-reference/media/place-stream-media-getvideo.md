@@ -49,6 +49,7 @@ Get a hydrated view of a place.stream.video record — the record itself plus au
 | `author`     | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |                                                                                                                                                                                                                                |                  |
 | `record`     | `unknown`                                                                                                                                        | ✅    |                                                                                                                                                                                                                                |                  |
 | `viewCounts` | [`#viewCountSummary`](#viewcountsummary)                                                                                                         | ✅    | Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally. |                  |
+| `tracks`     | Array of [`place.stream.media.track#trackView`](/lex-reference/place-stream-media-track#trackview)                                               | ❌    |                                                                                                                                                                                                                                |                  |
 
 ---
 
@@ -129,6 +130,13 @@ Sums across every place.stream.media.viewCount record indexed for this video, re
           "type": "ref",
           "ref": "#viewCountSummary",
           "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.media.track#trackView"
+          }
         }
       }
     },

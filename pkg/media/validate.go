@@ -49,42 +49,83 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
+	vs, err := mm.validateSource(ctx, buf, local)
+	if err != nil {
+		return err
+	}
+	if vs == nil {
+		return nil // already have this segment
+	}
+
+	// Complete the segment to carry both AAC and Opus. A single-codec segment is
+	// fed to the stream's continuous transcoder, which distributes the completed
+	// dual-codec segment asynchronously (~1 GoP later, gapless). Everything else
+	// — already dual-codec, no audio, audio-only, an exotic codec, or no node
+	// signer — is distributed as-is, immediately.
+	if target, need := mm.audioCompletionTarget(ctx, buf); need {
+		if cert, keyPEM, serr := mm.transcodeSigner(); serr == nil {
+			return mm.feedStreamTranscoder(ctx, vs, buf, target, cert, keyPEM)
+		} else {
+			log.Warn(ctx, "node transcode signer unavailable, distributing single-codec", "error", serr)
+		}
+	}
+	return mm.distributeSegment(ctx, vs, buf)
+}
+
+// validatedSegment carries the per-segment context derived from validating the
+// SOURCE segment. It is threaded through to distributeSegment, which may run
+// later (and over the COMPLETED dual-codec bytes) when codec completion is
+// async — the metadata still comes from the source.
+type validatedSegment struct {
+	meta          *SegmentMetadata
+	mediaData     *localdb.SegmentMediaData
+	label         string
+	repoDID       string
+	signingKeyDID string
+	local         bool
+}
+
+// validateSource verifies + media-parses a bare canonical .m4s, resolves the
+// streamer identity, and runs the dedup / distribution-policy / content /
+// allow-list checks. It returns the per-segment context, or (nil, nil) when the
+// segment is already known (dedup skip).
+func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bool) (*validatedSegment, error) {
+	tracer := otel.Tracer("signer")
+
 	valid, err := ValidateMP4Media(ctx, buf)
 	if err != nil {
-		return fmt.Errorf("failed to validate MP4 media: %w", err)
+		return nil, fmt.Errorf("failed to validate MP4 media: %w", err)
 	}
 	meta := valid.Meta
 	pub := valid.Pub
-	mediaData := valid.MediaData
-	manifest := valid.Manifest
 
-	label := manifest.Label
-	if label != nil && mm.model != nil {
+	if valid.Manifest.Label == nil {
+		return nil, fmt.Errorf("segment manifest has no label")
+	}
+	label := *valid.Manifest.Label
+	if mm.model != nil {
 		_, dbSpan := tracer.Start(ctx, "ValidateMP4.LocalDB.GetSegment")
-		oldSeg, err := mm.localDB.GetSegment(*label)
+		oldSeg, err := mm.localDB.GetSegment(label)
 		dbSpan.End()
 		if err != nil {
-			return fmt.Errorf("failed to get old segment: %w", err)
+			return nil, fmt.Errorf("failed to get old segment: %w", err)
 		}
 		if oldSeg != nil {
-			log.Warn(ctx, "segment already exists, skipping", "segmentID", *label)
-			return nil
+			log.Warn(ctx, "segment already exists, skipping", "segmentID", label)
+			return nil, nil
 		}
 	}
 
-	if meta.MetadataConfiguration != nil {
-		if meta.MetadataConfiguration.DistributionPolicy != nil {
-			allowedBroadcasters := meta.MetadataConfiguration.DistributionPolicy.AllowedBroadcasters
-			if allowedBroadcasters != nil {
-				if !slices.Contains(allowedBroadcasters, "*") && !slices.Contains(allowedBroadcasters, fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost)) {
-					return fmt.Errorf("broadcaster %s is not allowed to distribute content. Allowed broadcasters: %v", fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost), allowedBroadcasters)
-				}
+	if meta.MetadataConfiguration != nil && meta.MetadataConfiguration.DistributionPolicy != nil {
+		allowedBroadcasters := meta.MetadataConfiguration.DistributionPolicy.AllowedBroadcasters
+		if allowedBroadcasters != nil {
+			if !slices.Contains(allowedBroadcasters, "*") && !slices.Contains(allowedBroadcasters, fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost)) {
+				return nil, fmt.Errorf("broadcaster %s is not allowed to distribute content. Allowed broadcasters: %v", fmt.Sprintf("did:web:%s", mm.cli.BroadcasterHost), allowedBroadcasters)
 			}
 		}
 	}
 
-	var repoDID string
-	var signingKeyDID string
+	var repoDID, signingKeyDID string
 	// special case for test signers that are only signed with a key
 	if strings.HasPrefix(meta.Creator, constants.DID_KEY_PREFIX) {
 		signingKeyDID = meta.Creator
@@ -94,67 +135,72 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		repo, err := mm.atsync.SyncBlueskyRepoCached(atCtx, meta.Creator)
 		atSpan.End()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		modelCtx, modelSpan := tracer.Start(ctx, "ValidateMP4.GetSigningKey")
 		signingKey, err := mm.model.GetSigningKey(modelCtx, pub.DIDKey(), repo.DID)
 		modelSpan.End()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if signingKey == nil {
-			return fmt.Errorf("no signing key found for %s", pub.DIDKey())
+			return nil, fmt.Errorf("no signing key found for %s", pub.DIDKey())
 		}
 		repoDID = repo.DID
 		signingKeyDID = signingKey.DID
 	}
 
-	err = mm.cli.StreamIsAllowed(repoDID)
-	if err != nil {
-		return fmt.Errorf("got valid segment, but user %s is not allowed: %w", repoDID, err)
+	if err := mm.cli.StreamIsAllowed(repoDID); err != nil {
+		return nil, fmt.Errorf("got valid segment, but user %s is not allowed: %w", repoDID, err)
 	}
 
 	// Apply content filtering after metadata is parsed
 	if mm.cli.ContentFilters != nil {
 		if err := mm.applyContentFilters(ctx, meta); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	// Complete the segment's audio so it carries both AAC and Opus (no-op when
-	// already dual-codec, audio-only, or the codec is neither). The added track
-	// is signed under the node's own identity as a c2pa.transcoded derivative
-	// of the source audio track. Everything archived/distributed below uses the
-	// completed bytes; replicas re-run this and find it already complete.
-	completed, err := mm.completeAudioCodecs(ctx, buf)
-	if err != nil {
-		return fmt.Errorf("complete audio codecs: %w", err)
-	}
-	buf = completed
+	return &validatedSegment{
+		meta:          meta,
+		mediaData:     valid.MediaData,
+		label:         label,
+		repoDID:       repoDID,
+		signingKeyDID: signingKeyDID,
+		local:         local,
+	}, nil
+}
+
+// distributeSegment archives the segment, folds it into the streamer's live-HLS
+// window, and notifies subscribers. seg is the bytes to store/distribute — the
+// completed dual-codec segment when completion ran, else the validated source
+// segment; vs carries the metadata derived from the source. May be invoked
+// synchronously from ValidateMP4 or asynchronously from the stream transcoder,
+// so it takes its own (non-request) context in the latter case.
+func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
+	tracer := otel.Tracer("signer")
+	meta := vs.meta
 
 	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
-		attribute.Int("bytes", len(buf)),
+		attribute.Int("bytes", len(seg)),
 	))
-	fd, err := mm.cli.SegmentFileCreate(repoDID, meta.StartTime, "m4s")
+	fd, err := mm.cli.SegmentFileCreate(vs.repoDID, meta.StartTime, "m4s")
 	if err != nil {
 		fileSpan.End()
 		return err
 	}
 	defer fd.Close()
-
-	r := bytes.NewReader(buf)
-	if _, err := io.Copy(fd, r); err != nil {
+	if _, err := io.Copy(fd, bytes.NewReader(seg)); err != nil {
 		fileSpan.End()
 		return err
 	}
 	fileSpan.End()
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
-	// critical path. This runs for every segment — locally signed or
-	// replicated from another node — so any node that validates a stream's
-	// segments can serve its live HLS. WithoutCancel keeps the feed alive past
-	// this request's context.
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), repoDID, buf)
+	// critical path. This runs for every segment — locally signed or replicated
+	// from another node — so any node that validates a stream's segments can
+	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg)
 
 	var deleteAfter *time.Time
 	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
@@ -165,46 +211,44 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 			expiryTime := meta.StartTime.Time().Add(time.Duration(secs) * time.Second)
 			deleteAfter = &expiryTime
 		}
-	} else {
-		if mm.cli.SegmentArchiveRetention.Seconds() != 0 {
-			tomorrow := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
-			deleteAfter = &tomorrow
-		}
+	} else if mm.cli.SegmentArchiveRetention.Seconds() != 0 {
+		tomorrow := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
+		deleteAfter = &tomorrow
 	}
-	seg := &localdb.Segment{
-		ID:                 *label,
-		SigningKeyDID:      signingKeyDID,
-		RepoDID:            repoDID,
+	dbSeg := &localdb.Segment{
+		ID:                 vs.label,
+		SigningKeyDID:      vs.signingKeyDID,
+		RepoDID:            vs.repoDID,
 		StartTime:          meta.StartTime.Time(),
 		Title:              meta.Title,
-		Size:               len(buf),
-		MediaData:          mediaData,
+		Size:               len(seg),
+		MediaData:          vs.mediaData,
 		ContentWarnings:    localdb.ContentWarningsSlice(meta.ContentWarnings),
 		ContentRights:      meta.ContentRights,
 		DistributionPolicy: meta.DistributionPolicy,
 		DeleteAfter:        deleteAfter,
 		Published:          meta.Published,
 	}
-	// The bytes archived above are the bare canonical .m4s. The local
-	// distribution pipelines (HLS transmux, WebRTC, transcode, thumbnail) still
-	// consume a presentation MP4, so synthesize a flat MP4 over the canonical
-	// segments for the notification's Data field; the segment bytes (and their
-	// signatures) pass through verbatim in the mdat envelope. Replication
-	// forwarders instead ship the bare canonical Muxl bytes (see the iroh and
-	// websocket senders), which a receiving node re-validates unchanged.
+	// The archived bytes are the bare canonical .m4s. The local distribution
+	// pipelines (HLS transmux, WebRTC, transcode, thumbnail) still consume a
+	// presentation MP4, so synthesize a flat MP4 over the canonical segments for
+	// the notification's Data field; the segment bytes (and their signatures)
+	// pass through verbatim in the mdat envelope. Replication forwarders instead
+	// ship the bare canonical Muxl bytes (see the iroh and websocket senders),
+	// which a receiving node re-validates unchanged.
 	var playable bytes.Buffer
-	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(buf), "flat", &playable); err != nil {
+	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(seg), "flat", &playable); err != nil {
 		return fmt.Errorf("wrap segment for distribution: %w", err)
 	}
 
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()
 	not := &NewSegmentNotification{
-		Segment:  seg,
+		Segment:  dbSeg,
 		Data:     playable.Bytes(),
-		Muxl:     buf,
+		Muxl:     seg,
 		Metadata: meta,
-		Local:    local,
+		Local:    vs.local,
 	}
 	for _, ch := range mm.newSegmentSubs {
 		go func() {
@@ -213,13 +257,13 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 			case <-ctx.Done():
 				return
 			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "streamer", repoDID, "signingKey", signingKeyDID, "segmentID", *label)
+				log.Warn(ctx, "failed to send segment to channel, timing out", "streamer", vs.repoDID, "signingKey", vs.signingKeyDID, "segmentID", vs.label)
 				return
 			}
 		}()
 	}
 	aqt := aqtime.FromTime(meta.StartTime.Time())
-	log.Log(ctx, "successfully ingested segment", "user", repoDID, "signingKey", signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", *label)
+	log.Log(ctx, "successfully ingested segment", "user", vs.repoDID, "signingKey", vs.signingKeyDID, "timestamp", aqt.FileSafeString(), "segmentID", vs.label)
 	return nil
 }
 

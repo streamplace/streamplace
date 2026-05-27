@@ -7,10 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
@@ -72,167 +70,49 @@ func (mm *MediaManager) transcodeSigner() (cert []byte, keyPEM []byte, err error
 	return mm.nodeCert, mm.nodeKeyPEM, mm.nodeSignerErr
 }
 
-// completeAudioCodecs ensures a validated segment carries both AAC and Opus
-// audio. seg is the bare canonical .m4s for one GoP (all tracks). It inspects
-// the embedded catalog; if exactly one audio codec is present it transcodes
-// the audio to the other, mints it at a free track id, signs it as a
-// c2pa.transcoded derivative of the source audio track (under the node
-// identity), and returns seg with the new signed track appended. It is a
-// no-op (returns seg unchanged) when both codecs are already present, when
-// there is no audio, when there is no video to anchor GoP boundaries, or when
-// the audio codec is neither AAC nor Opus.
-func (mm *MediaManager) completeAudioCodecs(ctx context.Context, seg []byte) ([]byte, error) {
-	// 1. Unwrap the source segment: catalog (codecs/track-ids) + per-track
-	//    bytes (the signed source-audio track we'll declare as the parent).
+// audioCompletionTarget inspects a segment's catalog and reports the codec to
+// add ("opus" or "aac") when exactly one of AAC/Opus is present alongside a
+// video track (needed as the segmentation clock). need is false when both
+// codecs are already present, there's no audio, there's no video, or the codec
+// is neither — in which case the segment is distributed as-is.
+func (mm *MediaManager) audioCompletionTarget(ctx context.Context, seg []byte) (target string, need bool) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap segment: %w", err)
+		log.Warn(ctx, "codec-completion inspect: unwrap failed", "error", err)
+		return "", false
 	}
-	cat, tracks := catalogAndTracks(events)
-	if cat == nil || cat.Audio == nil {
-		return seg, nil // no audio to complete
+	cat, _ := catalogAndTracks(events)
+	if cat == nil || cat.Audio == nil || cat.Video == nil {
+		return "", false
 	}
-
-	var (
-		haveAAC, haveOpus bool
-		srcAudioTID       uint32
-		srcAudioCodec     string
-		maxTID            uint32
-	)
-	if cat.Video != nil {
-		for _, v := range cat.Video.Renditions {
-			maxTID = maxU32(maxTID, v.TrackID())
-		}
-	}
+	var haveAAC, haveOpus bool
 	for _, a := range cat.Audio.Renditions {
-		maxTID = maxU32(maxTID, a.TrackID())
-		switch {
-		case isAACCodec(a.Codec):
+		if isAACCodec(a.Codec) {
 			haveAAC = true
-		case isOpusCodec(a.Codec):
+		}
+		if isOpusCodec(a.Codec) {
 			haveOpus = true
 		}
-		srcAudioTID = a.TrackID()
-		srcAudioCodec = a.Codec
 	}
-
-	// 2. Decide whether (and to what) we need to transcode.
-	if haveAAC && haveOpus {
-		return seg, nil // already complete
-	}
-	var target string
 	switch {
 	case haveAAC && !haveOpus:
-		target = "opus"
+		return "opus", true
 	case haveOpus && !haveAAC:
-		target = "aac"
+		return "aac", true
 	default:
-		log.Warn(ctx, "segment audio codec not AAC/Opus, skipping codec completion", "codec", srcAudioCodec)
-		return seg, nil
+		return "", false
 	}
-	if cat.Video == nil {
-		// No video reference: GoP boundaries can't be anchored cleanly for the
-		// transcoded track. Audio-only live is rare; skip for now.
-		log.Warn(ctx, "audio-only segment, skipping codec completion")
-		return seg, nil
-	}
-
-	sourceAudio := tracks[strconv.FormatUint(uint64(srcAudioTID), 10)]
-	if len(sourceAudio) == 0 {
-		return nil, fmt.Errorf("source audio track %d missing from segment", srcAudioTID)
-	}
-
-	cert, keyPEM, err := mm.transcodeSigner()
-	if err != nil {
-		// No node signing identity (e.g. server repo not initialized) — leave
-		// the segment single-codec rather than failing ingest.
-		log.Warn(ctx, "node transcode signer unavailable, skipping codec completion", "error", err)
-		return seg, nil
-	}
-
-	// 3. Wrap the whole segment to a flat MP4 (gstreamer needs video present so
-	//    muxl's keyframe-anchored canonicalization yields one aligned segment).
-	var flat bytes.Buffer
-	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(seg), "flat", &flat); err != nil {
-		return nil, fmt.Errorf("wrap segment for transcode: %w", err)
-	}
-
-	// 4. Transcode the audio (video passes through, for GoP alignment only).
-	transFmp4, err := transcodeAudioSegment(ctx, flat.Bytes(), target)
-	if err != nil {
-		return nil, fmt.Errorf("transcode audio to %s: %w", target, err)
-	}
-
-	// 5. Find the transcoded audio track's id, then canonicalize remapping it
-	//    to a free id so it can join the source tracks without colliding.
-	transEvents, err := segmentMuxlEvents(ctx, transFmp4)
-	if err != nil {
-		return nil, fmt.Errorf("segment transcoded output: %w", err)
-	}
-	transCat, _ := catalogAndTracks(transEvents)
-	if transCat == nil || transCat.Audio == nil {
-		return nil, fmt.Errorf("transcoded output has no audio track")
-	}
-	var transAudioTID uint32
-	for _, a := range transCat.Audio.Renditions {
-		transAudioTID = a.TrackID()
-	}
-	freeTID := maxTID + 1
-	canon, err := muxl.RunMuxlCanonicalize(ctx, transFmp4, map[uint32]uint32{transAudioTID: freeTID})
-	if err != nil {
-		return nil, fmt.Errorf("canonicalize transcoded output: %w", err)
-	}
-
-	// 6. Extract the (now-free-id) transcoded audio track as a bare unsigned
-	//    canonical .m4s — the SignTranscode output.
-	canonEvents, err := unwrapMuxlEvents(ctx, canon)
-	if err != nil {
-		return nil, fmt.Errorf("unwrap canonicalized output: %w", err)
-	}
-	_, canonTracks := catalogAndTracks(canonEvents)
-	output := canonTracks[strconv.FormatUint(uint64(freeTID), 10)]
-	if len(output) == 0 {
-		return nil, fmt.Errorf("transcoded audio track %d missing after canonicalize", freeTID)
-	}
-
-	// 7. Sign the transcoded track as a c2pa.transcoded derivative of the
-	//    source audio track, under the node identity.
-	signed, err := muxl.RunMuxlSignTranscode(ctx, muxl.TranscodeInput{
-		Output:   output,
-		Source:   sourceAudio,
-		CertPEM:  cert,
-		KeyPEM:   keyPEM,
-		Manifest: transcodeManifest(mm.cli.BroadcasterDID()),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("sign transcoded track: %w", err)
-	}
-
-	// 8. Append the signed track. Its id is the largest, so concatenating it
-	//    last preserves the canonical track-id-ascending segment order.
-	completed := make([]byte, 0, len(seg)+len(signed))
-	completed = append(completed, seg...)
-	completed = append(completed, signed...)
-	log.Log(ctx, "completed segment audio codecs",
-		"source_codec", srcAudioCodec, "added_codec", target,
-		"source_track", srcAudioTID, "added_track", freeTID,
-		"in_bytes", len(seg), "out_bytes", len(completed))
-	return completed, nil
 }
 
-// transcodeAudioSegment transcodes the audio of a flat MP4 segment to the
-// target codec ("opus" or "aac"), passing video through untouched, and returns
-// a fragmented MP4 (video + transcoded audio). Video rides along only so muxl
-// can anchor the canonical segment on the video keyframe; the caller keeps the
-// original signed video and uses only the transcoded audio track.
-func transcodeAudioSegment(ctx context.Context, flat []byte, target string) ([]byte, error) {
-	// Watchdog: a per-segment audio transcode is a sub-second real-time job. A
-	// stalled gstreamer pipeline only posts non-fatal warnings (not bus errors),
-	// so bound it explicitly — a hang surfaces as an error instead of wedging
-	// the whole validate/ingest path.
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
+// buildAudioTranscodePipeline constructs the audio-transcode pipeline shared by
+// the per-segment ([transcodeAudioSegment]) and continuous ([streamTranscoder])
+// paths: an `appsrc` of fMP4 → qtdemux → video (h264parse passthrough) + audio
+// (decode → re-encode to target) → fragmented mp4mux → `appsink`. Video rides
+// along only so muxl can anchor the canonical segment on the video keyframe;
+// callers keep the original signed video and use only the transcoded audio
+// track. Callers wire the `src`/`sink` callbacks and set the pipeline playing.
+// target is the codec being produced: "opus" (source AAC) or "aac" (source Opus).
+func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	var audioChain string
 	switch target {
 	case "opus": // source is AAC
@@ -251,11 +131,6 @@ func transcodeAudioSegment(ctx context.Context, flat []byte, target string) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("create transcode pipeline: %w", err)
 	}
-	defer func() {
-		if e := pipeline.SetState(gst.StateNull); e != nil {
-			log.Error(ctx, "transcode: set null", "error", e)
-		}
-	}()
 
 	// Fragmented muxer + appsink, built programmatically so we can set the
 	// enum fragment-mode and pre-request pads in video-then-audio order.
@@ -324,37 +199,14 @@ func transcodeAudioSegment(ctx context.Context, flat []byte, target string) ([]b
 			return
 		}
 		if r := pad.Link(dst); r != gst.PadLinkOK {
-			log.Error(ctx, "transcode: link demux pad", "name", name, "result", r)
+			// non-fatal: a stray pad (e.g. a second audio track) is just dropped
+			fmt.Printf("transcode: failed to link demux pad %s: %v\n", name, r)
 		}
 	}); err != nil {
 		return nil, fmt.Errorf("connect demux pad-added: %w", err)
 	}
 
-	srcEle, err := pipeline.GetElementByName("src")
-	if err != nil {
-		return nil, err
-	}
-	app.SrcFromElement(srcEle).SetCallbacks(&app.SourceCallbacks{
-		NeedDataFunc: ReaderNeedDataIncremental(ctx, bytes.NewReader(flat)),
-	})
-
-	var out bytes.Buffer
-	app.SinkFromElement(sink).SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, &out),
-	})
-
-	errCh := make(chan error, 1)
-	go func() { errCh <- HandleBusMessages(ctx, pipeline) }()
-	if err := pipeline.SetState(gst.StatePlaying); err != nil {
-		return nil, fmt.Errorf("transcode: set playing: %w", err)
-	}
-	if err := <-errCh; err != nil {
-		return nil, fmt.Errorf("transcode pipeline: %w", err)
-	}
-	if out.Len() == 0 {
-		return nil, fmt.Errorf("transcode produced no output")
-	}
-	return out.Bytes(), nil
+	return pipeline, nil
 }
 
 // --- muxl event helpers ---

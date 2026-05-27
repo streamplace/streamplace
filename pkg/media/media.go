@@ -63,6 +63,12 @@ type MediaManager struct {
 	nodeCert       []byte
 	nodeKeyPEM     []byte
 	nodeSignerErr  error
+
+	// Per-stream continuous audio transcoders, keyed by repoDID. A single-codec
+	// stream's segments are fed here in order; each completed dual-codec segment
+	// is distributed asynchronously (~1 GoP later). See transcode_stream.go.
+	transcoders   map[string]*streamTranscoder
+	transcodersMu sync.Mutex
 }
 
 type NewSegmentNotification struct {
@@ -146,6 +152,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		webrtcAPI:    api,
 		webrtcConfig: config,
 		localDB:      ldb,
+		transcoders:  map[string]*streamTranscoder{},
 	}, nil
 }
 

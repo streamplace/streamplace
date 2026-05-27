@@ -253,18 +253,35 @@ func (w *Writer) MasterPlaylist(trackURL func(trackID string) string) string {
 	var b strings.Builder
 	b.WriteString("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n")
 
+	// Pick the primary audio rendition: prefer AAC (broadest HLS support —
+	// Safari has no Opus) so it's the default; any other codec (Opus) stays a
+	// selectable alternate. A segment may carry both after codec completion.
+	primaryAudio := ""
+	for _, tid := range w.order {
+		if t := w.tracks[tid]; t.Type == "audio" {
+			if primaryAudio == "" {
+				primaryAudio = tid
+			}
+			if strings.HasPrefix(t.Codec, "mp4a") {
+				primaryAudio = tid
+				break
+			}
+		}
+	}
 	var audioCodec string
-	haveAudio := false
+	haveAudio := primaryAudio != ""
 	for _, tid := range w.order {
 		t := w.tracks[tid]
-		if t.Type == "audio" {
-			haveAudio = true
-			if audioCodec == "" {
-				audioCodec = t.Codec
-			}
-			fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
-				"audio", t.Codec, strconv.Itoa(int(maxU32(t.Channels, 2))), trackURL(tid))
+		if t.Type != "audio" {
+			continue
 		}
+		def := "NO"
+		if tid == primaryAudio {
+			def = "YES"
+			audioCodec = t.Codec
+		}
+		fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=%s,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
+			"audio", t.Codec, def, strconv.Itoa(int(maxU32(t.Channels, 2))), trackURL(tid))
 	}
 	for _, tid := range w.order {
 		t := w.tracks[tid]

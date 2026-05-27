@@ -10,6 +10,11 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
+// LOCAL DEV: build against the working-tree muxl (dual-codec / track-id work).
+// Before merge: commit + push the muxl changes and bump the pinned
+// pseudo-version above, then drop this replace (the documented merge-blocker).
+replace github.com/streamplace/muxl/go => ../muxl/go
+
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 require (

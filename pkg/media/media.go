@@ -54,6 +54,15 @@ type MediaManager struct {
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
 	localDB             localdb.LocalDB
+
+	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
+	// server-repo key. Used to sign transcode-completed audio tracks under the
+	// node's own did:web identity, signed in-wasm (the node key is software).
+	// See transcode.go.
+	nodeSignerOnce sync.Once
+	nodeCert       []byte
+	nodeKeyPEM     []byte
+	nodeSignerErr  error
 }
 
 type NewSegmentNotification struct {

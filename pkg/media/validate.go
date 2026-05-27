@@ -121,6 +121,17 @@ func (mm *MediaManager) ValidateMP4(ctx context.Context, input io.Reader, local 
 		}
 	}
 
+	// Complete the segment's audio so it carries both AAC and Opus (no-op when
+	// already dual-codec, audio-only, or the codec is neither). The added track
+	// is signed under the node's own identity as a c2pa.transcoded derivative
+	// of the source audio track. Everything archived/distributed below uses the
+	// completed bytes; replicas re-run this and find it already complete.
+	completed, err := mm.completeAudioCodecs(ctx, buf)
+	if err != nil {
+		return fmt.Errorf("complete audio codecs: %w", err)
+	}
+	buf = completed
+
 	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
 		attribute.Int("bytes", len(buf)),
 	))

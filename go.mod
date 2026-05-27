@@ -38,7 +38,6 @@ require (
 	github.com/golangci/golangci-lint/v2 v2.1.6
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/hyphacoop/go-dasl v0.8.0
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-ipld-cbor v0.2.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
@@ -65,10 +64,10 @@ require (
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
+	github.com/streamplace/muxl/go v0.0.0-20260526201538-22bb7055201b
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
-	github.com/tetratelabs/wazero v1.11.0
 	github.com/tus/tusd/v2 v2.8.0
 	github.com/urfave/cli/v3 v3.6.2
 	github.com/whyrusleeping/cbor-gen v0.3.1
@@ -98,7 +97,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-isatty v0.0.20
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	gorm.io/gorm v1.26.1
 )
 
@@ -312,6 +311,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/hyphacoop/cbor/v2 v2.0.0-20251007204234-2a4fa83e606e // indirect
+	github.com/hyphacoop/go-dasl v0.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
@@ -354,7 +354,7 @@ require (
 	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.6 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
+	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kolesa-team/go-webp v1.0.5 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.14 // indirect
@@ -496,6 +496,7 @@ require (
 	github.com/tdewolff/minify/v2 v2.23.4 // indirect
 	github.com/tdewolff/parse/v2 v2.8.0 // indirect
 	github.com/tetafro/godot v1.5.1 // indirect
+	github.com/tetratelabs/wazero v1.11.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
 	github.com/timonwong/loggercheck v0.11.0 // indirect

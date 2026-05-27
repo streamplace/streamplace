@@ -2,7 +2,6 @@ package director
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -69,7 +68,6 @@ func (d *Director) Start(ctx context.Context) error {
 			ss, ok := d.streamSessions[not.Segment.RepoDID]
 			if !ok {
 				ss = &StreamSession{
-					hls:         nil,
 					lp:          nil,
 					repoDID:     not.Segment.RepoDID,
 					mm:          d.mm,
@@ -110,14 +108,4 @@ func (d *Director) Start(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-func (d *Director) GetM3U8(ctx context.Context, repoDID string) (*media.M3U8, error) {
-	d.streamSessionsMu.Lock()
-	defer d.streamSessionsMu.Unlock()
-	ss, ok := d.streamSessions[repoDID]
-	if !ok {
-		return nil, fmt.Errorf("stream session not found")
-	}
-	return ss.hls, nil
 }

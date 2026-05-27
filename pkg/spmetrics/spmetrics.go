@@ -66,7 +66,7 @@ var SigningDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 // SegmentDeliveryDuration measures wall time from when the muxer hands a
 // fresh segment to the sign callback through the end of validation —
 // i.e. the latency the user actually waits on before the segment is
-// available downstream. Wraps SignMP4 + ValidateMP4.
+// available downstream. Wraps per-segment signing + ValidateMP4.
 var SegmentDeliveryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "streamplace_segment_delivery_duration_ms",
 	Help:    "duration of sign + validate in ms (the user-visible per-segment latency)",

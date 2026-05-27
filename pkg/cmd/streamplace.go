@@ -74,7 +74,6 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeVODTestCommand(build),
 		makeStreamCommand(build),
 		makeLiveCommand(build),
-		makeSignCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
 		makeCombineCommand(build),
@@ -529,10 +528,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 
 	group.Go(func() error {
-		return a.ExpireSessions(ctx)
-	})
-
-	group.Go(func() error {
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
 
@@ -852,51 +847,6 @@ func makeLiveCommand(build *config.BuildFlags) *urfavecli.Command {
 		return Live(args.First(), cli.HTTPInternalAddr)
 	}
 	return liveCmd
-}
-
-func makeSignCommand(build *config.BuildFlags) *urfavecli.Command {
-	return &urfavecli.Command{
-		Name:  "sign",
-		Usage: "sign command",
-		Flags: []urfavecli.Flag{
-			&urfavecli.StringFlag{
-				Name:  "cert",
-				Usage: "path to the certificate file",
-			},
-			&urfavecli.StringFlag{
-				Name:  "key",
-				Usage: "base58-encoded secp256k1 private key",
-			},
-			&urfavecli.StringFlag{
-				Name:  "streamer",
-				Usage: "streamer name",
-			},
-			&urfavecli.StringFlag{
-				Name:  "ta-url",
-				Usage: "timestamp authority server for signing",
-				Value: "http://timestamp.digicert.com",
-			},
-			&urfavecli.IntFlag{
-				Name:  "start-time",
-				Usage: "start time of the stream",
-			},
-			&urfavecli.StringFlag{
-				Name:  "manifest",
-				Usage: "JSON manifest to use for signing",
-			},
-		},
-		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
-			return Sign(
-				ctx,
-				cmd.String("cert"),
-				cmd.String("key"),
-				cmd.String("streamer"),
-				cmd.String("ta-url"),
-				int64(cmd.Int("start-time")),
-				cmd.String("manifest"),
-			)
-		},
-	}
 }
 
 func makeWhepCommand(build *config.BuildFlags) *urfavecli.Command {

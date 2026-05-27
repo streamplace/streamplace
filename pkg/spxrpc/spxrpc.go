@@ -104,6 +104,10 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// echo's last-write-wins for exact-match routes.
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandleGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandleGetVideoPlaylist)
+	// Live HLS, same override rationale (Range + mpegurl), served from the
+	// in-memory live window instead of a stored metafile.
+	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)
+	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandleGetLiveSegment)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil

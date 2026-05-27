@@ -43,7 +43,6 @@ type StreamSession struct {
 	cli            *config.CLI
 	bus            *bus.Bus
 	op             *oatproxy.OATProxy
-	hls            *media.M3U8
 	lp             *livepeer.LivepeerSession
 	repoDID        string
 	segmentChan    chan struct{}
@@ -108,7 +107,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	}
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
-	ss.hls = media.NewM3U8(allRenditions)
 
 	// ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
 
@@ -202,6 +200,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
 			Filepath:  notif.Segment.ID,
 			Data:      notif.Data,
+			Muxl:      notif.Muxl,
 			Published: notif.Metadata.Published,
 		})
 	})
@@ -211,10 +210,6 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			return ss.statefulDB.UpsertBroadcastOrigin(spseg.Creator, ss.cli.ServerDID(), time.Now())
 		})
 	}
-
-	ss.Go(ctx, func() error {
-		return ss.AddAudioOnlyHLSSegment(ctx, spseg, notif.Data)
-	})
 
 	if ss.cli.Thumbnail {
 		ss.Go(ctx, func() error {
@@ -803,11 +798,6 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 }
 
 func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
-	if seg.Published {
-		ss.Go(ctx, func() error {
-			return ss.AddToHLS(ctx, spseg, rendition, seg.Data)
-		})
-	}
 	ss.Go(ctx, func() error {
 		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
 	})
@@ -821,67 +811,6 @@ func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *streamplace.Seg
 	}
 	seg.PacketizedData = packet
 	ss.bus.PublishSegment(ctx, spseg.Creator, rendition, seg)
-	return nil
-}
-
-func (ss *StreamSession) AddToHLS(ctx context.Context, spseg *streamplace.Segment, rendition string, data []byte) error {
-	buf := bytes.Buffer{}
-	dur, err := media.MP4ToMPEGTS(ctx, bytes.NewReader(data), &buf)
-	if err != nil {
-		return fmt.Errorf("failed to convert MP4 to MPEG-TS: %w", err)
-	}
-	// newSeg := &streamplace.Segment{
-	// 	LexiconTypeID: "place.stream.segment",
-	// 	Id:            spseg.Id,
-	// 	Creator:       spseg.Creator,
-	// 	StartTime:     spseg.StartTime,
-	// 	Duration:      &dur,
-	// 	Audio:         spseg.Audio,
-	// 	Video:         spseg.Video,
-	// 	SigningKey:    spseg.SigningKey,
-	// }
-	aqt, err := aqtime.FromString(spseg.StartTime)
-	if err != nil {
-		return fmt.Errorf("failed to parse segment start time: %w", err)
-	}
-	log.Debug(ctx, "transmuxed to mpegts, adding to hls", "rendition", rendition, "size", buf.Len())
-	rend, err := ss.hls.GetRendition(rendition)
-	if err != nil {
-		return fmt.Errorf("failed to get rendition: %w", err)
-	}
-	if err := rend.NewSegment(&media.Segment{
-		Buf:      &buf,
-		Duration: time.Duration(dur),
-		Time:     aqt.Time(),
-	}); err != nil {
-		return fmt.Errorf("failed to create new segment: %w", err)
-	}
-
-	return nil
-}
-
-func (ss *StreamSession) AddAudioOnlyHLSSegment(ctx context.Context, spseg *streamplace.Segment, data []byte) error {
-	buf := bytes.Buffer{}
-	dur, err := media.MP4ToMPEGTSAudioOnly(ctx, bytes.NewReader(data), &buf)
-	if err != nil {
-		return fmt.Errorf("failed to convert MP4 to audio-only MPEG-TS: %w", err)
-	}
-	aqt, err := aqtime.FromString(spseg.StartTime)
-	if err != nil {
-		return fmt.Errorf("failed to parse segment start time: %w", err)
-	}
-	log.Debug(ctx, "transmuxed to audio-only mpegts, adding to hls", "size", buf.Len())
-	rend, err := ss.hls.GetRendition(renditions.AudioRendition.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get audio rendition: %w", err)
-	}
-	if err := rend.NewSegment(&media.Segment{
-		Buf:      &buf,
-		Duration: time.Duration(dur),
-		Time:     aqt.Time(),
-	}); err != nil {
-		return fmt.Errorf("failed to create new audio segment: %w", err)
-	}
 	return nil
 }
 

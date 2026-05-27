@@ -121,7 +121,6 @@ type CLI struct {
 	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
 	DiscordWebhooks             []*discordtypes.Webhook
-	NewWebRTCPlayback           bool
 	AppleTeamID                 string
 	AndroidCertFingerprint      string
 	Labelers                    []string
@@ -158,7 +157,6 @@ type CLI struct {
 	S3Region                    string
 	VODCDNURL                   string
 	DisableSyndication          bool
-	LegacySegmentation          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
 	GamesAPIURL                 string
@@ -614,13 +612,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				},
 				Sources: urfavecli.EnvVars("SP_DISCORD_WEBHOOKS"),
 			},
-			&urfavecli.BoolFlag{
-				Name:        "new-webrtc-playback",
-				Usage:       "enable new webrtc playback",
-				Value:       true,
-				Destination: &cli.NewWebRTCPlayback,
-				Sources:     urfavecli.EnvVars("SP_NEW_WEBRTC_PLAYBACK"),
-			},
 			&urfavecli.StringFlag{
 				Name:        "apple-team-id",
 				Usage:       "apple team id for deep linking",
@@ -969,13 +960,6 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       10 * time.Minute,
 				Destination: &cli.ViewCountAggregateLag,
 				Sources:     urfavecli.EnvVars("SP_VIEW_COUNT_AGGREGATE_LAG"),
-			},
-			&urfavecli.BoolFlag{
-				Name:        "legacy-segmentation",
-				Usage:       "switch back from MUXL to legacy segmentation in case streams have problems (shouldn't need!)",
-				Value:       false,
-				Sources:     urfavecli.EnvVars("SP_LEGACY_SEGMENTATION"),
-				Destination: &cli.LegacySegmentation,
 			},
 			&urfavecli.BoolFlag{
 				Name:  "external-signing",

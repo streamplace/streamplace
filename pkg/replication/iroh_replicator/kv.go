@@ -445,7 +445,10 @@ func (swarm *IrohSwarm) SendSegment(ctx context.Context, not *media.NewSegmentNo
 	go func() {
 		spmetrics.SendSegmentCalls.Inc()
 		defer spmetrics.SendSegmentCalls.Dec()
-		err = swarm.Node.SendSegment(not.Segment.RepoDID, not.Data)
+		// Ship the bare canonical MUXL segment (blindly concatenatable, no
+		// presentation header) — smaller than the flat MP4 and the canonical
+		// form. The receiving node re-validates it verbatim via ValidateMP4.
+		err = swarm.Node.SendSegment(not.Segment.RepoDID, not.Muxl)
 		if err != nil {
 			log.Error(ctx, "could not send segment to swarm", "error", err)
 		}

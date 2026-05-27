@@ -21,6 +21,7 @@ import (
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/streamplace"
@@ -41,8 +42,8 @@ const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
 	cli                 *config.CLI
-	hlsRunning          map[string]*M3U8
-	hlsRunningMut       sync.Mutex
+	liveWindows         map[string]*livehls.Writer
+	liveWindowsMut      sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
@@ -56,8 +57,14 @@ type MediaManager struct {
 }
 
 type NewSegmentNotification struct {
-	Segment  *localdb.Segment
-	Data     []byte
+	Segment *localdb.Segment
+	// Data is the presentation flat MP4 (ftyp+moov+mdat envelope) consumed by
+	// the GStreamer pipelines (WebRTC packetize, thumbnail).
+	Data []byte
+	// Muxl is the bare canonical .m4s: blindly concatenatable signed segments
+	// with no container header. Consumers synthesize whatever wrapper they
+	// need. The long-term wire format; Data retires once all consumers are MUXL.
+	Muxl     []byte
 	Metadata *SegmentMetadata
 	Local    bool
 }
@@ -122,7 +129,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	}
 	return &MediaManager{
 		cli:          cli,
-		hlsRunning:   map[string]*M3U8{},
+		liveWindows:  map[string]*livehls.Writer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,
 		bus:          bus,

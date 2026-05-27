@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -135,6 +136,42 @@ func TestSlidingWindowEvictsAndAdvancesMediaSequence(t *testing.T) {
 	}
 	if w.SegmentData("1", 3) == nil {
 		t.Errorf("segment 3 should still be retained")
+	}
+}
+
+func TestRetentionEvictsStaleSegments(t *testing.T) {
+	w := NewWriter(WithWindow(12), WithRetention(30*time.Second))
+	clk := time.Unix(1000, 0)
+	w.now = func() time.Time { return clk }
+
+	if err := w.Observe(initEvent()); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Observe(segEvent([]byte{1}, []byte{1})) // seq 0 @ t=1000
+	clk = clk.Add(20 * time.Second)
+	_ = w.Observe(segEvent([]byte{2}, []byte{2})) // seq 1 @ t=1020
+
+	// t=1035, cutoff t=1005: seg0 (t=1000) ages out, seg1 (t=1020) survives.
+	clk = time.Unix(1035, 0)
+	if w.Empty() {
+		t.Fatal("window with a fresh segment must not be empty")
+	}
+	tr := w.Track("1")
+	if len(tr.Segments) != 1 || tr.Segments[0].Seq != 1 {
+		t.Fatalf("want only seg1 retained, got %d segments", len(tr.Segments))
+	}
+	if w.SegmentData("1", 0) != nil {
+		t.Error("aged-out seg0 must not be served")
+	}
+
+	// t=1060: both past retention (a stalled/ended stream) → window empties, so
+	// a retrying player stops replaying the stale tail.
+	clk = time.Unix(1060, 0)
+	if !w.Empty() {
+		t.Error("all segments past retention → window must be empty")
+	}
+	if pl := w.MediaPlaylist("1", "i", segURI); strings.Contains(pl, "seg1.m4s") {
+		t.Errorf("aged-out segment must not appear in the playlist:\n%s", pl)
 	}
 }
 

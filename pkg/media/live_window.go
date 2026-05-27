@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/log"
@@ -15,6 +16,15 @@ import (
 // storage-backed feature).
 const liveWindowSize = 12
 
+// liveWindowRetention ages segments out by wall-clock arrival time, independent
+// of liveWindowSize. The count window only evicts as new segments push old ones
+// out, so when a stream stalls or ends its last segments would otherwise sit in
+// the window forever and a retrying player replays them endlessly. With time
+// eviction the window empties this long after the last segment, and the window
+// is then dropped from the map (so the stream reads as offline). Generous
+// enough not to cut a briefly-lagging player.
+const liveWindowRetention = 30 * time.Second
+
 // liveWindow returns the streamer's in-memory live-HLS window, creating it on
 // first use.
 func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
@@ -22,19 +32,25 @@ func (mm *MediaManager) liveWindow(did string) *livehls.Writer {
 	defer mm.liveWindowsMut.Unlock()
 	w := mm.liveWindows[did]
 	if w == nil {
-		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize))
+		w = livehls.NewWriter(livehls.WithWindow(liveWindowSize), livehls.WithRetention(liveWindowRetention))
 		mm.liveWindows[did] = w
 	}
 	return w
 }
 
-// GetLiveWindow returns the streamer's live-HLS window, or nil if no segments
-// have been observed for them yet. The serving layer (XRPC live playlists)
-// reads playlists + segment bytes out of it.
+// GetLiveWindow returns the streamer's live-HLS window, or nil if it has no
+// live segments — either none observed yet, or all aged out (a stalled/ended
+// stream). In the latter case the window is dropped from the map so it's freed
+// and the stream reads as offline; it's recreated if the stream resumes.
 func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 	mm.liveWindowsMut.Lock()
 	defer mm.liveWindowsMut.Unlock()
-	return mm.liveWindows[did]
+	w := mm.liveWindows[did]
+	if w != nil && w.Empty() {
+		delete(mm.liveWindows, did)
+		return nil
+	}
+	return w
 }
 
 // feedLiveWindow re-derives the per-track event stream from a stored canonical

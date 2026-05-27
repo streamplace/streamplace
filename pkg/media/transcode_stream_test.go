@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"strconv"
 	"sync"
@@ -13,6 +14,19 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/muxl"
 )
+
+// TestStreamTranscoderNeedsReset covers the source-codec-swap detection: a
+// streamer dropping RTMP/AAC and picking up WHIP/Opus (or vice versa) flips the
+// needed target, which must reset the continuous transcoder rather than feed
+// the new codec into a pipeline built for the old one.
+func TestStreamTranscoderNeedsReset(t *testing.T) {
+	tr := &streamTranscoder{target: "opus"} // adding Opus to an AAC source
+	require.False(t, tr.needsReset("opus"), "same source codec keeps the encoder running")
+	require.True(t, tr.needsReset("aac"), "source codec swapped (AAC→Opus) must reset")
+
+	failed := &streamTranscoder{target: "aac", err: errors.New("pipeline died")}
+	require.True(t, failed.needsReset("aac"), "a failed pipeline rebuilds on the next segment")
+}
 
 // allSignedBareSegments signs the fragmented fixture per-segment and returns
 // every GoP's bare canonical .m4s (the live ingest shape), in order.

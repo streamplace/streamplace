@@ -69,10 +69,28 @@ const streamTranscoderIdle = 30 * time.Second
 // transcoder, creating it on first use. The completed dual-codec segment is
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
 func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
+	did := vs.repoDID
 	mm.transcodersMu.Lock()
-	t := mm.transcoders[vs.repoDID]
+	t := mm.transcoders[did]
+	if t != nil && t.needsReset(target) {
+		// Source codec swapped (the needed target flipped, e.g. a streamer
+		// dropped RTMP/AAC and picked up WHIP/Opus) or the pipeline failed. The
+		// old pipeline expects the previous source codec, so feeding it the new
+		// one would stall it. Flush + tear it down (async, so we don't block
+		// ingest — its tail segments still complete) and rebuild for the new
+		// codec. One seam at the swap, clean after.
+		old := t
+		delete(mm.transcoders, did)
+		t = nil
+		log.Log(ctx, "stream source codec swapped, resetting transcoder",
+			"streamer", did, "from_target", old.target, "to_target", target)
+		go func() {
+			if err := old.Close(); err != nil {
+				log.Error(ctx, "stream transcoder reset close failed", "streamer", did, "error", err)
+			}
+		}()
+	}
 	if t == nil {
-		did := vs.repoDID
 		// The transcoder outlives any single request; carry log values but not
 		// cancellation, and cancel explicitly on reap.
 		streamCtx := context.WithoutCancel(ctx)
@@ -84,11 +102,26 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 		})
 		t.reaper = time.AfterFunc(streamTranscoderIdle, func() { mm.reapStreamTranscoder(did, t) })
 		mm.transcoders[did] = t
+		log.Log(ctx, "stream transcoder started", "streamer", did, "target", target)
 	}
 	mm.transcodersMu.Unlock()
 
 	t.reaper.Reset(streamTranscoderIdle)
 	return t.Feed(src, vs)
+}
+
+// needsReset reports whether an existing per-stream transcoder must be torn
+// down and rebuilt: the source codec swapped (target flipped — e.g. RTMP/AAC →
+// WHIP/Opus mid-stream) or its pipeline has failed.
+func (t *streamTranscoder) needsReset(target string) bool {
+	return t.target != target || t.failed()
+}
+
+// failed reports whether the transcoder's pipeline has errored out.
+func (t *streamTranscoder) failed() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.err != nil
 }
 
 // reapStreamTranscoder flushes and removes an idle stream's transcoder (the

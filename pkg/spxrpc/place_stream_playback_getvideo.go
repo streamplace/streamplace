@@ -273,12 +273,29 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest,
 			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
 	}
-	// The authority must be a DID, not a handle: media playlists embed
-	// it in every getVideoBlob URL for egress accounting, and we want
-	// attribution keyed on the stable identifier.
-	ownerDID, err := aturi.Authority().AsDID()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "uri authority must be a DID: "+err.Error())
+	var ownerDID syntax.DID
+	if aturi.Authority().IsHandle() {
+		handle, err := aturi.Authority().AsHandle()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "failed to convert handle: "+err.Error())
+		}
+		res, err := s.resolveStreamer(ctx, handle.String())
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "failed to resolve streamer: "+err.Error())
+		}
+		ownerDID, err = syntax.ParseDID(res)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "resolved streamer must be a valid DID: "+err.Error())
+		}
+		aturi, err = syntax.ParseATURI(fmt.Sprintf("at://%s/%s", ownerDID.String(), aturi.Path()))
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "failed to parse AT-URI: "+err.Error())
+		}
+	} else {
+		ownerDID, err = aturi.Authority().AsDID()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "uri authority must be a DID: "+err.Error())
+		}
 	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")

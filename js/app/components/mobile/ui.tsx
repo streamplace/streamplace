@@ -6,7 +6,8 @@ import {
   Slider,
   Text,
   Toast,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useCameraToggle,
   useLivestream,
   useLivestreamInfo,
@@ -68,7 +69,6 @@ export function MobileUi({
   const navigation = useNavigation();
   const {
     ingest,
-    profile,
     title,
     setTitle,
     showCountdown,
@@ -81,7 +81,6 @@ export function MobileUi({
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
   const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
@@ -196,8 +195,6 @@ export function MobileUi({
                 >
                   <LeftControlsPanel
                     navigation={navigation}
-                    profile={profile}
-                    avatars={avatars}
                     muted={muted}
                     setMuted={setMuted}
                     muteWasForced={muteWasForced}
@@ -314,21 +311,19 @@ export function MobileUi({
 
 function LeftControlsPanel({
   navigation,
-  profile,
-  avatars,
   muted,
   setMuted,
   muteWasForced,
   setMuteWasForced,
 }: {
   navigation: any;
-  profile: any;
-  avatars: any;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   muteWasForced: boolean;
   setMuteWasForced: (forced: boolean) => void;
 }) {
+  const profile = useAuthor();
+  const avatar = useAvatar();
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
   const contentWarnings =
@@ -361,9 +356,7 @@ function LeftControlsPanel({
           </Pressable>
           <Image
             source={
-              avatars[profile?.did]
-                ? avatars[profile?.did]?.avatar
-                : require("assets/images/goose.png")
+              avatar ? { uri: avatar } : require("assets/images/goose.png")
             }
             key={profile?.did}
             style={[

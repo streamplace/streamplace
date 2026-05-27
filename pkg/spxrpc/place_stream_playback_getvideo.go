@@ -265,37 +265,13 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	if rawURI == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}
-	aturi, err := syntax.ParseATURI(rawURI)
+	aturi, err := s.normalizeURI(ctx, rawURI)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "uri must be a valid AT-URI: "+err.Error())
 	}
 	if aturi.Collection() != videoCollection {
 		return echo.NewHTTPError(http.StatusBadRequest,
 			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
-	}
-	var ownerDID syntax.DID
-	if aturi.Authority().IsHandle() {
-		handle, err := aturi.Authority().AsHandle()
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "failed to convert handle: "+err.Error())
-		}
-		res, err := s.resolveStreamer(ctx, handle.String())
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "failed to resolve streamer: "+err.Error())
-		}
-		ownerDID, err = syntax.ParseDID(res)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "resolved streamer must be a valid DID: "+err.Error())
-		}
-		aturi, err = syntax.ParseATURI(fmt.Sprintf("at://%s/%s", ownerDID.String(), aturi.Path()))
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "failed to parse AT-URI: "+err.Error())
-		}
-	} else {
-		ownerDID, err = aturi.Authority().AsDID()
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "uri authority must be a DID: "+err.Error())
-		}
 	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
@@ -334,7 +310,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	} else if labeled {
 		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
 	}
-	if banned, err := s.accountBanned(ownerDID.String()); err != nil {
+	if banned, err := s.accountBanned(aturi.Authority().String()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	} else if banned {
 		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
@@ -365,7 +341,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		// server side, so the propagation stays in clip-local time.
 		body = masterPlaylist(meta, uri, sid, startMS, endMS)
 	} else {
-		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
+		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}

@@ -387,6 +387,18 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 		}
 		req.URL.Host = req.Host
 		req.URL.Scheme = proto
+
+		// VOD link cards live at /<user>/video/<tid>. Everything else with a
+		// slash in it falls through to static-file / default-card handling.
+		parts := strings.Split(strings.Trim(req.URL.Path, "/"), "/")
+		if len(parts) == 3 && parts[1] == "video" {
+			if a.writeVideoCard(ctx, w, req, linker, parts[0], parts[2]) {
+				return
+			}
+			defaultHandler.ServeHTTP(w, req)
+			return
+		}
+
 		maybeHandle := strings.TrimPrefix(req.URL.Path, "/")
 		// quick check for things that aren't valid handles/dids
 		if strings.ContainsAny(maybeHandle, "/_") {
@@ -422,6 +434,37 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	}), nil
+}
+
+// writeVideoCard renders an OpenGraph link card for a VOD at
+// /<user>/video/<tid>, pulling the video out of the local index. It returns
+// true when it wrote a response, and false (having written nothing) when the
+// video can't be found or rendered, so the caller can fall back to
+// static-file / default-card handling.
+func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWriter, req *http.Request, linker *linking.Linker, user, tid string) bool {
+	repo, err := a.Model.GetRepoByHandleOrDID(user)
+	if err != nil || repo == nil {
+		return false
+	}
+	uri := fmt.Sprintf("at://%s/place.stream.video/%s", repo.DID, tid)
+	vv, err := a.Model.GetVideoView(ctx, uri)
+	if err != nil {
+		log.Error(ctx, "error fetching video view for card", "uri", uri, "error", err)
+		return false
+	}
+	if vv == nil {
+		return false
+	}
+	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
+	if err != nil {
+		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
+		return false
+	}
+	w.Header().Set("Content-Type", "text/html")
+	if _, err := w.Write(bs); err != nil {
+		log.Error(ctx, "error writing response", "error", err)
+	}
+	return true
 }
 
 func (a *StreamplaceAPI) MistProxyHandler(ctx context.Context, tmpl string) httprouter.Handle {

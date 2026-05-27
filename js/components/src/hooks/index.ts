@@ -1,5 +1,7 @@
 // barrel file :)
 export * from "./useAQState";
+export * from "./useAuthor";
+export * from "./useAvatar";
 export * from "./useAvatars";
 export * from "./useCameraToggle";
 export * from "./useDocumentTitle";
@@ -12,3 +14,4 @@ export * from "./usePointerDevice";
 export * from "./useSegmentDimensions";
 export * from "./useSegmentTiming";
 export * from "./useTitle";
+export * from "./useViews";

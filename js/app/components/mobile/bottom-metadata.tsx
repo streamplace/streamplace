@@ -10,9 +10,9 @@ import {
   PlayerUI,
   ShareSheet,
   Text,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useDID,
-  useLivestreamInfo,
   useLivestreamStore,
   usePlayerStore,
   useTheme,
@@ -84,8 +84,7 @@ export function BottomMetadata({
   setShowChat: (show: boolean) => void;
   showChat: boolean;
 }) {
-  const { profile } = useLivestreamInfo();
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
+  const profile = useAuthor();
   const ls = useLivestreamStore((x) => x.livestream);
   const segment = useLivestreamStore((x) => x.segment);
   const mode = usePlayerStore((x) => x.mode);
@@ -96,7 +95,7 @@ export function BottomMetadata({
   const contentRights = segment?.contentRights;
 
   const { theme } = useTheme();
-  const avatarUri = profile?.did ? avatars[profile.did]?.avatar : undefined;
+  const avatarUri = useAvatar();
   const activity = ls?.record.activity as
     | ((ActivityGame | ActivityLabel) & { $type?: string })
     | undefined;

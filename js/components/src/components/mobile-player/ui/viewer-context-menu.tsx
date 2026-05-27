@@ -13,9 +13,10 @@ import {
   ContentWarnings,
   formatHandle,
   formatHandleWithAt,
-  useAvatars,
-  useLivestreamInfo,
+  useAuthor,
+  useAvatar,
   useStreamplaceStore,
+  useTitle,
   zero,
 } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
@@ -96,10 +97,9 @@ export function ContextMenu({
     ? `(${highestLength}p${fps > 0 ? fps : ""})`
     : "(Original Quality)";
 
-  const { profile } = useLivestreamInfo();
+  const profile = useAuthor();
 
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
-  const ls = useLivestreamStore((x) => x.livestream);
+  const avatar = useAvatar();
   const segment = useLivestreamStore((x) => x.segment);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -159,11 +159,11 @@ export function ContextMenu({
                 { flex: 1, minWidth: 0 },
               ]}
             >
-              {profile?.did && avatars[profile?.did]?.avatar && (
+              {avatar && (
                 <Image
                   key="avatar"
                   source={{
-                    uri: avatars[profile?.did]?.avatar,
+                    uri: avatar,
                   }}
                   style={{ width: 42, height: 42, borderRadius: 999 }}
                   contentFit="cover"
@@ -197,7 +197,7 @@ export function ContextMenu({
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
-                  {ls?.record.title || "Stream Title"}
+                  {useTitle()}
                 </Text>
               </View>
             </View>

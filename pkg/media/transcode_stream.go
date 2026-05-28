@@ -52,9 +52,9 @@ type streamTranscoder struct {
 	jobs   chan transcodeJob
 	done   chan struct{}
 
-	feedMu sync.Mutex   // serializes Feed so segments enter in order
-	reaper *time.Timer  // idle reaper; reset on Feed (set by the registry)
-	fedSeq int          // per-instance feed counter (debug dump ordering); under feedMu
+	feedMu sync.Mutex  // serializes Feed so segments enter in order
+	reaper *time.Timer // idle reaper; reset on Feed (set by the registry)
+	fedSeq int         // per-instance feed counter (debug dump ordering); under feedMu
 
 	mu      sync.Mutex
 	started bool

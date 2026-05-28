@@ -5,14 +5,26 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
+
+// muxlInputDumpDirEnv names a directory to duplicate each ingest's MUXL fMP4
+// input — the raw gst mp4mux output that feeds the per-segment signer — to a
+// file. Off unless set. Purely diagnostic: lets us inspect the gstreamer
+// segmentation offline (e.g. feed it straight to `muxl segment`) to tell a muxl
+// segmentation bug from an upstream webrtc-ingest keyframe drop.
+const muxlInputDumpDirEnv = "SP_MUXL_INPUT_DEBUG_DIR"
 
 // MuxlSignSegmentElem builds the gstreamer bin that muxes the incoming
 // video+audio into a fragmented MP4 stream, then drives muxl-sign's streaming
@@ -79,6 +91,26 @@ func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, o
 		r.Close()
 	}()
 
+	// Optional debug: duplicate the gst mp4mux output — muxl's exact fMP4 input
+	// — to a file so the raw gstreamer segmentation can be inspected offline.
+	// Best-effort: a dump-file error never disturbs the real signing pipe (its
+	// Write result is preserved verbatim).
+	var sampleW io.Writer = w
+	if dir := os.Getenv(muxlInputDumpDirEnv); dir != "" {
+		if dump, derr := openMuxlInputDump(dir, ms.Streamer()); derr != nil {
+			log.Error(ctx, "muxl input dump: open failed", "dir", dir, "error", derr)
+		} else {
+			log.Log(ctx, "muxl input dump: capturing gst fMP4 input", "path", dump.Name())
+			go func() {
+				<-ctx.Done()
+				dump.Close()
+			}()
+			sampleW = &teeWriter{primary: w, dup: dump, onErr: func(e error) {
+				log.Error(ctx, "muxl input dump: write failed, stopping capture", "error", e)
+			}}
+		}
+	}
+
 	// Stream the fMP4 through the per-segment signer; each event carries one
 	// GoP's per-track signed canonical segments.
 	eventCh := make(chan *muxl.MuxlEvent, 16)
@@ -104,10 +136,46 @@ func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, o
 
 	sink := app.SinkFromElement(appsink)
 	sink.SetCallbacks(&app.SinkCallbacks{
-		NewSampleFunc: WriterNewSample(ctx, w),
+		NewSampleFunc: WriterNewSample(ctx, sampleW),
 	})
 
 	return bin.Element, nil
+}
+
+// openMuxlInputDump creates the per-session fMP4 capture file under dir (named
+// by sign time + streamer DID). The file is a complete fMP4 stream (ftyp+moov
+// then moof/mdat per GoP) — replayable straight through `muxl segment`.
+func openMuxlInputDump(dir, streamer string) (*os.File, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	name := fmt.Sprintf("%s-%s-muxl-input.fmp4",
+		aqtime.FromTime(time.Now()).FileSafeString(),
+		strings.ReplaceAll(streamer, ":", "-"))
+	return os.Create(filepath.Join(dir, name))
+}
+
+// teeWriter mirrors writes to dup (best-effort) while returning primary's
+// result verbatim, so the duplicate never alters the real pipeline's timing or
+// errors. On the first dup error it reports once and stops mirroring. Not
+// safe for concurrent use; the gst appsink calls NewSample serially.
+type teeWriter struct {
+	primary io.Writer
+	dup     io.Writer
+	onErr   func(error)
+}
+
+func (t *teeWriter) Write(p []byte) (int, error) {
+	n, err := t.primary.Write(p)
+	if t.dup != nil {
+		if _, derr := t.dup.Write(p); derr != nil {
+			if t.onErr != nil {
+				t.onErr(derr)
+			}
+			t.dup = nil
+		}
+	}
+	return n, err
 }
 
 // concatTracksSorted joins the per-track canonical segment bytes for one GoP

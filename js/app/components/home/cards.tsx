@@ -108,7 +108,7 @@ const StreamCard = ({
     <LiquidGlassView
       interactive
       style={[
-        zero.flex.values[1],
+        inMobileMode ? { alignSelf: "stretch" } : zero.flex.values[1],
         {
           borderCurve: "continuous",
           backgroundColor: theme.colors.muted,
@@ -128,11 +128,12 @@ const StreamCard = ({
             flex: layoutHorizontal ? 0 : undefined,
             minWidth: layoutHorizontal
               ? inMobileMode
-                ? "45%"
+                ? "40%"
                 : "63%"
               : "100%",
+            maxWidth: layoutHorizontal ? "40%" : undefined,
             // native seems to be unable to adjust widths properly?
-            maxHeight: !isWeb ? "76.5%" : "100%",
+            maxHeight: !isWeb ? (inMobileMode ? "100%" : "76.5%") : "100%",
             position: "relative",
             alignSelf: layoutHorizontal ? "auto" : "center",
             backgroundColor: theme.colors.card,
@@ -163,7 +164,7 @@ const StreamCard = ({
                 height: livePillHeight,
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 4,
+                gap: 0,
                 flexDirection: "row",
               },
             ]}
@@ -237,7 +238,7 @@ const StreamCard = ({
         <View
           style={[
             zero.flex.values[1],
-            { justifyContent: "space-around" },
+            { justifyContent: "center" },
             { alignItems: "flex-start" },
             {
               gap: contentPaddingHoriz / 4,

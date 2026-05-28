@@ -227,25 +227,17 @@ export default function HomeScreen({
   const firstRowItems = segments.slice(0, firstRowCols);
   let cutSegs = segments.slice(firstRowCols);
 
-  // fill in null data to pad out the list for grid display
-  let segs: (PlaceStreamLivestream.LivestreamView | null)[] = cutSegs.concat(
-    Array((cols - (segments.length % cols)) % cols).fill(null),
-  );
-  if (cutSegs.length === 0 && segs.every((s) => s === null) && cols > 0) {
-    // ensure segs is not just [null] if segments is empty
-    segs = [];
-  }
+  let rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
 
-  // assemble rows
-  const rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
-  for (let i = 0; i < cutSegs.length; i += cols) {
-    let row = cutSegs.slice(i, i + cols);
-    // pad the last row with nulls if it's not full
-    if (i + cols >= cutSegs.length && row.length < cols) {
-      const paddingNeeded = cols - row.length;
-      row = [...row, ...Array(paddingNeeded).fill(null)];
+  if (!useHorizontalAll) {
+    for (let i = 0; i < cutSegs.length; i += cols) {
+      let row = cutSegs.slice(i, i + cols);
+      if (i + cols >= cutSegs.length && row.length < cols) {
+        const paddingNeeded = cols - row.length;
+        row = [...row, ...Array(paddingNeeded).fill(null)];
+      }
+      rows.push(row);
     }
-    rows.push(row);
   }
 
   const indicatorTop = safeAreaInsets.top;
@@ -335,15 +327,28 @@ export default function HomeScreen({
               <Text style={{ marginTop: 8 }}>Check back later?</Text>
             </View>
           )}
-          {firstRowItems.length > 0 && (
+          {useHorizontalAll
+            ? segments.map((item) => (
+                <View
+                  key={item.cid}
+                  style={{ width: "100%", marginBottom: 12 }}
+                >
+                  <HomeScreenItem
+                    item={item}
+                    size={size}
+                    avatarUrl={avis[item.author.did]?.avatar}
+                    horizontal={true}
+                    showAvatar={false}
+                  />
+                </View>
+              ))
+            : null}
+
+          {!useHorizontalAll && firstRowItems.length > 0 && (
             <View
               style={[
                 { flexDirection: "row" },
-                {
-                  gap: 24,
-                  marginBottom: useHorizontalAll ? 12 : 24,
-                  width: "100%",
-                },
+                { gap: 24, marginBottom: 24, width: "100%" },
               ]}
             >
               {firstRowItems.map((item, itemIndex) => (
@@ -363,14 +368,11 @@ export default function HomeScreen({
                     item={item}
                     size={size}
                     avatarUrl={avis[item.author.did]?.avatar}
-                    horizontal={
-                      useHorizontalAll || (itemIndex == 0 && useHorizontalFirst)
-                    }
-                    showAvatar={!useHorizontalAll}
+                    horizontal={itemIndex == 0 && useHorizontalFirst}
+                    showAvatar={true}
                   />
                 </View>
               ))}
-              {/* Pad the first row to match the column count */}
               {Array(
                 useHorizontalFirst
                   ? cols - firstRowItems.length - 1
@@ -385,14 +387,14 @@ export default function HomeScreen({
             </View>
           )}
 
-          {segments.length > 0 && (
+          {!useHorizontalAll && segments.length > 0 && (
             <View>
               {rows.map((row, rowIndex) => (
                 <View
                   key={`row-${rowIndex}`}
                   style={[
                     { flexDirection: "row" },
-                    { gap: 24, marginBottom: useHorizontalAll ? 12 : 24 },
+                    { gap: 24, marginBottom: 24 },
                   ]}
                 >
                   {row.map((item, itemIndex) =>
@@ -405,8 +407,8 @@ export default function HomeScreen({
                           item={item}
                           size={size}
                           avatarUrl={avis[item.author.did]?.avatar}
-                          horizontal={useHorizontalAll}
-                          showAvatar={!useHorizontalAll}
+                          horizontal={false}
+                          showAvatar={true}
                         />
                       </View>
                     ) : (

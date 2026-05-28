@@ -54,6 +54,7 @@ type streamTranscoder struct {
 
 	feedMu sync.Mutex   // serializes Feed so segments enter in order
 	reaper *time.Timer  // idle reaper; reset on Feed (set by the registry)
+	fedSeq int          // per-instance feed counter (debug dump ordering); under feedMu
 
 	mu      sync.Mutex
 	started bool
@@ -169,6 +170,17 @@ func (mm *MediaManager) newStreamTranscoder(parent context.Context, target strin
 func (t *streamTranscoder) Feed(src []byte, token any) error {
 	t.feedMu.Lock()
 	defer t.feedMu.Unlock()
+
+	// Debug: capture each source segment fed to THIS transcoder instance, in
+	// feed order, so a wedging input sequence can be replayed into a
+	// streamTranscoder in a test. No-op unless --segment-debug-dir is set. The
+	// per-instance sequence number is baked into the name (not just the dump's
+	// async wall-clock stamp) so a burst of sub-second feeds still sorts in feed
+	// order. Numbering is per-instance, so the run that actually wedges (before
+	// a reset rebuilds a fresh transcoder) is a self-contained 0..N sequence.
+	seq := t.fedSeq
+	t.fedSeq++
+	t.mm.cli.DumpDebugSegment(t.ctx, fmt.Sprintf("transcoder-feed-%s-%05d.m4s", t.target, seq), bytes.NewReader(src))
 
 	t.mu.Lock()
 	switch {

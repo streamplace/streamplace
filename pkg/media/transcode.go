@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
@@ -113,19 +114,28 @@ func (mm *MediaManager) audioCompletionTarget(ctx context.Context, seg []byte) (
 // track. Callers wire the `src`/`sink` callbacks and set the pipeline playing.
 // target is the codec being produced: "opus" (source AAC) or "aac" (source Opus).
 func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
+	// Queue sizing: a single qtdemux feeds both branches, so if either queue
+	// hits a limit and blocks the demux, the sibling branch starves and mp4mux
+	// deadlocks waiting for it (then appsrc backpressures and the Feed blocks).
+	// gst's default queue caps at max-size-time=1s, which a long GoP overflows:
+	// a 2s GoP overflowed the video queue's time cap and wedged a live stream
+	// (TestStreamTranscoderDoubleGopWedge). Use the shared Queue2Big preset
+	// (no time/buffer cap, generous byte cap) like the other demux-fed pipelines
+	// (rtmp_push, packetize, media_data_parser) so an over-long GoP flows
+	// through instead of deadlocking, while memory stays bounded.
 	var audioChain string
 	switch target {
 	case "opus": // source is AAC
-		audioChain = "queue name=aq ! aacparse ! fdkaacdec ! audioconvert ! audioresample ! opusenc name=aenc"
+		audioChain = constants.Queue2Big + " name=aq ! aacparse ! fdkaacdec ! audioconvert ! audioresample ! opusenc name=aenc"
 	case "aac": // source is Opus
-		audioChain = "queue name=aq ! opusparse ! opusdec ! audioconvert ! audioresample ! fdkaacenc name=aenc"
+		audioChain = constants.Queue2Big + " name=aq ! opusparse ! opusdec ! audioconvert ! audioresample ! fdkaacenc name=aenc"
 	default:
 		return nil, fmt.Errorf("unsupported transcode target %q", target)
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
 		"appsrc name=src ! qtdemux name=demux",
-		"queue name=vq ! h264parse name=vparse",
+		constants.Queue2Big + " name=vq ! h264parse name=vparse",
 		audioChain,
 	}, "\n"))
 	if err != nil {

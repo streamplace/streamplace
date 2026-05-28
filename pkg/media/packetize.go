@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 // take in a segment and return a bunch of packets suitable for webrtc
@@ -27,6 +28,22 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	defer cancel()
 
 	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
+
+	// WebRTC playback needs Opus. From a dual-codec segment select video+Opus
+	// and present it as a flat MP4, so the demux below yields exactly one
+	// (Opus) audio pad for opusparse — no extra AAC pad to strand.
+	if len(seg.Muxl) > 0 {
+		opusM4s, err := filterSegmentToCodec(ctx, seg.Muxl, true)
+		if err != nil {
+			return nil, fmt.Errorf("select opus audio: %w", err)
+		}
+		var flat bytes.Buffer
+		if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(opusM4s), "flat", &flat); err != nil {
+			return nil, fmt.Errorf("wrap opus segment: %w", err)
+		}
+		seg = &bus.Seg{Filepath: seg.Filepath, Data: flat.Bytes(), Muxl: opusM4s}
+	}
+
 	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
 
 	pipelineSlice := []string{

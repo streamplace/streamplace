@@ -54,6 +54,21 @@ type MediaManager struct {
 	webrtcAPI           *webrtc.API
 	webrtcConfig        webrtc.Configuration
 	localDB             localdb.LocalDB
+
+	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
+	// server-repo key. Used to sign transcode-completed audio tracks under the
+	// node's own did:web identity, signed in-wasm (the node key is software).
+	// See transcode.go.
+	nodeSignerOnce sync.Once
+	nodeCert       []byte
+	nodeKeyPEM     []byte
+	nodeSignerErr  error
+
+	// Per-stream continuous audio transcoders, keyed by repoDID. A single-codec
+	// stream's segments are fed here in order; each completed dual-codec segment
+	// is distributed asynchronously (~1 GoP later). See transcode_stream.go.
+	transcoders   map[string]*streamTranscoder
+	transcodersMu sync.Mutex
 }
 
 type NewSegmentNotification struct {
@@ -137,6 +152,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		webrtcAPI:    api,
 		webrtcConfig: config,
 		localDB:      ldb,
+		transcoders:  map[string]*streamTranscoder{},
 	}, nil
 }
 

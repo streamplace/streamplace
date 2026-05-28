@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -49,6 +50,10 @@ type Segment struct {
 	DurationTicks uint64
 	SampleCount   uint32
 	data          []byte
+	// addedAt is the wall-clock time the segment was observed; segments older
+	// than the Writer's retention are evicted so a stalled/ended stream's
+	// window empties instead of a player replaying it forever.
+	addedAt time.Time
 }
 
 // Size is the segment's byte length.
@@ -75,11 +80,13 @@ type Track struct {
 // Writer assembles an in-memory live HLS window from the muxl event stream.
 // Safe for concurrent Observe and read/serve.
 type Writer struct {
-	mu       sync.Mutex
-	tracks   map[string]*Track
-	order    []string // track ids, sorted
-	window   int      // max segments retained per track; 0 = keep all
-	finished bool
+	mu        sync.Mutex
+	tracks    map[string]*Track
+	order     []string      // track ids, sorted
+	window    int           // max segments retained per track; 0 = keep all
+	retention time.Duration // max segment age before eviction; 0 = no time limit
+	finished  bool
+	now       func() time.Time // clock, overridable in tests
 }
 
 // Option configures a Writer.
@@ -93,9 +100,18 @@ func WithWindow(n int) Option {
 	return func(w *Writer) { w.window = n }
 }
 
+// WithRetention evicts segments older than d (by wall-clock arrival time),
+// independent of the count window. Unlike the count window — which only evicts
+// when new segments arrive — this is also applied on reads, so a stalled or
+// ended stream's segments age out and its window empties rather than a player
+// replaying the last few forever. d <= 0 disables time eviction.
+func WithRetention(d time.Duration) Option {
+	return func(w *Writer) { w.retention = d }
+}
+
 // NewWriter returns an empty in-memory live HLS window.
 func NewWriter(opts ...Option) *Writer {
-	w := &Writer{tracks: map[string]*Track{}}
+	w := &Writer{tracks: map[string]*Track{}, now: time.Now}
 	for _, opt := range opts {
 		opt(w)
 	}
@@ -120,6 +136,7 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 		}
 
 	case "segment", "signed-segment":
+		now := w.now()
 		for _, tid := range sortedKeys(ev.Tracks) {
 			t := w.track(tid)
 			t.Segments = append(t.Segments, Segment{
@@ -127,6 +144,7 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 				DurationTicks: ev.Durations[tid],
 				SampleCount:   ev.SampleCounts[tid],
 				data:          append([]byte(nil), ev.Tracks[tid]...),
+				addedAt:       now,
 			})
 			t.nextSeq++
 			if w.window > 0 && len(t.Segments) > w.window {
@@ -134,11 +152,48 @@ func (w *Writer) Observe(ev *muxl.MuxlEvent) error {
 				t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
 			}
 		}
+		w.evictExpired(now)
 
 	default:
 		return fmt.Errorf("livehls: unexpected event type %q", ev.Type)
 	}
 	return nil
+}
+
+// evictExpired drops segments older than the retention window (leading entries,
+// since they're in arrival order). Caller holds w.mu. No-op when retention is
+// unset. Called both on Observe and on reads so a stalled stream — which sends
+// no more events to trigger Observe — still ages out and empties.
+func (w *Writer) evictExpired(now time.Time) {
+	if w.retention <= 0 {
+		return
+	}
+	cutoff := now.Add(-w.retention)
+	for _, t := range w.tracks {
+		drop := 0
+		for drop < len(t.Segments) && t.Segments[drop].addedAt.Before(cutoff) {
+			drop++
+		}
+		if drop > 0 {
+			t.Segments = append(t.Segments[:0:0], t.Segments[drop:]...)
+		}
+	}
+}
+
+// Empty reports whether the window holds no segments on any track (after aging
+// out expired ones). The serving layer uses this to drop an ended stream's
+// window — freeing it and returning "no live stream" so players stop replaying
+// the stale tail.
+func (w *Writer) Empty() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.evictExpired(w.now())
+	for _, t := range w.tracks {
+		if len(t.Segments) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // Finalize marks the stream complete; subsequent media playlists carry
@@ -187,6 +242,7 @@ func (w *Writer) InitSegment(trackID string) []byte {
 func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.evictExpired(w.now())
 	t := w.tracks[trackID]
 	if t == nil {
 		return nil
@@ -205,6 +261,7 @@ func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
 func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) string) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.evictExpired(w.now())
 	t := w.tracks[trackID]
 	if t == nil {
 		return ""
@@ -249,22 +306,40 @@ func (w *Writer) MediaPlaylist(trackID, initURL string, segURI func(seq uint64) 
 func (w *Writer) MasterPlaylist(trackURL func(trackID string) string) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	w.evictExpired(w.now())
 
 	var b strings.Builder
 	b.WriteString("#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-INDEPENDENT-SEGMENTS\n")
 
+	// Pick the primary audio rendition: prefer AAC (broadest HLS support —
+	// Safari has no Opus) so it's the default; any other codec (Opus) stays a
+	// selectable alternate. A segment may carry both after codec completion.
+	primaryAudio := ""
+	for _, tid := range w.order {
+		if t := w.tracks[tid]; t.Type == "audio" {
+			if primaryAudio == "" {
+				primaryAudio = tid
+			}
+			if strings.HasPrefix(t.Codec, "mp4a") {
+				primaryAudio = tid
+				break
+			}
+		}
+	}
 	var audioCodec string
-	haveAudio := false
+	haveAudio := primaryAudio != ""
 	for _, tid := range w.order {
 		t := w.tracks[tid]
-		if t.Type == "audio" {
-			haveAudio = true
-			if audioCodec == "" {
-				audioCodec = t.Codec
-			}
-			fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
-				"audio", t.Codec, strconv.Itoa(int(maxU32(t.Channels, 2))), trackURL(tid))
+		if t.Type != "audio" {
+			continue
 		}
+		def := "NO"
+		if tid == primaryAudio {
+			def = "YES"
+			audioCodec = t.Codec
+		}
+		fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=%s,AUTOSELECT=YES,CHANNELS=%q,URI=%q\n",
+			"audio", t.Codec, def, strconv.Itoa(int(maxU32(t.Channels, 2))), trackURL(tid))
 	}
 	for _, tid := range w.order {
 		t := w.tracks[tid]

@@ -27,14 +27,27 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 	ctx, span := otel.Tracer("signer").Start(ctx, "ParseSegmentMediaData")
 	defer span.End()
 	ctx = log.WithLogValues(ctx, "GStreamerFunc", "ParseSegmentMediaData")
-	ctx, cancel := context.WithCancel(ctx)
+	// Watchdog: parsing a ~1s segment is sub-second. A stalled qtdemux only
+	// posts non-fatal warnings, so bound it — a hang surfaces as an error
+	// rather than wedging the validate/ingest pipeline (which is what a stray
+	// unresolved delayed link did).
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	// Codec-agnostic: audio rate/channels come from the qtdemux pad caps (read
+	// in onPadAdded) and durations from the demuxed buffers, so no per-codec
+	// parser is needed — the segment may carry AAC or Opus. We link only
+	// video_0 and audio_0. A dual-codec (completed) segment's extra audio track
+	// (audio_1) is left unlinked: qtdemux's flow combiner tolerates the
+	// not-linked pad, and the linked sinks still reach EOS. We must NOT add an
+	// idle sink for it (or delayed-link a pad that may not exist) — an unlinked
+	// sink never receives EOS, so the pipeline never posts EOS to the bus and
+	// the parse stalls until its watchdog fires.
 	pipelineSlice := []string{
 		"appsrc name=appsrc ! qtdemux name=demux",
 		fmt.Sprintf("demux.video_0 ! %s ! tee name=videotee", constants.Queue2Big),
 		fmt.Sprintf("videotee. ! %s ! h2642json ! appsink sync=false name=jsonappsink", constants.Queue2Big),
 		fmt.Sprintf("videotee. ! %s ! appsink sync=false name=videoappsink", constants.Queue2Big),
-		fmt.Sprintf("demux.audio_0 ! %s ! opusparse name=audioparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
+		fmt.Sprintf("demux.audio_0 ! %s ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -89,8 +102,8 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 		if info.GetEvent().Type() != gst.EventTypeEOS {
 			return gst.PadProbeOK
 		}
-		if padsAdded != 2 {
-			err := fmt.Errorf("expected 2 tracks in input, got %d", padsAdded)
+		if padsAdded < 2 {
+			err := fmt.Errorf("expected at least 2 tracks (video + audio), got %d", padsAdded)
 			pipeline.Error(err.Error(), err)
 		}
 		padProbe = padProbeEmpty
@@ -150,9 +163,11 @@ func ParseSegmentMediaData(ctx context.Context, mp4bs []byte) (*localdb.SegmentM
 			}
 		}
 
-		if name[:5] == "audio" {
+		// Primary audio track (audio_0) is statically linked to audioappsink;
+		// read its rate/channels for the segment metadata. Extra audio tracks
+		// (audio_1+, on a dual-codec completed segment) are left unlinked.
+		if name[:5] == "audio" && pad.GetName() == "audio_0" {
 			audioMetadata = &localdb.SegmentMediadataAudio{}
-			// Get some common audio properties
 			rateVal, _ := structure.GetValue("rate")
 			channelsVal, _ := structure.GetValue("channels")
 

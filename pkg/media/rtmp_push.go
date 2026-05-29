@@ -33,7 +33,9 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 		"appsrc name=muxlsrc ! qtdemux name=demux",
 		"flvmux name=muxer ! rtmp2sink name=rtmp2sink",
 		fmt.Sprintf("%s name=videoqueue ! h264parse ! muxer.video", constants.Queue2Big),
-		fmt.Sprintf("%s name=audioqueue ! opusparse ! opusdec ! audioresample ! fdkaacenc ! muxer.audio", constants.Queue2Big),
+		// Segments carry AAC (we feed only the AAC track below), so pass it
+		// straight to flvmux — no Opus→AAC transcode.
+		fmt.Sprintf("%s name=audioqueue ! aacparse ! muxer.audio", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -150,9 +152,18 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 					log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 					continue
 				}
+				// RTMP wants AAC: select video + the AAC audio track from the
+				// dual-codec segment and feed only those, so flvmux gets AAC
+				// with no transcode.
+				aacSeg, err := filterSegmentToCodec(ctx, seg.Muxl, false)
+				if err != nil {
+					log.Error(ctx, "failed to select AAC audio", "error", err)
+					pw.CloseWithError(err)
+					return
+				}
 				if first {
 					var init bytes.Buffer
-					if err := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(seg.Muxl), &init); err != nil {
+					if err := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(aacSeg), &init); err != nil {
 						pw.CloseWithError(fmt.Errorf("synthesize init segment: %w", err))
 						return
 					}
@@ -164,8 +175,8 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 					}
 					first = false
 				}
-				log.Debug(ctx, "writing segment", "size", len(seg.Muxl))
-				if _, err := pw.Write(seg.Muxl); err != nil {
+				log.Debug(ctx, "writing segment", "size", len(aacSeg))
+				if _, err := pw.Write(aacSeg); err != nil {
 					log.Error(ctx, "failed to write segment", "error", err)
 					pw.CloseWithError(err)
 					return
@@ -193,7 +204,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	}
 
 	// qtdemux exposes its track pads only after parsing the moov, so link them
-	// on pad-added: video → h264parse, audio → opusparse.
+	// on pad-added: video → h264parse, audio → aacparse.
 	demux, err := pipeline.GetElementByName("demux")
 	if err != nil {
 		return fmt.Errorf("failed to get demux element from pipeline: %w", err)

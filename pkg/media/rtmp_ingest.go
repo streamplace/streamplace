@@ -32,9 +32,13 @@ type RTMPSession struct {
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// Mint the source audio: RTMP/FLV audio is already AAC, so pass it through
+	// (aacparse) rather than transcoding to Opus. The validate path completes
+	// each segment to also carry Opus when a consumer (WebRTC) needs it — so
+	// the old RTMP-AAC→Opus→HLS-AAC double-transcode is gone.
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
-		"demux.audio ! queue ! fdkaacdec ! audioresample ! opusenc name=audioenc",
+		"demux.audio ! queue ! aacparse name=audioenc",
 		"demux.video ! queue ! h264parse name=parse",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

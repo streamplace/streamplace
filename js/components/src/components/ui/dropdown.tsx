@@ -381,6 +381,7 @@ export const DropdownMenuCheckboxItem = forwardRef<
     children?: React.ReactNode;
   }
 >(({ children, checked, ...props }, ref) => {
+  const { theme } = useTheme();
   return (
     <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
@@ -396,9 +397,15 @@ export const DropdownMenuCheckboxItem = forwardRef<
           py[1],
           pl[2],
           pr[2],
+          pr[8],
         ]}
       >
         {children}
+        <View style={[pl[1], layout.position.absolute, right[1]]}>
+          {checked && (
+            <Check size={14} strokeWidth={3} color={theme.colors.foreground} />
+          )}
+        </View>
       </View>
     </DropdownMenuPrimitive.CheckboxItem>
   );

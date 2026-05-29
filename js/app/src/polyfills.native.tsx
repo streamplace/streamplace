@@ -1,6 +1,12 @@
+import "@formatjs/intl-displaynames/polyfill";
+import "@formatjs/intl-getcanonicallocales/polyfill";
+import "@formatjs/intl-locale/polyfill";
 import "expo-crypto";
 import sqliteStorage from "expo-sqlite/kv-store";
 import { MMKV } from "react-native-mmkv";
+
+// Import data for the languages you need
+import "@formatjs/intl-displaynames/locale-data/en";
 
 const ATPROTO_OAUTH_MMKV_NAME = "expo-atproto-oauth-client.session";
 const OLD_SQLITE_STORE_PREFIX = "@@atproto/oauth-client-react-native:session:";

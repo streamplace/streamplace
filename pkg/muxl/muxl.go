@@ -26,12 +26,22 @@ type (
 	MuxlAudioConfig  = upstream.AudioConfig
 	MuxlContainer    = upstream.Container
 	SignerInput      = upstream.SignerInput
+	TranscodeInput   = upstream.TranscodeInput
 )
 
+// TranscodeIngredientLabel is the C2PA ingredient label SignTranscode assigns
+// to the source segment; a TranscodeInput.Manifest references the source by
+// listing it in an action's "org.cai.ingredientIds" (see the upstream doc).
+const TranscodeIngredientLabel = upstream.TranscodeIngredientLabel
+
 // SignerToCallback adapts a crypto.Signer into the host-sign callback that
-// SignerInput.Sign expects (SHA-256 digest, ECDSA DER → fixed-width r‖s). See
-// the upstream doc.
+// SignerInput.Sign / TranscodeInput.Sign expect (SHA-256 digest, ECDSA DER →
+// fixed-width r‖s). See the upstream doc.
 var SignerToCallback = upstream.SignerToCallback
+
+// RawSignerToCallback adapts a raw-secp256k1 digest signer (e.g. an Ethereum
+// keystore's SignHash) into the host-sign callback. See the upstream doc.
+var RawSignerToCallback = upstream.RawSignerToCallback
 
 // --- engine singleton -------------------------------------------------------
 
@@ -129,6 +139,35 @@ func RunMuxlSignSegment(ctx context.Context, input io.Reader, in SignerInput, in
 		return err
 	}
 	return eng.SignSegment(ctx, input, in, initCh, segCh, eventCh)
+}
+
+// RunMuxlCanonicalize converts a flat or fragmented MP4 (e.g. a transcoder's
+// output) into a canonical MUXL fMP4. trackRemap (may be nil) reassigns track
+// IDs in the output — used to mint a transcoded rendition at a free id so it
+// can join the source's tracks in one multi-track segment without colliding.
+func RunMuxlCanonicalize(ctx context.Context, mp4 []byte, trackRemap map[uint32]uint32) ([]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	var opts []upstream.CanonicalizeOption
+	if len(trackRemap) > 0 {
+		opts = append(opts, upstream.WithTrackRemap(trackRemap))
+	}
+	return eng.Canonicalize(ctx, mp4, opts...)
+}
+
+// RunMuxlSignTranscode signs in.Output (an unsigned canonical MUXL segment —
+// the transcoded result) as a standalone asset declaring in.Source (the
+// canonical segment it was transcoded from) as a c2pa.transcoded parentOf
+// ingredient. Returns the signed segment. Exactly one of in.KeyPEM or in.Sign
+// must be set.
+func RunMuxlSignTranscode(ctx context.Context, in TranscodeInput) ([]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.SignTranscode(ctx, in)
 }
 
 // --- push-style Concatenator ------------------------------------------------

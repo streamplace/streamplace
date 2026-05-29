@@ -39,6 +39,13 @@ type MediaSigner interface {
 
 var DoReplay = false
 
+// Manifester builds the C2PA manifest JSON SignSegmentStream embeds in each
+// signed GoP. Production uses *ManifestBuilder (model-driven); tests can plug
+// in a stub to drive mid-stream manifest changes.
+type Manifester interface {
+	BuildManifest(ctx context.Context, streamerName string, start int64) ([]byte, error)
+}
+
 type MediaSignerLocal struct {
 	StreamerName     string
 	Signer           crypto.Signer
@@ -46,7 +53,7 @@ type MediaSignerLocal struct {
 	Cert             []byte
 	TAURL            string
 	did              string
-	manifestBuilder  *ManifestBuilder
+	manifestBuilder  Manifester
 	PrebuiltManifest []byte // Optional: use this manifest instead of building one
 	sigs             [][]byte
 }
@@ -131,26 +138,35 @@ func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]b
 }
 
 // SignSegmentStream streams an fMP4 input through muxl-sign's per-segment
-// signer, emitting one signed-segment event per GoP on eventCh. The manifest
-// is built once for the stream; muxl-sign stamps each segment's signing time
-// into cawg.metadata/dc:date as it signs. Signing backend: an
-// *ecdsa.PrivateKey is marshaled to PEM and signed in-wasm, otherwise the
-// host-callback path keeps the key out of the sandbox.
+// signer, emitting one signed-segment event per GoP on eventCh.
+//
+// The manifest is fetched FRESH from buildManifest once per GoP via muxl's
+// host_get_manifest callback, so connection-lifetime fields (livestream
+// EndedAt → c2pa.published, title, metadata config) update mid-stream without
+// needing to terminate the RTMP session. Before this, the manifest was sealed
+// at connection start and a pre-live → live transition stayed invisible until
+// the streamer reconnected.
+//
+// muxl-sign stamps each segment's signing time into cawg.metadata/dc:date as
+// it signs. Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
+// signed in-wasm, otherwise the host-callback path keeps the key out of the
+// sandbox.
 func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
 	ctx, span := signerTracer.Start(ctx, "SignSegmentStream", trace.WithAttributes(
 		attribute.String("streamer", ms.StreamerName),
 	))
 	defer span.End()
 
-	manifestBs, err := ms.buildManifest(ctx, time.Now().UnixMilli())
-	if err != nil {
-		return fmt.Errorf("failed to build manifest: %w", err)
+	// One callback shared by both kinds — track and wrapper manifests are the
+	// same JSON in Streamplace today, so a single buildManifest call per GoP
+	// covers both. If they ever diverge we split this in two.
+	fetchManifest := func() ([]byte, error) {
+		return ms.buildManifest(ctx, time.Now().UnixMilli())
 	}
-
 	in := muxl.SignerInput{
-		CertPEM:         ms.Cert,
-		TrackManifest:   manifestBs,
-		WrapperManifest: manifestBs,
+		CertPEM:           ms.Cert,
+		TrackManifestFn:   fetchManifest,
+		WrapperManifestFn: fetchManifest,
 	}
 	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
 		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)

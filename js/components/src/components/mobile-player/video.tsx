@@ -131,6 +131,7 @@ const updateEvents = {
   pause: true,
   suspend: true,
   mute: true,
+  error: true,
 };
 
 const VideoElement = forwardRef<
@@ -345,6 +346,13 @@ export function HLSPlayer(props: VideoProps) {
   );
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const mode = usePlayerStore((x) => x.mode);
+
+  // other players set some status on start, HLS doesn't, so
+  // do this to make sure we we reset off of "error" state
+  const setStatus = usePlayerStore((x) => x.setStatus);
+  useEffect(() => {
+    setStatus(PlayerStatus.START);
+  }, [setStatus]);
 
   useEffect(() => {
     if (!localRef.current) {

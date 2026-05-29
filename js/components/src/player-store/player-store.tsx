@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import { ChatMessageViewHydrated } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { useLivestreamStore } from "../livestream-store";
+import storage from "../storage";
 import { useStreamplaceStore } from "../streamplace-store";
 import { PlayerContext } from "./context";
 import {
@@ -13,10 +14,12 @@ import {
   PlayerStatus,
 } from "./player-state";
 
+const PROTOCOL_STORAGE_KEY = "player-protocol";
+
 export type PlayerStore = StoreApi<PlayerState>;
 
 export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
-  return createStore<PlayerState>()((set) => ({
+  const store = createStore<PlayerState>()((set) => ({
     id: id || Math.random().toString(36).slice(8),
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
@@ -33,8 +36,10 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
         return { ...state, selectedRendition: rendition };
       }),
     protocol: PlayerProtocol.WEBRTC,
-    setProtocol: (protocol: PlayerProtocol) =>
-      set((state) => ({ ...state, protocol: protocol })),
+    setProtocol: (protocol: PlayerProtocol) => {
+      storage.setItem(PROTOCOL_STORAGE_KEY, protocol).catch(console.error);
+      set((state) => ({ ...state, protocol: protocol }));
+    },
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
@@ -205,6 +210,23 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
     ) => set(() => ({ reportSubject: subject })),
   }));
+
+  // Load persisted protocol from storage asynchronously
+  (async () => {
+    try {
+      const storedProtocol = await storage.getItem(PROTOCOL_STORAGE_KEY);
+      if (
+        storedProtocol &&
+        Object.values(PlayerProtocol).includes(storedProtocol as PlayerProtocol)
+      ) {
+        store.setState({ protocol: storedProtocol as PlayerProtocol });
+      }
+    } catch (error) {
+      console.error("Failed to load player protocol from storage:", error);
+    }
+  })();
+
+  return store;
 };
 
 export function usePlayerContext() {

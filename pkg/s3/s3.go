@@ -33,17 +33,18 @@ type Recorder interface {
 }
 
 // S3Uploader manages streaming multipart uploads to an S3-compatible endpoint.
-// Full fMP4 archives are fed via AddSegment. They are run through a muxl
-// Concatenator to strip duplicate init segments, then uploaded as a
-// multipart upload. Every cutoverEvery, the current upload is completed
-// and a new one begins.
+// Bare canonical MUXL segments are fed via AddSegment; they concatenate
+// directly (the format is naively concatenable). A single init segment,
+// synthesized from the first segment, is prepended to each multipart object so
+// each object is a valid standalone MP4. Every cutoverEvery, the current upload
+// is completed and a new one begins.
 type S3Uploader struct {
 	client       *s3.Client
 	bucket       string
 	cutoverEvery time.Duration
 	keyPrefix    string // e.g. "did:plc:abc123/"
 	userDID      string
-	concat       *muxl.Concatenator
+	segCh        chan []byte // bare canonical MUXL segments awaiting upload
 	done         chan error
 	recorder     Recorder
 }
@@ -84,14 +85,13 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 	if cutoverEvery == 0 {
 		cutoverEvery = DefaultCutoverEvery
 	}
-	concat := muxl.NewConcatenator(ctx)
 	u := &S3Uploader{
 		client:       client,
 		bucket:       cfg.Bucket,
 		cutoverEvery: cutoverEvery,
 		keyPrefix:    keyPrefix,
 		userDID:      userDID,
-		concat:       concat,
+		segCh:        make(chan []byte, 16),
 		done:         make(chan error, 1),
 		recorder:     recorder,
 	}
@@ -99,25 +99,30 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 	return u
 }
 
-// AddSegment feeds a full fMP4 archive (init+segments) to the concatenator
-// for processing and upload.
+// AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
+// for upload. The bytes are copied, so the caller may reuse its buffer.
 func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
-	return u.concat.Write(data)
+	seg := append([]byte(nil), data...)
+	select {
+	case u.segCh <- seg:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Close signals that no more segments will be added, waits for all
 // in-flight uploads to complete, and returns any error.
 func (u *S3Uploader) Close(ctx context.Context) error {
-	closeErr := u.concat.Close()
-	uploadErr := <-u.done
-	if uploadErr != nil {
+	close(u.segCh)
+	if uploadErr := <-u.done; uploadErr != nil {
 		return fmt.Errorf("error uploading: %w", uploadErr)
 	}
-	return closeErr
+	return nil
 }
 
-// uploadLoop reads init and segment events from the concatenator and manages
-// multipart uploads. Runs until the concatenator's channels are closed.
+// uploadLoop reads bare segments off segCh and manages multipart uploads.
+// Runs until segCh is closed (Close) or ctx is canceled.
 func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	ctx = log.WithLogValues(ctx, "func", "s3.uploadLoop")
 	var initSeg []byte
@@ -257,24 +262,28 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	var err error
 	for err == nil {
 		select {
-		case init, ok := <-u.concat.InitCh:
+		case seg, ok := <-u.segCh:
 			if !ok {
-				u.concat.InitCh = nil
-				continue
-			}
-			initSeg = init
-			log.Debug(ctx, "received init segment for S3 upload", "size", len(init))
-
-		case seg, ok := <-u.concat.SegCh:
-			log.Debug(ctx, "received segment for S3 upload", "size", len(seg))
-			if !ok {
-				// Concatenator is done, complete any in-progress upload
+				// No more segments; complete any in-progress upload.
 				err = completeUpload()
 				if err != nil {
 					err = fmt.Errorf("error completing upload: %w", err)
 				}
 				u.done <- err
 				return
+			}
+			log.Debug(ctx, "received segment for S3 upload", "size", len(seg))
+			// Synthesize the init segment once, from the first segment's
+			// embedded catalog; it's prepended to each multipart object.
+			if initSeg == nil {
+				var initBuf bytes.Buffer
+				if werr := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(seg), &initBuf); werr != nil {
+					err = fmt.Errorf("synthesizing init segment: %w", werr)
+					u.done <- err
+					return
+				}
+				initSeg = initBuf.Bytes()
+				log.Debug(ctx, "synthesized init segment for S3 upload", "size", len(initSeg))
 			}
 			if err = handleSegment(seg); err != nil {
 				log.Error(ctx, "error handling segment", "error", err)

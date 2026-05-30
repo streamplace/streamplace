@@ -30,7 +30,9 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 		return
 	}
 	ss.Go(ctx, func() error {
-		return ss.s3Uploader.AddSegment(ctx, notif.Data)
+		// notif.Muxl is the bare canonical segment; it concatenates directly
+		// (the S3 uploader synthesizes one init and prepends it per object).
+		return ss.s3Uploader.AddSegment(ctx, notif.Muxl)
 	})
 }
 

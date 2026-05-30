@@ -13,6 +13,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/test/remote"
 )
 
 // TestStreamTranscoderNeedsReset covers the source-codec-swap detection: a
@@ -174,4 +175,65 @@ func TestStreamTranscoderGapless(t *testing.T) {
 	tol := 0.040 + 0.025*float64(len(completed))
 	require.InDelta(t, totalOpus, totalAAC, tol,
 		"transcoded AAC total drifts from source Opus beyond priming + boundary quantization")
+}
+
+// TestStreamTranscoderDegenerateTimestamps feeds a real WHIP-captured segment
+// whose source video carries degenerate timestamps — several frames sharing a
+// PTS, plus zero/N/A frame durations (a variable-frame-rate capture artifact
+// that ffmpeg tolerates). GStreamer's qtdemux collapses those into buffers with
+// no PTS, which made mp4mux abort the whole pipeline ("Could not multiplex
+// stream"); the per-stream transcoder then produced NOTHING, so the stream
+// silently lost its AAC track for its entire life (a prod incident on a 1080p60
+// High-profile Opus stream). buildAudioTranscodePipeline now repairs the
+// (discarded) passthrough video's timestamps before the muxer, so the segment
+// must transcode to a verifiable dual-codec result instead of wedging.
+func TestStreamTranscoderDegenerateTimestamps(t *testing.T) {
+	ctx := context.Background()
+	seg, err := os.ReadFile(remote.RemoteFixture("5b8ddcf569a66d3f8e4a8634d9d422c1848c0becd3c44075afaafdf05f7d731f/h264-opus-degenerate-ts.m4s"))
+	require.NoError(t, err)
+
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: "test.example.com"}}
+
+	var mu sync.Mutex
+	var completed [][]byte
+	tr := mm.newStreamTranscoder(ctx, "aac", ms.Cert, keyPEM, func(_ any, c []byte) {
+		mu.Lock()
+		completed = append(completed, c)
+		mu.Unlock()
+	})
+	require.NoError(t, tr.Feed(seg, 0), "degenerate-timestamp segment must not wedge the muxer")
+	require.NoError(t, tr.Close(),
+		"pipeline must drain cleanly, not abort with 'Could not multiplex stream'")
+
+	mu.Lock()
+	defer mu.Unlock()
+	// Before the PTS repair the muxer aborted and this segment was dropped whole.
+	require.Len(t, completed, 1, "the fed segment must complete to a dual-codec result")
+
+	c := completed[0]
+	codecs := audioCodecsOf(t, ctx, c)
+	hasOpus, hasAAC := false, false
+	for _, cc := range codecs {
+		if isOpusCodec(cc) {
+			hasOpus = true
+		}
+		if isAACCodec(cc) {
+			hasAAC = true
+		}
+	}
+	require.True(t, hasOpus, "keeps the source Opus track (got %v)", codecs)
+	require.True(t, hasAAC, "gains a transcoded AAC track (got %v)", codecs)
+
+	out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(c))
+	require.NoError(t, err)
+	require.NotContains(t, out, `"validation_state":"Invalid"`, "completed segment must validate")
+
+	// The transcoded AAC must cover the GoP, not a sliver — the degenerate video
+	// timing must not bleed into a truncated audio track.
+	o, a := audioDurationsSeconds(t, ctx, c)
+	require.Greater(t, a, 0.65*o,
+		"transcoded AAC %.3fs far short of source Opus %.3fs", a, o)
 }

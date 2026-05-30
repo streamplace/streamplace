@@ -178,7 +178,48 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r := vparse.GetStaticPad("src").Link(videoMuxPad); r != gst.PadLinkOK {
+	// Repair the passthrough video's timestamps before the muxer. Variable-frame-
+	// rate WHIP capture can emit several frames at one instant (observed: three
+	// frames sharing a PTS, sub-100µs "durations", N/A durations — a capture
+	// artifact ffmpeg tolerates). GStreamer's qtdemux collapses those into buffers
+	// with a zero duration and then no PTS *and* no DTS; mp4mux rejects a PTS-less
+	// buffer ("Buffer has no PTS" → "Could not multiplex stream"), which kills the
+	// whole pipeline — so the stream silently loses its transcoded AAC track for
+	// the rest of its life (observed in prod on a 1080p60 High-profile Opus
+	// stream). The muxed video is only a segmentation clock and is discarded
+	// downstream (finishTranscodedSegment keeps just the transcoded audio), so we
+	// force a valid, strictly increasing PTS: keep the real one where present,
+	// otherwise carry the previous timestamp forward by one step. Keyframes (the
+	// GoP/segment cut points) always carry a real PTS, so segment boundaries — and
+	// the 1:1 source pairing — are preserved; only degenerate intra-GoP frames are
+	// nudged, by at most a few ms within their own GoP.
+	const tsStep = gst.ClockTime(1_000_000) // 1 ms — ≥1 tick at any sane video timescale
+	var lastTS gst.ClockTime
+	haveLast := false
+	vparseSrc := vparse.GetStaticPad("src")
+	vparseSrc.AddProbe(gst.PadProbeTypeBuffer, func(_ *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		buf := info.GetBuffer()
+		if buf == nil {
+			return gst.PadProbeOK
+		}
+		ts := buf.PresentationTimestamp()
+		if ts == gst.ClockTimeNone {
+			ts = buf.DecodingTimestamp()
+		}
+		if haveLast && (ts == gst.ClockTimeNone || ts <= lastTS) {
+			ts = lastTS + tsStep // missing or non-monotonic → carry forward
+		} else if ts == gst.ClockTimeNone {
+			ts = 0 // very first buffer with no timestamp at all
+		}
+		buf.SetPresentationTimestamp(ts)
+		if d := buf.Duration(); d == gst.ClockTimeNone || d == 0 {
+			buf.SetDuration(tsStep)
+		}
+		lastTS = ts
+		haveLast = true
+		return gst.PadProbeOK
+	})
+	if r := vparseSrc.Link(videoMuxPad); r != gst.PadLinkOK {
 		return nil, fmt.Errorf("link video chain → mux: %v", r)
 	}
 	if r := aenc.GetStaticPad("src").Link(audioMuxPad); r != gst.PadLinkOK {

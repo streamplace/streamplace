@@ -81,3 +81,10 @@ export {
   ACTIVITY_LABEL_DISPLAY,
   formatActivity,
 } from "./lib/metadata-constants";
+
+// VOD components and interaction hooks
+export * from "./components/vod/vod-comments";
+export * from "./components/vod/vod-like-button";
+export * from "./components/vod/vod-mobile-metadata";
+export * from "./components/vod/vod-section";
+export * from "./vod-store/vod-interactions";

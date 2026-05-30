@@ -1,0 +1,49 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.getComments",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get comments for a place.stream.video record.",
+      "parameters": {
+        "type": "params",
+        "required": ["video"],
+        "properties": {
+          "video": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of the place.stream.video record."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Optional pagination cursor."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of comments to return."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["comments"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "comments": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.vod.defs#commentView"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

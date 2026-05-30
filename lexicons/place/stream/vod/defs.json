@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.defs",
+  "defs": {
+    "commentView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record", "indexedAt", "likeCount"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": { "type": "unknown" },
+        "indexedAt": { "type": "string", "format": "datetime" },
+        "replyTo": {
+          "type": "union",
+          "refs": ["#commentView"]
+        },
+        "likeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of likes on this comment."
+        }
+      }
+    }
+  }
+}

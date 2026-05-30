@@ -56,6 +56,10 @@ func main() {
 		streamplace.MediaViewCount_TrackUsage{},
 		streamplace.Video_Connection{},
 		streamplace.BetaInvite{},
+		streamplace.VodComment{},
+		streamplace.VodComment_ReplyRef{},
+		streamplace.VodLike{},
+		streamplace.VodGate{},
 	); err != nil {
 		panic(err)
 	}

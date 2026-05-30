@@ -781,6 +781,133 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "indexed media view count",
 			"uri", aturi.String(), "video", rec.Video, "count", rec.Count, "reporter", userDID)
 
+	case *streamplace.VodComment:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+
+		log.Debug(ctx, "place.stream.vod.comment detected", "video", rec.Video, "repo", repo.Handle)
+
+		// Check if the video author has blocked the commenter
+		videoATURI, parseErr := syntax.ParseATURI(rec.Video)
+		var videoAuthor string
+		if parseErr == nil {
+			videoAuthor = videoATURI.Authority().String()
+			block, err := atsync.Model.GetUserBlock(ctx, videoAuthor, userDID)
+			if err != nil {
+				log.Warn(ctx, "failed to check user block for VOD comment", "err", err)
+			} else if block != nil {
+				log.Debug(ctx, "excluding VOD comment from blocked user", "userDID", userDID, "videoAuthor", videoAuthor)
+				return nil
+			}
+		} else {
+			log.Warn(ctx, "failed to parse video URI for block check", "video", rec.Video, "err", err)
+		}
+
+		vc := &model.VodComment{
+			CID:            cid,
+			URI:            aturi.String(),
+			CreatedAt:      now,
+			Comment:        recCBOR,
+			RepoDID:        userDID,
+			Repo:           repo,
+			VideoURI:       rec.Video,
+			VideoAuthorDID: videoAuthor,
+			IndexedAt:      &now,
+		}
+		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+			vc.ReplyToCID = &rec.Reply.Parent.Cid
+		}
+
+		// check for javascript: links in facets
+		for _, facet := range rec.Facets {
+			for _, feature := range facet.Features {
+				if link := feature.RichtextFacet_Link; link != nil {
+					if link.Uri != "" && strings.HasPrefix(strings.ToLower(link.Uri), "javascript:") {
+						log.Warn(ctx, "excluding comment with javascript: link", "uri", aturi.String(), "link", link.Uri)
+						return nil
+					}
+				}
+			}
+		}
+
+		err = atsync.Model.CreateVodComment(ctx, vc)
+		if err != nil {
+			log.Error(ctx, "failed to create VOD comment", "err", err)
+			return nil
+		}
+		vc, err = atsync.Model.GetVodComment(aturi.String())
+		if err != nil {
+			log.Error(ctx, "failed to get just-saved VOD comment", "err", err)
+			return nil
+		}
+		if vc == nil {
+			log.Error(ctx, "failed to retrieve just-saved VOD comment")
+			return nil
+		}
+		sc, err := vc.ToStreamplaceCommentView()
+		if err != nil {
+			log.Error(ctx, "failed to convert VOD comment to view", "err", err)
+			return nil
+		}
+
+		if sc.Author.Handle == "" || sc.Author.Handle == "handle.invalid" {
+			sc.Author.Handle = atsync.ResolveAuthorHandle(ctx, sc.Author.Did)
+		}
+
+		if videoAuthor != "" {
+			go atsync.Bus.Publish(videoAuthor, sc)
+		} else {
+			go atsync.Bus.Publish(userDID, sc)
+		}
+
+	case *streamplace.VodLike:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+
+		log.Debug(ctx, "place.stream.vod.like detected", "subject", rec.Subject, "repo", repo.Handle)
+
+		like := &model.VodLike{
+			CID:       cid,
+			URI:       aturi.String(),
+			Subject:   rec.Subject,
+			RepoDID:   userDID,
+			Repo:      repo,
+			IndexedAt: &now,
+			CreatedAt: now,
+		}
+		err = atsync.Model.CreateVodLike(ctx, like)
+		if err != nil {
+			log.Error(ctx, "failed to create VOD like", "err", err)
+			return nil
+		}
+
+	case *streamplace.VodGate:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		if r == nil {
+			// someone we don't know about
+			return nil
+		}
+		log.Debug(ctx, "creating VOD gate", "userDID", userDID, "hiddenComment", rec.HiddenComment)
+		gate := &model.VodGate{
+			RKey:          rkey.String(),
+			RepoDID:       userDID,
+			HiddenComment: rec.HiddenComment,
+			CID:           cid,
+			CreatedAt:     now,
+			Repo:          repo,
+		}
+		err = atsync.Model.CreateVodGate(ctx, gate)
+		if err != nil {
+			return fmt.Errorf("failed to create VOD gate: %w", err)
+		}
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}

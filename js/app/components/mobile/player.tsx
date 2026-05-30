@@ -18,6 +18,7 @@ import {
   useSegmentDimensions,
   VideoProvider,
   View,
+  VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
@@ -349,10 +350,19 @@ export function PlayerInner(
   }, [props.showUnavailable]);
 
   // content info
-  const { width, height } = usePlayerDimensions();
+  const { width: pwidth, height: pheight } = usePlayerDimensions();
+
+  console.log(pwidth, pheight);
+
+  let width = pwidth > 0 && props.mode !== "vod" ? pwidth : 16;
+  let height = pheight > 0 && props.mode !== "vod" ? pheight : 9;
+
+  console.log(width, height);
 
   // Calculate aspect ratio and determine if we're in desktop mode
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
+
+  console.log(aspectRatio, 16 / 9);
 
   // on mobile we want to hide the sidebar when going fullscreen
   useEffect(() => {
@@ -386,6 +396,12 @@ export function PlayerInner(
 
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
+  const { height: windowHeight } = useWindowDimensions();
+  const vodMobileHeight =
+    props.mode === "vod"
+      ? Math.min(contentWidth / aspectRatio, windowHeight * 0.7)
+      : undefined;
+
   // animated style for offline height transition
   const animatedHeightStyle = useAnimatedStyle(() => {
     return {
@@ -408,11 +424,13 @@ export function PlayerInner(
               flexGrow: 1, // This makes content expand to fill available space
               minHeight: "100%", // Ensures minimum height
             }
-          : {
-              flex: 1,
-            }
+          : props.mode === "vod"
+            ? { flexGrow: 1 }
+            : {
+                flex: 1,
+              }
       }
-      scrollEnabled={showFullDesktopMode}
+      scrollEnabled={showFullDesktopMode || props.mode === "vod"}
       bounces={false}
       showsVerticalScrollIndicator={false}
     >
@@ -422,10 +440,15 @@ export function PlayerInner(
             ? {
                 width: calculatedWidth,
               }
-            : {
-                flex: 1,
-                maxHeight: "auto",
-              },
+            : props.mode === "vod" && vodMobileHeight
+              ? {
+                  width: "100%" as any,
+                  height: vodMobileHeight,
+                }
+              : {
+                  flex: 1,
+                  maxHeight: "auto",
+                },
           {
             paddingTop:
               isPlayerRatioGreater && !isLandscape && !props.showUnavailable
@@ -444,6 +467,7 @@ export function PlayerInner(
             ) : (
               (isLandscape || props.mode === "vod") && (
                 <MobileUi
+                  hideMobileChat={props.mode === "vod"}
                   setShowChat={props.setShowChat}
                   showChat={props.showChat}
                 />
@@ -473,6 +497,7 @@ export function PlayerInner(
           showChat={props.showChat}
         />
       )}
+      {props.mode === "vod" && <VodSection />}
     </ScrollView>
   );
 }

@@ -157,8 +157,27 @@ type Model interface {
 	GetMediaViewCountByURI(ctx context.Context, uri string) (*streamplace.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string) (*streamplace.MediaGetVideoList_Output, error)
+
+	CreateVodComment(ctx context.Context, comment *VodComment) error
+	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error
+	GetVodComment(uri string) (*VodComment, error)
+	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]*streamplace.VodDefs_CommentView, *time.Time, error)
+
+	CreateVodLike(ctx context.Context, like *VodLike) error
+	DeleteVodLike(ctx context.Context, uri string) error
+	GetVodLike(uri string) (*VodLike, error)
+	GetVodLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*VodLike, error)
+	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.VodGetLikes_LikeView, int64, *time.Time, error)
+	GetLikeCount(ctx context.Context, subject string) (int64, error)
+
+	CreateVodGate(ctx context.Context, gate *VodGate) error
+	DeleteVodGate(ctx context.Context, rkey string) error
+	GetVodGate(ctx context.Context, rkey string) (*VodGate, error)
+	GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error)
 }
 
+// DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
+// WHICH ALSO SHOULD NOT HAPPEN
 var DBRevision = 4
 
 func MakeDB(dbURL string) (Model, error) {
@@ -235,6 +254,9 @@ func MakeDB(dbURL string) (Model, error) {
 		MediaOrigin{},
 		MediaViewCount{},
 		BetaInvite{},
+		VodComment{},
+		VodLike{},
+		VodGate{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

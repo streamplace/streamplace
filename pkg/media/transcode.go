@@ -276,6 +276,40 @@ func maxU32(a, b uint32) uint32 {
 	return b
 }
 
+// concatTracksByID reassembles a bare canonical .m4s from a segment event's
+// per-track bytes in ascending track-id order (the canonical track order) — the
+// inverse of how catalogAndTracks/the segmenter split a segment into ev.Tracks.
+func concatTracksByID(tracks map[string][]byte) []byte {
+	ids := make([]int, 0, len(tracks))
+	for k := range tracks {
+		if n, err := strconv.Atoi(k); err == nil {
+			ids = append(ids, n)
+		}
+	}
+	sort.Ints(ids)
+	var out []byte
+	for _, id := range ids {
+		out = append(out, tracks[strconv.Itoa(id)]...)
+	}
+	return out
+}
+
+// concatTrackAcrossSegments returns one track's bytes concatenated across EVERY
+// segment event in a muxl event stream. catalogAndTracks deliberately returns
+// only the first segment's tracks, so it silently drops data whenever a wrapper
+// holds more than one segment — which canonicalize produces when it re-segments
+// its input into multiple GoPs. Use this when the input may span several.
+func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
+	key := strconv.FormatUint(uint64(tid), 10)
+	var out []byte
+	for _, ev := range events {
+		if ev.Type == "segment" || ev.Type == "signed-segment" {
+			out = append(out, ev.Tracks[key]...)
+		}
+	}
+	return out
+}
+
 // filterSegmentToCodec returns a bare canonical .m4s containing every video
 // track plus the single audio track matching the requested codec (Opus when
 // wantOpus, else AAC) — how an output consumer "asks for the audio it needs"

@@ -338,7 +338,12 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 			continue
 		}
 
-		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transAudio, audioTID, t.cert, t.keyPEM)
+		// Pass the WHOLE transcoded segment (video + audio), not the audio alone:
+		// finishTranscodedSegment re-canonicalizes it to relabel the audio track,
+		// and canonicalize needs the video keyframe as its cut clock to emit one
+		// segment per GoP. Audio by itself has no keyframes to anchor on.
+		transSeg := concatTracksByID(ev.Tracks)
+		completed, err := t.mm.finishTranscodedSegment(ctx, job.src, transSeg, audioTID, t.cert, t.keyPEM)
 		if err != nil {
 			log.Error(ctx, "stream transcode: finish segment failed", "error", err)
 			continue
@@ -357,12 +362,23 @@ func (t *streamTranscoder) run(feedR *io.PipeReader) error {
 }
 
 // finishTranscodedSegment assembles one completed dual-codec segment: relabel
-// the freshly-segmented transcoded audio (transAudio, at transTID) to a free
-// track id so it won't collide with the source tracks, sign it as a
-// c2pa.transcoded derivative of the source segment's audio (node identity), and
-// append it to the source segment. The relabel is a lossless re-container (no
-// re-encode), so the continuous encoder's gaplessness is preserved.
-func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, transAudio []byte, transTID uint32, cert, keyPEM []byte) ([]byte, error) {
+// the freshly-segmented transcoded audio (the audio track transTID within
+// transSeg) to a free track id so it won't collide with the source tracks, sign
+// it as a c2pa.transcoded derivative of the source segment's audio (node
+// identity), and append it to the source segment. The relabel is a lossless
+// re-container (no re-encode), so the continuous encoder's gaplessness is
+// preserved.
+//
+// transSeg is the FULL emitted transcoded segment (video + transcoded audio),
+// not the audio track alone. The relabel goes through muxl's canonicalize,
+// which re-segments its input; with audio only there are no keyframes to anchor
+// on, so it falls back to a ~1s cadence and splits each ~2s GoP's audio in two —
+// and only the first survived extraction, silently halving the transcoded track
+// (every output segment carried ~1s of audio against ~2s of video, audible as
+// the audio cutting out for the back half of each segment). Carrying the
+// passed-through video as the cut clock makes canonicalize emit one segment per
+// GoP, exactly like the source track.
+func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, transSeg []byte, transTID uint32, cert, keyPEM []byte) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, srcSeg)
 	if err != nil {
 		return nil, fmt.Errorf("unwrap source segment: %w", err)
@@ -387,11 +403,14 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	}
 	freeTID := maxTID + 1
 
-	// Relabel transTID → freeTID: wrap to fMP4, canonicalize with the remap,
-	// extract the relabeled track. Pure re-container; no re-encode.
+	// Relabel transTID → freeTID: wrap the full segment to fMP4, canonicalize
+	// with the remap (the video keyframe anchors one segment per GoP), extract
+	// the relabeled audio track. Pure re-container; no re-encode. Concatenate the
+	// track across every emitted segment so nothing is dropped if canonicalize
+	// ever splits the GoP (see catalogAndTracks / concatTrackAcrossSegments).
 	var fmp4 bytes.Buffer
-	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(transAudio), "fmp4", &fmp4); err != nil {
-		return nil, fmt.Errorf("wrap transcoded audio: %w", err)
+	if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(transSeg), "fmp4", &fmp4); err != nil {
+		return nil, fmt.Errorf("wrap transcoded segment: %w", err)
 	}
 	canon, err := muxl.RunMuxlCanonicalize(ctx, fmp4.Bytes(), map[uint32]uint32{transTID: freeTID})
 	if err != nil {
@@ -401,8 +420,7 @@ func (mm *MediaManager) finishTranscodedSegment(ctx context.Context, srcSeg, tra
 	if err != nil {
 		return nil, fmt.Errorf("unwrap relabeled audio: %w", err)
 	}
-	_, canonTracks := catalogAndTracks(canonEvents)
-	output := canonTracks[strconv.FormatUint(uint64(freeTID), 10)]
+	output := concatTrackAcrossSegments(canonEvents, freeTID)
 	if len(output) == 0 {
 		return nil, fmt.Errorf("relabeled audio track %d missing", freeTID)
 	}

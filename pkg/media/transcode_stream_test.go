@@ -145,17 +145,33 @@ func TestStreamTranscoderGapless(t *testing.T) {
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", i)
 
 		o, a := audioDurationsSeconds(t, ctx, c)
+		// Each completed segment must carry a FULL GoP of transcoded audio, not a
+		// fraction of it. Relabeling the transcoded track to a free id runs it back
+		// through muxl's canonicalize, which re-segments; cut audio-only (no video
+		// keyframe to anchor on) it splits each ~2 s GoP into ~1 s pieces, and a bug
+		// that extracted only the first piece silently HALVED the track — every
+		// segment played ~1 s of AAC against ~2 s of Opus/video, audible as the
+		// audio cutting out for the back half of each segment. This proportional
+		// guard catches that (and any gross under-fill) independent of segment
+		// count; finishTranscodedSegment now carries the video through as the cut
+		// clock so the audio re-canonicalizes as one full segment per GoP.
+		require.Greater(t, a, 0.65*o,
+			"segment %d: transcoded AAC %.3fs far short of source Opus %.3fs (halved track?)", i, a, o)
 		totalOpus += o
 		totalAAC += a
 	}
 
 	t.Logf("completed=%d totalOpus=%.3fs totalAAC=%.3fs delta=%.3fs",
 		len(completed), totalOpus, totalAAC, totalAAC-totalOpus)
-	// Gapless: the transcoded track tracks the source duration. Per-segment
-	// priming would inflate the AAC track by ~one priming (40–80 ms) at EVERY
-	// segment boundary; a continuous encode pays it once at stream start (and
-	// the init's edit list absorbs even that). The measured delta is ~1 ms, so
-	// a 40 ms bound cleanly fails the gappy regression while staying robust.
-	require.InDelta(t, totalOpus, totalAAC, 0.040,
-		"transcoded AAC track is inflated vs source Opus — per-segment priming leaked in")
+	// Gapless: the transcoded track tracks the source duration with no per-segment
+	// accumulation. The continuous encoder pays its priming ONCE at stream start
+	// (the gappy per-segment transcoder this replaced paid 40–80 ms at EVERY
+	// boundary), and each segment's audio is cut on the video keyframe — which need
+	// not land on an AAC frame — so per-segment durations quantize by ±1 AAC frame
+	// (~21 ms) around the source without drifting (measured ~0.15 ms/segment over a
+	// 10-min real stream). The fixture is only a few short segments, too few to
+	// average the one-time priming, so bound = priming + ~one frame per segment.
+	tol := 0.040 + 0.025*float64(len(completed))
+	require.InDelta(t, totalOpus, totalAAC, tol,
+		"transcoded AAC total drifts from source Opus beyond priming + boundary quantization")
 }

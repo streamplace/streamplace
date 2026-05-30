@@ -10,9 +10,10 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-// GetVideoList returns a page of hydrated video views for the given
-// repo DID, newest first. Pagination is cursor-based: each page
-// returns a cursor for the next page if more videos exist.
+// GetVideoList returns a page of hydrated video views, newest first.
+// When repoDID is non-empty the list is scoped to that repo; when it's
+// empty the list spans every indexed repo. Pagination is cursor-based:
+// each page returns a cursor for the next page if more videos exist.
 func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, cursor string) (*streamplace.MediaGetVideoList_Output, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 25
@@ -20,8 +21,11 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 
 	query := m.DB.WithContext(ctx).
 		Model(&Video{}).
-		Where("repo_did = ?", repoDID).
 		Order("indexed_at DESC, uri DESC")
+
+	if repoDID != "" {
+		query = query.Where("repo_did = ?", repoDID)
+	}
 
 	if cursor != "" {
 		// Cursor is the uri of the last video from the previous page.

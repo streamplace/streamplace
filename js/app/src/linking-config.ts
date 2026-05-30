@@ -94,6 +94,8 @@ export const SCREEN_PATHS = {
   Multi: "multi/:config",
   Support: "support",
   Upload: "upload",
+  VideoList: "video",
+  UserVideoList: ":did/video",
   // Settings screens
   MainSettings: "settings",
   AboutCategory: "settings/about",
@@ -191,6 +193,12 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 Multi: SCREEN_PATHS.Multi,
                 Support: SCREEN_PATHS.Support,
                 Upload: SCREEN_PATHS.Upload,
+              },
+            },
+            VideosTab: {
+              screens: {
+                VideoList: SCREEN_PATHS.VideoList,
+                UserVideoList: SCREEN_PATHS.UserVideoList,
               },
             },
             GoLiveTab: SCREEN_PATHS.GoLiveTab,

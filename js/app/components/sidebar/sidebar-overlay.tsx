@@ -18,6 +18,7 @@ import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
   Book,
+  Clapperboard,
   Download,
   ExternalLink,
   Home,
@@ -155,6 +156,12 @@ export function SidebarOverlay() {
       icon: () => <Home color={foregroundColor} size={24} />,
       label: <Text variant="h5">Home</Text>,
       href: "/",
+    },
+    {
+      icon: () => <Clapperboard color={foregroundColor} size={24} />,
+      label: <Text variant="h5">Videos</Text>,
+      href: "/video",
+      matchPrefix: "/video",
     },
     {
       icon: () => <ShieldQuestion color={foregroundColor} size={24} />,

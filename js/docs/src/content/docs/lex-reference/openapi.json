@@ -2427,7 +2427,7 @@
     },
     "/xrpc/place.stream.media.getVideoList": {
       "get": {
-        "summary": "List videos for a given repo DID, newest first. Returns hydrated video views with author info and view counts.",
+        "summary": "List videos newest first. Scoped to a single repo when `repo` is supplied; otherwise lists videos across every indexed repo. Returns hydrated video views with author info and view counts.",
         "operationId": "place.stream.media.getVideoList",
         "tags": ["place.stream.media"],
         "responses": {
@@ -2483,12 +2483,11 @@
           {
             "name": "repo",
             "in": "query",
-            "required": true,
-            "description": "DID of the repo whose videos to list.",
+            "required": false,
+            "description": "DID or handle of the repo whose videos to list. Omit to list videos globally across all repos.",
             "schema": {
               "type": "string",
-              "description": "DID of the repo whose videos to list.",
-              "format": "did"
+              "description": "DID or handle of the repo whose videos to list. Omit to list videos globally across all repos."
             }
           },
           {

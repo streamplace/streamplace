@@ -13,15 +13,15 @@ description: Reference for the place.stream.media.getVideoList lexicon
 
 **Type:** `query`
 
-List videos for a given repo DID, newest first. Returns hydrated video views with author info and view counts.
+List videos newest first. Scoped to a single repo when `repo` is supplied; otherwise lists videos across every indexed repo. Returns hydrated video views with author info and view counts.
 
 **Parameters:**
 
-| Name     | Type      | Req'd | Description                                 | Constraints                           |
-| -------- | --------- | ----- | ------------------------------------------- | ------------------------------------- |
-| `repo`   | `string`  | ✅    | DID of the repo whose videos to list.       | Format: `did`                         |
-| `limit`  | `integer` | ❌    | Maximum number of videos to return.         | Min: 1<br/>Max: 100<br/>Default: `25` |
-| `cursor` | `string`  | ❌    | Pagination cursor from a previous response. |                                       |
+| Name     | Type      | Req'd | Description                                                                                    | Constraints                           |
+| -------- | --------- | ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `repo`   | `string`  | ❌    | DID or handle of the repo whose videos to list. Omit to list videos globally across all repos. |                                       |
+| `limit`  | `integer` | ❌    | Maximum number of videos to return.                                                            | Min: 1<br/>Max: 100<br/>Default: `25` |
+| `cursor` | `string`  | ❌    | Pagination cursor from a previous response.                                                    |                                       |
 
 **Output:**
 
@@ -50,15 +50,14 @@ List videos for a given repo DID, newest first. Returns hydrated video views wit
   "defs": {
     "main": {
       "type": "query",
-      "description": "List videos for a given repo DID, newest first. Returns hydrated video views with author info and view counts.",
+      "description": "List videos newest first. Scoped to a single repo when `repo` is supplied; otherwise lists videos across every indexed repo. Returns hydrated video views with author info and view counts.",
       "parameters": {
         "type": "params",
-        "required": ["repo"],
+        "required": [],
         "properties": {
           "repo": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the repo whose videos to list."
+            "description": "DID or handle of the repo whose videos to list. Omit to list videos globally across all repos."
           },
           "limit": {
             "type": "integer",

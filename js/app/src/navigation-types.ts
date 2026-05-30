@@ -29,9 +29,16 @@ export type HomeStackParamList = {
   Upload: undefined;
 };
 
+// Videos tab navigator
+export type VideosStackParamList = {
+  VideoList: undefined;
+  UserVideoList: { did: string };
+};
+
 // Main tab navigator
 export type TabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
+  VideosTab: NavigatorScreenParams<VideosStackParamList>;
   GoLiveTab: undefined;
   SettingsTab: NavigatorScreenParams<SettingsStackParamList>;
 };

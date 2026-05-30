@@ -21,7 +21,7 @@ type MediaGetVideoList_Output struct {
 //
 // cursor: Pagination cursor from a previous response.
 // limit: Maximum number of videos to return.
-// repo: DID of the repo whose videos to list.
+// repo: DID or handle of the repo whose videos to list. Omit to list videos globally across all repos.
 func MediaGetVideoList(ctx context.Context, c lexutil.LexClient, cursor string, limit int64, repo string) (*MediaGetVideoList_Output, error) {
 	var out MediaGetVideoList_Output
 
@@ -32,7 +32,9 @@ func MediaGetVideoList(ctx context.Context, c lexutil.LexClient, cursor string, 
 	if limit != 0 {
 		params["limit"] = limit
 	}
-	params["repo"] = repo
+	if repo != "" {
+		params["repo"] = repo
+	}
 	if err := c.LexDo(ctx, lexutil.Query, "", "place.stream.media.getVideoList", params, nil, &out); err != nil {
 		return nil, err
 	}

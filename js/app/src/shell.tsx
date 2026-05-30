@@ -41,7 +41,7 @@ import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
-import { Cog, Home, Video } from "lucide-react-native";
+import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
@@ -67,6 +67,7 @@ import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
 import SupportScreen from "src/screens/support";
 import UploadScreen from "src/screens/upload";
 import VideoScreen from "src/screens/video";
+import VideoListScreen from "src/screens/video-list";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -78,6 +79,7 @@ import { AvatarButton, LGAvatarButton, NavigationButton } from "./router";
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 const HomeStack = createNativeStackNavigator();
+const VideosStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
@@ -198,6 +200,42 @@ function HomeNavigator() {
   );
 }
 
+// Videos stack navigator (global + per-user VOD listings). Unlike the pushed
+// Home screens, these are tab roots, so they always carry their own header.
+function VideosNavigator() {
+  const baseScreenOptions = useBaseScreenOptions();
+  const isNative = Platform.OS !== "web";
+  const z = useTheme();
+
+  return (
+    <VideosStack.Navigator
+      screenOptions={{
+        ...baseScreenOptions,
+        headerLeft: isNative
+          ? undefined
+          : ({ canGoBack }: NativeStackHeaderBackProps) => (
+              <NavigationButton canGoBack={canGoBack} />
+            ),
+        headerRight: () => <LGAvatarButton />,
+        headerTitleStyle: {
+          fontFamily: z.theme.typography.universal.base.fontFamily,
+        },
+      }}
+    >
+      <VideosStack.Screen
+        name="VideoList"
+        component={VideoListScreen}
+        options={{ title: "Videos" }}
+      />
+      <VideosStack.Screen
+        name="UserVideoList"
+        component={VideoListScreen}
+        options={{ title: "Videos" }}
+      />
+    </VideosStack.Navigator>
+  );
+}
+
 // Settings stack navigator
 function SettingsNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
@@ -308,11 +346,13 @@ function SettingsNavigator() {
 
 const IOS_ICONS: Record<string, SFSymbols7_0> = {
   Home: "house.fill",
+  Videos: "play.rectangle.fill",
   GoLive: "video.fill",
   Settings: "gearshape.fill",
 };
 const ANDROID_ICONS = {
   Home: "home",
+  Videos: "video_library",
   GoLive: "videocam",
   Settings: "settings",
 };
@@ -373,6 +413,22 @@ function TabNavigator() {
             : {
                 tabBarIcon: ({ color, size }) => (
                   <Home size={size} color={color} />
+                ),
+              }),
+        }}
+      />
+      <Tab.Screen
+        name="VideosTab"
+        component={VideosNavigator}
+        options={{
+          title: "Videos",
+          ...(isNative
+            ? {
+                tabBarIcon: getIcon("Videos"),
+              }
+            : {
+                tabBarIcon: ({ color, size }) => (
+                  <Clapperboard size={size} color={color} />
                 ),
               }),
         }}

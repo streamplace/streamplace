@@ -200,7 +200,8 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// critical path. This runs for every segment — locally signed or replicated
 	// from another node — so any node that validates a stream's segments can
 	// serve its live HLS. WithoutCancel keeps the feed alive past this request.
-	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg)
+	// Only published segments are actually folded in (see feedLiveWindow).
+	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
 
 	var deleteAfter *time.Time
 	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {

@@ -58,7 +58,17 @@ func (mm *MediaManager) GetLiveWindow(did string) *livehls.Writer {
 // validated segment — local or replicated — so a node serves live HLS for any
 // stream whose segments flow through its ValidateMP4. Best-effort: window
 // errors are logged, never fatal to ingest.
-func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte) {
+//
+// Only PUBLISHED segments are folded in. Live HLS requests are unauthenticated
+// today, so a pre-live (unpublished) segment in the window would be watchable by
+// anyone, not just the streamer. Until HLS gains per-viewer auth we withhold
+// pre-live HLS entirely: an unfed window stays nil, and the getLive* handlers
+// return StreamNotLive. The streamer still monitors their own pre-live stream
+// over WebRTC, which gates playback on viewer == streamer.
+func (mm *MediaManager) feedLiveWindow(ctx context.Context, did string, segment []byte, published bool) {
+	if !published {
+		return
+	}
 	eventCh := make(chan *muxl.MuxlEvent, 8)
 	errCh := make(chan error, 1)
 	go func() {

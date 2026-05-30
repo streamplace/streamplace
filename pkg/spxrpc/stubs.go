@@ -310,9 +310,11 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
+	e.POST("/xrpc/place.stream.moderation.createVodGate", s.HandlePlaceStreamModerationCreateVodGate)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
 	e.POST("/xrpc/place.stream.moderation.deletePin", s.HandlePlaceStreamModerationDeletePin)
+	e.POST("/xrpc/place.stream.moderation.deleteVodGate", s.HandlePlaceStreamModerationDeleteVodGate)
 	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
 	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
@@ -333,6 +335,8 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
+	e.GET("/xrpc/place.stream.vod.getComments", s.HandlePlaceStreamVodGetComments)
+	e.GET("/xrpc/place.stream.vod.getLikes", s.HandlePlaceStreamVodGetLikes)
 	return nil
 }
 
@@ -825,6 +829,24 @@ func (s *Server) HandlePlaceStreamModerationCreatePin(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamModerationCreateVodGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateVodGate")
+	defer span.End()
+
+	var body placestream.ModerationCreateVodGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreateVodGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context,body *placestream.ModerationCreateVodGate_Input) (*placestream.ModerationCreateVodGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreateVodGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamModerationDeleteBlock(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteBlock")
 	defer span.End()
@@ -873,6 +895,24 @@ func (s *Server) HandlePlaceStreamModerationDeletePin(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context,body *placestream.ModerationDeletePin_Input) (*placestream.ModerationDeletePin_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationDeletePin(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeleteVodGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteVodGate")
+	defer span.End()
+
+	var body placestream.ModerationDeleteVodGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeleteVodGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context,body *placestream.ModerationDeleteVodGate_Input) (*placestream.ModerationDeleteVodGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeleteVodGate(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1244,6 +1284,58 @@ func (s *Server) HandlePlaceStreamServerUpsertStorage(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context,body *placestream.ServerUpsertStorage_Input) (*placestream.ServerUpsertStorage_Output, error)
 	out, handleErr = s.handlePlaceStreamServerUpsertStorage(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetComments")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	video := c.QueryParam("video")
+	var out *placestream.VodGetComments_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit int,video string) (*placestream.VodGetComments_Output, error)
+	out, handleErr = s.handlePlaceStreamVodGetComments(ctx, cursor, limit, video)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodGetLikes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetLikes")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	subject := c.QueryParam("subject")
+	var out *placestream.VodGetLikes_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodGetLikes(ctx context.Context,cursor string,limit int,subject string) (*placestream.VodGetLikes_Output, error)
+	out, handleErr = s.handlePlaceStreamVodGetLikes(ctx, cursor, limit, subject)
 	if handleErr != nil {
 		return handleErr
 	}

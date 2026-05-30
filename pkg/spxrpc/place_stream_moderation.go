@@ -503,3 +503,99 @@ func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context, input
 
 	return &streamplace.ModerationDeletePin_Output{}, nil
 }
+
+// handlePlaceStreamModerationCreateVodGate creates a gate (hide VOD comment) on behalf of a streamer
+func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, input *streamplace.ModerationCreateVodGate_Input) (*streamplace.ModerationCreateVodGate_Output, error) {
+	// Validate input
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.CommentUri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid comment URI: %v", err))
+	}
+
+	// Get delegated moderation context (validates OAuth, permission, and returns client)
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "createVodGate")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create gate record in streamer's repo
+	gate := &streamplace.VodGate{
+		HiddenComment: input.CommentUri,
+	}
+
+	createInput := comatproto.RepoCreateRecord_Input{
+		Collection: constants.PLACE_STREAM_VOD_GATE,
+		Record:     &lexutil.LexiconTypeDecoder{Val: gate},
+		Repo:       input.Streamer,
+	}
+	createOutput := comatproto.RepoCreateRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
+	if err != nil {
+		log.Error(ctx, "failed to create VOD gate record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createVodGate", input.CommentUri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create VOD gate: %v", err))
+	}
+
+	// Log successful audit entry
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createVodGate", input.CommentUri, "", createOutput.Uri, true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &streamplace.ModerationCreateVodGate_Output{
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
+	}, nil
+}
+
+// handlePlaceStreamModerationDeleteVodGate deletes a gate (unhide VOD comment) on behalf of a streamer
+func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context, input *streamplace.ModerationDeleteVodGate_Input) (*streamplace.ModerationDeleteVodGate_Output, error) {
+	// Validate input
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.GateUri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid gate URI: %v", err))
+	}
+
+	// Get delegated moderation context (validates OAuth, permission, and returns client)
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "deleteVodGate")
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse gateUri to extract rkey
+	rkey, err := extractRKey(input.GateUri)
+	if err != nil {
+		log.Error(ctx, "failed to extract rkey from gateUri", "uri", input.GateUri, "err", err)
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid gateUri format")
+	}
+
+	// Delete gate record from streamer's repo
+	deleteInput := comatproto.RepoDeleteRecord_Input{
+		Collection: constants.PLACE_STREAM_VOD_GATE,
+		Rkey:       rkey,
+		Repo:       input.Streamer,
+	}
+	deleteOutput := comatproto.RepoDeleteRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput)
+	if err != nil {
+		log.Error(ctx, "failed to delete VOD gate record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteVodGate", input.GateUri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete VOD gate: %v", err))
+	}
+
+	// Log successful audit entry
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteVodGate", input.GateUri, "", "", true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &streamplace.ModerationDeleteVodGate_Output{}, nil
+}

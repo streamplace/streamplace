@@ -405,6 +405,27 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_VOD_COMMENT {
+				log.Debug(ctx, "deleting VOD comment", "uri", uri)
+				if err := atsync.Model.DeleteVodComment(ctx, uri, &opTime); err != nil {
+					log.Error(ctx, "failed to delete VOD comment", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_VOD_LIKE {
+				log.Debug(ctx, "deleting VOD like", "uri", uri)
+				if err := atsync.Model.DeleteVodLike(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete VOD like", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_VOD_GATE {
+				log.Debug(ctx, "deleting VOD gate", "userDID", evt.Repo, "rkey", rkey.String())
+				if err := atsync.Model.DeleteVodGate(ctx, rkey.String()); err != nil {
+					log.Error(ctx, "failed to delete VOD gate", "err", err)
+				}
+			}
+
 		default:
 			log.Error(ctx, "unexpected record op kind")
 		}

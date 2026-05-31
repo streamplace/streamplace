@@ -243,26 +243,28 @@ function SettingsNavigator() {
   const z = useTheme();
   const isNative = Platform.OS !== "web";
   const headerScreenOptions = {
+    ...baseScreenOptions,
+    headerTransparent: Platform.OS === "ios",
+    headerBackButtonDisplayMode: "minimal" as const,
     headerShown: true,
-    headerLeft: isNative
-      ? undefined
-      : ({ canGoBack }: NativeStackHeaderBackProps) => (
-          <NavigationButton canGoBack={canGoBack} />
-        ),
-    headerRight: () => <LGAvatarButton />,
-    ...(isNative && {
-      headerTransparent: true,
-    }),
-    headerTitleStyle: {
-      fontFamily: z.theme.typography.universal.base.fontFamily,
-    },
+    // headerLeft: isNative
+    //   ? undefined
+    //   : ({ canGoBack }: NativeStackHeaderBackProps) => (
+    //       <NavigationButton canGoBack={canGoBack} />
+    //     ),
+    // headerRight: () => <LGAvatarButton />,
+    // ...(isNative && {
+    //   headerTransparent: true,
+    // }),
+    // headerTitleStyle: {
+    //   fontFamily: z.theme.typography.universal.base.fontFamily,
+    //   marginBottom: 100,
+    // },
   };
   return (
     <SettingsStack.Navigator
       initialRouteName="MainSettings"
       screenOptions={{
-        headerTransparent: Platform.OS === "ios",
-        headerBackButtonDisplayMode: "minimal",
         ...headerScreenOptions,
       }}
     >

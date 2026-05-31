@@ -596,6 +596,53 @@ function AddModeratorDialog({
               </Text>
             </View>
           </Pressable>
+
+          <Pressable
+            onPress={() =>
+              setPermissions((p) => ({
+                ...p,
+                "message.pin": !p["message.pin"],
+              }))
+            }
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              p[3],
+              r.md,
+              bg.neutral[800],
+              borders.width.thin,
+              borders.color.neutral[700],
+            ]}
+          >
+            <View
+              style={[
+                {
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                },
+                borders.width.thin,
+                borders.color.neutral[600],
+                permissions["message.pin"] ? bg.blue[600] : bg.neutral[900],
+                layout.flex.center,
+                { marginRight: 12 },
+              ]}
+            >
+              {permissions["message.pin"] && (
+                <Text style={[textStyle.white, { fontSize: 12 }]}>✓</Text>
+              )}
+            </View>
+            <View>
+              <Text
+                style={[textStyle.white, { fontSize: 14, fontWeight: "500" }]}
+              >
+                Pin Messages
+              </Text>
+              <Text style={[textStyle.gray[400], { fontSize: 12 }]}>
+                Pin and unpin chat messages
+              </Text>
+            </View>
+          </Pressable>
         </View>
       </View>
 

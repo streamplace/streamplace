@@ -22,6 +22,7 @@ interface ChatPopoutParams {
   reverse?: string;
   hideAfter?: string;
   hideChatBox?: string;
+  hidePinnedComments?: string;
   showNotifications?: string;
 }
 
@@ -65,7 +66,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
     ? parseInt(params.hideAfter, 10)
     : undefined;
   const hideChatBox = params.hideChatBox === "true";
-  const showNotifications = params.showNotifications === "true";
+  const hidePinnedComments = params.hidePinnedComments === "true";
 
   useEffect(() => {
     setSrc(params.user);
@@ -88,7 +89,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
         { maxHeight: "100vh" },
       ]}
     >
-      {showNotifications ? (
+      {!hidePinnedComments ? (
         <StreamNotificationProvider position="top">
           {chat}
         </StreamNotificationProvider>

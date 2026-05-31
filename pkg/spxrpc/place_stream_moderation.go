@@ -376,25 +376,6 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		return nil, err
 	}
 
-	// Check that the streamer has an active livestream
-	ls, err := s.model.GetLatestLivestreamForRepo(input.Streamer)
-	if err != nil {
-		log.Error(ctx, "failed to get livestream for streamer", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to check livestream status")
-	}
-	if ls == nil || ls.Livestream == nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "no active livestream for this streamer")
-	}
-	lsRec, err := lexutil.CborDecodeValue(*ls.Livestream)
-	if err != nil {
-		log.Error(ctx, "failed to decode livestream record", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to check livestream status")
-	}
-	lsTyped, ok := lsRec.(*streamplace.Livestream)
-	if ok && lsTyped.EndedAt != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream has ended, cannot pin comments")
-	}
-
 	// Delete existing pinned records for this streamer (single-pin semantics)
 	var listOutput comatproto.RepoListRecords_Output
 	err = modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.listRecords",

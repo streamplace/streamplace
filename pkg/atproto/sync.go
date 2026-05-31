@@ -881,13 +881,13 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			go atsync.Bus.Publish(userDID, sc)
 		}
 
-	case *streamplace.VodLike:
+	case *streamplace.Like:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 
-		log.Debug(ctx, "place.stream.vod.like detected", "subject", rec.Subject, "repo", repo.Handle)
+		log.Debug(ctx, "place.stream.like detected", "subject", rec.Subject, "repo", repo.Handle)
 
 		like := &model.VodLike{
 			CID:       cid,

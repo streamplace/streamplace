@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import {
+  PlaceStreamLike,
   PlaceStreamVodComment,
   PlaceStreamVodDefs,
   PlaceStreamVodGetComments,
   PlaceStreamVodGetLikes,
-  PlaceStreamVodLike,
 } from "streamplace";
 import { useDID } from "../streamplace-store/streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
@@ -67,15 +67,15 @@ export const useCreateVodLike = () => {
         throw new Error("No PDS agent or user DID found");
       }
 
-      const record: PlaceStreamVodLike.Record = {
-        $type: "place.stream.vod.like",
+      const record: PlaceStreamLike.Record = {
+        $type: "place.stream.like",
         subject,
         createdAt: new Date().toISOString(),
       };
 
       return await pdsAgent.com.atproto.repo.createRecord({
         repo: userDID,
-        collection: "place.stream.vod.like",
+        collection: "place.stream.like",
         record,
       });
     },
@@ -96,7 +96,7 @@ export const useDeleteVodLike = () => {
       if (!rkey) throw new Error("No rkey found");
       return await pdsAgent.com.atproto.repo.deleteRecord({
         repo: userDID,
-        collection: "place.stream.vod.like",
+        collection: "place.stream.like",
         rkey,
       });
     },

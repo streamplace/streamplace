@@ -25,7 +25,7 @@ type VodLike struct {
 func (l *VodLike) ToStreamplaceLikeView() (*streamplace.VodGetLikes_LikeView, error) {
 	rec, err := lexutil.CborDecodeValue([]byte{})
 	if err != nil {
-		rec = &streamplace.VodLike{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
+		rec = &streamplace.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
 	}
 	return &streamplace.VodGetLikes_LikeView{
 		Uri:    l.URI,

@@ -59,7 +59,7 @@ func main() {
 		streamplace.BetaRequest{},
 		streamplace.VodComment{},
 		streamplace.VodComment_ReplyRef{},
-		streamplace.VodLike{},
+		streamplace.Like{},
 		streamplace.VodGate{},
 	); err != nil {
 		panic(err)

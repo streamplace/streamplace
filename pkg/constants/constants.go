@@ -28,7 +28,7 @@ var PLACE_STREAM_MEDIA_VIEW_COUNT = "place.stream.media.viewCount"            //
 var PLACE_STREAM_BETA_INVITE = "place.stream.beta.invite"                     //nolint:all
 var PLACE_STREAM_BETA_REQUEST = "place.stream.beta.request"                   //nolint:all
 var PLACE_STREAM_VOD_COMMENT = "place.stream.vod.comment"                     //nolint:all
-var PLACE_STREAM_VOD_LIKE = "place.stream.vod.like"                           //nolint:all
+var PLACE_STREAM_LIKE = "place.stream.like"                                   //nolint:all
 var PLACE_STREAM_VOD_GATE = "place.stream.vod.gate"                           //nolint:all
 
 // Streamplace badge types

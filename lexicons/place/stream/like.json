@@ -1,11 +1,11 @@
 {
   "lexicon": 1,
-  "id": "place.stream.vod.like",
+  "id": "place.stream.like",
   "defs": {
     "main": {
       "type": "record",
       "key": "tid",
-      "description": "Record indicating a like on a VOD or VOD comment.",
+      "description": "Record indicating a like on some other record (e.g. a video or a comment).",
       "record": {
         "type": "object",
         "required": ["subject", "createdAt"],
@@ -13,7 +13,7 @@
           "subject": {
             "type": "string",
             "format": "at-uri",
-            "description": "AT-URI of the record being liked (a place.stream.video or place.stream.vod.comment)."
+            "description": "AT-URI of the record being liked (e.g. a place.stream.video or place.stream.vod.comment)."
           },
           "createdAt": {
             "type": "string",

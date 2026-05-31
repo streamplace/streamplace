@@ -75,7 +75,12 @@ import {
   useNotificationDestination,
   useNotificationToken,
 } from "store/hooks";
-import { AvatarButton, LGAvatarButton, NavigationButton } from "./router";
+import {
+  AvatarButton,
+  LGAvatarButton,
+  NavigationButton,
+  UploadButton,
+} from "./router";
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -115,7 +120,12 @@ function HomeNavigator() {
       : ({ canGoBack }: NativeStackHeaderBackProps) => (
           <NavigationButton canGoBack={canGoBack} />
         ),
-    headerRight: () => <LGAvatarButton />,
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
     ...(isNative && {
       headerTransparent: true,
     }),
@@ -145,13 +155,23 @@ function HomeNavigator() {
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
               : undefined,
-          headerRight: () => <AvatarButton />,
+          headerRight: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <AvatarButton />
+            </View>
+          ),
           ...(Platform.OS === "ios" && {
             unstable_headerRightItems: () => [
               {
                 type: "custom",
                 hidesSharedBackground: true,
-                element: <LGAvatarButton />,
+                element: (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <UploadButton />
+                    <LGAvatarButton />
+                  </View>
+                ),
               },
             ],
           }),
@@ -217,7 +237,12 @@ function VideosNavigator() {
           : ({ canGoBack }: NativeStackHeaderBackProps) => (
               <NavigationButton canGoBack={canGoBack} />
             ),
-        headerRight: () => <LGAvatarButton />,
+        headerRight: () => (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <UploadButton />
+            <LGAvatarButton />
+          </View>
+        ),
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal.base.fontFamily,
         },
@@ -614,7 +639,12 @@ export default function Shell() {
             headerLeft: ({ canGoBack }) => (
               <NavigationButton canGoBack={canGoBack} />
             ),
-            headerRight: () => <LGAvatarButton />,
+            headerRight: () => (
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <UploadButton />
+                <LGAvatarButton />
+              </View>
+            ),
             ...(isNative && {
               headerTransparent: true,
             }),

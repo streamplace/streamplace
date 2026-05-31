@@ -10,6 +10,7 @@ import {
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
+  Upload,
   User,
 } from "lucide-react-native";
 import {
@@ -257,5 +258,37 @@ export const AvatarButton = () => {
         <User size={24} color="white" />
       </Button>
     </View>
+  );
+};
+
+export const UploadButton = () => {
+  const did = useStore((state) => state.oauthSession?.did);
+  const { theme } = useTheme();
+  const windowWidth = useWindowDimensions().width;
+  const isCompact = windowWidth <= 800;
+
+  if (!did) return null;
+
+  if (isCompact) {
+    return (
+      <AQLink
+        to={{ screen: "HomeTab", params: { screen: "Upload" } }}
+        style={{ marginRight: 10, padding: 8 }}
+      >
+        <Upload size={20} color={theme.colors.text} />
+      </AQLink>
+    );
+  }
+
+  return (
+    <AQLink
+      to={{ screen: "HomeTab", params: { screen: "Upload" } }}
+      style={{ marginRight: 10 }}
+    >
+      <Button variant="secondary" style={[zero.r.full]}>
+        <Upload size={16} color={theme.colors.textMuted} />
+        <Text style={{ color: theme.colors.textMuted }}>Upload</Text>
+      </Button>
+    </AQLink>
   );
 };

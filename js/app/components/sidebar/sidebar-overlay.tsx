@@ -25,7 +25,6 @@ import {
   LogIn,
   Settings as SettingsIcon,
   ShieldQuestion,
-  Upload,
   Video,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -163,13 +162,6 @@ export function SidebarOverlay() {
       label: <Text variant="h5">Videos</Text>,
       href: "/video",
       matchPrefix: "/video",
-    },
-    {
-      icon: () => <Upload color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Upload</Text>,
-      href: "/upload",
-      matchPrefix: "/upload",
-      hidden: !did,
     },
     {
       icon: () => <ShieldQuestion color={foregroundColor} size={24} />,

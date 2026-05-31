@@ -65,19 +65,15 @@ export function Player(
       </PlayerProvider>
     </RotationProvider>
   );
-  if (props.mode === "vod") {
+  const mode = props.mode ?? "live";
+  if (mode === "vod") {
     return (
       <LivestreamProvider src="">
         <VideoProvider aturi={props.src ?? ""}>{inner}</VideoProvider>
       </LivestreamProvider>
     );
   }
-  if (props.mode === "live") {
-    return (
-      <LivestreamProvider src={props.src ?? ""}>{inner}</LivestreamProvider>
-    );
-  }
-  throw new Error(`Unknown mode: ${props.mode}`);
+  return <LivestreamProvider src={props.src ?? ""}>{inner}</LivestreamProvider>;
 }
 
 function PlayerWithProvider(

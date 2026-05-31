@@ -26,7 +26,7 @@ export function srcToUrl(
       const aturi = new AtUri(props.src);
       if (aturi.collection === "place.stream.video") {
         return {
-          url: `${url}/xrpc/place.stream.playback.getVideoPlaylist?uri=${props.src}`,
+          url: `${url}/xrpc/place.stream.playback.getVideoPlaylist?uri=${props.src}&ext=hls.m3u8`,
           protocol: PlayerProtocol.HLS,
         };
       } else {

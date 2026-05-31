@@ -117,7 +117,7 @@ export function NativeVideo(props?: {
     };
   }, [setStatus]);
 
-  const player = useVideoPlayer(url, (player) => {
+  const player = useVideoPlayer({ uri: url, contentType: "hls" }, (player) => {
     player.addListener("playingChange", ({ isPlaying }) => {
       if (isPlaying) {
         setStatus(PlayerStatus.PLAYING);
@@ -197,6 +197,9 @@ export function NativeVideo(props?: {
       return player.addListener(evType, (...args) => {
         const now = new Date();
         console.log("video native event", evType);
+        if (evType === "statusChange") {
+          console.log("player.status", ...args, { url });
+        }
         playerEvent(spurl, now.toISOString(), evType, { args: args });
       });
     });

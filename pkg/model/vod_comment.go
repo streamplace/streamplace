@@ -29,7 +29,9 @@ type VodComment struct {
 	DeletedAt      *time.Time  `json:"deletedAt"        gorm:"column:deleted_at"`
 }
 
-func (c *VodComment) ToStreamplaceCommentView() (*streamplace.VodDefs_CommentView, error) {
+// decodeRecord decodes the stored comment CBOR, truncating overly long text
+// to the same 300-grapheme cap the views enforce.
+func (c *VodComment) decodeRecord() (*lexutil.LexiconTypeDecoder, error) {
 	rec, err := lexutil.CborDecodeValue(*c.Comment)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding comment: %w", err)
@@ -45,25 +47,57 @@ func (c *VodComment) ToStreamplaceCommentView() (*streamplace.VodDefs_CommentVie
 			msg.Text = result.String()
 		}
 	}
-	commentView := &streamplace.VodDefs_CommentView{
-		LexiconTypeID: "place.stream.vod.defs#commentView",
-	}
-	commentView.Uri = c.URI
-	commentView.Cid = c.CID
-	commentView.Author = &bsky.ActorDefs_ProfileViewBasic{Did: c.RepoDID}
+	return &lexutil.LexiconTypeDecoder{Val: rec}, nil
+}
+
+func (c *VodComment) author() *bsky.ActorDefs_ProfileViewBasic {
+	author := &bsky.ActorDefs_ProfileViewBasic{Did: c.RepoDID}
 	if c.Repo != nil {
-		commentView.Author.Handle = c.Repo.Handle
+		author.Handle = c.Repo.Handle
 	}
-	commentView.Record = &lexutil.LexiconTypeDecoder{Val: rec}
-	commentView.IndexedAt = c.IndexedAt.UTC().Format(time.RFC3339Nano)
-	commentView.LikeCount = 0
+	return author
+}
+
+// ToStreamplaceCommentViewBasic builds the non-recursive parent view used for
+// a comment's replyTo. It deliberately carries no replyTo of its own, which is
+// what keeps the thread flattened to a single hop (and keeps the lexicon — and
+// the OpenAPI schema generated from it — free of a self-referential cycle).
+func (c *VodComment) ToStreamplaceCommentViewBasic() (*streamplace.VodDefs_CommentViewBasic, error) {
+	record, err := c.decodeRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &streamplace.VodDefs_CommentViewBasic{
+		LexiconTypeID: "place.stream.vod.defs#commentViewBasic",
+		Uri:           c.URI,
+		Cid:           c.CID,
+		Author:        c.author(),
+		Record:        record,
+		IndexedAt:     c.IndexedAt.UTC().Format(time.RFC3339Nano),
+		LikeCount:     0,
+	}, nil
+}
+
+func (c *VodComment) ToStreamplaceCommentView() (*streamplace.VodDefs_CommentView, error) {
+	record, err := c.decodeRecord()
+	if err != nil {
+		return nil, err
+	}
+	commentView := &streamplace.VodDefs_CommentView{
+		Uri:       c.URI,
+		Cid:       c.CID,
+		Author:    c.author(),
+		Record:    record,
+		IndexedAt: c.IndexedAt.UTC().Format(time.RFC3339Nano),
+		LikeCount: 0,
+	}
 	if c.ReplyTo != nil {
-		replyTo, err := c.ReplyTo.ToStreamplaceCommentView()
+		replyTo, err := c.ReplyTo.ToStreamplaceCommentViewBasic()
 		if err != nil {
 			return nil, fmt.Errorf("error converting reply to comment view: %w", err)
 		}
 		commentView.ReplyTo = &streamplace.VodDefs_CommentView_ReplyTo{
-			VodDefs_CommentView: replyTo,
+			VodDefs_CommentViewBasic: replyTo,
 		}
 	}
 	return commentView, nil

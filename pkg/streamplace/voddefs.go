@@ -14,25 +14,40 @@ import (
 
 // VodDefs_CommentView is a "commentView" in the place.stream.vod.defs schema.
 type VodDefs_CommentView struct {
-	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.vod.defs#commentView"`
+	Author    *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid       string                              `json:"cid" cborgen:"cid"`
+	IndexedAt string                              `json:"indexedAt" cborgen:"indexedAt"`
+	// likeCount: Number of likes on this comment.
+	LikeCount int64                       `json:"likeCount" cborgen:"likeCount"`
+	Record    *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	// replyTo: The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further.
+	ReplyTo *VodDefs_CommentView_ReplyTo `json:"replyTo,omitempty" cborgen:"replyTo,omitempty"`
+	Uri     string                       `json:"uri" cborgen:"uri"`
+}
+
+// VodDefs_CommentViewBasic is a "commentViewBasic" in the place.stream.vod.defs schema.
+//
+// A comment view without its own `replyTo`, used to represent the parent of a reply without recursively nesting the whole thread.
+type VodDefs_CommentViewBasic struct {
+	LexiconTypeID string                              `json:"$type" cborgen:"$type,const=place.stream.vod.defs#commentViewBasic"`
 	Author        *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
 	Cid           string                              `json:"cid" cborgen:"cid"`
 	IndexedAt     string                              `json:"indexedAt" cborgen:"indexedAt"`
 	// likeCount: Number of likes on this comment.
-	LikeCount int64                        `json:"likeCount" cborgen:"likeCount"`
-	Record    *lexutil.LexiconTypeDecoder  `json:"record" cborgen:"record"`
-	ReplyTo   *VodDefs_CommentView_ReplyTo `json:"replyTo,omitempty" cborgen:"replyTo,omitempty"`
-	Uri       string                       `json:"uri" cborgen:"uri"`
+	LikeCount int64                       `json:"likeCount" cborgen:"likeCount"`
+	Record    *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
+	Uri       string                      `json:"uri" cborgen:"uri"`
 }
 
+// The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further.
 type VodDefs_CommentView_ReplyTo struct {
-	VodDefs_CommentView *VodDefs_CommentView
+	VodDefs_CommentViewBasic *VodDefs_CommentViewBasic
 }
 
 func (t *VodDefs_CommentView_ReplyTo) MarshalJSON() ([]byte, error) {
-	if t.VodDefs_CommentView != nil {
-		t.VodDefs_CommentView.LexiconTypeID = "place.stream.vod.defs#commentView"
-		return json.Marshal(t.VodDefs_CommentView)
+	if t.VodDefs_CommentViewBasic != nil {
+		t.VodDefs_CommentViewBasic.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
+		return json.Marshal(t.VodDefs_CommentViewBasic)
 	}
 	return nil, fmt.Errorf("can not marshal empty union as JSON")
 }
@@ -44,9 +59,9 @@ func (t *VodDefs_CommentView_ReplyTo) UnmarshalJSON(b []byte) error {
 	}
 
 	switch typ {
-	case "place.stream.vod.defs#commentView":
-		t.VodDefs_CommentView = new(VodDefs_CommentView)
-		return json.Unmarshal(b, t.VodDefs_CommentView)
+	case "place.stream.vod.defs#commentViewBasic":
+		t.VodDefs_CommentViewBasic = new(VodDefs_CommentViewBasic)
+		return json.Unmarshal(b, t.VodDefs_CommentViewBasic)
 	default:
 		return nil
 	}

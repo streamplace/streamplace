@@ -16,8 +16,29 @@
         "indexedAt": { "type": "string", "format": "datetime" },
         "replyTo": {
           "type": "union",
-          "refs": ["#commentView"]
+          "refs": ["#commentViewBasic"],
+          "description": "The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further."
         },
+        "likeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of likes on this comment."
+        }
+      }
+    },
+    "commentViewBasic": {
+      "type": "object",
+      "description": "A comment view without its own `replyTo`, used to represent the parent of a reply without recursively nesting the whole thread.",
+      "required": ["uri", "cid", "author", "record", "indexedAt", "likeCount"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": { "type": "unknown" },
+        "indexedAt": { "type": "string", "format": "datetime" },
         "likeCount": {
           "type": "integer",
           "minimum": 0,

@@ -376,34 +376,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		return nil, err
 	}
 
-	// Delete existing pinned records for this streamer (single-pin semantics)
-	var listOutput comatproto.RepoListRecords_Output
-	err = modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.listRecords",
-		map[string]any{
-			"repo":       input.Streamer,
-			"collection": constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-		}, nil, &listOutput)
-	if err != nil {
-		log.Error(ctx, "failed to list existing pinned records", "err", err)
-	} else {
-		for _, rec := range listOutput.Records {
-			rkey, delErr := extractRKey(rec.Uri)
-			if delErr != nil {
-				continue
-			}
-			deleteInput := comatproto.RepoDeleteRecord_Input{
-				Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-				Rkey:       rkey,
-				Repo:       input.Streamer,
-			}
-			deleteOutput := comatproto.RepoDeleteRecord_Output{}
-			if err := modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput); err != nil {
-				log.Error(ctx, "failed to delete existing pinned record", "rkey", rkey, "err", err)
-			}
-		}
-	}
-
-	// Create the pinned record
+	// Create the pinned record (old pins persist as history)
 	pinnedRecord := &streamplace.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: input.MessageUri,

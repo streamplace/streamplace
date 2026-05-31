@@ -86,5 +86,6 @@ export {
 export * from "./components/vod/vod-comments";
 export * from "./components/vod/vod-like-button";
 export * from "./components/vod/vod-mobile-metadata";
+export * from "./components/vod/vod-player";
 export * from "./components/vod/vod-section";
 export * from "./vod-store/vod-interactions";

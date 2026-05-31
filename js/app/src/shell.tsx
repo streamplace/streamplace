@@ -68,6 +68,7 @@ import SupportScreen from "src/screens/support";
 import UploadScreen from "src/screens/upload";
 import VideoScreen from "src/screens/video";
 import VideoListScreen from "src/screens/video-list";
+import VodScreen from "src/screens/vod";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -644,6 +645,11 @@ export default function Shell() {
           <RootStack.Screen
             name="VodPlayerDemo"
             component={VideoScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="Vod"
+            component={VodScreen}
             options={{ headerShown: false }}
           />
 

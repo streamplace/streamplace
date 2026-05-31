@@ -62,6 +62,7 @@ export type RootStackParamList = {
   PopoutMultistream: undefined;
   PopoutLivestream: undefined;
   VodPlayerDemo: undefined;
+  Vod: { user: string; tid: string };
 };
 
 // Helper type for screen props

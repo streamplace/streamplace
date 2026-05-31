@@ -40,6 +40,7 @@ export const ROOT_SCREENS = [
   "AVSync",
   "LegacyStream",
   "VodPlayerDemo",
+  "Vod",
 ];
 
 /**

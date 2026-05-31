@@ -131,6 +131,7 @@ export const SCREEN_PATHS = {
   PopoutMultistream: "widgets/multistream",
   PopoutLivestream: "widgets/livestream",
   VodPlayerDemo: ":user/video/:tid",
+  Vod: ":user/vod/:tid",
 } as const;
 
 /**
@@ -242,6 +243,7 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
         PopoutMultistream: SCREEN_PATHS.PopoutMultistream,
         PopoutLivestream: SCREEN_PATHS.PopoutLivestream,
         VodPlayerDemo: SCREEN_PATHS.VodPlayerDemo,
+        Vod: SCREEN_PATHS.Vod,
       },
     },
   };

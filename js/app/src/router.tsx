@@ -1,7 +1,13 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
-import { Button, Text, useTheme, zero } from "@streamplace/components";
+import {
+  Button,
+  Text,
+  useBetaStatus,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { Provider } from "components";
 import { ImageBackground } from "expo-image";
 import { useSidebarControl } from "hooks/useSidebarControl";
@@ -263,11 +269,14 @@ export const AvatarButton = () => {
 
 export const UploadButton = () => {
   const did = useStore((state) => state.oauthSession?.did);
+  const { status: betaStatus, loading: betaLoading } = useBetaStatus("vod");
   const { theme } = useTheme();
   const windowWidth = useWindowDimensions().width;
   const isCompact = windowWidth <= 800;
 
   if (!did) return null;
+  if (betaLoading) return null;
+  if (betaStatus !== "granted") return null;
 
   if (isCompact) {
     return (

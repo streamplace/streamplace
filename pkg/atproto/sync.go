@@ -889,7 +889,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		log.Debug(ctx, "place.stream.like detected", "subject", rec.Subject, "repo", repo.Handle)
 
-		like := &model.VodLike{
+		like := &model.Like{
 			CID:       cid,
 			URI:       aturi.String(),
 			Subject:   rec.Subject,
@@ -898,7 +898,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			IndexedAt: &now,
 			CreatedAt: now,
 		}
-		err = atsync.Model.CreateVodLike(ctx, like)
+		err = atsync.Model.CreateLike(ctx, like)
 		if err != nil {
 			log.Error(ctx, "failed to create VOD like", "err", err)
 			return nil

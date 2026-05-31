@@ -12,22 +12,22 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-type VodLike struct {
+type Like struct {
 	CID       string     `json:"cid"            gorm:"primaryKey;column:cid"`
 	URI       string     `json:"uri"            gorm:"column:uri"`
-	Subject   string     `json:"subject"        gorm:"column:subject;index:idx_vod_likes_subject"`
+	Subject   string     `json:"subject"        gorm:"column:subject;index:idx_likes_subject"`
 	RepoDID   string     `json:"repoDID"        gorm:"column:repo_did"`
 	Repo      *Repo      `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
 	IndexedAt *time.Time `json:"indexedAt"      gorm:"column:indexed_at"`
 	CreatedAt time.Time  `json:"createdAt"      gorm:"column:created_at"`
 }
 
-func (l *VodLike) ToStreamplaceLikeView() (*streamplace.VodGetLikes_LikeView, error) {
+func (l *Like) ToStreamplaceLikeView() (*streamplace.GetLikes_LikeView, error) {
 	rec, err := lexutil.CborDecodeValue([]byte{})
 	if err != nil {
 		rec = &streamplace.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
 	}
-	return &streamplace.VodGetLikes_LikeView{
+	return &streamplace.GetLikes_LikeView{
 		Uri:    l.URI,
 		Cid:    l.CID,
 		Record: &lexutil.LexiconTypeDecoder{Val: rec},
@@ -44,20 +44,20 @@ func (l *VodLike) ToStreamplaceLikeView() (*streamplace.VodGetLikes_LikeView, er
 	}, nil
 }
 
-func (m *DBModel) CreateVodLike(ctx context.Context, like *VodLike) error {
+func (m *DBModel) CreateLike(ctx context.Context, like *Like) error {
 	return m.DB.Create(like).Error
 }
 
-func (m *DBModel) DeleteVodLike(ctx context.Context, uri string) error {
-	tx := m.DB.Where("uri = ?", uri).Delete(&VodLike{})
+func (m *DBModel) DeleteLike(ctx context.Context, uri string) error {
+	tx := m.DB.Where("uri = ?", uri).Delete(&Like{})
 	if tx.Error != nil {
 		return tx.Error
 	}
 	return nil
 }
 
-func (m *DBModel) GetVodLike(uri string) (*VodLike, error) {
-	var like VodLike
+func (m *DBModel) GetLike(uri string) (*Like, error) {
+	var like Like
 	err := m.DB.Preload("Repo").Where("uri = ?", uri).First(&like).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -68,8 +68,8 @@ func (m *DBModel) GetVodLike(uri string) (*VodLike, error) {
 	return &like, nil
 }
 
-func (m *DBModel) GetVodLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*VodLike, error) {
-	var like VodLike
+func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error) {
+	var like Like
 	err := m.DB.Preload("Repo").Where("subject = ? AND repo_did = ?", subject, repoDID).First(&like).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -77,21 +77,21 @@ func (m *DBModel) GetVodLikeBySubjectAndUser(ctx context.Context, subject string
 	return &like, nil
 }
 
-func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.VodGetLikes_LikeView, int64, *time.Time, error) {
+func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.GetLikes_LikeView, int64, *time.Time, error) {
 	count, err := m.GetLikeCount(ctx, subject)
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	dblikes := []VodLike{}
+	dblikes := []Like{}
 	query := m.DB.
 		Preload("Repo").
 		Where("subject = ?", subject)
 	if cursor != nil {
-		query = query.Where("vod_likes.created_at < ?", *cursor)
+		query = query.Where("likes.created_at < ?", *cursor)
 	}
 	err = query.
 		Limit(limit + 1).
-		Order("vod_likes.created_at DESC").
+		Order("likes.created_at DESC").
 		Find(&dblikes).Error
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("error retrieving likes: %w", err)
@@ -101,7 +101,7 @@ func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit 
 		nextCursor = &dblikes[limit-1].CreatedAt
 		dblikes = dblikes[:limit]
 	}
-	views := []*streamplace.VodGetLikes_LikeView{}
+	views := []*streamplace.GetLikes_LikeView{}
 	for _, l := range dblikes {
 		view, err := l.ToStreamplaceLikeView()
 		if err != nil {
@@ -114,6 +114,6 @@ func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit 
 
 func (m *DBModel) GetLikeCount(ctx context.Context, subject string) (int64, error) {
 	var count int64
-	err := m.DB.Model(&VodLike{}).Where("subject = ?", subject).Count(&count).Error
+	err := m.DB.Model(&Like{}).Where("subject = ?", subject).Count(&count).Error
 	return count, err
 }

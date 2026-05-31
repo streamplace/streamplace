@@ -1,6 +1,6 @@
 ---
-title: place.stream.vod.getLikes
-description: Reference for the place.stream.vod.getLikes lexicon
+title: place.stream.getLikes
+description: Reference for the place.stream.getLikes lexicon
 ---
 
 **Lexicon Version:** 1
@@ -62,7 +62,7 @@ Get likes for a subject (video or comment).
 ```json
 {
   "lexicon": 1,
-  "id": "place.stream.vod.getLikes",
+  "id": "place.stream.getLikes",
   "defs": {
     "main": {
       "type": "query",

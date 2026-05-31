@@ -4,7 +4,7 @@ import { useTitle } from "../../hooks/useTitle";
 import { borders, gap, layout, mb, pb, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { Text } from "../ui/text";
-import { VodLikeButton } from "./vod-like-button";
+import { LikeButton } from "./like-button";
 
 export function VodMobileMetadata() {
   const video = useVideoStore((x) => x.video);
@@ -46,7 +46,7 @@ export function VodMobileMetadata() {
       </View>
 
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
-        <VodLikeButton subjectUri={aturi} />
+        <LikeButton subjectUri={aturi} />
         <Text size="sm" style={{ color: theme.colors.textMuted }}>
           {viewCount.toLocaleString()} view{viewCount !== 1 ? "s" : ""}
         </Text>

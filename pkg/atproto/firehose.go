@@ -421,7 +421,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 
 			if collection.String() == constants.PLACE_STREAM_LIKE {
 				log.Debug(ctx, "deleting like", "uri", uri)
-				if err := atsync.Model.DeleteVodLike(ctx, uri); err != nil {
+				if err := atsync.Model.DeleteLike(ctx, uri); err != nil {
 					log.Error(ctx, "failed to delete like", "err", err)
 				}
 			}

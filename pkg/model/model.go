@@ -166,11 +166,11 @@ type Model interface {
 	GetVodComment(uri string) (*VodComment, error)
 	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]*streamplace.VodDefs_CommentView, *time.Time, error)
 
-	CreateVodLike(ctx context.Context, like *VodLike) error
-	DeleteVodLike(ctx context.Context, uri string) error
-	GetVodLike(uri string) (*VodLike, error)
-	GetVodLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*VodLike, error)
-	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.VodGetLikes_LikeView, int64, *time.Time, error)
+	CreateLike(ctx context.Context, like *Like) error
+	DeleteLike(ctx context.Context, uri string) error
+	GetLike(uri string) (*Like, error)
+	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error)
+	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.GetLikes_LikeView, int64, *time.Time, error)
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 
 	CreateVodGate(ctx context.Context, gate *VodGate) error
@@ -259,7 +259,7 @@ func MakeDB(dbURL string) (Model, error) {
 		BetaInvite{},
 		BetaRequest{},
 		VodComment{},
-		VodLike{},
+		Like{},
 		VodGate{},
 	} {
 		err = db.AutoMigrate(model)

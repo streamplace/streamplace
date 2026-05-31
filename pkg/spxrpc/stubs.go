@@ -293,6 +293,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
+	e.GET("/xrpc/place.stream.getLikes", s.HandlePlaceStreamGetLikes)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
@@ -337,7 +338,6 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
 	e.GET("/xrpc/place.stream.vod.getComments", s.HandlePlaceStreamVodGetComments)
-	e.GET("/xrpc/place.stream.vod.getLikes", s.HandlePlaceStreamVodGetLikes)
 	return nil
 }
 
@@ -509,6 +509,32 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
 	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGetLikes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGetLikes")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	subject := c.QueryParam("subject")
+	var out *placestream.GetLikes_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGetLikes(ctx context.Context,cursor string,limit int,subject string) (*placestream.GetLikes_Output, error)
+	out, handleErr = s.handlePlaceStreamGetLikes(ctx, cursor, limit, subject)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1326,32 +1352,6 @@ func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit int,video string) (*placestream.VodGetComments_Output, error)
 	out, handleErr = s.handlePlaceStreamVodGetComments(ctx, cursor, limit, video)
-	if handleErr != nil {
-		return handleErr
-	}
-	return c.JSON(200, out)
-}
-
-func (s *Server) HandlePlaceStreamVodGetLikes(c echo.Context) error {
-	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetLikes")
-	defer span.End()
-	cursor := c.QueryParam("cursor")
-
-	var limit int
-	if p := c.QueryParam("limit"); p != "" {
-		var err error
-		limit, err = strconv.Atoi(p)
-		if err != nil {
-			return err
-		}
-	} else {
-		limit = 50
-	}
-	subject := c.QueryParam("subject")
-	var out *placestream.VodGetLikes_Output
-	var handleErr error
-	// func (s *Server) handlePlaceStreamVodGetLikes(ctx context.Context,cursor string,limit int,subject string) (*placestream.VodGetLikes_Output, error)
-	out, handleErr = s.handlePlaceStreamVodGetLikes(ctx, cursor, limit, subject)
 	if handleErr != nil {
 		return handleErr
 	}

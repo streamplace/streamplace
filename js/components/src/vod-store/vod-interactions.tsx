@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import {
+  PlaceStreamGetLikes,
   PlaceStreamLike,
   PlaceStreamVodComment,
   PlaceStreamVodDefs,
   PlaceStreamVodGetComments,
-  PlaceStreamVodGetLikes,
 } from "streamplace";
 import { useDID } from "../streamplace-store/streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
@@ -57,7 +57,7 @@ export const useDeleteVodComment = () => {
   );
 };
 
-export const useCreateVodLike = () => {
+export const useCreateLike = () => {
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
 
@@ -83,7 +83,7 @@ export const useCreateVodLike = () => {
   );
 };
 
-export const useDeleteVodLike = () => {
+export const useDeleteLike = () => {
   const pdsAgent = usePDSAgent();
   const userDID = useDID();
 
@@ -127,7 +127,7 @@ export const useGetVodComments = () => {
   );
 };
 
-export const useGetVodLikes = () => {
+export const useGetLikes = () => {
   const pdsAgent = usePDSAgent();
 
   return useCallback(
@@ -135,11 +135,11 @@ export const useGetVodLikes = () => {
       subject: string,
       limit?: number,
       cursor?: string,
-    ): Promise<PlaceStreamVodGetLikes.OutputSchema> => {
+    ): Promise<PlaceStreamGetLikes.OutputSchema> => {
       if (!pdsAgent) {
         throw new Error("No PDS agent found");
       }
-      const res = await pdsAgent.place.stream.vod.getLikes({
+      const res = await pdsAgent.place.stream.getLikes({
         subject,
         limit,
         cursor,
@@ -150,7 +150,7 @@ export const useGetVodLikes = () => {
   );
 };
 
-export const useVodLikeCount = () => {
+export const useLikeCount = () => {
   const pdsAgent = usePDSAgent();
 
   return useCallback(
@@ -158,7 +158,7 @@ export const useVodLikeCount = () => {
       if (!pdsAgent) {
         throw new Error("No PDS agent found");
       }
-      const res = await pdsAgent.place.stream.vod.getLikes({
+      const res = await pdsAgent.place.stream.getLikes({
         subject,
         limit: 1,
       });

@@ -3,22 +3,22 @@ import { TouchableOpacity, View } from "react-native";
 import { useDID } from "../../streamplace-store/streamplace-store";
 import { gap, layout, p, useTheme } from "../../ui";
 import {
-  useCreateVodLike,
-  useDeleteVodLike,
-  useGetVodLikes,
+  useCreateLike,
+  useDeleteLike,
+  useGetLikes,
 } from "../../vod-store/vod-interactions";
 import { Text } from "../ui/text";
 
-export function VodLikeButton({ subjectUri }: { subjectUri: string }) {
+export function LikeButton({ subjectUri }: { subjectUri: string }) {
   const [likeCount, setLikeCount] = useState(0);
   const [userLiked, setUserLiked] = useState(false);
   const [userLikeUri, setUserLikeUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const userDID = useDID();
-  const getLikes = useGetVodLikes();
-  const createLike = useCreateVodLike();
-  const deleteLike = useDeleteVodLike();
+  const getLikes = useGetLikes();
+  const createLike = useCreateLike();
+  const deleteLike = useDeleteLike();
   const { theme } = useTheme();
 
   const loadLikes = useCallback(async () => {

@@ -44,7 +44,7 @@ func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context, cursor str
 	return out, nil
 }
 
-func (s *Server) handlePlaceStreamVodGetLikes(ctx context.Context, cursor string, limit int, subject string) (*placestream.VodGetLikes_Output, error) {
+func (s *Server) handlePlaceStreamGetLikes(ctx context.Context, cursor string, limit int, subject string) (*placestream.GetLikes_Output, error) {
 	if subject == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "subject is required")
 	}
@@ -67,7 +67,7 @@ func (s *Server) handlePlaceStreamVodGetLikes(ctx context.Context, cursor string
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	out := &placestream.VodGetLikes_Output{
+	out := &placestream.GetLikes_Output{
 		Subject: subject,
 		Count:   count,
 		Likes:   likes,

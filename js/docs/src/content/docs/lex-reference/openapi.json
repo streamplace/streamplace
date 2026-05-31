@@ -3612,6 +3612,88 @@
         }
       }
     },
+    "/xrpc/place.stream.beta.getStatus": {
+      "get": {
+        "summary": "Report an account's access status for a named beta feature: whether it has been granted (via a trusted place.stream.beta.invite, or because this node isn't beta-gating the feature), has an outstanding place.stream.beta.request, or neither. Defaults to the authenticated caller when `did` is omitted.",
+        "operationId": "place.stream.beta.getStatus",
+        "tags": ["place.stream.beta"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "feature": {
+                      "type": "string",
+                      "description": "The feature this status applies to (echoes the request)."
+                    },
+                    "did": {
+                      "type": "string",
+                      "description": "The account this status applies to.",
+                      "format": "did"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "granted: the account may use the feature. requested: no grant yet, but an access request is on file. none: no grant and no request."
+                    }
+                  },
+                  "required": ["feature", "did", "status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "DidRequired"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "feature",
+            "in": "query",
+            "required": true,
+            "description": "Identifier of the beta feature to check (e.g. \"vod\").",
+            "schema": {
+              "type": "string",
+              "description": "Identifier of the beta feature to check (e.g. \"vod\")."
+            }
+          },
+          {
+            "name": "did",
+            "in": "query",
+            "required": false,
+            "description": "Account to check. Defaults to the authenticated caller's DID when omitted.",
+            "schema": {
+              "type": "string",
+              "description": "Account to check. Defaults to the authenticated caller's DID when omitted.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.badge.getIssuedBadges": {
       "get": {
         "summary": "Returns badges issued to the authenticated user, organized by display slot. Also indicates which badges are currently selected in the user's chat profile.",

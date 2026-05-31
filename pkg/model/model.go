@@ -151,6 +151,9 @@ type Model interface {
 	UpsertBetaInvite(ctx context.Context, rec *streamplace.BetaInvite, aturi syntax.ATURI) error
 	DeleteBetaInvite(ctx context.Context, uri string) error
 	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
+	UpsertBetaRequest(ctx context.Context, rec *streamplace.BetaRequest, aturi syntax.ATURI) error
+	DeleteBetaRequest(ctx context.Context, uri string) error
+	HasBetaRequest(ctx context.Context, subjectDID, feature string) (bool, error)
 
 	UpsertMediaViewCount(ctx context.Context, rec *streamplace.MediaViewCount, aturi syntax.ATURI) error
 	DeleteMediaViewCount(ctx context.Context, uri string) error
@@ -254,6 +257,7 @@ func MakeDB(dbURL string) (Model, error) {
 		MediaOrigin{},
 		MediaViewCount{},
 		BetaInvite{},
+		BetaRequest{},
 		VodComment{},
 		VodLike{},
 		VodGate{},

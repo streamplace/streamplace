@@ -398,6 +398,13 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_BETA_REQUEST {
+				log.Debug(ctx, "deleting beta request", "uri", uri)
+				if err := atsync.Model.DeleteBetaRequest(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete beta request", "err", err)
+				}
+			}
+
 			if collection.String() == constants.PLACE_STREAM_MEDIA_VIEW_COUNT {
 				log.Debug(ctx, "deleting media view count", "uri", uri)
 				if err := atsync.Model.DeleteMediaViewCount(ctx, uri); err != nil {

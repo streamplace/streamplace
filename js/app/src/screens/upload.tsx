@@ -9,6 +9,7 @@ import {
   Select,
   Text,
   Tooltip,
+  useBetaStatus,
   useTheme,
   View,
   zero,
@@ -19,6 +20,8 @@ import {
 } from "@streamplace/components/src/lib/metadata-constants";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import ActivityPicker from "components/activity-picker";
+import Loading from "components/loading/loading";
+import BetaAccessGate from "components/upload/beta-access-gate";
 import { Image } from "expo-image";
 import {
   AlertCircle,
@@ -99,8 +102,15 @@ const POLL_INTERVAL_MS = 3000;
 
 // ── screen ───────────────────────────────────────────────────────────────────
 
+const BETA_FEATURE = "vod";
+
 export default function UploadScreen() {
   const agent = usePDSAgent();
+  const {
+    status: betaStatus,
+    loading: betaLoading,
+    markRequested,
+  } = useBetaStatus(BETA_FEATURE);
   const { theme, zero: zt } = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width > 800;
@@ -577,6 +587,24 @@ export default function UploadScreen() {
   }, [agent, editingVideoUri]);
 
   // ── render ────────────────────────────────────────────────────────────────
+
+  // Beta gate: hold the upload UI until we know the account's access status.
+  // While we're still resolving it for a logged-in user, show a spinner; if
+  // they're not granted, swap the whole page for the request-access flow.
+  // Logged-out users keep the legacy behavior (status stays null) and are
+  // prompted to log in only when they actually try to upload.
+  if (agent?.did && betaStatus === null && betaLoading) {
+    return <Loading />;
+  }
+  if (betaStatus === "none" || betaStatus === "requested") {
+    return (
+      <BetaAccessGate
+        feature={BETA_FEATURE}
+        status={betaStatus}
+        onRequested={markRequested}
+      />
+    );
+  }
 
   return (
     <ScrollView>

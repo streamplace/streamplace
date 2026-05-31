@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 
@@ -770,6 +771,24 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
 
+		// Notify the invited account that they're off the waitlist — but
+		// only for a genuinely new invite arriving live from the trusted
+		// issuer. Backfill/first-sync and record updates re-index existing
+		// invites on every restart and must not re-notify.
+		if !isFirstSync && !isUpdate &&
+			atsync.CLI.BetaInviteDID != "" && userDID == atsync.CLI.BetaInviteDID {
+			atsync.notifyBetaInvite(ctx, rec)
+		}
+
+	case *streamplace.BetaRequest:
+		// Access requests are published by users in their own repos. We
+		// index them so operators can see who's waiting and so
+		// place.stream.beta.getStatus can report "requested".
+		if err := atsync.Model.UpsertBetaRequest(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert beta request: %w", err)
+		}
+		log.Debug(ctx, "indexed beta request", "uri", aturi.String(), "did", userDID, "feature", rec.Feature)
+
 	case *streamplace.MediaViewCount:
 		// View-count records are published by streamplace nodes (in
 		// their server repos) reporting on traffic they observed.
@@ -912,4 +931,50 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}
 	return nil
+}
+
+// notifyBetaInvite pushes a "you're off the waitlist" notification to the
+// account named by a freshly-issued, trusted beta invite. Best-effort: any
+// failure is logged, never returned, since the invite is already indexed and
+// the upload gate works regardless of whether the push lands.
+func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *streamplace.BetaInvite) {
+	if atsync.Noter == nil || atsync.StatefulDB == nil {
+		return
+	}
+	tokens, err := atsync.StatefulDB.GetManyNotificationTokens([]string{rec.Did})
+	if err != nil {
+		log.Error(ctx, "beta invite notification: failed to load tokens", "did", rec.Did, "err", err)
+		return
+	}
+	if len(tokens) == 0 {
+		log.Debug(ctx, "beta invite notification: no device tokens for invitee", "did", rec.Did, "feature", rec.Feature)
+		return
+	}
+	blast := betaInviteBlast(rec.Feature)
+	if err := atsync.Noter.Blast(ctx, tokens, blast); err != nil {
+		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
+		return
+	}
+	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(tokens))
+}
+
+// betaInviteBlast builds the push payload for a newly-granted beta feature.
+// Copy is feature-aware where we have something specific to say.
+func betaInviteBlast(feature string) *notificationpkg.NotificationBlast {
+	switch feature {
+	case "vod":
+		// Uploads are a web flow today, and pushes land on the native app, so
+		// we route to home rather than a route the app doesn't register.
+		return &notificationpkg.NotificationBlast{
+			Title: "🎉 You're off the waitlist!",
+			Body:  "You can now upload videos to Streamplace.",
+			Data:  map[string]string{"path": "/"},
+		}
+	default:
+		return &notificationpkg.NotificationBlast{
+			Title: "🎉 You're off the waitlist!",
+			Body:  fmt.Sprintf("You've been granted access to the %s beta.", feature),
+			Data:  map[string]string{"path": "/"},
+		}
+	}
 }

@@ -56,6 +56,7 @@ func main() {
 		streamplace.MediaViewCount_TrackUsage{},
 		streamplace.Video_Connection{},
 		streamplace.BetaInvite{},
+		streamplace.BetaRequest{},
 		streamplace.VodComment{},
 		streamplace.VodComment_ReplyRef{},
 		streamplace.VodLike{},

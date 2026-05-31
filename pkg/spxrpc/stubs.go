@@ -284,6 +284,7 @@ func (s *Server) RegisterHandlersGamesGamesgamesgamesgames(e *echo.Echo) error {
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
+	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
@@ -362,6 +363,21 @@ func (s *Server) HandlePlaceStreamBadgeGetValidBadges(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context,streamer string) (*placestream.BadgeGetValidBadges_Output, error)
 	out, handleErr = s.handlePlaceStreamBadgeGetValidBadges(ctx, streamer)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBetaGetStatus(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBetaGetStatus")
+	defer span.End()
+	did := c.QueryParam("did")
+	feature := c.QueryParam("feature")
+	var out *placestream.BetaGetStatus_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBetaGetStatus(ctx context.Context,did string,feature string) (*placestream.BetaGetStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamBetaGetStatus(ctx, did, feature)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -3,6 +3,7 @@ export * from "./useAQState";
 export * from "./useAuthor";
 export * from "./useAvatar";
 export * from "./useAvatars";
+export * from "./useBeta";
 export * from "./useCameraToggle";
 export * from "./useDocumentTitle";
 export * from "./useKeyboard";

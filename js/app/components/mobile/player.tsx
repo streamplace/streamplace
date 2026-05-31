@@ -348,17 +348,11 @@ export function PlayerInner(
   // content info
   const { width: pwidth, height: pheight } = usePlayerDimensions();
 
-  console.log(pwidth, pheight);
-
   let width = pwidth > 0 && props.mode !== "vod" ? pwidth : 16;
   let height = pheight > 0 && props.mode !== "vod" ? pheight : 9;
 
-  console.log(width, height);
-
   // Calculate aspect ratio and determine if we're in desktop mode
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
-
-  console.log(aspectRatio, 16 / 9);
 
   // on mobile we want to hide the sidebar when going fullscreen
   useEffect(() => {

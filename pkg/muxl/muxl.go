@@ -178,10 +178,10 @@ func RunMuxlSignTranscode(ctx context.Context, in TranscodeInput) ([]byte, error
 // the upstream value can't be built without a ready Engine, and callers expect
 // construction never to fail (the error surfaces on Close).
 //
-//	cat := muxl.NewConcatenator(ctx)
+//	cat := muxl.NewSigningSegmenter(ctx, signerInput)
 //	go func() { cat.Write(fullFmp4Archive); cat.Close() }()
 //	initSeg := <-cat.InitCh
-//	for seg := range cat.SegCh { /* append to output */ }
+//	for seg := range cat.SegCh { /* append signed segments to output */ }
 type Concatenator struct {
 	// InitCh receives an init segment only when the track configuration
 	// changes. SegCh receives concatenable segment bodies (signed, for the
@@ -201,17 +201,6 @@ func (c *Concatenator) Write(data []byte) error { return c.write(data) }
 // Close signals end of input and waits for the pipeline to finish; the output
 // channels are closed by the time it returns.
 func (c *Concatenator) Close() error { return c.closeFn() }
-
-// NewConcatenator drives Engine.ConcatEvents: dedup/concatenate MUXL fMP4
-// archives into one stream (a new init is emitted only when the catalog
-// changes).
-func NewConcatenator(ctx context.Context) *Concatenator {
-	eng, err := getEngine()
-	if err != nil {
-		return failedConcatenator(err)
-	}
-	return adopt(upstream.NewConcatenator(ctx, eng))
-}
 
 // NewSigningSegmenter drives Engine.SignSegment: each canonical segment is
 // S2PA-signed in place, so SegCh carries [c2pa-uuid][muxl-uuid][moof][mdat] per

@@ -51,7 +51,7 @@ type Store interface {
 
 	// Move relocates the blob from srcKey to dstKey atomically (where
 	// the underlying storage permits — POSIX rename on FileStore,
-	// CopyObject+DeleteObject on S3Store). If dstKey already exists,
+	// server-side Copy+DeleteObject on S3Store). If dstKey already exists,
 	// it is overwritten. Returns nil if srcKey does not exist after a
 	// successful Move (idempotency for retried renames).
 	Move(ctx context.Context, srcKey, dstKey string) error

@@ -8,25 +8,114 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/muxl"
 	"stream.place/streamplace/test/remote"
 )
 
-// TestStreamTranscoderNeedsReset covers the source-codec-swap detection: a
-// streamer dropping RTMP/AAC and picking up WHIP/Opus (or vice versa) flips the
-// needed target, which must reset the continuous transcoder rather than feed
-// the new codec into a pipeline built for the old one.
+// TestStreamTranscoderNeedsReset covers the rebuild triggers for the per-DID
+// continuous transcoder: a newer ingest session (a streamer reconnecting — a
+// rapid stop/start that restarts the media timeline), a source-codec swap (RTMP/
+// AAC ↔ WHIP/Opus flips the needed target), or a failed pipeline. In each case
+// the live encoder is wrong for the incoming segment and must be torn down
+// rather than fed (feeding a restarted timeline into it wedges the stream).
 func TestStreamTranscoderNeedsReset(t *testing.T) {
-	tr := &streamTranscoder{target: "opus"} // adding Opus to an AAC source
-	require.False(t, tr.needsReset("opus"), "same source codec keeps the encoder running")
-	require.True(t, tr.needsReset("aac"), "source codec swapped (AAC→Opus) must reset")
+	tr := &streamTranscoder{target: "opus", sessionID: 1} // adding Opus to an AAC source
 
-	failed := &streamTranscoder{target: "aac", err: errors.New("pipeline died")}
-	require.True(t, failed.needsReset("aac"), "a failed pipeline rebuilds on the next segment")
+	// Same codec + same session: keep the continuous encoder running.
+	require.False(t, tr.needsReset("opus", 1), "same codec + same session keeps the encoder running")
+
+	// Source codec swapped mid-session (AAC→Opus flips the needed target): reset.
+	require.True(t, tr.needsReset("aac", 1), "source codec swapped (AAC→Opus) must reset")
+
+	// A newer ingest session took over (streamer reconnected → restarted media
+	// timeline): reset even with the same codec — the rapid-restart fix.
+	require.True(t, tr.needsReset("opus", 2), "a newer ingest session must rebuild the transcoder")
+
+	// A stale straggler from an OLDER session must NOT reset the newer encoder.
+	require.False(t, tr.needsReset("opus", 0), "an older/stale session must not reset the current encoder")
+
+	// A failed pipeline rebuilds on the next segment regardless.
+	failed := &streamTranscoder{target: "aac", sessionID: 5, err: errors.New("pipeline died")}
+	require.True(t, failed.needsReset("aac", 5), "a failed pipeline rebuilds on the next segment")
+}
+
+// TestFeedStreamTranscoderRebuildsOnNewSession is the end-to-end regression for
+// the rapid stop/start wedge: a streamer disconnects and reconnects within the
+// transcoder's idle window, so the registry would otherwise feed the second
+// session's restarted media timeline into the first session's still-running
+// continuous encoder (a large backwards PTS jump → the encoder stops emitting
+// audio → "emitted segment missing audio track" → segments dropped → the stream
+// wedges). With the ingest-session epoch, the second session must get a FRESH
+// transcoder and the first session's must be flushed + torn down.
+//
+// It drives the real registry path (feedStreamTranscoder, the same one
+// ValidateMP4 uses): two sessions over the same DID + codec, with the same
+// fixture re-fed for the second session — re-feeding restarts the source PTS at
+// zero, exactly the discontinuity a reconnect produces.
+func TestFeedStreamTranscoderRebuildsOnNewSession(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	segs := allSignedBareSegments(t, ctx, ms, getFixture("h264-opus-frag.mp4"))
+	require.GreaterOrEqual(t, len(segs), 2, "fixture should produce multiple segments")
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+
+	// A real-enough MediaManager: a temp data dir so completed segments archive
+	// without touching the repo, and an (unused) live-window map. Completed
+	// segments are unpublished, so distributeSegment archives them but folds
+	// nothing into the live window and notifies no subscribers — no blocking.
+	mm := &MediaManager{
+		cli:         &config.CLI{BroadcasterHost: "test.example.com", DataDir: t.TempDir()},
+		transcoders: map[string]*streamTranscoder{},
+		liveWindows: map[string]*livehls.Writer{},
+	}
+
+	const did = "did:web:didweb.example"
+	base := time.Unix(1700000000, 0).UTC()
+	feedSession := func(epoch uint64, startIdx int) {
+		sctx := withIngestSession(ctx, epoch)
+		for i, seg := range segs {
+			// Distinct per-segment StartTime so archived filenames don't collide.
+			vs := &validatedSegment{
+				repoDID: did,
+				meta:    &SegmentMetadata{StartTime: aqtime.FromTime(base.Add(time.Duration(startIdx+i) * time.Second))},
+				local:   true,
+			}
+			require.NoError(t, mm.feedStreamTranscoder(sctx, vs, seg, "aac", ms.Cert, keyPEM),
+				"feed session %d segment %d", epoch, i)
+		}
+	}
+
+	// Session 1.
+	s1 := mm.nextIngestSession()
+	feedSession(s1, 0)
+	t1 := mm.transcoders[did]
+	require.NotNil(t, t1, "session 1 built a transcoder")
+	require.Equal(t, s1, t1.sessionID)
+
+	// Session 2: same DID + codec, fresh epoch (the reconnect). The first feed of
+	// this session must reset the registry to a brand-new transcoder.
+	s2 := mm.nextIngestSession()
+	feedSession(s2, len(segs))
+	t2 := mm.transcoders[did]
+	require.NotNil(t, t2, "session 2 built a transcoder")
+	require.NotSame(t, t1, t2,
+		"a new ingest session must rebuild the transcoder, not reuse the previous session's continuous encoder")
+	require.Equal(t, s2, t2.sessionID)
+
+	// The previous session's transcoder is flushed + torn down (async on reset).
+	require.Eventually(t, t1.isClosed, 20*time.Second, 20*time.Millisecond,
+		"the previous session's transcoder must be flushed + torn down on reconnect")
+
+	require.NoError(t, t2.Close(), "the rebuilt transcoder drains cleanly")
 }
 
 // allSignedBareSegments signs the fragmented fixture per-segment and returns

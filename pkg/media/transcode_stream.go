@@ -40,8 +40,12 @@ type transcodeJob struct {
 // tail). Not safe for concurrent Feed; feed from one goroutine (the stream's
 // validate path delivers segments in order).
 type streamTranscoder struct {
-	mm         *MediaManager
-	target     string // codec being ADDED: "opus" (source AAC) or "aac" (source Opus)
+	mm        *MediaManager
+	target    string // codec being ADDED: "opus" (source AAC) or "aac" (source Opus)
+	sessionID uint64 // ingest-session epoch this transcoder was built for; a newer
+	// session rebuilds it (registry-owned: set under transcodersMu before the
+	// transcoder is published to the map, read only by needsReset under the same
+	// lock, so it needs no separate synchronization).
 	cert       []byte
 	keyPEM     []byte
 	onComplete func(token any, completed []byte)
@@ -66,25 +70,53 @@ type streamTranscoder struct {
 // segment before it's flushed and torn down (the stream is presumed ended).
 const streamTranscoderIdle = 30 * time.Second
 
+// ingestSessionKey carries the per-ingest-session epoch down the validate path.
+// SegmentAndSignElem stamps a fresh epoch on every live session's context (a new
+// RTMP/WHIP connection = a new session, with a restarted media timeline);
+// feedStreamTranscoder reads it so a reconnect rebuilds the continuous transcoder
+// instead of feeding the restarted timeline into the previous session's
+// still-running encoder — a large backwards PTS discontinuity that makes the
+// encoder stop emitting audio and wedges the stream.
+type ingestSessionKey struct{}
+
+func withIngestSession(ctx context.Context, epoch uint64) context.Context {
+	return context.WithValue(ctx, ingestSessionKey{}, epoch)
+}
+
+// ingestSessionFromContext returns the ingest-session epoch stamped on ctx, or 0
+// if none — e.g. a segment replicated from another node (which is already
+// dual-codec, so it never builds a transcoder) or a direct unit-test feed.
+func ingestSessionFromContext(ctx context.Context) uint64 {
+	epoch, _ := ctx.Value(ingestSessionKey{}).(uint64)
+	return epoch
+}
+
 // feedStreamTranscoder routes one source segment into the stream's continuous
 // transcoder, creating it on first use. The completed dual-codec segment is
 // distributed asynchronously (≈1 GoP later) via distributeSegment.
 func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedSegment, src []byte, target string, cert, keyPEM []byte) error {
 	did := vs.repoDID
+	sessionID := ingestSessionFromContext(ctx)
 	mm.transcodersMu.Lock()
 	t := mm.transcoders[did]
-	if t != nil && t.needsReset(target) {
-		// Source codec swapped (the needed target flipped, e.g. a streamer
-		// dropped RTMP/AAC and picked up WHIP/Opus) or the pipeline failed. The
-		// old pipeline expects the previous source codec, so feeding it the new
-		// one would stall it. Flush + tear it down (async, so we don't block
-		// ingest — its tail segments still complete) and rebuild for the new
-		// codec. One seam at the swap, clean after.
+	if t != nil && t.needsReset(target, sessionID) {
+		// The live encoder is wrong for the incoming segment:
+		//   - a newer ingest session took over — the streamer reconnected (a rapid
+		//     stop/start), which restarts the media timeline. Feeding that into the
+		//     previous session's continuous encoder is a large backwards PTS jump
+		//     that makes it stop emitting audio and wedges the stream;
+		//   - the source codec swapped (the needed target flipped, e.g. a streamer
+		//     dropped RTMP/AAC and picked up WHIP/Opus), so the pipeline expects the
+		//     previous codec; or
+		//   - the pipeline failed.
+		// Flush + tear it down (async, so we don't block ingest — its tail segments
+		// still complete) and rebuild. One seam at the boundary, clean after.
 		old := t
 		delete(mm.transcoders, did)
 		t = nil
-		log.Log(ctx, "stream source codec swapped, resetting transcoder",
-			"streamer", did, "from_target", old.target, "to_target", target)
+		log.Log(ctx, "resetting stream transcoder",
+			"streamer", did, "from_target", old.target, "to_target", target,
+			"from_session", old.sessionID, "to_session", sessionID)
 		go func() {
 			if err := old.Close(); err != nil {
 				log.Error(ctx, "stream transcoder reset close failed", "streamer", did, "error", err)
@@ -101,9 +133,10 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 				log.Error(streamCtx, "distribute completed segment failed", "streamer", v.repoDID, "error", err)
 			}
 		})
+		t.sessionID = sessionID
 		t.reaper = time.AfterFunc(streamTranscoderIdle, func() { mm.reapStreamTranscoder(did, t) })
 		mm.transcoders[did] = t
-		log.Log(ctx, "stream transcoder started", "streamer", did, "target", target)
+		log.Log(ctx, "stream transcoder started", "streamer", did, "target", target, "session", sessionID)
 	}
 	mm.transcodersMu.Unlock()
 
@@ -111,11 +144,24 @@ func (mm *MediaManager) feedStreamTranscoder(ctx context.Context, vs *validatedS
 	return t.Feed(src, vs)
 }
 
-// needsReset reports whether an existing per-stream transcoder must be torn
-// down and rebuilt: the source codec swapped (target flipped — e.g. RTMP/AAC →
-// WHIP/Opus mid-stream) or its pipeline has failed.
-func (t *streamTranscoder) needsReset(target string) bool {
-	return t.target != target || t.failed()
+// needsReset reports whether an existing per-stream transcoder must be torn down
+// and rebuilt rather than fed the incoming segment:
+//   - a newer ingest session took over (sessionID advanced — the streamer
+//     reconnected, restarting the media timeline; the continuous encoder is still
+//     at the old timeline, and a backwards PTS jump would make it stop emitting
+//     audio and wedge the stream),
+//   - the source codec swapped (target flipped — e.g. RTMP/AAC → WHIP/Opus
+//     mid-stream), or
+//   - its pipeline has failed.
+//
+// A stale straggler from an OLDER session (sessionID < t.sessionID) does NOT
+// reset — the newer session keeps its encoder. In practice this can't arise: a
+// session's segments are all fed (synchronously, before its ingest returns)
+// before the next session starts, so feeds never interleave across sessions.
+// Guarding on strict advance rather than inequality just makes that explicit and
+// avoids any reset thrash if they ever did.
+func (t *streamTranscoder) needsReset(target string, sessionID uint64) bool {
+	return t.target != target || sessionID > t.sessionID || t.failed()
 }
 
 // failed reports whether the transcoder's pipeline has errored out.
@@ -123,6 +169,13 @@ func (t *streamTranscoder) failed() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.err != nil
+}
+
+// isClosed reports whether the transcoder has been torn down (flushed + stopped).
+func (t *streamTranscoder) isClosed() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.closed
 }
 
 // reapStreamTranscoder flushes and removes an idle stream's transcoder (the

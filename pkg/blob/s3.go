@@ -19,7 +19,9 @@ import (
 // Writes go to a hidden staging prefix (.staging/<uuid>) so that
 // in-progress multipart uploads can't collide with the final
 // content-addressed key. Complete renames staging -> the configured
-// key via CopyObject + DeleteObject.
+// key via a server-side Copy (single CopyObject, or a multipart
+// UploadPartCopy for objects past S3's 5 GiB single-copy cap) +
+// DeleteObject.
 type S3Store struct {
 	client *awss3.Client
 	bucket string
@@ -84,12 +86,10 @@ func (s *S3Store) NewWriter(ctx context.Context, key, contentType string) (Write
 }
 
 func (s *S3Store) Move(ctx context.Context, srcKey, dstKey string) error {
-	_, err := s.client.CopyObject(ctx, &awss3.CopyObjectInput{
-		Bucket:     aws.String(s.bucket),
-		Key:        aws.String(dstKey),
-		CopySource: aws.String(s.bucket + "/" + srcKey),
-	})
-	if err != nil {
+	// Copy handles the >5 GiB VODs that a single CopyObject can't (it falls
+	// back to a multipart server-side copy), and HEADs the source first so a
+	// missing key surfaces as a NotFound we can treat idempotently below.
+	if err := s3pkg.Copy(ctx, s.client, s.bucket, srcKey, dstKey); err != nil {
 		if isS3NotFound(err) {
 			// Idempotency: maybe a previous Move already renamed
 			// source -> dest. If dest exists, we're done.

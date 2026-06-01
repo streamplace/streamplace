@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/pion/interceptor"
@@ -69,6 +70,20 @@ type MediaManager struct {
 	// is distributed asynchronously (~1 GoP later). See transcode_stream.go.
 	transcoders   map[string]*streamTranscoder
 	transcodersMu sync.Mutex
+
+	// Monotonic ingest-session epoch. Each live ingest session (one
+	// SegmentAndSignElem) claims a fresh value, stamped onto its context, so the
+	// per-DID transcoder rebuilds when a streamer reconnects rather than feeding
+	// the restarted media timeline into the previous session's continuous encoder.
+	// See withIngestSession / feedStreamTranscoder.
+	ingestSessionSeq atomic.Uint64
+}
+
+// nextIngestSession claims a fresh monotonic ingest-session epoch for a new live
+// session. Epochs are strictly increasing, so a newer session always wins over a
+// transcoder built for an older one.
+func (mm *MediaManager) nextIngestSession() uint64 {
+	return mm.ingestSessionSeq.Add(1)
 }
 
 type NewSegmentNotification struct {

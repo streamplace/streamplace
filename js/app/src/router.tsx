@@ -266,6 +266,7 @@ export const UploadButton = () => {
   const { theme } = useTheme();
   const windowWidth = useWindowDimensions().width;
   const isCompact = windowWidth <= 800;
+  const navigation = useNavigation();
 
   if (!did) return null;
 
@@ -285,9 +286,17 @@ export const UploadButton = () => {
       to={{ screen: "HomeTab", params: { screen: "Upload" } }}
       style={{ marginRight: 10 }}
     >
-      <Button variant="secondary" style={[zero.r.full]}>
+      <Button
+        disabled={false}
+        loading={false}
+        variant="secondary"
+        style={[zero.r.full]}
+        onPress={() =>
+          navigation.navigate("HomeTab" as any, { screen: "Upload" })
+        }
+      >
         <Upload size={16} color={theme.colors.textMuted} />
-        <Text style={{ color: theme.colors.textMuted }}>Upload</Text>
+        <Text style={{ color: theme.colors.text }}>Upload</Text>
       </Button>
     </AQLink>
   );

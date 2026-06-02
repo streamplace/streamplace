@@ -41,6 +41,7 @@ export const ROOT_SCREENS = [
   "LegacyStream",
   "Video",
   "Vod",
+  "VodEmbed",
 ];
 
 /**

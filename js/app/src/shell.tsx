@@ -69,6 +69,7 @@ import UploadScreen from "src/screens/upload";
 import VideoScreen from "src/screens/video";
 import VideoListScreen from "src/screens/video-list";
 import VodScreen from "src/screens/vod";
+import VodEmbedScreen from "src/screens/vod-embed";
 import { useStore } from "store";
 import {
   useHydrated,
@@ -699,6 +700,11 @@ export default function Shell() {
           <RootStack.Screen
             name="Embed"
             component={EmbedScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="VodEmbed"
+            component={VodEmbedScreen}
             options={{ headerShown: false }}
           />
           <RootStack.Screen

@@ -348,6 +348,10 @@ export default function UploadScreen() {
       const record: PlaceStreamVideo.Record = {
         $type: "place.stream.video",
         title: title.trim() || file?.name || "Untitled",
+        // Like source + durationMs, createdAt is server-authoritative: the
+        // server overrides this with the publish time. We still send a value
+        // to satisfy the (required) record type.
+        createdAt: new Date().toISOString(),
         durationMs,
         source: {
           $type: "place.stream.media.defs#sourceTracks",
@@ -505,6 +509,9 @@ export default function UploadScreen() {
       const existingRec = existing.data.value as any;
       record.source = existingRec.source;
       record.durationMs = existingRec.durationMs;
+      // Preserve the original creation timestamp on edit; fall back for
+      // records that predate the createdAt field.
+      record.createdAt = existingRec.createdAt || new Date().toISOString();
       if (description.trim()) record.description = description.trim();
       if (activity) record.activity = activity;
       if (tags.length > 0) record.tags = tags;

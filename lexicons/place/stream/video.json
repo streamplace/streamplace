@@ -7,7 +7,7 @@
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title", "source", "durationMs"],
+        "required": ["title", "source", "durationMs", "createdAt"],
         "type": "object",
         "properties": {
           "title": {
@@ -15,6 +15,11 @@
             "maxLength": 1400,
             "maxGraphemes": 140,
             "description": "Title of the video referenced by this record"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Timestamp when this video record was created. Populated server-side at publication time by place.stream.media.publishVideo."
           },
           "source": {
             "type": "union",

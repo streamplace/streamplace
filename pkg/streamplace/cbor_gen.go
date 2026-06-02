@@ -8292,7 +8292,7 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 12
+	fieldCount := 13
 
 	if t.Activity == nil {
 		fieldCount--
@@ -8460,6 +8460,29 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 		if err := t.Activity.MarshalCBOR(cw); err != nil {
 			return err
 		}
+	}
+
+	// t.CreatedAt (string) (string)
+	if len("createdAt") > 1000000 {
+		return xerrors.Errorf("Value in field \"createdAt\" was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("createdAt"))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string("createdAt")); err != nil {
+		return err
+	}
+
+	if len(t.CreatedAt) > 1000000 {
+		return xerrors.Errorf("Value in field t.CreatedAt was too long")
+	}
+
+	if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len(t.CreatedAt))); err != nil {
+		return err
+	}
+	if _, err := cw.WriteString(string(t.CreatedAt)); err != nil {
+		return err
 	}
 
 	// t.DurationMs (int64) (int64)
@@ -8776,6 +8799,17 @@ func (t *Video) UnmarshalCBOR(r io.Reader) (err error) {
 					}
 				}
 
+			}
+			// t.CreatedAt (string) (string)
+		case "createdAt":
+
+			{
+				sval, err := cbg.ReadStringWithMax(cr, 1000000)
+				if err != nil {
+					return err
+				}
+
+				t.CreatedAt = string(sval)
 			}
 			// t.DurationMs (int64) (int64)
 		case "durationMs":

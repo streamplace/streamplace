@@ -891,6 +891,17 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		log.Debug(ctx, "place.stream.like detected", "subject", rec.Subject, "repo", repo.Handle)
 
+		// A user can only like a subject once — refuse to index a duplicate
+		// rather than inflating the count with a second row.
+		existing, err := atsync.Model.GetLikeBySubjectAndUser(ctx, rec.Subject, userDID)
+		if err != nil {
+			return fmt.Errorf("check existing like: %w", err)
+		}
+		if existing != nil {
+			log.Debug(ctx, "ignoring duplicate like", "subject", rec.Subject, "repo", userDID)
+			return nil
+		}
+
 		like := &model.Like{
 			CID:       cid,
 			URI:       aturi.String(),

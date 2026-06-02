@@ -13,8 +13,11 @@ import (
 )
 
 type Like struct {
-	CID       string     `json:"cid"            gorm:"primaryKey;column:cid"`
-	URI       string     `json:"uri"            gorm:"column:uri"`
+	// URI is the primary key: it's unique per like record (repo + rkey). CID
+	// is NOT — two users liking the same subject at the same createdAt produce
+	// byte-identical records and thus the same CID, which would collide.
+	URI       string     `json:"uri"            gorm:"primaryKey;column:uri"`
+	CID       string     `json:"cid"            gorm:"column:cid"`
 	Subject   string     `json:"subject"        gorm:"column:subject;index:idx_likes_subject"`
 	RepoDID   string     `json:"repoDID"        gorm:"column:repo_did"`
 	Repo      *Repo      `json:"repo,omitempty" gorm:"foreignKey:DID;references:RepoDID"`
@@ -70,9 +73,12 @@ func (m *DBModel) GetLike(uri string) (*Like, error) {
 
 func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error) {
 	var like Like
-	err := m.DB.Preload("Repo").Where("subject = ? AND repo_did = ?", subject, repoDID).First(&like).Error
+	err := m.DB.WithContext(ctx).Preload("Repo").Where("subject = ? AND repo_did = ?", subject, repoDID).First(&like).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 	return &like, nil
 }

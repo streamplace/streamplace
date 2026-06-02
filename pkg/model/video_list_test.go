@@ -11,15 +11,15 @@ import (
 	"stream.place/streamplace/pkg/streamplace"
 )
 
-// putLike writes a place.stream.like whose subject is the given video URI.
-func putLike(t *testing.T, m Model, subject, cid string) {
+// putLike writes a place.stream.like by `liker` whose subject is the given URI.
+func putLike(t *testing.T, m Model, subject, liker, cid string) {
 	t.Helper()
 	now := time.Now().UTC()
 	require.NoError(t, m.CreateLike(context.Background(), &Like{
 		CID:       cid,
-		URI:       "at://did:plc:liker/place.stream.like/" + cid,
+		URI:       "at://" + liker + "/place.stream.like/" + cid,
 		Subject:   subject,
-		RepoDID:   "did:plc:liker",
+		RepoDID:   liker,
 		IndexedAt: &now,
 		CreatedAt: now,
 	}))
@@ -41,11 +41,11 @@ func TestVideoLikeCount(t *testing.T) {
 	require.NotNil(t, view)
 	require.Equal(t, int64(0), view.LikeCount)
 
-	putLike(t, m, videoURI, "likecid1")
-	putLike(t, m, videoURI, "likecid2")
-	putLike(t, m, videoURI, "likecid3")
+	putLike(t, m, videoURI, "did:plc:l1", "likecid1")
+	putLike(t, m, videoURI, "did:plc:l2", "likecid2")
+	putLike(t, m, videoURI, "did:plc:l3", "likecid3")
 	// A like on a different subject must not count toward this video.
-	putLike(t, m, "at://did:plc:alice/place.stream.video/other", "likecid4")
+	putLike(t, m, "at://did:plc:alice/place.stream.video/other", "did:plc:l1", "likecid4")
 
 	view, err = m.GetVideoView(ctx, videoURI)
 	require.NoError(t, err)
@@ -61,6 +61,30 @@ func TestVideoLikeCount(t *testing.T) {
 	}
 	require.NotNil(t, found, "video should appear in unfiltered listing")
 	require.Equal(t, int64(3), found.LikeCount)
+}
+
+// TestGetLikeBySubjectAndUser covers the lookup the indexer uses to refuse a
+// double-like: same (subject, user) is found; a different user or subject isn't.
+func TestGetLikeBySubjectAndUser(t *testing.T) {
+	m, err := MakeDB(":memory:")
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	const subject = "at://did:plc:alice/place.stream.video/v1"
+	putLike(t, m, subject, "did:plc:liker1", "c1")
+
+	got, err := m.GetLikeBySubjectAndUser(ctx, subject, "did:plc:liker1")
+	require.NoError(t, err)
+	require.NotNil(t, got, "same subject + user should be found")
+	require.Equal(t, subject, got.Subject)
+
+	got, err = m.GetLikeBySubjectAndUser(ctx, subject, "did:plc:liker2")
+	require.NoError(t, err)
+	require.Nil(t, got, "a different user may still like the subject")
+
+	got, err = m.GetLikeBySubjectAndUser(ctx, "at://did:plc:alice/place.stream.video/v2", "did:plc:liker1")
+	require.NoError(t, err)
+	require.Nil(t, got, "a different subject is independent")
 }
 
 const testServerDID = "did:web:us.example.com"

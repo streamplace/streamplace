@@ -102,6 +102,9 @@ type Model interface {
 	GetLabeler(did string) (*Labeler, error)
 	UpdateLabelerCursor(did string, cursor int64) error
 
+	GetRelayCursor(host string) (*RelayCursor, error)
+	UpsertRelayCursor(host string, cursor int64) error
+
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 
@@ -221,6 +224,7 @@ func MakeDB(dbURL string) (Model, error) {
 		PinnedRecord{},
 		ServerSettings{},
 		Labeler{},
+		RelayCursor{},
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},

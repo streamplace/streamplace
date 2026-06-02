@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -156,6 +157,27 @@ func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
 // is cancelled.
 func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay string) {
 	ctx = log.WithLogValues(ctx, "relay", relay)
+
+	cursor := atsync.newRelayCursor(ctx, relay)
+	// Persist progress on a timer and once more on the way out, so a restart
+	// resumes near where we left off rather than re-tailing from live.
+	flushDone := make(chan struct{})
+	go func() {
+		defer close(flushDone)
+		ticker := time.NewTicker(cursorFlushInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				cursor.flush(ctx)
+				return
+			case <-ticker.C:
+				cursor.flush(ctx)
+			}
+		}
+	}()
+	defer func() { <-flushDone }()
+
 	const (
 		minBackoff = time.Second
 		maxBackoff = 30 * time.Second
@@ -166,7 +188,7 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay strin
 			return
 		}
 		start := time.Now()
-		err := atsync.connectRelay(ctx, relay)
+		err := atsync.connectRelay(ctx, relay, cursor)
 		if ctx.Err() != nil {
 			return
 		}
@@ -198,12 +220,17 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay strin
 // the per-connection one) so an in-flight commit keeps indexing across a
 // reconnect — important because dedup has already claimed it, so no other relay
 // will re-deliver it to us.
-func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay string) error {
+func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay string, cursor *relayCursor) error {
 	u, err := url.Parse(relay)
 	if err != nil {
 		return fmt.Errorf("invalid relay URI %q: %w", relay, err)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
+	if seq, ok := cursor.param(); ok {
+		q := u.Query()
+		q.Set("cursor", strconv.FormatInt(seq, 10))
+		u.RawQuery = q.Encode()
+	}
 
 	con, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
 		"User-Agent": []string{aqhttp.UserAgent},
@@ -222,6 +249,7 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			atsync.markSeen()
+			cursor.observe(evt.Seq)
 			if atsync.commitDedup.seen(evt.Commit.String()) {
 				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("commit").Inc()
 				return nil
@@ -231,6 +259,7 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
 			atsync.markSeen()
+			cursor.observe(evt.Seq)
 			if atsync.identityDedup.seen(identityDedupKey(evt)) {
 				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("identity").Inc()
 				return nil

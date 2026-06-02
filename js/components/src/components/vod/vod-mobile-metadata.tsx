@@ -103,7 +103,11 @@ export function VodMobileMetadata() {
 
       {/* Right: like + views + share */}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-        <LikeButton subjectUri={aturi} />
+        {/* Use the server-canonical (DID-based) video.uri, not the store's
+            aturi — when the page is reached via a handle URL the aturi's
+            authority is the handle, and a like keyed on a handle subject
+            won't match the DID-keyed video record. */}
+        <LikeButton subjectUri={video.uri} />
         {wide && <Viewers />}
         <ShareSheet target={shareTarget} />
       </View>

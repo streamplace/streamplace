@@ -5533,6 +5533,11 @@
             "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
           },
           "record": {},
+          "likeCount": {
+            "type": "integer",
+            "description": "Total number of place.stream.like records whose subject is this video. Always present; zero when none, so consumers can render a count unconditionally.",
+            "minimum": 0
+          },
           "viewCounts": {
             "$ref": "#/components/schemas/place.stream.media.getVideo_viewCountSummary",
             "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
@@ -5544,7 +5549,14 @@
             }
           }
         },
-        "required": ["uri", "cid", "author", "record", "viewCounts"]
+        "required": [
+          "uri",
+          "cid",
+          "author",
+          "record",
+          "viewCounts",
+          "likeCount"
+        ]
       },
       "place.stream.media.getVideo_viewCountSummary": {
         "type": "object",

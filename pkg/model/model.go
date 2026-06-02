@@ -159,7 +159,7 @@ type Model interface {
 	DeleteMediaViewCount(ctx context.Context, uri string) error
 	GetMediaViewCountByURI(ctx context.Context, uri string) (*streamplace.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error)
-	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string) (*streamplace.MediaGetVideoList_Output, error)
+	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (*streamplace.MediaGetVideoList_Output, error)
 
 	CreateVodComment(ctx context.Context, comment *VodComment) error
 	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error

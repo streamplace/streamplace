@@ -30,7 +30,11 @@ func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, cursor 
 		l = limit
 	}
 
-	out, err := s.model.GetVideoList(ctx, repoDID, l, cursor)
+	// Only advertise videos this node can actually serve — i.e. whose
+	// content blob we host (have a place.stream.media.origin for). A video
+	// we've only indexed from the firehose, with no local blob, isn't
+	// playable here and shouldn't appear in our listing.
+	out, err := s.model.GetVideoList(ctx, repoDID, l, cursor, s.cli.ServerDID())
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

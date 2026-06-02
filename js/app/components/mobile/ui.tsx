@@ -268,20 +268,6 @@ export function MobileUi({
               />
             )}
 
-            {mode === "vod" && (
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                }}
-              >
-                <PlayerUI.VodControls />
-                <PlayerUI.SeekBar />
-              </View>
-            )}
-
             <PlayerUI.CountdownOverlay
               visible={showCountdown}
               width={width}
@@ -311,6 +297,23 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
+      {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
+          bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
+          They still fade with the rest of the UI via the shared opacity. */}
+      {mode === "vod" && (
+        <Animated.View
+          style={[
+            { position: "absolute", bottom: 0, left: 0, right: 0 },
+            animatedFadeStyle,
+          ]}
+          // Let taps on empty space fall through to the overlay's tap-to-reveal
+          // gesture; only the controls themselves capture touches.
+          pointerEvents="box-none"
+        >
+          <PlayerUI.VodControls />
+          <PlayerUI.SeekBar />
+        </Animated.View>
+      )}
       {chatSection}
     </>
   );

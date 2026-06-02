@@ -1,13 +1,19 @@
-import { useCallback, useRef, useState } from "react";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { useState } from "react";
+import { LayoutChangeEvent, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { usePlayerStore } from "../../../player-store";
-import { Slider } from "../../ui";
-import { View } from "../../ui/index";
 
+const TRACK_HEIGHT = 3;
+const THUMB_SIZE = 14;
+// A tall, invisible touch strip so the thin bar is easy to grab/drag.
+const TOUCH_HEIGHT = 28;
+
+// Native VOD scrub bar. The old implementation leaned on @rn-primitives/slider
+// driven by web pointer events (onPointerUp/onPointerEnter), which never fire
+// on Android — so it didn't scrub and its tall internal layout floated the bar
+// toward the middle. This is a plain gesture-handler Pan/Tap over a measured
+// track: drag updates a local scrub position, release commits via seekTo (which
+// drives the native player through the store).
 export function SeekBar() {
   const mode = usePlayerStore((x) => x.mode);
   const playTime = usePlayerStore((x) => x.playTime);
@@ -15,162 +21,100 @@ export function SeekBar() {
   const bufferedEnd = usePlayerStore((x) => x.bufferedEnd);
   const seekTo = usePlayerStore((x) => x.seekTo);
 
-  const videoRef = usePlayerStore((x) => x.videoRef);
-  const seekingRef = useRef(false);
-  const [seekValue, setSeekValue] = useState(0);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const [scrubbing, setScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(0);
 
-  const thumbHovered = useSharedValue(0);
-  const thumbAnimStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: withSpring(thumbHovered.value === 1 ? 1 : 0.18),
-      },
-    ],
-  }));
+  if (mode !== "vod" || duration <= 0) {
+    return null;
+  }
 
-  const handleValueChange = useCallback((vals: number[]) => {
-    seekingRef.current = true;
-    setSeekValue(vals[0]);
-  }, []);
+  const timeAt = (x: number) => {
+    if (trackWidth <= 0) return 0;
+    const clamped = Math.max(0, Math.min(trackWidth, x));
+    return (clamped / trackWidth) * duration;
+  };
 
-  const handlePointerUp = useCallback(() => {
-    if (seekingRef.current) {
-      seekTo(seekValue);
-      seekingRef.current = false;
-      if (
-        videoRef &&
-        typeof videoRef === "object" &&
-        "current" in videoRef &&
-        videoRef.current
-      ) {
-        videoRef.current.play().catch(() => {});
-      }
-    }
-  }, [seekValue, seekTo, videoRef]);
+  const pan = Gesture.Pan()
+    .runOnJS(true)
+    .onBegin((e) => {
+      setScrubbing(true);
+      setScrubTime(timeAt(e.x));
+    })
+    .onUpdate((e) => {
+      setScrubTime(timeAt(e.x));
+    })
+    .onEnd((e) => {
+      seekTo(timeAt(e.x));
+    })
+    .onFinalize(() => {
+      setScrubbing(false);
+    });
 
-  if (mode !== "vod" || duration <= 0) return null;
+  const tap = Gesture.Tap()
+    .runOnJS(true)
+    .onEnd((e) => {
+      seekTo(timeAt(e.x));
+    });
 
-  const displayTime = seekingRef.current ? seekValue : playTime;
+  const gesture = Gesture.Race(pan, tap);
+
+  const current = scrubbing ? scrubTime : playTime;
+  const progressPct = Math.max(0, Math.min(1, current / duration)) * 100;
+  const bufferedPct = Math.max(0, Math.min(1, bufferedEnd / duration)) * 100;
 
   return (
-    <View
-      style={{
-        width: "100%",
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        gap: 4,
-        flexDirection: "column",
-      }}
-    >
-      <View
-        style={{
-          flex: 1,
-          height: 90,
-          paddingBottom: 10,
-        }}
-      >
-        <Slider.Root
-          style={{
-            position: "relative",
-            display: "flex",
-            alignItems: "center",
-            flex: 1,
-            height: 20,
-          }}
-          value={displayTime}
-          min={0}
-          max={duration}
-          onValueChange={handleValueChange}
-          asChild
+    <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}>
+      <GestureDetector gesture={gesture}>
+        <View
+          onLayout={(e: LayoutChangeEvent) =>
+            setTrackWidth(e.nativeEvent.layout.width)
+          }
+          style={{ height: TOUCH_HEIGHT, justifyContent: "center" }}
         >
-          <Slider.Track
-            onPointerUp={handlePointerUp}
+          <View
             style={{
-              flexGrow: 1,
-              height: 30,
-              position: "relative",
-              flex: 1,
+              height: TRACK_HEIGHT,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.25)",
             }}
           >
             <View
               style={{
                 position: "absolute",
-                height: 32,
-                width: "100%",
-                zIndex: 1,
-              }}
-              // @ts-ignore — web-only pointer events
-              onPointerEnter={() => {
-                thumbHovered.value = 1;
-              }}
-              // @ts-ignore — web-only pointer events
-              onPointerLeave={() => {
-                thumbHovered.value = 0;
-              }}
-            />
-            {/* full track background */}
-            <View
-              style={{
-                position: "absolute",
-                backgroundColor: "rgba(255, 255, 255, 0.15)",
-                borderRadius: 999,
-                height: 3,
-                width: "100%",
-                transform: [{ translateY: 14 }],
-              }}
-            />
-            {/* buffered range */}
-            <View
-              style={{
-                position: "absolute",
-                backgroundColor: "rgba(255, 255, 255, 0.35)",
-                borderRadius: 999,
-                height: 3,
+                top: 0,
+                bottom: 0,
                 left: 0,
-                width: `${Math.min((bufferedEnd / duration) * 100, 100)}%`,
-                transform: [{ translateY: 14 }],
+                width: `${bufferedPct}%`,
+                borderRadius: 999,
+                backgroundColor: "rgba(255,255,255,0.4)",
               }}
             />
-            <Slider.Range
+            <View
               style={{
                 position: "absolute",
-                height: 32,
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: `${progressPct}%`,
+                borderRadius: 999,
+                backgroundColor: "#fff",
               }}
-            >
-              <View
-                style={{
-                  backgroundColor: "rgba(255, 255, 255, 0.75)",
-                  borderRadius: 999,
-                  maxHeight: 3,
-                  flex: 1,
-                  transform: [{ translateY: 14 }],
-                }}
-              />
-            </Slider.Range>
-            <Slider.Thumb
-              onPointerUp={handlePointerUp}
-              style={{
-                position: "absolute",
-                width: 16,
-                height: 16,
-                transform: [{ translateX: -10 }, { translateY: 7.5 }],
-              }}
-            >
-              <Animated.View
-                style={[
-                  {
-                    width: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: "white",
-                  },
-                  thumbAnimStyle,
-                ]}
-              />
-            </Slider.Thumb>
-          </Slider.Track>
-        </Slider.Root>
-      </View>
+            />
+          </View>
+          <View
+            style={{
+              position: "absolute",
+              left: `${progressPct}%`,
+              marginLeft: -THUMB_SIZE / 2,
+              width: THUMB_SIZE,
+              height: THUMB_SIZE,
+              borderRadius: THUMB_SIZE / 2,
+              backgroundColor: "#fff",
+            }}
+          />
+        </View>
+      </GestureDetector>
     </View>
   );
 }

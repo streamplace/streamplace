@@ -20,6 +20,7 @@ func TestRoundTrip(t *testing.T) {
 	w := NewWriter(&buf)
 
 	big := bytes.Repeat([]byte{0xAB}, 500_000)
+	require.NoError(t, w.Answer("v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\n"))
 	require.NoError(t, w.Segment([]byte("seg-one")))
 	require.NoError(t, w.Segment(nil)) // zero-length segment is legal
 	require.NoError(t, w.Segment(big))
@@ -35,6 +36,7 @@ func TestRoundTrip(t *testing.T) {
 		require.Equal(t, wantT, gotT)
 		require.Equal(t, wantPayload, got)
 	}
+	assertFrame(Answer, []byte("v=0\r\no=- 1 1 IN IP4 0.0.0.0\r\n"))
 	assertFrame(Segment, []byte("seg-one"))
 	assertFrame(Segment, nil)
 	assertFrame(Segment, big)

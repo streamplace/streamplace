@@ -15,19 +15,36 @@ import (
 	"stream.place/streamplace/pkg/rtcrec"
 )
 
-// This function remains in scope for the duration of a single users' playback
+// WebRTCIngest is the in-process WHIP entry: it builds the signing element via
+// SegmentAndSignElem (→ ValidateMP4) and runs the shared ingest pipeline. Stays
+// in scope for the duration of a single stream.
 func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionDescription, signer MediaSigner, peerConnection rtcrec.PeerConnection, done chan error) (*webrtc.SessionDescription, error) {
 	uu, err := uuid.NewV7()
 	if err != nil {
 		return nil, err
 	}
-
 	ctx = log.WithLogValues(ctx, "webrtcID", uu.String(), "mediafunc", "WebRTCIngest", "streamer", signer.Streamer())
+	ctx, cancel := context.WithCancel(ctx)
+	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed create signer element: %w", err)
+	}
+	return mm.webRTCIngestPipeline(ctx, cancel, offer, peerConnection, signerElem, signer, done)
+}
 
+// webRTCIngestPipeline runs WebRTC ingest over a pre-built signer element:
+// depay/parse the incoming RTP into the muxl signing bin, answer the offer, and
+// stream in the background. The in-process path passes a SegmentAndSignElem (→
+// ValidateMP4) and the streamer's signer (for key revocation); the isolated WHIP
+// worker passes a muxlSignSegmentElem wired to its frame socket and a nil
+// keyRevSigner. The cancellable ctx and signerElem are built by the caller (the
+// signer element's goroutines are tied to ctx).
+func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context.CancelFunc, offer *webrtc.SessionDescription, peerConnection rtcrec.PeerConnection, signerElem *gst.Element, keyRevSigner MediaSigner, done chan error) (*webrtc.SessionDescription, error) {
 	// Allow us to receive 1 audio track, and 1 video track
-	if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
+	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
 		return nil, fmt.Errorf("failed to add audio transceiver: %w", err)
-	} else if _, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
+	} else if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
 		return nil, fmt.Errorf("failed to add video transceiver: %w", err)
 	}
 
@@ -92,12 +109,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 	// Create channel that is blocked until ICE Gathering is complete
 	gatherComplete := rtcrec.GatheringCompletePromise(peerConnection)
 
-	ctx, cancel := context.WithCancel(ctx)
-	signerElem, err := mm.SegmentAndSignElem(ctx, signer)
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed create signer element: %w", err)
-	}
+	// cancel + signerElem are provided by the caller.
 	err = pipeline.Add(signerElem)
 	if err != nil {
 		cancel()
@@ -153,8 +165,11 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 			}
 		}()
 
-		// subscription to bus messages for key revocation
-		go mm.HandleKeyRevocation(ctx, signer, pipeline)
+		// subscription to bus messages for key revocation (in-process only; the
+		// isolated worker has no model-backed signer to revoke against)
+		if keyRevSigner != nil {
+			go mm.HandleKeyRevocation(ctx, keyRevSigner, pipeline)
+		}
 
 		go func() {
 			<-ctx.Done()

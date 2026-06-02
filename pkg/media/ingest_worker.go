@@ -61,7 +61,19 @@ type IngestWorkerConfig struct {
 	// stdin / raw fd input.
 	Prebuf  []byte `json:"prebuf,omitempty"`
 	Chunked bool   `json:"chunked,omitempty"`
+
+	// Transport selects the worker's ingest source: "" / "mkv" reads MKV media
+	// (stdin or InputFD); "whip" makes the worker own the WebRTC PeerConnection,
+	// built from OfferSDP — no media fd to pass.
+	Transport string `json:"transport,omitempty"`
+	// OfferSDP is the WHIP client's SDP offer (transport "whip"). The worker
+	// generates the answer and emits it as the first frame (ingestframe.Answer)
+	// so main can return it to the client before consuming segments.
+	OfferSDP string `json:"offer_sdp,omitempty"`
 }
+
+// IngestTransportWHIP is the cfg.Transport value selecting the WHIP worker.
+const IngestTransportWHIP = "whip"
 
 // WorkerInput reconstructs the raw media stream the gst pipeline reads from the
 // fd-passed push connection: prepend any bytes main already read past the headers
@@ -76,6 +88,59 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 		r = httputil.NewChunkedReader(r)
 	}
 	return r
+}
+
+// workerSignStream returns the streaming muxl signer a worker uses: it forwards
+// the streamer key PEM + cert + prebuilt manifest straight to muxl-sign, no
+// MediaSigner / model / DB needed. Shared by the MKV and WHIP workers.
+func workerSignStream(cfg IngestWorkerConfig) SignSegmentStreamFunc {
+	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+		fetchManifest := func() ([]byte, error) { return cfg.Manifest, nil }
+		return muxl.RunMuxlSignSegment(ctx, input, muxl.SignerInput{
+			CertPEM:           cfg.CertPEM,
+			KeyPEM:            cfg.KeyPEM,
+			TrackManifestFn:   fetchManifest,
+			WrapperManifestFn: fetchManifest,
+		}, nil, nil, eventCh)
+	}
+}
+
+// workerSegmentSink returns the onSegment handler a worker hands to
+// muxlSignSegmentElem, plus a flush to call once the signer has drained. With a
+// node transcode key it completes each single-codec source segment to dual-codec
+// via an in-process transcoder (its completion callback frames the finished
+// segment); flush Closes that transcoder so its ~1-GoP tail is framed before the
+// worker exits. The transcoder runs on a non-cancellable context so draining the
+// signer can't kill it early. One process == one session, so the per-DID
+// transcoder-reuse hazard can't arise. Shared by the MKV and WHIP workers.
+func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
+	var transcoder *streamTranscoder
+	onSegment = func(_ context.Context, segment []byte) error {
+		if len(cfg.NodeKeyPEM) == 0 {
+			return frames.Segment(segment) // no node signer → single-codec
+		}
+		if transcoder == nil {
+			target, need := mm.audioCompletionTarget(ctx, segment)
+			if !need {
+				return frames.Segment(segment) // already dual-codec / no audio track
+			}
+			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM,
+				func(_ any, completed []byte) {
+					if ferr := frames.Segment(completed); ferr != nil {
+						log.Error(ctx, "ingest worker: frame completed segment", "error", ferr)
+					}
+				})
+		}
+		return transcoder.Feed(segment, nil)
+	}
+	flush = func() {
+		if transcoder != nil {
+			if cerr := transcoder.Close(); cerr != nil {
+				log.Error(ctx, "ingest worker: transcoder close", "error", cerr)
+			}
+		}
+	}
+	return onSegment, flush
 }
 
 // RunMKVIngestWorker is the body of the `ingest-worker` subcommand. It reads an
@@ -96,47 +161,9 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	// Minimal manager: just the broadcaster identity the transcode completion
 	// (finishTranscodedSegment) stamps into the node-signed AAC track.
 	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost}}
+	onSegment, flush := mm.workerSegmentSink(ctx, cfg, frames)
 
-	// The worker signs everything itself: forward the streamer key PEM + cert +
-	// prebuilt manifest straight to muxl-sign. No MediaSigner / model / DB needed.
-	signStream := func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
-		fetchManifest := func() ([]byte, error) { return cfg.Manifest, nil }
-		return muxl.RunMuxlSignSegment(ctx, input, muxl.SignerInput{
-			CertPEM:           cfg.CertPEM,
-			KeyPEM:            cfg.KeyPEM,
-			TrackManifestFn:   fetchManifest,
-			WrapperManifestFn: fetchManifest,
-		}, nil, nil, eventCh)
-	}
-
-	// With a node transcode key, the worker completes each single-codec source
-	// segment to dual-codec itself: feed the signed source segment into a
-	// per-stream transcoder running in THIS process; its completion callback
-	// frames the finished dual-codec segment. The transcoder runs on a
-	// non-cancellable context so draining the signer (cancel, below) can't kill it
-	// before its ~1-GoP tail is flushed by Close. One process == one session, so
-	// the per-DID transcoder-reuse hazard simply can't arise here.
-	var transcoder *streamTranscoder
-	onSegment := func(_ context.Context, segment []byte) error {
-		if len(cfg.NodeKeyPEM) == 0 {
-			return frames.Segment(segment) // no node signer → single-codec
-		}
-		if transcoder == nil {
-			target, need := mm.audioCompletionTarget(ctx, segment)
-			if !need {
-				return frames.Segment(segment) // already dual-codec / no audio track
-			}
-			transcoder = mm.newStreamTranscoder(context.WithoutCancel(ctx), target, cfg.NodeCertPEM, cfg.NodeKeyPEM,
-				func(_ any, completed []byte) {
-					if ferr := frames.Segment(completed); ferr != nil {
-						log.Error(ctx, "ingest worker: frame completed segment", "error", ferr)
-					}
-				})
-		}
-		return transcoder.Feed(segment, nil)
-	}
-
-	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, signStream, onSegment)
+	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg), onSegment)
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}
@@ -159,18 +186,12 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		}
 	}()
 
-	// Wait for the pipeline to finish (EOS or error), then drain the signer:
-	// cancelling unblocks the signer's input pipe so it flushes the final GoP, and
-	// <-done guarantees every source segment has been fed. Then flush the
-	// transcoder's tail so the last dual-codec completions are framed before we
-	// return (the caller's End can't race ahead of them).
+	// Pipeline done (EOS/error) → drain the signer (cancel flushes the final GoP;
+	// <-done means every source segment has been fed) → flush the transcoder tail
+	// so the last dual-codec completions are framed before we return.
 	pipeErr := <-busErr
 	cancel()
 	<-done
-	if transcoder != nil {
-		if cerr := transcoder.Close(); cerr != nil {
-			log.Error(ctx, "ingest worker: transcoder close", "error", cerr)
-		}
-	}
+	flush()
 	return pipeErr
 }

@@ -33,6 +33,11 @@ const (
 	// Error carries a worker-side fatal error message (UTF-8). The worker emits
 	// it just before exiting so main can log a cause, not a bare "worker exited".
 	Error Type = 3
+	// Answer carries an SDP answer (UTF-8). The WHIP worker owns the
+	// PeerConnection, so it generates the answer and emits it as the FIRST frame
+	// on the socket; main reads it and returns it to the WHIP client before
+	// consuming segments. Payload: the answer SDP.
+	Answer Type = 4
 )
 
 func (t Type) String() string {
@@ -43,6 +48,8 @@ func (t Type) String() string {
 		return "end"
 	case Error:
 		return "error"
+	case Answer:
+		return "answer"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(t))
 	}
@@ -103,6 +110,9 @@ func (fw *Writer) End() error { return fw.WriteFrame(End, nil) }
 
 // Error frames a fatal worker-side error message.
 func (fw *Writer) Error(msg string) error { return fw.WriteFrame(Error, []byte(msg)) }
+
+// Answer frames the WHIP SDP answer (emitted first, before any segments).
+func (fw *Writer) Answer(sdp string) error { return fw.WriteFrame(Answer, []byte(sdp)) }
 
 // Reader decodes frames from an underlying stream.
 type Reader struct {

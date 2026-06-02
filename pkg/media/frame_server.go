@@ -87,6 +87,7 @@ func (s *frameServer) push(typ ingestframe.Type, payload []byte) {
 func (s *frameServer) Segment(seg []byte) error { s.push(ingestframe.Segment, seg); return nil }
 func (s *frameServer) End() error               { s.push(ingestframe.End, nil); return nil }
 func (s *frameServer) Error(msg string) error   { s.push(ingestframe.Error, []byte(msg)); return nil }
+func (s *frameServer) Answer(sdp string) error  { s.push(ingestframe.Answer, []byte(sdp)); return nil }
 
 // dropped reports how many buffered frames were discarded because the buffer
 // overflowed (main was disconnected longer than the buffer window).

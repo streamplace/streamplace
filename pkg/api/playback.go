@@ -105,15 +105,30 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		pc, err := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to create peer connection", err)
-			return
-		}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", err.Error()), err)
-			return
+
+		// Isolated WHIP: a detached worker owns the PeerConnection (and survives a
+		// main restart), returning the SDP answer over its frame socket.
+		// --isolated-ingest is forced off where unsupported (see runMain), so the
+		// flag alone gates this.
+		var answerSDP string
+		if a.CLI.IsolatedIngest {
+			answerSDP, err = a.MediaManager.WHIPIngestDetached(ctx, offer.SDP, mediaSigner)
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", err.Error()), err)
+				return
+			}
+		} else {
+			pc, pcErr := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
+			if pcErr != nil {
+				errors.WriteHTTPInternalServerError(w, "unable to create peer connection", pcErr)
+				return
+			}
+			answer, ingestErr := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
+			if ingestErr != nil {
+				errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", ingestErr.Error()), ingestErr)
+				return
+			}
+			answerSDP = answer.SDP
 		}
 		host := r.Host
 		if host == "" {
@@ -127,7 +142,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		log.Log(ctx, "location", "location", location)
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
-		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+		if _, err := w.Write([]byte(answerSDP)); err != nil {
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	}

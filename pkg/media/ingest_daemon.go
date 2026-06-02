@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -50,8 +51,13 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 	defer cfgW.Close()
 
 	cmd := exec.Command(exe, "ingest-worker")
-	setDetached(cmd)                         // own session, survives a main restart (Linux)
-	cmd.ExtraFiles = []*os.File{cfgR, media} // → child fd 3 (config), fd 4 (media)
+	setDetached(cmd) // own session, survives a main restart (Linux)
+	// fd 3 = config; fd 4 = the fd-passed media connection (MKV/RTMP). WHIP owns
+	// its own PeerConnection, so it passes no media fd.
+	cmd.ExtraFiles = []*os.File{cfgR}
+	if media != nil {
+		cmd.ExtraFiles = append(cmd.ExtraFiles, media)
+	}
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("spawn ingest worker: %w", err)
@@ -162,6 +168,108 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 	// On ctx cancel (main shutting down) we deliberately leave the detached worker
 	// running; a restarting main reconnects via discovery.
 	return err
+}
+
+// whipAnswerTimeout bounds how long main waits for the worker to produce the SDP
+// answer (worker startup + ICE gathering) before giving up on the WHIP request.
+const whipAnswerTimeout = 20 * time.Second
+
+// dialWorkerSocket connects to a worker's frame socket, retrying until it's up or
+// ctx is done (a freshly-spawned worker takes a moment to start listening).
+func dialWorkerSocket(ctx context.Context, socketPath string) (net.Conn, error) {
+	for {
+		conn, err := net.Dial("unix", socketPath)
+		if err == nil {
+			return conn, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(ingestReconnectBackoff):
+		}
+	}
+}
+
+// readWHIPAnswer reads frames on conn until the worker's Answer frame and returns
+// its SDP. An Error/End/EOF before the answer is a setup failure.
+func readWHIPAnswer(conn net.Conn) (string, error) {
+	fr := ingestframe.NewReader(conn)
+	for {
+		typ, payload, err := fr.ReadFrame()
+		if err != nil {
+			return "", fmt.Errorf("read whip answer: %w", err)
+		}
+		switch typ {
+		case ingestframe.Answer:
+			return string(payload), nil
+		case ingestframe.Error:
+			return "", fmt.Errorf("whip worker error: %s", payload)
+		case ingestframe.End:
+			return "", fmt.Errorf("whip worker ended before sending an answer")
+		}
+		// A Segment before the Answer shouldn't happen; ignore it defensively.
+	}
+}
+
+// WHIPIngestDetached is the WHIP zero-downtime entry. Main has authed the WHIP
+// request; this spawns a DETACHED worker that owns the PeerConnection (built from
+// offerSDP, binding its own UDP sockets) and serves signed segments over a
+// per-session socket. It reads the worker's SDP answer (the first frame) to
+// return to the client, then consumes segments into ValidateMP4 in the
+// background with reconnect. Because the worker owns the WebRTC session and is
+// detached, both the session and its buffered output survive a main restart (the
+// restarted main reconnects via discovery).
+func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string, ms MediaSigner) (string, error) {
+	cfg, err := mm.buildWorkerConfig(ctx, ms)
+	if err != nil {
+		return "", err
+	}
+	dir, err := mm.ingestWorkerSocketDir()
+	if err != nil {
+		return "", err
+	}
+	cfg.SocketPath = filepath.Join(dir, uuid.NewString()+".sock")
+	cfg.Transport = IngestTransportWHIP
+	cfg.OfferSDP = offerSDP
+
+	proc, err := SpawnIngestWorkerDetached(cfg, nil) // worker owns the PeerConnection
+	if err != nil {
+		return "", fmt.Errorf("spawn detached whip worker: %w", err)
+	}
+
+	// Connect + read the SDP answer (the worker's first frame), bounded so a
+	// wedged setup can't hang the WHIP client.
+	answerCtx, answerCancel := context.WithTimeout(ctx, whipAnswerTimeout)
+	defer answerCancel()
+	conn, err := dialWorkerSocket(answerCtx, cfg.SocketPath)
+	if err != nil {
+		_ = proc.Kill()
+		return "", fmt.Errorf("connect to whip worker: %w", err)
+	}
+	if dl, ok := answerCtx.Deadline(); ok {
+		_ = conn.SetReadDeadline(dl)
+	}
+	answer, err := readWHIPAnswer(conn)
+	if err != nil {
+		conn.Close()
+		_ = proc.Kill()
+		return "", err
+	}
+	_ = conn.SetReadDeadline(time.Time{}) // clear; streaming has no deadline
+
+	// Consume the signed segments in the background; the HTTP handler returns the
+	// answer now and the WebRTC media establishes directly to the worker.
+	go func() {
+		sawEnd, _ := mm.consumeWorkerFrames(ctx, conn, ms.Streamer(), mm.validateSegment(ctx), nil)
+		conn.Close()
+		if !sawEnd && ctx.Err() == nil {
+			// Connection dropped but the detached worker lives on — reconnect and
+			// drain its buffer.
+			_ = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
+		}
+		go func() { _, _ = proc.Wait() }()
+	}()
+	return answer, nil
 }
 
 // ResumeDetachedWorkers reconnects to any ingest workers still running from

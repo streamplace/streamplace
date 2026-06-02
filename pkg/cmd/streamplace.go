@@ -875,6 +875,12 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("ingest-worker: parse config: %w", err)
 			}
 
+			// WHIP transport: the worker owns the PeerConnection (built from the
+			// offer in the config) and serves frames over the socket — no media fd.
+			if cfg.Transport == media.IngestTransportWHIP {
+				return media.ServeWHIPIngestWorkerSocket(ctx, cfg)
+			}
+
 			// Detach/reattach transport: serve frames over a unix socket with
 			// buffered reconnect (survives a main restart) instead of the fd-4 pipe.
 			// Media comes from the fd-passed ingest connection (InputFD) when main

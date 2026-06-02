@@ -39,7 +39,7 @@ export const ROOT_SCREENS = [
   "DanmuOBS",
   "AVSync",
   "LegacyStream",
-  "VodPlayerDemo",
+  "Video",
   "Vod",
 ];
 

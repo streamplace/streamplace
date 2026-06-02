@@ -61,7 +61,7 @@ export type RootStackParamList = {
   PopoutInfoWidget: undefined;
   PopoutMultistream: undefined;
   PopoutLivestream: undefined;
-  VodPlayerDemo: undefined;
+  Video: undefined;
   Vod: { user: string; tid: string };
 };
 

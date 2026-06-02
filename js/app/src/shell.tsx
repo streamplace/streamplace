@@ -675,7 +675,7 @@ export default function Shell() {
             options={{ headerShown: false }}
           />
           <RootStack.Screen
-            name="VodPlayerDemo"
+            name="Video"
             component={VideoScreen}
             options={{ headerShown: false }}
           />

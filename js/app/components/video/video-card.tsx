@@ -38,7 +38,7 @@ export default function VideoCard({
   const viewCount = video.viewCounts?.count ?? 0;
 
   return (
-    <AQLink to={{ screen: "Vod", params: { user, tid } }} style={{ flex: 1 }}>
+    <AQLink to={{ screen: "Video", params: { user, tid } }} style={{ flex: 1 }}>
       <View style={[zero.flex.values[1], zero.gap.all[2]]}>
         {/* Thumbnail */}
         <View

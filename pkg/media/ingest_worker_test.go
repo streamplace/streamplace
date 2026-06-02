@@ -66,11 +66,16 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
 	require.NoError(t, err)
 
+	// Provide the node transcode signer (the same test key serves both roles
+	// here, as in the transcoder tests) so the worker completes to dual-codec.
 	cfg := IngestWorkerConfig{
-		StreamerDID: ms.Streamer(),
-		KeyPEM:      keyPEM,
-		CertPEM:     ms.Cert,
-		Manifest:    manifest,
+		StreamerDID:     ms.Streamer(),
+		KeyPEM:          keyPEM,
+		CertPEM:         ms.Cert,
+		Manifest:        manifest,
+		NodeCertPEM:     ms.Cert,
+		NodeKeyPEM:      keyPEM,
+		BroadcasterHost: "test.example.com",
 	}
 
 	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
@@ -95,8 +100,23 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 		out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
 		require.NoError(t, err, "segment %d verify", segs)
 		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
+
+		// With a node key the worker completes to dual-codec: every segment must
+		// carry both the source Opus and a worker-transcoded AAC track.
+		codecs := audioCodecsOf(t, ctx, payload)
+		hasOpus, hasAAC := false, false
+		for _, c := range codecs {
+			if isOpusCodec(c) {
+				hasOpus = true
+			}
+			if isAACCodec(c) {
+				hasAAC = true
+			}
+		}
+		require.True(t, hasOpus, "segment %d keeps source Opus (got %v)", segs, codecs)
+		require.True(t, hasAAC, "segment %d gains worker-transcoded AAC (got %v)", segs, codecs)
 		segs++
 	}
-	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed segment")
-	t.Logf("worker emitted %d valid signed segments", segs)
+	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed dual-codec segment")
+	t.Logf("worker emitted %d valid dual-codec segments", segs)
 }

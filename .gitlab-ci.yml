@@ -1,5 +1,18 @@
 include: ".ci/dockerfile-hash.yaml"
 
+workflow:
+  rules:
+    # Tag pushes (releases) always build.
+    - if: "$CI_COMMIT_TAG"
+    # A release pushes the `next` branch and a `vX.Y.Z` tag at the same commit,
+    # which would otherwise spawn two pipelines that build everything twice. The
+    # tag pipeline above already covers it, so skip the redundant `next` build.
+    # Release commits are titled like the tag (e.g. "v0.10.40"), so match on that.
+    - if: '$CI_COMMIT_BRANCH == "next" && $CI_COMMIT_TITLE =~ /^v?\d+\.\d+\.\d+$/'
+      when: never
+    # Everything else (normal branch pushes) builds as usual.
+    - when: always
+
 variables:
   DOCKER_REPO: "public.ecr.aws/m4j3c0j7/streamplace"
 

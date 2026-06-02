@@ -190,7 +190,10 @@ export function MobileUi({
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>
               <SafeAreaView
-                edges={["top"]}
+                // VOD's container already insets the video below the notch, so
+                // the controls only need the small style padding; live fills
+                // the window and clears the notch with the top edge inset.
+                edges={mode === "vod" ? [] : ["top"]}
                 style={[
                   px[2],
                   py[2],

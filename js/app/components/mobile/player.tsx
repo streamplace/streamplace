@@ -354,6 +354,15 @@ export function PlayerInner(
   // Calculate aspect ratio and determine if we're in desktop mode
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
 
+  // The VOD box is sized to the real video aspect ratio (so portrait and other
+  // shapes aren't forced into 16:9), falling back to 16:9 until the track
+  // metadata loads.
+  const segDims = useSegmentDimensions();
+  const vodAspectRatio =
+    segDims.width > 0 && segDims.height > 0
+      ? segDims.width / segDims.height
+      : 16 / 9;
+
   // on mobile we want to hide the sidebar when going fullscreen
   useEffect(() => {
     if (Platform.OS !== "web" && width > height) {
@@ -386,12 +395,6 @@ export function PlayerInner(
 
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
-  const { height: windowHeight } = useWindowDimensions();
-  const vodMobileHeight =
-    props.mode === "vod"
-      ? Math.min(contentWidth / aspectRatio, windowHeight * 0.7)
-      : undefined;
-
   // animated style for offline height transition
   const animatedHeightStyle = useAnimatedStyle(() => {
     return {
@@ -415,7 +418,7 @@ export function PlayerInner(
               minHeight: "100%", // Ensures minimum height
             }
           : props.mode === "vod"
-            ? { flexGrow: 1 }
+            ? { flexGrow: 1, paddingTop: safeAreaInsets.top }
             : {
                 flex: 1,
               }
@@ -430,10 +433,15 @@ export function PlayerInner(
             ? {
                 width: calculatedWidth,
               }
-            : props.mode === "vod" && vodMobileHeight
+            : props.mode === "vod"
               ? {
+                  // Bound the video to its real aspect ratio so it occupies a
+                  // fixed height with the metadata/comments below — never the
+                  // whole window. (A pixel height derived from contentWidth
+                  // collapsed to full-window on Android when contentWidth
+                  // measured 0.)
                   width: "100%" as any,
-                  height: vodMobileHeight,
+                  aspectRatio: vodAspectRatio,
                 }
               : {
                   flex: 1,

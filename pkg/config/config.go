@@ -91,7 +91,6 @@ type CLI struct {
 	PKCS11KeypairID             string
 	StreamerName                string
 	RelayHost                   string
-	RelaySelf                   bool
 	Debug                       map[string]map[string]int
 	AllowedStreams              []string
 	WideOpen                    bool
@@ -498,17 +497,10 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "relay-host",
-				Usage:       "comma-separated websocket url(s) for relay firehose(s); subscribing to several relays survives any one going down (duplicate events are deduped)",
+				Usage:       "comma-separated websocket url(s) for relay firehose(s); subscribing to several relays survives any one going down (duplicate events are deduped). Our own PDS firehose is always included so locally-published records are indexed immediately",
 				Value:       "wss://bsky.network",
 				Destination: &cli.RelayHost,
 				Sources:     urfavecli.EnvVars("SP_RELAY_HOST"),
-			},
-			&urfavecli.BoolFlag{
-				Name:        "relay-self",
-				Usage:       "also subscribe to our own PDS firehose so records published here are indexed immediately",
-				Value:       true,
-				Destination: &cli.RelaySelf,
-				Sources:     urfavecli.EnvVars("SP_RELAY_SELF"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "color",

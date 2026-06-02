@@ -79,9 +79,11 @@ func sinceNanos(ns int64) time.Duration {
 }
 
 // relayHosts returns the ordered, de-duplicated list of relay websocket URLs to
-// consume. It is the comma-separated --relay-host list, optionally with our own
-// PDS firehose appended (so we always index records published to our built-in
-// PDS, even before an external relay crawls them back to us).
+// consume: the comma-separated --relay-host list, plus our own PDS firehose so
+// records published to our built-in PDS are always indexed immediately (rather
+// than waiting for an external relay to crawl them back to us). We only add
+// ourselves when we actually have an HTTP listener to dial — i.e. never in
+// tests that run without the server.
 func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	seen := map[string]struct{}{}
 	var hosts []string
@@ -99,7 +101,7 @@ func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	for _, h := range strings.Split(atsync.CLI.RelayHost, ",") {
 		add(h)
 	}
-	if atsync.CLI.RelaySelf {
+	if atsync.CLI.HTTPAddr != "" {
 		add(httpToWSURL(atsync.CLI.OwnPublicURL()))
 	}
 	return hosts

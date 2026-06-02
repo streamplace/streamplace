@@ -90,12 +90,11 @@ func TestRelayHostsDedupesAndAppendsSelf(t *testing.T) {
 	cases := []struct {
 		name      string
 		relayHost string
-		relaySelf bool
 		httpAddr  string
 		want      []string
 	}{
 		{
-			name:      "single relay",
+			name:      "single relay, no listener so no self",
 			relayHost: "wss://bsky.network",
 			want:      []string{"wss://bsky.network"},
 		},
@@ -105,16 +104,14 @@ func TestRelayHostsDedupesAndAppendsSelf(t *testing.T) {
 			want:      []string{"wss://relay1.example", "wss://relay2.example"},
 		},
 		{
-			name:      "appends self",
+			name:      "appends self when we have a listener",
 			relayHost: "wss://bsky.network",
-			relaySelf: true,
 			httpAddr:  "127.0.0.1:39000",
 			want:      []string{"wss://bsky.network", "ws://127.0.0.1:39000"},
 		},
 		{
 			name:      "self already listed is not duplicated",
 			relayHost: "wss://bsky.network,ws://127.0.0.1:39000",
-			relaySelf: true,
 			httpAddr:  "127.0.0.1:39000",
 			want:      []string{"wss://bsky.network", "ws://127.0.0.1:39000"},
 		},
@@ -124,7 +121,6 @@ func TestRelayHostsDedupesAndAppendsSelf(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			atsync := &ATProtoSynchronizer{CLI: &config.CLI{
 				RelayHost: tc.relayHost,
-				RelaySelf: tc.relaySelf,
 				HTTPAddr:  tc.httpAddr,
 			}}
 			got := atsync.relayHosts()

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -28,6 +29,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 
 	"slices"
@@ -35,128 +37,253 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// dedupWindow bounds how long a key is remembered. Relays run within seconds of
+// each other, so a few minutes covers all realistic skew.
+const dedupWindow = 5 * time.Minute
+
 type ATProtoSynchronizer struct {
 	CLI                *config.CLI
 	Model              model.Model
 	StatefulDB         *statedb.StatefulDB
-	LastSeen           time.Time
-	LastEvent          time.Time
 	Noter              notificationpkg.FirebaseNotifier
 	Bus                *bus.Bus
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory
 	OATProxy           *oatproxy.OATProxy
+
+	// firehose liveness, written from every relay consumer concurrently
+	// (unix nanos).
+	lastSeen  atomic.Int64
+	lastEvent atomic.Int64
+
+	// cross-relay dedup, shared by every relay consumer. Initialized at the
+	// top of StartFirehose.
+	commitDedup   *firehoseDeduper
+	identityDedup *firehoseDeduper
 }
 
-func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
-	retryCount := 0
-	retryWindow := time.Now()
+func (atsync *ATProtoSynchronizer) markSeen() {
+	atsync.lastSeen.Store(time.Now().UnixNano())
+}
 
+func (atsync *ATProtoSynchronizer) markEvent(t time.Time) {
+	atsync.lastEvent.Store(t.UnixNano())
+}
+
+func sinceNanos(ns int64) time.Duration {
+	if ns == 0 {
+		return 0
+	}
+	return time.Since(time.Unix(0, ns))
+}
+
+// relayHosts returns the ordered, de-duplicated list of relay websocket URLs to
+// consume. It is the comma-separated --relay-host list, optionally with our own
+// PDS firehose appended (so we always index records published to our built-in
+// PDS, even before an external relay crawls them back to us).
+func (atsync *ATProtoSynchronizer) relayHosts() []string {
+	seen := map[string]struct{}{}
+	var hosts []string
+	add := func(h string) {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			return
+		}
+		if _, ok := seen[h]; ok {
+			return
+		}
+		seen[h] = struct{}{}
+		hosts = append(hosts, h)
+	}
+	for _, h := range strings.Split(atsync.CLI.RelayHost, ",") {
+		add(h)
+	}
+	if atsync.CLI.RelaySelf {
+		add(httpToWSURL(atsync.CLI.OwnPublicURL()))
+	}
+	return hosts
+}
+
+func httpToWSURL(u string) string {
+	if strings.HasPrefix(u, "https://") {
+		return "wss://" + strings.TrimPrefix(u, "https://")
+	}
+	if strings.HasPrefix(u, "http://") {
+		return "ws://" + strings.TrimPrefix(u, "http://")
+	}
+	return u
+}
+
+// StartFirehose subscribes to every configured relay (plus our own PDS, if
+// enabled) concurrently, de-duplicating the overlapping event streams so each
+// commit is indexed exactly once. It returns only when ctx is cancelled; a
+// single relay flapping is logged and retried forever rather than taking the
+// node down, since surviving relay outages is the whole point of running more
+// than one.
+func (atsync *ATProtoSynchronizer) StartFirehose(ctx context.Context) error {
+	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
+
+	relays := atsync.relayHosts()
+	if len(relays) == 0 {
+		return fmt.Errorf("no relay hosts configured")
+	}
+
+	atsync.commitDedup = newFirehoseDeduper(dedupWindow)
+	atsync.identityDedup = newFirehoseDeduper(dedupWindow)
+	atsync.markSeen()
+	atsync.markEvent(time.Now())
+
+	log.Log(ctx, "starting firehose consumers", "relays", relays)
+
+	g, ctx := errgroup.WithContext(ctx)
+	for _, relay := range relays {
+		relay := relay
+		g.Go(func() error {
+			atsync.consumeRelay(ctx, relay)
+			return nil
+		})
+	}
+	g.Go(func() error {
+		atsync.monitorFirehose(ctx)
+		return nil
+	})
+	return g.Wait()
+}
+
+// consumeRelay keeps a single relay's firehose connected, reconnecting with
+// capped exponential backoff. It never returns an error: an unhealthy relay
+// must not disturb the others (or crash the node), so it just loops until ctx
+// is cancelled.
+func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay string) {
+	ctx = log.WithLogValues(ctx, "relay", relay)
+	const (
+		minBackoff = time.Second
+		maxBackoff = 30 * time.Second
+	)
+	backoff := minBackoff
 	for {
 		if ctx.Err() != nil {
-			return nil
+			return
 		}
-		err := atsync.StartFirehoseRetry(ctx)
+		start := time.Now()
+		err := atsync.connectRelay(ctx, relay)
+		if ctx.Err() != nil {
+			return
+		}
 		if err != nil {
-			log.Error(ctx, "firehose error", "err", err)
-
-			// Check if we're within the 1-minute window
-			now := time.Now()
-			if now.Sub(retryWindow) > time.Minute {
-				// Reset the counter if more than a minute has passed
-				retryCount = 1
-				retryWindow = now
-			} else {
-				// Increment retry count if within the window
-				retryCount++
-				if retryCount >= 3 {
-					log.Error(ctx, "firehose failed 3 times within a minute, crashing", "err", err)
-					return fmt.Errorf("firehose failed 3 times within a minute: %w", err)
-				}
+			log.Error(ctx, "relay firehose disconnected; reconnecting", "err", err, "backoff", backoff)
+		} else {
+			log.Warn(ctx, "relay firehose closed; reconnecting", "backoff", backoff)
+		}
+		// A connection that stayed healthy for a while earns a fresh backoff.
+		if time.Since(start) > time.Minute {
+			backoff = minBackoff
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < maxBackoff {
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 		}
 	}
 }
 
-func (atsync *ATProtoSynchronizer) StartFirehoseRetry(ctx context.Context) error {
-	ctx = log.WithLogValues(ctx, "func", "StartFirehose")
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	dialer := websocket.DefaultDialer
-	u, err := url.Parse(atsync.CLI.RelayHost)
+// connectRelay dials one relay and pumps its firehose until the connection
+// drops or ctx is cancelled. Event handlers are spawned on the parent ctx (not
+// the per-connection one) so an in-flight commit keeps indexing across a
+// reconnect — important because dedup has already claimed it, so no other relay
+// will re-deliver it to us.
+func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay string) error {
+	u, err := url.Parse(relay)
 	if err != nil {
-		return fmt.Errorf("invalid relayHost URI: %w", err)
+		return fmt.Errorf("invalid relay URI %q: %w", relay, err)
 	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
-	// if cursor != 0 {
-	// 	u.RawQuery = fmt.Sprintf("cursor=%d", cursor)
-	// }
-	con, _, err := dialer.Dial(u.String(), http.Header{
+
+	con, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
 		"User-Agent": []string{aqhttp.UserAgent},
 	})
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}
+	defer con.Close()
+
+	spmetrics.FirehoseRelaysConnected.WithLabelValues(relay).Set(1)
+	defer spmetrics.FirehoseRelaysConnected.WithLabelValues(relay).Set(0)
+
+	streamCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	rsc := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+			atsync.markSeen()
+			if atsync.commitDedup.seen(evt.Commit.String()) {
+				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("commit").Inc()
+				return nil
+			}
 			go atsync.handleCommitEventOps(ctx, evt)
 			return nil
 		},
 		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+			atsync.markSeen()
+			if atsync.identityDedup.seen(identityDedupKey(evt)) {
+				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("identity").Inc()
+				return nil
+			}
 			go atsync.handleIdentityEventOps(ctx, evt)
 			return nil
 		},
 		Error: func(evt *events.ErrorFrame) error {
-			log.Error(ctx, "firehose error", "err", evt.Error, "message", evt.Message)
 			cancel()
-			return fmt.Errorf("firehose error: %s", evt.Error)
+			return fmt.Errorf("firehose error: %s: %s", evt.Error, evt.Message)
 		},
 	}
 
-	scheduler := parallel.NewScheduler(
-		10,
-		100,
-		atsync.CLI.RelayHost,
-		rsc.EventHandler,
-	)
+	scheduler := parallel.NewScheduler(10, 100, relay, rsc.EventHandler)
 
-	log.Log(ctx, "starting firehose consumer", "relayHost", atsync.CLI.RelayHost)
+	log.Log(ctx, "connected to relay firehose")
+	return events.HandleRepoStream(streamCtx, con, scheduler, nil)
+}
 
-	g, ctx := errgroup.WithContext(ctx)
+// identityDedupKey distinguishes a single identity broadcast (so the same one
+// relayed by several relays collapses) from genuinely separate updates to the
+// same DID (a later handle change must NOT be dropped). The originating Time is
+// preserved as the event is relayed, so (did, time, handle) is stable for one
+// broadcast yet distinct across real changes. seq is deliberately excluded — it
+// is assigned per-relay and so differs for the very duplicates we want to fold.
+func identityDedupKey(evt *comatproto.SyncSubscribeRepos_Identity) string {
+	handle := ""
+	if evt.Handle != nil {
+		handle = *evt.Handle
+	}
+	return evt.Did + "\x00" + evt.Time + "\x00" + handle
+}
 
-	g.Go(func() error {
-		err := events.HandleRepoStream(ctx, con, scheduler, nil)
-		if err != nil {
-			log.Error(ctx, "firehose error", "err", err)
-			return err
-		}
-		return nil
-	})
-
-	g.Go(func() error {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-ticker.C:
-				since := time.Since(atsync.LastEvent)
-				goroutines := runtime.NumGoroutine()
-				if since > 10*time.Second {
-					log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
-				} else {
-					log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
-				}
-				if time.Since(atsync.LastSeen) > 10*time.Second {
-					log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", time.Since(atsync.LastSeen)))
-				}
+func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			since := sinceNanos(atsync.lastEvent.Load())
+			goroutines := runtime.NumGoroutine()
+			if since > 10*time.Second {
+				log.Warn(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
+			} else {
+				log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
+			}
+			if dry := sinceNanos(atsync.lastSeen.Load()); dry > 10*time.Second {
+				log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", dry))
 			}
 		}
-	})
-
-	return g.Wait()
+	}
 }
 
 var CollectionFilter = []string{
@@ -169,8 +296,6 @@ var CollectionFilter = []string{
 
 func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
-	now := time.Now()
-	atsync.LastSeen = now
 
 	if evt.TooBig {
 		log.Warn(ctx, "skipping tooBig events for now")
@@ -208,7 +333,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			continue
 		}
 		opTime := aqt.Time()
-		atsync.LastEvent = opTime
+		atsync.markEvent(opTime)
 
 		r, err := atsync.Model.GetRepo(evt.Repo)
 		if err != nil {

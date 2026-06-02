@@ -1,3 +1,4 @@
+import { useRoute } from "@react-navigation/native";
 import {
   Admonition,
   Button,
@@ -40,6 +41,8 @@ import {
   TextInput,
   useWindowDimensions,
 } from "react-native";
+import { useStore } from "store";
+import { useIsReady, useUserProfile } from "store/hooks";
 import type { PlaceStreamLivestream, PlaceStreamVideo } from "streamplace";
 import * as tus from "tus-js-client";
 
@@ -106,6 +109,10 @@ const BETA_FEATURE = "vod";
 
 export default function UploadScreen() {
   const agent = usePDSAgent();
+  const isReady = useIsReady();
+  const userProfile = useUserProfile();
+  const openLoginModal = useStore((state) => state.openLoginModal);
+  const route = useRoute();
   const {
     status: betaStatus,
     loading: betaLoading,
@@ -594,6 +601,48 @@ export default function UploadScreen() {
   }, [agent, editingVideoUri]);
 
   // ── render ────────────────────────────────────────────────────────────────
+
+  // Login gate: uploading needs an account. Wait for auth to resolve, then
+  // prompt logged-out users with a login button that returns them here.
+  if (!isReady) {
+    return <Loading />;
+  }
+  if (!userProfile) {
+    return (
+      <View
+        style={[
+          zero.flex.values[1],
+          zero.layout.flex.align.center,
+          zero.layout.flex.justify.center,
+          zero.px[6],
+          zero.py[12],
+        ]}
+      >
+        <View
+          style={{
+            maxWidth: 440,
+            width: "100%",
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <Text size="2xl" weight="semibold" style={{ textAlign: "center" }}>
+            Log in to upload videos
+          </Text>
+          <Text color="muted" center>
+            You need to be logged in to upload and manage your videos.
+          </Text>
+          <Button
+            onPress={() =>
+              openLoginModal({ name: route.name, params: route.params })
+            }
+          >
+            <Text style={{ color: "#fff", fontWeight: "600" }}>Log in</Text>
+          </Button>
+        </View>
+      </View>
+    );
+  }
 
   // Beta gate: hold the upload UI until we know the account's access status.
   // While we're still resolving it for a logged-in user, show a spinner; if

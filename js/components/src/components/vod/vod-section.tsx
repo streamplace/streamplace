@@ -1,7 +1,6 @@
 import { useWindowDimensions, View } from "react-native";
 import { px, py } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
-import { VodComments } from "./vod-comments";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
 export function VodSection() {
@@ -9,7 +8,9 @@ export function VodSection() {
   const { width } = useWindowDimensions();
   const isNarrow = width < 768;
 
-  if (!aturi) {
+  // Wide layouts surface metadata through BottomMetadata, so the mobile
+  // metadata block is all this section renders now.
+  if (!aturi || !isNarrow) {
     return null;
   }
 
@@ -21,8 +22,7 @@ export function VodSection() {
         { maxWidth: 720, alignSelf: "center" as const, width: "100%" },
       ]}
     >
-      {isNarrow && <VodMobileMetadata />}
-      <VodComments videoUri={aturi} />
+      <VodMobileMetadata />
     </View>
   );
 }

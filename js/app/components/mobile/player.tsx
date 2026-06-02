@@ -410,6 +410,62 @@ export function PlayerInner(
     };
   });
 
+  const videoContent = props.showUnavailable ? (
+    <UserOffline />
+  ) : (
+    <PlayerInnerInner {...props}>
+      {showFullDesktopMode || fullscreen ? (
+        <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
+      ) : (
+        (isLandscape || props.mode === "vod") && (
+          <MobileUi
+            hideMobileChat={props.mode === "vod"}
+            setShowChat={props.setShowChat}
+            showChat={props.showChat}
+          />
+        )
+      )}
+      <PlayerUI.ViewerLoadingOverlay />
+      {props.mode !== "vod" && !props.showUnavailable && (
+        <OfflineCounter isMobile={true} />
+      )}
+      <View
+        ref={dropdownPortalRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: "none",
+        }}
+      />
+    </PlayerInnerInner>
+  );
+
+  // Mobile inline VOD: keep the video + metadata header fixed and scroll only
+  // the description below the line, so the video is always visible and a long
+  // description can't flex-shrink the player.
+  if (props.mode === "vod" && !showFullDesktopMode && !fullscreen) {
+    return (
+      <View style={{ flex: 1, paddingTop: safeAreaInsets.top }}>
+        <Reanimated.View
+          style={{
+            width: "100%",
+            aspectRatio: vodAspectRatio,
+            // Cap so a landscape video fits (letterboxed via objectFit:contain)
+            // instead of clipping; flexShrink:0 keeps it from collapsing.
+            maxHeight: winHeight * 0.7,
+            flexShrink: 0,
+          }}
+        >
+          {videoContent}
+        </Reanimated.View>
+        <VodSection scrollDescription />
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={{
@@ -466,38 +522,7 @@ export function PlayerInner(
           animatedHeightStyle,
         ]}
       >
-        {props.showUnavailable ? (
-          <UserOffline />
-        ) : (
-          <PlayerInnerInner {...props}>
-            {showFullDesktopMode || fullscreen ? (
-              <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
-            ) : (
-              (isLandscape || props.mode === "vod") && (
-                <MobileUi
-                  hideMobileChat={props.mode === "vod"}
-                  setShowChat={props.setShowChat}
-                  showChat={props.showChat}
-                />
-              )
-            )}
-            <PlayerUI.ViewerLoadingOverlay />
-            {props.mode !== "vod" && !props.showUnavailable && (
-              <OfflineCounter isMobile={true} />
-            )}
-            <View
-              ref={dropdownPortalRef}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                pointerEvents: "none",
-              }}
-            />
-          </PlayerInnerInner>
-        )}
+        {videoContent}
       </Reanimated.View>
       {showFullDesktopMode && props.mode !== "vod" && (
         <BottomMetadata

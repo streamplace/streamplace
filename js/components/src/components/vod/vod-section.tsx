@@ -1,25 +1,31 @@
-import { View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { borders, px, py, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
+import { VodDescription } from "./vod-description";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
 // VodSection is the VOD metadata block (title, author, likes, view count)
-// rendered beneath the player at every breakpoint. The live-stream metadata
-// bar (BottomMetadata) is suppressed for VOD, so this is the single source
-// of VOD metadata across all widths.
+// plus the description below a divider line.
 //
-// The outer wrapper spans the full content width and carries the bottom
-// divider so it runs edge to edge; the inner wrapper keeps the metadata
-// itself centered at a readable max width.
-export function VodSection() {
+// With scrollDescription (mobile), the metadata header stays fixed and only the
+// description scrolls, so the video above is always visible and a long
+// description can't shrink the player. Without it (desktop), everything flows
+// in the surrounding scroll view.
+export function VodSection({
+  scrollDescription = false,
+}: {
+  scrollDescription?: boolean;
+}) {
   const aturi = useVideoStore((x) => x.aturi);
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (!aturi) {
     return null;
   }
 
-  return (
+  const header = (
     <View
       style={[
         py[4],
@@ -35,6 +41,40 @@ export function VodSection() {
       >
         <VodMobileMetadata />
       </View>
+    </View>
+  );
+
+  const description = (
+    <View
+      style={[
+        px[4],
+        py[4],
+        { maxWidth: 720, alignSelf: "center" as const, width: "100%" },
+      ]}
+    >
+      <VodDescription />
+    </View>
+  );
+
+  if (scrollDescription) {
+    return (
+      <View style={{ flex: 1, width: "100%" }}>
+        {header}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom }}
+          showsVerticalScrollIndicator={false}
+        >
+          {description}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ width: "100%" }}>
+      {header}
+      {description}
     </View>
   );
 }

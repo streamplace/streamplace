@@ -5,7 +5,7 @@ import { useAuthor } from "../../hooks/useAuthor";
 import { useAvatar } from "../../hooks/useAvatar";
 import { useTitle } from "../../hooks/useTitle";
 import { useUrl } from "../../streamplace-store";
-import { borders, gap, layout, mb, pb, useTheme } from "../../ui";
+import { gap, layout, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { Viewers } from "../mobile-player/ui/viewers";
 import { ShareSheet } from "../share/sharesheet";
@@ -52,10 +52,6 @@ export function VodMobileMetadata() {
   return (
     <View
       style={[
-        pb[3],
-        borders.bottom.width.thin,
-        { borderBottomColor: theme.colors.border },
-        mb[3],
         layout.flex.row,
         layout.flex.alignCenter,
         zero.layout.flex.justify.between,

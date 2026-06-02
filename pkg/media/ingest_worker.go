@@ -8,7 +8,6 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
-	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -53,7 +52,7 @@ type IngestWorkerConfig struct {
 // caller frames End or Error accordingly. All segment frames are guaranteed
 // flushed before it returns, so a trailing End can never race ahead of the last
 // Segment.
-func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames *ingestframe.Writer) error {
+func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames FrameWriter) error {
 	gstinit.InitGST()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

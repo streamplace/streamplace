@@ -19,6 +19,13 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+// ingestWorkerWatchdog bounds how long an isolated worker may go without
+// producing a segment frame before it's presumed wedged (a native pipeline gst
+// can't drain — e.g. a pathological stream) and killed. A healthy stream emits a
+// segment every GoP (~1–2s), so this is generous. Var (not const) so tests can
+// shorten it.
+var ingestWorkerWatchdog = 30 * time.Second
+
 // MKVIngestIsolated is the process-isolated counterpart to MKVIngest. Instead of
 // running the demux + sign pipeline in this process — where a native gst fault,
 // OOM, or deadlock would take the whole node down — it spawns a dedicated
@@ -124,8 +131,20 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	go func() { defer logsWG.Done(); streamWorkerLogs(ctx, stdout, ms.Streamer()) }()
 	go func() { defer logsWG.Done(); streamWorkerLogs(ctx, stderr, ms.Streamer()) }()
 
+	// Watchdog: a worker that stops producing frames is presumed wedged and
+	// killed (cancel → CommandContext SIGKILLs it), so a single bad stream can't
+	// hang its session forever. Reset on every frame.
+	watchdog := time.AfterFunc(ingestWorkerWatchdog, func() {
+		log.Warn(ctx, "ingest worker watchdog fired (no frames); killing worker",
+			"streamer", ms.Streamer(), "timeout", ingestWorkerWatchdog)
+		cancel()
+	})
+	defer watchdog.Stop()
+
 	// Read signed-segment frames and feed each into the normal chokepoint.
-	sawEnd, readErr := mm.consumeWorkerFrames(ctx, framesR, ms.Streamer())
+	sawEnd, readErr := mm.consumeWorkerFrames(ctx, framesR, ms.Streamer(), func() {
+		watchdog.Reset(ingestWorkerWatchdog)
+	})
 	logsWG.Wait()
 	werr := cmd.Wait()
 
@@ -146,7 +165,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 // over each. It returns whether a clean End frame was seen and the terminal read
 // error: nil on a clean close (End then EOF), or io.ErrUnexpectedEOF / a desync
 // error when the worker died mid-frame.
-func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, stdout io.Reader, streamer string) (sawEnd bool, _ error) {
+func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, stdout io.Reader, streamer string, onProgress func()) (sawEnd bool, _ error) {
 	fr := ingestframe.NewReader(stdout)
 	for {
 		typ, payload, err := fr.ReadFrame()
@@ -155,6 +174,9 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, stdout io.Reade
 				return sawEnd, nil
 			}
 			return sawEnd, err
+		}
+		if onProgress != nil {
+			onProgress()
 		}
 		switch typ {
 		case ingestframe.Segment:

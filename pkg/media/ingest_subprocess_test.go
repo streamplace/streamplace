@@ -124,3 +124,30 @@ func TestIngestWorkerSubprocess(t *testing.T) {
 	require.True(t, sawEnd, "worker subprocess emitted a clean End frame")
 	t.Logf("worker subprocess emitted %d valid signed segments + clean End", segs)
 }
+
+// TestMKVIngestIsolatedWedgeContained is the isolation guarantee: sample-stream.mkv
+// carries four audio tracks, so the single-audio ingest pipeline leaves three
+// matroskademux pads unlinked and wedges with no EOS — exactly the kind of native
+// wedge that would hang (or, with a runaway buffer, OOM-kill) an in-process
+// ingest and take the node with it. Run in a worker, it must be contained: the
+// watchdog kills the worker and MKVIngestIsolated returns an error, bounded in
+// time, with THIS process — the node — still running to assert it.
+func TestMKVIngestIsolatedWedgeContained(t *testing.T) {
+	old := ingestWorkerWatchdog
+	ingestWorkerWatchdog = 6 * time.Second
+	defer func() { ingestWorkerWatchdog = old }()
+
+	mm, _ := getStaticTestMediaManager(t)
+	ms := newBareSegmentSigner(t)
+
+	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
+	require.NoError(t, err)
+
+	start := time.Now()
+	err = mm.MKVIngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
+	elapsed := time.Since(start)
+
+	require.Error(t, err, "a wedged worker must surface as an error, not a hang")
+	require.Less(t, elapsed, 25*time.Second, "watchdog bounded the wedge")
+	t.Logf("wedged worker contained in %s: %v", elapsed.Round(time.Second), err)
+}

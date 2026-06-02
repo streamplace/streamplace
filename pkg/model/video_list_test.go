@@ -3,12 +3,65 @@ package model
 import (
 	"context"
 	"testing"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/streamplace"
 )
+
+// putLike writes a place.stream.like whose subject is the given video URI.
+func putLike(t *testing.T, m Model, subject, cid string) {
+	t.Helper()
+	now := time.Now().UTC()
+	require.NoError(t, m.CreateLike(context.Background(), &Like{
+		CID:       cid,
+		URI:       "at://did:plc:liker/place.stream.like/" + cid,
+		Subject:   subject,
+		RepoDID:   "did:plc:liker",
+		IndexedAt: &now,
+		CreatedAt: now,
+	}))
+}
+
+// TestVideoLikeCount verifies likeCount is populated (and subject-scoped) on
+// both the single-video view and the listing.
+func TestVideoLikeCount(t *testing.T) {
+	m, err := MakeDB(":memory:")
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	const videoURI = "at://did:plc:alice/place.stream.video/likeme"
+	putTrackVideo(t, m, videoURI, "at://did:plc:alice/place.stream.media.track/lt1", "blobLike")
+
+	// Always present; zero before any likes.
+	view, err := m.GetVideoView(ctx, videoURI)
+	require.NoError(t, err)
+	require.NotNil(t, view)
+	require.Equal(t, int64(0), view.LikeCount)
+
+	putLike(t, m, videoURI, "likecid1")
+	putLike(t, m, videoURI, "likecid2")
+	putLike(t, m, videoURI, "likecid3")
+	// A like on a different subject must not count toward this video.
+	putLike(t, m, "at://did:plc:alice/place.stream.video/other", "likecid4")
+
+	view, err = m.GetVideoView(ctx, videoURI)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), view.LikeCount)
+
+	list, err := m.GetVideoList(ctx, "", 25, "", "")
+	require.NoError(t, err)
+	var found *streamplace.MediaGetVideo_VideoView
+	for _, v := range list.Videos {
+		if v.Uri == videoURI {
+			found = v
+		}
+	}
+	require.NotNil(t, found, "video should appear in unfiltered listing")
+	require.Equal(t, int64(3), found.LikeCount)
+}
 
 const testServerDID = "did:web:us.example.com"
 

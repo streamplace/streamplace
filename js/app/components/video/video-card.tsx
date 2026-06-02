@@ -10,7 +10,7 @@ import {
 } from "utils/video";
 import AQLink from "../aqlink";
 
-function formatViews(count: number): string {
+function formatCount(count: number): string {
   if (count >= 1_000_000) {
     return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1)}M`;
   }
@@ -36,6 +36,7 @@ export default function VideoCard({
   const thumbnailUrl = getVideoThumbnailUrl(record, author.did);
   const duration = formatDuration(record.durationMs);
   const viewCount = video.viewCounts?.count ?? 0;
+  const likeCount = video.likeCount ?? 0;
 
   return (
     <AQLink to={{ screen: "Video", params: { user, tid } }} style={{ flex: 1 }}>
@@ -132,7 +133,8 @@ export default function VideoCard({
               @{user}
             </Text>
             <Text size="sm" style={{ color: theme.colors.textMuted }}>
-              {formatViews(viewCount)} view{viewCount === 1 ? "" : "s"}
+              {formatCount(viewCount)} view{viewCount === 1 ? "" : "s"} ·{" "}
+              {formatCount(likeCount)} like{likeCount === 1 ? "" : "s"}
             </Text>
           </View>
         </View>

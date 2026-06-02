@@ -280,11 +280,17 @@ func (m *DBModel) hydrateVideoView(ctx context.Context, row *Video) (*streamplac
 		return nil, err
 	}
 
+	likeCount, err := m.GetLikeCount(ctx, row.URI)
+	if err != nil {
+		return nil, fmt.Errorf("get like count: %w", err)
+	}
+
 	return &streamplace.MediaGetVideo_VideoView{
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
 		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
 		ViewCounts: summary,
+		LikeCount:  likeCount,
 	}, nil
 }

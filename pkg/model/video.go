@@ -114,6 +114,11 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.Me
 		return nil, err
 	}
 
+	likeCount, err := m.GetLikeCount(ctx, uri)
+	if err != nil {
+		return nil, fmt.Errorf("get like count: %w", err)
+	}
+
 	tracks := []*streamplace.MediaTrack_TrackView{}
 	if rec.Source.MediaDefs_SourceTracks != nil {
 		for _, track := range rec.Source.MediaDefs_SourceTracks.Tracks {
@@ -143,6 +148,7 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.Me
 		Author:     author,
 		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
 		ViewCounts: summary,
+		LikeCount:  likeCount,
 		Tracks:     tracks,
 	}, nil
 }

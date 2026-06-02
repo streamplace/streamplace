@@ -1,3 +1,4 @@
+import { AtUri } from "@atproto/syntax";
 import { useMemo } from "react";
 import { PlayerProtocol } from "../../player-store/player-state";
 import { useStreamplaceStore } from "../../streamplace-store";
@@ -21,17 +22,26 @@ export function srcToUrl(
 } {
   const url = useStreamplaceStore((x) => x.url);
   return useMemo(() => {
+    if (props.src.startsWith("at://")) {
+      const aturi = new AtUri(props.src);
+      if (aturi.collection === "place.stream.video") {
+        return {
+          url: `${url}/xrpc/place.stream.playback.getVideoPlaylist?uri=${props.src}&ext=hls.m3u8`,
+          protocol: PlayerProtocol.HLS,
+        };
+      } else {
+        throw new Error(
+          `this player doesn't know how to play ${aturi.collection} records (${props.src})`,
+        );
+      }
+    }
     if (props.src.startsWith("http://") || props.src.startsWith("https://")) {
       const segments = props.src.split(/[./]/);
       const suffix = segments[segments.length - 1];
-      if (protocolSuffixes[suffix]) {
-        return {
-          url: props.src,
-          protocol: protocolSuffixes[suffix],
-        };
-      } else {
-        throw new Error(`unknown playback protocol: ${suffix}`);
-      }
+      return {
+        url: props.src,
+        protocol: protocolSuffixes[suffix] ?? PlayerProtocol.HLS,
+      };
     }
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {

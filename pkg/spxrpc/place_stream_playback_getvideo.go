@@ -101,28 +101,22 @@ func (s *Server) HandleGetVideoBlob(c echo.Context) error {
 	}
 	did := parsedDID.String()
 
-	// Labeler enforcement. If this CID is a known content blob, the
-	// supplied `did` must actually own a track in it (a spoofed DID has
-	// no matching MediaTrack and fails as not-found), and that account
-	// must not be banned. CIDs with no MediaTrack — per-track init
-	// segments, or simply unknown CIDs — serve unguarded.
+	// Labeler enforcement. If this CID is a known content blob, gate it on
+	// its content owners — the track owners — not on the requesting `did`.
+	// The blob is content-addressed and shared: a clip of another user's
+	// video references the same blob with the clipper's did, which doesn't
+	// own a track. So `did` is for egress accounting only; if any of the
+	// blob's track owners is banned, the content is unavailable. (A clip's
+	// own labels/ban are enforced at getVideoPlaylist, the playback entry
+	// point.) CIDs with no MediaTrack — per-track init segments, or simply
+	// unknown CIDs — serve unguarded.
 	tracks, err := s.model.GetMediaTracksByBlob(ctx, cid)
 	if err != nil {
 		log.Error(ctx, "playback: GetMediaTracksByBlob failed", "cid", cid, "error", err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if len(tracks) > 0 {
-		owned := false
-		for _, t := range tracks {
-			if t.RepoDID == did {
-				owned = true
-				break
-			}
-		}
-		if !owned {
-			return echo.NewHTTPError(http.StatusNotFound, "BlobNotFound")
-		}
-		if banned, err := s.accountBanned(did); err != nil {
+	for _, t := range tracks {
+		if banned, err := s.accountBanned(t.RepoDID); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		} else if banned {
 			return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
@@ -265,20 +259,13 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	if rawURI == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}
-	aturi, err := syntax.ParseATURI(rawURI)
+	aturi, err := s.normalizeURI(ctx, rawURI)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "uri must be a valid AT-URI: "+err.Error())
 	}
 	if aturi.Collection() != videoCollection {
 		return echo.NewHTTPError(http.StatusBadRequest,
 			fmt.Sprintf("UnsupportedCollection: %s", aturi.Collection()))
-	}
-	// The authority must be a DID, not a handle: media playlists embed
-	// it in every getVideoBlob URL for egress accounting, and we want
-	// attribution keyed on the stable identifier.
-	ownerDID, err := aturi.Authority().AsDID()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "uri authority must be a DID: "+err.Error())
 	}
 	if s.playbackStore == nil {
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
@@ -317,7 +304,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 	} else if labeled {
 		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
 	}
-	if banned, err := s.accountBanned(ownerDID.String()); err != nil {
+	if banned, err := s.accountBanned(aturi.Authority().String()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	} else if banned {
 		return echo.NewHTTPError(http.StatusForbidden, "VideoUnavailable")
@@ -348,7 +335,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		// server side, so the propagation stays in clip-local time.
 		body = masterPlaylist(meta, uri, sid, startMS, endMS)
 	} else {
-		body, err = mediaPlaylist(meta, track, ownerDID.String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
+		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}

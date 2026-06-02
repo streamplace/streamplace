@@ -21,6 +21,18 @@ export type PlayerStore = StoreApi<PlayerState>;
 export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
   const store = createStore<PlayerState>()((set) => ({
     id: id || Math.random().toString(36).slice(8),
+    mode: "live",
+    setMode: (mode) => set(() => ({ mode })),
+    duration: 0,
+    setDuration: (duration) => set(() => ({ duration })),
+    bufferedEnd: 0,
+    setBufferedEnd: (bufferedEnd) => set(() => ({ bufferedEnd })),
+    vodLevels: [],
+    setVodLevels: (vodLevels) => set(() => ({ vodLevels })),
+    playingVODRendition: null,
+    setPlayingVODRendition: (playingVODRendition) =>
+      set(() => ({ playingVODRendition })),
+
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
       set((state) => {
@@ -91,6 +103,14 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     playTime: 0,
     setPlayTime: (playTime: number) => set(() => ({ playTime })),
+    seekTo: (time: number) =>
+      set((state) => {
+        const ref = state.videoRef;
+        if (ref && typeof ref === "object" && "current" in ref && ref.current) {
+          ref.current.currentTime = time;
+        }
+        return { playTime: time };
+      }),
 
     videoRef: undefined,
     setVideoRef: (
@@ -108,6 +128,20 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     pipAction: undefined,
     setPipAction: (action: (() => void) | undefined) =>
       set(() => ({ pipAction: action })),
+
+    togglePlayPause: () =>
+      set((state) => {
+        const ref = state.videoRef;
+        if (ref && typeof ref === "object" && "current" in ref && ref.current) {
+          if (ref.current.paused) {
+            ref.current.play();
+          } else {
+            ref.current.pause();
+          }
+        }
+        return {};
+      }),
+    setTogglePlayPause: (fn) => set(() => ({ togglePlayPause: fn })),
 
     // Player element width/height setters for global sync
     playerWidth: undefined,

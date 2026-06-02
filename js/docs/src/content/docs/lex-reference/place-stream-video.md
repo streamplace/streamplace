@@ -22,6 +22,7 @@ Some audiovisual content.
 | Name                | Type                                                                                                                                                                                                                              | Req'd | Description                                                                                                                                                                                       | Constraints                                   |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | `title`             | `string`                                                                                                                                                                                                                          | ✅    | Title of the video referenced by this record                                                                                                                                                      | Max Length: 1400<br/>Max Graphemes: 140       |
+| `createdAt`         | `string`                                                                                                                                                                                                                          | ✅    | Timestamp when this video record was created. Populated server-side at publication time by place.stream.media.publishVideo.                                                                       | Format: `datetime`                            |
 | `source`            | Union of:<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceTracks`](/lex-reference/place-stream-media-defs#sourcetracks)<br/>&nbsp;&nbsp;[`place.stream.media.defs#sourceClip`](/lex-reference/place-stream-media-defs#sourceclip) | ✅    | What is the source of this video?                                                                                                                                                                 |                                               |
 | `description`       | `string`                                                                                                                                                                                                                          | ❌    | Description of this video                                                                                                                                                                         | Max Length: 50000<br/>Max Graphemes: 5000     |
 | `durationMs`        | `integer`                                                                                                                                                                                                                         | ✅    | Duration of the video in milliseconds                                                                                                                                                             |                                               |
@@ -61,7 +62,7 @@ Some audiovisual content.
       "description": "Some audiovisual content.",
       "key": "tid",
       "record": {
-        "required": ["title", "source", "durationMs"],
+        "required": ["title", "source", "durationMs", "createdAt"],
         "type": "object",
         "properties": {
           "title": {
@@ -69,6 +70,11 @@ Some audiovisual content.
             "maxLength": 1400,
             "maxGraphemes": 140,
             "description": "Title of the video referenced by this record"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Timestamp when this video record was created. Populated server-side at publication time by place.stream.media.publishVideo."
           },
           "source": {
             "type": "union",

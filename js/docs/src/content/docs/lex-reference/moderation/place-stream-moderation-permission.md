@@ -52,7 +52,13 @@ Record granting moderation permissions to a user for this streamer's content.
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["ban", "hide", "livestream.manage", "message.pin"]
+              "enum": [
+                "ban",
+                "hide",
+                "livestream.manage",
+                "message.pin",
+                "vod.comment.hide"
+              ]
             },
             "description": "Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata."
           },

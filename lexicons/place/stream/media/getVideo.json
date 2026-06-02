@@ -32,7 +32,7 @@
     },
     "videoView": {
       "type": "object",
-      "required": ["uri", "cid", "author", "record", "viewCounts"],
+      "required": ["uri", "cid", "author", "record", "viewCounts", "likeCount"],
       "properties": {
         "uri": { "type": "string", "format": "at-uri" },
         "cid": { "type": "string", "format": "cid" },
@@ -41,10 +41,22 @@
           "ref": "app.bsky.actor.defs#profileViewBasic"
         },
         "record": { "type": "unknown" },
+        "likeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of place.stream.like records whose subject is this video. Always present; zero when none, so consumers can render a count unconditionally."
+        },
         "viewCounts": {
           "type": "ref",
           "ref": "#viewCountSummary",
           "description": "Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally."
+        },
+        "tracks": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.media.track#trackView"
+          }
         }
       }
     },

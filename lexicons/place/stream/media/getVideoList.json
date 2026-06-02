@@ -4,15 +4,14 @@
   "defs": {
     "main": {
       "type": "query",
-      "description": "List videos for a given repo DID, newest first. Returns hydrated video views with author info and view counts.",
+      "description": "List videos newest first. Scoped to a single repo when `repo` is supplied; otherwise lists videos across every indexed repo. Returns hydrated video views with author info and view counts.",
       "parameters": {
         "type": "params",
-        "required": ["repo"],
+        "required": [],
         "properties": {
           "repo": {
             "type": "string",
-            "format": "did",
-            "description": "DID of the repo whose videos to list."
+            "description": "DID or handle of the repo whose videos to list. Omit to list videos globally across all repos."
           },
           "limit": {
             "type": "integer",

@@ -114,12 +114,42 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.Me
 		return nil, err
 	}
 
+	likeCount, err := m.GetLikeCount(ctx, uri)
+	if err != nil {
+		return nil, fmt.Errorf("get like count: %w", err)
+	}
+
+	tracks := []*streamplace.MediaTrack_TrackView{}
+	if rec.Source.MediaDefs_SourceTracks != nil {
+		for _, track := range rec.Source.MediaDefs_SourceTracks.Tracks {
+			t, err := m.GetMediaTrackByURI(ctx, track.Uri)
+			if err != nil {
+				return nil, fmt.Errorf("get media track by uri: %w", err)
+			}
+			if t == nil {
+				continue
+			}
+			cid, err := spid.GetCID(t)
+			if err != nil {
+				return nil, fmt.Errorf("get cid: %w", err)
+			}
+			tracks = append(tracks, &streamplace.MediaTrack_TrackView{
+				Record: &lexutil.LexiconTypeDecoder{Val: t},
+				Uri:    track.Uri,
+				Cid:    cid.String(),
+				Author: author,
+			})
+		}
+	}
+
 	return &streamplace.MediaGetVideo_VideoView{
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
 		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
 		ViewCounts: summary,
+		LikeCount:  likeCount,
+		Tracks:     tracks,
 	}, nil
 }
 

@@ -398,10 +398,38 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				}
 			}
 
+			if collection.String() == constants.PLACE_STREAM_BETA_REQUEST {
+				log.Debug(ctx, "deleting beta request", "uri", uri)
+				if err := atsync.Model.DeleteBetaRequest(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete beta request", "err", err)
+				}
+			}
+
 			if collection.String() == constants.PLACE_STREAM_MEDIA_VIEW_COUNT {
 				log.Debug(ctx, "deleting media view count", "uri", uri)
 				if err := atsync.Model.DeleteMediaViewCount(ctx, uri); err != nil {
 					log.Error(ctx, "failed to delete media view count", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_VOD_COMMENT {
+				log.Debug(ctx, "deleting VOD comment", "uri", uri)
+				if err := atsync.Model.DeleteVodComment(ctx, uri, &opTime); err != nil {
+					log.Error(ctx, "failed to delete VOD comment", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_LIKE {
+				log.Debug(ctx, "deleting like", "uri", uri)
+				if err := atsync.Model.DeleteLike(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete like", "err", err)
+				}
+			}
+
+			if collection.String() == constants.PLACE_STREAM_VOD_GATE {
+				log.Debug(ctx, "deleting VOD gate", "userDID", evt.Repo, "rkey", rkey.String())
+				if err := atsync.Model.DeleteVodGate(ctx, rkey.String()); err != nil {
+					log.Error(ctx, "failed to delete VOD gate", "err", err)
 				}
 			}
 

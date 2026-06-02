@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 
 	placestream "stream.place/streamplace/pkg/streamplace"
@@ -20,10 +19,11 @@ func (s *Server) handlePlaceStreamMediaGetVideo(ctx context.Context, uri string)
 	if uri == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}
-	if _, err := syntax.ParseATURI(uri); err != nil {
+	aturi, err := s.normalizeURI(ctx, uri)
+	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uri must be a valid AT-URI: "+err.Error())
 	}
-	view, err := s.model.GetVideoView(ctx, uri)
+	view, err := s.model.GetVideoView(ctx, aturi.String())
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

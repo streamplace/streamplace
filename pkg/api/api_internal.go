@@ -102,6 +102,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		w.WriteHeader(204)
 	})
 
+	// Pull a VOD blob from another Streamplace node into our playback
+	// store and attest to it via place.stream.media.origin.
+	router.POST("/vod-transfer", a.HandleVODTransfer(ctx))
+
 	router.Handler("GET", "/metrics", promhttp.Handler())
 
 	router.GET("/playback/:user/:rendition/concat", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
@@ -62,10 +63,12 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", ErrUploadNotReady
 	}
 
-	// Server-authoritative fields: source tracks and duration come from
-	// processing, not from whatever the client put in the record.
+	// Server-authoritative fields: source tracks, duration, and the
+	// creation timestamp come from the server at publish time, not from
+	// whatever the client put in the record.
 	video.LexiconTypeID = constants.PLACE_STREAM_VIDEO
 	video.DurationMs = upload.DurationMS
+	video.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 	tracks, err := sourceTracksFromUpload(upload)
 	if err != nil {
 		span.RecordError(err)

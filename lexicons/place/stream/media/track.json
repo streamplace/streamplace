@@ -53,6 +53,19 @@
           "ref": "place.stream.segment#audio"
         }
       }
+    },
+    "trackView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": { "type": "string", "format": "cid" },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": { "type": "unknown" }
+      }
     }
   }
 }

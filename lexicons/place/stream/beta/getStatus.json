@@ -1,0 +1,54 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.beta.getStatus",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Report an account's access status for a named beta feature: whether it has been granted (via a trusted place.stream.beta.invite, or because this node isn't beta-gating the feature), has an outstanding place.stream.beta.request, or neither. Defaults to the authenticated caller when `did` is omitted.",
+      "parameters": {
+        "type": "params",
+        "required": ["feature"],
+        "properties": {
+          "feature": {
+            "type": "string",
+            "description": "Identifier of the beta feature to check (e.g. \"vod\")."
+          },
+          "did": {
+            "type": "string",
+            "format": "did",
+            "description": "Account to check. Defaults to the authenticated caller's DID when omitted."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["feature", "did", "status"],
+          "properties": {
+            "feature": {
+              "type": "string",
+              "description": "The feature this status applies to (echoes the request)."
+            },
+            "did": {
+              "type": "string",
+              "format": "did",
+              "description": "The account this status applies to."
+            },
+            "status": {
+              "type": "string",
+              "knownValues": ["granted", "requested", "none"],
+              "description": "granted: the account may use the feature. requested: no grant yet, but an access request is on file. none: no grant and no request."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "DidRequired",
+          "description": "No did supplied and the request was not authenticated, so there is no account to check."
+        }
+      ]
+    }
+  }
+}

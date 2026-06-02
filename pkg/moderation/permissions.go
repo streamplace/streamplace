@@ -18,6 +18,7 @@ const (
 	PermissionHide             = "hide"
 	PermissionLivestreamManage = "livestream.manage"
 	PermissionMessagePin       = "message.pin"
+	PermissionVodCommentHide   = "vod.comment.hide"
 )
 
 // ActionPermissions maps moderation actions to required permissions
@@ -26,6 +27,8 @@ var ActionPermissions = map[string]string{
 	"deleteBlock":      PermissionBan,
 	"createGate":       PermissionHide,
 	"deleteGate":       PermissionHide,
+	"createVodGate":    PermissionVodCommentHide,
+	"deleteVodGate":    PermissionVodCommentHide,
 	"updateLivestream": PermissionLivestreamManage,
 	"createPin":        PermissionMessagePin,
 	"deletePin":        PermissionMessagePin,

@@ -5,15 +5,17 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [retries, setRetries] = useState(0);
   const playing = usePlayerStore((x) => x.status === PlayerStatus.PLAYING);
+  const mode = usePlayerStore((x) => x.mode);
+  const status = usePlayerStore((x) => x.status);
   const [lastChange, setLastChange] = useState(Date.now());
   const [tick, setTick] = useState(0);
-  const status = usePlayerStore((x) => x.status);
 
   useEffect(() => {
     setLastChange(Date.now());
   }, [status]);
 
   useEffect(() => {
+    if (mode === "vod") return;
     if (!playing) {
       const handle = setInterval(() => {
         setTick(Date.now());
@@ -25,7 +27,15 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
   const stalledFor5sec = !playing && tick - lastChange > 5000;
 
   useEffect(() => {
-    if (!playing) {
+    if (stalledFor5sec) {
+      console.log("Stalled for 5 seconds, retrying...");
+      setRetries((r) => r + 1);
+    }
+  }, [stalledFor5sec]);
+
+  useEffect(() => {
+    if (mode === "vod") return;
+    if (!playing && status !== PlayerStatus.PAUSE) {
       const doRetry = () => {
         console.log("Retrying video playback...");
         setRetries((prevRetries) => prevRetries + 1);
@@ -41,14 +51,7 @@ export default function VideoRetry(props: { children: React.ReactNode }) {
         retryTimeoutRef.current = null;
       }
     };
-  }, [!playing]);
-
-  useEffect(() => {
-    if (stalledFor5sec) {
-      console.log("Stalled for 5 seconds, retrying...");
-      setRetries((r) => r + 1);
-    }
-  }, [stalledFor5sec]);
+  }, [!playing, mode, status]);
 
   return <React.Fragment key={retries}>{props.children}</React.Fragment>;
 }

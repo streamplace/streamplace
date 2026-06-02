@@ -144,11 +144,22 @@ func blobReq(did, cid string) (echo.Context, *httptest.ResponseRecorder) {
 }
 
 func TestHandleGetVideoBlob_LabelerGating(t *testing.T) {
-	t.Run("spoofed did fails as not-found", func(t *testing.T) {
+	t.Run("clip by another user (non-owner did) serves", func(t *testing.T) {
+		// The blob is content-addressed; a clip references it with the
+		// clipper's did, which doesn't own a track. It still serves.
 		s, _ := setupBlobTest(t)
+		c, rec := blobReq(testOtherUser, testContentCID)
+		require.NoError(t, s.HandleGetVideoBlob(c))
+		require.Equal(t, http.StatusOK, rec.Code)
+	})
+
+	t.Run("banned content owner blocks even a non-owner did", func(t *testing.T) {
+		// A clip can't bypass the original owner's ban.
+		s, m := setupBlobTest(t)
+		putLabel(t, m, testOwner, atproto.LabelTakedown)
 		c, _ := blobReq(testOtherUser, testContentCID)
 		he := requireHTTPError(t, s.HandleGetVideoBlob(c))
-		require.Equal(t, http.StatusNotFound, he.Code)
+		require.Equal(t, http.StatusForbidden, he.Code)
 	})
 
 	t.Run("banned owner is forbidden", func(t *testing.T) {

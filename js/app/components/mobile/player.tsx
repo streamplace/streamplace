@@ -481,7 +481,7 @@ export function PlayerInner(
           </PlayerInnerInner>
         )}
       </Reanimated.View>
-      {showFullDesktopMode && (
+      {showFullDesktopMode && props.mode !== "vod" && (
         <BottomMetadata
           setShowChat={props.setShowChat}
           showChat={props.showChat}

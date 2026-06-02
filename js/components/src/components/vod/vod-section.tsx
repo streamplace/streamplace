@@ -1,16 +1,16 @@
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import { px, py } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { VodMobileMetadata } from "./vod-mobile-metadata";
 
+// VodSection is the VOD metadata block (title, author, likes, view count)
+// rendered beneath the player at every breakpoint. The live-stream metadata
+// bar (BottomMetadata) is suppressed for VOD, so this is the single source
+// of VOD metadata across all widths.
 export function VodSection() {
   const aturi = useVideoStore((x) => x.aturi);
-  const { width } = useWindowDimensions();
-  const isNarrow = width < 768;
 
-  // Wide layouts surface metadata through BottomMetadata, so the mobile
-  // metadata block is all this section renders now.
-  if (!aturi || !isNarrow) {
+  if (!aturi) {
     return null;
   }
 

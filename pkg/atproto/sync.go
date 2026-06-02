@@ -730,8 +730,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
 
 	case *streamplace.Video:
-		// Index the video record so playback can resolve it by URI
-		// without needing to round-trip back to the user's PDS.
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
 		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}

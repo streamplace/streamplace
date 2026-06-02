@@ -393,6 +393,12 @@ export function PlayerInner(
   const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
   const isLandscape = aspectRatio > 1;
 
+  // When fullscreen or the device is rotated to landscape, a width-100% +
+  // aspectRatio VOD box is taller than the screen and clips off the bottom.
+  // In those cases fill the area and let objectFit:contain letterbox instead.
+  const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const vodFillScreen = fullscreen || winWidth > winHeight;
+
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
   // animated style for offline height transition
@@ -434,15 +440,19 @@ export function PlayerInner(
                 width: calculatedWidth,
               }
             : props.mode === "vod"
-              ? {
-                  // Bound the video to its real aspect ratio so it occupies a
-                  // fixed height with the metadata/comments below — never the
-                  // whole window. (A pixel height derived from contentWidth
-                  // collapsed to full-window on Android when contentWidth
-                  // measured 0.)
-                  width: "100%" as any,
-                  aspectRatio: vodAspectRatio,
-                }
+              ? vodFillScreen
+                ? // Fullscreen/landscape: fill the area; objectFit:contain
+                  // letterboxes so the video fits without clipping.
+                  { flex: 1 }
+                : {
+                    // Portrait inline: bound the video to its real aspect ratio
+                    // so it occupies a fixed height with the metadata below —
+                    // never the whole window. (A pixel height derived from
+                    // contentWidth collapsed to full-window on Android when
+                    // contentWidth measured 0.)
+                    width: "100%" as any,
+                    aspectRatio: vodAspectRatio,
+                  }
               : {
                   flex: 1,
                   maxHeight: "auto",

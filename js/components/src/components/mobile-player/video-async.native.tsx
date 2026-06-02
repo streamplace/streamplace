@@ -80,7 +80,6 @@ export function NativeVideo(props?: {
   const muted = useMuted();
   const volume = useEffectiveVolume();
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
-  const fullscreen = usePlayerStore((x) => x.fullscreen);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
@@ -226,7 +225,9 @@ export function NativeVideo(props?: {
       <VideoView
         ref={videoRef}
         player={player}
-        nativeControls={fullscreen || mode === "vod"}
+        // Always off — we render our own controls (MobileUi / DesktopUi). Even
+        // briefly enabling them flashes expo-video's native control overlay.
+        nativeControls={false}
         onFullscreenEnter={() => {
           setFullscreen(true);
         }}

@@ -263,6 +263,28 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 
 		if a.CLI.IsolatedIngest {
+			// Zero-downtime path: hijack the authed push connection and hand it to a
+			// DETACHED worker that owns the connection (so it survives a main
+			// restart) and serves signed segments back over its socket.
+			if hj, ok := w.(http.Hijacker); ok {
+				conn, bufrw, herr := hj.Hijack()
+				if herr != nil {
+					log.Error(reqCtx, "ingest hijack failed", "error", herr)
+					return
+				}
+				var prebuf []byte
+				if n := bufrw.Reader.Buffered(); n > 0 {
+					prebuf = make([]byte, n)
+					_, _ = io.ReadFull(bufrw.Reader, prebuf)
+				}
+				chunked := len(httpReq.TransferEncoding) > 0 && httpReq.TransferEncoding[0] == "chunked"
+				if derr := a.MediaManager.MKVIngestDetached(reqCtx, conn, prebuf, chunked, mediaSigner); derr != nil {
+					log.Log(reqCtx, "isolated stream ended", "error", derr)
+				}
+				return // connection hijacked; the HTTP response is ours now
+			}
+			// No hijack support (HTTP/2, some proxies) → fd-4-pipe isolation: still
+			// fault-isolated, just no restart-survival.
 			err = a.MediaManager.MKVIngestIsolated(reqCtx, r, mediaSigner)
 		} else {
 			err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)

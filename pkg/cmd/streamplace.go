@@ -263,6 +263,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	if cli.IsolatedIngest {
+		// Reconnect to any ingest workers still running from before this restart
+		// and drain whatever they buffered while we were down (zero-downtime).
+		mm.ResumeDetachedWorkers(ctx)
+	}
 
 	ms, err := media.MakeMediaSigner(ctx, cli, cli.StreamerName, signer, mod)
 	if err != nil {
@@ -869,16 +874,16 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 			// Media comes from the fd-passed ingest connection (InputFD) when main
 			// handed one off, else stdin.
 			if cfg.SocketPath != "" {
-				input := io.Reader(os.Stdin)
+				raw := io.Reader(os.Stdin)
 				if cfg.InputFD > 0 {
 					f := os.NewFile(uintptr(cfg.InputFD), "ingest-input")
 					if f == nil {
 						return fmt.Errorf("ingest-worker: bad input fd %d", cfg.InputFD)
 					}
 					defer f.Close()
-					input = f
+					raw = f
 				}
-				return media.ServeMKVIngestWorkerSocket(ctx, cfg, input)
+				return media.ServeMKVIngestWorkerSocket(ctx, cfg, media.WorkerInput(cfg, raw))
 			}
 
 			framesFile := os.NewFile(4, "ingest-frames")

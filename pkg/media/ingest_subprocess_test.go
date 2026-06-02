@@ -41,16 +41,16 @@ func runIngestWorkerHelper() int {
 	// Socket mode (Stage 4): serve frames over the unix socket; media comes from
 	// the fd-passed ingest connection (InputFD) when present, else stdin.
 	if cfg.SocketPath != "" {
-		input := io.Reader(os.Stdin)
+		raw := io.Reader(os.Stdin)
 		if cfg.InputFD > 0 {
 			f := os.NewFile(uintptr(cfg.InputFD), "ingest-input")
 			if f == nil {
 				return 2
 			}
 			defer f.Close()
-			input = f
+			raw = f
 		}
-		if err := ServeMKVIngestWorkerSocket(context.Background(), cfg, input); err != nil {
+		if err := ServeMKVIngestWorkerSocket(context.Background(), cfg, WorkerInput(cfg, raw)); err != nil {
 			return 1
 		}
 		return 0

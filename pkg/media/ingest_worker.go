@@ -1,9 +1,11 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"net/http/httputil"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
@@ -51,6 +53,29 @@ type IngestWorkerConfig struct {
 	// of stdin, so main is out of the media path and the worker keeps ingesting
 	// across a main restart. 0 → read media from stdin.
 	InputFD int `json:"input_fd,omitempty"`
+
+	// Prebuf is the HTTP body bytes main had already read past the request headers
+	// when it hijacked the push connection — prepended to the fd stream so none are
+	// lost. Chunked says the body uses chunked transfer-encoding, so the worker
+	// de-chunks the (prebuf+fd) stream to recover the raw media. Both are unset for
+	// stdin / raw fd input.
+	Prebuf  []byte `json:"prebuf,omitempty"`
+	Chunked bool   `json:"chunked,omitempty"`
+}
+
+// WorkerInput reconstructs the raw media stream the gst pipeline reads from the
+// fd-passed push connection: prepend any bytes main already read past the headers
+// (Prebuf), then de-chunk if the push used chunked transfer-encoding. For stdin
+// or a raw fd (no prebuf, not chunked) it returns raw unchanged.
+func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
+	r := raw
+	if len(cfg.Prebuf) > 0 {
+		r = io.MultiReader(bytes.NewReader(cfg.Prebuf), r)
+	}
+	if cfg.Chunked {
+		r = httputil.NewChunkedReader(r)
+	}
+	return r
 }
 
 // RunMKVIngestWorker is the body of the `ingest-worker` subcommand. It reads an

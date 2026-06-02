@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -17,6 +18,26 @@ import (
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/muxl"
 )
+
+// TestWorkerInputDeframes checks the body-deframing the worker applies to the
+// fd-passed push connection: prebuf (bytes main read past the headers) is
+// prepended, and a chunked transfer-encoding is decoded back to the raw media.
+func TestWorkerInputDeframes(t *testing.T) {
+	payload := []byte("the-actual-media-bytes-pretend-this-is-mkv-data")
+	// A textbook chunked body: one chunk then the zero terminator.
+	body := []byte(fmt.Sprintf("%x\r\n%s\r\n0\r\n\r\n", len(payload), payload))
+
+	// prebuf = the slice main already read; the rest is still on the fd.
+	cfg := IngestWorkerConfig{Chunked: true, Prebuf: append([]byte(nil), body[:5]...)}
+	got, err := io.ReadAll(WorkerInput(cfg, bytes.NewReader(body[5:])))
+	require.NoError(t, err)
+	require.Equal(t, payload, got, "prebuf + chunked fd de-frames to the original media")
+
+	// Raw (no prebuf, not chunked) passes through unchanged.
+	got, err = io.ReadAll(WorkerInput(IngestWorkerConfig{}, bytes.NewReader(payload)))
+	require.NoError(t, err)
+	require.Equal(t, payload, got)
+}
 
 // makeH264AACMKV builds a clean, single-track, streamable H264+AAC MKV from an
 // H264+Opus MP4 fixture (video passed through, audio transcoded Opus→AAC). The

@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -101,6 +102,91 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			return ctx.Err()
 		case <-time.After(ingestReconnectBackoff):
 		}
+	}
+}
+
+// ingestWorkerSocketDir returns (creating it) the directory of per-session
+// worker frame sockets — the set a restarting main scans to resume.
+func (mm *MediaManager) ingestWorkerSocketDir() (string, error) {
+	dir := mm.cli.DataFilePath([]string{"ingest-workers"})
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// MKVIngestDetached is the production zero-downtime entry: main has authed the
+// push and hijacked its connection; this fd-passes that connection to a DETACHED
+// worker (own session, survives a main restart) which ingests the media directly
+// and serves signed segments over a per-session unix socket, and then consumes
+// those frames into ValidateMP4 with reconnect. prebuf is any body bytes main
+// already read past the headers; chunked says the push body is chunked.
+//
+// Because the worker owns the connection and is detached, a main restart neither
+// breaks the ingest nor loses output: the worker keeps signing into its buffer,
+// and the restarted main rediscovers the socket (DiscoverWorkerSockets) and
+// drains it.
+func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner) error {
+	cfg, err := mm.buildWorkerConfig(ctx, ms)
+	if err != nil {
+		return err
+	}
+	dir, err := mm.ingestWorkerSocketDir()
+	if err != nil {
+		return err
+	}
+	cfg.SocketPath = filepath.Join(dir, uuid.NewString()+".sock")
+	cfg.InputFD = 4
+	cfg.Prebuf = prebuf
+	cfg.Chunked = chunked
+
+	tcp, ok := conn.(*net.TCPConn)
+	if !ok {
+		return fmt.Errorf("isolated ingest requires a TCP connection, got %T", conn)
+	}
+	connFile, err := tcp.File() // dup the fd to hand to the worker
+	if err != nil {
+		return fmt.Errorf("dup ingest connection: %w", err)
+	}
+
+	proc, err := SpawnIngestWorkerDetached(cfg, connFile)
+	connFile.Close() // the worker holds its own dup
+	conn.Close()     // main is out of the media path now
+	if err != nil {
+		return fmt.Errorf("spawn detached worker: %w", err)
+	}
+
+	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
+	if err == nil {
+		go func() { _, _ = proc.Wait() }() // clean end: reap the exiting worker
+	}
+	// On ctx cancel (main shutting down) we deliberately leave the detached worker
+	// running; a restarting main reconnects via discovery.
+	return err
+}
+
+// ResumeDetachedWorkers reconnects to any ingest workers still running from
+// before a main restart and resumes consuming their frames (draining whatever
+// they buffered while main was down). Intended to run once at main startup.
+func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
+	dir, err := mm.ingestWorkerSocketDir()
+	if err != nil {
+		log.Error(ctx, "resume ingest workers: socket dir", "error", err)
+		return
+	}
+	socks, err := DiscoverWorkerSockets(dir)
+	if err != nil {
+		log.Error(ctx, "resume ingest workers: discover", "error", err)
+		return
+	}
+	for _, sock := range socks {
+		sock := sock
+		log.Log(ctx, "resuming detached ingest worker", "socket", sock)
+		go func() {
+			if cerr := mm.ConsumeWorkerSocket(ctx, sock, "resumed", mm.validateSegment(ctx)); cerr != nil {
+				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
+			}
+		}()
 	}
 }
 

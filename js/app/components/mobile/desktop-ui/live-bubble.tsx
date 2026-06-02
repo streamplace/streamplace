@@ -1,6 +1,7 @@
 import {
   Code,
   useLivestream,
+  usePlayerStore,
   useSegment,
   View,
   zero,
@@ -22,6 +23,9 @@ export function LiveBubble() {
   let isLive = useMemo(() => {
     return segDate && Date.now() - segDate.getTime() <= 10 * 1000;
   }, [segDate]);
+
+  const mode = usePlayerStore((x) => x.mode);
+  if (mode === "vod") return null;
 
   if (!isLive)
     return (

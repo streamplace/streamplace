@@ -11,8 +11,10 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/julienschmidt/httprouter"
 
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -92,11 +94,42 @@ func (a *StreamplaceAPI) HandleVODTransfer(ctx context.Context) httprouter.Handl
 			return
 		}
 
+		// TransferVOD commits the media.origin to the server repo and relies
+		// on the firehose to round-trip it back into the index, which can lag.
+		// Index it directly so the transferred video is immediately queryable
+		// (notably by getVideoList, which only lists videos we have an origin
+		// for). Idempotent — keyed by URI, and the firehose upsert is a no-op
+		// when it eventually arrives.
+		if err := a.indexOwnMediaOrigin(reqCtx, result.ContentCID, result.Size); err != nil {
+			log.Error(reqCtx, "vod transfer: failed to index origin locally", "cid", result.ContentCID, "error", err)
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(result); err != nil {
 			log.Error(reqCtx, "error writing vod-transfer response", "error", err)
 		}
 	}
+}
+
+// indexOwnMediaOrigin upserts this node's place.stream.media.origin for a
+// blob straight into the local index, mirroring what the firehose sync path
+// (pkg/atproto/sync.go) does when the server-repo commit eventually federates
+// back. The rkey is the blob CID by convention, and the authority is our
+// ServerDID — the same (server_did, blob) key getVideoList filters on.
+func (a *StreamplaceAPI) indexOwnMediaOrigin(ctx context.Context, contentCID string, size int64) error {
+	aturi, err := syntax.ParseATURI(fmt.Sprintf(
+		"at://%s/%s/%s", a.CLI.ServerDID(), constants.PLACE_STREAM_MEDIA_ORIGIN, contentCID,
+	))
+	if err != nil {
+		return fmt.Errorf("build origin uri: %w", err)
+	}
+	rec := &streamplace.MediaOrigin{
+		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
+		Blob:          contentCID,
+		Size:          size,
+		MimeType:      "video/mp4",
+	}
+	return a.Model.UpsertMediaOrigin(ctx, rec, aturi)
 }
 
 // resolveVideoContentBlob walks a place.stream.video record in the local

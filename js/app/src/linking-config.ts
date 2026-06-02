@@ -58,6 +58,18 @@ function resolveAtUriNavigation(
         },
       ],
     };
+  } else if (atUri.collection === "place.stream.video" && atUri.rkey) {
+    // A video record: redirect to the canonical VOD player URL
+    // (/<authority>/video/<rkey>). react-navigation rewrites the address bar
+    // to that path.
+    return {
+      routes: [
+        {
+          name: "VodPlayerDemo",
+          params: { user: atUri.authority, tid: atUri.rkey },
+        },
+      ],
+    };
   } else {
     // otherwise, redirect to home page and do a 'could not find'
     return {

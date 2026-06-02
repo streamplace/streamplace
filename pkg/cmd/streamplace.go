@@ -866,8 +866,19 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 
 			// Detach/reattach transport: serve frames over a unix socket with
 			// buffered reconnect (survives a main restart) instead of the fd-4 pipe.
+			// Media comes from the fd-passed ingest connection (InputFD) when main
+			// handed one off, else stdin.
 			if cfg.SocketPath != "" {
-				return media.ServeMKVIngestWorkerSocket(ctx, cfg, os.Stdin)
+				input := io.Reader(os.Stdin)
+				if cfg.InputFD > 0 {
+					f := os.NewFile(uintptr(cfg.InputFD), "ingest-input")
+					if f == nil {
+						return fmt.Errorf("ingest-worker: bad input fd %d", cfg.InputFD)
+					}
+					defer f.Close()
+					input = f
+				}
+				return media.ServeMKVIngestWorkerSocket(ctx, cfg, input)
 			}
 
 			framesFile := os.NewFile(4, "ingest-frames")

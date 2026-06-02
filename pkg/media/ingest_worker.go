@@ -45,6 +45,12 @@ type IngestWorkerConfig struct {
 	// it serves frames over this unix socket with buffered reconnect (survives a
 	// main restart) instead of the fd-4 pipe. Empty → fd-4 pipe (Stage 1).
 	SocketPath string `json:"socket_path,omitempty"`
+
+	// InputFD, when > 0, is the fd main passed the ingest CONNECTION on (fd-passing
+	// the accepted, authed push). The worker reads media from it directly instead
+	// of stdin, so main is out of the media path and the worker keeps ingesting
+	// across a main restart. 0 → read media from stdin.
+	InputFD int `json:"input_fd,omitempty"`
 }
 
 // RunMKVIngestWorker is the body of the `ingest-worker` subcommand. It reads an

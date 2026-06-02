@@ -65,7 +65,7 @@ function resolveAtUriNavigation(
     return {
       routes: [
         {
-          name: "VodPlayerDemo",
+          name: "Video",
           params: { user: atUri.authority, tid: atUri.rkey },
         },
       ],

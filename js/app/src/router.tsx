@@ -1,12 +1,19 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
-import { Button, Text, useTheme, zero } from "@streamplace/components";
+import {
+  Button,
+  Text,
+  useBetaStatus,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { Provider } from "components";
 import { ImageBackground } from "expo-image";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
   ArrowLeft,
+  Clapperboard,
   LogIn,
   PanelLeftClose,
   PanelLeftOpen,
@@ -266,38 +273,57 @@ export const UploadButton = () => {
   const { theme } = useTheme();
   const windowWidth = useWindowDimensions().width;
   const isCompact = windowWidth <= 800;
-  const navigation = useNavigation();
+
+  const { status: betaStatus, loading: betaLoading } = useBetaStatus("vod");
 
   if (!did) return null;
-
-  if (isCompact) {
+  if (betaLoading) return null;
+  if (betaStatus === "none") {
+    if (isCompact) {
+      return (
+        <AQLink
+          to={{ screen: "HomeTab", params: { screen: "Upload" } }}
+          style={{ marginRight: 10, padding: 8 }}
+        >
+          <Upload size={20} color={theme.colors.text} />
+        </AQLink>
+      );
+    }
     return (
       <AQLink
         to={{ screen: "HomeTab", params: { screen: "Upload" } }}
-        style={{ marginRight: 10, padding: 8 }}
+        style={{ marginRight: 10 }}
       >
-        <Upload size={20} color={theme.colors.text} />
+        <Button variant="secondary" style={[zero.r.full]}>
+          <Clapperboard size={16} color={theme.colors.textMuted} />
+          <Text style={{ color: theme.colors.textMuted }}>VOD Beta</Text>
+        </Button>
       </AQLink>
     );
-  }
+  } else if (betaStatus === "granted") {
+    if (isCompact) {
+      return (
+        <AQLink
+          to={{ screen: "HomeTab", params: { screen: "Upload" } }}
+          style={{ marginRight: 10, padding: 8 }}
+        >
+          <Clapperboard size={20} color={theme.colors.text} />
+        </AQLink>
+      );
+    }
 
-  return (
-    <AQLink
-      to={{ screen: "HomeTab", params: { screen: "Upload" } }}
-      style={{ marginRight: 10 }}
-    >
-      <Button
-        disabled={false}
-        loading={false}
-        variant="secondary"
-        style={[zero.r.full]}
-        onPress={() =>
-          navigation.navigate("HomeTab" as any, { screen: "Upload" })
-        }
+    return (
+      <AQLink
+        to={{ screen: "HomeTab", params: { screen: "Upload" } }}
+        style={{ marginRight: 10 }}
       >
-        <Upload size={16} color={theme.colors.textMuted} />
-        <Text style={{ color: theme.colors.text }}>Upload</Text>
-      </Button>
-    </AQLink>
-  );
+        <Button variant="secondary" style={[zero.r.full]}>
+          <Upload size={16} color={theme.colors.textMuted} />
+          <Text style={{ color: theme.colors.textMuted }}>Upload</Text>
+        </Button>
+      </AQLink>
+    );
+  } else if (betaStatus === "requested") {
+    return null;
+  }
 };

@@ -263,6 +263,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
+	if cli.IsolatedIngest && !media.IngestIsolationSupported() {
+		// The worker transport needs Unix fd-passing + Setsid (Linux today); fall
+		// back to in-process ingest elsewhere rather than break.
+		log.Log(ctx, "isolated ingest not supported on this platform; using in-process ingest", "goos", runtime.GOOS)
+		cli.IsolatedIngest = false
+	}
 	if cli.IsolatedIngest {
 		// Reconnect to any ingest workers still running from before this restart
 		// and drain whatever they buffered while we were down (zero-downtime).

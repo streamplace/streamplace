@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,8 +50,8 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 	defer cfgW.Close()
 
 	cmd := exec.Command(exe, "ingest-worker")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} // detach into its own session
-	cmd.ExtraFiles = []*os.File{cfgR, media}             // → child fd 3 (config), fd 4 (media)
+	setDetached(cmd)                         // own session, survives a main restart (Linux)
+	cmd.ExtraFiles = []*os.File{cfgR, media} // → child fd 3 (config), fd 4 (media)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("spawn ingest worker: %w", err)

@@ -40,6 +40,11 @@ type IngestWorkerConfig struct {
 	NodeCertPEM     []byte `json:"node_cert_pem,omitempty"`
 	NodeKeyPEM      []byte `json:"node_key_pem,omitempty"`
 	BroadcasterHost string `json:"broadcaster_host,omitempty"`
+
+	// SocketPath, when set, switches the worker to the detach/reattach transport:
+	// it serves frames over this unix socket with buffered reconnect (survives a
+	// main restart) instead of the fd-4 pipe. Empty → fd-4 pipe (Stage 1).
+	SocketPath string `json:"socket_path,omitempty"`
 }
 
 // RunMKVIngestWorker is the body of the `ingest-worker` subcommand. It reads an

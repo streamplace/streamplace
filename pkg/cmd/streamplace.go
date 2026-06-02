@@ -864,6 +864,12 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("ingest-worker: parse config: %w", err)
 			}
 
+			// Detach/reattach transport: serve frames over a unix socket with
+			// buffered reconnect (survives a main restart) instead of the fd-4 pipe.
+			if cfg.SocketPath != "" {
+				return media.ServeMKVIngestWorkerSocket(ctx, cfg, os.Stdin)
+			}
+
 			framesFile := os.NewFile(4, "ingest-frames")
 			if framesFile == nil {
 				return fmt.Errorf("ingest-worker: missing frames fd 4")

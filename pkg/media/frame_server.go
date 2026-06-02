@@ -3,13 +3,26 @@ package media
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
+	"time"
 
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
 )
+
+// workerFrameBuffer bounds how many signed segments a worker holds while main is
+// disconnected — ~10 min at one segment per ~1s GoP. Beyond this the oldest are
+// dropped (a main outage longer than this loses the oldest tail, loudly).
+const workerFrameBuffer = 600
+
+// workerDrainGrace bounds how long a worker lingers after its stream ends waiting
+// for main to drain the buffer. Generous enough for a main restart/upgrade; an
+// orphaned worker (main never returns) exits after it.
+const workerDrainGrace = 60 * time.Second
 
 // FrameWriter is the worker's segment sink. Stage 1 uses a direct framed pipe
 // (*ingestframe.Writer); the zero-downtime path uses *frameServer, which buffers
@@ -39,12 +52,13 @@ type bufferedFrame struct {
 // loop). A push to an attached-but-dead client fails the write, auto-detaches,
 // and re-buffers that frame, so a hard main disconnect degrades to buffering.
 type frameServer struct {
-	mu      sync.Mutex
-	pending []bufferedFrame
-	conn    net.Conn
-	w       *ingestframe.Writer
-	maxBuf  int
-	dropped int
+	mu           sync.Mutex
+	pending      []bufferedFrame
+	conn         net.Conn
+	w            *ingestframe.Writer
+	maxBuf       int
+	dropped      int
+	everAttached bool
 }
 
 // newFrameServer creates a server that buffers up to maxBuf frames while no
@@ -96,6 +110,47 @@ func (s *frameServer) attach(conn net.Conn) {
 	}
 	s.pending = nil
 	s.conn, s.w = conn, w
+	s.everAttached = true
+}
+
+// waitDrained blocks until a client has attached and the buffer is fully written
+// out to it (so main has the whole stream, including the trailing End), or until
+// ctx is cancelled or grace elapses. The worker calls this after the stream ends
+// so it doesn't exit — discarding the in-memory buffer — before a reconnecting
+// main has drained it. grace bounds an orphaned worker whose main never returns.
+func (s *frameServer) waitDrained(ctx context.Context, grace time.Duration) {
+	deadline := time.NewTimer(grace)
+	defer deadline.Stop()
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		s.mu.Lock()
+		drained := s.everAttached && len(s.pending) == 0
+		s.mu.Unlock()
+		if drained {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-deadline.C:
+			log.Warn(ctx, "ingest worker: main never drained the frame buffer; exiting", "pending", len(s.pending))
+			return
+		case <-tick.C:
+		}
+	}
+}
+
+// closeConn closes the current client connection, giving main a clean EOF after
+// the trailing End — the signal that the worker is done and won't reconnect.
+func (s *frameServer) closeConn() {
+	s.mu.Lock()
+	c := s.conn
+	s.conn, s.w = nil, nil
+	s.mu.Unlock()
+	if c != nil {
+		c.Close()
+	}
 }
 
 // detachConn drops the named client if it's still the current one (a stale
@@ -107,6 +162,47 @@ func (s *frameServer) detachConn(conn net.Conn) {
 	if s.conn == conn {
 		s.conn, s.w = nil, nil
 	}
+}
+
+// ServeMKVIngestWorkerSocket runs the ingest worker, delivering its signed
+// segments to main over a per-session unix socket at cfg.SocketPath with
+// buffered reconnect — the zero-downtime path. It listens, serves the frame
+// stream (buffering across any main disconnect), runs the ingest, frames a
+// trailing End/Error, then lingers until main has drained the buffer before
+// removing the socket and returning.
+func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader) error {
+	if cfg.SocketPath == "" {
+		return fmt.Errorf("ServeMKVIngestWorkerSocket: empty socket path")
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	_ = os.Remove(cfg.SocketPath) // clear any stale socket from a prior worker
+	ln, err := net.Listen("unix", cfg.SocketPath)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", cfg.SocketPath, err)
+	}
+	defer func() {
+		ln.Close()
+		_ = os.Remove(cfg.SocketPath)
+	}()
+
+	srv := newFrameServer(workerFrameBuffer)
+	go serveFrameSocket(ctx, ln, srv)
+
+	runErr := RunMKVIngestWorker(ctx, cfg, stdin, srv)
+	if runErr != nil {
+		_ = srv.Error(runErr.Error())
+	} else {
+		_ = srv.End()
+	}
+
+	// Don't exit (and drop the in-memory buffer) until main has the whole stream,
+	// including the trailing End — so a brief main restart loses nothing.
+	srv.waitDrained(ctx, workerDrainGrace)
+	// Close the connection so main reads End then a clean EOF (worker is done).
+	srv.closeConn()
+	return runErr
 }
 
 // serveFrameSocket accepts client connections on ln and attaches each to the

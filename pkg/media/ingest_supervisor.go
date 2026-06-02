@@ -142,7 +142,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	defer watchdog.Stop()
 
 	// Read signed-segment frames and feed each into the normal chokepoint.
-	sawEnd, readErr := mm.consumeWorkerFrames(ctx, framesR, ms.Streamer(), func() {
+	sawEnd, readErr := mm.consumeWorkerFrames(ctx, framesR, ms.Streamer(), mm.validateSegment(ctx), func() {
 		watchdog.Reset(ingestWorkerWatchdog)
 	})
 	logsWG.Wait()
@@ -165,8 +165,8 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 // over each. It returns whether a clean End frame was seen and the terminal read
 // error: nil on a clean close (End then EOF), or io.ErrUnexpectedEOF / a desync
 // error when the worker died mid-frame.
-func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, stdout io.Reader, streamer string, onProgress func()) (sawEnd bool, _ error) {
-	fr := ingestframe.NewReader(stdout)
+func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, r io.Reader, streamer string, onSegment func([]byte) error, onProgress func()) (sawEnd bool, _ error) {
+	fr := ingestframe.NewReader(r)
 	for {
 		typ, payload, err := fr.ReadFrame()
 		if err != nil {
@@ -180,14 +180,27 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, stdout io.Reade
 		}
 		switch typ {
 		case ingestframe.Segment:
-			if verr := mm.ValidateMP4(ctx, bytes.NewReader(payload), true); verr != nil {
-				log.Error(ctx, "ingest worker: validate segment failed", "streamer", streamer, "error", verr)
+			if onSegment != nil {
+				if serr := onSegment(payload); serr != nil {
+					// Per-segment failures are logged, not fatal to the stream — a
+					// bad GoP shouldn't tear down an otherwise-healthy ingest.
+					log.Error(ctx, "ingest worker: segment handler failed", "streamer", streamer, "error", serr)
+				}
 			}
 		case ingestframe.End:
 			sawEnd = true
 		case ingestframe.Error:
 			log.Error(ctx, "ingest worker: reported error", "streamer", streamer, "error", string(payload))
 		}
+	}
+}
+
+// validateSegment is the onSegment handler for ingested worker frames: it folds
+// each signed segment into the normal ValidateMP4 chokepoint (verify → archive →
+// live-HLS → notify).
+func (mm *MediaManager) validateSegment(ctx context.Context) func([]byte) error {
+	return func(seg []byte) error {
+		return mm.ValidateMP4(ctx, bytes.NewReader(seg), true)
 	}
 }
 

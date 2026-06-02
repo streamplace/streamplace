@@ -1,0 +1,102 @@
+package media
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/go-gst/go-gst/gst"
+	"github.com/go-gst/go-gst/gst/app"
+	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/muxl"
+)
+
+// makeH264AACMKV builds a clean, single-track, streamable H264+AAC MKV from an
+// H264+Opus MP4 fixture (video passed through, audio transcoded Opus→AAC). The
+// repo's only AAC fixture (sample-stream.mkv) carries four audio tracks, which
+// the single-audio ingest pipeline leaves three of unlinked — wedging
+// matroskademux with no EOS. This produces exactly the 1-video-1-audio AAC MKV
+// the RTMP push path actually delivers.
+func makeH264AACMKV(t *testing.T, ctx context.Context, srcMP4 string) []byte {
+	t.Helper()
+	gstinit.InitGST()
+	desc := strings.Join([]string{
+		"filesrc location=" + srcMP4 + " ! qtdemux name=d",
+		"d. ! queue ! h264parse ! matroskamux name=mux streamable=true ! appsink name=sink",
+		"d. ! queue ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! mux.",
+	}, "\n")
+	pipeline, err := gst.NewPipelineFromString(desc)
+	require.NoError(t, err)
+
+	sinkEle, err := pipeline.GetElementByName("sink")
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &buf),
+	})
+
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NoError(t, <-busErr, "remux to H264+AAC MKV")
+	require.NotEmpty(t, buf.Bytes(), "remux produced an MKV")
+	return buf.Bytes()
+}
+
+// TestRunMKVIngestWorkerProducesValidSignedFrames drives the isolated ingest
+// worker's core directly (no subprocess): feed it an H264+AAC MKV, collect the
+// framed output, and verify every emitted segment is a valid signed canonical
+// .m4s. This is the contract the supervisor relies on — frames it can hand
+// straight to ValidateMP4. (The real subprocess spawn + fault injection is
+// Stage 3.)
+func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+
+	cfg := IngestWorkerConfig{
+		StreamerDID: ms.Streamer(),
+		KeyPEM:      keyPEM,
+		CertPEM:     ms.Cert,
+		Manifest:    manifest,
+	}
+
+	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+
+	// All frame writes complete before RunMKVIngestWorker returns (it waits on
+	// the signer drain), so reading the buffer single-threaded afterwards is safe.
+	var buf bytes.Buffer
+	frames := ingestframe.NewWriter(&buf)
+	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), frames))
+
+	r := ingestframe.NewReader(&buf)
+	var segs int
+	for {
+		typ, payload, err := r.ReadFrame()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err)
+		require.Equal(t, ingestframe.Segment, typ, "worker emits only Segment frames; End is the subcommand's job")
+		require.NotEmpty(t, payload)
+
+		out, err := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
+		require.NoError(t, err, "segment %d verify", segs)
+		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment %d must validate", segs)
+		segs++
+	}
+	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed segment")
+	t.Logf("worker emitted %d valid signed segments", segs)
+}

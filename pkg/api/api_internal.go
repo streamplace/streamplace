@@ -262,7 +262,11 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 
-		err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)
+		if a.CLI.IsolatedIngest {
+			err = a.MediaManager.MKVIngestIsolated(reqCtx, r, mediaSigner)
+		} else {
+			err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)
+		}
 
 		if err != nil {
 			log.Log(reqCtx, "stream error", "error", err)

@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -30,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -73,6 +76,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSelfTestCommand(build),
 		makeVODTestCommand(build),
 		makeStreamCommand(build),
+		makeIngestWorkerCommand(build),
 		makeLiveCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
@@ -830,6 +834,48 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("usage: streamplace stream [user]")
 			}
 			return Stream(args.First())
+		},
+	}
+}
+
+// makeIngestWorkerCommand is the per-stream isolated ingest worker (Stage 1:
+// MKV/RTMP push). The node spawns it; it is not meant for direct use. It reads
+// the config handshake from fd 3, the MKV media from stdin, runs the mux + sign
+// pipeline, and writes signed canonical .m4s frames to fd 4 — dedicated fds so
+// stray stdout/stderr can't corrupt the frame stream. A clean run ends with an
+// End frame; a fatal error emits an Error frame before exiting non-zero.
+func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:   "ingest-worker",
+		Usage:  "internal: per-stream isolated ingest worker (spawned by the node)",
+		Hidden: true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			cfgFile := os.NewFile(3, "ingest-config")
+			if cfgFile == nil {
+				return fmt.Errorf("ingest-worker: missing config fd 3")
+			}
+			cfgBytes, err := io.ReadAll(cfgFile)
+			cfgFile.Close()
+			if err != nil {
+				return fmt.Errorf("ingest-worker: read config: %w", err)
+			}
+			var cfg media.IngestWorkerConfig
+			if err := json.Unmarshal(cfgBytes, &cfg); err != nil {
+				return fmt.Errorf("ingest-worker: parse config: %w", err)
+			}
+
+			framesFile := os.NewFile(4, "ingest-frames")
+			if framesFile == nil {
+				return fmt.Errorf("ingest-worker: missing frames fd 4")
+			}
+			defer framesFile.Close()
+			frames := ingestframe.NewWriter(framesFile)
+
+			if err := media.RunMKVIngestWorker(ctx, cfg, os.Stdin, frames); err != nil {
+				_ = frames.Error(err.Error())
+				return err
+			}
+			return frames.End()
 		},
 	}
 }

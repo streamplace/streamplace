@@ -1,19 +1,28 @@
 import { Eye } from "lucide-react-native";
+import { useViews } from "../../..";
 import * as atoms from "../../../lib/theme/atoms";
-import { useViewers } from "../../../livestream-store";
+import { usePlayerStore } from "../../../player-store";
 import { View } from "../../ui";
 import ViewerCount from "./viewer-count";
 
+// red reads as "live"; anything else (VOD total views) shouldn't
+const LIVE_COLOR = "#fd5050";
+const VIEWS_COLOR = "#fff";
+
 export function Viewers() {
-  const viewers = useViewers();
-  return <DehydratedViewers viewers={viewers || 0} />;
+  const views = useViews();
+  const mode = usePlayerStore((x) => x.mode);
+  const color = mode === "live" ? LIVE_COLOR : VIEWS_COLOR;
+  return <DehydratedViewers viewers={views || 0} color={color} />;
 }
 
 export function DehydratedViewers({
   viewers,
+  color = LIVE_COLOR,
   size = "md",
 }: {
   viewers: number;
+  color?: string;
   size?: "sm" | "md";
 }) {
   const iconSize = size === "sm" ? 12 : 24;
@@ -27,7 +36,7 @@ export function DehydratedViewers({
         atoms.px[1],
       ]}
     >
-      <Eye color="#fd5050" size={iconSize} />
+      <Eye color={color} size={iconSize} />
       <ViewerCount
         count={viewers}
         style={{ fontSize, lineHeight: fontSize * 1.5 }}

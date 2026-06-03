@@ -11,6 +11,7 @@ import (
 	"io"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
@@ -148,4 +149,12 @@ func (t *MediaTrack_Track) UnmarshalCBOR(r io.Reader) error {
 	default:
 		return nil
 	}
+}
+
+// MediaTrack_TrackView is a "trackView" in the place.stream.media.track schema.
+type MediaTrack_TrackView struct {
+	Author *appbsky.ActorDefs_ProfileViewBasic `json:"author" cborgen:"author"`
+	Cid    string                              `json:"cid" cborgen:"cid"`
+	Record *lexutil.LexiconTypeDecoder         `json:"record" cborgen:"record"`
+	Uri    string                              `json:"uri" cborgen:"uri"`
 }

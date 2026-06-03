@@ -64,7 +64,7 @@ require (
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/muxl/go v0.0.0-20260526201538-22bb7055201b
+	github.com/streamplace/muxl/go v0.3.2
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -496,7 +496,7 @@ require (
 	github.com/tdewolff/minify/v2 v2.23.4 // indirect
 	github.com/tdewolff/parse/v2 v2.8.0 // indirect
 	github.com/tetafro/godot v1.5.1 // indirect
-	github.com/tetratelabs/wazero v1.11.0 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
 	github.com/timonwong/loggercheck v0.11.0 // indirect

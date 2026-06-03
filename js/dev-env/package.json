@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "name": "@atcute/internal-dev-env",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "dependencies": {
     "@atproto/crypto": "^0.4.5",
     "@atproto/identity": "^0.4.12",

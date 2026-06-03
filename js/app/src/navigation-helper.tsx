@@ -25,6 +25,9 @@ const HOME_TAB_SCREENS = [
   "Support",
 ];
 
+// Screens that live in the VideosTab stack
+const VIDEOS_TAB_SCREENS = ["VideoList", "UserVideoList"];
+
 // Screens at root stack level (need special navigation from nested navigators)
 export const ROOT_SCREENS = [
   "Stream",
@@ -36,6 +39,9 @@ export const ROOT_SCREENS = [
   "DanmuOBS",
   "AVSync",
   "LegacyStream",
+  "Video",
+  "Vod",
+  "VodEmbed",
 ];
 
 /**
@@ -64,6 +70,20 @@ export function convertNavigationParams(to: LinkParams): LinkParams {
       screen: "MainTabs",
       params: {
         screen: "HomeTab",
+        params: {
+          screen: to.screen,
+          params: to.params,
+        },
+      },
+    };
+  }
+
+  // Handle screens that are in VideosTab
+  if (VIDEOS_TAB_SCREENS.includes(to.screen)) {
+    return {
+      screen: "MainTabs",
+      params: {
+        screen: "VideosTab",
         params: {
           screen: to.screen,
           params: to.params,

@@ -127,7 +127,14 @@ func TestFeedLiveWindow(t *testing.T) {
 	require.NotEmpty(t, m4s)
 
 	mm := &MediaManager{liveWindows: map[string]*livehls.Writer{}}
-	mm.feedLiveWindow(ctx, "did:test:streamer", m4s)
+
+	// Pre-live (unpublished) segments must NOT be folded into the live window —
+	// live HLS is unauthenticated, so anything in the window is world-readable.
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, false)
+	require.Nil(t, mm.GetLiveWindow("did:test:streamer"),
+		"unpublished segment must not create a live-HLS window")
+
+	mm.feedLiveWindow(ctx, "did:test:streamer", m4s, true)
 
 	w := mm.GetLiveWindow("did:test:streamer")
 	require.NotNil(t, w, "window created on feed")

@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/playback-router",
-  "version": "0.10.8",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir=dist",

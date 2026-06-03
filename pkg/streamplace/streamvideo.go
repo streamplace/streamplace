@@ -29,6 +29,8 @@ type Video struct {
 	ContentRights *MetadataContentRights `json:"contentRights,omitempty" cborgen:"contentRights,omitempty"`
 	// contentWarnings: content warning data for this VOD
 	ContentWarnings *MetadataContentWarnings `json:"contentWarnings,omitempty" cborgen:"contentWarnings,omitempty"`
+	// createdAt: Timestamp when this video record was created. Populated server-side at publication time by place.stream.media.publishVideo.
+	CreatedAt string `json:"createdAt" cborgen:"createdAt"`
 	// description: Description of this video
 	Description *string `json:"description,omitempty" cborgen:"description,omitempty"`
 	// descriptionFacets: Annotations of text (mentions, URLs, etc)

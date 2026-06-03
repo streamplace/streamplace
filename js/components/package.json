@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/components",
-  "version": "0.10.34",
+  "version": "0.11.0",
   "description": "Streamplace React (Native) Components",
   "main": "dist/index.js",
   "types": "src/index.tsx",
@@ -28,6 +28,7 @@
   "dependencies": {
     "@atproto/api": "^0.19.3",
     "@atproto/crypto": "^0.4.5",
+    "@atproto/syntax": "^0.6.1",
     "@emoji-mart/react": "^1.1.1",
     "@fluent/bundle": "^0.19.1",
     "@fluent/langneg": "^0.7.0",

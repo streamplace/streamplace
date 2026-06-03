@@ -16,12 +16,14 @@ import {
   usePlayerStore,
   useSegment,
   useSegmentDimensions,
+  VideoProvider,
   View,
+  VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import {
   Platform,
@@ -31,7 +33,6 @@ import {
 } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
@@ -56,16 +57,23 @@ export function Player(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  return (
+  const inner = (
     <RotationProvider enabled={Platform.OS !== "web"}>
-      <LivestreamProvider src={props.src ?? ""}>
-        <StatusBar hidden={true} />
-        <PlayerProvider defaultId={props.playerId || undefined}>
-          <PlayerWithProvider {...props} />
-        </PlayerProvider>
-      </LivestreamProvider>
+      <StatusBar hidden={true} />
+      <PlayerProvider defaultId={props.playerId || undefined}>
+        <PlayerWithProvider {...props} />
+      </PlayerProvider>
     </RotationProvider>
   );
+  const mode = props.mode ?? "live";
+  if (mode === "vod") {
+    return (
+      <LivestreamProvider src="">
+        <VideoProvider aturi={props.src ?? ""}>{inner}</VideoProvider>
+      </LivestreamProvider>
+    );
+  }
+  return <LivestreamProvider src={props.src ?? ""}>{inner}</LivestreamProvider>;
 }
 
 function PlayerWithProvider(
@@ -74,21 +82,18 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  const [showChat, setShowChat] = useState(true);
+  let [showChat, setShowChat] = useState(props.mode === "live");
+  if (props.mode === "vod") {
+    showChat = false;
+  }
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
-  const portraitFadeOpacity = useSharedValue(1);
-  const portraitVideoTranslateY = useDerivedValue(
-    () => (portraitFadeOpacity.value - 1) * 20,
-  );
-  const portraitVideoStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (portraitFadeOpacity.value - 1) * 20 }],
-  }));
   const isPortraitLandscapeCase =
+    Platform.OS !== "web" &&
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&
@@ -164,6 +169,30 @@ function PlayerWithProvider(
   const livestream = useLivestream();
   const localLivestreamURI = useLivestreamStore((x) => x.localLivestreamURI);
 
+  let chatSection: React.ReactNode = null;
+  if (props.mode === "vod") {
+    chatSection = null;
+  } else if (isPortraitLandscapeCase) {
+    chatSection = (
+      <>
+        <MobileUi hideMobileChat={true} showChat />
+        {!showUnavailable && (
+          <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
+        )}
+      </>
+    );
+  } else if (shouldShowChatSidePanel) {
+    chatSection = (
+      <DesktopChatPanel
+        chatVisible={chatVisible}
+        chatPanelWidth={chatPanelWidth}
+        setShowChat={setShowChat}
+      />
+    );
+  } else if (!showUnavailable) {
+    chatSection = <View />;
+  }
+
   if (isStreamingElsewhere) {
     return (
       <View style={[layout.flex.center, h.percent[100], gap.all[4]]}>
@@ -204,24 +233,7 @@ function PlayerWithProvider(
               <Text>Back</Text>
             </View>
           </Button>
-          {userProfile?.did && (
-            <Button
-              style={[w.percent[40]]}
-              onPress={() =>
-                navigation.navigate("Stream", {
-                  user: userProfile?.did,
-                })
-              }
-            >
-              <View
-                centered
-                style={[layout.flex.center, layout.flex.row, gap.all[1]]}
-              >
-                <Text>Your stream</Text>
-                <ArrowRight />
-              </View>
-            </Button>
-          )}
+          {chatSection}
         </View>
       </View>
     );
@@ -251,25 +263,19 @@ function PlayerWithProvider(
                 flex: 1,
                 width: "100%",
                 height: "100%",
-                paddingTop:
-                  isPortraitLandscapeCase && Platform.OS !== "web"
-                    ? 54
-                    : undefined,
+                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
               },
             ]}
           >
-            <Reanimated.View
-              style={[
+            <View
+              style={
                 isPortraitLandscapeCase
                   ? {
                       height: (videoBoxHeight ?? 0) + safeTop,
                       paddingTop: safeTop,
                     }
-                  : { flex: 1 },
-                isPortrait && Platform.OS !== "web"
-                  ? portraitVideoStyle
-                  : undefined,
-              ]}
+                  : { flex: 1 }
+              }
             >
               <PlayerInner
                 {...props}
@@ -277,82 +283,12 @@ function PlayerWithProvider(
                 setShowChat={setShowChat}
                 showUnavailable={showUnavailable}
               />
-            </Reanimated.View>
-            {isPortraitLandscapeCase ? (
-              <>
-                <MobileUi
-                  hideMobileChat={true}
-                  showChat
-                  sharedFadeOpacity={portraitFadeOpacity}
-                />
-                {!showUnavailable && (
-                  <MobileChatPanel
-                    isPlayerRatioGreater={true}
-                    fixed={true}
-                    portraitVideoTranslateY={portraitVideoTranslateY}
-                  />
-                )}
-              </>
-            ) : shouldShowChatSidePanel ? (
-              <DesktopChatPanel
-                chatVisible={chatVisible}
-                chatPanelWidth={chatPanelWidth}
-                setShowChat={setShowChat}
-              />
-            ) : (
-              !showUnavailable && <View />
-            )}
+            </View>
+            {chatSection}
           </View>
         </PlayerProvider>
       </LivestreamProvider>
     </RotationProvider>
-  );
-}
-
-function MobileUiOverlay({
-  showChat,
-  setShowChat,
-  isPortraitLandscapeCase,
-  mode,
-}: {
-  showChat: boolean;
-  setShowChat: (show: boolean) => void;
-  isPortraitLandscapeCase: boolean;
-  mode?: string;
-}) {
-  const { width, height } = usePlayerDimensions();
-  const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
-  const isLandscape = aspectRatio > 1;
-  const showFullDesktopMode = aspectRatio > 1 && width > 1200;
-  const fullscreen = usePlayerStore((x) => x.fullscreen);
-  const { isPlayerRatioGreater: segIsLandscape } = useSegmentDimensions();
-
-  if (
-    isPortraitLandscapeCase ||
-    mode === "vod" ||
-    showFullDesktopMode ||
-    fullscreen ||
-    (!isLandscape && !segIsLandscape)
-  ) {
-    return null;
-  }
-
-  return (
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
-      <MobileUi
-        showChat={showChat}
-        setShowChat={setShowChat}
-        hideMobileChat={!isLandscape && segIsLandscape}
-      />
-    </View>
   );
 }
 
@@ -410,10 +346,22 @@ export function PlayerInner(
   }, [props.showUnavailable]);
 
   // content info
-  const { width, height } = usePlayerDimensions();
+  const { width: pwidth, height: pheight } = usePlayerDimensions();
+
+  let width = pwidth > 0 && props.mode !== "vod" ? pwidth : 16;
+  let height = pheight > 0 && props.mode !== "vod" ? pheight : 9;
 
   // Calculate aspect ratio and determine if we're in desktop mode
   const aspectRatio = width > 0 && height > 0 ? width / height : 16 / 9;
+
+  // The VOD box is sized to the real video aspect ratio (so portrait and other
+  // shapes aren't forced into 16:9), falling back to 16:9 until the track
+  // metadata loads.
+  const segDims = useSegmentDimensions();
+  const vodAspectRatio =
+    segDims.width > 0 && segDims.height > 0
+      ? segDims.width / segDims.height
+      : 16 / 9;
 
   // on mobile we want to hide the sidebar when going fullscreen
   useEffect(() => {
@@ -445,6 +393,12 @@ export function PlayerInner(
   const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
   const isLandscape = aspectRatio > 1;
 
+  // When fullscreen or the device is rotated to landscape, a width-100% +
+  // aspectRatio VOD box is taller than the screen and clips off the bottom.
+  // In those cases fill the area and let objectFit:contain letterbox instead.
+  const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const vodFillScreen = fullscreen || winWidth > winHeight;
+
   const isPlayerRatioGreater = aspectRatio >= 16 / 9;
 
   // animated style for offline height transition
@@ -455,6 +409,62 @@ export function PlayerInner(
         : undefined,
     };
   });
+
+  const videoContent = props.showUnavailable ? (
+    <UserOffline />
+  ) : (
+    <PlayerInnerInner {...props}>
+      {showFullDesktopMode || fullscreen ? (
+        <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
+      ) : (
+        (isLandscape || props.mode === "vod") && (
+          <MobileUi
+            hideMobileChat={props.mode === "vod"}
+            setShowChat={props.setShowChat}
+            showChat={props.showChat}
+          />
+        )
+      )}
+      <PlayerUI.ViewerLoadingOverlay />
+      {props.mode !== "vod" && !props.showUnavailable && (
+        <OfflineCounter isMobile={true} />
+      )}
+      <View
+        ref={dropdownPortalRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: "none",
+        }}
+      />
+    </PlayerInnerInner>
+  );
+
+  // Mobile inline VOD: keep the video + metadata header fixed and scroll only
+  // the description below the line, so the video is always visible and a long
+  // description can't flex-shrink the player.
+  if (props.mode === "vod" && !showFullDesktopMode && !fullscreen) {
+    return (
+      <View style={{ flex: 1, paddingTop: safeAreaInsets.top }}>
+        <Reanimated.View
+          style={{
+            width: "100%",
+            aspectRatio: vodAspectRatio,
+            // Cap so a landscape video fits (letterboxed via objectFit:contain)
+            // instead of clipping; flexShrink:0 keeps it from collapsing.
+            maxHeight: winHeight * 0.7,
+            flexShrink: 0,
+          }}
+        >
+          {videoContent}
+        </Reanimated.View>
+        <VodSection scrollDescription />
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -469,11 +479,13 @@ export function PlayerInner(
               flexGrow: 1, // This makes content expand to fill available space
               minHeight: "100%", // Ensures minimum height
             }
-          : {
-              flex: 1,
-            }
+          : props.mode === "vod"
+            ? { flexGrow: 1, paddingTop: safeAreaInsets.top }
+            : {
+                flex: 1,
+              }
       }
-      scrollEnabled={showFullDesktopMode}
+      scrollEnabled={showFullDesktopMode || props.mode === "vod"}
       bounces={false}
       showsVerticalScrollIndicator={false}
     >
@@ -483,10 +495,24 @@ export function PlayerInner(
             ? {
                 width: calculatedWidth,
               }
-            : {
-                flex: 1,
-                maxHeight: "auto",
-              },
+            : props.mode === "vod"
+              ? vodFillScreen
+                ? // Fullscreen/landscape: fill the area; objectFit:contain
+                  // letterboxes so the video fits without clipping.
+                  { flex: 1 }
+                : {
+                    // Portrait inline: bound the video to its real aspect ratio
+                    // so it occupies a fixed height with the metadata below —
+                    // never the whole window. (A pixel height derived from
+                    // contentWidth collapsed to full-window on Android when
+                    // contentWidth measured 0.)
+                    width: "100%" as any,
+                    aspectRatio: vodAspectRatio,
+                  }
+              : {
+                  flex: 1,
+                  maxHeight: "auto",
+                },
           {
             paddingTop:
               isPlayerRatioGreater && !isLandscape && !props.showUnavailable
@@ -496,42 +522,15 @@ export function PlayerInner(
           animatedHeightStyle,
         ]}
       >
-        {props.showUnavailable ? (
-          <UserOffline />
-        ) : (
-          <PlayerInnerInner {...props}>
-            {showFullDesktopMode || fullscreen ? (
-              <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
-            ) : (
-              (isLandscape || !!props.ingest) && (
-                <MobileUi
-                  setShowChat={props.setShowChat}
-                  showChat={props.showChat}
-                />
-              )
-            )}
-            <PlayerUI.ViewerLoadingOverlay />
-            {!props.showUnavailable && <OfflineCounter isMobile={true} />}
-            <View
-              ref={dropdownPortalRef}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                pointerEvents: "none",
-              }}
-            />
-          </PlayerInnerInner>
-        )}
+        {videoContent}
       </Reanimated.View>
-      {showFullDesktopMode && (
+      {showFullDesktopMode && props.mode !== "vod" && (
         <BottomMetadata
           setShowChat={props.setShowChat}
           showChat={props.showChat}
         />
       )}
+      {props.mode === "vod" && <VodSection />}
     </ScrollView>
   );
 }

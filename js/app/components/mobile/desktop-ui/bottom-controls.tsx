@@ -1,6 +1,8 @@
 import {
   Button,
+  PlayerStatus,
   PlayerUI,
+  Text,
   View,
   useDanmuEnabled,
   useDanmuUnlocked,
@@ -14,7 +16,9 @@ import {
   ChevronRight,
   Fullscreen,
   Minimize,
+  Pause,
   PictureInPicture2,
+  Play,
 } from "lucide-react-native";
 import { Platform, Pressable } from "react-native";
 import { useIsSidebarCollapsed } from "store/hooks";
@@ -116,6 +120,16 @@ function CollapseChatButton({
   );
 }
 
+function formatTime(seconds: number): string {
+  const s = Math.floor(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
+  return `${m}:${pad(sec)}`;
+}
+
 export function BottomControlBar({
   ingest,
   pipSupported,
@@ -125,41 +139,76 @@ export function BottomControlBar({
   showChat,
   setShowChat,
 }: BottomControlBarProps) {
-  let { theme } = useTheme();
-  const fullscreen = usePlayerStore((state) => state.fullscreen);
-  const setFullscreen = usePlayerStore((state) => state.setFullscreen);
-  const danmuUnlocked = useDanmuUnlocked();
-  const danmuEnabled = useDanmuEnabled();
-  const setDanmuEnabled = useSetDanmuEnabled();
+  const th = useTheme();
   const sidebarCollapsed = useIsSidebarCollapsed();
+  const playbackMode = usePlayerStore((x) => x.mode);
+  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
+
+  const playTime = usePlayerStore((x) => x.playTime);
+  const duration = usePlayerStore((x) => x.duration);
+
+  const status = usePlayerStore((x) => x.status);
+  const PlayPause = status === PlayerStatus.PLAYING ? Pause : Play;
 
   return (
-    <View
-      style={[
-        layout.flex.row,
-        layout.flex.spaceBetween,
-        layout.flex.alignCenter,
-        zero.px[4],
-      ]}
-    >
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
-        <VolumeSlider key={String(sidebarCollapsed)} />
-      </View>
+    <View>
+      <PlayerUI.SeekBar />
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.spaceBetween,
+          layout.flex.alignCenter,
+          zero.px[4],
+        ]}
+      >
+        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
+          {playbackMode === "vod" && (
+            <Pressable onPress={togglePlayPause}>
+              <PlayPause
+                color={th.theme.colors.primaryForeground}
+                fill={th.theme.colors.primaryForeground}
+              />
+            </Pressable>
+          )}
+          <VolumeSlider key={String(sidebarCollapsed)} />
+          {playbackMode === "vod" && (
+            <View style={[layout.flex.row, zero.gap.all[1]]}>
+              <Text
+                // @ts-expect-error web-only
+                style={{
+                  fontVariant: "tabular-nums",
+                }}
+              >
+                {formatTime(playTime)}
+              </Text>
+              <Text>/</Text>
+              <Text
+                // @ts-expect-error web-only
+                style={{
+                  fontVariant: "tabular-nums",
+                }}
+              >
+                {formatTime(duration)}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-        {pipSupported && (
-          <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
-        )}
-        <DanmuButton />
-        {ingest === null && (
-          <ContextMenuButton
-            dropdownPortalContainer={dropdownPortalContainer}
-          />
-        )}
-        <FullscreenButton />
-        {setShowChat && (
-          <CollapseChatButton showChat={showChat} setShowChat={setShowChat} />
-        )}
+        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+          {pipSupported && (
+            <PipButton pipActive={pipActive} onHandlePip={onHandlePip} />
+          )}
+          <DanmuButton />
+          {ingest === null && (
+            <ContextMenuButton
+              dropdownPortalContainer={dropdownPortalContainer}
+            />
+          )}
+          <FullscreenButton />
+          {setShowChat && (
+            <CollapseChatButton showChat={showChat} setShowChat={setShowChat} />
+          )}
+        </View>
       </View>
     </View>
   );

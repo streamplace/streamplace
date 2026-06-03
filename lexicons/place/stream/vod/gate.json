@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.gate",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "Record defining a single gated VOD comment.",
+      "record": {
+        "type": "object",
+        "required": ["hiddenComment"],
+        "properties": {
+          "hiddenComment": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "URI of the hidden VOD comment."
+          }
+        }
+      }
+    }
+  }
+}

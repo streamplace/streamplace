@@ -94,6 +94,14 @@ export const createPlatformSlice: StateCreator<
         console.warn("Failed to acquire notification token");
       }
 
+      // FCM rotates tokens periodically. Keep the store in sync so the
+      // registration effect re-runs and re-registers the new token, otherwise
+      // a rotated token never reaches the server until the next cold start.
+      msg.onTokenRefresh((refreshed) => {
+        console.log("Notification token refreshed");
+        set({ notificationToken: refreshed });
+      });
+
       // Subscribe to topic(s) if desired
       msg
         .subscribeToTopic("live")
@@ -150,21 +158,21 @@ export const createPlatformSlice: StateCreator<
         return;
       }
 
-      const { platform, bluesky } = get() as AppStore & {
-        platform: { notificationToken: string | null };
-        bluesky: { oauthSession?: { did?: string } };
-      };
+      // The store is flat (slices are spread, not namespaced), so read these
+      // directly off get(). The previous get().platform / get().bluesky access
+      // was always undefined, which meant token was undefined and this threw
+      // before ever registering anything.
+      const { notificationToken, oauthSession } = get();
 
-      const token = platform?.notificationToken;
+      const token = notificationToken;
       if (!token) {
-        throw new Error("No notification token to register");
+        console.log("No notification token to register yet");
+        return;
       }
 
-      const body: any = {
-        token,
-      };
+      const body: { token: string; repoDID?: string } = { token };
 
-      const did = bluesky?.oauthSession?.did;
+      const did = oauthSession?.did;
       if (did) {
         body.repoDID = did;
       }

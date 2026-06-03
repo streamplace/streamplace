@@ -180,6 +180,13 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 	tracer := otel.Tracer("signer")
 	streamer := ms.Streamer()
 
+	// Stamp a fresh ingest-session epoch on the context that flows down to every
+	// segment of this session (onSegment → ValidateMP4 → feedStreamTranscoder). A
+	// new live session (RTMP/WHIP (re)connect) restarts the media timeline; the
+	// per-DID continuous transcoder keys on this epoch and rebuilds rather than
+	// feeding the restarted timeline into the previous session's encoder.
+	ctx = withIngestSession(ctx, mm.nextIngestSession())
+
 	// muxl path: stream the fMP4 through the per-segment signer. Each GoP
 	// arrives as a bare canonical .m4s, which ValidateMP4 verifies, archives
 	// (as .m4s), and distributes. muxl-sign stamps the signing time into the

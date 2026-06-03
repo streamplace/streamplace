@@ -4,9 +4,9 @@ import {
   PlayerUI,
   Text,
   View,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useCameraToggle,
-  useLivestreamInfo,
   useLivestreamStore,
   zero,
 } from "@streamplace/components";
@@ -41,9 +41,9 @@ export function TopControlBar({
   embedded = false,
 }: TopControlBarProps) {
   const navigation = useNavigation();
-  const { profile } = useLivestreamInfo();
+  const profile = useAuthor();
   const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did && embedded ? [profile?.did] : []);
+  const avatar = useAvatar();
   const { width } = useWindowDimensions();
   const isTinyScreen = width < 450;
   const isSmallScreen = width < 600;
@@ -87,8 +87,8 @@ export function TopControlBar({
               >
                 <Image
                   source={
-                    profile?.did
-                      ? { uri: avatars[profile?.did]?.avatar }
+                    avatar
+                      ? { uri: avatar }
                       : require("assets/images/goose.png")
                   }
                   style={[

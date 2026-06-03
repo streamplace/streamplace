@@ -47,6 +47,23 @@ Metadata common to all media types. Contains subobjects for other media types.
 
 ---
 
+<a name="trackview"></a>
+
+### `trackView`
+
+**Type:** `object`
+
+**Properties:**
+
+| Name     | Type                                                                                                                                             | Req'd | Description | Constraints      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----- | ----------- | ---------------- |
+| `uri`    | `string`                                                                                                                                         | ✅    |             | Format: `at-uri` |
+| `cid`    | `string`                                                                                                                                         | ✅    |             | Format: `cid`    |
+| `author` | [`app.bsky.actor.defs#profileViewBasic`](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky/actor/defs.json#profileViewBasic) | ✅    |             |                  |
+| `record` | `unknown`                                                                                                                                        | ✅    |             |                  |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -103,6 +120,27 @@ Metadata common to all media types. Contains subobjects for other media types.
         "audio": {
           "type": "ref",
           "ref": "place.stream.segment#audio"
+        }
+      }
+    },
+    "trackView": {
+      "type": "object",
+      "required": ["uri", "cid", "author", "record"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "author": {
+          "type": "ref",
+          "ref": "app.bsky.actor.defs#profileViewBasic"
+        },
+        "record": {
+          "type": "unknown"
         }
       }
     }

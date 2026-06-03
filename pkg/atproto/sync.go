@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 
@@ -729,8 +730,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
 
 	case *streamplace.Video:
-		// Index the video record so playback can resolve it by URI
-		// without needing to round-trip back to the user's PDS.
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
 		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
@@ -770,6 +773,24 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
 
+		// Notify the invited account that they're off the waitlist — but
+		// only for a genuinely new invite arriving live from the trusted
+		// issuer. Backfill/first-sync and record updates re-index existing
+		// invites on every restart and must not re-notify.
+		if !isFirstSync && !isUpdate &&
+			atsync.CLI.BetaInviteDID != "" && userDID == atsync.CLI.BetaInviteDID {
+			atsync.notifyBetaInvite(ctx, rec)
+		}
+
+	case *streamplace.BetaRequest:
+		// Access requests are published by users in their own repos. We
+		// index them so operators can see who's waiting and so
+		// place.stream.beta.getStatus can report "requested".
+		if err := atsync.Model.UpsertBetaRequest(ctx, rec, aturi); err != nil {
+			return fmt.Errorf("failed to upsert beta request: %w", err)
+		}
+		log.Debug(ctx, "indexed beta request", "uri", aturi.String(), "did", userDID, "feature", rec.Feature)
+
 	case *streamplace.MediaViewCount:
 		// View-count records are published by streamplace nodes (in
 		// their server repos) reporting on traffic they observed.
@@ -781,8 +802,192 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "indexed media view count",
 			"uri", aturi.String(), "video", rec.Video, "count", rec.Count, "reporter", userDID)
 
+	case *streamplace.VodComment:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+
+		log.Debug(ctx, "place.stream.vod.comment detected", "video", rec.Video, "repo", repo.Handle)
+
+		// Check if the video author has blocked the commenter
+		videoATURI, parseErr := syntax.ParseATURI(rec.Video)
+		var videoAuthor string
+		if parseErr == nil {
+			videoAuthor = videoATURI.Authority().String()
+			block, err := atsync.Model.GetUserBlock(ctx, videoAuthor, userDID)
+			if err != nil {
+				log.Warn(ctx, "failed to check user block for VOD comment", "err", err)
+			} else if block != nil {
+				log.Debug(ctx, "excluding VOD comment from blocked user", "userDID", userDID, "videoAuthor", videoAuthor)
+				return nil
+			}
+		} else {
+			log.Warn(ctx, "failed to parse video URI for block check", "video", rec.Video, "err", err)
+		}
+
+		vc := &model.VodComment{
+			CID:            cid,
+			URI:            aturi.String(),
+			CreatedAt:      now,
+			Comment:        recCBOR,
+			RepoDID:        userDID,
+			Repo:           repo,
+			VideoURI:       rec.Video,
+			VideoAuthorDID: videoAuthor,
+			IndexedAt:      &now,
+		}
+		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+			vc.ReplyToCID = &rec.Reply.Parent.Cid
+		}
+
+		// check for javascript: links in facets
+		for _, facet := range rec.Facets {
+			for _, feature := range facet.Features {
+				if link := feature.RichtextFacet_Link; link != nil {
+					if link.Uri != "" && strings.HasPrefix(strings.ToLower(link.Uri), "javascript:") {
+						log.Warn(ctx, "excluding comment with javascript: link", "uri", aturi.String(), "link", link.Uri)
+						return nil
+					}
+				}
+			}
+		}
+
+		err = atsync.Model.CreateVodComment(ctx, vc)
+		if err != nil {
+			log.Error(ctx, "failed to create VOD comment", "err", err)
+			return nil
+		}
+		vc, err = atsync.Model.GetVodComment(aturi.String())
+		if err != nil {
+			log.Error(ctx, "failed to get just-saved VOD comment", "err", err)
+			return nil
+		}
+		if vc == nil {
+			log.Error(ctx, "failed to retrieve just-saved VOD comment")
+			return nil
+		}
+		sc, err := vc.ToStreamplaceCommentView()
+		if err != nil {
+			log.Error(ctx, "failed to convert VOD comment to view", "err", err)
+			return nil
+		}
+
+		if sc.Author.Handle == "" || sc.Author.Handle == "handle.invalid" {
+			sc.Author.Handle = atsync.ResolveAuthorHandle(ctx, sc.Author.Did)
+		}
+
+		if videoAuthor != "" {
+			go atsync.Bus.Publish(videoAuthor, sc)
+		} else {
+			go atsync.Bus.Publish(userDID, sc)
+		}
+
+	case *streamplace.Like:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+
+		log.Debug(ctx, "place.stream.like detected", "subject", rec.Subject, "repo", repo.Handle)
+
+		// A user can only like a subject once — refuse to index a duplicate
+		// rather than inflating the count with a second row.
+		existing, err := atsync.Model.GetLikeBySubjectAndUser(ctx, rec.Subject, userDID)
+		if err != nil {
+			return fmt.Errorf("check existing like: %w", err)
+		}
+		if existing != nil {
+			log.Debug(ctx, "ignoring duplicate like", "subject", rec.Subject, "repo", userDID)
+			return nil
+		}
+
+		like := &model.Like{
+			CID:       cid,
+			URI:       aturi.String(),
+			Subject:   rec.Subject,
+			RepoDID:   userDID,
+			Repo:      repo,
+			IndexedAt: &now,
+			CreatedAt: now,
+		}
+		err = atsync.Model.CreateLike(ctx, like)
+		if err != nil {
+			log.Error(ctx, "failed to create VOD like", "err", err)
+			return nil
+		}
+
+	case *streamplace.VodGate:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		if r == nil {
+			// someone we don't know about
+			return nil
+		}
+		log.Debug(ctx, "creating VOD gate", "userDID", userDID, "hiddenComment", rec.HiddenComment)
+		gate := &model.VodGate{
+			RKey:          rkey.String(),
+			RepoDID:       userDID,
+			HiddenComment: rec.HiddenComment,
+			CID:           cid,
+			CreatedAt:     now,
+			Repo:          repo,
+		}
+		err = atsync.Model.CreateVodGate(ctx, gate)
+		if err != nil {
+			return fmt.Errorf("failed to create VOD gate: %w", err)
+		}
+
 	default:
 		log.Debug(ctx, "unhandled record type", "type", reflect.TypeOf(rec))
 	}
 	return nil
+}
+
+// notifyBetaInvite pushes a "you're off the waitlist" notification to the
+// account named by a freshly-issued, trusted beta invite. Best-effort: any
+// failure is logged, never returned, since the invite is already indexed and
+// the upload gate works regardless of whether the push lands.
+func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *streamplace.BetaInvite) {
+	if atsync.Noter == nil || atsync.StatefulDB == nil {
+		return
+	}
+	tokens, err := atsync.StatefulDB.GetManyNotificationTokens([]string{rec.Did})
+	if err != nil {
+		log.Error(ctx, "beta invite notification: failed to load tokens", "did", rec.Did, "err", err)
+		return
+	}
+	if len(tokens) == 0 {
+		log.Debug(ctx, "beta invite notification: no device tokens for invitee", "did", rec.Did, "feature", rec.Feature)
+		return
+	}
+	blast := betaInviteBlast(rec.Feature)
+	if err := atsync.Noter.Blast(ctx, tokens, blast); err != nil {
+		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
+		return
+	}
+	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(tokens))
+}
+
+// betaInviteBlast builds the push payload for a newly-granted beta feature.
+// Copy is feature-aware where we have something specific to say.
+func betaInviteBlast(feature string) *notificationpkg.NotificationBlast {
+	switch feature {
+	case "vod":
+		// Uploads are a web flow today, and pushes land on the native app, so
+		// we route to home rather than a route the app doesn't register.
+		return &notificationpkg.NotificationBlast{
+			Title: "🎉 You're off the waitlist!",
+			Body:  "You can now upload videos to Streamplace.",
+			Data:  map[string]string{"path": "/"},
+		}
+	default:
+		return &notificationpkg.NotificationBlast{
+			Title: "🎉 You're off the waitlist!",
+			Body:  fmt.Sprintf("You've been granted access to the %s beta.", feature),
+			Data:  map[string]string{"path": "/"},
+		}
+	}
 }

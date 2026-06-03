@@ -6,7 +6,8 @@ import {
   Slider,
   Text,
   Toast,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useCameraToggle,
   useLivestream,
   useLivestreamInfo,
@@ -68,7 +69,6 @@ export function MobileUi({
   const navigation = useNavigation();
   const {
     ingest,
-    profile,
     title,
     setTitle,
     showCountdown,
@@ -81,8 +81,8 @@ export function MobileUi({
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
+  const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
   const [playerIsReady, setPlayerIsReady] = useState(false);
@@ -160,7 +160,18 @@ export function MobileUi({
   const hover = Gesture.Hover().onChange(onPlayerHover);
   const pan = Gesture.Pan().onChange(onPlayerHover);
   const tap = Gesture.Tap().onEnd(onPlayerHover);
-
+  let chatSection: React.ReactNode = null;
+  if (
+    mode !== "vod" &&
+    !hideMobileChat &&
+    !isSelfAndNotLive &&
+    playerIsReady &&
+    isPortrait
+  ) {
+    chatSection = (
+      <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+    );
+  }
   const combined = Gesture.Race(hover, pan, tap);
   return (
     <>
@@ -179,7 +190,10 @@ export function MobileUi({
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>
               <SafeAreaView
-                edges={["top"]}
+                // VOD's container already insets the video below the notch, so
+                // the controls only need the small style padding; live fills
+                // the window and clears the notch with the top edge inset.
+                edges={mode === "vod" ? [] : ["top"]}
                 style={[
                   px[2],
                   py[2],
@@ -194,8 +208,6 @@ export function MobileUi({
                 >
                   <LeftControlsPanel
                     navigation={navigation}
-                    profile={profile}
-                    avatars={avatars}
                     muted={muted}
                     setMuted={setMuted}
                     muteWasForced={muteWasForced}
@@ -288,31 +300,43 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {hideMobileChat ||
-        (isPortrait && !isSelfAndNotLive && playerIsReady && (
-          <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
-        ))}
+      {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
+          bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
+          They still fade with the rest of the UI via the shared opacity. */}
+      {mode === "vod" && (
+        <Animated.View
+          style={[
+            { position: "absolute", bottom: 0, left: 0, right: 0 },
+            animatedFadeStyle,
+          ]}
+          // Let taps on empty space fall through to the overlay's tap-to-reveal
+          // gesture; only the controls themselves capture touches.
+          pointerEvents="box-none"
+        >
+          <PlayerUI.VodControls />
+          <PlayerUI.SeekBar />
+        </Animated.View>
+      )}
+      {chatSection}
     </>
   );
 }
 
 function LeftControlsPanel({
   navigation,
-  profile,
-  avatars,
   muted,
   setMuted,
   muteWasForced,
   setMuteWasForced,
 }: {
   navigation: any;
-  profile: any;
-  avatars: any;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   muteWasForced: boolean;
   setMuteWasForced: (forced: boolean) => void;
 }) {
+  const profile = useAuthor();
+  const avatar = useAvatar();
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
   const contentWarnings =
@@ -345,9 +369,7 @@ function LeftControlsPanel({
           </Pressable>
           <Image
             source={
-              avatars[profile?.did]
-                ? avatars[profile?.did]?.avatar
-                : require("assets/images/goose.png")
+              avatar ? { uri: avatar } : require("assets/images/goose.png")
             }
             key={profile?.did}
             style={[

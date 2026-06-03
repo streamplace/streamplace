@@ -58,6 +58,18 @@ function resolveAtUriNavigation(
         },
       ],
     };
+  } else if (atUri.collection === "place.stream.video" && atUri.rkey) {
+    // A video record: redirect to the canonical VOD player URL
+    // (/<authority>/video/<rkey>). react-navigation rewrites the address bar
+    // to that path.
+    return {
+      routes: [
+        {
+          name: "VodPlayerDemo",
+          params: { user: atUri.authority, tid: atUri.rkey },
+        },
+      ],
+    };
   } else {
     // otherwise, redirect to home page and do a 'could not find'
     return {
@@ -94,6 +106,8 @@ export const SCREEN_PATHS = {
   Multi: "multi/:config",
   Support: "support",
   Upload: "upload",
+  VideoList: "video",
+  UserVideoList: ":did/video",
   // Settings screens
   MainSettings: "settings",
   AboutCategory: "settings/about",
@@ -128,6 +142,9 @@ export const SCREEN_PATHS = {
   PopoutInfoWidget: "widgets/info",
   PopoutMultistream: "widgets/multistream",
   PopoutLivestream: "widgets/livestream",
+  Video: ":user/video/:tid",
+  Vod: ":user/minimal-vod/:tid",
+  VodEmbed: "embed/:user/video/:tid",
 } as const;
 
 /**
@@ -192,6 +209,12 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 Upload: SCREEN_PATHS.Upload,
               },
             },
+            VideosTab: {
+              screens: {
+                VideoList: SCREEN_PATHS.VideoList,
+                UserVideoList: SCREEN_PATHS.UserVideoList,
+              },
+            },
             GoLiveTab: SCREEN_PATHS.GoLiveTab,
             SettingsTab: {
               screens: {
@@ -232,6 +255,9 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
         PopoutInfoWidget: SCREEN_PATHS.PopoutInfoWidget,
         PopoutMultistream: SCREEN_PATHS.PopoutMultistream,
         PopoutLivestream: SCREEN_PATHS.PopoutLivestream,
+        Video: SCREEN_PATHS.Video,
+        Vod: SCREEN_PATHS.Vod,
+        VodEmbed: SCREEN_PATHS.VodEmbed,
       },
     },
   };

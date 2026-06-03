@@ -54,6 +54,22 @@ export function useLivestreamStore<U>(
   return useStore(store, selector);
 }
 
+// A shared, never-populated store used as a fallback so the optional hook
+// below can call useStore unconditionally even when no LivestreamProvider is
+// mounted (e.g. when the player is in "vod" mode).
+const emptyLivestreamStore = makeLivestreamStore();
+
+// Like useLivestreamStore, but reads against an empty store instead of
+// throwing when there's no LivestreamProvider in the tree. Useful for
+// mode-generic hooks (see useTitle) that may run outside a livestream context.
+export function useLivestreamStoreOptional<U>(
+  selector: (state: LivestreamState) => U,
+): U {
+  const context = useContext(LivestreamContext);
+  const store = context?.store ?? emptyLivestreamStore;
+  return useStore(store, selector);
+}
+
 export const useHandleWebsocketMessages = () => {
   const store = getStoreFromContext();
   return (messages: any[]) => {

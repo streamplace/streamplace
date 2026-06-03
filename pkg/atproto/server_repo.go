@@ -27,8 +27,11 @@ import (
 	"gorm.io/gorm"
 
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/statedb"
+
+	gocrypto "crypto"
 )
 
 var ServerRepo *atrepo.Repo
@@ -39,6 +42,22 @@ var ServerRepoUser models.Uid = models.Uid(1)
 var serverRepoLock sync.Mutex
 var serverCommitDB *gorm.DB
 var serverRepoSigner func(ctx context.Context, did string, sb []byte) ([]byte, error)
+
+// serverRepoPriv is the node's secp256k1 server-repo private key — the key
+// behind its did:web identity — captured by MakeServerRepo. Nil until then.
+var serverRepoPriv *atcrypto.PrivateKeyK256
+
+// ServerCryptoSigner returns a crypto.Signer for the node's own secp256k1
+// identity (the server-repo key behind its did:web). Used to S2PA-sign
+// node-produced artifacts — e.g. a transcoded audio track minted at validate
+// time, signed as a c2pa.transcoded derivative of the streamer's segment.
+// Errors if the server repo hasn't been initialized yet.
+func ServerCryptoSigner() (gocrypto.Signer, error) {
+	if serverRepoPriv == nil {
+		return nil, fmt.Errorf("server repo key not initialized")
+	}
+	return spkey.KeyToSigner(serverRepoPriv)
+}
 
 // serverCommitSubscribers is notified when new commit events are created.
 var serverCommitSubscribers []chan *ServerCommitEvent
@@ -135,6 +154,8 @@ func MakeServerRepo(ctx context.Context, cli *config.CLI, state *statedb.Statefu
 			return nil, fmt.Errorf("failed to save server repo key: %w", err)
 		}
 	}
+
+	serverRepoPriv = priv
 
 	pub, err := priv.PublicKey()
 	if err != nil {

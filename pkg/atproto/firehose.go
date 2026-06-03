@@ -101,10 +101,21 @@ func (atsync *ATProtoSynchronizer) relayHosts() []string {
 	for _, h := range strings.Split(atsync.CLI.RelayHost, ",") {
 		add(h)
 	}
-	if atsync.CLI.HTTPAddr != "" {
-		add(httpToWSURL(atsync.CLI.OwnPublicURL()))
+	if self := atsync.selfRelayURL(); self != "" {
+		add(self)
 	}
 	return hosts
+}
+
+// selfRelayURL is the websocket URL of our own firehose listener, or ""
+// when there's no HTTP listener to dial (e.g. tests run without the
+// server). Used both to add ourselves to the relay set and to recognize
+// that connection in connectRelay so we can present the right Host header.
+func (atsync *ATProtoSynchronizer) selfRelayURL() string {
+	if atsync.CLI.HTTPAddr == "" {
+		return ""
+	}
+	return httpToWSURL(atsync.CLI.OwnPublicURL())
 }
 
 func httpToWSURL(u string) string {
@@ -234,9 +245,22 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 		u.RawQuery = q.Encode()
 	}
 
-	con, _, err := websocket.DefaultDialer.Dial(u.String(), http.Header{
-		"User-Agent": []string{aqhttp.UserAgent},
-	})
+	header := http.Header{"User-Agent": []string{aqhttp.UserAgent}}
+	// Our own loopback listener serves both the broadcaster and the
+	// server-repo firehoses on one port and disambiguates them by the
+	// request Host (see Server.isServerPDS). Dialing loopback sends
+	// Host: 127.0.0.1, which lands us on the broadcaster firehose, so the
+	// server repo's own records — most importantly place.stream.media.origin,
+	// which getVideoList's "can this node serve it" filter depends on —
+	// would never get indexed locally. Force Host to ServerHost so the
+	// self-subscription gets the server-PDS firehose, matching what a
+	// single-node (ServerHost == BroadcasterHost) deployment gets for free.
+	// gorilla/websocket pulls the "Host" header out and uses it as the
+	// HTTP Host while still dialing the loopback address in u.
+	if relay == atsync.selfRelayURL() && atsync.CLI.ServerHost != "" {
+		header.Set("Host", atsync.CLI.ServerHost)
+	}
+	con, _, err := websocket.DefaultDialer.Dial(u.String(), header)
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}

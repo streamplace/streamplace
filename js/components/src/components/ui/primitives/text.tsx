@@ -10,7 +10,11 @@ import {
   TextStyle,
 } from "react-native";
 import { useTheme } from "../../../lib/theme/theme";
-import { typography, type Typography } from "../../../lib/theme/tokens";
+import {
+  fontFamilies,
+  typography,
+  type Typography,
+} from "../../../lib/theme/tokens";
 
 // Text inheritance context
 interface TextContextValue {
@@ -151,6 +155,17 @@ const weightMap = {
   bold: "700",
   extrabold: "800",
   black: "900",
+} as const;
+
+const weightFontFamilyMap = {
+  thin: fontFamilies.extraLight,
+  light: fontFamilies.light,
+  normal: fontFamilies.regular,
+  medium: fontFamilies.medium,
+  semibold: fontFamilies.semiBold,
+  bold: fontFamilies.bold,
+  extrabold: fontFamilies.extraBold,
+  black: fontFamilies.extraBold,
 } as const;
 
 // Line height mapping
@@ -329,6 +344,7 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
       // Apply weight
       ...(weight && {
         fontWeight: weightMap[weight] as TextStyle["fontWeight"],
+        fontFamily: weightFontFamilyMap[weight],
       }),
 
       // Apply color

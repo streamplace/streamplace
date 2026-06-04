@@ -1,6 +1,7 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
 import {
+  PlaceStreamBioPage,
   PlaceStreamChatProfile,
   PlaceStreamIngestDefs,
   PlaceStreamLivestream,
@@ -44,6 +45,7 @@ export interface StreamplaceState {
   oauthSession: SessionManager | null | undefined;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
+  bio: PlaceStreamBioPage.Record | null;
 
   ingests: PlaceStreamIngestDefs.Ingest[] | null;
   setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) => void;
@@ -126,6 +128,7 @@ export const makeStreamplaceStore = ({
     oauthSession: null,
     handle: null,
     chatProfile: null,
+    bio: null,
     ingests: null,
     setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) =>
       set({ ingests: ingests }),

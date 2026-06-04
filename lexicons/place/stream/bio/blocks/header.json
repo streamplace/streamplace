@@ -1,0 +1,28 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.header",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A section heading. Levels 1-3; deeper nesting is intentionally unsupported on bios.",
+      "required": ["plaintext"],
+      "properties": {
+        "plaintext": {
+          "type": "string"
+        },
+        "facets": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.bio.richtextFacet"
+          }
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        }
+      }
+    }
+  }
+}

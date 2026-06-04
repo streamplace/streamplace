@@ -1,0 +1,44 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.defs",
+  "defs": {
+    "social": {
+      "type": "object",
+      "description": "A link to a profile or account on another platform.",
+      "required": ["platform", "url"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "description": "Identifier for the platform. Clients should render a recognizable icon for known values and fall back gracefully otherwise.",
+          "knownValues": [
+            "bluesky",
+            "twitter",
+            "youtube",
+            "twitch",
+            "kick",
+            "discord",
+            "instagram",
+            "tiktok",
+            "github",
+            "cashapp",
+            "ko-fi",
+            "patreon",
+            "website"
+          ],
+          "maxLength": 64
+        },
+        "handle": {
+          "type": "string",
+          "description": "Display handle for this account, e.g. '@alice'.",
+          "maxLength": 256,
+          "maxGraphemes": 64
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the account."
+        }
+      }
+    }
+  }
+}

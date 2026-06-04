@@ -1,0 +1,135 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.richtextFacet",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "Annotation of a sub-string within rich text.",
+      "required": ["index", "features"],
+      "properties": {
+        "index": {
+          "type": "ref",
+          "ref": "#byteSlice"
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "union",
+            "refs": [
+              "app.bsky.richtext.facet#mention",
+              "app.bsky.richtext.facet#link",
+              "app.bsky.richtext.facet#tag",
+              "#id",
+              "#bold",
+              "#italic",
+              "#code",
+              "#highlight",
+              "#underline",
+              "#strikethrough",
+              "#link",
+              "#atMention",
+              "#didMention"
+            ]
+          }
+        }
+      }
+    },
+    "id": {
+      "type": "object",
+      "description": "Facet feature for an identifier. Used for linking to a segment",
+      "required": [],
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "bold": {
+      "type": "object",
+      "description": "Facet feature for bold text",
+      "required": [],
+      "properties": {}
+    },
+    "italic": {
+      "type": "object",
+      "description": "Facet feature for italic text",
+      "required": [],
+      "properties": {}
+    },
+    "code": {
+      "type": "object",
+      "description": "Facet feature for inline code.",
+      "required": [],
+      "properties": {}
+    },
+    "highlight": {
+      "type": "object",
+      "description": "Facet feature for highlighted text.",
+      "required": [],
+      "properties": {}
+    },
+    "underline": {
+      "type": "object",
+      "description": "Facet feature for underline markup",
+      "required": [],
+      "properties": {}
+    },
+    "strikethrough": {
+      "type": "object",
+      "description": "Facet feature for strikethrough markup",
+      "required": [],
+      "properties": {}
+    },
+    "link": {
+      "type": "object",
+      "description": "Facet feature for a URL. The text URL may have been simplified or truncated, but the facet reference should be a complete URL.",
+      "required": ["uri"],
+      "properties": {
+        "uri": {
+          "type": "string"
+        }
+      }
+    },
+    "atMention": {
+      "type": "object",
+      "description": "Facet feature for mentioning an AT URI.",
+      "required": ["atURI"],
+      "properties": {
+        "atURI": {
+          "type": "string",
+          "format": "uri"
+        },
+        "href": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "didMention": {
+      "type": "object",
+      "description": "Facet feature for mentioning a did.",
+      "required": ["did"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        }
+      }
+    },
+    "byteSlice": {
+      "type": "object",
+      "description": "Specifies the sub-string range a facet feature applies to.",
+      "required": ["byteStart", "byteEnd"],
+      "properties": {
+        "byteStart": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "byteEnd": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

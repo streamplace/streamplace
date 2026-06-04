@@ -1,0 +1,17 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.livestream",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "An embedded reference to a place.stream.livestream record. Useful for pinning a current stream or a notable past stream.",
+      "required": ["livestream"],
+      "properties": {
+        "livestream": {
+          "type": "ref",
+          "ref": "com.atproto.repo.strongRef"
+        }
+      }
+    }
+  }
+}

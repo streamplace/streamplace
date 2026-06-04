@@ -285,6 +285,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
 	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
+	e.GET("/xrpc/place.stream.bio.getPage", s.HandlePlaceStreamBioGetPage)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
@@ -378,6 +379,20 @@ func (s *Server) HandlePlaceStreamBetaGetStatus(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBetaGetStatus(ctx context.Context,did string,feature string) (*placestream.BetaGetStatus_Output, error)
 	out, handleErr = s.handlePlaceStreamBetaGetStatus(ctx, did, feature)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBioGetPage(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBioGetPage")
+	defer span.End()
+	repo := c.QueryParam("repo")
+	var out *placestream.BioPage
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBioGetPage(ctx context.Context,repo string) (*placestream.BioPage, error)
+	out, handleErr = s.handlePlaceStreamBioGetPage(ctx, repo)
 	if handleErr != nil {
 		return handleErr
 	}

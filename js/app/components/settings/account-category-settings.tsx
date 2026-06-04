@@ -13,7 +13,14 @@ import {
 } from "@streamplace/components";
 import { useNameColorPicker } from "components/name-color-picker/name-color-picker";
 import { Image } from "expo-image";
-import { Award, Edit3, LogOut, Palette, X } from "lucide-react-native";
+import {
+  Award,
+  Edit3,
+  FileText,
+  LogOut,
+  Palette,
+  X,
+} from "lucide-react-native";
 import { ScrollView } from "react-native";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
@@ -131,6 +138,12 @@ export function AccountCategorySettings() {
                 title={t("badges")}
                 screen="BadgeSelection"
                 icon={Award}
+              />
+              <MenuSeparator />
+              <SettingsNavigationItem
+                title={t("bio", "Bio")}
+                screen="BioSettings"
+                icon={FileText}
               />
             </MenuGroup>
 

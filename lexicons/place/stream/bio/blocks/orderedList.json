@@ -1,0 +1,46 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.orderedList",
+  "defs": {
+    "main": {
+      "type": "object",
+      "required": ["children"],
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#listItem"
+          }
+        }
+      }
+    },
+    "listItem": {
+      "type": "object",
+      "required": ["content"],
+      "properties": {
+        "content": {
+          "type": "union",
+          "refs": [
+            "place.stream.bio.blocks.text",
+            "place.stream.bio.blocks.header",
+            "place.stream.bio.blocks.image"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "description": "Nested ordered list items. Mutually exclusive with unorderedListChildren; if both are present, children takes precedence.",
+          "items": {
+            "type": "ref",
+            "ref": "#listItem"
+          }
+        },
+        "unorderedListChildren": {
+          "type": "ref",
+          "ref": "place.stream.bio.blocks.unorderedList",
+          "description": "Nested unordered list items. Mutually exclusive with children; if both are present, children takes precedence."
+        }
+      }
+    }
+  }
+}

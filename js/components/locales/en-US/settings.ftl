@@ -310,3 +310,17 @@ issue-badges-recipient-did = Recipient DID
 issue-badges-recipient-did-placeholder = did:plc:...
 issue-badges-tap-to-issue = Tap to issue
 issue-badges-your-definitions = Your Badge Definitions
+
+bio = Bio
+bio-preview = Preview
+confirm-import = Confirm Import
+confirm-import-title = Confirm Import
+description-placeholder = Write something about yourself...
+edit-description = Edit Description
+import = Import
+import-anyway = Import Anyway
+import-from-leaflet = Import from Leaflet
+import-from-leaflet-desc = Paste a leaflet.pub public URL or compatible AT uri
+save-bio = Save Bio
+select-panels = Select Panels
+social-links = Social Links

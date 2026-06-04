@@ -801,6 +801,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed media view count",
 			"uri", aturi.String(), "video", rec.Video, "count", rec.Count, "reporter", userDID)
+	case *streamplace.BioPage:
+		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		if err != nil {
+			return fmt.Errorf("failed to sync bluesky repo: %w", err)
+		}
+		bp := &model.BioPage{
+			RepoDID: userDID,
+			Repo:    repo,
+			Record:  recCBOR,
+		}
+		err = atsync.Model.CreateBioPage(ctx, bp)
+		if err != nil {
+			log.Error(ctx, "failed to create bio page", "err", err)
+		}
 
 	case *streamplace.VodComment:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)

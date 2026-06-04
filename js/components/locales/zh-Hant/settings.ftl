@@ -317,3 +317,17 @@ issue-badges-recipient-did = 收件者 DID
 issue-badges-recipient-did-placeholder = did:plc:...
 issue-badges-tap-to-issue = 點擊頒發
 issue-badges-your-definitions = 您的徽章定義
+
+bio = 個人簡介
+bio-preview = 預覽
+confirm-import = 確認匯入
+confirm-import-title = 確認匯入
+description-placeholder = 寫一些關於自己的事...
+edit-description = 編輯簡介
+import = 匯入
+import-anyway = 仍然匯入
+import-from-leaflet = 從 Leaflet 匯入
+import-from-leaflet-desc = 貼上 leaflet.pub 公開網址或相容的 AT URI
+save-bio = 儲存個人簡介
+select-panels = 選擇面板
+social-links = 社群連結

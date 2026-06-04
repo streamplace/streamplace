@@ -1,0 +1,69 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.page",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A Streamplace user's bio: a long-form 'about' description, pinned social links, and a customizable layout of blocks.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["createdAt"],
+        "properties": {
+          "description": {
+            "type": "ref",
+            "ref": "#description",
+            "description": "Long-form 'about' text shown in the bio header. Distinct from the user's bsky profile description, which is shorter."
+          },
+          "socials": {
+            "type": "array",
+            "description": "Pinned social/platform links shown in the bio header.",
+            "maxLength": 16,
+            "items": {
+              "type": "ref",
+              "ref": "place.stream.bio.defs#social"
+            }
+          },
+          "layout": {
+            "type": "union",
+            "description": "How the customizable body of the bio is arranged.",
+            "refs": ["place.stream.bio.layouts.panels"]
+          },
+          "importedFrom": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "Optional reference to an external authoring source (e.g. a pub.leaflet.document) this bio was imported/translated from. Clients may use this to offer a 're-import' action."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "description": {
+      "type": "object",
+      "description": "Long-form rich text describing the user.",
+      "required": ["plaintext"],
+      "properties": {
+        "plaintext": {
+          "type": "string",
+          "maxLength": 30000,
+          "maxGraphemes": 3000
+        },
+        "facets": {
+          "type": "array",
+          "description": "Annotations of the description text (mentions, URLs, etc).",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.bio.richtextFacet"
+          }
+        }
+      }
+    }
+  }
+}

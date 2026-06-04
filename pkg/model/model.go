@@ -102,9 +102,6 @@ type Model interface {
 	GetLabeler(did string) (*Labeler, error)
 	UpdateLabelerCursor(did string, cursor int64) error
 
-	GetRelayCursor(host string) (*RelayCursor, error)
-	UpsertRelayCursor(host string, cursor int64) error
-
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 
@@ -154,6 +151,7 @@ type Model interface {
 	UpsertBetaInvite(ctx context.Context, rec *streamplace.BetaInvite, aturi syntax.ATURI) error
 	DeleteBetaInvite(ctx context.Context, uri string) error
 	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
+
 	UpsertBetaRequest(ctx context.Context, rec *streamplace.BetaRequest, aturi syntax.ATURI) error
 	DeleteBetaRequest(ctx context.Context, uri string) error
 	HasBetaRequest(ctx context.Context, subjectDID, feature string) (bool, error)
@@ -177,13 +175,17 @@ type Model interface {
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 
 	CreateVodGate(ctx context.Context, gate *VodGate) error
-	DeleteVodGate(ctx context.Context, rkey string) error
 	GetVodGate(ctx context.Context, rkey string) (*VodGate, error)
+	DeleteVodGate(ctx context.Context, rkey string) error
 	GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error)
+
+	GetRelayCursor(host string) (*RelayCursor, error)
+	UpsertRelayCursor(host string, cursor int64) error
+
+	CreateBioPage(ctx context.Context, bioPage *BioPage) error
+	GetBioPage(ctx context.Context, repoDID string) (*BioPage, error)
 }
 
-// DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
-// WHICH ALSO SHOULD NOT HAPPEN
 var DBRevision = 4
 
 func MakeDB(dbURL string) (Model, error) {
@@ -246,7 +248,6 @@ func MakeDB(dbURL string) (Model, error) {
 		PinnedRecord{},
 		ServerSettings{},
 		Labeler{},
-		RelayCursor{},
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
@@ -265,6 +266,8 @@ func MakeDB(dbURL string) (Model, error) {
 		VodComment{},
 		Like{},
 		VodGate{},
+		RelayCursor{},
+		BioPage{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

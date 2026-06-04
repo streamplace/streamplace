@@ -3612,6 +3612,62 @@
         }
       }
     },
+    "/xrpc/place.stream.bio.getPage": {
+      "get": {
+        "summary": "Get a user's bio page.",
+        "operationId": "place.stream.bio.getPage",
+        "tags": ["place.stream.bio"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/place.stream.bio.page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "BioNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the user whose bio to fetch.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the user whose bio to fetch.",
+              "format": "at-identifier"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.beta.getStatus": {
       "get": {
         "summary": "Report an account's access status for a named beta feature: whether it has been granted (via a trusted place.stream.beta.invite, or because this node isn't beta-gating the feature), has an outstanding place.stream.beta.request, or neither. Defaults to the authenticated caller when `did` is omitted.",
@@ -5952,6 +6008,9 @@
           }
         },
         "required": ["key", "mimeType"]
+      },
+      "place.stream.bio.page": {
+        "description": "Unknown type"
       },
       "place.stream.badge.defs_badgeView": {
         "type": "object",

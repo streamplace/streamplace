@@ -1,0 +1,63 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.layouts.panels",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "An auto-layout of panels. Each panel is one column wide; panels flow left-to-right and wrap onto new rows. On narrow viewports panels stack vertically.",
+      "required": ["panels"],
+      "properties": {
+        "panels": {
+          "type": "array",
+          "minLength": 1,
+          "maxLength": 8,
+          "items": {
+            "type": "ref",
+            "ref": "#panel"
+          }
+        }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "required": ["blocks"],
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "#blockEntry"
+          }
+        }
+      }
+    },
+    "blockEntry": {
+      "type": "object",
+      "required": ["block"],
+      "properties": {
+        "alignment": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        },
+        "block": {
+          "type": "union",
+          "refs": [
+            "place.stream.bio.blocks.text",
+            "place.stream.bio.blocks.header",
+            "place.stream.bio.blocks.image",
+            "place.stream.bio.blocks.orderedList",
+            "place.stream.bio.blocks.unorderedList",
+            "place.stream.bio.blocks.blockquote",
+            "place.stream.bio.blocks.divider",
+            "place.stream.bio.blocks.link",
+            "place.stream.bio.blocks.socialLinks",
+            "place.stream.bio.blocks.livestream",
+            "place.stream.bio.blocks.schedule",
+            "place.stream.bio.blocks.bskyPost",
+            "place.stream.bio.blocks.embed"
+          ]
+        }
+      }
+    }
+  }
+}

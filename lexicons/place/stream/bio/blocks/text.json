@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.bio.blocks.text",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A paragraph of rich text.",
+      "required": ["plaintext"],
+      "properties": {
+        "plaintext": {
+          "type": "string"
+        },
+        "facets": {
+          "type": "array",
+          "items": {
+            "type": "ref",
+            "ref": "place.stream.bio.richtextFacet"
+          }
+        },
+        "textSize": {
+          "type": "string",
+          "enum": ["default", "small", "large"]
+        }
+      }
+    }
+  }
+}

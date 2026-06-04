@@ -36,6 +36,7 @@ type Server struct {
 	OGImageCache    *cache.Cache
 	LiveUsersCache  *cache.Cache
 	GameSearchCache *cache.Cache
+	ScoreCache      *cache.Cache
 	ATSync          *atproto.ATProtoSynchronizer
 	statefulDB      *statedb.StatefulDB
 	bus             *bus.Bus
@@ -61,8 +62,9 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		cli:             cli,
 		model:           model,
 		OGImageCache:    cache.New(5*time.Minute, 10*time.Minute),
-		LiveUsersCache:  cache.New(5*time.Second, 10*time.Second),
+		LiveUsersCache:  cache.New(30*time.Second, 60*time.Second),
 		GameSearchCache: cache.New(60*time.Second, 2*time.Minute),
+		ScoreCache:      cache.New(30*time.Second, 60*time.Second),
 		ATSync:          atsync,
 		statefulDB:      statefulDB,
 		bus:             bus,

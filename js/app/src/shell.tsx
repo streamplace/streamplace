@@ -28,6 +28,7 @@ import { AdvancedCategorySettings } from "components/settings/advanced-category-
 import { BackupSettings } from "components/settings/backup-settings";
 import { BadgeIssuerPanel } from "components/settings/badge-issuer-panel";
 import { BadgeSelectionManager } from "components/settings/badge-selection-manager";
+import { BrandingAdmin } from "components/settings/branding-admin";
 import { DanmuCategorySettings } from "components/settings/danmu-category-settings";
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
@@ -368,6 +369,11 @@ function SettingsNavigator() {
         name="BadgeIssuer"
         component={BadgeIssuerPanel}
         options={{ title: "Issue Badges" }}
+      />
+      <SettingsStack.Screen
+        name="BrandingAdmin"
+        component={BrandingAdmin}
+        options={{ title: "Branding" }}
       />
     </SettingsStack.Navigator>
   );

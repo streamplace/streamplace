@@ -12,10 +12,12 @@ export type SettingsStackParamList = {
   DanmuCategory: undefined;
   AdvancedCategory: undefined;
   LanguagesCategory: undefined;
-  DeveloperSettings: undefined;
+  MultistreamCategory: undefined;
+  RecommendationsSettings: undefined;
   KeyManagement: undefined;
   BadgeSelection: undefined;
   BadgeIssuer: undefined;
+  BrandingAdmin: undefined;
 };
 
 export type HomeStackParamList = {
@@ -55,8 +57,6 @@ export type RootStackParamList = {
   Embed: { user: string };
   InfoWidgetEmbed: undefined;
   DanmuOBS: { user: string };
-  AVSync: undefined;
-  LegacyStream: { user: string };
   PopoutStreamMonitor: undefined;
   PopoutInfoWidget: undefined;
   PopoutMultistream: undefined;

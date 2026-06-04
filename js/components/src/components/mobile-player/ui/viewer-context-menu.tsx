@@ -15,13 +15,14 @@ import {
   ContentWarnings,
   formatHandle,
   formatHandleWithAt,
+  UpdateStreamTitleDialog,
+  useAuthor,
   useAvatars,
   useCanModerate,
   useLivestream,
-  useLivestreamInfo,
   usePossiblyUnauthedPDSAgent,
   useStreamplaceStore,
-  useTitle,
+  useUpdateLivestreamRecord,
   zero,
 } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
@@ -105,7 +106,7 @@ export function ContextMenu({
 
   const profile = useAuthor();
 
-  const avatar = useAvatar();
+  const avatars = useAvatars(profile?.did ? [profile.did] : []);
   const segment = useLivestreamStore((x) => x.segment);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -236,7 +237,7 @@ export function ContextMenu({
                     numberOfLines={2}
                     ellipsizeMode="tail"
                   >
-                    {ls?.record.title || "Stream Title"}
+                    {livestreamRecord?.record?.title || "Stream Title"}
                   </Text>
                 </View>
               </View>
@@ -266,38 +267,28 @@ export function ContextMenu({
                 </Text>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {Platform.OS === "ios" || Platform.OS === "android" ? (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <View
-                      style={[
-                        zero.flex.values[1],
-                        isMobile
-                          ? zero.layout.flex.row
-                          : zero.layout.flex.column,
-                        zero.layout.flex.spaceBetween,
-                        zero.pr[4],
-                      ]}
-                    >
-                      <Text>Bio</Text>
-                    </View>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent
-                    portalHost={dropdownPortalContainer}
-                  ></DropdownMenuSubContent>
-                </DropdownMenuSub>
-              ) : (
-                <DropdownMenuItem
-                  onPress={() => {
-                    if (profile?.handle) {
-                      const url = `https://bsky.app/profile/${formatHandle(profile)}`;
-                      Linking.openURL(url);
-                    }
-                  }}
-                >
-                  <Text>View Profile on Bluesky</Text>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem
+                disabled={bioLoading || !bio}
+                onPress={() => {
+                  if (bio) {
+                    setShowBioPage(true);
+                  }
+                }}
+              >
+                <Text>
+                  {bioLoading ? "Loading..." : bio ? "View Bio" : "No Bio"}
+                </Text>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onPress={() => {
+                  if (profile?.handle) {
+                    const url = `https://bsky.app/profile/${formatHandle(profile)}`;
+                    Linking.openURL(url);
+                  }
+                }}
+              >
+                <Text>View Profile on Bluesky</Text>
+              </DropdownMenuItem>
             </DropdownMenuGroup>
           )}
 
@@ -316,33 +307,81 @@ export function ContextMenu({
               <DropdownMenuSubTrigger subMenuTitle="Quality">
                 <View
                   style={[
-                    zero.layout.flex.row,
-                    zero.layout.flex.alignCenter,
-                    zero.gap.all[2],
+                    zero.flex.values[1],
+                    isMobile ? zero.layout.flex.row : zero.layout.flex.column,
+                    zero.layout.flex.spaceBetween,
+                    zero.pr[4],
                   ]}
                 >
-                  <Pressable
-                    onPress={() => {
-                      if (profile?.handle) {
-                        const url = `https://bsky.app/profile/${formatHandle(profile)}`;
-                        Linking.openURL(url);
-                      }
-                    }}
-                  >
-                    <Text>{profile && formatHandleWithAt(profile)}</Text>
-                  </Pressable>
-                  {/*{did && profile && (
-                    <FollowButton streamerDID={profile?.did} currentUserDID={did} />
-                  )}*/}
+                  <Text>Quality</Text>
+                  <Text muted size={isMobile ? "base" : "sm"}>
+                    {quality === "source"
+                      ? mode === "vod"
+                        ? `Auto${playingVODRendition ? ` (${playingVODRendition})` : ""}\n`
+                        : `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
+                      : quality === "audio"
+                        ? `Audio Only\n`
+                        : quality}
+                    {mode !== "vod" && lowLatency ? "Low Latency" : ""}
+                  </Text>
                 </View>
-                <Text
-                  color="muted"
-                  size="sm"
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
-                  {useTitle()}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent portalHost={dropdownPortalContainer}>
+                <DropdownMenuGroup title="Resolution">
+                  <DropdownMenuRadioGroup
+                    value={quality}
+                    onValueChange={setQuality}
+                  >
+                    <DropdownMenuRadioItem value="source">
+                      <Text>Source {resolutionDisplay}</Text>
+                    </DropdownMenuRadioItem>
+                    {qualities.map((r) => (
+                      <DropdownMenuRadioItem key={r.name} value={r.name}>
+                        <Text>
+                          {r.name === "audio" ? "Audio Only" : r.name}
+                        </Text>
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+                {mode !== "vod" && (
+                  <>
+                    <DropdownMenuGroup>
+                      <DropdownMenuCheckboxItem
+                        checked={lowLatency}
+                        onCheckedChange={() => setLowLatency(!lowLatency)}
+                      >
+                        <Text>Low Latency</Text>
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
+                  </>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup title="Advanced">
+            <DropdownMenuCheckboxItem
+              checked={debugInfo}
+              onCheckedChange={() => setShowDebugInfo(!debugInfo)}
+            >
+              <Text>Show Debug Info</Text>
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup title="Report">
+            <ReportButton
+              livestream={livestream}
+              setReportModalOpen={setReportModalOpen}
+              setReportSubject={setReportSubject}
+            />
+          </DropdownMenuGroup>
+          <View style={[pt[3], px[2], gap.all[2]]}>
+            {contentWarnings && contentWarnings.length > 0 && (
+              <View style={[gap.all[1]]}>
+                <Text size="base" color="muted">
+                  Stream may contain
                 </Text>
+                <ContentWarnings warnings={contentWarnings} compact={true} />
               </View>
             )}
             {contentRights && Object.keys(contentRights).length > 0 && (
@@ -382,96 +421,29 @@ export function ContextMenu({
   );
 }
 
-        <DropdownMenuGroup>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger subMenuTitle="Quality">
-              <View
-                style={[
-                  zero.flex.values[1],
-                  isMobile ? zero.layout.flex.row : zero.layout.flex.column,
-                  zero.layout.flex.spaceBetween,
-                  zero.pr[4],
-                ]}
-              >
-                <Text>Quality</Text>
-                <Text muted size={isMobile ? "base" : "sm"}>
-                  {quality === "source"
-                    ? mode === "vod"
-                      ? `Auto${playingVODRendition ? ` (${playingVODRendition})` : ""}\n`
-                      : `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
-                    : quality === "audio"
-                      ? `Audio Only\n`
-                      : quality}
-                  {mode !== "vod" && lowLatency ? "Low Latency" : ""}
-                </Text>
-              </View>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent portalHost={dropdownPortalContainer}>
-              <DropdownMenuGroup title="Resolution">
-                <DropdownMenuRadioGroup
-                  value={quality}
-                  onValueChange={setQuality}
-                >
-                  <DropdownMenuRadioItem value="source">
-                    <Text>Source {resolutionDisplay}</Text>
-                  </DropdownMenuRadioItem>
-                  {qualities.map((r) => (
-                    <DropdownMenuRadioItem key={r.name} value={r.name}>
-                      <Text>{r.name === "audio" ? "Audio Only" : r.name}</Text>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuGroup>
-              {mode !== "vod" && (
-                <>
-                  <DropdownMenuGroup>
-                    <DropdownMenuCheckboxItem
-                      checked={lowLatency}
-                      onCheckedChange={() => setLowLatency(!lowLatency)}
-                    >
-                      <Text>Low Latency</Text>
-                    </DropdownMenuCheckboxItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
-                </>
-              )}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        </DropdownMenuGroup>
-        <DropdownMenuGroup title="Advanced">
-          <DropdownMenuCheckboxItem
-            checked={debugInfo}
-            onCheckedChange={() => setShowDebugInfo(!debugInfo)}
-          >
-            <Text>Show Debug Info</Text>
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
-        <DropdownMenuGroup title="Report">
-          <ReportButton
-            livestream={livestream}
-            setReportModalOpen={setReportModalOpen}
-            setReportSubject={setReportSubject}
-          />
-        </DropdownMenuGroup>
-        <View style={[pt[3], px[2], gap.all[2]]}>
-          {contentWarnings && contentWarnings.length > 0 && (
-            <View style={[gap.all[1]]}>
-              <Text size="base" color="muted">
-                Stream may contain
-              </Text>
-              <ContentWarnings warnings={contentWarnings} compact={true} />
-            </View>
-          )}
-          {contentRights && Object.keys(contentRights).length > 0 && (
-            <ContentRights
-              contentRights={contentRights}
-              size="xs"
-              color="muted"
-            />
-          )}
-        </View>
-      </DropdownMenuContent>
-    </DropdownMenu>
+function UpdateStreamTitleItem({
+  setShowUpdateTitleDialog,
+  isUpdateTitleLoading,
+  livestream,
+}: {
+  setShowUpdateTitleDialog: (show: boolean) => void;
+  isUpdateTitleLoading: boolean;
+  livestream: any;
+}) {
+  const { onOpenChange } = useRootContext();
+
+  return (
+    <DropdownMenuItem
+      onPress={() => {
+        onOpenChange?.(false);
+        setShowUpdateTitleDialog(true);
+      }}
+      disabled={isUpdateTitleLoading || !livestream}
+    >
+      <Text>
+        {isUpdateTitleLoading ? "Updating..." : "Update stream title"}
+      </Text>
+    </DropdownMenuItem>
   );
 }
 

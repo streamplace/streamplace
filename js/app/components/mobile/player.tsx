@@ -23,7 +23,7 @@ import {
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
-import { ArrowLeft, ArrowRight } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import { ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -338,9 +338,6 @@ function PlayerWithProvider(
                         paddingTop: safeTop,
                       }
                     : { flex: 1 },
-                  isPortrait && Platform.OS !== "web"
-                    ? portraitVideoStyle
-                    : undefined,
                 ]}
               >
                 <PlayerInner
@@ -352,17 +349,9 @@ function PlayerWithProvider(
               </Reanimated.View>
               {isPortraitLandscapeCase ? (
                 <>
-                  <MobileUi
-                    hideMobileChat={true}
-                    showChat
-                    sharedFadeOpacity={portraitFadeOpacity}
-                  />
+                  <MobileUi hideMobileChat={true} showChat />
                   {!showUnavailable && (
-                    <MobileChatPanel
-                      isPlayerRatioGreater={true}
-                      fixed={true}
-                      portraitVideoTranslateY={portraitVideoTranslateY}
-                    />
+                    <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
                   )}
                 </>
               ) : shouldShowChatSidePanel ? (

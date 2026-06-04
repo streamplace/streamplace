@@ -284,6 +284,7 @@ func (s *Server) RegisterHandlersGamesGamesgamesgamesgames(e *echo.Echo) error {
 func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.badge.getIssuedBadges", s.HandlePlaceStreamBadgeGetIssuedBadges)
 	e.GET("/xrpc/place.stream.badge.getValidBadges", s.HandlePlaceStreamBadgeGetValidBadges)
+	e.GET("/xrpc/place.stream.beta.getStatus", s.HandlePlaceStreamBetaGetStatus)
 	e.GET("/xrpc/place.stream.bio.getPage", s.HandlePlaceStreamBioGetPage)
 	e.POST("/xrpc/place.stream.branding.deleteBlob", s.HandlePlaceStreamBrandingDeleteBlob)
 	e.GET("/xrpc/place.stream.branding.getBlob", s.HandlePlaceStreamBrandingGetBlob)
@@ -293,6 +294,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
+	e.GET("/xrpc/place.stream.getLikes", s.HandlePlaceStreamGetLikes)
 	e.GET("/xrpc/place.stream.graph.getFollowingUser", s.HandlePlaceStreamGraphGetFollowingUser)
 	e.GET("/xrpc/place.stream.ingest.getIngestUrls", s.HandlePlaceStreamIngestGetIngestUrls)
 	e.POST("/xrpc/place.stream.live.denyTeleport", s.HandlePlaceStreamLiveDenyTeleport)
@@ -304,18 +306,25 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
 	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
+	e.GET("/xrpc/place.stream.media.getUploadStatus", s.HandlePlaceStreamMediaGetUploadStatus)
 	e.GET("/xrpc/place.stream.media.getVideo", s.HandlePlaceStreamMediaGetVideo)
+	e.GET("/xrpc/place.stream.media.getVideoList", s.HandlePlaceStreamMediaGetVideoList)
+	e.POST("/xrpc/place.stream.media.publishVideo", s.HandlePlaceStreamMediaPublishVideo)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
+	e.POST("/xrpc/place.stream.moderation.createVodGate", s.HandlePlaceStreamModerationCreateVodGate)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
 	e.POST("/xrpc/place.stream.moderation.deletePin", s.HandlePlaceStreamModerationDeletePin)
+	e.POST("/xrpc/place.stream.moderation.deleteVodGate", s.HandlePlaceStreamModerationDeleteVodGate)
 	e.POST("/xrpc/place.stream.moderation.updateLivestream", s.HandlePlaceStreamModerationUpdateLivestream)
 	e.POST("/xrpc/place.stream.multistream.createTarget", s.HandlePlaceStreamMultistreamCreateTarget)
 	e.POST("/xrpc/place.stream.multistream.deleteTarget", s.HandlePlaceStreamMultistreamDeleteTarget)
 	e.GET("/xrpc/place.stream.multistream.listTargets", s.HandlePlaceStreamMultistreamListTargets)
 	e.POST("/xrpc/place.stream.multistream.putTarget", s.HandlePlaceStreamMultistreamPutTarget)
+	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandlePlaceStreamPlaybackGetLivePlaylist)
+	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandlePlaceStreamPlaybackGetLiveSegment)
 	e.GET("/xrpc/place.stream.playback.getPlaybackServer", s.HandlePlaceStreamPlaybackGetPlaybackServer)
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandlePlaceStreamPlaybackGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandlePlaceStreamPlaybackGetVideoPlaylist)
@@ -329,6 +338,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
+	e.GET("/xrpc/place.stream.vod.getComments", s.HandlePlaceStreamVodGetComments)
 	return nil
 }
 
@@ -354,6 +364,21 @@ func (s *Server) HandlePlaceStreamBadgeGetValidBadges(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context,streamer string) (*placestream.BadgeGetValidBadges_Output, error)
 	out, handleErr = s.handlePlaceStreamBadgeGetValidBadges(ctx, streamer)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamBetaGetStatus(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamBetaGetStatus")
+	defer span.End()
+	did := c.QueryParam("did")
+	feature := c.QueryParam("feature")
+	var out *placestream.BetaGetStatus_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamBetaGetStatus(ctx context.Context,did string,feature string) (*placestream.BetaGetStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamBetaGetStatus(ctx, did, feature)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -499,6 +524,32 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
 	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamGetLikes(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGetLikes")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	subject := c.QueryParam("subject")
+	var out *placestream.GetLikes_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamGetLikes(ctx context.Context,cursor string,limit int,subject string) (*placestream.GetLikes_Output, error)
+	out, handleErr = s.handlePlaceStreamGetLikes(ctx, cursor, limit, subject)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -709,6 +760,20 @@ func (s *Server) HandlePlaceStreamMediaCreateUpload(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamMediaGetUploadStatus(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaGetUploadStatus")
+	defer span.End()
+	uploadId := c.QueryParam("uploadId")
+	var out *placestream.MediaGetUploadStatus_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context,uploadId string) (*placestream.MediaGetUploadStatus_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaGetUploadStatus(ctx, uploadId)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamMediaGetVideo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaGetVideo")
 	defer span.End()
@@ -717,6 +782,50 @@ func (s *Server) HandlePlaceStreamMediaGetVideo(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamMediaGetVideo(ctx context.Context,uri string) (*placestream.MediaGetVideo_VideoView, error)
 	out, handleErr = s.handlePlaceStreamMediaGetVideo(ctx, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaGetVideoList(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaGetVideoList")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 25
+	}
+	repo := c.QueryParam("repo")
+	var out *placestream.MediaGetVideoList_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,cursor string,limit int,repo string) (*placestream.MediaGetVideoList_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaGetVideoList(ctx, cursor, limit, repo)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaPublishVideo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaPublishVideo")
+	defer span.End()
+
+	var body placestream.MediaPublishVideo_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaPublishVideo_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context,body *placestream.MediaPublishVideo_Input) (*placestream.MediaPublishVideo_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaPublishVideo(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -777,6 +886,24 @@ func (s *Server) HandlePlaceStreamModerationCreatePin(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamModerationCreateVodGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateVodGate")
+	defer span.End()
+
+	var body placestream.ModerationCreateVodGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreateVodGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context,body *placestream.ModerationCreateVodGate_Input) (*placestream.ModerationCreateVodGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreateVodGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamModerationDeleteBlock(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteBlock")
 	defer span.End()
@@ -825,6 +952,24 @@ func (s *Server) HandlePlaceStreamModerationDeletePin(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context,body *placestream.ModerationDeletePin_Input) (*placestream.ModerationDeletePin_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationDeletePin(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeleteVodGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteVodGate")
+	defer span.End()
+
+	var body placestream.ModerationDeleteVodGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeleteVodGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context,body *placestream.ModerationDeleteVodGate_Input) (*placestream.ModerationDeleteVodGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeleteVodGate(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -926,6 +1071,39 @@ func (s *Server) HandlePlaceStreamMultistreamPutTarget(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetLivePlaylist(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLivePlaylist")
+	defer span.End()
+	sid := c.QueryParam("sid")
+	streamer := c.QueryParam("streamer")
+	track := c.QueryParam("track")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetLivePlaylist(ctx context.Context,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLivePlaylist(ctx, sid, streamer, track)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetLiveSegment")
+	defer span.End()
+	seg := c.QueryParam("seg")
+	sid := c.QueryParam("sid")
+	streamer := c.QueryParam("streamer")
+	track := c.QueryParam("track")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handlePlaceStreamPlaybackGetLiveSegment(ctx context.Context,seg string,sid string,streamer string,track string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackGetLiveSegment(ctx, seg, sid, streamer, track)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1163,6 +1341,32 @@ func (s *Server) HandlePlaceStreamServerUpsertStorage(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context,body *placestream.ServerUpsertStorage_Input) (*placestream.ServerUpsertStorage_Output, error)
 	out, handleErr = s.handlePlaceStreamServerUpsertStorage(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetComments")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	video := c.QueryParam("video")
+	var out *placestream.VodGetComments_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit int,video string) (*placestream.VodGetComments_Output, error)
+	out, handleErr = s.handlePlaceStreamVodGetComments(ctx, cursor, limit, video)
 	if handleErr != nil {
 		return handleErr
 	}

@@ -210,8 +210,6 @@ export function MobileUi({
                 >
                   <LeftControlsPanel
                     navigation={navigation}
-                    profile={profile}
-                    avatars={avatars}
                     onCollapse={onCollapse}
                     muted={muted}
                     setMuted={setMuted}
@@ -381,11 +379,9 @@ function LeftControlsPanel({
           >
             <Image
               source={
-                avatars[profile?.did]
-                  ? avatars[profile?.did]?.avatar
-                  : require("assets/images/goose.png")
+                avatar ? { uri: avatar } : require("assets/images/goose.png")
               }
-              key={profile?.did}
+              key={profile?.did || "no-profile"}
               style={[
                 {
                   width: 36,

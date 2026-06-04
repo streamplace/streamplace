@@ -55,14 +55,10 @@ export function AccountCategorySettings() {
             width="min"
             variant="secondary"
             onPress={() => {
-              if (navigation.canGoBack()) {
-                navigation.goBack();
-              } else {
-                const params = convertNavigationParams({
-                  screen: "MainSettings",
-                });
-                navigation.navigate(params.screen as any, params.params);
-              }
+              const params = convertNavigationParams({
+                screen: "MainSettings",
+              });
+              navigation.navigate(params.screen as any, params.params);
             }}
           >
             {tn("go-back")}

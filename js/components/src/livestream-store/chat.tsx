@@ -151,11 +151,35 @@ export const useCreateChatMessage = () => {
     state = reduceChat(state, [localChat], [], []);
     store.setState(state);
 
-    await pdsAgent.com.atproto.repo.createRecord({
-      repo: userDID,
-      collection: "place.stream.chat.message",
-      record,
-    });
+    try {
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: userDID,
+        collection: "place.stream.chat.message",
+        record,
+      });
+    } catch (err) {
+      // Remove the optimistic message if the server call fails
+      const currentState = store.getState();
+      const updatedIndex = { ...currentState.chatIndex };
+      for (const [key, existingMsg] of Object.entries(updatedIndex)) {
+        if (existingMsg.uri === localChat.uri) {
+          delete updatedIndex[key];
+          break;
+        }
+      }
+      store.setState({
+        ...currentState,
+        chatIndex: updatedIndex,
+        chat: Object.keys(updatedIndex)
+          .sort((a, b) => {
+            const aTime = parseInt(a.split("-")[0], 10);
+            const bTime = parseInt(b.split("-")[0], 10);
+            return bTime - aTime;
+          })
+          .map((key) => updatedIndex[key]),
+      });
+      throw err;
+    }
   };
 };
 

@@ -1,12 +1,15 @@
-import { VideoProvider, View, VodPlayer, zero } from "@streamplace/components";
+import {
+  LivestreamProvider,
+  VideoProvider,
+  View,
+  VodPlayer,
+  zero,
+} from "@streamplace/components";
 import { Redirect } from "components/aqlink";
+import { DesktopUi } from "components/mobile/desktop-ui";
 import { useEffect } from "react";
 import { useStore } from "store";
 
-// Chrome-less VOD player for iframe embeds (/embed/:user/video/:tid). Mirrors
-// the live EmbedScreen: hide the sidebar and render just the minimal
-// <VodPlayer> (expo-video's native controls handle play/scrub) with no back
-// button or surrounding metadata.
 export default function VodEmbedScreen({
   route,
 }: {
@@ -29,9 +32,13 @@ export default function VodEmbedScreen({
 
   return (
     <VideoProvider aturi={aturi}>
-      <View style={[zero.flex.values[1], { backgroundColor: "#000" }]}>
-        <VodPlayer src={aturi} />
-      </View>
+      <LivestreamProvider src={aturi}>
+        <View style={[zero.flex.values[1], { backgroundColor: "#000" }]}>
+          <VodPlayer src={aturi} embedded={true}>
+            <DesktopUi />
+          </VodPlayer>
+        </View>
+      </LivestreamProvider>
     </VideoProvider>
   );
 }

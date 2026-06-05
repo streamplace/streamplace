@@ -5,8 +5,7 @@ import { usePlayerStore } from "../../../player-store";
 
 const TRACK_HEIGHT = 3;
 const THUMB_SIZE = 14;
-// A tall, invisible touch strip so the thin bar is easy to grab/drag.
-const TOUCH_HEIGHT = 28;
+const TOUCH_HEIGHT = 16;
 
 // Native VOD scrub bar. The old implementation leaned on @rn-primitives/slider
 // driven by web pointer events (onPointerUp/onPointerEnter), which never fire
@@ -64,7 +63,7 @@ export function SeekBar() {
   const bufferedPct = Math.max(0, Math.min(1, bufferedEnd / duration)) * 100;
 
   return (
-    <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}>
+    <View style={{ paddingHorizontal: 16, paddingTop: 2, marginBottom: -2 }}>
       <GestureDetector gesture={gesture}>
         <View
           onLayout={(e: LayoutChangeEvent) =>

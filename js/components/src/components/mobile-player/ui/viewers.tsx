@@ -29,7 +29,6 @@ export function DehydratedViewers({
         atoms.layout.flex.center,
         atoms.layout.flex.row,
         atoms.gap.all[2],
-        atoms.px[1],
       ]}
     >
       <Eye color={color} />

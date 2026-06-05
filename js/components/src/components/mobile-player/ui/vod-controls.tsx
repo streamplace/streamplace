@@ -1,8 +1,8 @@
 import { Gauge, Pause, Play } from "lucide-react-native";
 import { Pressable } from "react-native";
+import { zero } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerStatus, usePlayerStore } from "../../../player-store";
-
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -15,6 +15,16 @@ import {
   View,
 } from "../../ui";
 
+function formatTime(seconds: number): string {
+  const s = Math.floor(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (h > 0) return `${h}:${pad(m)}:${pad(sec)}`;
+  return `${m}:${pad(sec)}`;
+}
+
 export function VodControls() {
   const mode = usePlayerStore((x) => x.mode);
   const status = usePlayerStore((x) => x.status);
@@ -26,6 +36,9 @@ export function VodControls() {
   const renditions = mode === "vod" ? vodLevels : liveRenditions;
   const th = useTheme();
 
+  const playTime = usePlayerStore((x) => x.playTime);
+  const duration = usePlayerStore((x) => x.duration);
+
   if (mode !== "vod") return null;
 
   const isPlaying = status === PlayerStatus.PLAYING;
@@ -36,7 +49,7 @@ export function VodControls() {
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 16,
-        paddingVertical: 4,
+        paddingVertical: 10,
         gap: 12,
       }}
     >
@@ -55,6 +68,11 @@ export function VodControls() {
           />
         )}
       </Pressable>
+      <View style={[zero.layout.flex.row, zero.gap.all[1]]}>
+        <Text>{formatTime(playTime)}</Text>
+        <Text>/</Text>
+        <Text>{formatTime(duration)}</Text>
+      </View>
 
       <View style={{ flex: 1 }} />
 

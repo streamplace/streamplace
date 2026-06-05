@@ -8,6 +8,7 @@ import {
   useAvatar,
   useCameraToggle,
   useLivestreamStore,
+  useTitle,
   zero,
 } from "@streamplace/components";
 import { Image } from "expo-image";
@@ -47,6 +48,8 @@ export function TopControlBar({
   const { width } = useWindowDimensions();
   const isTinyScreen = width < 450;
   const isSmallScreen = width < 600;
+
+  const title = useTitle();
 
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
@@ -103,13 +106,9 @@ export function TopControlBar({
                   ]}
                 />
 
-                <View style={[layout.flex.column, gap.all[1]]}>
-                  <Text
-                    style={[text.white, { fontSize: 16, fontWeight: "600" }]}
-                  >
-                    {profile?.handle}
-                  </Text>
-                  {!offline && <LiveBubble />}
+                <View style={[layout.flex.column]}>
+                  <Text weight="semibold">{title}</Text>
+                  <Text leading="tight">{profile?.handle}</Text>
                 </View>
               </View>
             </View>

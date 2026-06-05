@@ -7,11 +7,16 @@ const SETTINGS_SCREENS = [
   "BackupSettings",
   "StreamingCategory",
   "WebhooksSettings",
+  "RecommendationsSettings",
   "PrivacyCategory",
   "DanmuCategory",
   "AdvancedCategory",
   "LanguagesCategory",
+  "MultistreamCategory",
   "KeyManagement",
+  "BadgeSelection",
+  "BadgeIssuer",
+  "BrandingAdmin",
 ];
 
 // Screens that are in the HomeTab stack
@@ -37,8 +42,6 @@ export const ROOT_SCREENS = [
   "Embed",
   "InfoWidgetEmbed",
   "DanmuOBS",
-  "AVSync",
-  "LegacyStream",
   "Video",
   "Vod",
   "VodEmbed",

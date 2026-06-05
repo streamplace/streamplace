@@ -455,12 +455,17 @@ export function PlayerInner(
             aspectRatio: vodAspectRatio,
             // Cap so a landscape video fits (letterboxed via objectFit:contain)
             // instead of clipping; flexShrink:0 keeps it from collapsing.
-            maxHeight: winHeight * 0.7,
+            maxHeight: isLandscape ? winHeight : winHeight * 0.7,
+            // center the video horizontally when in landscape since it won't fill the full width
+            marginHorizontal: isLandscape
+              ? (winWidth - Math.min(winWidth, winHeight * vodAspectRatio)) / 2
+              : 0,
             flexShrink: 0,
           }}
         >
           {videoContent}
         </Reanimated.View>
+        {/* will get pushed below the video if landscape so probably fine? */}
         <VodSection scrollDescription />
       </View>
     );

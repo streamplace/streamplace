@@ -82,7 +82,7 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  let [showChat, setShowChat] = useState(props.mode != "vod");
+  let [showChat, setShowChat] = useState(true);
   if (props.mode === "vod") {
     showChat = false;
   }

@@ -215,6 +215,12 @@ build-desktop-darwin:
   interruptible: true
   image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   needs:
+    # The linux build jobs upload the .deb / .tar.gz files that the release
+    # jobs download from the package registry, so they must finish first.
+    # They used to be pulled in transitively via the build-docker-* jobs;
+    # those were removed, so depend on them directly to avoid a download race.
+    - build-linux-amd64
+    - build-linux-arm64
     - build-darwin-amd64
     - build-darwin-arm64
     - build-android-debug

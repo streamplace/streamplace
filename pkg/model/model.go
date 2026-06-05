@@ -48,6 +48,7 @@ type Model interface {
 	GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowingUser(ctx context.Context, userDID, subjectDID string) (*Follow, error)
+	CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 
 	CreateFeedPost(ctx context.Context, post *FeedPost) error

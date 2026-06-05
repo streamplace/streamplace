@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -72,11 +73,65 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 }
 
 var replicationUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024 * 1024 * 10, // 10MB
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+const (
+	scoreViewerWeight   = 10
+	scoreFollowerWeight = 1
+	scoreFollowBoost    = 1000
+)
+
+// getLiveStreamerScores returns a score map for all currently live streamers.
+// Scores combine viewer count and follower count, with a boost for streamers
+// the requesting user follows. Results are cached for 30s per userDID.
+func (s *Server) getLiveStreamerScores(ctx context.Context, userDID string) (map[string]float64, error) {
+	cacheKey := userDID
+	if cacheKey == "" {
+		cacheKey = "_anon"
+	}
+	if cached, found := s.ScoreCache.Get(cacheKey); found {
+		return cached.(map[string]float64), nil
+	}
+
+	segs, err := s.localDB.MostRecentSegments()
+	if err != nil {
+		return nil, err
+	}
+	dids := make([]string, len(segs))
+	for i, seg := range segs {
+		dids[i] = seg.RepoDID
+	}
+
+	followerCounts, err := s.model.CountFollowersBatch(ctx, dids)
+	if err != nil {
+		return nil, err
+	}
+
+	var followedSet map[string]bool
+	if userDID != "" {
+		follows, err := s.model.GetUserFollowing(ctx, userDID)
+		if err == nil {
+			followedSet = make(map[string]bool, len(follows))
+			for _, f := range follows {
+				followedSet[f.SubjectDID] = true
+			}
+		}
+	}
+
+	scores := make(map[string]float64, len(dids))
+	for _, did := range dids {
+		viewers := float64(s.bus.GetViewerCount(did))
+		followers := float64(followerCounts[did])
+		score := viewers*scoreViewerWeight + followers*scoreFollowerWeight
+		if followedSet != nil && followedSet[did] {
+			score += scoreFollowBoost
+		}
+		scores[did] = score
+	}
+
+	s.ScoreCache.SetDefault(cacheKey, scores)
+	return scores, nil
 }
 
 func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before string, limit int, userDID string) (*placestream.LiveGetSegments_Output, error) {
@@ -155,12 +210,86 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestream.LiveGetLiveUsers_Output, error) {
-	// Check cache first
-	cacheKey := fmt.Sprintf("live_users_%s_%d", before, limit)
+	// Extract echo context for query params
+	ec, _ := ctx.Value(echoContextKey).(echo.Context)
+	sortMode := "ranked"
+	if ec != nil {
+		if p := ec.QueryParam("sort"); p != "" {
+			sortMode = p
+		}
+	}
+
+	// Get optional user DID for personalized scoring
+	var userDID string
+	sess, _ := oatproxy.GetOAuthSession(ctx)
+	if sess != nil {
+		userDID = sess.DID
+	}
+
+	// Cache key includes sort mode and user for personalized results
+	cacheKey := fmt.Sprintf("live_users_%s_%s_%d", sortMode, userDID, limit)
 	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
 		return cached.(*placestream.LiveGetLiveUsers_Output), nil
 	}
 
+	if sortMode == "latest" {
+		return s.getLiveUsersLatest(ctx, before, limit, cacheKey)
+	}
+	return s.getLiveUsersRanked(ctx, limit, userDID, cacheKey)
+}
+
+// getLiveUsersRanked returns live streams sorted by a score combining viewer
+// count, follower count, and follow-relationship boost.
+func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID string, cacheKey string) (*placestream.LiveGetLiveUsers_Output, error) {
+	scores, err := s.getLiveStreamerScores(ctx, userDID)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to compute stream scores")
+	}
+
+	dids := make([]string, 0, len(scores))
+	for did := range scores {
+		dids = append(dids, did)
+	}
+	slices.SortStableFunc(dids, func(a, dids_b string) int {
+		sa, sb := scores[a], scores[dids_b]
+		if sa > sb {
+			return -1
+		}
+		if sa < sb {
+			return 1
+		}
+		return 0
+	})
+	if len(dids) > limit {
+		dids = dids[:limit]
+	}
+
+	ls, err := s.model.GetLatestLivestreams(limit, nil, dids)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
+	}
+
+	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
+	for i, l := range ls {
+		stream, err := l.ToLivestreamView()
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
+		}
+		stream.ViewerCount = &placestream.Livestream_ViewerCount{
+			LexiconTypeID: "place.stream.livestream#viewerCount",
+			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
+		}
+		streams[i] = stream
+	}
+
+	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
+	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
+	return liveUsers, nil
+}
+
+// getLiveUsersLatest returns live streams ordered by start time (newest first).
+// Used for moderation tooling.
+func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit int, cacheKey string) (*placestream.LiveGetLiveUsers_Output, error) {
 	var beforeTime *time.Time
 	if before != "" {
 		parsedTime, err := time.Parse(time.RFC3339, before)
@@ -183,27 +312,20 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	}
 
 	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
-
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
 		}
-		viewers := s.bus.GetViewerCount(stream.Author.Did)
 		stream.ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
-			Count:         int64(viewers),
+			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
 		}
 		streams[i] = stream
 	}
 
-	liveUsers := &placestream.LiveGetLiveUsers_Output{
-		Streams: streams,
-	}
-
-	// Cache the result
+	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
 	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
-
 	return liveUsers, nil
 }
 

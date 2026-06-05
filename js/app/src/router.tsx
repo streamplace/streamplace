@@ -193,9 +193,7 @@ export const AvatarButton = () => {
   if (userProfile) {
     source = { uri: userProfile.avatar };
     return (
-      <AQLink
-        to={{ screen: "SettingsTab", params: { screen: "AccountCategory" } }}
-      >
+      <AQLink to={{ screen: "AccountCategory" }}>
         <ImageBackground
           key={source?.uri ?? "default"}
           source={source}

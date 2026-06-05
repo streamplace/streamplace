@@ -359,13 +359,17 @@ export function ChatBox({
           console.error("Slash command error:", result.error);
         }
       } else {
-        createChatMessage({
+        await createChatMessage({
           text: messageText,
           reply: replyTo || undefined,
         });
       }
     } catch (err) {
       console.error("Error submitting message:", err);
+      toast.show("Failed to send message", "Please try again.", {
+        variant: "error",
+        duration: 3,
+      });
     } finally {
       setSubmitting(false);
     }

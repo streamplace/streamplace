@@ -196,15 +196,24 @@ export function DesktopUi({
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
+  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
+
+  const handleSingleClick = useCallback(() => {
+    togglePlayPause();
+  }, [togglePlayPause]);
+
   const handleDoubleClick = useCallback(() => {
     toggleFullscreen();
   }, [toggleFullscreen]);
+
+  const singleTap = Gesture.Tap().onEnd(() => runOnJS(handleSingleClick)());
 
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd(() => runOnJS(handleDoubleClick)());
 
-  const hoverAndTap = Gesture.Race(hover, doubleTap);
+  const tap = Gesture.Exclusive(doubleTap, singleTap);
+  const hoverAndTap = Gesture.Race(hover, tap);
 
   const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 

@@ -190,7 +190,6 @@ export function NativeVideo(props?: {
         "playingChange",
         "sourceChange",
         "statusChange",
-        "volumeChange",
       ] as (keyof VideoPlayerEvents)[]
     ).map((evType) => {
       return player.addListener(evType, (...args) => {
@@ -203,6 +202,25 @@ export function NativeVideo(props?: {
       });
     });
 
+    let prevVolume: number | null = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    subs.push(
+      player.addListener("volumeChange", (...args) => {
+        const currentVolume = player.volume;
+        if (prevVolume === null) {
+          prevVolume = currentVolume;
+        }
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          playerEvent(spurl, new Date().toISOString(), "volumechange", {
+            prev: prevVolume,
+            current: currentVolume,
+          });
+          prevVolume = null;
+        }, 2500);
+      }),
+    );
+
     subs.push(
       player.addListener("playingChange", ({ isPlaying }) => {
         if (isPlaying) {
@@ -214,6 +232,7 @@ export function NativeVideo(props?: {
     );
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       for (const sub of subs) {
         sub.remove();
       }

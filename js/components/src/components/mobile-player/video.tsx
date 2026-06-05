@@ -162,6 +162,34 @@ const VideoElement = forwardRef<
     console.log("Sending", evType, "status to", url);
     playerEvent(url, now.toISOString(), evType, {});
   };
+
+  // debounce volume change events to avoid spamming the stats endpoint
+  const prevVolumeRef = useRef<number | null>(null);
+  const volumeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (volumeDebounceRef.current) clearTimeout(volumeDebounceRef.current);
+    };
+  }, []);
+  const handleVolumeChange = useCallback(
+    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      const currentVolume = (e.target as HTMLVideoElement).volume;
+      if (prevVolumeRef.current === null) {
+        prevVolumeRef.current = currentVolume;
+      }
+      if (volumeDebounceRef.current) {
+        clearTimeout(volumeDebounceRef.current);
+      }
+      volumeDebounceRef.current = setTimeout(() => {
+        playerEvent(url, new Date().toISOString(), "volumechange", {
+          prev: prevVolumeRef.current,
+          current: currentVolume,
+        });
+        prevVolumeRef.current = null;
+      }, 2500);
+    },
+    [playerEvent, url],
+  );
   const [firstAttempt, setFirstAttempt] = useState(true);
   const setAutoplayFailed = usePlayerStore((x) => x.setAutoplayFailed);
 
@@ -313,7 +341,7 @@ const VideoElement = forwardRef<
           setBufferedEnd(el.buffered.end(el.buffered.length - 1));
         }
       }}
-      onVolumeChange={event("volumechange")}
+      onVolumeChange={handleVolumeChange}
       onWaiting={event("waiting")}
       style={{
         objectFit: props.objectFit || "contain",

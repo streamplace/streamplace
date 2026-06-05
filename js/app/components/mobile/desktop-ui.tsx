@@ -1,4 +1,5 @@
 import {
+  PlayerStatus,
   PlayerUI,
   PortalHost,
   Toast,
@@ -26,6 +27,7 @@ import {
   MuteOverlay,
   TopControlBar,
 } from "./desktop-ui/index";
+import { PlayPauseIndicator } from "./desktop-ui/play-pause-indicator";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { h, layout, position, w, px, py, r, p } = zero;
@@ -72,6 +74,7 @@ export function DesktopUi({
   const fullscreen = usePlayerStore((state) => state.fullscreen);
   const setFullscreen = usePlayerStore((state) => state.setFullscreen);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
+  const status = usePlayerStore((state) => state.status);
 
   const safeAreaInsets = embedded
     ? { ...originalSafeAreaInsets, top: 0 }
@@ -96,12 +99,13 @@ export function DesktopUi({
 
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
+    if (status === PlayerStatus.PAUSE) return;
 
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
       setIsControlsVisible(false);
     }, FADE_OUT_DELAY);
-  }, [fadeOpacity, selectedRendition, ingest]);
+  }, [fadeOpacity, selectedRendition, ingest, status]);
 
   const onPlayerHover = useCallback(() => {
     resetFadeTimer();
@@ -225,8 +229,8 @@ export function DesktopUi({
           collapsable={false}
         >
           <MuteOverlay />
-          <PlayerUI.AutoplayButton />
           <PlayerUI.ViewerLoadingOverlay />
+          <PlayPauseIndicator />
           <Animated.View
             style={[
               layout.position.absolute,
@@ -272,31 +276,6 @@ export function DesktopUi({
               </Animated.View>
             </View>
           )}
-
-          <Animated.View
-            style={[
-              layout.position.absolute,
-              position.bottom[0],
-              w.percent[100],
-              animatedFadeStyle,
-            ]}
-          >
-            <AnimatedGradient
-              fromColor="#00000080"
-              toColor="#000000"
-              opacityColor1={0}
-            >
-              <BottomControlBar
-                ingest={ingest}
-                pipSupported={pipSupported}
-                pipActive={pipActive}
-                onHandlePip={handlePip}
-                dropdownPortalContainer={fullscreen && portalContainerID}
-                showChat={isChatOpen || false}
-                setShowChat={setIsChatOpen || undefined}
-              />
-            </AnimatedGradient>
-          </Animated.View>
 
           {isSelfAndNotLive && (
             <PlayerUI.InputPanel
@@ -344,6 +323,33 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
+      <Animated.View
+        style={[
+          layout.position.absolute,
+          position.bottom[0],
+          w.percent[100],
+          { zIndex: 999 },
+          animatedFadeStyle,
+          // no clickthrough
+          { pointerEvents: isControlsVisible ? "auto" : "none" },
+        ]}
+      >
+        <AnimatedGradient
+          fromColor="#00000080"
+          toColor="#000000"
+          opacityColor1={0}
+        >
+          <BottomControlBar
+            ingest={ingest}
+            pipSupported={pipSupported}
+            pipActive={pipActive}
+            onHandlePip={handlePip}
+            dropdownPortalContainer={fullscreen && portalContainerID}
+            showChat={isChatOpen || false}
+            setShowChat={setIsChatOpen || undefined}
+          />
+        </AnimatedGradient>
+      </Animated.View>
       {fullscreen && <PortalHost name={portalContainerID} />}
     </>
   );

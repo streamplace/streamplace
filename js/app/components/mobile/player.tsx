@@ -82,18 +82,18 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  let [showChat, setShowChat] = useState(props.mode === "live");
+  let [showChat, setShowChat] = useState(props.mode != "vod");
   if (props.mode === "vod") {
     showChat = false;
   }
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { top: safeTop } = useSafeAreaInsets();
+  let { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
+  // if the screen is portrait and video is landscaps
   const isPortraitLandscapeCase =
-    Platform.OS !== "web" &&
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&
@@ -176,9 +176,7 @@ function PlayerWithProvider(
     chatSection = (
       <>
         <MobileUi hideMobileChat={true} showChat />
-        {!showUnavailable && (
-          <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
-        )}
+        <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
       </>
     );
   } else if (shouldShowChatSidePanel) {
@@ -233,7 +231,6 @@ function PlayerWithProvider(
               <Text>Back</Text>
             </View>
           </Button>
-          {chatSection}
         </View>
       </View>
     );
@@ -263,7 +260,10 @@ function PlayerWithProvider(
                 flex: 1,
                 width: "100%",
                 height: "100%",
-                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
+                paddingTop:
+                  isPortraitLandscapeCase && Platform.OS != "web"
+                    ? 54
+                    : undefined,
               },
             ]}
           >

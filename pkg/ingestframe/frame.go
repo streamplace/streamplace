@@ -38,6 +38,11 @@ const (
 	// on the socket; main reads it and returns it to the WHIP client before
 	// consuming segments. Payload: the answer SDP.
 	Answer Type = 4
+	// Event carries a worker status update (UTF-8 JSON) on the reverse channel.
+	// The RTMP push worker uses it to report multistream status (e.g. "active"
+	// with bytes acked) back to main, which writes it to the DB — the worker has
+	// no DB access of its own. Payload: JSON {status, message}.
+	Event Type = 5
 )
 
 func (t Type) String() string {
@@ -50,6 +55,8 @@ func (t Type) String() string {
 		return "error"
 	case Answer:
 		return "answer"
+	case Event:
+		return "event"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(t))
 	}
@@ -113,6 +120,9 @@ func (fw *Writer) Error(msg string) error { return fw.WriteFrame(Error, []byte(m
 
 // Answer frames the WHIP SDP answer (emitted first, before any segments).
 func (fw *Writer) Answer(sdp string) error { return fw.WriteFrame(Answer, []byte(sdp)) }
+
+// Event frames a worker status update (JSON payload).
+func (fw *Writer) Event(payload []byte) error { return fw.WriteFrame(Event, payload) }
 
 // Reader decodes frames from an underlying stream.
 type Reader struct {

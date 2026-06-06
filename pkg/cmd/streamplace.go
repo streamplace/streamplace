@@ -77,6 +77,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeVODTestCommand(build),
 		makeStreamCommand(build),
 		makeIngestWorkerCommand(build),
+		makeRTMPPushWorkerCommand(build),
 		makeLiveCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
@@ -919,6 +920,56 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 				return err
 			}
 			return frames.End()
+		},
+	}
+}
+
+// makeRTMPPushWorkerCommand is the per-target isolated multistream egress
+// worker. The node spawns it; it is not meant for direct use. It reads the
+// config handshake (incl. the target URL + stream key) from fd 3, the assembled
+// fMP4 source stream from stdin, runs the native RTMP push pipeline, and writes
+// status Event frames to fd 4 — dedicated fds so stray stdout/stderr can't
+// corrupt the frame stream. A clean run ends with an End frame; a fatal error
+// emits an Error frame before exiting non-zero.
+func makeRTMPPushWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:      "rtmp-push-worker",
+		Usage:     "internal: per-target isolated RTMP push worker (spawned by the node)",
+		ArgsUsage: "[streamer-did]",
+		Hidden:    true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			// The streamer DID is passed on argv purely so the worker is
+			// identifiable in a process listing (ps); the target URL stays on fd 3.
+			if did := cmd.Args().First(); did != "" {
+				ctx = log.WithLogValues(ctx, "streamer", did)
+				log.Log(ctx, "rtmp-push-worker starting")
+			}
+			cfgFile := os.NewFile(3, "push-config")
+			if cfgFile == nil {
+				return fmt.Errorf("rtmp-push-worker: missing config fd 3")
+			}
+			cfgBytes, err := io.ReadAll(cfgFile)
+			cfgFile.Close()
+			if err != nil {
+				return fmt.Errorf("rtmp-push-worker: read config: %w", err)
+			}
+			var cfg media.RTMPPushWorkerConfig
+			if err := json.Unmarshal(cfgBytes, &cfg); err != nil {
+				return fmt.Errorf("rtmp-push-worker: parse config: %w", err)
+			}
+
+			eventsFile := os.NewFile(4, "push-events")
+			if eventsFile == nil {
+				return fmt.Errorf("rtmp-push-worker: missing events fd 4")
+			}
+			defer eventsFile.Close()
+			events := ingestframe.NewWriter(eventsFile)
+
+			if err := media.RunRTMPPushWorker(ctx, cfg, os.Stdin, events); err != nil {
+				_ = events.Error(err.Error())
+				return err
+			}
+			return events.End()
 		},
 	}
 }

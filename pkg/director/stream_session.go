@@ -953,7 +953,15 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 
 func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
 	for {
-		err := ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
+		// Under --isolated-ingest the crash-prone native egress pipeline runs in a
+		// worker subprocess (a gst fault there can't take the node down); otherwise
+		// it runs in-process. The on/off + status flow is identical either way.
+		var err error
+		if ss.cli.IsolatedIngest {
+			err = ss.mm.RTMPPushIsolated(ctx, ss.repoDID, "source", targetView)
+		} else {
+			err = ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
+		}
 		if err != nil {
 			log.Error(ctx, "failed to push to RTMP server", "error", err)
 			err := ss.statefulDB.CreateMultistreamEvent(targetView.Uri, err.Error(), "error")

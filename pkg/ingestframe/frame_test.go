@@ -24,6 +24,7 @@ func TestRoundTrip(t *testing.T) {
 	require.NoError(t, w.Segment([]byte("seg-one")))
 	require.NoError(t, w.Segment(nil)) // zero-length segment is legal
 	require.NoError(t, w.Segment(big))
+	require.NoError(t, w.Event([]byte(`{"status":"active","message":"wrote 1234 bytes"}`)))
 	require.NoError(t, w.Error("something broke"))
 	require.NoError(t, w.End())
 
@@ -40,6 +41,7 @@ func TestRoundTrip(t *testing.T) {
 	assertFrame(Segment, []byte("seg-one"))
 	assertFrame(Segment, nil)
 	assertFrame(Segment, big)
+	assertFrame(Event, []byte(`{"status":"active","message":"wrote 1234 bytes"}`))
 	assertFrame(Error, []byte("something broke"))
 	assertFrame(End, nil)
 

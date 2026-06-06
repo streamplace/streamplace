@@ -54,6 +54,9 @@ func TestMain(m *testing.M) {
 	if len(os.Args) > 1 && os.Args[1] == "ingest-worker" {
 		os.Exit(runIngestWorkerHelper())
 	}
+	if len(os.Args) > 1 && os.Args[1] == "rtmp-push-worker" {
+		os.Exit(runRTMPPushWorkerHelper())
+	}
 	if os.Getenv(IgnoreLeaks) != "" {
 		gstinit.InitGST()
 		os.Exit(m.Run())

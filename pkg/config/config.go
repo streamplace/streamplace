@@ -232,7 +232,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			&urfavecli.BoolFlag{
 				Name:        "isolated-ingest",
 				Usage:       "Run each MKV/RTMP-push ingest in an isolated worker subprocess (fault isolation)",
-				Value:       false,
+				Value:       true,
 				Destination: &cli.IsolatedIngest,
 				Sources:     urfavecli.EnvVars("SP_ISOLATED_INGEST"),
 			},

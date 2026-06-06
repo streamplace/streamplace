@@ -94,7 +94,9 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
 		}
 		connectedOnce = true
-		sawEnd, _ := mm.consumeWorkerFrames(ctx, conn, streamer, onSegment, nil)
+		// Fresh Reader per connection: a reconnect is a new stream where the worker
+		// replays its buffer from the start.
+		sawEnd, _ := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(conn), streamer, onSegment, nil)
 		conn.Close()
 		if sawEnd {
 			return nil
@@ -192,10 +194,11 @@ func dialWorkerSocket(ctx context.Context, socketPath string) (net.Conn, error) 
 	}
 }
 
-// readWHIPAnswer reads frames on conn until the worker's Answer frame and returns
-// its SDP. An Error/End/EOF before the answer is a setup failure.
-func readWHIPAnswer(conn net.Conn) (string, error) {
-	fr := ingestframe.NewReader(conn)
+// readWHIPAnswer reads frames until the worker's Answer frame and returns its
+// SDP. An Error/End/EOF before the answer is a setup failure. It reads through
+// the caller's Reader so the same decoder (and its buffered read-ahead) carries
+// on to the segment stream.
+func readWHIPAnswer(fr *ingestframe.Reader) (string, error) {
 	for {
 		typ, payload, err := fr.ReadFrame()
 		if err != nil {
@@ -248,10 +251,14 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 		_ = proc.Kill()
 		return "", fmt.Errorf("connect to whip worker: %w", err)
 	}
+	// One Reader owns this connection for its whole lifetime: the streaming CBOR
+	// decoder reads ahead, so the Answer and the segments that follow must come
+	// through the SAME Reader (a second one would lose buffered read-ahead).
+	fr := ingestframe.NewReader(conn)
 	if dl, ok := answerCtx.Deadline(); ok {
 		_ = conn.SetReadDeadline(dl)
 	}
-	answer, err := readWHIPAnswer(conn)
+	answer, err := readWHIPAnswer(fr)
 	if err != nil {
 		conn.Close()
 		_ = proc.Kill()
@@ -262,7 +269,7 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	// Consume the signed segments in the background; the HTTP handler returns the
 	// answer now and the WebRTC media establishes directly to the worker.
 	go func() {
-		sawEnd, _ := mm.consumeWorkerFrames(ctx, conn, ms.Streamer(), mm.validateSegment(ctx), nil)
+		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
 		conn.Close()
 		if !sawEnd && ctx.Err() == nil {
 			// Connection dropped but the detached worker lives on — reconnect and

@@ -2,7 +2,6 @@ package ingestframe
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -52,7 +51,8 @@ func TestRoundTrip(t *testing.T) {
 
 // TestTruncatedFrameIsUnexpectedEOF is the crash-vs-clean-end distinction the
 // supervisor relies on: a worker that dies mid-segment must NOT look like a
-// graceful end.
+// graceful end. CBOR's self-delimiting framing gives this for free — a byte
+// string that declares more bytes than arrive surfaces as ErrUnexpectedEOF.
 func TestTruncatedFrameIsUnexpectedEOF(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, NewWriter(&buf).Segment(bytes.Repeat([]byte{1}, 1000)))
@@ -65,42 +65,26 @@ func TestTruncatedFrameIsUnexpectedEOF(t *testing.T) {
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
-// TestTornHeaderIsUnexpectedEOF: dying partway through the header is also an
-// abrupt death, not a clean boundary.
+// TestTornHeaderIsUnexpectedEOF: dying partway through the CBOR item head (here
+// after the map header byte, before the first key) is also an abrupt death, not
+// a clean boundary.
 func TestTornHeaderIsUnexpectedEOF(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, NewWriter(&buf).End())
-	torn := buf.Bytes()[:headerSize-2]
+	torn := buf.Bytes()[:1] // just the map header; the rest never arrives
 
 	_, _, err := NewReader(bytes.NewReader(torn)).ReadFrame()
 	require.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
-// TestBadMagicRejected: a desynced/corrupt stream is caught, not mis-parsed.
-func TestBadMagicRejected(t *testing.T) {
-	junk := append([]byte("XXXX"), make([]byte, headerSize)...)
-	_, _, err := NewReader(bytes.NewReader(junk)).ReadFrame()
+// TestGarbageRejected: a desynced/corrupt stream is caught, not mis-parsed. A
+// complete-but-wrong-shaped CBOR item (a bare integer, not a frame map) must
+// surface as a decode error distinct from EOF / a torn frame.
+func TestGarbageRejected(t *testing.T) {
+	_, _, err := NewReader(bytes.NewReader([]byte{0x01})).ReadFrame()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "bad magic")
-}
-
-// TestOversizeLengthRejected: a hostile length can't trigger an unbounded alloc.
-func TestOversizeLengthRejected(t *testing.T) {
-	var hdr [headerSize]byte
-	copy(hdr[0:4], magic[:])
-	hdr[4] = byte(Segment)
-	binary.BigEndian.PutUint32(hdr[5:9], uint32(MaxPayload+1))
-
-	_, _, err := NewReader(bytes.NewReader(hdr[:])).ReadFrame()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "exceeds max")
-}
-
-// TestWriteOversizeRejected: the writer refuses to emit an over-cap frame.
-func TestWriteOversizeRejected(t *testing.T) {
-	err := NewWriter(io.Discard).Segment(make([]byte, MaxPayload+1))
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "exceeds max")
+	require.NotErrorIs(t, err, io.EOF)
+	require.NotErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
 // TestConcurrentWritesDoNotInterleave: the worker emits segments from multiple

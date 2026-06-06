@@ -144,7 +144,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	defer watchdog.Stop()
 
 	// Read signed-segment frames and feed each into the normal chokepoint.
-	sawEnd, readErr := mm.consumeWorkerFrames(ctx, framesR, ms.Streamer(), mm.validateSegment(ctx), func() {
+	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), mm.validateSegment(ctx), func() {
 		watchdog.Reset(ingestWorkerWatchdog)
 	})
 	logsWG.Wait()
@@ -167,8 +167,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 // over each. It returns whether a clean End frame was seen and the terminal read
 // error: nil on a clean close (End then EOF), or io.ErrUnexpectedEOF / a desync
 // error when the worker died mid-frame.
-func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, r io.Reader, streamer string, onSegment func([]byte) error, onProgress func()) (sawEnd bool, _ error) {
-	fr := ingestframe.NewReader(r)
+func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe.Reader, streamer string, onSegment func([]byte) error, onProgress func()) (sawEnd bool, _ error) {
 	for {
 		typ, payload, err := fr.ReadFrame()
 		if err != nil {

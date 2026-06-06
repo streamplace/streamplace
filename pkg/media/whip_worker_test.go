@@ -86,7 +86,7 @@ func TestWHIPWorkerAnswersOffer(t *testing.T) {
 	require.NoError(t, derr)
 	defer conn.Close()
 
-	answerSDP, rerr := readWHIPAnswer(conn)
+	answerSDP, rerr := readWHIPAnswer(ingestframe.NewReader(conn))
 	require.NoError(t, rerr, "worker emits an SDP answer as its first frame")
 	require.Contains(t, answerSDP, "v=0", "valid SDP answer")
 
@@ -194,7 +194,11 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 	require.NoError(t, derr)
 	defer conn.Close()
 
-	answerSDP, rerr := readWHIPAnswer(conn)
+	// One Reader for the whole connection: the streaming decoder reads ahead, so
+	// the Answer and the segments after it must come through the same Reader (the
+	// production WHIP path does the same).
+	fr := ingestframe.NewReader(conn)
+	answerSDP, rerr := readWHIPAnswer(fr)
 	require.NoError(t, rerr)
 	require.NoError(t, clientPC.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: answerSDP}))
 
@@ -208,10 +212,9 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 
 	// Read signed segments; require at least one valid dual-codec one.
 	_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
-	r := ingestframe.NewReader(conn)
 	var segs int
 	for segs == 0 {
-		typ, payload, ferr := r.ReadFrame()
+		typ, payload, ferr := fr.ReadFrame()
 		require.NoError(t, ferr, "reading worker frames")
 		if typ != ingestframe.Segment {
 			continue

@@ -48,6 +48,15 @@ var LeakReportMutex sync.Mutex
 var LeakDoneCh = make(chan struct{})
 
 func TestMain(m *testing.M) {
+	// When the parent test re-execs us as an isolated ingest worker (mirroring the
+	// `streamplace ingest-worker` subcommand), act as that worker and exit — before
+	// any leak-tracer setup, so the child stays a clean media pipeline.
+	if len(os.Args) > 1 && os.Args[1] == "ingest-worker" {
+		os.Exit(runIngestWorkerHelper())
+	}
+	if len(os.Args) > 1 && os.Args[1] == "rtmp-push-worker" {
+		os.Exit(runRTMPPushWorkerHelper())
+	}
 	if os.Getenv(IgnoreLeaks) != "" {
 		gstinit.InitGST()
 		os.Exit(m.Run())

@@ -38,6 +38,7 @@ require (
 	github.com/golangci/golangci-lint/v2 v2.1.6
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/hyphacoop/go-dasl v0.8.0
 	github.com/ipfs/go-cid v0.5.0
 	github.com/ipfs/go-ipld-cbor v0.2.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
@@ -312,7 +313,6 @@ require (
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/hyphacoop/cbor/v2 v2.0.0-20251007204234-2a4fa83e606e // indirect
-	github.com/hyphacoop/go-dasl v0.8.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect

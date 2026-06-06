@@ -121,6 +121,25 @@ var FirehoseEventsDedupedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "firehose events dropped as cross-relay duplicates, by kind",
 }, []string{"kind"})
 
+// --- isolated ingest workers ------------------------------------------------
+
+// IngestWorkerStarts counts isolated ingest worker subprocesses spawned, by
+// transport ("mkv-fd" = fd-4 fallback, "mkv" = detached, "whip" = detached WHIP).
+var IngestWorkerStarts = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_ingest_worker_starts_total",
+	Help: "isolated ingest worker subprocesses spawned, by transport",
+}, []string{"transport"})
+
+// IngestWorkerExits counts isolated ingest worker exits by transport and outcome
+// ("clean" | "crash"). A rising crash rate is the signal that a stream is
+// repeatedly faulting — the contained fault the node now survives but which would
+// otherwise be invisible. A worker left running across a main shutdown is not an
+// exit and is not counted; "resumed" is a worker reattached after a restart.
+var IngestWorkerExits = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_ingest_worker_exits_total",
+	Help: "isolated ingest worker exits, by transport and outcome (clean|crash)",
+}, []string{"transport", "outcome"})
+
 // --- VOD processing ---------------------------------------------------------
 
 // VODProcessAttemptsTotal increments once per task dequeued for VOD

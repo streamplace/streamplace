@@ -34,6 +34,42 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	signer, err := mm.SegmentAndSignElem(ctx, ms)
+	if err != nil {
+		return err
+	}
+	pipeline, err := buildMKVIngestPipeline(ctx, input, signer)
+	if err != nil {
+		return err
+	}
+
+	busErr := make(chan error)
+	go func() {
+		busErr <- HandleBusMessages(ctx, pipeline)
+	}()
+
+	go mm.HandleKeyRevocation(ctx, ms, pipeline)
+
+	if err := pipeline.SetState(gst.StatePlaying); err != nil {
+		return err
+	}
+	defer func() {
+		if err := pipeline.SetState(gst.StateNull); err != nil {
+			log.Error(ctx, "error setting pipeline to null state", "error", err)
+		}
+	}()
+
+	return <-busErr
+}
+
+// buildMKVIngestPipeline builds the H264+AAC MKV demux graph (video → h264parse,
+// audio → Opus re-encode) and links both branches into signerElem — the muxl
+// signing bin that emits one bare canonical .m4s per GoP. Shared by the
+// in-process MKVIngest and the isolated ingest worker, which differ only in
+// where signerElem routes its segments (ValidateMP4 vs. a frame writer to the
+// main process).
+func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element) (*gst.Pipeline, error) {
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! queue ! h264parse name=parse",
@@ -41,68 +77,33 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return fmt.Errorf("error creating MKVIngest pipeline: %w", err)
+		return nil, fmt.Errorf("error creating MKVIngest pipeline: %w", err)
 	}
-
 	srcele, err := pipeline.GetElementByName("streamsrc")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// defer runtime.KeepAlive(srcele)
-	src := app.SrcFromElement(srcele)
-	src.SetCallbacks(&app.SourceCallbacks{
+	app.SrcFromElement(srcele).SetCallbacks(&app.SourceCallbacks{
 		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 	})
 	parseEle, err := pipeline.GetElementByName("parse")
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	signer, err := mm.SegmentAndSignElem(ctx, ms)
-	if err != nil {
-		return err
+	if err := pipeline.Add(signerElem); err != nil {
+		return nil, err
 	}
-
-	err = pipeline.Add(signer)
-	if err != nil {
-		return err
-	}
-	err = parseEle.Link(signer)
-	if err != nil {
-		return err
+	if err := parseEle.Link(signerElem); err != nil {
+		return nil, err
 	}
 	audioenc, err := pipeline.GetElementByName("audioenc")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = audioenc.Link(signer)
-	if err != nil {
-		return err
+	if err := audioenc.Link(signerElem); err != nil {
+		return nil, err
 	}
-
-	busErr := make(chan error)
-	go func() {
-		err := HandleBusMessages(ctx, pipeline)
-		busErr <- err
-	}()
-
-	go mm.HandleKeyRevocation(ctx, ms, pipeline)
-
-	err = pipeline.SetState(gst.StatePlaying)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		err := pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "error setting pipeline to null state", "error", err)
-		}
-	}()
-
-	err = <-busErr
-
-	return err
+	return pipeline, nil
 }
 
 func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {

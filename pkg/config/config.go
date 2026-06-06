@@ -75,6 +75,7 @@ type CLI struct {
 	RTMPSAddonAddr              string
 	Secure                      bool
 	NoMist                      bool
+	IsolatedIngest              bool
 	MistAdminPort               int
 	MistHTTPPort                int
 	MistRTMPPort                int
@@ -227,6 +228,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       false,
 				Destination: &cli.Secure,
 				Sources:     urfavecli.EnvVars("SP_SECURE"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "isolated-ingest",
+				Usage:       "Run each MKV/RTMP-push ingest in an isolated worker subprocess (fault isolation)",
+				Value:       true,
+				Destination: &cli.IsolatedIngest,
+				Sources:     urfavecli.EnvVars("SP_ISOLATED_INGEST"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "tls-cert",

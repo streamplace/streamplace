@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -30,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -73,6 +76,8 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSelfTestCommand(build),
 		makeVODTestCommand(build),
 		makeStreamCommand(build),
+		makeIngestWorkerCommand(build),
+		makeRTMPPushWorkerCommand(build),
 		makeLiveCommand(build),
 		makeWhepCommand(build),
 		makeWhipCommand(build),
@@ -258,6 +263,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
 		return err
+	}
+	if cli.IsolatedIngest && !media.IngestIsolationSupported() {
+		// The worker transport needs Unix fd-passing + Setsid (Linux today); fall
+		// back to in-process ingest elsewhere rather than break.
+		log.Log(ctx, "isolated ingest not supported on this platform; using in-process ingest", "goos", runtime.GOOS)
+		cli.IsolatedIngest = false
+	}
+	if cli.IsolatedIngest {
+		// Reconnect to any ingest workers still running from before this restart
+		// and drain whatever they buffered while we were down (zero-downtime).
+		mm.ResumeDetachedWorkers(ctx)
 	}
 
 	ms, err := media.MakeMediaSigner(ctx, cli, cli.StreamerName, signer, mod)
@@ -830,6 +846,130 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 				return fmt.Errorf("usage: streamplace stream [user]")
 			}
 			return Stream(args.First())
+		},
+	}
+}
+
+// makeIngestWorkerCommand is the per-stream isolated ingest worker (Stage 1:
+// MKV/RTMP push). The node spawns it; it is not meant for direct use. It reads
+// the config handshake from fd 3, the MKV media from stdin, runs the mux + sign
+// pipeline, and writes signed canonical .m4s frames to fd 4 — dedicated fds so
+// stray stdout/stderr can't corrupt the frame stream. A clean run ends with an
+// End frame; a fatal error emits an Error frame before exiting non-zero.
+func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:      "ingest-worker",
+		Usage:     "internal: per-stream isolated ingest worker (spawned by the node)",
+		ArgsUsage: "[streamer-did]",
+		Hidden:    true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			// The streamer DID is passed on argv purely so the worker is
+			// identifiable in a process listing (ps); the authoritative copy
+			// still arrives in the fd-3 config. Thread it into the logger for
+			// log correlation.
+			if did := cmd.Args().First(); did != "" {
+				ctx = log.WithLogValues(ctx, "streamer", did)
+				log.Log(ctx, "ingest-worker starting")
+			}
+			cfgFile := os.NewFile(3, "ingest-config")
+			if cfgFile == nil {
+				return fmt.Errorf("ingest-worker: missing config fd 3")
+			}
+			cfgBytes, err := io.ReadAll(cfgFile)
+			cfgFile.Close()
+			if err != nil {
+				return fmt.Errorf("ingest-worker: read config: %w", err)
+			}
+			var cfg media.IngestWorkerConfig
+			if err := json.Unmarshal(cfgBytes, &cfg); err != nil {
+				return fmt.Errorf("ingest-worker: parse config: %w", err)
+			}
+
+			// WHIP transport: the worker owns the PeerConnection (built from the
+			// offer in the config) and serves frames over the socket — no media fd.
+			if cfg.Transport == media.IngestTransportWHIP {
+				return media.ServeWHIPIngestWorkerSocket(ctx, cfg)
+			}
+
+			// Detach/reattach transport: serve frames over a unix socket with
+			// buffered reconnect (survives a main restart) instead of the fd-4 pipe.
+			// Media comes from the fd-passed ingest connection (InputFD) when main
+			// handed one off, else stdin.
+			if cfg.SocketPath != "" {
+				raw := io.Reader(os.Stdin)
+				if cfg.InputFD > 0 {
+					f := os.NewFile(uintptr(cfg.InputFD), "ingest-input")
+					if f == nil {
+						return fmt.Errorf("ingest-worker: bad input fd %d", cfg.InputFD)
+					}
+					defer f.Close()
+					raw = f
+				}
+				return media.ServeMKVIngestWorkerSocket(ctx, cfg, media.WorkerInput(cfg, raw))
+			}
+
+			framesFile := os.NewFile(4, "ingest-frames")
+			if framesFile == nil {
+				return fmt.Errorf("ingest-worker: missing frames fd 4")
+			}
+			defer framesFile.Close()
+			frames := ingestframe.NewWriter(framesFile)
+
+			if err := media.RunMKVIngestWorker(ctx, cfg, os.Stdin, frames); err != nil {
+				_ = frames.Error(err.Error())
+				return err
+			}
+			return frames.End()
+		},
+	}
+}
+
+// makeRTMPPushWorkerCommand is the per-target isolated multistream egress
+// worker. The node spawns it; it is not meant for direct use. It reads the
+// config handshake (incl. the target URL + stream key) from fd 3, the assembled
+// fMP4 source stream from stdin, runs the native RTMP push pipeline, and writes
+// status Event frames to fd 4 — dedicated fds so stray stdout/stderr can't
+// corrupt the frame stream. A clean run ends with an End frame; a fatal error
+// emits an Error frame before exiting non-zero.
+func makeRTMPPushWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
+	return &urfavecli.Command{
+		Name:      "rtmp-push-worker",
+		Usage:     "internal: per-target isolated RTMP push worker (spawned by the node)",
+		ArgsUsage: "[streamer-did]",
+		Hidden:    true,
+		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			// The streamer DID is passed on argv purely so the worker is
+			// identifiable in a process listing (ps); the target URL stays on fd 3.
+			if did := cmd.Args().First(); did != "" {
+				ctx = log.WithLogValues(ctx, "streamer", did)
+				log.Log(ctx, "rtmp-push-worker starting")
+			}
+			cfgFile := os.NewFile(3, "push-config")
+			if cfgFile == nil {
+				return fmt.Errorf("rtmp-push-worker: missing config fd 3")
+			}
+			cfgBytes, err := io.ReadAll(cfgFile)
+			cfgFile.Close()
+			if err != nil {
+				return fmt.Errorf("rtmp-push-worker: read config: %w", err)
+			}
+			var cfg media.RTMPPushWorkerConfig
+			if err := json.Unmarshal(cfgBytes, &cfg); err != nil {
+				return fmt.Errorf("rtmp-push-worker: parse config: %w", err)
+			}
+
+			eventsFile := os.NewFile(4, "push-events")
+			if eventsFile == nil {
+				return fmt.Errorf("rtmp-push-worker: missing events fd 4")
+			}
+			defer eventsFile.Close()
+			events := ingestframe.NewWriter(eventsFile)
+
+			if err := media.RunRTMPPushWorker(ctx, cfg, os.Stdin, events); err != nil {
+				_ = events.Error(err.Error())
+				return err
+			}
+			return events.End()
 		},
 	}
 }

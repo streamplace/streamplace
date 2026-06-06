@@ -15,11 +15,18 @@ import (
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // ingestReconnectBackoff paces redials when a worker is up but main's connection
 // dropped (a restart in progress).
 const ingestReconnectBackoff = 250 * time.Millisecond
+
+// workerConnectGrace bounds the INITIAL connect to a worker's socket. A freshly
+// spawned worker takes a moment to listen; a socket that never accepts within
+// this window is a dead/never-started worker — or a stale socket a SIGKILLed
+// worker left behind — so we give up and unlink it rather than spin forever.
+const workerConnectGrace = 15 * time.Second
 
 // SpawnIngestWorkerDetached launches an ingest worker in its OWN session
 // (Setsid) so it outlives a main restart, fd-passing the (already authed) ingest
@@ -80,10 +87,18 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 // error if the socket vanishes without one (worker crashed — contained).
 func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func([]byte) error) error {
 	connectedOnce := false
+	giveUp := time.Now().Add(workerConnectGrace)
 	for {
 		conn, err := net.Dial("unix", socketPath)
 		if err != nil {
 			if !connectedOnce {
+				if time.Now().After(giveUp) {
+					// Never came up within the grace: a dead/never-started worker, or a
+					// stale socket a SIGKILLed worker left behind. Unlink it so it can't
+					// linger or re-spin a consumer on the next restart.
+					_ = os.Remove(socketPath)
+					return fmt.Errorf("ingest worker never came up at %s: %w", socketPath, err)
+				}
 				select { // worker may still be coming up
 				case <-ctx.Done():
 					return ctx.Err()
@@ -91,6 +106,10 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 					continue
 				}
 			}
+			// Connected before, now the socket's gone: the worker exited. A clean
+			// exit already unlinked its socket; a SIGKILL leaves it behind, so remove
+			// the leftover (no-op if already gone).
+			_ = os.Remove(socketPath)
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
 		}
 		connectedOnce = true
@@ -164,13 +183,17 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 	if err != nil {
 		return fmt.Errorf("spawn detached worker: %w", err)
 	}
+	spmetrics.IngestWorkerStarts.WithLabelValues("mkv").Inc()
 
 	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
-	if err == nil {
-		go func() { _, _ = proc.Wait() }() // clean end: reap the exiting worker
+	recordWorkerExit("mkv", err, ctx.Err())
+	// Reap the worker unless we're deliberately leaving it running across a main
+	// restart (ctx cancel). On a clean end OR a crash the worker has exited, so
+	// Wait() clears the zombie; only on main shutdown do we let it stay detached
+	// for a restarting main to rediscover via DiscoverWorkerSockets.
+	if ctx.Err() == nil {
+		go func() { _, _ = proc.Wait() }()
 	}
-	// On ctx cancel (main shutting down) we deliberately leave the detached worker
-	// running; a restarting main reconnects via discovery.
 	return err
 }
 
@@ -241,6 +264,7 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	if err != nil {
 		return "", fmt.Errorf("spawn detached whip worker: %w", err)
 	}
+	spmetrics.IngestWorkerStarts.WithLabelValues("whip").Inc()
 
 	// Connect + read the SDP answer (the worker's first frame), bounded so a
 	// wedged setup can't hang the WHIP client.
@@ -271,11 +295,13 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	go func() {
 		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
 		conn.Close()
+		var exitErr error
 		if !sawEnd && ctx.Err() == nil {
 			// Connection dropped but the detached worker lives on — reconnect and
-			// drain its buffer.
-			_ = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
+			// drain its buffer. Its terminal result is the worker's true outcome.
+			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
 		}
+		recordWorkerExit("whip", exitErr, ctx.Err())
 		go func() { _, _ = proc.Wait() }()
 	}()
 	return answer, nil
@@ -299,9 +325,11 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 		sock := sock
 		log.Log(ctx, "resuming detached ingest worker", "socket", sock)
 		go func() {
-			if cerr := mm.ConsumeWorkerSocket(ctx, sock, "resumed", mm.validateSegment(ctx)); cerr != nil {
+			cerr := mm.ConsumeWorkerSocket(ctx, sock, "resumed", mm.validateSegment(ctx))
+			if cerr != nil {
 				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
 			}
+			recordWorkerExit("resumed", cerr, ctx.Err())
 		}()
 	}
 }

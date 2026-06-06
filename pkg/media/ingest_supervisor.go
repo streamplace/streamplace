@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // ingestWorkerWatchdog bounds how long an isolated worker may go without
@@ -103,6 +104,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	}
 	cfgR.Close()    // the child holds its own copy now
 	framesW.Close() // ditto; the parent only reads framesR
+	spmetrics.IngestWorkerStarts.WithLabelValues("mkv-fd").Inc()
 
 	go func() {
 		_, _ = cfgW.Write(cfgJSON)
@@ -140,6 +142,17 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	logsWG.Wait()
 	werr := cmd.Wait()
 
+	// Classify the exit for the lifecycle metrics: a crash is a read error or a
+	// nonzero exit without a clean End; a clean End (even with a nonzero exit) is
+	// clean. ctx cancel (main shutdown SIGKILLing the worker) isn't counted.
+	var exitErr error
+	if readErr != nil {
+		exitErr = readErr
+	} else if werr != nil && !sawEnd {
+		exitErr = werr
+	}
+	recordWorkerExit("mkv-fd", exitErr, ctx.Err())
+
 	switch {
 	case readErr != nil:
 		return fmt.Errorf("ingest worker stream: %w", readErr)
@@ -151,6 +164,21 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 		log.Warn(ctx, "ingest worker signalled clean end but exited nonzero", "streamer", ms.Streamer(), "error", werr)
 	}
 	return nil
+}
+
+// recordWorkerExit folds a worker's terminal state into the lifecycle metrics:
+// a clean end vs a crash (any non-nil error). A ctx cancel (main shutting down,
+// the worker forcibly stopped or deliberately left detached) is not a fault we
+// count.
+func recordWorkerExit(transport string, exitErr, ctxErr error) {
+	switch {
+	case ctxErr != nil:
+		// main shutdown — not a stream-level fault
+	case exitErr == nil:
+		spmetrics.IngestWorkerExits.WithLabelValues(transport, "clean").Inc()
+	default:
+		spmetrics.IngestWorkerExits.WithLabelValues(transport, "crash").Inc()
+	}
 }
 
 // consumeWorkerFrames reads framed segments from the worker and runs ValidateMP4

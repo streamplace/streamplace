@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -140,4 +142,48 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 	}
 	require.GreaterOrEqual(t, segs, 1, "worker emitted at least one signed dual-codec segment")
 	t.Logf("worker emitted %d valid dual-codec segments", segs)
+}
+
+// TestRunMKVIngestWorkerRecords proves debug recording works INSIDE the worker:
+// with cfg.Record set and a DataDir handed over, the worker tees its ingest
+// media to debug-recordings/<did>/<ts>.rtmp.mkv. This is what keeps debug
+// recording working on the isolated paths where main is out of the data path
+// (it can't tee the bytes itself), so main decides and the worker records.
+func TestRunMKVIngestWorkerRecords(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+
+	dataDir := t.TempDir()
+	cfg := IngestWorkerConfig{
+		StreamerDID:     ms.Streamer(),
+		KeyPEM:          keyPEM,
+		CertPEM:         ms.Cert,
+		Manifest:        manifest,
+		BroadcasterHost: "test.example.com",
+		Record:          true,
+		DataDir:         dataDir,
+	}
+
+	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+
+	// Frames are irrelevant here (recording is on the input side); discard them.
+	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(io.Discard)))
+
+	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mkv and
+	// must contain exactly the media the worker ingested. The dump goroutine
+	// flushes asynchronously, so allow it a moment to finish the last write.
+	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.rtmp.mkv")
+	require.Eventually(t, func() bool {
+		matches, _ := filepath.Glob(glob)
+		if len(matches) != 1 {
+			return false
+		}
+		got, rerr := os.ReadFile(matches[0])
+		return rerr == nil && bytes.Equal(got, mkv)
+	}, 10*time.Second, 25*time.Millisecond, "worker records the ingest media verbatim")
 }

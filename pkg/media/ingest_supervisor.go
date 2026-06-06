@@ -47,18 +47,8 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 		return fmt.Errorf("marshal worker config: %w", err)
 	}
 
-	// Optional recording stays in main: tee the raw input before it reaches the
-	// worker, so the worker needs no data-dir access.
-	if shouldRecord, rerr := mm.shouldRecord(ctx, ms.Streamer()); rerr == nil && shouldRecord {
-		log.Log(ctx, "recording RTMP stream to file", "streamer", ms.Streamer())
-		pr, pw := io.Pipe()
-		input = io.TeeReader(input, pw)
-		go func() {
-			if derr := mm.dumpToFile(ctx, pr, ms.Streamer(), ".rtmp.mkv"); derr != nil {
-				log.Error(ctx, "error dumping to file", "error", derr)
-			}
-		}()
-	}
+	// Debug recording now happens inside the worker (cfg.Record), uniformly across
+	// the isolated paths — main stays out of the data path here too.
 
 	exe, err := os.Executable()
 	if err != nil {
@@ -242,6 +232,15 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 		CertPEM:         local.Cert,
 		Manifest:        manifest,
 		BroadcasterHost: mm.cli.BroadcasterHost,
+	}
+	// Debug recording: main owns the per-stream setting (it needs the DB); the
+	// worker carries out the recording (it owns the data path). A lookup failure
+	// is non-fatal — just don't record.
+	if rec, rerr := mm.shouldRecord(ctx, ms.Streamer()); rerr != nil {
+		log.Warn(ctx, "could not read debug-recording setting; not recording", "streamer", ms.Streamer(), "error", rerr)
+	} else if rec {
+		cfg.Record = true
+		cfg.DataDir = mm.cli.DataDir
 	}
 	// Node transcode signer lets the worker complete to dual-codec itself. If it's
 	// unavailable, the worker emits single-codec (the node doesn't re-transcode the

@@ -62,6 +62,16 @@ type IngestWorkerConfig struct {
 	Prebuf  []byte `json:"prebuf,omitempty"`
 	Chunked bool   `json:"chunked,omitempty"`
 
+	// Record, when true, makes the worker write a debug recording of this session
+	// (the MKV/RTMP push body, or the WHIP session) under
+	// DataDir/debug-recordings/<did>/. main evaluates the per-stream DebugRecording
+	// setting (which needs the DB) and the worker carries it out — so debug
+	// recording keeps working on the isolated paths without main being in the data
+	// path, and a recording even survives a main restart. DataDir is set (only when
+	// Record) to the node data dir the worker writes recordings under.
+	Record  bool   `json:"record,omitempty"`
+	DataDir string `json:"data_dir,omitempty"`
+
 	// Transport selects the worker's ingest source: "" / "mkv" reads MKV media
 	// (stdin or InputFD); "whip" makes the worker own the WebRTC PeerConnection,
 	// built from OfferSDP — no media fd to pass.
@@ -158,16 +168,32 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Minimal manager: just the broadcaster identity the transcode completion
-	// (finishTranscodedSegment) stamps into the node-signed AAC track.
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost}}
+	// Minimal manager: the broadcaster identity the transcode completion
+	// (finishTranscodedSegment) stamps into the node-signed AAC track, plus the
+	// data dir for an optional debug recording.
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}}
 	onSegment, flush := mm.workerSegmentSink(ctx, cfg, frames)
+
+	// Debug recording: tee the ingest media to a file before it reaches gst. main
+	// decided this (cfg.Record) and handed us DataDir; recording here keeps main
+	// out of the data path and lets the recording survive a main restart.
+	media := stdin
+	if cfg.Record {
+		log.Log(ctx, "recording ingest media to file", "streamer", cfg.StreamerDID)
+		pr, pw := io.Pipe()
+		media = io.TeeReader(stdin, pw)
+		go func() {
+			if derr := mm.dumpToFile(ctx, pr, cfg.StreamerDID, ".rtmp.mkv"); derr != nil {
+				log.Error(ctx, "ingest worker: dump recording to file", "error", derr)
+			}
+		}()
+	}
 
 	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg), onSegment)
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}
-	pipeline, err := buildMKVIngestPipeline(ctx, stdin, signerElem)
+	pipeline, err := buildMKVIngestPipeline(ctx, media, signerElem)
 	if err != nil {
 		return fmt.Errorf("build pipeline: %w", err)
 	}

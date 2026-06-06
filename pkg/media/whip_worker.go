@@ -58,11 +58,11 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 		return runErr
 	}
 
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost}}
+	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}}
 
 	// The worker owns the PeerConnection (its own UDP sockets), built with the
-	// same codec/interceptor setup as the in-process server. No recording here —
-	// the worker has no model-backed settings.
+	// same codec/interceptor setup as the in-process server. Debug recording is
+	// decided by main (cfg.Record) and written by the worker under cfg.DataDir.
 	api, webrtcConfig, err := newWebRTCAPI()
 	if err != nil {
 		return finish(fmt.Errorf("webrtc api: %w", err))
@@ -71,7 +71,7 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	if err != nil {
 		return finish(fmt.Errorf("peer connection: %w", err))
 	}
-	pc, err := rtcrec.NewRecordingPeerConnection(ctx, *mm.cli, cfg.StreamerDID, pionpc, false)
+	pc, err := rtcrec.NewRecordingPeerConnection(ctx, *mm.cli, cfg.StreamerDID, pionpc, cfg.Record)
 	if err != nil {
 		return finish(fmt.Errorf("peer connection wrapper: %w", err))
 	}

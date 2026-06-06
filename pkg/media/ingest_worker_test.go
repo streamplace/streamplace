@@ -187,3 +187,48 @@ func TestRunMKVIngestWorkerRecords(t *testing.T) {
 		return rerr == nil && bytes.Equal(got, mkv)
 	}, 10*time.Second, 25*time.Millisecond, "worker records the ingest media verbatim")
 }
+
+// TestRunMKVIngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a
+// wedge. This is the only wedge containment on the detached/WHIP paths, where
+// main can't kill a detached worker — so the worker has to notice it's stuck and
+// exit itself. The 4-audio sample-stream.mkv leaves matroskademux pads unlinked,
+// so it wedges with no EOS and emits no frames; the watchdog must tear the
+// pipeline down and return rather than hang forever. (The fd-4 path's
+// supervisor-side watchdog is covered separately by
+// TestMKVIngestIsolatedWedgeContained.)
+func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
+	old := ingestWorkerWatchdog
+	ingestWorkerWatchdog = 3 * time.Second
+	defer func() { ingestWorkerWatchdog = old }()
+
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+	cfg := IngestWorkerConfig{
+		StreamerDID:     ms.Streamer(),
+		KeyPEM:          keyPEM,
+		CertPEM:         ms.Cert,
+		Manifest:        manifest,
+		BroadcasterHost: "test.example.com",
+	}
+
+	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
+	require.NoError(t, err)
+
+	start := time.Now()
+	done := make(chan error, 1)
+	go func() {
+		done <- RunMKVIngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard))
+	}()
+	select {
+	case <-done:
+		elapsed := time.Since(start)
+		require.Less(t, elapsed, 25*time.Second, "watchdog bounded the wedge")
+		t.Logf("worker self-terminated on wedge in %s", elapsed.Round(time.Second))
+	case <-time.After(30 * time.Second):
+		t.Fatal("worker-side watchdog did not contain the wedge (RunMKVIngestWorker hung)")
+	}
+}

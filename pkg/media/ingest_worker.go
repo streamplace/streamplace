@@ -168,6 +168,13 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Self-watchdog: if the pipeline wedges and stops emitting frames, tear it
+	// down so the worker exits and the fault stays contained (the only wedge
+	// containment on the detached path — main can't kill a detached worker).
+	wd := newWorkerWatchdog(ctx, ingestWorkerWatchdog, cancel, cfg.StreamerDID)
+	defer wd.stop()
+	frames = wd.wrap(frames)
+
 	// Minimal manager: the broadcaster identity the transcode completion
 	// (finishTranscodedSegment) stamps into the node-signed AAC track, plus the
 	// data dir for an optional debug recording.

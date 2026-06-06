@@ -76,7 +76,14 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 		return finish(fmt.Errorf("peer connection wrapper: %w", err))
 	}
 
-	onSegment, flush := mm.workerSegmentSink(ctx, cfg, srv)
+	// Self-watchdog: a connected-but-silent publisher (or a wedged pipeline) that
+	// stops producing frames tears the worker down so the fault stays contained.
+	// The clock to the first segment starts at the answer (kick below), after ICE
+	// negotiation; a pre-answer hang is bounded by main's whipAnswerTimeout.
+	wd := newWorkerWatchdog(ctx, ingestWorkerWatchdog, cancel, cfg.StreamerDID)
+	defer wd.stop()
+
+	onSegment, flush := mm.workerSegmentSink(ctx, cfg, wd.wrap(srv))
 	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg), onSegment)
 	if err != nil {
 		return finish(fmt.Errorf("build signer element: %w", err))
@@ -93,6 +100,7 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	if aerr := srv.Answer(answer.SDP); aerr != nil {
 		log.Error(ctx, "whip worker: frame answer", "error", aerr)
 	}
+	wd.kick() // negotiation done + answer sent; start the first-segment clock here
 
 	// Streaming runs until the peer disconnects / errors; webRTCIngestPipeline
 	// cancels ctx then, which drains the signer. Wait for that, flush the

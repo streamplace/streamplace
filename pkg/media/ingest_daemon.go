@@ -50,7 +50,9 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 	defer cfgR.Close()
 	defer cfgW.Close()
 
-	cmd := exec.Command(exe, "ingest-worker")
+	// The streamer DID rides argv (public, non-sensitive) so a worker is
+	// identifiable in a process listing; key material stays on fd 3.
+	cmd := exec.Command(exe, "ingest-worker", cfg.StreamerDID)
 	setDetached(cmd) // own session, survives a main restart (Linux)
 	// fd 3 = config; fd 4 = the fd-passed media connection (MKV/RTMP). WHIP owns
 	// its own PeerConnection, so it passes no media fd.

@@ -67,7 +67,9 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, exe, "ingest-worker")
+	// The streamer DID rides argv (public, non-sensitive) so a worker is
+	// identifiable in a process listing; key material stays on fd 3.
+	cmd := exec.CommandContext(ctx, exe, "ingest-worker", cfg.StreamerDID)
 
 	// Dedicated pipes: fd 3 carries the config in, fd 4 carries the frame stream
 	// out. Keeping frames off stdout means nothing the worker (or gst, or the

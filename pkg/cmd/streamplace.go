@@ -857,10 +857,19 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 // End frame; a fatal error emits an Error frame before exiting non-zero.
 func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 	return &urfavecli.Command{
-		Name:   "ingest-worker",
-		Usage:  "internal: per-stream isolated ingest worker (spawned by the node)",
-		Hidden: true,
+		Name:      "ingest-worker",
+		Usage:     "internal: per-stream isolated ingest worker (spawned by the node)",
+		ArgsUsage: "[streamer-did]",
+		Hidden:    true,
 		Action: func(ctx context.Context, cmd *urfavecli.Command) error {
+			// The streamer DID is passed on argv purely so the worker is
+			// identifiable in a process listing (ps); the authoritative copy
+			// still arrives in the fd-3 config. Thread it into the logger for
+			// log correlation.
+			if did := cmd.Args().First(); did != "" {
+				ctx = log.WithLogValues(ctx, "streamer", did)
+				log.Log(ctx, "ingest-worker starting")
+			}
 			cfgFile := os.NewFile(3, "ingest-config")
 			if cfgFile == nil {
 				return fmt.Errorf("ingest-worker: missing config fd 3")

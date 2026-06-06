@@ -64,6 +64,9 @@ type watchdogFrameWriter struct {
 	wd *workerWatchdog
 }
 
-func (w watchdogFrameWriter) Segment(seg []byte) error { w.wd.kick(); return w.FrameWriter.Segment(seg) }
-func (w watchdogFrameWriter) End() error               { w.wd.kick(); return w.FrameWriter.End() }
-func (w watchdogFrameWriter) Error(msg string) error   { w.wd.kick(); return w.FrameWriter.Error(msg) }
+func (w watchdogFrameWriter) Segment(seg []byte) error {
+	w.wd.kick()
+	return w.FrameWriter.Segment(seg)
+}
+func (w watchdogFrameWriter) End() error             { w.wd.kick(); return w.FrameWriter.End() }
+func (w watchdogFrameWriter) Error(msg string) error { w.wd.kick(); return w.FrameWriter.Error(msg) }

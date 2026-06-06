@@ -1,7 +1,13 @@
+import { ThumbsUp } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { TouchableOpacity, View } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { useDID } from "../../streamplace-store/streamplace-store";
-import { gap, layout, p, useTheme } from "../../ui";
+import { gap, layout, useTheme } from "../../ui";
 import {
   useCreateLike,
   useDeleteLike,
@@ -20,6 +26,12 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   const createLike = useCreateLike();
   const deleteLike = useDeleteLike();
   const { theme } = useTheme();
+
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const loadLikes = useCallback(async () => {
     try {
@@ -40,6 +52,9 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   }, [loadLikes]);
 
   const toggleLike = useCallback(async () => {
+    scale.value = withSpring(1.05, { stiffness: 500, damping: 10 }, () => {
+      scale.value = withSpring(1, { stiffness: 500 });
+    });
     setLoading(true);
     try {
       if (userLiked && userLikeUri) {
@@ -58,19 +73,19 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
     } finally {
       setLoading(false);
     }
-  }, [userLiked, userLikeUri, subjectUri, createLike, deleteLike]);
+  }, [userLiked, userLikeUri, subjectUri, createLike, deleteLike, scale]);
+
+  const heartColor = userLiked
+    ? theme.colors.background
+    : theme.colors.foreground;
 
   return (
     <TouchableOpacity onPress={toggleLike} disabled={loading}>
-      <View
-        style={[layout.flex.row, layout.flex.alignCenter, gap.all[1], p[2]]}
-      >
-        <Text style={{ fontSize: 18 }}>
-          {userLiked ? "\u2764\uFE0F" : "\u2661"}
-        </Text>
-        <Text size="sm" style={{ color: theme.colors.textMuted }}>
-          {likeCount}
-        </Text>
+      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+        <Animated.View style={animatedStyle}>
+          <ThumbsUp color={heartColor} fill={userLiked ? heartColor : "none"} />
+        </Animated.View>
+        <Text size="sm">{likeCount}</Text>
       </View>
     </TouchableOpacity>
   );

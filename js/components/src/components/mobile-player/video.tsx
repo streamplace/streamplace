@@ -139,6 +139,7 @@ const VideoElement = forwardRef<
   VideoProps & { videoRef?: React.RefObject<HTMLVideoElement | null> }
 >((props, ref) => {
   const x = usePlayerStore((x) => x);
+  const mode = usePlayerStore((x) => x.mode);
   const url = useStreamplaceStore((x) => x.url);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const setMuteWasForced = usePlayerStore((x) => x.setMuteWasForced);
@@ -204,7 +205,9 @@ const VideoElement = forwardRef<
       localVideoRef.current.play().catch((err) => {
         console.log("error playing video", err.name);
         if (err.name === "NotAllowedError") {
-          if (localVideoRef.current) {
+          if (mode === "vod") {
+            setAutoplayFailed(true);
+          } else if (localVideoRef.current) {
             console.log("Setting muted and retrying");
             setMuted(true);
             localVideoRef.current.muted = true;

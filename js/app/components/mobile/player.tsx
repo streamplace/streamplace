@@ -82,18 +82,18 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  let [showChat, setShowChat] = useState(props.mode === "live");
+  let [showChat, setShowChat] = useState(true);
   if (props.mode === "vod") {
     showChat = false;
   }
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();
   const chatVisible = shouldShowChatSidePanel && showChat;
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { top: safeTop } = useSafeAreaInsets();
+  let { top: safeTop } = useSafeAreaInsets();
   const segDims = useSegmentDimensions();
   const isPortrait = screenHeight > screenWidth;
+  // if the screen is portrait and video is landscaps
   const isPortraitLandscapeCase =
-    Platform.OS !== "web" &&
     isPortrait &&
     segDims.width > segDims.height &&
     !shouldShowChatSidePanel &&
@@ -176,9 +176,7 @@ function PlayerWithProvider(
     chatSection = (
       <>
         <MobileUi hideMobileChat={true} showChat />
-        {!showUnavailable && (
-          <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
-        )}
+        <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
       </>
     );
   } else if (shouldShowChatSidePanel) {
@@ -233,7 +231,6 @@ function PlayerWithProvider(
               <Text>Back</Text>
             </View>
           </Button>
-          {chatSection}
         </View>
       </View>
     );
@@ -263,7 +260,10 @@ function PlayerWithProvider(
                 flex: 1,
                 width: "100%",
                 height: "100%",
-                paddingTop: isPortraitLandscapeCase ? 54 : undefined,
+                paddingTop:
+                  isPortraitLandscapeCase && Platform.OS != "web"
+                    ? 54
+                    : undefined,
               },
             ]}
           >
@@ -455,12 +455,17 @@ export function PlayerInner(
             aspectRatio: vodAspectRatio,
             // Cap so a landscape video fits (letterboxed via objectFit:contain)
             // instead of clipping; flexShrink:0 keeps it from collapsing.
-            maxHeight: winHeight * 0.7,
+            maxHeight: isLandscape ? winHeight : winHeight * 0.7,
+            // center the video horizontally when in landscape since it won't fill the full width
+            marginHorizontal: isLandscape
+              ? (winWidth - Math.min(winWidth, winHeight * vodAspectRatio)) / 2
+              : 0,
             flexShrink: 0,
           }}
         >
           {videoContent}
         </Reanimated.View>
+        {/* will get pushed below the video if landscape so probably fine? */}
         <VodSection scrollDescription />
       </View>
     );

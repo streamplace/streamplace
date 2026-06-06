@@ -65,7 +65,7 @@ function resolveAtUriNavigation(
     return {
       routes: [
         {
-          name: "VodPlayerDemo",
+          name: "Video",
           params: { user: atUri.authority, tid: atUri.rkey },
         },
       ],
@@ -136,7 +136,6 @@ export const SCREEN_PATHS = {
   PopoutChat: "chat-popout/:user",
   Embed: "embed/:user",
   InfoWidgetEmbed: "info-widget",
-  LegacyStream: "legacy/:user",
   DanmuOBS: "widgets/:user/danmu",
   PopoutStreamMonitor: "widgets/stream-monitor",
   PopoutInfoWidget: "widgets/info",
@@ -228,7 +227,6 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 PrivacyCategory: SCREEN_PATHS.PrivacyCategory,
                 DanmuCategory: SCREEN_PATHS.DanmuCategory,
                 AdvancedCategory: SCREEN_PATHS.AdvancedCategory,
-                DeveloperSettings: SCREEN_PATHS.DeveloperSettings,
                 MultistreamCategory: SCREEN_PATHS.MultistreamCategory,
                 KeyManagement: SCREEN_PATHS.KeyManagement,
                 LanguagesCategory: SCREEN_PATHS.LanguagesCategory,
@@ -244,12 +242,10 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
           path: SCREEN_PATHS.Stream,
         },
         MobileGoLive: SCREEN_PATHS.MobileGoLive,
-        AVSync: SCREEN_PATHS.AVSync,
         AppReturn: SCREEN_PATHS.AppReturn,
         PopoutChat: SCREEN_PATHS.PopoutChat,
         Embed: SCREEN_PATHS.Embed,
         InfoWidgetEmbed: SCREEN_PATHS.InfoWidgetEmbed,
-        LegacyStream: SCREEN_PATHS.LegacyStream,
         DanmuOBS: SCREEN_PATHS.DanmuOBS,
         PopoutStreamMonitor: SCREEN_PATHS.PopoutStreamMonitor,
         PopoutInfoWidget: SCREEN_PATHS.PopoutInfoWidget,

@@ -103,6 +103,24 @@ var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of currently connected labeler firehoses",
 }, []string{"labeler"})
 
+// FirehoseRelaysConnected is 1 while a relay's subscribeRepos websocket is
+// connected and 0 while it is reconnecting, labeled by relay host. With
+// multi-relay support this shows at a glance how many of the configured
+// relays are currently feeding us.
+var FirehoseRelaysConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_firehose_relays_connected",
+	Help: "1 if the relay's firehose websocket is currently connected, else 0",
+}, []string{"relay"})
+
+// FirehoseEventsDedupedTotal counts events dropped because the same commit
+// (or identity update) already arrived from another relay. Labeled by event
+// kind ("commit" / "identity"). A high count is expected and healthy — it is
+// the redundant traffic we are paying for resilience.
+var FirehoseEventsDedupedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_firehose_events_deduped_total",
+	Help: "firehose events dropped as cross-relay duplicates, by kind",
+}, []string{"kind"})
+
 // --- VOD processing ---------------------------------------------------------
 
 // VODProcessAttemptsTotal increments once per task dequeued for VOD

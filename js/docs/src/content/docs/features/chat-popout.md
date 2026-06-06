@@ -63,3 +63,16 @@ Example:
 ```
 https://stream.place/chat-popout/did:plc:abcdef123456...?hideChatBox=true
 ```
+
+### `hidePinnedComments`
+
+Hides pinned comment notifications in the popout.
+
+- Type: `boolean` (values: `"true"`, `"false"`)
+- Default: `"false"`
+
+Example:
+
+```
+https://stream.place/chat-popout/did:plc:abcdef123456...?hidePinnedComments=true
+```

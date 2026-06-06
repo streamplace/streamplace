@@ -1,6 +1,5 @@
 import { Image } from "expo-image";
-import { useWindowDimensions, View } from "react-native";
-import { zero } from "../..";
+import { ScrollView, useWindowDimensions, View } from "react-native";
 import { useAuthor } from "../../hooks/useAuthor";
 import { useAvatar } from "../../hooks/useAvatar";
 import { useTitle } from "../../hooks/useTitle";
@@ -9,12 +8,10 @@ import { gap, layout, useTheme } from "../../ui";
 import { useVideoStore } from "../../video-store/video-store";
 import { Viewers } from "../mobile-player/ui/viewers";
 import { ShareSheet } from "../share/sharesheet";
+import { Button } from "../ui";
 import { Text } from "../ui/text";
 import { LikeButton } from "./like-button";
 
-// Below this width we drop the avatar and the view count so the title, like
-// and share controls don't crowd on small phones. Above it (tablets/desktop)
-// the full row shows, matching what the desktop metadata bar used to carry.
 const NARROW_BREAKPOINT = 480;
 
 // rkeyFromAturi pulls the record key off an at:// URI
@@ -49,25 +46,38 @@ export function VodMobileMetadata() {
     message: `Check out "${title || "this video"}" on Streamplace!`,
   };
 
-  return (
+  const handleText = (
+    <Text style={{ color: theme.colors.textMuted, flexShrink: 0 }}>
+      {handle ? `@${handle}` : did}
+    </Text>
+  );
+
+  const actions = (
     <View
       style={[
         layout.flex.row,
         layout.flex.alignCenter,
-        zero.layout.flex.justify.between,
         gap.all[3],
+        { flexShrink: 0 },
       ]}
     >
-      {/* Left: avatar + title/author */}
-      <View
-        style={[
-          layout.flex.row,
-          layout.flex.alignCenter,
-          gap.all[3],
-          zero.flex[1],
-        ]}
-      >
-        {wide && (
+      <Button variant="secondary" size="pill" width="min">
+        <LikeButton subjectUri={video.uri} />
+      </Button>
+
+      {wide ? (
+        <Button variant="secondary" size="pill" width="min">
+          <Viewers />
+        </Button>
+      ) : null}
+      <ShareSheet target={shareTarget} />
+    </View>
+  );
+
+  if (wide) {
+    return (
+      <View style={{ gap: 4 }}>
+        <View style={[layout.flex.row, layout.flex.justify.start, gap.all[3]]}>
           <View
             style={{
               width: 40,
@@ -86,31 +96,48 @@ export function VodMobileMetadata() {
               />
             ) : null}
           </View>
-        )}
-        <View style={zero.flex[1]}>
-          <Text weight="semibold" numberOfLines={1}>
-            {title || "Untitled"}
-          </Text>
-          <Text
-            size="sm"
-            style={{ color: theme.colors.textMuted }}
-            numberOfLines={1}
-          >
-            {handle ? `@${handle}` : did}
-          </Text>
+          <View>
+            <View
+              style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
+            >
+              <Text
+                weight="semibold"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                {title || "Untitled"}
+              </Text>
+            </View>
+            <View
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                { flexWrap: "wrap", gap: 6 },
+              ]}
+            >
+              {handleText}
+              {actions}
+            </View>
+          </View>
         </View>
       </View>
+    );
+  }
 
-      {/* Right: like + views + share */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-        {/* Use the server-canonical (DID-based) video.uri, not the store's
-            aturi — when the page is reached via a handle URL the aturi's
-            authority is the handle, and a like keyed on a handle subject
-            won't match the DID-keyed video record. */}
-        <LikeButton subjectUri={video.uri} />
-        {wide && <Viewers />}
-        <ShareSheet target={shareTarget} />
-      </View>
+  return (
+    <View style={{ gap: 6 }}>
+      <Text weight="semibold" numberOfLines={1} ellipsizeMode="tail">
+        {title || "Untitled"}
+      </Text>
+      {handleText}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 6, alignItems: "center" }}
+      >
+        {actions}
+      </ScrollView>
     </View>
   );
 }

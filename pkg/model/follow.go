@@ -58,3 +58,28 @@ func (m *DBModel) GetUserFollowingUser(ctx context.Context, userDID, subjectDID 
 	}
 	return &follow, result.Error
 }
+
+type followerCountRow struct {
+	SubjectDID string
+	Count      int
+}
+
+func (m *DBModel) CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error) {
+	if len(dids) == 0 {
+		return map[string]int{}, nil
+	}
+	var rows []followerCountRow
+	err := m.DB.Table("follows").
+		Select("subject_did, COUNT(*) as count").
+		Where("subject_did IN ?", dids).
+		Group("subject_did").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int, len(rows))
+	for _, r := range rows {
+		counts[r.SubjectDID] = r.Count
+	}
+	return counts, nil
+}

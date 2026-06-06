@@ -50,6 +50,7 @@ export function AutoplayButton() {
         h.percent[100],
         w.percent[100],
       ]}
+      pointerEvents="box-none"
     >
       <Pressable
         onPress={handlePlayButtonPress}

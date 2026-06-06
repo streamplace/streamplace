@@ -306,15 +306,15 @@ export function MobileUi({
       {mode === "vod" && (
         <Animated.View
           style={[
-            { position: "absolute", bottom: 0, left: 0, right: 0 },
+            { position: "absolute", bottom: 8, left: 0, right: 0 },
             animatedFadeStyle,
           ]}
           // Let taps on empty space fall through to the overlay's tap-to-reveal
           // gesture; only the controls themselves capture touches.
           pointerEvents="box-none"
         >
-          <PlayerUI.VodControls />
           <PlayerUI.SeekBar />
+          <PlayerUI.VodControls />
         </Animated.View>
       )}
       {chatSection}

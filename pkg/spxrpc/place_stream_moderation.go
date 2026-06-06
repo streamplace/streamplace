@@ -376,53 +376,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		return nil, err
 	}
 
-	// Check that the streamer has an active livestream
-	ls, err := s.model.GetLatestLivestreamForRepo(input.Streamer)
-	if err != nil {
-		log.Error(ctx, "failed to get livestream for streamer", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to check livestream status")
-	}
-	if ls == nil || ls.Livestream == nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "no active livestream for this streamer")
-	}
-	lsRec, err := lexutil.CborDecodeValue(*ls.Livestream)
-	if err != nil {
-		log.Error(ctx, "failed to decode livestream record", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to check livestream status")
-	}
-	lsTyped, ok := lsRec.(*streamplace.Livestream)
-	if ok && lsTyped.EndedAt != nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream has ended, cannot pin comments")
-	}
-
-	// Delete existing pinned records for this streamer (single-pin semantics)
-	var listOutput comatproto.RepoListRecords_Output
-	err = modCtx.StreamerClient.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.listRecords",
-		map[string]any{
-			"repo":       input.Streamer,
-			"collection": constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-		}, nil, &listOutput)
-	if err != nil {
-		log.Error(ctx, "failed to list existing pinned records", "err", err)
-	} else {
-		for _, rec := range listOutput.Records {
-			rkey, delErr := extractRKey(rec.Uri)
-			if delErr != nil {
-				continue
-			}
-			deleteInput := comatproto.RepoDeleteRecord_Input{
-				Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-				Rkey:       rkey,
-				Repo:       input.Streamer,
-			}
-			deleteOutput := comatproto.RepoDeleteRecord_Output{}
-			if err := modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput); err != nil {
-				log.Error(ctx, "failed to delete existing pinned record", "rkey", rkey, "err", err)
-			}
-		}
-	}
-
-	// Create the pinned record
+	// Create the pinned record (old pins persist as history)
 	pinnedRecord := &streamplace.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: input.MessageUri,

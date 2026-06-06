@@ -497,7 +497,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:        "relay-host",
-				Usage:       "websocket url for relay firehose",
+				Usage:       "comma-separated websocket url(s) for relay firehose(s); subscribing to several relays survives any one going down (duplicate events are deduped). Our own PDS firehose is always included so locally-published records are indexed immediately",
 				Value:       "wss://bsky.network",
 				Destination: &cli.RelayHost,
 				Sources:     urfavecli.EnvVars("SP_RELAY_HOST"),

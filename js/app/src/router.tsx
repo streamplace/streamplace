@@ -193,9 +193,7 @@ export const AvatarButton = () => {
   if (userProfile) {
     source = { uri: userProfile.avatar };
     return (
-      <AQLink
-        to={{ screen: "SettingsTab", params: { screen: "AccountCategory" } }}
-      >
+      <AQLink to={{ screen: "AccountCategory" }}>
         <ImageBackground
           key={source?.uri ?? "default"}
           source={source}
@@ -275,6 +273,7 @@ export const UploadButton = () => {
   const isCompact = windowWidth <= 800;
 
   const { status: betaStatus, loading: betaLoading } = useBetaStatus("vod");
+  const navigation = useNavigation();
 
   if (!did) return null;
   if (betaLoading) return null;
@@ -294,7 +293,13 @@ export const UploadButton = () => {
         to={{ screen: "HomeTab", params: { screen: "Upload" } }}
         style={{ marginRight: 10 }}
       >
-        <Button variant="secondary" style={[zero.r.full]}>
+        <Button
+          variant="secondary"
+          style={[zero.r.full]}
+          onPress={() =>
+            navigation.navigate("HomeTab" as any, { screen: "Upload" })
+          }
+        >
           <Clapperboard size={16} color={theme.colors.textMuted} />
           <Text style={{ color: theme.colors.textMuted }}>VOD Beta</Text>
         </Button>
@@ -317,7 +322,13 @@ export const UploadButton = () => {
         to={{ screen: "HomeTab", params: { screen: "Upload" } }}
         style={{ marginRight: 10 }}
       >
-        <Button variant="secondary" style={[zero.r.full]}>
+        <Button
+          variant="secondary"
+          style={[zero.r.full]}
+          onPress={() =>
+            navigation.navigate("HomeTab" as any, { screen: "Upload" })
+          }
+        >
           <Upload size={16} color={theme.colors.textMuted} />
           <Text style={{ color: theme.colors.textMuted }}>Upload</Text>
         </Button>

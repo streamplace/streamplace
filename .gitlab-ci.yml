@@ -16,66 +16,6 @@ workflow:
 variables:
   DOCKER_REPO: "public.ecr.aws/m4j3c0j7/streamplace"
 
-build-bunny:
-  stage: build
-  interruptible: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  timeout: 2 hours
-  script:
-    - mkdir -p /kaniko/.docker
-    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
-    - /kaniko/executor
-      --context "${CI_PROJECT_DIR}/docker"
-      --dockerfile "${CI_PROJECT_DIR}/docker/bunny.Dockerfile"
-      --destination "$DOCKER_REPO:bunny"
-
-builder:
-  stage: build
-  interruptible: true
-  allow_failure: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  variables:
-    FQ_IMAGE_NAME: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
-    TARGET: builder
-  timeout: 2 hours
-  script:
-    - mkdir -p /kaniko/.docker
-    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
-    - /kaniko/executor
-      --build-arg TARGETARCH=amd64
-      --build-arg DOCKERFILE_HASH=$DOCKERFILE_HASH
-      --cache=true
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/docker/build.Dockerfile"
-      --destination "$FQ_IMAGE_NAME"
-      --target "$TARGET"
-
-builder-rebuild:
-  tags:
-    - tiny-job
-  stage: build
-  allow_failure: true
-  interruptible: true
-  image:
-    name: curlimages/curl:latest
-    entrypoint: [""]
-  needs:
-    - job: builder
-  timeout: 2 hours
-  script:
-    - echo "CI_PIPELINE_ID=$CI_PIPELINE_ID"
-    - echo "CI_PIPELINE_ID=$CI_PIPELINE_IID"
-    - echo "CI_PROJECT_ID=$CI_PROJECT_ID"
-    - >
-      curl
-      --data-raw '{"project_id": "'$CI_PROJECT_ID'", "pipeline_id": "'$CI_PIPELINE_ID'", "job_token": "'$CI_JOB_TOKEN'"}'
-      --fail-with-body
-      https://retry-gitlab.iameli.workers.dev/
-
 .build:
   stage: build
   interruptible: true
@@ -125,7 +65,6 @@ leak-test-viewers:
   needs:
     - job: build-linux-amd64
       artifacts: true
-    - job: build-bunny
   image:
     name: "$DOCKER_REPO:bunny"
   variables:
@@ -147,7 +86,6 @@ leak-test-streamers:
   needs:
     - job: build-linux-amd64
       artifacts: true
-    - job: build-bunny
   image:
     name: "$DOCKER_REPO:bunny"
   variables:
@@ -179,96 +117,6 @@ test:
       - test.xml
     reports:
       junit: test.xml
-
-build-docker-mistserver:
-  stage: build
-  interruptible: true
-  needs:
-    - job: build-linux-amd64
-      artifacts: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  timeout: 2 hours
-  script:
-    - mkdir -p /kaniko/.docker
-    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
-    - /kaniko/executor
-      --build-arg TARGETARCH=amd64
-      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/docker/mistserver.Dockerfile"
-      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-mistserver"
-      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-mistserver"
-
-build-docker-amd64:
-  stage: build
-  interruptible: true
-  needs:
-    - job: build-linux-amd64
-      artifacts: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  timeout: 2 hours
-  script:
-    - mkdir -p /kaniko/.docker
-    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
-    - /kaniko/executor
-      --build-arg TARGETARCH=amd64
-      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_AMD64
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-amd64"
-      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-amd64"
-
-build-docker-arm64:
-  stage: build
-  interruptible: true
-  tags:
-    - linux
-    - arm64
-  needs:
-    - job: build-linux-arm64
-      artifacts: true
-  image:
-    name: gcr.io/kaniko-project/executor:v1.14.0-debug
-    entrypoint: [""]
-  timeout: 2 hours
-  script:
-    - mkdir -p /kaniko/.docker
-    - cp "$DOCKER_AUTH_CONFIG" /kaniko/.docker/config.json
-    - /kaniko/executor
-      --build-arg TARGETARCH=arm64
-      --build-arg STREAMPLACE_URL=$STREAMPLACE_URL_LINUX_ARM64
-      --context "${CI_PROJECT_DIR}"
-      --dockerfile "${CI_PROJECT_DIR}/docker/release.Dockerfile"
-      --destination "$DOCKER_REPO:$STREAMPLACE_BRANCH-arm64"
-      --destination "$DOCKER_REPO:$STREAMPLACE_VERSION-arm64"
-      --customPlatform=linux/arm64
-
-build-docker-manifest:
-  stage: build
-  interruptible: true
-  image:
-    name: curlimages/curl:latest
-    entrypoint: [""]
-  needs:
-    - job: build-docker-arm64
-    - job: build-docker-amd64
-    - job: build-linux-amd64 # just for the environment variables
-      artifacts: true
-  before_script:
-    - curl -s -L https://github.com/estesp/manifest-tool/releases/download/v2.1.7/binaries-manifest-tool-2.1.7.tar.gz | tar xvz
-    - mv manifest-tool-linux-amd64 ./manifest-tool
-    - chmod +x ./manifest-tool
-  timeout: 2 hours
-  script:
-    - ./manifest-tool --docker-cfg "$DOCKER_AUTH_CONFIG" push from-args
-      --platforms linux/amd64,linux/arm64
-      --template $DOCKER_REPO:$STREAMPLACE_VERSION-ARCH
-      --tags $STREAMPLACE_BRANCH
-      --target $DOCKER_REPO:$STREAMPLACE_VERSION
 
 .build-android:
   stage: build
@@ -367,13 +215,16 @@ build-desktop-darwin:
   interruptible: true
   image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   needs:
+    # The linux build jobs upload the .deb / .tar.gz files that the release
+    # jobs download from the package registry, so they must finish first.
+    # They used to be pulled in transitively via the build-docker-* jobs;
+    # those were removed, so depend on them directly to avoid a download race.
+    - build-linux-amd64
+    - build-linux-arm64
     - build-darwin-amd64
     - build-darwin-arm64
     - build-android-debug
     - build-android-release
-    - build-docker-amd64
-    - build-docker-arm64
-    - build-docker-manifest
     - build-desktop-darwin
     - build-ios
     - test

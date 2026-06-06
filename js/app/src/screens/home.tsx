@@ -107,11 +107,13 @@ function HomeScreenItem({
   size,
   avatarUrl,
   horizontal = false,
+  showAvatar = true,
 }: {
   item: PlaceStreamLivestream.LivestreamView;
   size: StreamCardSize;
   avatarUrl?: string;
   horizontal?: boolean;
+  showAvatar?: boolean;
 }) {
   const user = item.author.handle || item.author.did;
   return (
@@ -132,6 +134,7 @@ function HomeScreenItem({
           (item.record as PlaceStreamLivestream.Record).title || "A livestream!"
         }
         horizontal={horizontal}
+        showAvatar={showAvatar}
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
@@ -215,6 +218,8 @@ export default function HomeScreen({
   let cols = getHomeScreenCols(width);
   let size = getHomeScreenItemSize(width);
 
+  // Use horizontal (SBS) layout for all items on single-column breakpoint
+  const useHorizontalAll = cols === 1;
   // Only use horizontal layout for first card when we have enough columns (3+)
   const useHorizontalFirst = cols >= 3;
   const firstRowCols = useHorizontalFirst ? cols - 1 : cols;
@@ -222,25 +227,17 @@ export default function HomeScreen({
   const firstRowItems = segments.slice(0, firstRowCols);
   let cutSegs = segments.slice(firstRowCols);
 
-  // fill in null data to pad out the list for grid display
-  let segs: (PlaceStreamLivestream.LivestreamView | null)[] = cutSegs.concat(
-    Array((cols - (segments.length % cols)) % cols).fill(null),
-  );
-  if (cutSegs.length === 0 && segs.every((s) => s === null) && cols > 0) {
-    // ensure segs is not just [null] if segments is empty
-    segs = [];
-  }
+  let rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
 
-  // assemble rows
-  const rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
-  for (let i = 0; i < cutSegs.length; i += cols) {
-    let row = cutSegs.slice(i, i + cols);
-    // pad the last row with nulls if it's not full
-    if (i + cols >= cutSegs.length && row.length < cols) {
-      const paddingNeeded = cols - row.length;
-      row = [...row, ...Array(paddingNeeded).fill(null)];
+  if (!useHorizontalAll) {
+    for (let i = 0; i < cutSegs.length; i += cols) {
+      let row = cutSegs.slice(i, i + cols);
+      if (i + cols >= cutSegs.length && row.length < cols) {
+        const paddingNeeded = cols - row.length;
+        row = [...row, ...Array(paddingNeeded).fill(null)];
+      }
+      rows.push(row);
     }
-    rows.push(row);
   }
 
   const indicatorTop = safeAreaInsets.top;
@@ -330,15 +327,28 @@ export default function HomeScreen({
               <Text style={{ marginTop: 8 }}>Check back later?</Text>
             </View>
           )}
-          {firstRowItems.length > 0 && (
+          {useHorizontalAll
+            ? segments.map((item) => (
+                <View
+                  key={item.cid}
+                  style={{ width: "100%", marginBottom: 12 }}
+                >
+                  <HomeScreenItem
+                    item={item}
+                    size={size}
+                    avatarUrl={avis[item.author.did]?.avatar}
+                    horizontal={true}
+                    showAvatar={false}
+                  />
+                </View>
+              ))
+            : null}
+
+          {!useHorizontalAll && firstRowItems.length > 0 && (
             <View
               style={[
                 { flexDirection: "row" },
-                {
-                  gap: 24,
-                  marginBottom: 24,
-                  width: "100%",
-                },
+                { gap: 24, marginBottom: 24, width: "100%" },
               ]}
             >
               {firstRowItems.map((item, itemIndex) => (
@@ -359,10 +369,10 @@ export default function HomeScreen({
                     size={size}
                     avatarUrl={avis[item.author.did]?.avatar}
                     horizontal={itemIndex == 0 && useHorizontalFirst}
+                    showAvatar={true}
                   />
                 </View>
               ))}
-              {/* Pad the first row to match the column count */}
               {Array(
                 useHorizontalFirst
                   ? cols - firstRowItems.length - 1
@@ -377,7 +387,7 @@ export default function HomeScreen({
             </View>
           )}
 
-          {segments.length > 0 && (
+          {!useHorizontalAll && segments.length > 0 && (
             <View>
               {rows.map((row, rowIndex) => (
                 <View
@@ -397,6 +407,8 @@ export default function HomeScreen({
                           item={item}
                           size={size}
                           avatarUrl={avis[item.author.did]?.avatar}
+                          horizontal={false}
+                          showAvatar={true}
                         />
                       </View>
                     ) : (

@@ -23,6 +23,7 @@ function getMaxWidth(width: number): number {
   if (width >= 800) return maxContainerWidths.xl;
   if (width >= 740) return maxContainerWidths.lg;
   if (width >= 660) return maxContainerWidths.md;
+  if (width >= 440) return width;
   return maxContainerWidths.sm;
 }
 
@@ -33,6 +34,7 @@ export default function Container({
 }: ContainerProps) {
   const { width } = useWindowDimensions();
   const maxWidth = getMaxWidth(width);
+  const isMobile = width < 768;
 
   return (
     <View
@@ -45,7 +47,7 @@ export default function Container({
       <View
         style={[
           zero.w.percent[100],
-          zero.px[8],
+          isMobile ? zero.px[2] : zero.px[8],
           { marginHorizontal: "auto" },
           { maxWidth },
           style,

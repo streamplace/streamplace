@@ -19,20 +19,28 @@ export function Viewers() {
 export function DehydratedViewers({
   viewers,
   color = LIVE_COLOR,
+  size = "md",
 }: {
   viewers: number;
   color?: string;
+  size?: "sm" | "md";
 }) {
+  const iconSize = size === "sm" ? 12 : 24;
+  const fontSize = size === "sm" ? 11 : 16;
   return (
     <View
       style={[
         atoms.layout.flex.center,
         atoms.layout.flex.row,
-        atoms.gap.all[2],
+        atoms.gap.all[size === "sm" ? 1 : 2],
+        atoms.px[1],
       ]}
     >
-      <Eye color={color} />
-      <ViewerCount count={viewers} style={{ color }} />
+      <Eye color={color} size={iconSize} />
+      <ViewerCount
+        count={viewers}
+        style={{ fontSize, lineHeight: fontSize * 1.5 }}
+      />
     </View>
   );
 }

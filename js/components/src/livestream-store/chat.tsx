@@ -503,22 +503,6 @@ export const usePinChatMessage = () => {
 
     // If streamer, create directly
     if (agent.did === streamerDID) {
-      // First delete any existing pinned records
-      const listResult = await agent.com.atproto.repo.listRecords({
-        repo: streamerDID,
-        collection: "place.stream.chat.pinnedRecord",
-      });
-      for (const rec of listResult.data.records) {
-        const rkey = rec.uri.split("/").pop();
-        if (rkey) {
-          await agent.com.atproto.repo.deleteRecord({
-            repo: streamerDID,
-            collection: "place.stream.chat.pinnedRecord",
-            rkey,
-          });
-        }
-      }
-
       const record = {
         $type: "place.stream.chat.pinnedRecord",
         pinnedMessage: messageUri,

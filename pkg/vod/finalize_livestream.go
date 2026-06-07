@@ -144,10 +144,15 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	return cid, nil
 }
 
-// captureInitHeader runs `muxl unwrap` over just the first object and returns
-// the bytes of the single init event it emits, cancelling as soon as it has
-// them so we don't read the whole object. The returned header is a valid
-// ftyp+moov for the stream's catalog.
+// captureInitHeader synthesizes the per-stream init segment (ftyp+moov) from
+// the first recorded object via `muxl wrap --init-only`. The live objects are
+// bare canonical segments whose embedded catalogs carry everything needed to
+// derive the init; prepending this header to their concatenation yields the
+// proven [init][segments…] VOD blob shape.
+//
+// RunMuxlWrapInit writes straight to a buffer (no event channel), so — unlike
+// an unwrap pass — there's no stdout pipe to back up and no mid-stream cancel,
+// which is what previously deadlocked here.
 func captureInitHeader(ctx context.Context, store blob.Store, key string) ([]byte, error) {
 	r, err := store.Open(ctx, key)
 	if err != nil {
@@ -155,32 +160,14 @@ func captureInitHeader(ctx context.Context, store blob.Store, key string) ([]byt
 	}
 	defer r.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	eventCh := make(chan *muxl.MuxlEvent, 16)
-	producerErr := make(chan error, 1)
-	go func() {
-		producerErr <- muxl.RunMuxlUnwrapEvents(ctx, io.NewSectionReader(r, 0, r.Size()), eventCh)
-		close(eventCh)
-	}()
-
-	var header []byte
-	for ev := range eventCh {
-		if header == nil && ev.Type == "init" {
-			header = append([]byte(nil), ev.Data...)
-			cancel() // we have the header; let the producer unwind, keep draining
-		}
+	var buf bytes.Buffer
+	if err := muxl.RunMuxlWrapInit(ctx, io.NewSectionReader(r, 0, r.Size()), &buf); err != nil {
+		return nil, fmt.Errorf("synthesize init header: %w", err)
 	}
-	// RunMuxlUnwrapEvents returns nil on cancellation, so a non-nil error here
-	// is a real parse failure, not our early stop.
-	if perr := <-producerErr; perr != nil && header == nil {
-		return nil, fmt.Errorf("muxl unwrap (init): %w", perr)
+	if buf.Len() == 0 {
+		return nil, errors.New("muxl produced an empty init header")
 	}
-	if header == nil {
-		return nil, errors.New("no init event emitted by first object")
-	}
-	return header, nil
+	return buf.Bytes(), nil
 }
 
 // hashAndBuildMetafile streams [header]+objects once, teeing into a bdasl hasher

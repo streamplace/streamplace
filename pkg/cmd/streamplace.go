@@ -413,6 +413,21 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			Location: t.Location,
 		})
 	})
+	// Live-to-VOD finalize. Resolves the streamer's live signing key here
+	// (where the model is in scope) so pkg/vod stays free of pkg/model, then
+	// concatenates the recorded MUXL objects into a VOD.
+	state.SetLivestreamVODFinalizer(func(ctx context.Context, t statedb.FinalizeLivestreamVODTask) (string, error) {
+		signingKey, err := resolveLiveSigningKey(mod, t.RepoDID)
+		if err != nil {
+			return "", fmt.Errorf("finalize-livestream-vod: resolve signing key: %w", err)
+		}
+		return vod.FinalizeLivestreamVOD(ctx, cli, state, vodStore, vod.FinalizeInput{
+			UploadID:      t.UploadID,
+			RepoDID:       t.RepoDID,
+			LivestreamURI: t.LivestreamURI,
+			SigningKey:    signingKey,
+		})
+	})
 	// View-count aggregator runs the log → record pipeline for one
 	// window. Same function-pointer pattern as the VOD processor so
 	// statedb stays free of viewlog's transitive deps. The scheduler
@@ -1138,4 +1153,30 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 			return statedb.Migrate(&cli)
 		},
 	}
+}
+
+// resolveLiveSigningKey returns the did:key whose private half signed a
+// streamer's live segments, for stamping on live-to-VOD place.stream.media.track
+// records so playback can verify them. It picks the most recently created
+// non-revoked place.stream.key for the repo; streamers normally have exactly
+// one. Errors if the repo has no active signing key.
+func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
+	keys, err := mod.GetSigningKeysForRepo(repoDID)
+	if err != nil {
+		return "", err
+	}
+	var best *model.SigningKey
+	for i := range keys {
+		k := &keys[i]
+		if k.RevokedAt != nil {
+			continue
+		}
+		if best == nil || k.CreatedAt.After(best.CreatedAt) {
+			best = k
+		}
+	}
+	if best == nil {
+		return "", fmt.Errorf("no active signing key for repo %s", repoDID)
+	}
+	return best.DID, nil
 }

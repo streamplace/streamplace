@@ -2286,6 +2286,77 @@
         }
       }
     },
+    "/xrpc/place.stream.media.finalizeLivestream": {
+      "post": {
+        "summary": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records — the same end state as a finished upload. Returns an uploadId the client polls with place.stream.media.getUploadStatus and then publishes with place.stream.media.publishVideo, exactly as for a resumable upload.",
+        "operationId": "place.stream.media.finalizeLivestream",
+        "tags": ["place.stream.media"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "description": "Identifier for the finalize job. Poll place.stream.media.getUploadStatus with it; once status is 'done', create the video with place.stream.media.publishVideo."
+                    }
+                  },
+                  "required": ["uploadId"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "LivestreamNotFound"
+                        },
+                        {
+                          "const": "NoRecording"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "livestream": {
+                    "type": "string",
+                    "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["livestream"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.media.getUploadStatus": {
       "get": {
         "summary": "Get the processing status of a previously created upload. Only accessible by the DID that created the upload.",

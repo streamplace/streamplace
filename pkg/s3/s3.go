@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -11,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/muxl"
 )
 
 // Config holds the configuration for an S3-compatible upload target.
@@ -26,18 +27,21 @@ type Config struct {
 // Recorder is an optional persistence hook for S3Uploader. RecordStart is
 // called when a new multipart upload begins; the returned id is passed back
 // to RecordComplete when the upload is finalized. Implementations should
-// tolerate nil contexts being passed.
+// tolerate nil contexts being passed. livestreamURI ties the object to the
+// livestream it belongs to (may be empty if not yet known) so the live-to-VOD
+// finalize can later enumerate exactly the objects for one stream.
 type Recorder interface {
-	RecordStart(ctx context.Context, userDID, bucket, key string, started time.Time) (id string, err error)
+	RecordStart(ctx context.Context, userDID, bucket, key, livestreamURI string, started time.Time) (id string, err error)
 	RecordComplete(ctx context.Context, id string, parts int32, size int64) error
 }
 
 // S3Uploader manages streaming multipart uploads to an S3-compatible endpoint.
-// Bare canonical MUXL segments are fed via AddSegment; they concatenate
-// directly (the format is naively concatenable). A single init segment,
-// synthesized from the first segment, is prepended to each multipart object so
-// each object is a valid standalone MP4. Every cutoverEvery, the current upload
-// is completed and a new one begins.
+// Bare canonical MUXL segments are fed via AddSegment and written verbatim —
+// no per-object init header — so the objects of one stream concatenate
+// directly into a single MUXL byte stream. The live-to-VOD finalize prepends
+// one synthesized init to the whole concatenation; keeping the objects bare is
+// what lets it "concat fearlessly". Every cutoverEvery, the current upload is
+// completed and a new one begins.
 type S3Uploader struct {
 	client       *s3.Client
 	bucket       string
@@ -47,6 +51,28 @@ type S3Uploader struct {
 	segCh        chan []byte // bare canonical MUXL segments awaiting upload
 	done         chan error
 	recorder     Recorder
+
+	mu            sync.Mutex
+	livestreamURI string // guarded by mu; stamped on each S3Segment row
+
+	closeOnce sync.Once
+	closeErr  error
+	closed    atomic.Bool
+}
+
+// SetLivestreamURI records the livestream this stream's objects belong to. It
+// may be called once the URI is resolved (it can be unknown when the uploader
+// starts); subsequent multipart objects are stamped with it via RecordStart.
+func (u *S3Uploader) SetLivestreamURI(uri string) {
+	u.mu.Lock()
+	u.livestreamURI = uri
+	u.mu.Unlock()
+}
+
+func (u *S3Uploader) getLivestreamURI() string {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	return u.livestreamURI
 }
 
 // S3 requires each part except the last to be at least 5MB.
@@ -100,8 +126,15 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 }
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
-// for upload. The bytes are copied, so the caller may reuse its buffer.
+// for upload. The bytes are copied, so the caller may reuse its buffer. It is
+// the caller's responsibility not to call AddSegment concurrently with Close
+// (the StreamSession guarantees this by draining its goroutines before closing,
+// see director.Start); the closed guard here is a best-effort backstop that
+// turns a late call into an error rather than a send-on-closed-channel panic.
 func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
+	if u.closed.Load() {
+		return fmt.Errorf("s3 uploader closed")
+	}
 	seg := append([]byte(nil), data...)
 	select {
 	case u.segCh <- seg:
@@ -111,32 +144,39 @@ func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
 	}
 }
 
-// Close signals that no more segments will be added, waits for all
-// in-flight uploads to complete, and returns any error.
+// Close signals that no more segments will be added, waits for all in-flight
+// uploads to complete, and returns any error. It is idempotent: repeated calls
+// return the same result without re-closing the channel. The supplied ctx is
+// unused for the wait (uploadLoop runs on its own context so it can flush the
+// final object even after the session context is cancelled) but kept for API
+// symmetry.
 func (u *S3Uploader) Close(ctx context.Context) error {
-	close(u.segCh)
-	if uploadErr := <-u.done; uploadErr != nil {
-		return fmt.Errorf("error uploading: %w", uploadErr)
-	}
-	return nil
+	u.closeOnce.Do(func() {
+		u.closed.Store(true)
+		close(u.segCh)
+		if uploadErr := <-u.done; uploadErr != nil {
+			u.closeErr = fmt.Errorf("error uploading: %w", uploadErr)
+		}
+	})
+	return u.closeErr
 }
 
 // uploadLoop reads bare segments off segCh and manages multipart uploads.
-// Runs until segCh is closed (Close) or ctx is canceled.
+// Runs until segCh is closed (Close) or ctx is canceled. ctx is intentionally
+// independent of the session context so a final object can still be completed
+// after the stream tears down.
 func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	ctx = log.WithLogValues(ctx, "func", "s3.uploadLoop")
-	var initSeg []byte
 	var current *activeUpload
 
-	// Helper: prepend init to buffer when starting a new upload
 	startUpload := func() error {
 		now := time.Now()
-		key := fmt.Sprintf("%s%s.mp4", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"))
+		key := fmt.Sprintf("%s%s.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"))
 
 		resp, err := u.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 			Bucket:      aws.String(u.bucket),
 			Key:         aws.String(key),
-			ContentType: aws.String("video/mp4"),
+			ContentType: aws.String("video/iso.segment"),
 		})
 		if err != nil {
 			return fmt.Errorf("creating multipart upload for %s: %w", key, err)
@@ -148,15 +188,11 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			started:  now,
 		}
 		if u.recorder != nil {
-			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, now)
+			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, u.getLivestreamURI(), now)
 			if recErr != nil {
 				log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
 			}
 			current.recordID = id
-		}
-		// Prepend init segment to the buffer so the file starts valid
-		if initSeg != nil {
-			current.buf = append(current.buf, initSeg...)
 		}
 		log.Log(ctx, "started S3 multipart upload", "key", key)
 		return nil
@@ -273,18 +309,6 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 				return
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(seg))
-			// Synthesize the init segment once, from the first segment's
-			// embedded catalog; it's prepended to each multipart object.
-			if initSeg == nil {
-				var initBuf bytes.Buffer
-				if werr := muxl.RunMuxlWrapInit(ctx, bytes.NewReader(seg), &initBuf); werr != nil {
-					err = fmt.Errorf("synthesizing init segment: %w", werr)
-					u.done <- err
-					return
-				}
-				initSeg = initBuf.Bytes()
-				log.Debug(ctx, "synthesized init segment for S3 upload", "size", len(initSeg))
-			}
 			if err = handleSegment(seg); err != nil {
 				log.Error(ctx, "error handling segment", "error", err)
 			}

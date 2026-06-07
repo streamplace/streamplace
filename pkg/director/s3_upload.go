@@ -2,12 +2,15 @@ package director
 
 import (
 	"context"
-	"time"
 
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/s3"
 )
+
+// liveRecPrefix namespaces in-progress livestream recordings in the S3 bucket
+// (keys are liveRecPrefix + <did>/ + <timestamp>.m4s).
+const liveRecPrefix = "live-rec/"
 
 func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string) {
 	if !ss.cli.S3Configured() {
@@ -20,8 +23,18 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 		SecretAccessKey: ss.cli.S3SecretAccessKey,
 		Region:          ss.cli.S3Region,
 	}
-	keyPrefix := repoDID + "/"
-	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, time.Minute, ss.statefulDB)
+	// live-rec/ namespaces the in-progress livestream recordings away from the
+	// finalized VOD blobs (blobs/) and anything else in the bucket.
+	keyPrefix := liveRecPrefix + repoDID + "/"
+	ss.s3Uploader = s3.NewS3Uploader(cfg, repoDID, keyPrefix, s3.DefaultCutoverEvery, ss.statefulDB)
+	// Best-effort initial resolve of the livestream URI so the very first
+	// object is tagged. The director treats "latest livestream for repo" as
+	// the current stream everywhere (notification blast, idle finalize), so we
+	// do the same here; NewSegment refreshes it once the stream's own record is
+	// indexed, in case a prior stream was momentarily still "latest".
+	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err == nil && ls != nil {
+		ss.s3Uploader.SetLivestreamURI(ls.URI)
+	}
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint)
 }
 

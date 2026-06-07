@@ -236,6 +236,8 @@ export default function UploadScreen() {
     setThumbnailUrl(undefined);
   }, []);
 
+  const [chunkSize, setChunkSize] = useState<number | undefined>(undefined);
+
   // ── polling ──────────────────────────────────────────────────────────────
 
   const pollStatus = useCallback(
@@ -305,12 +307,23 @@ export default function UploadScreen() {
       const { uploadUrl, uploadToken, uploadId } = res.data;
 
       await new Promise<void>((resolve, reject) => {
-        const upload = new tus.Upload(file, {
+        let retried = false;
+        const params: tus.UploadOptions = {
           uploadUrl,
           retryDelays: [0, 1000, 3000, 5000],
           headers: { Authorization: `Bearer ${uploadToken}` },
           metadata: { filename: file.name, filetype: file.type },
-          onError: reject,
+          onError: (err) => {
+            if (!retried) {
+              retried = true;
+              // <1mb for default nginx proxy settings
+              params.chunkSize = 800000;
+              doTry();
+            } else {
+              console.log(err);
+              reject(err);
+            }
+          },
           onProgress(bytesSent, bytesTotal) {
             setPhase({
               kind: "uploading",
@@ -320,9 +333,13 @@ export default function UploadScreen() {
             });
           },
           onSuccess: () => resolve(),
-        });
-        uploadRef.current = upload;
-        upload.start();
+        };
+        const doTry = () => {
+          const upload = new tus.Upload(file, params);
+          uploadRef.current = upload;
+          upload.start();
+        };
+        doTry();
       });
 
       uploadRef.current = null;
@@ -335,7 +352,7 @@ export default function UploadScreen() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [agent, file, pollStatus]);
+  }, [agent, file, pollStatus, chunkSize]);
 
   const cancelUpload = useCallback(() => {
     if (pollRef.current) clearTimeout(pollRef.current);

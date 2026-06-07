@@ -124,6 +124,63 @@ func TestMediaPlaylist_Video(t *testing.T) {
 	require.Contains(t, pl, `#EXT-X-BYTERANGE:1800@2100`)
 	require.Contains(t, pl, "#EXTINF:1.000000,")
 	require.Contains(t, pl, "#EXT-X-ENDLIST")
+	// A clean single-session VOD has no discontinuities.
+	require.NotContains(t, pl, "#EXT-X-DISCONTINUITY")
+}
+
+// reconnectVideoMetafile is a 3-segment video track whose middle segment is
+// flagged as a discontinuity — the metafile shape produced by a recording that
+// concatenates two ingest sessions (a reconnect), where session 2's decode
+// time reset. Each segment is 1s (durationTicks == timescale).
+func reconnectVideoMetafile() *vod.Metafile {
+	return &vod.Metafile{
+		BlobCID:  "bafyblob",
+		BlobSize: 10_000,
+		Tracks: map[string]vod.MetafileTrack{
+			"1": {
+				Type:      "video",
+				Codec:     "avc1.64002a",
+				Timescale: 6000,
+				InitCID:   "bafyvideoinit",
+				BlobCID:   "bafyblob",
+				BlobSize:  10_000,
+				Width:     1920,
+				Height:    1080,
+				Segments: []vod.MetafileSegment{
+					{Offset: 100, Size: 2000, DurationTicks: 6000, SampleCount: 60},
+					{Offset: 2100, Size: 1800, DurationTicks: 6000, SampleCount: 60, Discontinuity: true},
+					{Offset: 3900, Size: 1700, DurationTicks: 6000, SampleCount: 60},
+				},
+			},
+		},
+	}
+}
+
+func TestMediaPlaylist_Discontinuity(t *testing.T) {
+	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, "", nil, nil)
+	require.NoError(t, err)
+	// Exactly one inline EXT-X-DISCONTINUITY (its own line — distinct from the
+	// EXT-X-DISCONTINUITY-SEQUENCE header), and no sequence header for full play.
+	require.Equal(t, 1, strings.Count(pl, "#EXT-X-DISCONTINUITY\n"))
+	require.NotContains(t, pl, "#EXT-X-DISCONTINUITY-SEQUENCE")
+	// It must sit after the first segment and immediately before the flagged one.
+	discIdx := strings.Index(pl, "#EXT-X-DISCONTINUITY\n")
+	firstSeg := strings.Index(pl, "#EXT-X-BYTERANGE:2000@100")
+	flaggedSeg := strings.Index(pl, "#EXT-X-BYTERANGE:1800@2100")
+	require.Greater(t, discIdx, firstSeg, "discontinuity must come after the first segment")
+	require.Less(t, discIdx, flaggedSeg, "discontinuity must come right before the flagged segment")
+}
+
+func TestMediaPlaylist_DiscontinuityTrimmedToBoundary(t *testing.T) {
+	start := int64(1000) // ms — segment index 1 (the boundary) starts at 1s
+	pl, err := mediaPlaylist(reconnectVideoMetafile(), "1", fixtureDID, fixtureSID, "", &start, nil)
+	require.NoError(t, err)
+	// The boundary is now the first served segment: reflected as a sequence
+	// bump, NOT an inline tag.
+	require.Contains(t, pl, "#EXT-X-DISCONTINUITY-SEQUENCE:1")
+	require.Equal(t, 0, strings.Count(pl, "#EXT-X-DISCONTINUITY\n"))
+	require.NotContains(t, pl, "#EXT-X-BYTERANGE:2000@100", "pre-boundary segment should be trimmed")
+	require.Contains(t, pl, "#EXT-X-BYTERANGE:1800@2100", "boundary segment should be served")
 }
 
 func TestMediaPlaylist_UnknownTrack(t *testing.T) {

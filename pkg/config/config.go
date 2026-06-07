@@ -168,6 +168,7 @@ type CLI struct {
 	ViewCountAggregateInterval  time.Duration
 	ViewCountAggregateLag       time.Duration
 	VODConcurrency              int
+	MaximumLiveBitrate          int
 }
 
 // ContentFilters represents the content filtering configuration
@@ -809,6 +810,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       2,
 				Destination: &cli.VODConcurrency,
 				Sources:     urfavecli.EnvVars("SP_VOD_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "maximum-live-bitrate",
+				Usage:       "maximum allowed live ingest bitrate in bits per second, measured per emitted segment. A stream whose bitrate exceeds this (plus a 10% margin) is disconnected and the streamer is shown a problem. 0 = unlimited",
+				Value:       0,
+				Destination: &cli.MaximumLiveBitrate,
+				Sources:     urfavecli.EnvVars("SP_MAXIMUM_LIVE_BITRATE"),
 			},
 			&urfavecli.BoolFlag{
 				Name:        "legacy-segment-cleaner",

@@ -811,12 +811,19 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.VODConcurrency,
 				Sources:     urfavecli.EnvVars("SP_VOD_CONCURRENCY"),
 			},
-			&urfavecli.IntFlag{
-				Name:        "maximum-live-bitrate",
-				Usage:       "maximum allowed live ingest bitrate in bits per second, measured per emitted segment. A stream whose bitrate exceeds this (plus a 10% margin) is disconnected and the streamer is shown a problem. 0 = unlimited",
-				Value:       0,
-				Destination: &cli.MaximumLiveBitrate,
-				Sources:     urfavecli.EnvVars("SP_MAXIMUM_LIVE_BITRATE"),
+			&urfavecli.StringFlag{
+				Name:    "maximum-live-bitrate",
+				Usage:   "maximum allowed live ingest bitrate, measured per emitted segment. Accepts a bits-per-second number or a decimal SI suffix — e.g. 30M, 30000k, or 30000000 (all 30 Mbps). A stream whose bitrate exceeds this (plus a 10% margin) is disconnected and the streamer is shown a problem. 0 = unlimited",
+				Value:   "0",
+				Sources: urfavecli.EnvVars("SP_MAXIMUM_LIVE_BITRATE"),
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					v, err := ParseSI(s)
+					if err != nil {
+						return fmt.Errorf("invalid --maximum-live-bitrate: %w", err)
+					}
+					cli.MaximumLiveBitrate = int(v)
+					return nil
+				},
 			},
 			&urfavecli.BoolFlag{
 				Name:        "legacy-segment-cleaner",

@@ -70,6 +70,24 @@ type StreamSession struct {
 	s3Uploader         *s3.S3Uploader
 }
 
+// bitrateMargin is the wiggle room over the configured maximum before a stream
+// is disconnected, so an occasional spiky GoP (e.g. a scene cut) doesn't kill an
+// otherwise-compliant stream.
+const bitrateMargin = 1.1
+
+// exceedsMaxBitrate returns a segment's bitrate (bits/sec, from its emitted size
+// and duration) and whether that exceeds maxBitrate (bits/sec) by more than
+// bitrateMargin. maxBitrate <= 0 disables the check; a non-positive duration
+// can't yield a meaningful rate, so it never counts as exceeding.
+func exceedsMaxBitrate(dataLen int, durationNS int64, maxBitrate int) (int, bool) {
+	if maxBitrate <= 0 || durationNS <= 0 {
+		return 0, false
+	}
+	seconds := float64(durationNS) / float64(time.Second)
+	bitrate := int(float64(dataLen) * 8 / seconds)
+	return bitrate, float64(bitrate) > float64(maxBitrate)*bitrateMargin
+}
+
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
 	ctx, cancel := context.WithCancel(ctx)
 	spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Inc()
@@ -183,6 +201,33 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}()
 	aqt := aqtime.FromTime(notif.Segment.StartTime)
 	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
+
+	// Enforce the node's max live bitrate, inferred per emitted segment. A stream
+	// over the limit (plus a margin for spiky GoPs) is kicked: the StreamKick both
+	// tears the ingest down — via watchKeyRevocation, on every ingest path
+	// including isolated workers — and surfaces a place.stream.error "problem" to
+	// the streamer's dashboard explaining the disconnect.
+	//
+	// We kick on EVERY over-limit segment, not once per session: the kick only
+	// ends the ingest connection, not this director session (which lingers until
+	// StreamSessionTimeout). If we latched it, an encoder that auto-reconnects
+	// within that window would reuse this session and stream on unchecked. The
+	// early return keeps the over-limit segment from being distributed, so no
+	// healthy segment overwrites the dashboard problem until the streamer fixes
+	// their bitrate and reconnects clean — at which point findProblems clears it.
+	// The client dedupes place.stream.error by code, so repeated kicks surface as
+	// a single persistent problem.
+	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded {
+		log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
+			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate)
+		ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(
+			"bitrate",
+			fmt.Sprintf("Your stream's bitrate (%d kbps) exceeds this server's maximum of %d kbps. Lower your encoder's bitrate to keep streaming.",
+				bitrate/1000, ss.cli.MaximumLiveBitrate/1000),
+		))
+		return nil
+	}
+
 	notif.Segment.MediaData.Size = len(notif.Data)
 	err := ss.localDB.CreateSegment(notif.Segment)
 	if err != nil {

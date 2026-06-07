@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -11,6 +12,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
 )
+
+// TestStreamKickMarshalsAsPlaceStreamError locks the dashboard wire contract: a
+// StreamKick must marshal to the place.stream.error frame the client turns into
+// a "problem" (js/.../websocket-consumer.tsx keys on $type/code/message).
+func TestStreamKickMarshalsAsPlaceStreamError(t *testing.T) {
+	bs, err := json.Marshal(NewStreamKick("bitrate", "too high"))
+	require.NoError(t, err)
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(bs, &got))
+	require.Equal(t, "place.stream.error", got["$type"])
+	require.Equal(t, "bitrate", got["code"])
+	require.Equal(t, "too high", got["message"])
+}
 
 // TestWatchKeyRevocationBan checks the shared detection core: a banned label
 // published to the streamer's bus channel fires onRevoked. (The bus only
@@ -39,6 +54,36 @@ func TestWatchKeyRevocationBan(t *testing.T) {
 			t.Fatal("ban label did not trigger key revocation")
 		case <-tick.C:
 			mm.bus.Publish(ms.Streamer(), banned)
+		}
+	}
+}
+
+// TestWatchKeyRevocationStreamKick checks that a StreamKick published to the
+// streamer's bus channel fires onRevoked with its message — the path the max
+// live bitrate enforcement uses to tear a stream down across every ingest path.
+func TestWatchKeyRevocationStreamKick(t *testing.T) {
+	mm, _ := getStaticTestMediaManager(t)
+	ms := newBareSegmentSigner(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	revoked := make(chan string, 1)
+	go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) { revoked <- reason })
+
+	kick := NewStreamKick("bitrate", "bitrate too high")
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	deadline := time.After(5 * time.Second)
+	for {
+		select {
+		case reason := <-revoked:
+			require.Equal(t, "bitrate too high", reason)
+			return
+		case <-deadline:
+			t.Fatal("StreamKick did not trigger teardown")
+		case <-tick.C:
+			mm.bus.Publish(ms.Streamer(), kick)
 		}
 	}
 }

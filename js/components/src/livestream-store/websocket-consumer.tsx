@@ -25,10 +25,13 @@ export const handleWebSocketMessages = (
 ): LivestreamState => {
   for (let message of messages) {
     if (message.$type === "place.stream.error") {
+      // Dedupe by code: the server re-emits the same error on every offending
+      // segment (e.g. a stream that keeps reconnecting over the bitrate limit),
+      // so replace any existing problem of this code rather than stacking copies.
       state = {
         ...state,
         problems: [
-          ...state.problems,
+          ...state.problems.filter((p) => p.code !== message.code),
           {
             code: message.code,
             message: message.message,

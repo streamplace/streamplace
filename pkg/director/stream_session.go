@@ -68,11 +68,6 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
-
-	// bitrateKicked guards against re-publishing the over-bitrate kick for every
-	// in-flight segment that arrives before the ingest actually tears down. Only
-	// touched from NewSegment, which the director serializes per session.
-	bitrateKicked bool
 }
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
@@ -208,12 +203,21 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 
 	// Enforce the node's max live bitrate, inferred per emitted segment. A stream
-	// over the limit (plus a margin for spiky GoPs) is kicked exactly once: the
-	// StreamKick both tears the ingest down — via watchKeyRevocation, on every
-	// ingest path including isolated workers — and surfaces a place.stream.error
-	// "problem" to the streamer's dashboard explaining the disconnect.
-	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded && !ss.bitrateKicked {
-		ss.bitrateKicked = true
+	// over the limit (plus a margin for spiky GoPs) is kicked: the StreamKick both
+	// tears the ingest down — via watchKeyRevocation, on every ingest path
+	// including isolated workers — and surfaces a place.stream.error "problem" to
+	// the streamer's dashboard explaining the disconnect.
+	//
+	// We kick on EVERY over-limit segment, not once per session: the kick only
+	// ends the ingest connection, not this director session (which lingers until
+	// StreamSessionTimeout). If we latched it, an encoder that auto-reconnects
+	// within that window would reuse this session and stream on unchecked. The
+	// early return keeps the over-limit segment from being distributed, so no
+	// healthy segment overwrites the dashboard problem until the streamer fixes
+	// their bitrate and reconnects clean — at which point findProblems clears it.
+	// The client dedupes place.stream.error by code, so repeated kicks surface as
+	// a single persistent problem.
+	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded {
 		log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
 			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate)
 		ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(

@@ -915,7 +915,10 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 			defer framesFile.Close()
 			frames := ingestframe.NewWriter(framesFile)
 
-			if err := media.RunMKVIngestWorker(ctx, cfg, os.Stdin, frames); err != nil {
+			// This fd-4 path has no back-channel for manifest updates, so the
+			// manifest stays whatever main built at spawn. It's not used in prod
+			// (api requires a hijackable connection); kept for the worker self-test.
+			if err := media.RunMKVIngestWorker(ctx, cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
 				_ = frames.Error(err.Error())
 				return err
 			}

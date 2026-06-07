@@ -43,7 +43,8 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	}()
 
 	srv := newFrameServer(workerFrameBuffer)
-	go serveFrameSocket(ctx, ln, srv)
+	manifest := newManifestHolder(cfg.Manifest)
+	go serveFrameSocket(ctx, ln, srv, manifest)
 
 	// finish flushes the trailing End/Error, waits for main to drain the buffer
 	// (incl. the Answer), then closes the connection for a clean EOF.
@@ -84,7 +85,7 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	defer wd.stop()
 
 	onSegment, flush := mm.workerSegmentSink(ctx, cfg, wd.wrap(srv))
-	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg), onSegment)
+	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, manifest.get), onSegment)
 	if err != nil {
 		return finish(fmt.Errorf("build signer element: %w", err))
 	}

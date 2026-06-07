@@ -283,9 +283,14 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 				}
 				return // connection hijacked; the HTTP response is ours now
 			}
-			// No hijack support (HTTP/2, some proxies) → fd-4-pipe isolation: still
-			// fault-isolated, just no restart-survival.
-			err = a.MediaManager.MKVIngestIsolated(reqCtx, r, mediaSigner)
+			// The isolated path needs a hijackable HTTP/1.1 connection (which the
+			// only real MKV/RTMP-push client — a co-located MistServer pushing over
+			// localhost — always is). We don't support a non-hijack fallback: it
+			// couldn't receive mid-stream manifest updates and would stay stuck
+			// pre-live, so refuse. Such a client can use WHIP instead.
+			log.Error(reqCtx, "isolated ingest requires a hijackable HTTP/1.1 connection; refusing push")
+			errors.WriteHTTPInternalServerError(w, "isolated ingest requires a hijackable HTTP/1.1 connection; use WHIP", fmt.Errorf("connection is not hijackable"))
+			return
 		} else {
 			err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)
 		}

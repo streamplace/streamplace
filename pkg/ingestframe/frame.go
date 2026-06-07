@@ -55,6 +55,13 @@ const (
 	// with bytes acked) back to main, which writes it to the DB — the worker has
 	// no DB access of its own. Payload: JSON {status, message}.
 	Event Type = 5
+	// Manifest carries an updated C2PA manifest (UTF-8 JSON) from MAIN TO the
+	// worker — the reverse of the segment stream, over the same socket. The worker
+	// signs each GoP with the latest manifest it holds, so main can flip a stream
+	// pre-live → live (and apply other mid-stream manifest changes) without the
+	// worker reconnecting — it has no model of its own to notice the change.
+	// Payload: the manifest JSON.
+	Manifest Type = 6
 )
 
 func (t Type) String() string {
@@ -69,6 +76,8 @@ func (t Type) String() string {
 		return "answer"
 	case Event:
 		return "event"
+	case Manifest:
+		return "manifest"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(t))
 	}
@@ -131,6 +140,9 @@ func (fw *Writer) Answer(sdp string) error { return fw.WriteFrame(Answer, []byte
 
 // Event frames a worker status update (JSON payload).
 func (fw *Writer) Event(payload []byte) error { return fw.WriteFrame(Event, payload) }
+
+// Manifest frames an updated C2PA manifest (main → worker).
+func (fw *Writer) Manifest(payload []byte) error { return fw.WriteFrame(Manifest, payload) }
 
 // Reader decodes frames from an underlying stream. The decoder buffers/reads
 // ahead, so a Reader OWNS its stream for the stream's lifetime — don't create a

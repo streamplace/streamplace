@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -129,7 +130,11 @@ func removeWorkerFiles(socketPath string) {
 // outlived a main restart keeps buffering and replays on reconnect; ValidateMP4's
 // dedup makes any replayed overlap idempotent. Returns nil on a clean End, or an
 // error if the socket vanishes without one (worker crashed — contained).
-func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func([]byte) error) error {
+//
+// manifestSource, when non-nil, is polled to refresh the worker's C2PA manifest
+// over the same socket (pushManifestUpdates) — so a pre-live → live transition
+// reaches a worker that has no model of its own. It's re-armed per connection.
+func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, streamer string, onSegment func([]byte) error, manifestSource func() ([]byte, error)) error {
 	connectedOnce := false
 	giveUp := time.Now().Add(workerConnectGrace)
 	for {
@@ -157,9 +162,16 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
 		}
 		connectedOnce = true
+		// Push manifest refreshes to the worker over this connection (re-armed per
+		// connect); stop the pusher when the connection ends.
+		connCtx, connCancel := context.WithCancel(ctx)
+		if manifestSource != nil {
+			go pushManifestUpdates(connCtx, conn, manifestSource)
+		}
 		// Fresh Reader per connection: a reconnect is a new stream where the worker
 		// replays its buffer from the start.
 		sawEnd, _ := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(conn), streamer, onSegment, nil)
+		connCancel()
 		conn.Close()
 		if sawEnd {
 			return nil
@@ -175,6 +187,52 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 		case <-time.After(ingestReconnectBackoff):
 		}
 	}
+}
+
+// manifestRefreshInterval bounds how stale an isolated worker's manifest can be —
+// roughly how long after a pre-live → live transition before the worker starts
+// signing published segments. Var (not const) so tests can shorten it.
+var manifestRefreshInterval = 2 * time.Second
+
+// pushManifestUpdates periodically rebuilds the streamer's manifest and sends it
+// to the worker over conn whenever it changes, so a pre-live → live transition
+// (or a mid-stream title/metadata change) reaches the isolated worker — which
+// has no model to notice it — without reconnecting. manifestSource builds with a
+// fixed start, so the bytes change only on real content changes (muxl stamps the
+// per-segment timestamp). Returns on ctx cancel or a write error (the connection
+// dropped; the consume loop reconnects and re-arms the pusher).
+func pushManifestUpdates(ctx context.Context, conn net.Conn, manifestSource func() ([]byte, error)) {
+	w := ingestframe.NewWriter(conn)
+	var last []byte
+	tick := time.NewTicker(manifestRefreshInterval)
+	defer tick.Stop()
+	for {
+		manifest, err := manifestSource()
+		if err != nil {
+			log.Error(ctx, "ingest worker: build manifest for refresh", "error", err)
+		} else if !bytes.Equal(manifest, last) {
+			if werr := w.Manifest(manifest); werr != nil {
+				return
+			}
+			last = manifest
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
+}
+
+// streamerManifest builds the current C2PA manifest for streamerDID from live
+// model state (title, pre-live → live c2pa.published) — what an isolated worker
+// needs but can't compute itself (no model). It needs only the model + cli, not
+// the streamer's signing key, so it works the same for a live worker (DID from
+// the signer) and a resumed one (DID from the sidecar). start seeds a placeholder
+// dc:date muxl overwrites per segment, so a fixed value keeps bytes stable for
+// change detection.
+func (mm *MediaManager) streamerManifest(ctx context.Context, streamerDID string, start int64) ([]byte, error) {
+	return NewManifestBuilder(mm.model, mm.cli).BuildManifest(ctx, streamerDID, start)
 }
 
 // ingestWorkerSocketDir returns (creating it) the directory of per-session
@@ -238,7 +296,11 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 		_ = proc.Kill()
 	})
 
-	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
+	// Refresh the worker's manifest from live model state (pre-live → live), since
+	// it signs with a frozen one otherwise. Fixed start for stable change detection.
+	start := time.Now().UnixMilli()
+	manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
+	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
 	recordWorkerExit("mkv", err, ctx.Err())
 	// Reap the worker unless we're deliberately leaving it running across a main
 	// restart (ctx cancel). On a clean end OR a crash the worker has exited, so
@@ -355,13 +417,19 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 			_ = proc.Kill()
 		})
 
+		// Refresh the worker's manifest (pre-live → live) over this connection,
+		// scoped to the consume; the reconnect fallback re-arms its own.
+		start := time.Now().UnixMilli()
+		manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
+		go pushManifestUpdates(wctx, conn, manifestSource)
+
 		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
 		conn.Close()
 		var exitErr error
 		if !sawEnd && ctx.Err() == nil {
 			// Connection dropped but the detached worker lives on — reconnect and
 			// drain its buffer. Its terminal result is the worker's true outcome.
-			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
+			exitErr = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
 		}
 		recordWorkerExit("whip", exitErr, ctx.Err())
 		go func() { _, _ = proc.Wait() }()
@@ -397,15 +465,20 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 			// Re-arm ban enforcement for a worker we didn't spawn. We have no process
 			// handle, so kill by the PID in the sidecar (guarded against PID reuse).
 			// Without metadata we can still drain the worker, just not enforce bans.
+			var manifestSource func() ([]byte, error)
 			if merr != nil || meta.StreamerDID == "" {
-				log.Warn(ctx, "resumed ingest worker: no resume metadata; cannot enforce bans on it", "socket", sock, "error", merr)
+				log.Warn(ctx, "resumed ingest worker: no resume metadata; cannot enforce bans or refresh manifest on it", "socket", sock, "error", merr)
 			} else {
 				go mm.watchKeyRevocation(wctx, meta.StreamerDID, meta.StreamerDID, func(reason string) {
 					log.Warn(wctx, "resumed ingest worker: ending stream", "reason", reason, "streamer", meta.StreamerDID)
 					killWorkerPID(wctx, meta.PID, meta.StreamerDID)
 				})
+				// Keep refreshing the resumed worker's manifest too (no signer needed —
+				// streamerManifest only uses the model + cli + the sidecar DID).
+				start := time.Now().UnixMilli()
+				manifestSource = func() ([]byte, error) { return mm.streamerManifest(ctx, meta.StreamerDID, start) }
 			}
-			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment(ctx))
+			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment(ctx), manifestSource)
 			if cerr != nil {
 				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
 			}

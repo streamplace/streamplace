@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http/httputil"
+	"sync"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
@@ -13,6 +14,32 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
+
+// manifestHolder holds the worker's current C2PA manifest. It starts as the
+// manifest main built at spawn (cfg.Manifest) and is swapped when main pushes an
+// updated one over the socket (an ingestframe.Manifest control frame). The
+// signer reads the latest per GoP, so a pre-live → live transition reaches the
+// worker mid-stream — mirroring the in-process signer's fresh-per-GoP manifest,
+// which the worker otherwise can't do (it has no model). Concurrent-safe: the
+// signer reads while the socket goroutine writes.
+type manifestHolder struct {
+	mu sync.RWMutex
+	b  []byte
+}
+
+func newManifestHolder(initial []byte) *manifestHolder { return &manifestHolder{b: initial} }
+
+func (h *manifestHolder) get() []byte {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.b
+}
+
+func (h *manifestHolder) set(b []byte) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.b = b
+}
 
 // IngestWorkerConfig is the startup handshake the main process hands an ingest
 // worker over a dedicated pipe fd — kept off argv/env so key material never
@@ -101,11 +128,14 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 }
 
 // workerSignStream returns the streaming muxl signer a worker uses: it forwards
-// the streamer key PEM + cert + prebuilt manifest straight to muxl-sign, no
-// MediaSigner / model / DB needed. Shared by the MKV and WHIP workers.
-func workerSignStream(cfg IngestWorkerConfig) SignSegmentStreamFunc {
+// the streamer key PEM + cert straight to muxl-sign, no MediaSigner / model / DB
+// needed. The manifest is read FRESH per GoP from the holder, so a manifest main
+// pushes mid-stream (e.g. pre-live → live) takes effect on the next GoP — the
+// same fresh-per-GoP shape as the in-process signer. Shared by the MKV and WHIP
+// workers.
+func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSegmentStreamFunc {
 	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
-		fetchManifest := func() ([]byte, error) { return cfg.Manifest, nil }
+		fetchManifest := func() ([]byte, error) { return getManifest(), nil }
 		return muxl.RunMuxlSignSegment(ctx, input, muxl.SignerInput{
 			CertPEM:           cfg.CertPEM,
 			KeyPEM:            cfg.KeyPEM,
@@ -163,7 +193,7 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 // caller frames End or Error accordingly. All segment frames are guaranteed
 // flushed before it returns, so a trailing End can never race ahead of the last
 // Segment.
-func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames FrameWriter) error {
+func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames FrameWriter, getManifest func() []byte) error {
 	gstinit.InitGST()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -196,7 +226,7 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		}()
 	}
 
-	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg), onSegment)
+	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest), onSegment)
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}

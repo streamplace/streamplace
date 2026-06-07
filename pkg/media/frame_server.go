@@ -189,9 +189,10 @@ func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, std
 	}()
 
 	srv := newFrameServer(workerFrameBuffer)
-	go serveFrameSocket(ctx, ln, srv)
+	manifest := newManifestHolder(cfg.Manifest)
+	go serveFrameSocket(ctx, ln, srv, manifest)
 
-	runErr := RunMKVIngestWorker(ctx, cfg, stdin, srv)
+	runErr := RunMKVIngestWorker(ctx, cfg, stdin, srv, manifest.get)
 	if runErr != nil {
 		_ = srv.Error(runErr.Error())
 	} else {
@@ -207,10 +208,12 @@ func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, std
 }
 
 // serveFrameSocket accepts client connections on ln and attaches each to the
-// server, replacing any prior client (main reconnecting after a restart). Each
-// connection is watched for close so the server reverts to buffering. Returns
-// when ctx is cancelled or the listener is closed.
-func serveFrameSocket(ctx context.Context, ln net.Listener, s *frameServer) {
+// server, replacing any prior client (main reconnecting after a restart). The
+// reverse direction carries control frames from main: it reads them and applies
+// a Manifest update to the holder; any other frame is ignored. The read also
+// unblocks when main disconnects, at which point the server reverts to
+// buffering. Returns when ctx is cancelled or the listener is closed.
+func serveFrameSocket(ctx context.Context, ln net.Listener, s *frameServer, manifest *manifestHolder) {
 	go func() {
 		<-ctx.Done()
 		ln.Close()
@@ -223,9 +226,17 @@ func serveFrameSocket(ctx context.Context, ln net.Listener, s *frameServer) {
 		log.Log(ctx, "ingest worker: main attached to frame socket")
 		s.attach(conn)
 		go func(c net.Conn) {
-			// Main only reads frames; this drains anything it sends (nothing today)
-			// and unblocks when it disconnects, at which point we revert to buffering.
-			_, _ = io.Copy(io.Discard, c)
+			fr := ingestframe.NewReader(c)
+			for {
+				typ, payload, rerr := fr.ReadFrame()
+				if rerr != nil {
+					break // main disconnected (or sent garbage); revert to buffering
+				}
+				if typ == ingestframe.Manifest {
+					manifest.set(payload)
+					log.Log(ctx, "ingest worker: manifest updated by main", "bytes", len(payload))
+				}
+			}
 			s.detachConn(c)
 			log.Log(ctx, "ingest worker: main detached from frame socket")
 		}(conn)

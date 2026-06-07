@@ -69,7 +69,7 @@ func runIngestWorkerHelper() int {
 	}
 	defer framesFile.Close()
 	frames := ingestframe.NewWriter(framesFile)
-	if err := RunMKVIngestWorker(context.Background(), cfg, os.Stdin, frames); err != nil {
+	if err := RunMKVIngestWorker(context.Background(), cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
 		_ = frames.Error(err.Error())
 		return 1
 	}

@@ -126,7 +126,7 @@ func TestServeFrameSocketAttachAndFlush(t *testing.T) {
 	for i := 0; i < 3; i++ { // buffered before anyone connects
 		require.NoError(t, srv.Segment(seg(i)))
 	}
-	go serveFrameSocket(ctx, ln, srv)
+	go serveFrameSocket(ctx, ln, srv, newManifestHolder(nil))
 
 	client, err := net.Dial("unix", sock)
 	require.NoError(t, err)

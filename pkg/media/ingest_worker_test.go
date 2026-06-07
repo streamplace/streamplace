@@ -107,7 +107,7 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 	// the signer drain), so reading the buffer single-threaded afterwards is safe.
 	var buf bytes.Buffer
 	frames := ingestframe.NewWriter(&buf)
-	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), frames))
+	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), frames, func() []byte { return cfg.Manifest }))
 
 	r := ingestframe.NewReader(&buf)
 	var segs int
@@ -172,7 +172,7 @@ func TestRunMKVIngestWorkerRecords(t *testing.T) {
 	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
 
 	// Frames are irrelevant here (recording is on the input side); discard them.
-	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(io.Discard)))
+	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
 	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mkv and
 	// must contain exactly the media the worker ingested. The dump goroutine
@@ -221,7 +221,7 @@ func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 	start := time.Now()
 	done := make(chan error, 1)
 	go func() {
-		done <- RunMKVIngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard))
+		done <- RunMKVIngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest })
 	}()
 	select {
 	case <-done:
@@ -231,4 +231,46 @@ func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 	case <-time.After(30 * time.Second):
 		t.Fatal("worker-side watchdog did not contain the wedge (RunMKVIngestWorker hung)")
 	}
+}
+
+// TestRunMKVIngestWorkerSignsWithSuppliedManifest is the core of the pre-live →
+// live fix: the worker signs each GoP with whatever the manifest getter returns,
+// NOT a frozen one. Two runs of the same media differ only in the getter — a
+// pre-live manifest yields unpublished segments; a live manifest (the same plus
+// a c2pa.published action, as main would push on go-live) yields published ones.
+func TestRunMKVIngestWorkerSignsWithSuppliedManifest(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	cfg := IngestWorkerConfig{
+		StreamerDID:     ms.Streamer(),
+		KeyPEM:          keyPEM,
+		CertPEM:         ms.Cert,
+		BroadcasterHost: "test.example.com",
+	}
+
+	prelive := ms.PrebuiltManifest // c2pa.created only → unpublished
+	live := bytes.Replace(prelive,
+		[]byte(`{"action":"c2pa.created"}`),
+		[]byte(`{"action":"c2pa.created"},{"action":"c2pa.published"}`), 1)
+	require.NotEqual(t, string(prelive), string(live), "the live manifest must add c2pa.published")
+
+	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+
+	firstSegmentPublished := func(manifest []byte) bool {
+		var buf bytes.Buffer
+		require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv),
+			ingestframe.NewWriter(&buf), func() []byte { return manifest }))
+		r := ingestframe.NewReader(&buf)
+		typ, payload, rerr := r.ReadFrame()
+		require.NoError(t, rerr)
+		require.Equal(t, ingestframe.Segment, typ)
+		res, verr := ValidateMP4Media(ctx, payload)
+		require.NoError(t, verr)
+		return res.Meta.Published
+	}
+
+	require.False(t, firstSegmentPublished(prelive), "pre-live manifest → unpublished segments")
+	require.True(t, firstSegmentPublished(live), "live manifest → published segments (the fix)")
 }

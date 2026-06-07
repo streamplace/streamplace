@@ -45,7 +45,7 @@ func TestExceedsMaxBitrate(t *testing.T) {
 func TestExceedsMaxBitrateMarginBoundary(t *testing.T) {
 	const eightMbit = 8 * 1000 * 1000
 	megabyte := 1000 * 1000
-	_, justInside := exceedsMaxBitrate(megabyte, time.Second.Nanoseconds(), 7_300_000) // *1.1 = 8.03M
+	_, justInside := exceedsMaxBitrate(megabyte, time.Second.Nanoseconds(), 7_300_000)  // *1.1 = 8.03M
 	_, justOutside := exceedsMaxBitrate(megabyte, time.Second.Nanoseconds(), 7_200_000) // *1.1 = 7.92M
 	require.False(t, justInside, "8Mbit within 10%% of 7.3Mbit max should not kick")
 	require.True(t, justOutside, "8Mbit beyond 10%% of 7.2Mbit max should kick")

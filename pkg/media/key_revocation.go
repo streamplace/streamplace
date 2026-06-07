@@ -12,14 +12,17 @@ import (
 
 // watchKeyRevocation blocks until the streamer's signing key is revoked or the
 // streamer is banned (or ctx ends), then calls onRevoked once with a reason and
-// returns. It is the shared core behind both the in-process HandleKeyRevocation
-// (which errors the gst pipeline) and the isolated-worker supervisors (which
-// kill the worker subprocess). The latter matters because an isolated worker has
-// no bus/model of its own, so it cannot notice a ban — main has to watch on its
-// behalf and tear the worker down, or a banned user keeps streaming.
-func (mm *MediaManager) watchKeyRevocation(ctx context.Context, ms MediaSigner, onRevoked func(reason string)) {
-	sub := mm.bus.Subscribe(ms.Streamer())
-	defer mm.bus.Unsubscribe(ms.Streamer(), sub)
+// returns. It takes the streamer's bus key + DID as plain strings (not a
+// MediaSigner) so it can also be driven from just the resume metadata of a
+// worker that outlived a main restart. It is the shared core behind both the
+// in-process HandleKeyRevocation (which errors the gst pipeline) and the
+// isolated-worker supervisors (which kill the worker subprocess). The latter
+// matters because an isolated worker has no bus/model of its own, so it cannot
+// notice a ban — main has to watch on its behalf, or a banned user keeps
+// streaming.
+func (mm *MediaManager) watchKeyRevocation(ctx context.Context, streamer, did string, onRevoked func(reason string)) {
+	sub := mm.bus.Subscribe(streamer)
+	defer mm.bus.Unsubscribe(streamer, sub)
 	for {
 		select {
 		case <-ctx.Done():
@@ -27,7 +30,7 @@ func (mm *MediaManager) watchKeyRevocation(ctx context.Context, ms MediaSigner, 
 		case msg := <-sub:
 			switch v := msg.(type) {
 			case *model.SigningKey:
-				if v.RevokedAt != nil && v.DID == ms.DID() {
+				if v.RevokedAt != nil && v.DID == did {
 					onRevoked(fmt.Sprintf("signing key revoked: %s", v.RKey))
 					return
 				}
@@ -44,7 +47,7 @@ func (mm *MediaManager) watchKeyRevocation(ctx context.Context, ms MediaSigner, 
 // HandleKeyRevocation shuts down an in-process ingest pipeline when the
 // streamer's signing key is revoked or they get banned.
 func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner, pipeline *gst.Pipeline) {
-	mm.watchKeyRevocation(ctx, ms, func(reason string) {
+	mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
 		err := fmt.Errorf("ending stream: %s", reason)
 		pipeline.Error(err.Error(), err)
 	})

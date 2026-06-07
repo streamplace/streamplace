@@ -24,6 +24,13 @@ import (
 // config on fd 3, frames on fd 4, MKV on stdin; clean run ends with End, a fatal
 // error with an Error frame and a non-zero exit.
 func runIngestWorkerHelper() int {
+	// Test hook: a worker-shaped process that just sleeps (same argv layout as a
+	// real worker, so /proc/<pid>/cmdline matches killWorkerPID's safety check).
+	// Lets the kill / resume-ban tests act on a real PID without a gst pipeline.
+	if len(os.Args) > 3 && os.Args[3] == "__test_sleep__" {
+		time.Sleep(10 * time.Minute)
+		return 0
+	}
 	cfgFile := os.NewFile(3, "ingest-config")
 	if cfgFile == nil {
 		return 2

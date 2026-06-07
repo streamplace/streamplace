@@ -24,7 +24,7 @@ func TestWatchKeyRevocationBan(t *testing.T) {
 	defer cancel()
 
 	revoked := make(chan string, 1)
-	go mm.watchKeyRevocation(ctx, ms, func(reason string) { revoked <- reason })
+	go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) { revoked <- reason })
 
 	banned := &comatproto.LabelDefs_Label{Val: atproto.LabelDMCAViolation, Uri: "did:plc:test-streamer"}
 	tick := time.NewTicker(50 * time.Millisecond)

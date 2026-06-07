@@ -39,7 +39,7 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	}
 	defer func() {
 		ln.Close()
-		_ = os.Remove(cfg.SocketPath)
+		removeWorkerFiles(cfg.SocketPath)
 	}()
 
 	srv := newFrameServer(workerFrameBuffer)

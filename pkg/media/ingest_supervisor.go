@@ -139,7 +139,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	// behalf and kills it (cancel → CommandContext SIGKILLs the worker), matching
 	// the in-process HandleKeyRevocation. Without this a banned user keeps
 	// streaming under --isolated-ingest.
-	go mm.watchKeyRevocation(ctx, ms, func(reason string) {
+	go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
 		log.Warn(ctx, "ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
 		cancel()
 	})

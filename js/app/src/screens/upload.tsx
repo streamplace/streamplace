@@ -392,15 +392,10 @@ export default function UploadScreen() {
       if (tags.length > 0) record.tags = tags;
 
       if (warnings.size > 0) {
-        const cw: Record<string, boolean> = {};
-        for (const w of warnings) {
-          const key = w.split("#")[1];
-          if (key) cw[key] = true;
-        }
         record.contentWarnings = {
           $type: "place.stream.metadata.contentWarnings",
-          ...cw,
-        } as any;
+          warnings: [...warnings],
+        };
       }
 
       if (
@@ -538,14 +533,9 @@ export default function UploadScreen() {
       if (activity) record.activity = activity;
       if (tags.length > 0) record.tags = tags;
       if (warnings.size > 0) {
-        const cw: Record<string, boolean> = {};
-        for (const w of warnings) {
-          const key = w.split("#")[1];
-          if (key) cw[key] = true;
-        }
         record.contentWarnings = {
           $type: "place.stream.metadata.contentWarnings",
-          ...cw,
+          warnings: [...warnings],
         };
       }
       if (

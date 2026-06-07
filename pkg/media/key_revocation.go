@@ -10,8 +10,14 @@ import (
 	"stream.place/streamplace/pkg/model"
 )
 
-// Handle shutting down a pipeline when a signing key is revoked or a user gets banned
-func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner, pipeline *gst.Pipeline) {
+// watchKeyRevocation blocks until the streamer's signing key is revoked or the
+// streamer is banned (or ctx ends), then calls onRevoked once with a reason and
+// returns. It is the shared core behind both the in-process HandleKeyRevocation
+// (which errors the gst pipeline) and the isolated-worker supervisors (which
+// kill the worker subprocess). The latter matters because an isolated worker has
+// no bus/model of its own, so it cannot notice a ban — main has to watch on its
+// behalf and tear the worker down, or a banned user keeps streaming.
+func (mm *MediaManager) watchKeyRevocation(ctx context.Context, ms MediaSigner, onRevoked func(reason string)) {
 	sub := mm.bus.Subscribe(ms.Streamer())
 	defer mm.bus.Unsubscribe(ms.Streamer(), sub)
 	for {
@@ -21,23 +27,25 @@ func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner,
 		case msg := <-sub:
 			switch v := msg.(type) {
 			case *model.SigningKey:
-				if v.RevokedAt == nil {
-					continue
-				}
-				if v.DID == ms.DID() {
-					err := fmt.Errorf("signing key revoked, ending stream: %s", v.RKey)
-					pipeline.Error(err.Error(), err)
+				if v.RevokedAt != nil && v.DID == ms.DID() {
+					onRevoked(fmt.Sprintf("signing key revoked: %s", v.RKey))
 					return
 				}
 			case *comatproto.LabelDefs_Label:
 				if atproto.IsBanned(v) {
-					err := fmt.Errorf("user banned, ending stream: %s", v.Uri)
-					pipeline.Error(err.Error(), err)
+					onRevoked(fmt.Sprintf("user banned: %s", v.Uri))
 					return
 				}
-			default:
-				continue
 			}
 		}
 	}
+}
+
+// HandleKeyRevocation shuts down an in-process ingest pipeline when the
+// streamer's signing key is revoked or they get banned.
+func (mm *MediaManager) HandleKeyRevocation(ctx context.Context, ms MediaSigner, pipeline *gst.Pipeline) {
+	mm.watchKeyRevocation(ctx, ms, func(reason string) {
+		err := fmt.Errorf("ending stream: %s", reason)
+		pipeline.Error(err.Error(), err)
+	})
 }

@@ -185,6 +185,15 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 	}
 	spmetrics.IngestWorkerStarts.WithLabelValues("mkv").Inc()
 
+	// Ban / key revocation: the detached worker can't notice it itself (no
+	// bus/model), so main watches and kills it. proc.Kill (not ctx cancel) so the
+	// reap below still fires — a ctx cancel means "main shutting down, leave it
+	// running", which is the opposite of what a ban wants.
+	go mm.watchKeyRevocation(ctx, ms, func(reason string) {
+		log.Warn(ctx, "detached ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+		_ = proc.Kill()
+	})
+
 	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
 	recordWorkerExit("mkv", err, ctx.Err())
 	// Reap the worker unless we're deliberately leaving it running across a main
@@ -293,6 +302,15 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	// Consume the signed segments in the background; the HTTP handler returns the
 	// answer now and the WebRTC media establishes directly to the worker.
 	go func() {
+		// Ban / key revocation: watch on the detached worker's behalf and kill it.
+		// Scoped to this consume's lifetime so it doesn't outlive the stream.
+		wctx, wcancel := context.WithCancel(ctx)
+		defer wcancel()
+		go mm.watchKeyRevocation(wctx, ms, func(reason string) {
+			log.Warn(wctx, "whip ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+			_ = proc.Kill()
+		})
+
 		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
 		conn.Close()
 		var exitErr error

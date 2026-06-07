@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/atproto"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/crypto/signers"
@@ -154,6 +155,21 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		return nil, fmt.Errorf("got valid segment, but user %s is not allowed: %w", repoDID, err)
 	}
 
+	// Defense in depth: a banned streamer's ingest worker is torn down
+	// (watchKeyRevocation), but if that ever misses — a raced ban, a failed kill,
+	// a worker that somehow lived — this is the chokepoint every ingest path
+	// converges on, so refusing here keeps banned content from being distributed
+	// regardless.
+	_, labelSpan := tracer.Start(ctx, "ValidateMP4.streamerIsBanned")
+	banned, err := mm.streamerIsBanned(repoDID)
+	labelSpan.End()
+	if err != nil {
+		return nil, fmt.Errorf("check labels for %s: %w", repoDID, err)
+	}
+	if banned {
+		return nil, fmt.Errorf("got valid segment, but user %s is banned", repoDID)
+	}
+
 	// Apply content filtering after metadata is parsed
 	if mm.cli.ContentFilters != nil {
 		if err := mm.applyContentFilters(ctx, meta); err != nil {
@@ -169,6 +185,22 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		signingKeyDID: signingKeyDID,
 		local:         local,
 	}, nil
+}
+
+// streamerIsBanned reports whether repoDID currently carries an active ban
+// label. It's the defense-in-depth gate validateSource applies so a banned
+// streamer's segments are refused even if their ingest worker wasn't torn down.
+// Returns false when there's no model (the minimal worker/test managers);
+// enforcement runs in main, which has the model + label feed.
+func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
+	if mm.model == nil {
+		return false, nil
+	}
+	labels, err := mm.model.GetActiveLabels(repoDID)
+	if err != nil {
+		return false, err
+	}
+	return atproto.IsBanned(labels...), nil
 }
 
 // distributeSegment archives the segment, folds it into the streamer's live-HLS

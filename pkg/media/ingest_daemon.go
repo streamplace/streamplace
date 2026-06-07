@@ -77,7 +77,51 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 		_ = cmd.Process.Kill()
 		return nil, fmt.Errorf("send worker config: %w", err)
 	}
+	// Resume sidecar: a restarting main discovers sockets by UUID alone, which
+	// carries no identity. Record the streamer DID + PID next to the socket so the
+	// new main can re-arm ban enforcement (watchKeyRevocation) and, since it won't
+	// hold this worker's process handle, kill it by PID if needed. Best-effort:
+	// without it the worker still runs, just without restart-surviving ban
+	// enforcement.
+	if err := writeWorkerMeta(cfg.SocketPath, workerMeta{StreamerDID: cfg.StreamerDID, PID: cmd.Process.Pid}); err != nil {
+		log.Warn(context.Background(), "ingest worker: write resume metadata failed", "socket", cfg.SocketPath, "error", err)
+	}
 	return cmd.Process, nil
+}
+
+// workerMeta is the resume sidecar written next to a detached worker's socket:
+// enough for a restarting main to enforce bans on a worker it didn't spawn.
+type workerMeta struct {
+	StreamerDID string `json:"streamer_did"`
+	PID         int    `json:"pid"`
+}
+
+func workerMetaPath(socketPath string) string {
+	return strings.TrimSuffix(socketPath, ".sock") + ".json"
+}
+
+func writeWorkerMeta(socketPath string, meta workerMeta) error {
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(workerMetaPath(socketPath), b, 0o644)
+}
+
+func readWorkerMeta(socketPath string) (workerMeta, error) {
+	var m workerMeta
+	b, err := os.ReadFile(workerMetaPath(socketPath))
+	if err != nil {
+		return m, err
+	}
+	return m, json.Unmarshal(b, &m)
+}
+
+// removeWorkerFiles unlinks a worker's socket and its resume sidecar together,
+// so the sidecar never outlives the socket it describes.
+func removeWorkerFiles(socketPath string) {
+	_ = os.Remove(socketPath)
+	_ = os.Remove(workerMetaPath(socketPath))
 }
 
 // ConsumeWorkerSocket connects to a worker's frame socket and feeds its segments
@@ -96,7 +140,7 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 					// Never came up within the grace: a dead/never-started worker, or a
 					// stale socket a SIGKILLed worker left behind. Unlink it so it can't
 					// linger or re-spin a consumer on the next restart.
-					_ = os.Remove(socketPath)
+					removeWorkerFiles(socketPath)
 					return fmt.Errorf("ingest worker never came up at %s: %w", socketPath, err)
 				}
 				select { // worker may still be coming up
@@ -109,7 +153,7 @@ func (mm *MediaManager) ConsumeWorkerSocket(ctx context.Context, socketPath, str
 			// Connected before, now the socket's gone: the worker exited. A clean
 			// exit already unlinked its socket; a SIGKILL leaves it behind, so remove
 			// the leftover (no-op if already gone).
-			_ = os.Remove(socketPath)
+			removeWorkerFiles(socketPath)
 			return fmt.Errorf("ingest worker socket gone before End: %w", err)
 		}
 		connectedOnce = true
@@ -184,6 +228,15 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 		return fmt.Errorf("spawn detached worker: %w", err)
 	}
 	spmetrics.IngestWorkerStarts.WithLabelValues("mkv").Inc()
+
+	// Ban / key revocation: the detached worker can't notice it itself (no
+	// bus/model), so main watches and kills it. proc.Kill (not ctx cancel) so the
+	// reap below still fires — a ctx cancel means "main shutting down, leave it
+	// running", which is the opposite of what a ban wants.
+	go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
+		log.Warn(ctx, "detached ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+		_ = proc.Kill()
+	})
 
 	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx))
 	recordWorkerExit("mkv", err, ctx.Err())
@@ -293,6 +346,15 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	// Consume the signed segments in the background; the HTTP handler returns the
 	// answer now and the WebRTC media establishes directly to the worker.
 	go func() {
+		// Ban / key revocation: watch on the detached worker's behalf and kill it.
+		// Scoped to this consume's lifetime so it doesn't outlive the stream.
+		wctx, wcancel := context.WithCancel(ctx)
+		defer wcancel()
+		go mm.watchKeyRevocation(wctx, ms.Streamer(), ms.DID(), func(reason string) {
+			log.Warn(wctx, "whip ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+			_ = proc.Kill()
+		})
+
 		sawEnd, _ := mm.consumeWorkerFrames(ctx, fr, ms.Streamer(), mm.validateSegment(ctx), nil)
 		conn.Close()
 		var exitErr error
@@ -323,9 +385,27 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 	}
 	for _, sock := range socks {
 		sock := sock
-		log.Log(ctx, "resuming detached ingest worker", "socket", sock)
+		meta, merr := readWorkerMeta(sock)
+		streamer := "resumed"
+		if merr == nil && meta.StreamerDID != "" {
+			streamer = meta.StreamerDID
+		}
+		log.Log(ctx, "resuming detached ingest worker", "socket", sock, "streamer", streamer)
 		go func() {
-			cerr := mm.ConsumeWorkerSocket(ctx, sock, "resumed", mm.validateSegment(ctx))
+			wctx, wcancel := context.WithCancel(ctx)
+			defer wcancel()
+			// Re-arm ban enforcement for a worker we didn't spawn. We have no process
+			// handle, so kill by the PID in the sidecar (guarded against PID reuse).
+			// Without metadata we can still drain the worker, just not enforce bans.
+			if merr != nil || meta.StreamerDID == "" {
+				log.Warn(ctx, "resumed ingest worker: no resume metadata; cannot enforce bans on it", "socket", sock, "error", merr)
+			} else {
+				go mm.watchKeyRevocation(wctx, meta.StreamerDID, meta.StreamerDID, func(reason string) {
+					log.Warn(wctx, "resumed ingest worker: ending stream", "reason", reason, "streamer", meta.StreamerDID)
+					killWorkerPID(wctx, meta.PID, meta.StreamerDID)
+				})
+			}
+			cerr := mm.ConsumeWorkerSocket(wctx, sock, streamer, mm.validateSegment(ctx))
 			if cerr != nil {
 				log.Error(ctx, "resumed ingest worker ended", "socket", sock, "error", cerr)
 			}

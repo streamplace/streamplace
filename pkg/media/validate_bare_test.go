@@ -9,13 +9,17 @@ import (
 	"os"
 	"sort"
 	"testing"
+	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -152,4 +156,42 @@ func TestFeedLiveWindow(t *testing.T) {
 		require.Contains(t, pl, "#EXTINF")
 	}
 	require.Contains(t, w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "#EXTM3U")
+}
+
+// seedBanLabel writes an active ban label for did into the model.
+func seedBanLabel(t *testing.T, mod model.Model, did string) {
+	t.Helper()
+	lex := &comatproto.LabelDefs_Label{
+		Cts: time.Now().UTC().Format(time.RFC3339),
+		Src: "did:plc:test-labeler",
+		Uri: did,
+		Val: atproto.LabelDMCAViolation,
+	}
+	var buf bytes.Buffer
+	require.NoError(t, lex.MarshalCBOR(&buf))
+	require.NoError(t, mod.CreateLabel(&model.Label{
+		Src:    lex.Src,
+		Uri:    did,
+		Val:    atproto.LabelDMCAViolation,
+		Record: buf.Bytes(),
+	}))
+}
+
+// TestStreamerIsBanned exercises the defense-in-depth gate validateSource applies
+// at the ingest chokepoint: a streamer with an active ban label is rejected
+// regardless of whether their ingest worker was torn down. A clean streamer
+// passes; the ONLY change between the two checks is the ban label.
+func TestStreamerIsBanned(t *testing.T) {
+	mm, _ := getStaticTestMediaManager(t)
+	did := "did:plc:bannedstreamer"
+
+	banned, err := mm.streamerIsBanned(did)
+	require.NoError(t, err)
+	require.False(t, banned, "a clean streamer is not banned")
+
+	seedBanLabel(t, mm.model, did)
+
+	banned, err = mm.streamerIsBanned(did)
+	require.NoError(t, err)
+	require.True(t, banned, "an active ban label is detected at the validate chokepoint")
 }

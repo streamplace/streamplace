@@ -185,7 +185,7 @@ func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, std
 	}
 	defer func() {
 		ln.Close()
-		_ = os.Remove(cfg.SocketPath)
+		removeWorkerFiles(cfg.SocketPath)
 	}()
 
 	srv := newFrameServer(workerFrameBuffer)

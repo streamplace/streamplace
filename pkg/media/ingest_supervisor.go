@@ -135,6 +135,15 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	})
 	defer watchdog.Stop()
 
+	// Ban / key revocation: the worker has no bus or model, so main watches on its
+	// behalf and kills it (cancel → CommandContext SIGKILLs the worker), matching
+	// the in-process HandleKeyRevocation. Without this a banned user keeps
+	// streaming under --isolated-ingest.
+	go mm.watchKeyRevocation(ctx, ms.Streamer(), ms.DID(), func(reason string) {
+		log.Warn(ctx, "ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+		cancel()
+	})
+
 	// Read signed-segment frames and feed each into the normal chokepoint.
 	sawEnd, readErr := mm.consumeWorkerFrames(ctx, ingestframe.NewReader(framesR), ms.Streamer(), mm.validateSegment(ctx), func() {
 		watchdog.Reset(ingestWorkerWatchdog)

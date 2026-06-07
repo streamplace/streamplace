@@ -407,12 +407,10 @@ export default function UploadScreen() {
         license &&
         license !== "place.stream.metadata.contentRights#all-rights-reserved"
       ) {
-        const licenseKey = license.split("#")[1];
         record.contentRights = {
           $type: "place.stream.metadata.contentRights",
-          license: { $type: license } as any,
-          [licenseKey]: { $type: license } as any,
-        } as any;
+          license: license,
+        };
       }
 
       if (thumbnail) {
@@ -554,11 +552,9 @@ export default function UploadScreen() {
         license &&
         license !== "place.stream.metadata.contentRights#all-rights-reserved"
       ) {
-        const licenseKey = license.split("#")[1];
         record.contentRights = {
           $type: "place.stream.metadata.contentRights",
-          license: { $type: license },
-          [licenseKey]: { $type: license },
+          license: license,
         };
       }
       if (thumbnail) {

@@ -94,7 +94,7 @@ func TestDetachedWorkerZeroDowntime(t *testing.T) {
 		segs++
 		return nil
 	}
-	require.NoError(t, (&MediaManager{}).ConsumeWorkerSocket(ctx, socks[0], ms.Streamer(), onSegment))
+	require.NoError(t, (&MediaManager{}).ConsumeWorkerSocket(ctx, socks[0], ms.Streamer(), onSegment, nil))
 	require.GreaterOrEqual(t, segs, 1, "detached worker served signed segments")
 
 	_, _ = proc.Wait() // reap the detached worker

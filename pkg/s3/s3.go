@@ -35,6 +35,15 @@ type Recorder interface {
 	RecordComplete(ctx context.Context, id string, parts int32, size int64) error
 }
 
+// uploadAPI is the subset of *s3.Client the upload loop uses. Pulled out so
+// tests can inject a fake; *s3.Client satisfies it.
+type uploadAPI interface {
+	CreateMultipartUpload(context.Context, *s3.CreateMultipartUploadInput, ...func(*s3.Options)) (*s3.CreateMultipartUploadOutput, error)
+	UploadPart(context.Context, *s3.UploadPartInput, ...func(*s3.Options)) (*s3.UploadPartOutput, error)
+	CompleteMultipartUpload(context.Context, *s3.CompleteMultipartUploadInput, ...func(*s3.Options)) (*s3.CompleteMultipartUploadOutput, error)
+	AbortMultipartUpload(context.Context, *s3.AbortMultipartUploadInput, ...func(*s3.Options)) (*s3.AbortMultipartUploadOutput, error)
+}
+
 // S3Uploader manages streaming multipart uploads to an S3-compatible endpoint.
 // Bare canonical MUXL segments are fed via AddSegment and written verbatim —
 // no per-object init header — so the objects of one stream concatenate
@@ -43,7 +52,7 @@ type Recorder interface {
 // what lets it "concat fearlessly". Every cutoverEvery, the current upload is
 // completed and a new one begins.
 type S3Uploader struct {
-	client       *s3.Client
+	client       uploadAPI
 	bucket       string
 	cutoverEvery time.Duration
 	keyPrefix    string // e.g. "did:plc:abc123/"
@@ -60,9 +69,13 @@ type S3Uploader struct {
 	closed    atomic.Bool
 }
 
-// SetLivestreamURI records the livestream this stream's objects belong to. It
-// may be called once the URI is resolved (it can be unknown when the uploader
-// starts); subsequent multipart objects are stamped with it via RecordStart.
+// SetLivestreamURI records the livestream this stream's objects belong to. A
+// single continuous ingest can move through several place.stream.livestream
+// records (each "update livestream" mints a new one — chapter markers), so when
+// this changes the upload loop rolls over to a fresh object tagged with the new
+// URI. That keeps every object within a single livestream, which is what lets
+// finalize select exactly one livestream's objects (and, across nodes, coalesce
+// them by the shared URI). It may be called before the URI is first resolved.
 func (u *S3Uploader) SetLivestreamURI(uri string) {
 	u.mu.Lock()
 	u.livestreamURI = uri
@@ -79,14 +92,15 @@ func (u *S3Uploader) getLivestreamURI() string {
 const minPartSize = 5 * 1024 * 1024
 
 type activeUpload struct {
-	key       string
-	uploadID  string
-	recordID  string // set by Recorder.RecordStart, used for RecordComplete
-	parts     []types.CompletedPart
-	partNum   int32
-	started   time.Time
-	buf       []byte // accumulates segments until we hit minPartSize
-	totalSize int64  // running total of bytes flushed across all parts
+	key           string
+	uploadID      string
+	recordID      string // set by Recorder.RecordStart, used for RecordComplete
+	livestreamURI string // the livestream this object belongs to; a change rolls it over
+	parts         []types.CompletedPart
+	partNum       int32
+	started       time.Time
+	buf           []byte // accumulates segments until we hit minPartSize
+	totalSize     int64  // running total of bytes flushed across all parts
 }
 
 var DefaultCutoverEvery = 10 * time.Minute
@@ -97,7 +111,6 @@ var DefaultCutoverEvery = 10 * time.Minute
 // nil to disable persistence. Starts the muxl Concatenator and a background
 // goroutine that reads processed segments and uploads them.
 func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
-	ctx := context.Background()
 	client := s3.New(s3.Options{
 		Region: cfg.Region,
 		Credentials: credentials.NewStaticCredentialsProvider(
@@ -108,12 +121,18 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 		BaseEndpoint: aws.String(cfg.Endpoint),
 		UsePathStyle: true,
 	})
+	return newS3Uploader(client, cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
+}
+
+// newS3Uploader is the client-injectable constructor behind NewS3Uploader; the
+// fake-client tests use it directly.
+func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
 	if cutoverEvery == 0 {
 		cutoverEvery = DefaultCutoverEvery
 	}
 	u := &S3Uploader{
 		client:       client,
-		bucket:       cfg.Bucket,
+		bucket:       bucket,
 		cutoverEvery: cutoverEvery,
 		keyPrefix:    keyPrefix,
 		userDID:      userDID,
@@ -121,7 +140,7 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 		done:         make(chan error, 1),
 		recorder:     recorder,
 	}
-	go u.uploadLoop(ctx)
+	go u.uploadLoop(context.Background())
 	return u
 }
 
@@ -168,10 +187,12 @@ func (u *S3Uploader) Close(ctx context.Context) error {
 func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	ctx = log.WithLogValues(ctx, "func", "s3.uploadLoop")
 	var current *activeUpload
+	objSeq := 0 // disambiguates keys when two objects roll over within one second
 
 	startUpload := func() error {
+		objSeq++
 		now := time.Now()
-		key := fmt.Sprintf("%s%s.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"))
+		key := fmt.Sprintf("%s%s-%d.m4s", u.keyPrefix, now.UTC().Format("2006-01-02T15-04-05"), objSeq)
 
 		resp, err := u.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 			Bucket:      aws.String(u.bucket),
@@ -182,13 +203,15 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			return fmt.Errorf("creating multipart upload for %s: %w", key, err)
 		}
 
+		uri := u.getLivestreamURI()
 		current = &activeUpload{
-			key:      key,
-			uploadID: *resp.UploadId,
-			started:  now,
+			key:           key,
+			uploadID:      *resp.UploadId,
+			started:       now,
+			livestreamURI: uri,
 		}
 		if u.recorder != nil {
-			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, u.getLivestreamURI(), now)
+			id, recErr := u.recorder.RecordStart(ctx, u.userDID, u.bucket, key, uri, now)
 			if recErr != nil {
 				log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
 			}
@@ -268,8 +291,12 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	handleSegment := func(seg []byte) error {
 		now := time.Now()
 
-		// Cut over if needed
-		if current != nil && now.Sub(current.started) >= u.cutoverEvery {
+		// Roll over to a new object when the current one has run for cutoverEvery,
+		// or when the livestream changed (a new place.stream.livestream "chapter"
+		// record). Cutting over on the livestream change keeps each object within
+		// a single livestream so finalize can select exactly one livestream's
+		// objects without one straddling two chapters.
+		if current != nil && (now.Sub(current.started) >= u.cutoverEvery || current.livestreamURI != u.getLivestreamURI()) {
 			if err := completeUpload(); err != nil {
 				return err
 			}

@@ -2,6 +2,7 @@ package vod
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -15,6 +16,44 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
+
+// firstTFDT walks the ISO-BMFF boxes of a segment chunk (per-track moof+mdat,
+// possibly prefixed by c2pa/muxl uuid boxes) and returns the
+// baseMediaDecodeTime from the first tfdt box it finds. Minimal walker:
+// recurses into moof/traf containers and skips everything else. ok=false if no
+// tfdt is present or a box uses 64-bit/extends-to-EOF sizing (not expected in
+// canonical MUXL segments).
+func firstTFDT(box []byte) (uint64, bool) {
+	for len(box) >= 8 {
+		size := int(binary.BigEndian.Uint32(box[0:4]))
+		typ := string(box[4:8])
+		if size < 8 || size > len(box) {
+			return 0, false
+		}
+		payload := box[8:size]
+		switch typ {
+		case "moof", "traf":
+			if v, ok := firstTFDT(payload); ok {
+				return v, true
+			}
+		case "tfdt":
+			if len(payload) >= 1 {
+				switch payload[0] { // version
+				case 0:
+					if len(payload) >= 8 {
+						return uint64(binary.BigEndian.Uint32(payload[4:8])), true
+					}
+				case 1:
+					if len(payload) >= 12 {
+						return binary.BigEndian.Uint64(payload[4:12]), true
+					}
+				}
+			}
+		}
+		box = box[size:]
+	}
+	return 0, false
+}
 
 // Metafile is the per-blob HLS playback index emitted alongside a
 // processed VOD blob. JSON shape mirrors what `muxl hls` produces (see
@@ -55,6 +94,15 @@ type MetafileSegment struct {
 	Size          int64  `json:"size"`
 	DurationTicks uint64 `json:"durationTicks"`
 	SampleCount   uint32 `json:"sampleCount"`
+	// Discontinuity marks a segment that begins a new continuous timeline —
+	// its decode time jumped backward relative to the previous segment of the
+	// same track. This happens when a recording concatenates multiple ingest
+	// sessions (the streamer disconnected/reconnected or stopped and restarted),
+	// each restarting its tfdt near zero. The HLS playlist generator emits an
+	// EXT-X-DISCONTINUITY before such a segment so players re-anchor the
+	// timeline instead of choking on the backward jump. Omitted (false) for the
+	// common single-session case.
+	Discontinuity bool `json:"discontinuity,omitempty"`
 }
 
 // metafileBuilder consumes the rich event stream from the muxl
@@ -75,6 +123,12 @@ type metafileBuilder struct {
 
 	runningOffset int64 // bytes written to the concatenated output so far
 	seenInit      bool
+
+	// lastTFDT / tfdtSeen track each track's previous baseMediaDecodeTime so a
+	// backward jump (a concatenated reconnect/restart) can be flagged as a
+	// discontinuity. See MetafileSegment.Discontinuity.
+	lastTFDT map[string]uint64
+	tfdtSeen map[string]bool
 }
 
 func newMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder {
@@ -83,6 +137,8 @@ func newMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder 
 		store:         store,
 		trackInitCIDs: map[string]string{},
 		trackSegments: map[string][]MetafileSegment{},
+		lastTFDT:      map[string]uint64{},
+		tfdtSeen:      map[string]bool{},
 	}
 }
 
@@ -127,11 +183,25 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 		sort.Strings(keys)
 		for _, tid := range keys {
 			chunk := ev.Tracks[tid]
+			// Flag a discontinuity when this track's decode time jumps backward
+			// vs its previous segment — the signature of a concatenated
+			// reconnect/restart. A normal stream's tfdt is strictly increasing
+			// (tfdt[n] = tfdt[n-1] + duration[n-1]), so this never fires for a
+			// clean single-session recording.
+			disc := false
+			if tfdt, ok := firstTFDT(chunk); ok {
+				if b.tfdtSeen[tid] && tfdt < b.lastTFDT[tid] {
+					disc = true
+				}
+				b.lastTFDT[tid] = tfdt
+				b.tfdtSeen[tid] = true
+			}
 			b.trackSegments[tid] = append(b.trackSegments[tid], MetafileSegment{
 				Offset:        b.runningOffset,
 				Size:          int64(len(chunk)),
 				DurationTicks: ev.Durations[tid],
 				SampleCount:   ev.SampleCounts[tid],
+				Discontinuity: disc,
 			})
 			b.runningOffset += int64(len(chunk))
 		}

@@ -636,7 +636,7 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, st
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
-	segments := filterSegments(t.Segments, t.Timescale, startMS, endMS)
+	segments, discontinuitySeq := filterSegments(t.Segments, t.Timescale, startMS, endMS)
 
 	var maxDurSec float64
 	for _, s := range segments {
@@ -660,11 +660,26 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, st
 		"#EXT-X-INDEPENDENT-SEGMENTS",
 		fmt.Sprintf("#EXT-X-TARGETDURATION:%d", targetDuration),
 		"#EXT-X-MEDIA-SEQUENCE:0",
+	}
+	// EXT-X-DISCONTINUITY-SEQUENCE accounts for discontinuities trimmed off the
+	// front of a clipped playlist (the first served segment being a boundary, or
+	// boundaries before it). Omitted when zero, which is the common case.
+	if discontinuitySeq > 0 {
+		lines = append(lines, fmt.Sprintf("#EXT-X-DISCONTINUITY-SEQUENCE:%d", discontinuitySeq))
+	}
+	lines = append(lines,
 		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(cdnURL, ownerDID, t.InitCID, sid)),
 		"",
-	}
+	)
 	bURL := blobURL(cdnURL, ownerDID, t.BlobCID, sid)
-	for _, seg := range segments {
+	for i, seg := range segments {
+		// A segment whose decode time reset (a concatenated reconnect/restart)
+		// begins a new timeline; signal it so players re-anchor instead of
+		// choking on the backward jump. The first served segment's own boundary
+		// is folded into EXT-X-DISCONTINUITY-SEQUENCE above, not an inline tag.
+		if seg.Discontinuity && i > 0 {
+			lines = append(lines, "#EXT-X-DISCONTINUITY")
+		}
 		durSec := float64(seg.DurationTicks) / float64(t.Timescale)
 		lines = append(lines,
 			fmt.Sprintf("#EXTINF:%.6f,", durSec),
@@ -719,9 +734,13 @@ func composeClipBounds(clipStartMS int64, clipEndMS, queryStartMS, queryEndMS *i
 // no sub-segment splitting. Bounds are in the parent video's
 // timeline; clip-record local times must be composed by the caller
 // before they get here.
-func filterSegments(segments []vod.MetafileSegment, timescale uint32, startMS, endMS *int64) []vod.MetafileSegment {
+// It also returns the discontinuity sequence: the number of discontinuity
+// boundaries at or before the first returned segment (i.e. trimmed off the
+// front), which the caller emits as EXT-X-DISCONTINUITY-SEQUENCE so a clipped
+// playlist's timeline stays correct.
+func filterSegments(segments []vod.MetafileSegment, timescale uint32, startMS, endMS *int64) ([]vod.MetafileSegment, int) {
 	if startMS == nil && endMS == nil {
-		return segments
+		return segments, 0
 	}
 	tsf := float64(timescale)
 	startTicks := int64(0)
@@ -735,14 +754,24 @@ func filterSegments(segments []vod.MetafileSegment, timescale uint32, startMS, e
 
 	out := segments[:0:0]
 	cursor := int64(0)
+	discontinuitySeq := 0
+	started := false
 	for _, seg := range segments {
 		segEnd := cursor + int64(seg.DurationTicks)
 		if segEnd > startTicks && cursor < endTicks {
+			// The first served segment being itself a boundary is reflected in
+			// the discontinuity sequence rather than an inline tag.
+			if !started && seg.Discontinuity {
+				discontinuitySeq++
+			}
+			started = true
 			out = append(out, seg)
+		} else if !started && seg.Discontinuity {
+			discontinuitySeq++
 		}
 		cursor = segEnd
 	}
-	return out
+	return out, discontinuitySeq
 }
 
 // computeBandwidth derives an approximate average bitrate (bits/s)

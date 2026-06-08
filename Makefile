@@ -61,7 +61,7 @@ app: install
 
 .PHONY: app-cached
 app-cached:
-	if [ ! -f js/app/dist/index.html ]; then $(MAKE) app; else echo "js/app/dist/index.html exists, not rebuilding, run make app to rebuild"; fi
+	if [ ! -f js/app/dist/index.html ] || [ ! -f js/web/dist/index.html ]; then $(MAKE) app; else echo "frontends already built, run make app to rebuild"; fi
 
 .PHONY: ci-ios
 ci-ios: version install app
@@ -297,6 +297,15 @@ dev-setup:
 dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
+	$(MAKE) dev-rust
+	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
+	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
+	LD_LIBRARY_PATH=$(BUILDDIR)/lib go build -tags mainnet -o $(BUILDDIR)/libstreamplace ./cmd/libstreamplace/...
+
+.PHONY: dev-web
+dev-web: app-cached $(LEXICON_STAMP)
+	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
+	cp ./util/streamplace-dev-web.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \
 	CGO_LDFLAGS="$(MACOS_VERSION_FLAG)" \
@@ -621,7 +630,7 @@ darwin-amd64:
 	&& tar -czvf ../bin/streamplace-$(VERSION)-darwin-amd64.tar.gz ./streamplace \
 	&& cd -
 
-.PHONY: darwin-arm64gofmt -w .
+.PHONY: darwin-arm64
 darwin-arm64:
 	export CC=aarch64-apple-darwin24.4-clang \
 	&& export CC_AARCH64_APPLE_DARWIN=aarch64-apple-darwin24.4-clang \
@@ -728,6 +737,8 @@ golangci-lint-container: docker-build-builder
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/index.html
+	podman exec golangci-lint mkdir -p js/web/dist
+	podman exec golangci-lint touch js/web/dist/index.html
 	podman exec golangci-lint mkdir -p .build
 	podman exec golangci-lint touch .build/lexicon-stamp
 	podman exec golangci-lint make dev

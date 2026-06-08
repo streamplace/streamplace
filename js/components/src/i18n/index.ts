@@ -1,5 +1,5 @@
-// Simple i18n infrastructure exports for Streamplace components
-// Re-exports i18next tools for app-level customization
+// i18n infrastructure exports for Streamplace components
+// Re-exports from @streamplace/i18n + React-specific bindings
 
 // Core i18next exports
 export { default as i18n } from "i18next";
@@ -23,22 +23,28 @@ export { default as Fluent } from "i18next-fluent";
 // Basic provider components for consistent setup
 export { I18nProvider } from "./provider";
 
-// Bootstrap configuration and utilities
+// Bootstrap configuration and utilities (local — adds React + storage)
 export {
   I18NEXT_CONFIG,
   changeLanguage,
   getCurrentLanguage,
   getCurrentLocale,
-  getLanguageInfo,
+  getCurrentLocaleSync,
   getLocaleFromSystemLocale,
-  getSupportedLocales,
   i18next,
   default as initI18next,
-  isLocaleSupported,
 } from "./i18next-config";
 
-// Manifest data
-export { default as manifest } from "../../locales/manifest.json";
+// Re-export pure utilities from @streamplace/i18n
+export {
+  STORAGE_KEY,
+  createI18nextConfig,
+  getFallbackChain,
+  getLanguageInfo,
+  getSupportedLocales,
+  isLocaleSupported,
+  manifest,
+} from "@streamplace/i18n";
 
 // TypeScript types
 export type {

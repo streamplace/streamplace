@@ -1,41 +1,18 @@
+// React bindings for the vanilla LivestreamStore in @streamplace/core.
+// useLivestreamStore subscribes a component to a slice of state and
+// re-renders on changes. useLivestreamStoreOptional never throws when
+// there's no provider above (useful for mode-generic hooks like useTitle).
+import {
+  handleWebSocketMessages,
+  makeLivestreamStore,
+  type LivestreamState,
+  type LivestreamStore,
+} from "@streamplace/core";
 import { useContext } from "react";
-import { createStore, StoreApi, useStore } from "zustand";
+import { useStore } from "zustand";
 import { LivestreamContext } from "./context";
-import { LivestreamState } from "./livestream-state";
-import { handleWebSocketMessages } from "./websocket-consumer";
 
-export type LivestreamStore = StoreApi<LivestreamState>;
-
-export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
-  return createStore<LivestreamState>()((set) => ({
-    profile: null,
-    chatIndex: {},
-    chat: [],
-    livestream: null,
-    viewers: null,
-    pendingHides: [],
-    segment: null,
-    renditions: [],
-    replyToMessage: null,
-    chatDraft: "",
-    badgeSlots: null,
-    streamKey: null,
-    setStreamKey: (sk) => set({ streamKey: sk }),
-    authors: {},
-    recentSegments: [],
-    problems: [],
-    activeTeleport: null,
-    activeTeleportUri: null,
-    setActiveTeleportUri: (uri) => set({ activeTeleportUri: uri }),
-    websocketConnected: false,
-    hasReceivedSegment: false,
-    pinnedComment: null,
-    moderationPermissions: [],
-    setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
-    localLivestreamURI: null,
-    setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
-  }));
-};
+export { LivestreamStore, makeLivestreamStore };
 
 export function getStoreFromContext(): LivestreamStore {
   const context = useContext(LivestreamContext);

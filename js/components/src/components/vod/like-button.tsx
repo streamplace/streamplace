@@ -8,11 +8,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useDID } from "../../streamplace-store/streamplace-store";
 import { gap, layout, useTheme } from "../../ui";
-import {
-  useCreateLike,
-  useDeleteLike,
-  useGetLikes,
-} from "../../vod-store/vod-interactions";
+import { useCreateLike, useDeleteLike, useGetLikes } from "../../vod-store";
 import { Text } from "../ui/text";
 
 export function LikeButton({ subjectUri }: { subjectUri: string }) {

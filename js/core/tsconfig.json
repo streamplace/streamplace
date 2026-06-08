@@ -4,17 +4,11 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "jsx": "react-jsx",
-    "module": "commonjs",
-    "noEmit": false,
+    "noEmit": true,
     "declaration": false,
     "declarationMap": false,
     "sourceMap": true,
     "resolveJsonModule": true
   },
-  "include": ["./src"],
-  "ts-node": {
-    "compilerOptions": {
-      "resolveJsonModule": true
-    }
-  }
+  "include": ["./src"]
 }

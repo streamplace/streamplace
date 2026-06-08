@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { PlaceStreamModerationPermission } from "streamplace";
-import { useLivestreamStore } from "../livestream-store/livestream-store";
+import { useLivestreamStore } from "../livestream-store";
 import { usePDSAgent } from "./xrpc";
 
 export interface ModerationPermissions {

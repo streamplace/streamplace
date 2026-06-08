@@ -1,21 +1,22 @@
 // Native translation loader - imports translations directly for bundling
 // Metro will use this file for React Native builds
 
-// Import all translations directly so they're bundled into the app
-import enUSCommon from "../../public/locales/en-US/common.json";
-import enUSSettings from "../../public/locales/en-US/settings.json";
-import esESCommon from "../../public/locales/es-ES/common.json";
-import esESSettings from "../../public/locales/es-ES/settings.json";
-import frFRCommon from "../../public/locales/fr-FR/common.json";
-import frFRSettings from "../../public/locales/fr-FR/settings.json";
-import ptBRCommon from "../../public/locales/pt-BR/common.json";
-import ptBRSettings from "../../public/locales/pt-BR/settings.json";
-import roROCommon from "../../public/locales/ro-RO/common.json";
-import roROSettings from "../../public/locales/ro-RO/settings.json";
-import zhHansCommon from "../../public/locales/zh-Hans/common.json";
-import zhHansSettings from "../../public/locales/zh-Hans/settings.json";
-import zhHantCommon from "../../public/locales/zh-Hant/common.json";
-import zhHantSettings from "../../public/locales/zh-Hant/settings.json";
+import {
+  enUSCommon,
+  enUSSettings,
+  esESCommon,
+  esESSettings,
+  frFRCommon,
+  frFRSettings,
+  ptBRCommon,
+  ptBRSettings,
+  roROCommon,
+  roROSettings,
+  zhHansCommon,
+  zhHansSettings,
+  zhHantCommon,
+  zhHantSettings,
+} from "@streamplace/i18n";
 
 const translationMap: Record<string, any> = {
   "en-US/common": enUSCommon,

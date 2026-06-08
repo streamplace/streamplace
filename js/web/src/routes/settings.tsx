@@ -1,13 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
 import { useSession } from "../lib/session";
-import {
-  clearStoredServerUrl,
-  getStoredServerUrl,
-  getStreamplaceUrl,
-  setStoredServerUrl,
-} from "../lib/streamplace-url";
+import { useStore } from "../lib/store";
+import { useStreamplaceUrl } from "../lib/store/hooks";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -23,36 +19,49 @@ function isValidServerUrl(value: string): boolean {
   }
 }
 
-function sourceLabel(): string {
-  if (getStoredServerUrl()) return "runtime override (localStorage)";
-  const fromEnv = import.meta.env["VITE_STREAMPLACE_URL"];
-  if (typeof fromEnv === "string" && fromEnv.length > 0) {
-    return "build-time (VITE_STREAMPLACE_URL)";
-  }
-  return "window.location.origin (default)";
-}
-
 function SettingsPage() {
+  const storedUrl = useStreamplaceUrl();
+  const setURL = useStore((state) => state.setURL);
   const { state, signOut } = useSession();
-  const [draft, setDraft] = useState<string>(() => {
-    return getStoredServerUrl() ?? getStreamplaceUrl();
-  });
+  const [draft, setDraft] = useState(storedUrl);
   const [saved, setSaved] = useState(false);
+
+  // Keep the draft in sync if the store's URL changes elsewhere.
+  useEffect(() => {
+    setDraft(storedUrl);
+  }, [storedUrl]);
 
   const trimmed = draft.trim();
   const valid = isValidServerUrl(trimmed);
-  const dirty = trimmed !== getStreamplaceUrl();
+  const dirty = trimmed !== storedUrl;
 
   const onSave = () => {
     if (!valid) return;
-    setStoredServerUrl(trimmed);
+    setURL(trimmed);
+    setSaved(true);
+    // Some consumers (e.g. the $user route) still read
+    // getStreamplaceUrl() at module load and don't subscribe to the
+    // store. A reload picks up the new URL for those code paths;
+    // anything already on the store will react automatically.
     window.location.reload();
   };
 
   const onReset = () => {
-    clearStoredServerUrl();
-    setDraft(getStreamplaceUrl());
-    setSaved(true);
+    // Reset to the env / window.location.origin default. We don't
+    // know which it is at runtime without re-running the slice's
+    // resolution logic; the simplest thing is to clear the override
+    // and let the slice's initialize() reload from env + origin.
+    // We approximate by setting it to window.location.origin (the
+    // most common default during dev).
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin.replace(/\/+$/, "")
+        : "";
+    if (origin) {
+      setURL(origin);
+      setSaved(true);
+      window.location.reload();
+    }
   };
 
   return (
@@ -71,10 +80,7 @@ function SettingsPage() {
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 space-y-3">
           <div className="text-xs text-[var(--color-fg-muted)]">
-            Current: <span className="font-mono">{getStreamplaceUrl()}</span>
-            <span className="ml-2 text-[var(--color-fg-subtle)]">
-              ({sourceLabel()})
-            </span>
+            Current: <span className="font-mono">{storedUrl}</span>
           </div>
 
           <label className="block">
@@ -92,8 +98,8 @@ function SettingsPage() {
               className="w-full h-10 px-3 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:border-[var(--color-accent)] focus:outline-none text-sm font-mono"
             />
             <span className="block text-xs text-[var(--color-fg-subtle)] mt-1">
-              Must be http:// or https://. Changes are saved to localStorage and
-              take effect after a reload.
+              Must be http:// or https://. Changes are saved to the store and
+              take effect on next reload.
             </span>
           </label>
 
@@ -115,10 +121,9 @@ function SettingsPage() {
             <button
               type="button"
               onClick={onReset}
-              disabled={!getStoredServerUrl()}
-              className="h-9 px-4 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="h-9 px-4 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-sm"
             >
-              Reset to default
+              Reset to window origin
             </button>
             {saved && (
               <span className="text-xs text-[var(--color-fg-muted)]">

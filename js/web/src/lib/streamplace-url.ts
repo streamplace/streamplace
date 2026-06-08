@@ -1,35 +1,26 @@
-// Resolution order: localStorage override > VITE_STREAMPLACE_URL env > window.location.origin.
-// Changes to localStorage take effect on the next page reload.
+// Resolution order for the Streamplace server URL:
+//   1. Slice storage key (set by the streamplaceSlice.setURL action).
+//   2. VITE_STREAMPLACE_URL env at build time.
+//   3. window.location.origin (when running in a browser).
+//
+// Throws if no URL is resolvable; the streamplaceSlice handles the
+// empty-string case via its try/catch in the slice initializer.
+//
+// This module is intentionally tiny and synchronous. Anything that
+// wants the URL to be reactive (auto-update without a reload) should
+// read from the slice via useStreamplaceUrl() or useStreamplaceNode()
+// instead.
 
 const ENV_KEY = "VITE_STREAMPLACE_URL";
-export const SERVER_URL_STORAGE_KEY = "streamplace:server-url";
-
-export function getStoredServerUrl(): string | null {
-  if (typeof localStorage === "undefined") return null;
-  const v = localStorage.getItem(SERVER_URL_STORAGE_KEY);
-  if (typeof v !== "string") return null;
-  const trimmed = v.trim().replace(/\/+$/, "");
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-export function setStoredServerUrl(url: string): void {
-  const trimmed = url.trim().replace(/\/+$/, "");
-  if (trimmed.length === 0) {
-    localStorage.removeItem(SERVER_URL_STORAGE_KEY);
-  } else {
-    localStorage.setItem(SERVER_URL_STORAGE_KEY, trimmed);
-  }
-}
-
-export function clearStoredServerUrl(): void {
-  if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(SERVER_URL_STORAGE_KEY);
-  }
-}
+const SLICE_URL_KEY = "streamplaceUrl";
 
 export function getStreamplaceUrl(): string {
-  const stored = getStoredServerUrl();
-  if (stored) return stored;
+  if (typeof localStorage !== "undefined") {
+    const sliceOverride = localStorage.getItem(SLICE_URL_KEY);
+    if (typeof sliceOverride === "string" && sliceOverride.trim().length > 0) {
+      return sliceOverride.trim().replace(/\/+$/, "");
+    }
+  }
 
   const fromEnv = import.meta.env[ENV_KEY];
   if (typeof fromEnv === "string" && fromEnv.length > 0) {

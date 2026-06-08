@@ -1,20 +1,22 @@
-// App-wide session context wrapping the ATProto BrowserOAuthClient.
-import {
-  BrowserOAuthClient,
-  type OAuthSession,
-} from "@atproto/oauth-client-browser";
+// App-wide session context. Re-binds to the bluesky slice: the
+// SessionProvider no longer owns the BrowserOAuthClient instance or
+// runs `client.init()`. BlueskyProvider handles the OAuth lifecycle;
+// this provider just exposes reactive bindings ({state, signIn,
+// signOut, pdsAgent, did}) to consumers that want context semantics.
+//
+// `getClient` was dropped from the public API — nothing in the web
+// uses it directly anymore, and callers who need the underlying
+// client can read the slice's `client` field.
+import { OAuthSession } from "@atproto/oauth-client-browser";
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import { StreamplaceAgent } from "streamplace";
-import createOAuthClient from "./oauth";
-import { getStreamplaceUrl } from "./streamplace-url";
+import { useStore } from "./store";
 
 type SessionState =
   | { status: "loading" }
@@ -25,81 +27,50 @@ type SessionContextValue = {
   state: SessionState;
   signIn: (handle: string) => Promise<void>;
   signOut: () => Promise<void>;
-  getClient: () => Promise<BrowserOAuthClient>;
-  /**
-   * Authenticated StreamplaceAgent. Null when signed out or still
-   * restoring the session. The agent is memoized off the OAuthSession
-   * — it's safe to put in dependency arrays.
-   */
   pdsAgent: StreamplaceAgent | null;
-  /** Convenience: the authenticated user's DID, or null. */
   did: string | null;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SessionState>({ status: "loading" });
-  const [client, setClient] = useState<BrowserOAuthClient | null>(null);
+  const authStatus = useStore((state) => state.authStatus);
+  const oauthSession = useStore((state) => state.oauthSession);
+  const pdsAgent = useStore((state) => state.pdsAgent);
+  const login = useStore((state) => state.login);
+  const logout = useStore((state) => state.logout);
+  const openLoginLink = useStore((state) => state.openLoginLink);
 
-  const getClient = useCallback(async () => {
-    if (client) return client;
-    const c = await createOAuthClient(getStreamplaceUrl());
-    setClient(c);
-    return c;
-  }, [client]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const c = await getClient();
-        if (cancelled) return;
-        const result = await c.init();
-        if (cancelled) return;
-        if (result) {
-          setState({ status: "authenticated", session: result.session });
-        } else {
-          setState({ status: "anonymous" });
-        }
-      } catch {
-        if (cancelled) return;
-        setState({ status: "anonymous" });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getClient]);
+  const state: SessionState = useMemo(() => {
+    if (authStatus === "loggedIn" && oauthSession) {
+      return { status: "authenticated", session: oauthSession };
+    }
+    if (authStatus === "loggedOut") {
+      return { status: "anonymous" };
+    }
+    return { status: "loading" };
+  }, [authStatus, oauthSession]);
 
   const signIn = useCallback(
     async (handle: string) => {
-      const c = await getClient();
-      await c.signIn(handle);
+      await login(handle, openLoginLink);
     },
-    [getClient],
+    [login, openLoginLink],
   );
 
   const signOut = useCallback(async () => {
-    if (state.status !== "authenticated") return;
-    await state.session.signOut();
-    setState({ status: "anonymous" });
-  }, [state]);
+    try {
+      await logout();
+    } catch (e) {
+      console.error("signOut error", e);
+    }
+  }, [logout]);
 
-  const pdsAgent = useMemo<StreamplaceAgent | null>(() => {
-    if (state.status !== "authenticated") return null;
-    const session = state.session;
-    return new StreamplaceAgent({
-      did: session.did,
-      fetchHandler: (pathname, init) => session.fetchHandler(pathname, init),
-    });
-  }, [state]);
-
-  const did = state.status === "authenticated" ? state.session.did : null;
+  const did = oauthSession?.did ?? null;
 
   const value = useMemo<SessionContextValue>(
-    () => ({ state, signIn, signOut, getClient, pdsAgent, did }),
-    [state, signIn, signOut, getClient, pdsAgent, did],
+    () => ({ state, signIn, signOut, pdsAgent, did }),
+    [state, signIn, signOut, pdsAgent, did],
   );
 
   return (

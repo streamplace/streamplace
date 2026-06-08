@@ -1,6 +1,9 @@
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Toaster } from "./components/ui/sonner";
+import BlueskyProvider from "./lib/providers/bluesky-provider";
+import StreamplaceProvider from "./lib/providers/streamplace-provider";
 import { SessionProvider } from "./lib/session";
 import { routeTree } from "./routeTree.gen";
 import "./styles.css";
@@ -24,8 +27,13 @@ if (!rootEl) {
 
 createRoot(rootEl).render(
   <StrictMode>
-    <SessionProvider>
-      <RouterProvider router={router} />
-    </SessionProvider>
+    <StreamplaceProvider>
+      <BlueskyProvider>
+        <SessionProvider>
+          <RouterProvider router={router} />
+        </SessionProvider>
+      </BlueskyProvider>
+    </StreamplaceProvider>
+    <Toaster />
   </StrictMode>,
 );

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
+	web "stream.place/streamplace/js/web"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
@@ -266,11 +268,18 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			},
 		}
 	} else {
-		files, err := app.Files()
+		var frontendFiles fs.FS
+		switch a.CLI.Frontend {
+		case "web":
+			log.Warn(ctx, "serving web (Vite) frontend")
+			frontendFiles, err = web.Files()
+		default:
+			frontendFiles, err = app.Files()
+		}
 		if err != nil {
 			return nil, err
 		}
-		index, err := files.Open("index.html")
+		index, err := frontendFiles.Open("index.html")
 		if err != nil {
 			return nil, err
 		}
@@ -282,7 +291,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		if err != nil {
 			return nil, err
 		}
-		linkingHandler, err := a.NotFoundLinkingHandler(ctx, linker)
+		linkingHandler, err := a.NotFoundLinkingHandler(ctx, linker, frontendFiles)
 		if err != nil {
 			return nil, err
 		}
@@ -343,21 +352,18 @@ func copyHeader(dst, src http.Header) {
 }
 
 // handler that takes care of static files and otherwise returns the index.html with the correct link card data
-func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *linking.Linker) (http.HandlerFunc, error) {
-	files, err := app.Files()
-	if err != nil {
-		return nil, err
-	}
-	fs := AppHostingFS{http.FS(files)}
+func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *linking.Linker, frontendFS fs.FS) (http.HandlerFunc, error) {
+	files := frontendFS
+	fsys := AppHostingFS{http.FS(files)}
 
-	fileHandler := a.FileHandler(ctx, http.FileServer(fs))
+	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
 	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
 			f += "index.html"
 		}
-		_, err := fs.Open(f)
+		_, err := fsys.Open(f)
 		if err == nil {
 			fileHandler.ServeHTTP(w, req)
 			return

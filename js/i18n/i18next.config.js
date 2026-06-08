@@ -8,7 +8,7 @@ export default defineConfig({
   locales: ["en-US", "es-ES", "fr-FR", "pt-BR", "zh-Hant"],
   extract: {
     input: [
-      "src/**/*.{js,jsx,ts,tsx}",
+      "../components/src/**/*.{js,jsx,ts,tsx}",
       "../app/src/**/*.{js,jsx,ts,tsx}",
       "../app/components/**/*.{js,jsx,ts,tsx}",
     ],

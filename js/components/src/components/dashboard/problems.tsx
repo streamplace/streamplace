@@ -7,8 +7,7 @@ import {
 } from "lucide-react-native";
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { useLivestreamStore } from "../../livestream-store";
-import { LivestreamProblem } from "../../livestream-store/livestream-state";
+import { LivestreamProblem, useLivestreamStore } from "../../livestream-store";
 import * as zero from "../../ui";
 import { Button, Text } from "../ui";
 

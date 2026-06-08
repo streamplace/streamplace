@@ -1,0 +1,17 @@
+{
+  "extends": "../app/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "jsx": "react-jsx",
+    // Consumes the ESM `streamplace` package + ESM-only `@atproto/lex`; bundler
+    // resolution is required to honor the package's exports map.
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "resolveJsonModule": true
+  },
+  "include": ["./src"]
+}

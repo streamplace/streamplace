@@ -18,11 +18,8 @@
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
-    "@fluent/syntax": "^0.19.0",
     "@types/react-dom": "^19.2.3",
     "@types/sdp-transform": "^2.15.0",
-    "i18next-cli": "^1.32.0",
-    "nodemon": "^3.1.10",
     "tsup": "^8.5.0"
   },
   "dependencies": {
@@ -62,6 +59,8 @@
     "react-native-svg": "^15.15.3",
     "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#74fa32266e3a2fee180f5e01bb8753af2a92d9d3",
     "react-use-websocket": "^4.13.0",
+    "@streamplace/core": "workspace:*",
+    "@streamplace/i18n": "workspace:*",
     "streamplace": "workspace:*",
     "viem": "^2.21.44",
     "zustand": "^5.0.5"
@@ -78,9 +77,6 @@
   "scripts": {
     "build": "tsc",
     "start": "tsc --watch --preserveWatchOutput",
-    "prepare": "node scripts/compile-translations.js && tsc",
-    "i18n:compile": "node scripts/compile-translations.js",
-    "i18n:watch": "nodemon --watch 'locales/**/*.ftl' --exec 'node scripts/compile-translations.js'",
-    "i18n:extract": "i18next-cli extract && node scripts/migrate-i18n.js"
+    "prepare": "tsc"
   }
 }

@@ -19,10 +19,7 @@ import {
   r,
   useTheme,
 } from "../../ui";
-import {
-  useCreateVodComment,
-  useGetVodComments,
-} from "../../vod-store/vod-interactions";
+import { useCreateVodComment, useGetVodComments } from "../../vod-store";
 import { Text } from "../ui/text";
 import { Textarea } from "../ui/textarea";
 

@@ -1,5 +1,5 @@
 import { place } from "streamplace";
-import { LivestreamProblem } from "./livestream-state";
+import { LivestreamProblem } from "./state";
 
 const VARIANCE_THRESHOLD = 0.5;
 const DURATION_THRESHOLD = 5000000000; // 5s in ns

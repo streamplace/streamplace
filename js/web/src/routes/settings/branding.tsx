@@ -153,7 +153,7 @@ function BrandingAdmin() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">{t("branding-admin")}</h1>
+        <h1 className="text-xl font-semibold font-display">{t("branding-admin")}</h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">
           {t("branding-admin-description")}
         </p>

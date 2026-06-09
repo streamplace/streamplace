@@ -1,7 +1,11 @@
+/* tw overwrites this but that's ok, we want both */
+@import "reset.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @import "tw-animate-css";
+
+@import "./fonts.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -140,7 +144,7 @@ code {
   --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
     Arial, sans-serif;
-  --font-mono: "TX-02", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+  --font-mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
     Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -246,16 +250,9 @@ code {
 
 body {
   @apply m-0 font-sans;
-  font-family:
-    "Instrument Sans",
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Display",
-    "Segoe UI",
-    system-ui,
-    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-smooth: always;
 }
 
 ::view-transition-old(root),

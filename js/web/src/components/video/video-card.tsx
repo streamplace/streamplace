@@ -41,7 +41,7 @@ export function VideoCard({
 
   return (
     <Link
-      to="/$user/vod/$tid"
+      to="/$user/video/$tid"
       params={{ user, tid }}
       className="group flex flex-col gap-2"
     >

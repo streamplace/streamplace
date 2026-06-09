@@ -59,7 +59,7 @@ function StreamingSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("streaming")}</h1>
+      <h1 className="text-xl font-semibold font-display">{t("streaming")}</h1>
 
       <CardMenuSection>
         <StreamingLink

@@ -52,7 +52,7 @@ function HomePage() {
       {streams && streams.length > 0 && (
         <div className="flex items-center gap-2 mb-6">
           <div className="w-2 h-2 rounded-full bg-red-500" />
-          <h2 className="text-lg font-semibold text-[var(--color-fg)]">
+          <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
             {streams.length} {streams.length === 1 ? "person" : "people"} live
             now
           </h2>
@@ -62,7 +62,7 @@ function HomePage() {
       {streams && streams.length === 0 && (
         <div className="text-center py-20">
           <div className="text-2xl mb-2">📡</div>
-          <h2 className="text-lg font-semibold text-[var(--color-fg)]">
+          <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
             No one is streaming right now
           </h2>
           <p className="text-sm text-[var(--color-fg-muted)] mt-1">
@@ -85,7 +85,7 @@ function HomePage() {
 
       {streams === null && !loading && (
         <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-4xl font-semibold tracking-tight">
+          <h1 className="text-4xl font-semibold font-display tracking-tight">
             The video layer for everything.
           </h1>
           <p className="mt-4 text-lg text-[var(--color-fg-muted)]">

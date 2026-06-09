@@ -206,7 +206,7 @@ function MultistreamManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">{t("multistream-targets")}</h1>
+        <h1 className="text-xl font-semibold font-display">{t("multistream-targets")}</h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">
           {t("multistream-description")}
         </p>

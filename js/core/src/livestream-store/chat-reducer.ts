@@ -24,7 +24,7 @@ const buildSortedChatList = (
   const sortedKeys = Object.keys(chatIndex).sort((a, b) => {
     const aTime = parseInt(a.split("-")[0], 10);
     const bTime = parseInt(b.split("-")[0], 10);
-    return bTime - aTime;
+    return aTime - bTime;
   });
   return sortedKeys
     .map((key) => chatIndex[key])

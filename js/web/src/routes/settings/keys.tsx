@@ -56,7 +56,7 @@ function KeyManager() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("key-manager")}</h1>
+      <h1 className="text-xl font-semibold font-display">{t("key-manager")}</h1>
 
       {keyRecords === null || keyObj === null ? (
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>

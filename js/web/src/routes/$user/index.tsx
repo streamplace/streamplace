@@ -1,3 +1,8 @@
+import { ChatSidebar } from "@/components/stream/chat-sidebar";
+import { StreamInfo } from "@/components/stream/stream-info";
+import { VideoSection } from "@/components/stream/video-section";
+import { useLivenessState } from "@/hooks/use-liveness-state";
+import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import {
   handleWebSocketMessages,
   makeLivestreamStore,
@@ -5,13 +10,8 @@ import {
 } from "@streamplace/core";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChatSidebar } from "../components/stream/chat-sidebar";
-import { StreamInfo } from "../components/stream/stream-info";
-import { VideoSection } from "../components/stream/video-section";
-import { useLivenessState } from "../hooks/use-liveness-state";
-import { getStreamplaceUrl } from "../lib/streamplace-url";
 
-export const Route = createFileRoute("/$user")({
+export const Route = createFileRoute("/$user/")({
   component: StreamPage,
 });
 
@@ -164,7 +164,7 @@ function OfflinePage({ user }: { user: string }) {
           />
         </svg>
       </div>
-      <h1 className="text-2xl font-semibold">Stream is offline</h1>
+      <h1 className="text-2xl font-semibold font-display">Stream is offline</h1>
       <p className="text-sm text-[var(--color-fg-muted)] mt-2">
         <span className="font-mono">{user}</span> is not currently streaming.
         Check back later.

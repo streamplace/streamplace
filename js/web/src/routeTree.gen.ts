@@ -12,9 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as UserIndexRouteImport } from './routes/$user/index'
 import { Route as SettingsWebhooksRouteImport } from './routes/settings/webhooks'
 import { Route as SettingsStreamingRouteImport } from './routes/settings/streaming'
 import { Route as SettingsRecommendationsRouteImport } from './routes/settings/recommendations'
@@ -29,7 +29,7 @@ import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
-import { Route as UserVodTidRouteImport } from './routes/$user.vod.$tid'
+import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -46,11 +46,6 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const UserRoute = UserRouteImport.update({
-  id: '/$user',
-  path: '/$user',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -60,6 +55,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => SettingsRoute,
+} as any)
+const UserIndexRoute = UserIndexRouteImport.update({
+  id: '/$user/',
+  path: '/$user/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsWebhooksRoute = SettingsWebhooksRouteImport.update({
   id: '/webhooks',
@@ -131,15 +131,14 @@ const SettingsAboutRoute = SettingsAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => SettingsRoute,
 } as any)
-const UserVodTidRoute = UserVodTidRouteImport.update({
-  id: '/vod/$tid',
-  path: '/vod/$tid',
-  getParentRoute: () => UserRoute,
+const UserVideoTidRoute = UserVideoTidRouteImport.update({
+  id: '/$user/video/$tid',
+  path: '/$user/video/$tid',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
@@ -157,12 +156,12 @@ export interface FileRoutesByFullPath {
   '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
+  '/$user/': typeof UserIndexRoute
   '/settings/': typeof SettingsIndexRoute
-  '/$user/vod/$tid': typeof UserVodTidRoute
+  '/$user/video/$tid': typeof UserVideoTidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/videos': typeof VideosRoute
   '/settings/about': typeof SettingsAboutRoute
@@ -179,13 +178,13 @@ export interface FileRoutesByTo {
   '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
+  '/$user': typeof UserIndexRoute
   '/settings': typeof SettingsIndexRoute
-  '/$user/vod/$tid': typeof UserVodTidRoute
+  '/$user/video/$tid': typeof UserVideoTidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
@@ -203,14 +202,14 @@ export interface FileRoutesById {
   '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
+  '/$user/': typeof UserIndexRoute
   '/settings/': typeof SettingsIndexRoute
-  '/$user/vod/$tid': typeof UserVodTidRoute
+  '/$user/video/$tid': typeof UserVideoTidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/$user'
     | '/login'
     | '/settings'
     | '/videos'
@@ -228,12 +227,12 @@ export interface FileRouteTypes {
     | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
+    | '/$user/'
     | '/settings/'
-    | '/$user/vod/$tid'
+    | '/$user/video/$tid'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/$user'
     | '/login'
     | '/videos'
     | '/settings/about'
@@ -250,12 +249,12 @@ export interface FileRouteTypes {
     | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
+    | '/$user'
     | '/settings'
-    | '/$user/vod/$tid'
+    | '/$user/video/$tid'
   id:
     | '__root__'
     | '/'
-    | '/$user'
     | '/login'
     | '/settings'
     | '/videos'
@@ -273,16 +272,18 @@ export interface FileRouteTypes {
     | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
+    | '/$user/'
     | '/settings/'
-    | '/$user/vod/$tid'
+    | '/$user/video/$tid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  UserRoute: typeof UserRouteWithChildren
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   VideosRoute: typeof VideosRoute
+  UserIndexRoute: typeof UserIndexRoute
+  UserVideoTidRoute: typeof UserVideoTidRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -308,13 +309,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/$user': {
-      id: '/$user'
-      path: '/$user'
-      fullPath: '/$user'
-      preLoaderRoute: typeof UserRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -328,6 +322,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
+    }
+    '/$user/': {
+      id: '/$user/'
+      path: '/$user'
+      fullPath: '/$user/'
+      preLoaderRoute: typeof UserIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/settings/webhooks': {
       id: '/settings/webhooks'
@@ -427,25 +428,15 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAboutRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/$user/vod/$tid': {
-      id: '/$user/vod/$tid'
-      path: '/vod/$tid'
-      fullPath: '/$user/vod/$tid'
-      preLoaderRoute: typeof UserVodTidRouteImport
-      parentRoute: typeof UserRoute
+    '/$user/video/$tid': {
+      id: '/$user/video/$tid'
+      path: '/$user/video/$tid'
+      fullPath: '/$user/video/$tid'
+      preLoaderRoute: typeof UserVideoTidRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
-
-interface UserRouteChildren {
-  UserVodTidRoute: typeof UserVodTidRoute
-}
-
-const UserRouteChildren: UserRouteChildren = {
-  UserVodTidRoute: UserVodTidRoute,
-}
-
-const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
 interface SettingsRouteChildren {
   SettingsAboutRoute: typeof SettingsAboutRoute
@@ -489,10 +480,11 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  UserRoute: UserRouteWithChildren,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRouteWithChildren,
   VideosRoute: VideosRoute,
+  UserIndexRoute: UserIndexRoute,
+  UserVideoTidRoute: UserVideoTidRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

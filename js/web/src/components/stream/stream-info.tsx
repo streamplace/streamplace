@@ -87,7 +87,7 @@ export function StreamInfo({
             )}
           </div>
 
-          <h2 className="font-semibold text-[var(--color-fg)] mt-0.5 line-clamp-2">
+          <h2 className="font-display font-semibold text-[var(--color-fg)] mt-0.5 line-clamp-2">
             {title}
           </h2>
 

@@ -96,7 +96,7 @@ function StreamingSettings() {
         <StreamingLink
           icon={Heart}
           label={t("recommendations-to-others")}
-          disabled
+          to="/settings/recommendations"
         />
         <StreamingLink
           to="/settings/webhooks"

@@ -24,6 +24,7 @@ import { Route as SettingsLanguagesRouteImport } from './routes/settings/languag
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
 import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
+import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
@@ -104,6 +105,11 @@ const SettingsBadgeIssuerRoute = SettingsBadgeIssuerRouteImport.update({
   path: '/badge-issuer',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsBackupRoute = SettingsBackupRouteImport.update({
+  id: '/backup',
+  path: '/backup',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
   id: '/advanced',
   path: '/advanced',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/backup': typeof SettingsBackupRoute
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/backup': typeof SettingsBackupRoute
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/backup': typeof SettingsBackupRoute
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/backup'
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/backup'
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/backup'
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
@@ -368,6 +380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsBadgeIssuerRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/backup': {
+      id: '/settings/backup'
+      path: '/backup'
+      fullPath: '/settings/backup'
+      preLoaderRoute: typeof SettingsBackupRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/advanced': {
       id: '/settings/advanced'
       path: '/advanced'
@@ -413,6 +432,7 @@ interface SettingsRouteChildren {
   SettingsAboutRoute: typeof SettingsAboutRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAdvancedRoute: typeof SettingsAdvancedRoute
+  SettingsBackupRoute: typeof SettingsBackupRoute
   SettingsBadgeIssuerRoute: typeof SettingsBadgeIssuerRoute
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
@@ -429,6 +449,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAboutRoute: SettingsAboutRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAdvancedRoute: SettingsAdvancedRoute,
+  SettingsBackupRoute: SettingsBackupRoute,
   SettingsBadgeIssuerRoute: SettingsBadgeIssuerRoute,
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,

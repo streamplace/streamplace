@@ -1,0 +1,342 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { usePDSAgent } from "../../lib/store/hooks";
+
+export const Route = createFileRoute("/settings/backup")({
+  component: BackupSettings,
+});
+
+interface S3Config {
+  endpoint: string;
+  bucket: string;
+  accessKey: string;
+  secretKey: string;
+}
+
+function parseS3Url(url: string): S3Config | null {
+  try {
+    const match = url.match(/^s3\+https?:\/\/([^:]+):([^@]+)@([^/]+)\/(.+)$/);
+    if (!match) return null;
+    const [, accessKey, secretKey, endpoint, bucket] = match;
+    return { endpoint, bucket, accessKey, secretKey };
+  } catch {
+    return null;
+  }
+}
+
+function buildS3Url(config: S3Config, showPassword: boolean): string {
+  const secretKey =
+    (showPassword && config.secretKey !== "***") || !config.secretKey
+      ? config.secretKey
+      : "[hidden]";
+  return `s3+https://${config.accessKey}:${secretKey}@${config.endpoint}/${config.bucket}`;
+}
+
+function BackupSettings() {
+  const { t } = useTranslation("settings");
+  const navigate = useNavigate();
+  const agent = usePDSAgent();
+
+  const [enabled, setEnabled] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [fullUrl, setFullUrl] = useState("");
+  const [originalUrl, setOriginalUrl] = useState("");
+  const [config, setConfig] = useState<S3Config>({
+    endpoint: "",
+    bucket: "",
+    accessKey: "",
+    secretKey: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const isCensored = config.secretKey === "***";
+
+  const loadStorage = async () => {
+    if (!agent) return;
+    try {
+      setLoading(true);
+      const response = await agent.place.stream.server.getStorage();
+      if (response.data.storage) {
+        setOriginalUrl(response.data.storage.url);
+        setEnabled(response.data.storage.isActive);
+        const parsed = parseS3Url(response.data.storage.url);
+        if (parsed) {
+          setConfig(parsed);
+          setFullUrl(buildS3Url(parsed, showPassword));
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to load storage settings:", error);
+      toast.error(error.message || "Failed to load storage settings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (agent) loadStorage();
+  }, [agent]);
+
+  useEffect(() => {
+    setFullUrl(buildS3Url(config, showPassword));
+  }, [showPassword]);
+
+  const handleEnabledChange = async (value: boolean) => {
+    if (!agent) return;
+    const previous = enabled;
+    setEnabled(value);
+    try {
+      await agent.place.stream.server.upsertStorage({ isActive: value });
+    } catch (err: any) {
+      console.error("Failed to toggle backup:", err);
+      setEnabled(previous);
+      toast.error(err.message || "Failed to update backup setting");
+    }
+  };
+
+  const handleFullUrlChange = (url: string) => {
+    setFullUrl(url);
+    const parsed = parseS3Url(url);
+    if (parsed) {
+      if (parsed.secretKey === "[hidden]") {
+        parsed.secretKey = config.secretKey;
+      } else {
+        setShowPassword(true);
+      }
+      setConfig(parsed);
+    }
+  };
+
+  const handleConfigChange = (key: keyof S3Config, value: string) => {
+    setConfig((prev) => {
+      const next = { ...prev, [key]: value };
+      setFullUrl(buildS3Url(next, showPassword));
+      return next;
+    });
+  };
+
+  const isComplete =
+    !!config.endpoint &&
+    !!config.bucket &&
+    !!config.accessKey &&
+    !!config.secretKey;
+
+  const handleSave = async () => {
+    if (!agent || !isComplete) return;
+    try {
+      setSaving(true);
+      const realUrl = `s3+https://${config.accessKey}:${config.secretKey}@${config.endpoint}/${config.bucket}`;
+      const payload: { url?: string } = {};
+
+      if (config.secretKey !== "***") {
+        if (realUrl !== originalUrl) {
+          payload.url = realUrl;
+        }
+      } else {
+        const parsedOriginal = parseS3Url(originalUrl);
+        if (parsedOriginal) {
+          if (
+            parsedOriginal.endpoint !== config.endpoint ||
+            parsedOriginal.bucket !== config.bucket ||
+            parsedOriginal.accessKey !== config.accessKey
+          ) {
+            throw new Error(
+              "Cannot save with masked secret key. Enter the full URL with the secret key.",
+            );
+          }
+        }
+      }
+
+      await agent.place.stream.server.upsertStorage(payload);
+      await loadStorage();
+      toast.success("Backup settings saved");
+    } catch (error: any) {
+      console.error("Failed to save storage settings:", error);
+      toast.error(error.message || "Failed to save storage settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <nav>
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/settings/streaming" })}
+          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 3l-5 5 5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {t("streaming")}
+        </button>
+      </nav>
+
+      <h1 className="text-xl font-semibold">{t("backup")}</h1>
+
+      {loading ? (
+        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+      ) : (
+        <div className="space-y-4">
+          {/* Enable toggle */}
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">{t("backup-enabled")}</div>
+                <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                  {t("backup-enabled-description")}
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                onClick={() => handleEnabledChange(!enabled)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  enabled
+                    ? "bg-[var(--color-accent)]"
+                    : "bg-[var(--color-border)]"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
+                    enabled ? "translate-x-4" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* S3 configuration (shown when enabled) */}
+          {enabled && (
+            <>
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+                    {t("backup-connection-url")}
+                  </label>
+                  <Input
+                    value={fullUrl}
+                    onChange={(e) => handleFullUrlChange(e.target.value)}
+                    placeholder={buildS3Url(
+                      {
+                        endpoint: "s3.us-east-1.example.com",
+                        bucket: "my-bucket",
+                        accessKey: "ACCESS_KEY",
+                        secretKey: "SECRET_KEY",
+                      },
+                      showPassword,
+                    )}
+                    className="font-mono text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--color-fg-muted)]">
+                    {t("show-password-in-url")}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={showPassword}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                      showPassword
+                        ? "bg-[var(--color-accent)]"
+                        : "bg-[var(--color-border)]"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block size-3 rounded-full bg-white shadow-sm transition-transform ${
+                        showPassword ? "translate-x-3" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm shrink-0">
+                    {t("backup-endpoint")}
+                  </span>
+                  <Input
+                    value={config.endpoint}
+                    onChange={(e) =>
+                      handleConfigChange("endpoint", e.target.value)
+                    }
+                    placeholder="s3.us-east-1.example.com"
+                    className="text-right font-mono text-xs max-w-[250px]"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm shrink-0">{t("backup-bucket")}</span>
+                  <Input
+                    value={config.bucket}
+                    onChange={(e) =>
+                      handleConfigChange("bucket", e.target.value)
+                    }
+                    placeholder="my-bucket"
+                    className="text-right font-mono text-xs max-w-[250px]"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm shrink-0">
+                    {t("backup-access-key")}
+                  </span>
+                  <Input
+                    value={config.accessKey}
+                    onChange={(e) =>
+                      handleConfigChange("accessKey", e.target.value)
+                    }
+                    placeholder="ACCESS_KEY"
+                    className="text-right font-mono text-xs max-w-[250px]"
+                  />
+                </div>
+                <div className="flex items-center justify-between px-3 py-2.5">
+                  <span className="text-sm shrink-0">
+                    {t("backup-secret-key")}
+                  </span>
+                  <Input
+                    type={
+                      isCensored ? "text" : showPassword ? "text" : "password"
+                    }
+                    value={isCensored ? "" : config.secretKey}
+                    onChange={(e) =>
+                      handleConfigChange("secretKey", e.target.value)
+                    }
+                    placeholder={
+                      isCensored
+                        ? t("backup-secret-key-set-placeholder")
+                        : t("backup-secret-key-placeholder")
+                    }
+                    className="text-right font-mono text-xs max-w-[250px]"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSave}
+                disabled={!isComplete || saving}
+                className="w-full"
+              >
+                {saving ? t("backup-saving") : t("backup-save")}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

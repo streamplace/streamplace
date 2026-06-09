@@ -1,6 +1,6 @@
-// Streamplace server URL, mute flag, chat-warning state.
+// Streamplace server URL, mute flag, chat-warning state, live-users list.
 // Mirrors js/app/store/slices/streamplaceSlice.ts.
-import type { PlaceStreamSegment } from "streamplace";
+import type { PlaceStreamLivestream, PlaceStreamSegment } from "streamplace";
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
 import { getStreamplaceUrl } from "../../streamplace-url";
@@ -40,12 +40,16 @@ export interface StreamplaceSlice {
   userMuted: boolean | null;
   chatWarned: boolean;
   mySegments: PlaceStreamSegment.SegmentView[];
+  liveUsers: PlaceStreamLivestream.LivestreamView[] | null;
+  liveUsersLoading: boolean;
+  liveUsersError: string | null;
   // actions
   initialize: () => Promise<void>;
   setURL: (url: string) => void;
   userMute: (muted: boolean) => void;
   chatWarn: (warned: boolean) => void;
   getIdentity: () => Promise<void>;
+  fetchLiveUsers: () => Promise<void>;
   pollMySegments: () => Promise<void>;
   getRecommendations: (userDID: string) => Promise<{
     recommendations: Array<{
@@ -76,6 +80,9 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
   userMuted: null,
   chatWarned: false,
   mySegments: [],
+  liveUsers: null,
+  liveUsersLoading: false,
+  liveUsersError: null,
   initialize: async () => {
     let [url, userMutedStr, chatWarningStr] = await Promise.all([
       storage.getItem(URL_KEY),
@@ -124,6 +131,31 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     const res = await fetch(`${state.url}/api/identity`);
     const identity = await res.json();
     set({ identity });
+  },
+  fetchLiveUsers: async () => {
+    set({ liveUsersLoading: true, liveUsersError: null });
+    try {
+      const state = get() as any;
+      // anonPDSAgent is created by loadOAuthClient — works even when
+      // not logged in. Falls back to constructing one from url if not
+      // yet available.
+      let agent = state.anonPDSAgent;
+      if (!agent) {
+        const { StreamplaceAgent } = await import("streamplace");
+        agent = new StreamplaceAgent(state.url);
+      }
+      const result = await agent.place.stream.live.getLiveUsers();
+      set({
+        liveUsers: result.data.streams ?? [],
+        liveUsersLoading: false,
+        liveUsersError: null,
+      });
+    } catch (err: any) {
+      set({
+        liveUsersLoading: false,
+        liveUsersError: err?.message ?? "Failed to fetch live users",
+      });
+    }
   },
   pollMySegments: async () => {
     try {

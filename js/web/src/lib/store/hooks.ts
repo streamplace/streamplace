@@ -19,6 +19,11 @@ export const useStreamplaceInitialized = () =>
 export const useUserMuted = () => useStore((state) => state.userMuted);
 export const useChatWarned = () => useStore((state) => state.chatWarned);
 export const useMySegments = () => useStore((state) => state.mySegments);
+export const useLiveUsers = () => useStore((state) => state.liveUsers);
+export const useLiveUsersLoading = () =>
+  useStore((state) => state.liveUsersLoading);
+export const useLiveUsersError = () =>
+  useStore((state) => state.liveUsersError);
 
 // Bluesky / OAuth
 export const useOAuthSession = () => useStore((state) => state.oauthSession);

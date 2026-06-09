@@ -1,3 +1,4 @@
+import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -7,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDown,
   ArrowUp,
@@ -34,7 +35,6 @@ interface ActorSearchResult {
 
 function RecommendationsManager() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const agent = usePDSAgent();
 
   const [streamers, setStreamers] = useState<string[]>([]);
@@ -225,24 +225,7 @@ function RecommendationsManager() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings/streaming" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("streaming")}
-        </button>
-      </nav>
+      <BackLink to="/settings/streaming" label={t("streaming")} />
 
       <div className="flex items-center justify-between">
         <div>

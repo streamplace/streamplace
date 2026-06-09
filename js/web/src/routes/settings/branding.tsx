@@ -1,6 +1,7 @@
+import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -12,7 +13,6 @@ export const Route = createFileRoute("/settings/branding")({
 
 function BrandingAdmin() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const agent = usePDSAgent();
 
   const [uploading, setUploading] = useState(false);
@@ -153,24 +153,7 @@ function BrandingAdmin() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("settings-title")}
-        </button>
-      </nav>
+      <BackLink to="/settings" label={t("settings-title")} />
 
       <div>
         <h1 className="text-xl font-semibold">{t("branding-admin")}</h1>

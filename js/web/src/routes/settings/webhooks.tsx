@@ -1,4 +1,6 @@
+import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
+import { CardDivide } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -7,7 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Switch } from "@/components/ui/switch";
+import { createFileRoute } from "@tanstack/react-router";
 import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -63,7 +66,6 @@ const emptyForm: WebhookFormData = {
 
 function WebhookManager() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const agent = usePDSAgent();
 
   const [webhooks, setWebhooks] = useState<Webhook[] | null>(null);
@@ -167,24 +169,7 @@ function WebhookManager() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings/streaming" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("streaming")}
-        </button>
-      </nav>
+      <BackLink to="/settings/streaming" label={t("streaming")} />
 
       <div>
         <h1 className="text-xl font-semibold">{t("webhook-integrations")}</h1>
@@ -221,7 +206,7 @@ function WebhookManager() {
           {t("no-webhooks-yet")}
         </div>
       ) : (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <CardDivide>
           {webhooks.map((webhook) => (
             <div
               key={webhook.id}
@@ -276,7 +261,7 @@ function WebhookManager() {
               </div>
             </div>
           ))}
-        </div>
+        </CardDivide>
       )}
 
       {/* Create/Edit dialog */}
@@ -585,25 +570,12 @@ function WebhookFormDialog({
           {/* Active toggle */}
           <div className="flex items-center justify-between">
             <span className="text-sm">Active</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={form.active}
-              onClick={() =>
-                setForm((prev) => ({ ...prev, active: !prev.active }))
+            <Switch
+              checked={form.active}
+              onCheckedChange={(checked) =>
+                setForm((prev) => ({ ...prev, active: checked }))
               }
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                form.active
-                  ? "bg-[var(--color-accent)]"
-                  : "bg-[var(--color-border)]"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                  form.active ? "translate-x-4" : "translate-x-0"
-                }`}
-              />
-            </button>
+            />
           </div>
         </div>
 

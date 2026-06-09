@@ -1,3 +1,5 @@
+import { BackLink } from "@/components/settings/back-link";
+import { CardDivide } from "@/components/ui/card";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -17,24 +19,7 @@ function AccountSettings() {
   if (state.status !== "authenticated" || !userProfile) {
     return (
       <div className="space-y-6">
-        <nav>
-          <button
-            type="button"
-            onClick={() => navigate({ to: "/settings" })}
-            className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M10 3l-5 5 5 5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            {t("settings-title")}
-          </button>
-        </nav>
+        <BackLink to="/settings" label={t("settings-title")} />
         <div className="text-sm text-[var(--color-fg-muted)]">
           Please log in to access this page.
         </div>
@@ -44,24 +29,7 @@ function AccountSettings() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("settings-title")}
-        </button>
-      </nav>
+      <BackLink to="/settings" label={t("settings-title")} />
 
       {/* Profile header */}
       <div className="flex flex-col items-center gap-3 py-4">
@@ -75,8 +43,7 @@ function AccountSettings() {
         <h1 className="text-xl font-semibold">@{userProfile.handle}</h1>
       </div>
 
-      {/* Actions */}
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+      <CardDivide>
         <a
           href={`https://bsky.app/profile/${userProfile.handle}`}
           target="_blank"
@@ -100,9 +67,9 @@ function AccountSettings() {
             />
           </svg>
         </a>
-      </div>
+      </CardDivide>
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+      <CardDivide>
         <Link
           to="/settings/badges"
           className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
@@ -124,9 +91,9 @@ function AccountSettings() {
             />
           </svg>
         </Link>
-      </div>
+      </CardDivide>
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+      <CardDivide>
         <button
           type="button"
           onClick={() => {
@@ -138,7 +105,7 @@ function AccountSettings() {
           <LogOut size={20} className="text-[var(--color-fg-muted)]" />
           <span className="text-sm">{t("log-out")}</span>
         </button>
-      </div>
+      </CardDivide>
     </div>
   );
 }

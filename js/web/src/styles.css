@@ -130,8 +130,10 @@ code {
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent);
   --color-accent-fg: var(--color-accent-foreground);
-  --color-danger: var(--color-destructive);
+  --color-danger: var(--color-chart-1);
   --color-success: var(--color-primary);
+
+  --color-info: var(--color-chart-3);
 
   --font-display: "Valley Sans", -apple-system, BlinkMacSystemFont,
     "SF Pro Display", "Segoe UI", system-ui, sans-serif;

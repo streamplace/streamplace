@@ -101,6 +101,43 @@ func RunMuxlWrapInit(ctx context.Context, input io.Reader, output io.Writer) err
 	return eng.WrapInit(ctx, input, output)
 }
 
+// RunMuxlMetafiles reads a stored MUXL wrapper (canonical fMP4 / flat / bare)
+// and writes the payload-free metafile stream — one init then one segment per
+// canonical .m4s — as versioned DRISL. Streamplace archives these bytes
+// verbatim and feeds them back to RunMuxlSynthesizeFlatHeader.
+func RunMuxlMetafiles(ctx context.Context, input io.Reader, output io.Writer) error {
+	eng, err := getEngine()
+	if err != nil {
+		return err
+	}
+	return eng.Metafiles(ctx, input, output)
+}
+
+// RunMuxlMetafile returns the payload-free metafile for ONE signed canonical
+// segment (muxl metafile --no-init) — the per-fragment archive unit, emitted at
+// sign time. The init metafile (catalog) is obtained separately (it's the
+// prefix of a RunMuxlMetafiles stream over the first GoP).
+func RunMuxlMetafile(ctx context.Context, segment []byte) ([]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.Metafile(ctx, segment)
+}
+
+// RunMuxlSynthesizeFlatHeader synthesizes a faststart MP4 header (ftyp + moov +
+// mdat-envelope) from a metafile stream (init + N segments). The header's co64
+// offsets are absolute over the [header][body] layout, so serving
+// header ++ <the canonical segment bytes> yields a valid flat MP4 — no base
+// offset to pass; muxl owns all the offset math.
+func RunMuxlSynthesizeFlatHeader(ctx context.Context, metafiles io.Reader, output io.Writer) error {
+	eng, err := getEngine()
+	if err != nil {
+		return err
+	}
+	return eng.SynthesizeFlatHeader(ctx, metafiles, output)
+}
+
 // RunMuxlVerify validates the C2PA/S2PA signatures on a signed MUXL wrapper and
 // returns the per-segment manifest+cert+validation JSON document.
 func RunMuxlVerify(ctx context.Context, input io.Reader) (string, error) {

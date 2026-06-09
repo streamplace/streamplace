@@ -683,7 +683,9 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, st
 		durSec := float64(seg.DurationTicks) / float64(t.Timescale)
 		lines = append(lines,
 			fmt.Sprintf("#EXTINF:%.6f,", durSec),
-			fmt.Sprintf("#EXT-X-BYTERANGE:%d@%d", seg.Size, seg.Offset),
+			// Segment offsets are fragment-relative; the canonical fragments sit
+			// behind the synthesized flat-MP4 header in the blob, so shift by it.
+			fmt.Sprintf("#EXT-X-BYTERANGE:%d@%d", seg.Size, seg.Offset+meta.FlatHeaderSize),
 			bURL,
 		)
 	}

@@ -45,6 +45,23 @@ type TransferResult struct {
 	Downloaded bool `json:"downloaded"`
 }
 
+// NOTE (flat-MP4 / MUXL-CID migration): TransferVOD has NOT yet been ported
+// to the flat-MP4 content model and will fail-safe (CID mismatch, nothing
+// stored) on VODs produced by the current finalize/ProcessVOD path. Two
+// things break against a [flat-header][fragments] blob keyed by MUXL CID:
+//  1. downloadContentBlob hashes the whole downloaded blob and compares to
+//     contentCID, but contentCID is now BDASL(fragments) alone — the header
+//     makes the whole-blob hash differ, so verification always mismatches.
+//  2. regenerateSidecars runs `muxl unwrap` over the blob, but a flat
+//     presentation MP4 (ftyp+moov+co64) isn't a MUXL wrapper unwrap can read,
+//     and it uses the leading-init metafile builder (wrong offset base).
+//
+// The fix needs the receiver to recover the bare fragments from the blob
+// (strip the flat header) before hashing/unwrapping. Since box-walking should
+// live in muxl (not here), this awaits either a muxl "strip flat header" /
+// "unwrap flat" capability or a wire-protocol change (e.g. transfer the bare
+// fragments, or ship FlatHeaderSize alongside). Tracked as a follow-up.
+//
 // TransferVOD pulls a content-addressed VOD blob from a remote Streamplace
 // node into this node's playback store, regenerates the playback sidecars
 // (metafile + per-track init segments) locally from the blob, and publishes

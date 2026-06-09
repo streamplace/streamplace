@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -225,8 +224,6 @@ function RecommendationsManager() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings/streaming" label={t("streaming")} />
-
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">

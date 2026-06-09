@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
@@ -19,7 +18,6 @@ function AccountSettings() {
   if (state.status !== "authenticated" || !userProfile) {
     return (
       <div className="space-y-6">
-        <BackLink to="/settings" label={t("settings-title")} />
         <div className="text-sm text-[var(--color-fg-muted)]">
           Please log in to access this page.
         </div>
@@ -29,8 +27,6 @@ function AccountSettings() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings" label={t("settings-title")} />
-
       {/* Profile header */}
       <div className="flex flex-col items-center gap-3 py-4">
         {userProfile.avatar && (

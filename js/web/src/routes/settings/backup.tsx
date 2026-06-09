@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -165,8 +164,6 @@ function BackupSettings() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings/streaming" label={t("streaming")} />
-
       <h1 className="text-xl font-semibold">{t("backup")}</h1>
 
       {loading ? (

@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -32,7 +31,6 @@ function AboutSettings() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("about")}</h1>
 
       <CardMenuSection>

@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { Card, CardRow } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { createFileRoute } from "@tanstack/react-router";
@@ -41,7 +40,6 @@ function AdvancedSettings() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("advanced")}</h1>
 
       <Card>

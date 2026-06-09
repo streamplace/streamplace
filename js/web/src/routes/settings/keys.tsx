@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { createFileRoute } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -57,8 +56,6 @@ function KeyManager() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings/streaming" label={t("streaming")} />
-
       <h1 className="text-xl font-semibold">{t("key-manager")}</h1>
 
       {keyRecords === null || keyObj === null ? (

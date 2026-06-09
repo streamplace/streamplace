@@ -44,7 +44,7 @@ export const Route = createFileRoute("/settings")({
 function DisplayNavItem({ item }: { item: NavItem }) {
   const { t } = useTranslation("settings");
   if (item.role === "divider") {
-    return <div className="border-b border-(--color-border) my-1" />;
+    return <div className="border-b border-(--color-border) my-0.5 mx-2" />;
   }
   // item must be a link if not divider
 
@@ -55,7 +55,7 @@ function DisplayNavItem({ item }: { item: NavItem }) {
       to={item.to}
       className={cn(
         "flex items-center gap-2",
-        "text-sm px-3 py-1.5 md:rounded-md transition-colors -mr-0.5 md:mr-0",
+        "px-3 py-1.5 md:rounded-md transition-colors -mr-0.5 md:mr-0",
         "text-(--color-fg-muted) hover:text-(--color-fg) hover:bg-(--color-bg-elevated)",
         "[&.active]:text-(--color-fg) [&.active]:font-medium",
         "md:[&.active]:bg-(--color-bg-elevated)",
@@ -78,17 +78,25 @@ function SettingsLayout() {
         {t("settings-title")}
       </h2>
 
-      <nav className="flex flex-row md:flex-col gap-0.5 shrink-0 md:w-40 md:sticky md:top-6 md:self-start">
-        <p className="hidden md:block text-2xl font-semibold px-2 pb-3">
-          {t("settings-title")}
-        </p>
-        {NAV_ITEMS.map((item) => (
-          <DisplayNavItem key={item.labelKey} item={item} />
-        ))}
-        <div className="md:hidden flex-1 border-b border-(--color-border) self-end" />
-      </nav>
+      <div className="relative md:w-52 shrink-0">
+        {/* gradient fades for mobile scroll hint */}
+        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[var(--color-bg)] to-transparent z-10 md:hidden" />
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[var(--color-bg)] to-transparent z-10 md:hidden" />
 
-      <div className="flex-1 min-w-0 max-w-lg mx-auto">
+        <nav
+          className="flex md:flex-col gap-0.5 overflow-x-auto scrollbar-none md:overflow-visible md:sticky md:top-6 md:self-start"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          <p className="hidden md:block text-2xl font-semibold px-2 pb-3">
+            {t("settings-title")}
+          </p>
+          {NAV_ITEMS.map((item) => (
+            <DisplayNavItem key={item.labelKey} item={item} />
+          ))}
+        </nav>
+      </div>
+
+      <div className="flex-1 min-w-0">
         <Outlet />
       </div>
     </div>

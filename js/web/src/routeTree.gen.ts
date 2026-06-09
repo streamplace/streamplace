@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as UserVodTidRouteImport } from './routes/$user.vod.$tid'
 
 const VideosRoute = VideosRouteImport.update({
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const UserVodTidRoute = UserVodTidRouteImport.update({
   id: '/vod/$tid',
   path: '/vod/$tid',
@@ -51,16 +57,17 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
   '/videos': typeof VideosRoute
+  '/settings': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRoutesById {
@@ -68,8 +75,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRouteTypes {
@@ -80,9 +88,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/videos'
+    | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$user' | '/login' | '/settings' | '/videos' | '/$user/vod/$tid'
+  to: '/' | '/$user' | '/login' | '/videos' | '/settings' | '/$user/vod/$tid'
   id:
     | '__root__'
     | '/'
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/videos'
+    | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesById: FileRoutesById
 }
@@ -97,7 +107,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   UserRoute: typeof UserRouteWithChildren
   LoginRoute: typeof LoginRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   VideosRoute: typeof VideosRoute
 }
 
@@ -138,6 +148,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/$user/vod/$tid': {
       id: '/$user/vod/$tid'
       path: '/vod/$tid'
@@ -158,11 +175,23 @@ const UserRouteChildren: UserRouteChildren = {
 
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
+interface SettingsRouteChildren {
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   UserRoute: UserRouteWithChildren,
   LoginRoute: LoginRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport

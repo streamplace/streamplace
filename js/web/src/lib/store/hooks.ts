@@ -83,3 +83,6 @@ export const useNotificationToken = () =>
   useStore((state) => state.notificationToken);
 export const useNotificationDestination = () =>
   useStore((state) => state.notificationDestination);
+
+// PDS Agent (convenience — reads from bluesky slice)
+export const usePDSAgent = () => useStore((state) => state.pdsAgent);

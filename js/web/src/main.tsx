@@ -2,6 +2,7 @@ import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Toaster } from "./components/ui/sonner";
+import "./lib/i18n";
 import BlueskyProvider from "./lib/providers/bluesky-provider";
 import StreamplaceProvider from "./lib/providers/streamplace-provider";
 import { SessionProvider } from "./lib/session";

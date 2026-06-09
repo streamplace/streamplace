@@ -1,6 +1,8 @@
+import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Switch } from "@/components/ui/switch";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -38,7 +40,6 @@ function buildS3Url(config: S3Config, showPassword: boolean): string {
 
 function BackupSettings() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const agent = usePDSAgent();
 
   const [enabled, setEnabled] = useState(false);
@@ -164,24 +165,7 @@ function BackupSettings() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings/streaming" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("streaming")}
-        </button>
-      </nav>
+      <BackLink to="/settings/streaming" label={t("streaming")} />
 
       <h1 className="text-xl font-semibold">{t("backup")}</h1>
 
@@ -198,23 +182,7 @@ function BackupSettings() {
                   {t("backup-enabled-description")}
                 </div>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                onClick={() => handleEnabledChange(!enabled)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                  enabled
-                    ? "bg-[var(--color-accent)]"
-                    : "bg-[var(--color-border)]"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                    enabled ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
+              <Switch checked={enabled} onCheckedChange={handleEnabledChange} />
             </div>
           </div>
 
@@ -246,23 +214,11 @@ function BackupSettings() {
                   <span className="text-xs text-[var(--color-fg-muted)]">
                     {t("show-password-in-url")}
                   </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={showPassword}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      showPassword
-                        ? "bg-[var(--color-accent)]"
-                        : "bg-[var(--color-border)]"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block size-3 rounded-full bg-white shadow-sm transition-transform ${
-                        showPassword ? "translate-x-3" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  <Switch
+                    size="sm"
+                    checked={showPassword}
+                    onCheckedChange={setShowPassword}
+                  />
                 </div>
               </div>
 

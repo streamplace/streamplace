@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BackLink } from "@/components/settings/back-link";
+import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,7 +28,6 @@ interface BadgeSlot {
 
 function BadgeSelectionManager() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const agent = usePDSAgent();
 
   const [loading, setLoading] = useState(true);
@@ -162,24 +162,7 @@ function BadgeSelectionManager() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings/account" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("account")}
-        </button>
-      </nav>
+      <BackLink to="/settings/account" label={t("account")} />
 
       <h1 className="text-xl font-semibold">{t("badges")}</h1>
 

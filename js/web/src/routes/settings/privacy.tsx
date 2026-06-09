@@ -1,4 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BackLink } from "@/components/settings/back-link";
+import { Card, CardRow } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../lib/store";
@@ -14,7 +17,6 @@ export const Route = createFileRoute("/settings/privacy")({
 
 function PrivacySettings() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const isReady = useIsReady();
   const serverSettings = useServerSettings();
   const url = useStreamplaceUrl();
@@ -24,9 +26,7 @@ function PrivacySettings() {
   );
 
   useEffect(() => {
-    if (isReady) {
-      getServerSettingsFromPDS();
-    }
+    if (isReady) getServerSettingsFromPDS();
   }, [isReady]);
 
   const debugRecordingOn = serverSettings?.debugRecording === true;
@@ -34,56 +34,29 @@ function PrivacySettings() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("settings-title")}
-        </button>
-      </nav>
-
+      <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("privacy-security")}</h1>
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-        <div className="flex items-center justify-between">
-          <div className="pr-4">
-            <div className="text-sm font-medium">
-              {t("debug-recording-title", { host: u.host })}
+      <Card>
+        <CardRow>
+          <div className="flex items-center justify-between">
+            <div className="pr-4">
+              <div className="text-sm font-medium">
+                {t("debug-recording-title", { host: u.host })}
+              </div>
+              <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                {t("debug-recording-description")}
+              </div>
             </div>
-            <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
-              {t("debug-recording-description")}
-            </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={debugRecordingOn}
-            onClick={() => createServerSettingsRecord(!debugRecordingOn)}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-              debugRecordingOn
-                ? "bg-[var(--color-accent)]"
-                : "bg-[var(--color-border)]"
-            }`}
-          >
-            <span
-              className={`pointer-events-none inline-block size-4 rounded-full bg-white shadow-sm transition-transform ${
-                debugRecordingOn ? "translate-x-4" : "translate-x-0"
-              }`}
+            <Switch
+              checked={debugRecordingOn}
+              onCheckedChange={() =>
+                createServerSettingsRecord(!debugRecordingOn)
+              }
             />
-          </button>
-        </div>
-      </div>
+          </div>
+        </CardRow>
+      </Card>
     </div>
   );
 }

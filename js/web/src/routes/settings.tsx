@@ -6,7 +6,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsLayout() {
   return (
-    <div className="max-w-2xl mx-auto px-6 py-10">
+    <div className="w-full px-6 py-10">
       <Outlet />
     </div>
   );

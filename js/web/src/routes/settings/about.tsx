@@ -1,4 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BackLink } from "@/components/settings/back-link";
+import { CardDivide } from "@/components/ui/card";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -11,20 +13,14 @@ const UNLOCK_TAP_COUNT = 5;
 
 function AboutSettings() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
   const [tapCount, setTapCount] = useState(0);
-
-  const version = "0.0.0";
   const isDev = typeof import.meta !== "undefined" && import.meta.env?.DEV;
 
   const handleVersionPress = () => {
     const newCount = tapCount + 1;
     setTapCount(newCount);
-
     if (newCount >= UNLOCK_TAP_COUNT) {
-      toast("You are now a developer", {
-        description: "have fun! lol",
-      });
+      toast("You are now a developer", { description: "have fun! lol" });
       setTapCount(0);
     }
   };
@@ -36,33 +32,13 @@ function AboutSettings() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("settings-title")}
-        </button>
-      </nav>
-
+      <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("about")}</h1>
 
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+      <CardDivide>
         <div className="flex items-center justify-between px-3 py-2.5">
           <span className="text-sm">Streamplace</span>
-          <span className="text-sm text-[var(--color-fg-muted)]">
-            v{version}
-          </span>
+          <span className="text-sm text-[var(--color-fg-muted)]">v0.0.0</span>
         </div>
         <button
           type="button"
@@ -74,10 +50,10 @@ function AboutSettings() {
             {isDev ? "dev" : "prod"}
           </span>
         </button>
-      </div>
+      </CardDivide>
 
       {isStreamplace && (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <CardDivide>
           <a
             href="https://privacy.stream.place"
             target="_blank"
@@ -101,7 +77,7 @@ function AboutSettings() {
               />
             </svg>
           </a>
-        </div>
+        </CardDivide>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BackLink } from "@/components/settings/back-link";
+import { createFileRoute } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -23,7 +24,6 @@ function timeAgo(date: Date): string {
 
 function KeyManager() {
   const { t } = useTranslation("settings");
-  const navigate = useNavigate();
 
   const deleteStreamKeyRecord = useStore((s) => s.deleteStreamKeyRecord);
   const getStreamKeyRecords = useStore((s) => s.getStreamKeyRecords);
@@ -57,24 +57,7 @@ function KeyManager() {
 
   return (
     <div className="space-y-6">
-      <nav>
-        <button
-          type="button"
-          onClick={() => navigate({ to: "/settings/streaming" })}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path
-              d="M10 3l-5 5 5 5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {t("streaming")}
-        </button>
-      </nav>
+      <BackLink to="/settings/streaming" label={t("streaming")} />
 
       <h1 className="text-xl font-semibold">{t("key-manager")}</h1>
 

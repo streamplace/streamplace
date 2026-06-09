@@ -1,3 +1,4 @@
+import { CardDivide } from "@/components/ui/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Globe, Info, Lock, Shield, User2, Video } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +19,7 @@ function CategoryLink({ to, icon: Icon, label }: CategoryLinkProps) {
   return (
     <Link
       to={to}
-      className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-[var(--color-bg-elevated)] transition-colors group"
+      className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors group"
     >
       <div className="flex items-center gap-3">
         <Icon size={20} className="text-[var(--color-fg-muted)]" />
@@ -46,7 +47,6 @@ function CategoryLink({ to, icon: Icon, label }: CategoryLinkProps) {
 function SettingsIndex() {
   const { t } = useTranslation("settings");
   const { state, signOut } = useSession();
-
   const isLoggedIn = state.status === "authenticated";
 
   return (
@@ -56,8 +56,8 @@ function SettingsIndex() {
       </header>
 
       {/* Account status */}
-      <section>
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 flex items-center justify-between">
+      <CardDivide>
+        <div className="px-3 py-2.5 flex items-center justify-between">
           <div className="text-sm">
             {state.status === "authenticated" ? (
               <>
@@ -92,46 +92,41 @@ function SettingsIndex() {
             </Link>
           )}
         </div>
-      </section>
+      </CardDivide>
 
-      {/* Category navigation */}
       {isLoggedIn && (
-        <section>
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
-            <CategoryLink
-              to="/settings/account"
-              icon={User2}
-              label={t("account")}
-            />
-            <CategoryLink
-              to="/settings/streaming"
-              icon={Video}
-              label={t("streaming")}
-            />
-            <CategoryLink
-              to="/settings/privacy"
-              icon={Shield}
-              label={t("privacy-security")}
-            />
-          </div>
-        </section>
+        <CardDivide>
+          <CategoryLink
+            to="/settings/account"
+            icon={User2}
+            label={t("account")}
+          />
+          <CategoryLink
+            to="/settings/streaming"
+            icon={Video}
+            label={t("streaming")}
+          />
+          <CategoryLink
+            to="/settings/privacy"
+            icon={Shield}
+            label={t("privacy-security")}
+          />
+        </CardDivide>
       )}
 
-      <section>
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
-          <CategoryLink
-            to="/settings/languages"
-            icon={Globe}
-            label={t("languages")}
-          />
-          <CategoryLink
-            to="/settings/advanced"
-            icon={Lock}
-            label={t("advanced")}
-          />
-          <CategoryLink to="/settings/about" icon={Info} label={t("about")} />
-        </div>
-      </section>
+      <CardDivide>
+        <CategoryLink
+          to="/settings/languages"
+          icon={Globe}
+          label={t("languages")}
+        />
+        <CategoryLink
+          to="/settings/advanced"
+          icon={Lock}
+          label={t("advanced")}
+        />
+        <CategoryLink to="/settings/about" icon={Info} label={t("about")} />
+      </CardDivide>
     </div>
   );
 }

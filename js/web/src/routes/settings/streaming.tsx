@@ -103,7 +103,11 @@ function StreamingSettings() {
           icon={Webhook}
           label={t("webhooks")}
         />
-        <StreamingLink icon={Globe} label={t("multistream")} disabled />
+        <StreamingLink
+          to="/settings/multistream"
+          icon={Globe}
+          label={t("multistream")}
+        />
       </div>
     </div>
   );

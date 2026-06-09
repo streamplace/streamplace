@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/settings/back-link";
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -43,7 +43,7 @@ function AccountSettings() {
         <h1 className="text-xl font-semibold">@{userProfile.handle}</h1>
       </div>
 
-      <CardDivide>
+      <CardMenuSection>
         <a
           href={`https://bsky.app/profile/${userProfile.handle}`}
           target="_blank"
@@ -67,9 +67,9 @@ function AccountSettings() {
             />
           </svg>
         </a>
-      </CardDivide>
+      </CardMenuSection>
 
-      <CardDivide>
+      <CardMenuSection>
         <Link
           to="/settings/badges"
           className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
@@ -91,9 +91,9 @@ function AccountSettings() {
             />
           </svg>
         </Link>
-      </CardDivide>
+      </CardMenuSection>
 
-      <CardDivide>
+      <CardMenuSection>
         <button
           type="button"
           onClick={() => {
@@ -105,7 +105,7 @@ function AccountSettings() {
           <LogOut size={20} className="text-[var(--color-fg-muted)]" />
           <span className="text-sm">{t("log-out")}</span>
         </button>
-      </CardDivide>
+      </CardMenuSection>
     </div>
   );
 }

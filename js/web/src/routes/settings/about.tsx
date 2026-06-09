@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/settings/back-link";
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -35,7 +35,7 @@ function AboutSettings() {
       <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("about")}</h1>
 
-      <CardDivide>
+      <CardMenuSection>
         <div className="flex items-center justify-between px-3 py-2.5">
           <span className="text-sm">Streamplace</span>
           <span className="text-sm text-[var(--color-fg-muted)]">v0.0.0</span>
@@ -50,10 +50,10 @@ function AboutSettings() {
             {isDev ? "dev" : "prod"}
           </span>
         </button>
-      </CardDivide>
+      </CardMenuSection>
 
       {isStreamplace && (
-        <CardDivide>
+        <CardMenuSection>
           <a
             href="https://privacy.stream.place"
             target="_blank"
@@ -77,7 +77,7 @@ function AboutSettings() {
               />
             </svg>
           </a>
-        </CardDivide>
+        </CardMenuSection>
       )}
     </div>
   );

@@ -14,7 +14,7 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-function CardDivide({ className, ...props }: React.ComponentProps<"div">) {
+function CardMenuSection({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
@@ -30,4 +30,4 @@ function CardRow({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("px-3 py-2.5", className)} {...props} />;
 }
 
-export { Card, CardDivide, CardRow };
+export { Card, CardMenuSection, CardRow };

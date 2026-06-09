@@ -9,6 +9,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import useAvatars from "@/hooks/use-avatars";
+import { cn } from "@/lib/utils";
+import {
   DragDropContext,
   Draggable,
   Droppable,
@@ -53,6 +60,9 @@ function RecommendationsManager() {
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<
     typeof setTimeout
   > | null>(null);
+
+  // resolved streamers
+  const resolvedStreamers = useAvatars(streamers);
 
   // Inline edit state
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -229,10 +239,10 @@ function RecommendationsManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold">
+          <h1 className="text-xl font-display font-semibold">
             {t("recommendations-to-others")}
           </h1>
           <p className="text-sm text-[var(--color-fg-muted)] mt-1">
@@ -252,19 +262,17 @@ function RecommendationsManager() {
 
       {/* Search bar */}
       {streamers.length < 8 && (
-        <CardMenuSection>
-          <div className="px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              <Search
-                size={16}
-                className="text-[var(--color-fg-muted)] shrink-0"
+        <>
+          <div className="py-2.5">
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search..."
+                className="focus-visible:ring-0"
               />
-              <Input
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search for streamers..."
-              />
-            </div>
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+            </InputGroup>
           </div>
 
           {searching && (
@@ -302,7 +310,7 @@ function RecommendationsManager() {
               No results found
             </div>
           )}
-        </CardMenuSection>
+        </>
       )}
 
       {/* Streamer list with drag-to-reorder */}
@@ -386,8 +394,33 @@ function RecommendationsManager() {
                               </>
                             ) : (
                               <>
-                                <span className="flex-1 text-sm truncate font-mono">
-                                  {streamer || "(empty)"}
+                                {resolvedStreamers[streamer]?.avatar ? (
+                                  <img
+                                    src={resolvedStreamers[streamer].avatar}
+                                    alt=""
+                                    className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0"
+                                    onError={(e) => {
+                                      (
+                                        e.currentTarget as HTMLImageElement
+                                      ).style.display = "none";
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0" />
+                                )}
+                                <span
+                                  className={cn(
+                                    "flex-1 truncate",
+                                    !resolvedStreamers[streamer]?.handle &&
+                                      "font-mono text-sm",
+                                  )}
+                                >
+                                  {resolvedStreamers[streamer]?.handle
+                                    ? "@"
+                                    : ""}
+                                  {resolvedStreamers[streamer]?.handle ||
+                                    streamer ||
+                                    "(empty)"}
                                 </span>
                                 <button
                                   type="button"

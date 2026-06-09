@@ -196,7 +196,7 @@ function BadgeIssuerPanel() {
         </button>
 
         <div>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-lg font-semibold font-display">
             {t("issue-badges-issue-badge")}
           </h1>
           <p className="text-sm text-[var(--color-fg-muted)]">
@@ -243,7 +243,7 @@ function BadgeIssuerPanel() {
         </button>
 
         <div>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-lg font-semibold font-display">
             {t("issue-badges-create-definition")}
           </h1>
           <p className="text-sm text-[var(--color-fg-muted)]">
@@ -388,7 +388,7 @@ function BadgeIssuerPanel() {
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
       ) : defs.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold mb-1">
+          <h2 className="text-sm font-semibold font-display mb-1">
             {t("issue-badges-your-definitions")}
           </h2>
           <p className="text-xs text-[var(--color-fg-muted)] mb-3">

@@ -111,7 +111,7 @@ requested-seconds-per-segment-description = Set the seconds per segment you wish
 ## Recommendations
 recommendations = Recommendations
 manage-recommendations = Manage Recommendations
-recommendations-to-others = Recommendations to Others
+recommendations-to-others = Recommendations
 recommendations-description = Share up to 8 streamers you recommend to your viewers
 no-recommendations-yet = No recommendations configured yet
 add-recommendation = Add Recommendation

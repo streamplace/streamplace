@@ -37,7 +37,7 @@ function VideosPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto px-4 py-6">
-      <h1 className="text-2xl font-semibold text-[var(--color-fg)] mb-6">
+      <h1 className="text-2xl font-semibold font-display text-[var(--color-fg)] mb-6">
         Videos
       </h1>
 

@@ -33,7 +33,7 @@ function PrivacySettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("privacy-security")}</h1>
+      <h1 className="text-xl font-semibold font-display">{t("privacy-security")}</h1>
 
       <Card>
         <CardRow>

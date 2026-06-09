@@ -76,7 +76,7 @@ function LoginPage() {
   if (state.status === "authenticated") {
     return (
       <div className="max-w-md mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold">You're already logged in.</h1>
+        <h1 className="text-2xl font-semibold font-display">You're already logged in.</h1>
         <p className="mt-2 text-[var(--color-fg-muted)]">
           Signed in as <code className="font-mono">{state.session.sub}</code>
         </p>
@@ -93,7 +93,7 @@ function LoginPage() {
 
   return (
     <div className="max-w-md mx-auto px-6 py-16">
-      <h1 className="text-2xl font-semibold">Log in</h1>
+      <h1 className="text-2xl font-semibold font-display">Log in</h1>
       <p className="mt-2 text-[var(--color-fg-muted)]">
         Sign in with your Bluesky handle. You'll be redirected to your PDS to
         authorize this app.

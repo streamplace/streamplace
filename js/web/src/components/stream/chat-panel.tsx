@@ -35,15 +35,49 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
     })),
   );
 
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const isAtBottomRef = useRef(true);
+  const [newMessageCount, setNewMessageCount] = useState(0);
+  const prevChatLenRef = useRef(chat.length);
 
+  // Track whether the user is scrolled to the bottom.
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const threshold = 40;
+    isAtBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+  }, []);
+
+  // When new messages arrive, auto-scroll only if already at bottom.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const delta = chat.length - prevChatLenRef.current;
+    prevChatLenRef.current = chat.length;
+
+    if (delta <= 0) return;
+
+    if (isAtBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      setNewMessageCount(0);
+    } else {
+      setNewMessageCount((c) => c + delta);
+    }
   }, [chat.length]);
 
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setNewMessageCount(0);
+    isAtBottomRef.current = true;
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 max-w-full">
-      <div className="flex-1 overflow-y-auto p-3 space-y-0.5">
+    <div className="flex flex-col flex-1 min-h-0 max-w-full relative">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-0.5"
+      >
         {chat.length === 0 ? (
           <div className="text-center text-[var(--color-fg-muted)] text-sm py-8">
             No messages yet
@@ -62,6 +96,17 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {newMessageCount > 0 && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[var(--color-accent)] text-white text-xs font-medium shadow-lg hover:opacity-90 transition-opacity z-10"
+        >
+          {newMessageCount === 1
+            ? "1 new message"
+            : `${newMessageCount} new messages`}
+        </button>
+      )}
     </div>
   );
 }
@@ -160,7 +205,7 @@ function RichTextMessage({
               href={linkFtr.uri}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--color-accent)] hover:underline"
+              className="text-[var(--color-accent)] hover:underline break-all"
             >
               {seg.text}
             </a>

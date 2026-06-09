@@ -24,7 +24,6 @@ export const handleWebSocketMessages = (
   messages: any[],
 ): LivestreamState => {
   for (let message of messages) {
-    console.log("Received WebSocket message:", message);
     if (message.$type === "place.stream.error") {
       // Dedupe by code: the server re-emits the same error on every offending
       // segment (e.g. a stream that keeps reconnecting over the bitrate limit),

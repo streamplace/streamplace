@@ -36,7 +36,7 @@ function AccountSettings() {
             className="w-20 h-20 rounded-full"
           />
         )}
-        <h1 className="text-xl font-semibold">@{userProfile.handle}</h1>
+        <h1 className="text-xl font-semibold font-display">@{userProfile.handle}</h1>
       </div>
 
       <CardMenuSection>

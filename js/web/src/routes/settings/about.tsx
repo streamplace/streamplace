@@ -31,7 +31,7 @@ function AboutSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("about")}</h1>
+      <h1 className="text-xl font-semibold font-display">{t("about")}</h1>
 
       <CardMenuSection>
         <div className="flex items-center justify-between px-3 py-2.5">

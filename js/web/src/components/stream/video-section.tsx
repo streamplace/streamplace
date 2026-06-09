@@ -2,9 +2,13 @@ import type { LivestreamStore } from "@streamplace/core";
 import { useMemo } from "react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { HLSPlayer } from "../../components/player/hls-player";
+import { Player } from "../../components/player/player";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import { UserOffline } from "./user-offline";
+
+type Segment = { width: number; height: number } | null;
+type Problem = { code: string; severity: string; message: string };
 
 export function VideoSection({
   store,
@@ -33,21 +37,50 @@ export function VideoSection({
     };
   }, [user]);
 
+  return (
+    <VideoSectionInner
+      user={user}
+      liveness={liveness}
+      segment={state.segment?.video?.at(0) ?? null}
+      problems={state.problems}
+      playlistUrl={playlistUrl}
+      thumbnailUrl={thumbnailUrl}
+    />
+  );
+}
+
+/**
+ * Props-based video section that works without a LivestreamStore.
+ * Used by VideoSection (live) and directly by VOD pages.
+ */
+export function VideoSectionInner({
+  user,
+  liveness,
+  segment,
+  problems,
+  playlistUrl,
+  thumbnailUrl,
+  mode = "live",
+}: {
+  user: string;
+  liveness: Liveness;
+  segment: Segment;
+  problems: Problem[];
+  playlistUrl: string;
+  thumbnailUrl: string;
+  mode?: "live" | "vod";
+}) {
   const neverLive = liveness === "never-live";
 
   // calculate seg ratio for poster aspect ratio correction
-  let seg = state.segment?.video?.at(0);
-  const segRatio = seg ? seg.width / seg.height : 16 / 9;
+  const segRatio = segment ? segment.width / segment.height : 16 / 9;
 
   return (
-    <div className="w-full max-h-[calc(100vh-240px)] overflow-hidden">
+    <div className="w-full max-h-[calc(100vh-240px)] h-full bg-black">
       <div
-        className="relative bg-black mx-auto"
+        className="relative bg-black h-full mx-auto"
         style={{
-          aspectRatio: segRatio,
-          maxHeight: "calc(100vh - 240px)",
-          maxWidth: "100%",
-          width: "100%",
+          maxHeight: "calc(100vh-240px)",
         }}
       >
         {neverLive ? (
@@ -60,11 +93,11 @@ export function VideoSection({
             }}
           />
         ) : (
-          <HLSPlayer src={playlistUrl} poster={thumbnailUrl} active />
+          <Player src={playlistUrl} poster={thumbnailUrl} active mode={mode} />
         )}
 
         {liveness === "live" && (
-          <div className="absolute top-3 left-3 pointer-events-none">
+          <div className="absolute top-3 left-3 pointer-events-none z-10">
             <div className="flex items-center gap-1.5 bg-red-600 px-2 py-0.5 rounded text-white text-xs font-bold uppercase tracking-wide">
               <div className="w-1.5 h-1.5 rounded-full bg-white" />
               Live
@@ -73,7 +106,7 @@ export function VideoSection({
         )}
 
         {liveness === "stale" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
             <div className="text-center">
               <div className="w-10 h-10 mx-auto mb-3 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
               <p className="text-amber-400 font-medium">Reconnecting…</p>
@@ -84,20 +117,9 @@ export function VideoSection({
           </div>
         )}
 
-        {neverLive && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-            <div className="text-center px-6">
-              <div className="text-lg font-medium text-white/90">
-                Stream offline
-              </div>
-              <div className="text-sm text-white/60 mt-1">
-                {user} is not currently streaming
-              </div>
-            </div>
-          </div>
-        )}
+        {neverLive && <UserOffline user={user} />}
 
-        {state.problems
+        {problems
           .filter((p) => p.severity === "error")
           .map((p) => (
             <div

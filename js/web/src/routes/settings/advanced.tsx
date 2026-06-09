@@ -40,7 +40,7 @@ function AdvancedSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">{t("advanced")}</h1>
+      <h1 className="text-xl font-semibold font-display">{t("advanced")}</h1>
 
       <Card>
         <CardRow>

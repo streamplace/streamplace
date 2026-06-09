@@ -15,6 +15,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsStreamingRouteImport } from './routes/settings/streaming'
+import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
@@ -49,6 +51,16 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsStreamingRoute = SettingsStreamingRouteImport.update({
+  id: '/streaming',
+  path: '/streaming',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -99,6 +113,8 @@ export interface FileRoutesByTo {
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/streaming': typeof SettingsStreamingRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -113,6 +129,8 @@ export interface FileRoutesById {
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -128,6 +146,8 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/advanced'
     | '/settings/languages'
+    | '/settings/privacy'
+    | '/settings/streaming'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +160,8 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/advanced'
     | '/settings/languages'
+    | '/settings/privacy'
+    | '/settings/streaming'
     | '/settings'
     | '/$user/vod/$tid'
   id:
@@ -153,6 +175,8 @@ export interface FileRouteTypes {
     | '/settings/account'
     | '/settings/advanced'
     | '/settings/languages'
+    | '/settings/privacy'
+    | '/settings/streaming'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesById: FileRoutesById
@@ -209,6 +233,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/streaming': {
+      id: '/settings/streaming'
+      path: '/streaming'
+      fullPath: '/settings/streaming'
+      preLoaderRoute: typeof SettingsStreamingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/privacy': {
+      id: '/settings/privacy'
+      path: '/privacy'
+      fullPath: '/settings/privacy'
+      preLoaderRoute: typeof SettingsPrivacyRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/languages': {
       id: '/settings/languages'
       path: '/languages'
@@ -262,6 +300,8 @@ interface SettingsRouteChildren {
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAdvancedRoute: typeof SettingsAdvancedRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
+  SettingsPrivacyRoute: typeof SettingsPrivacyRoute
+  SettingsStreamingRoute: typeof SettingsStreamingRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -270,6 +310,8 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAdvancedRoute: SettingsAdvancedRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
+  SettingsPrivacyRoute: SettingsPrivacyRoute,
+  SettingsStreamingRoute: SettingsStreamingRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

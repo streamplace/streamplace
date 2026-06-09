@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsWebhooksRouteImport } from './routes/settings/webhooks'
 import { Route as SettingsStreamingRouteImport } from './routes/settings/streaming'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
@@ -51,6 +52,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsWebhooksRoute = SettingsWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsStreamingRoute = SettingsStreamingRouteImport.update({
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/streaming': typeof SettingsStreamingRoute
+  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/streaming': typeof SettingsStreamingRoute
+  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/settings/streaming': typeof SettingsStreamingRoute
+  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/privacy'
     | '/settings/streaming'
+    | '/settings/webhooks'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/privacy'
     | '/settings/streaming'
+    | '/settings/webhooks'
     | '/settings'
     | '/$user/vod/$tid'
   id:
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/privacy'
     | '/settings/streaming'
+    | '/settings/webhooks'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesById: FileRoutesById
@@ -231,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/webhooks': {
+      id: '/settings/webhooks'
+      path: '/webhooks'
+      fullPath: '/settings/webhooks'
+      preLoaderRoute: typeof SettingsWebhooksRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/streaming': {
@@ -302,6 +321,7 @@ interface SettingsRouteChildren {
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsStreamingRoute: typeof SettingsStreamingRoute
+  SettingsWebhooksRoute: typeof SettingsWebhooksRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -312,6 +332,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsStreamingRoute: SettingsStreamingRoute,
+  SettingsWebhooksRoute: SettingsWebhooksRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

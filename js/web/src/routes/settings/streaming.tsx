@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Globe, Heart, Key, Webhook } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -7,6 +7,7 @@ export const Route = createFileRoute("/settings/streaming")({
 });
 
 interface StreamingLinkProps {
+  to?: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   label: string;
   description?: string;
@@ -14,17 +15,14 @@ interface StreamingLinkProps {
 }
 
 function StreamingLink({
+  to,
   icon: Icon,
   label,
   description,
   disabled,
 }: StreamingLinkProps) {
-  return (
-    <div
-      className={`flex items-center justify-between px-3 py-2.5 ${
-        disabled ? "opacity-50" : ""
-      }`}
-    >
+  const inner = (
+    <div className="flex items-center justify-between w-full">
       <div className="flex items-center gap-3">
         <Icon size={20} className="text-[var(--color-fg-muted)]" />
         <div>
@@ -41,6 +39,27 @@ function StreamingLink({
           coming soon
         </span>
       )}
+    </div>
+  );
+
+  if (to && !disabled) {
+    return (
+      <Link
+        to={to}
+        className="flex items-center px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center px-3 py-2.5 ${
+        disabled ? "opacity-50" : ""
+      }`}
+    >
+      {inner}
     </div>
   );
 }
@@ -79,7 +98,11 @@ function StreamingSettings() {
           label={t("recommendations-to-others")}
           disabled
         />
-        <StreamingLink icon={Webhook} label={t("webhooks")} disabled />
+        <StreamingLink
+          to="/settings/webhooks"
+          icon={Webhook}
+          label={t("webhooks")}
+        />
         <StreamingLink icon={Globe} label={t("multistream")} disabled />
       </div>
     </div>

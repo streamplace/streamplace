@@ -1,0 +1,120 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { LogOut } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useSession } from "../../lib/session";
+import { useUserProfile } from "../../lib/store/hooks";
+
+export const Route = createFileRoute("/settings/account")({
+  component: AccountSettings,
+});
+
+function AccountSettings() {
+  const { t } = useTranslation("settings");
+  const { state, signOut } = useSession();
+  const navigate = useNavigate();
+  const userProfile = useUserProfile();
+
+  if (state.status !== "authenticated" || !userProfile) {
+    return (
+      <div className="space-y-6">
+        <nav>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/settings" })}
+            className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M10 3l-5 5 5 5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {t("settings-title")}
+          </button>
+        </nav>
+        <div className="text-sm text-[var(--color-fg-muted)]">
+          Please log in to access this page.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <nav>
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/settings" })}
+          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 3l-5 5 5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          {t("settings-title")}
+        </button>
+      </nav>
+
+      {/* Profile header */}
+      <div className="flex flex-col items-center gap-3 py-4">
+        {userProfile.avatar && (
+          <img
+            src={userProfile.avatar}
+            alt=""
+            className="w-20 h-20 rounded-full"
+          />
+        )}
+        <h1 className="text-xl font-semibold">@{userProfile.handle}</h1>
+      </div>
+
+      {/* Actions */}
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <a
+          href={`https://bsky.app/profile/${userProfile.handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+        >
+          <span className="text-sm">{t("edit-profile-bluesky")}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            className="text-[var(--color-fg-muted)]"
+          >
+            <path
+              d="M12 9V13a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4M10 2h4v4M14 2L7 9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </a>
+      </div>
+
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <button
+          type="button"
+          onClick={() => {
+            void signOut();
+            navigate({ to: "/settings" });
+          }}
+          className="flex items-center gap-3 px-3 py-2.5 w-full hover:bg-[var(--color-bg)] transition-colors text-left"
+        >
+          <LogOut size={20} className="text-[var(--color-fg-muted)]" />
+          <span className="text-sm">{t("log-out")}</span>
+        </button>
+      </div>
+    </div>
+  );
+}

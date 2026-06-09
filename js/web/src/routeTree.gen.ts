@@ -15,6 +15,10 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
+import { Route as SettingsAccountRouteImport } from './routes/settings/account'
+import { Route as SettingsAboutRouteImport } from './routes/settings/about'
 import { Route as UserVodTidRouteImport } from './routes/$user.vod.$tid'
 
 const VideosRoute = VideosRouteImport.update({
@@ -47,6 +51,26 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
+  id: '/languages',
+  path: '/languages',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
+  id: '/advanced',
+  path: '/advanced',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAboutRoute = SettingsAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const UserVodTidRoute = UserVodTidRouteImport.update({
   id: '/vod/$tid',
   path: '/vod/$tid',
@@ -59,6 +83,10 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -67,6 +95,10 @@ export interface FileRoutesByTo {
   '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/videos': typeof VideosRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -77,6 +109,10 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/vod/$tid': typeof UserVodTidRoute
 }
@@ -88,10 +124,24 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/videos'
+    | '/settings/about'
+    | '/settings/account'
+    | '/settings/advanced'
+    | '/settings/languages'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$user' | '/login' | '/videos' | '/settings' | '/$user/vod/$tid'
+  to:
+    | '/'
+    | '/$user'
+    | '/login'
+    | '/videos'
+    | '/settings/about'
+    | '/settings/account'
+    | '/settings/advanced'
+    | '/settings/languages'
+    | '/settings'
+    | '/$user/vod/$tid'
   id:
     | '__root__'
     | '/'
@@ -99,6 +149,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings'
     | '/videos'
+    | '/settings/about'
+    | '/settings/account'
+    | '/settings/advanced'
+    | '/settings/languages'
     | '/settings/'
     | '/$user/vod/$tid'
   fileRoutesById: FileRoutesById
@@ -155,6 +209,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/languages': {
+      id: '/settings/languages'
+      path: '/languages'
+      fullPath: '/settings/languages'
+      preLoaderRoute: typeof SettingsLanguagesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/advanced': {
+      id: '/settings/advanced'
+      path: '/advanced'
+      fullPath: '/settings/advanced'
+      preLoaderRoute: typeof SettingsAdvancedRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/about': {
+      id: '/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof SettingsAboutRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/$user/vod/$tid': {
       id: '/$user/vod/$tid'
       path: '/vod/$tid'
@@ -176,10 +258,18 @@ const UserRouteChildren: UserRouteChildren = {
 const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
 
 interface SettingsRouteChildren {
+  SettingsAboutRoute: typeof SettingsAboutRoute
+  SettingsAccountRoute: typeof SettingsAccountRoute
+  SettingsAdvancedRoute: typeof SettingsAdvancedRoute
+  SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAboutRoute: SettingsAboutRoute,
+  SettingsAccountRoute: SettingsAccountRoute,
+  SettingsAdvancedRoute: SettingsAdvancedRoute,
+  SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 

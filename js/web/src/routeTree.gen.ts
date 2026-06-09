@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsWebhooksRouteImport } from './routes/settings/webhooks'
 import { Route as SettingsStreamingRouteImport } from './routes/settings/streaming'
+import { Route as SettingsRecommendationsRouteImport } from './routes/settings/recommendations'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
@@ -63,6 +64,11 @@ const SettingsWebhooksRoute = SettingsWebhooksRouteImport.update({
 const SettingsStreamingRoute = SettingsStreamingRouteImport.update({
   id: '/streaming',
   path: '/streaming',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsRecommendationsRoute = SettingsRecommendationsRouteImport.update({
+  id: '/recommendations',
+  path: '/recommendations',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings/': typeof SettingsIndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings': typeof SettingsIndexRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
+  '/settings/recommendations': typeof SettingsRecommendationsRoute
   '/settings/streaming': typeof SettingsStreamingRoute
   '/settings/webhooks': typeof SettingsWebhooksRoute
   '/settings/': typeof SettingsIndexRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
+    | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
     | '/settings/'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
+    | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
     | '/settings'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
+    | '/settings/recommendations'
     | '/settings/streaming'
     | '/settings/webhooks'
     | '/settings/'
@@ -271,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsStreamingRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/recommendations': {
+      id: '/settings/recommendations'
+      path: '/recommendations'
+      fullPath: '/settings/recommendations'
+      preLoaderRoute: typeof SettingsRecommendationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/privacy': {
       id: '/settings/privacy'
       path: '/privacy'
@@ -340,6 +359,7 @@ interface SettingsRouteChildren {
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsMultistreamRoute: typeof SettingsMultistreamRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
+  SettingsRecommendationsRoute: typeof SettingsRecommendationsRoute
   SettingsStreamingRoute: typeof SettingsStreamingRoute
   SettingsWebhooksRoute: typeof SettingsWebhooksRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
@@ -352,6 +372,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsMultistreamRoute: SettingsMultistreamRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
+  SettingsRecommendationsRoute: SettingsRecommendationsRoute,
   SettingsStreamingRoute: SettingsStreamingRoute,
   SettingsWebhooksRoute: SettingsWebhooksRoute,
   SettingsIndexRoute: SettingsIndexRoute,

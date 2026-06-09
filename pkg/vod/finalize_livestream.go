@@ -12,7 +12,6 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"stream.place/streamplace/pkg/bdasl"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
@@ -78,58 +77,56 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	span.SetAttributes(attribute.Int("object_count", len(keys)))
 	log.Log(ctx, "finalizing livestream VOD", "objects", len(keys))
 
-	// 1. Capture the canonical init header from the first object. We use the
-	// init `muxl unwrap` itself emits (rather than synthesizing one) so its
-	// length is exactly what the metafile builder assumes for a leading init —
-	// keeping the prepended-header blob's offsets self-consistent regardless of
-	// whether unwrap later passes the header through verbatim or re-derives it.
-	header, err := captureInitHeader(ctx, store, keys[0])
+	// 1. Synthesize the flat-MP4 faststart header from the fragments' metafile.
+	flatHeader, err := synthFlatHeaderForObjects(ctx, store, keys)
 	if err != nil {
-		recordErr(span, "capture_init", err)
-		return "", fmt.Errorf("capture init header: %w", err)
+		recordErr(span, "synth_header", err)
+		return "", fmt.Errorf("synthesize flat header: %w", err)
 	}
-	span.SetAttributes(attribute.Int("header_bytes", len(header)))
+	span.SetAttributes(attribute.Int("flat_header_bytes", len(flatHeader)))
 
-	// 2. One pass over [header]+objects: hash for the CID + build the metafile
-	// (and per-track init blobs) via unwrap. The content blob is shaped exactly
-	// like an uploaded VOD, so the metafile offsets are the proven path.
-	cid, size, metafile, err := hashAndBuildMetafile(ctx, store, header, keys)
+	// 2. Hash the bare fragments → MUXL CID (the stable, header-independent id)
+	// and build the fragment-relative HLS metafile + per-track init blobs.
+	muxlCID, fragSize, metafile, err := hashAndBuildFragmentMetafile(ctx, store, keys)
 	if err != nil {
 		recordErr(span, "build_metafile", err)
 		return "", err
 	}
-	contentKey := BlobsPrefix + cid + ".mp4"
+	metafile.FlatHeaderSize = int64(len(flatHeader))
+	blobSize := int64(len(flatHeader)) + fragSize
+	contentKey := BlobsPrefix + muxlCID + ".mp4"
 	span.SetAttributes(
-		attribute.String("cid", cid),
-		attribute.Int64("size_bytes", size),
+		attribute.String("muxl_cid", muxlCID),
+		attribute.Int64("blob_size", blobSize),
 		attribute.String("content_key", contentKey),
 	)
 
-	// 3. Assemble the content blob, mostly server-side.
+	// 3. Assemble [flat-header][fragments] at blobs/<muxlCID>.mp4 (the flat-header
+	// is uploaded, the fragments server-side-copied after it).
 	if err := runVODStage(ctx, "concat_assemble", func(ctx context.Context) error {
-		return assembleContentBlob(ctx, store, header, keys, contentKey)
+		return assembleContentBlob(ctx, store, flatHeader, keys, contentKey)
 	}); err != nil {
 		recordErr(span, "concat_assemble", err)
 		return "", fmt.Errorf("assemble content blob: %w", err)
 	}
 
 	if err := runVODStage(ctx, stageMetafile, func(ctx context.Context) error {
-		return writeMetafile(ctx, store, cid, metafile)
+		return writeMetafile(ctx, store, muxlCID, metafile)
 	}); err != nil {
 		recordErr(span, stageMetafile, err)
 		return "", fmt.Errorf("write metafile: %w", err)
 	}
 
-	// 4. Publish origin + track records and store TrackURIs on the Upload row,
-	// reusing the upload pipeline's publish path unchanged.
+	// 4. Publish origin + track records (referencing the MUXL CID) and store
+	// TrackURIs on the Upload row, reusing the upload publish path unchanged.
 	probe := metafileToVODResult(metafile)
 	if err := runVODStage(ctx, stagePublish, func(ctx context.Context) error {
 		return publishRecords(ctx, publishParams{
 			cli:        cli,
 			state:      state,
 			in:         Input{UploadID: in.UploadID, RepoDID: in.RepoDID},
-			cid:        cid,
-			size:       size,
+			cid:        muxlCID,
+			size:       blobSize,
 			mimeType:   "video/mp4",
 			probe:      probe,
 			signingKey: in.SigningKey,
@@ -140,8 +137,8 @@ func FinalizeLivestreamVOD(ctx context.Context, cli *config.CLI, state *statedb.
 	}
 
 	span.SetStatus(codes.Ok, "")
-	log.Log(ctx, "livestream VOD finalized", "cid", cid, "size", size, "objects", len(keys), "duration_ms", probe.DurationMS)
-	return cid, nil
+	log.Log(ctx, "livestream VOD finalized", "muxlCid", muxlCID, "blobSize", blobSize, "objects", len(keys), "duration_ms", probe.DurationMS)
+	return muxlCID, nil
 }
 
 // captureInitHeader synthesizes the per-stream init segment (ftyp+moov) from
@@ -168,63 +165,6 @@ func captureInitHeader(ctx context.Context, store blob.Store, key string) ([]byt
 		return nil, errors.New("muxl produced an empty init header")
 	}
 	return buf.Bytes(), nil
-}
-
-// hashAndBuildMetafile streams [header]+objects once, teeing into a bdasl hasher
-// (for the content CID) and `muxl unwrap` → metafileBuilder (for the metafile +
-// per-track init blobs). Returns the CID, the total blob size, and the
-// finalized metafile.
-func hashAndBuildMetafile(ctx context.Context, store blob.Store, header []byte, keys []string) (string, int64, *Metafile, error) {
-	readers := make([]io.Reader, 0, len(keys)+1)
-	closers := make([]io.Closer, 0, len(keys))
-	defer func() {
-		for _, c := range closers {
-			_ = c.Close()
-		}
-	}()
-	readers = append(readers, bytes.NewReader(header))
-	for _, key := range keys {
-		r, err := store.Open(ctx, key)
-		if err != nil {
-			return "", 0, nil, fmt.Errorf("open object %s: %w", key, err)
-		}
-		closers = append(closers, r)
-		readers = append(readers, io.NewSectionReader(r, 0, r.Size()))
-	}
-
-	hasher := bdasl.NewWriter()
-	counter := &countingWriter{}
-	tee := io.TeeReader(io.MultiReader(readers...), io.MultiWriter(hasher, counter))
-
-	mb := newMetafileBuilder(ctx, store)
-	eventCh := make(chan *muxl.MuxlEvent, 16)
-	producerErr := make(chan error, 1)
-	go func() {
-		producerErr <- muxl.RunMuxlUnwrapEvents(ctx, tee, eventCh)
-		close(eventCh)
-	}()
-
-	var obsErr error
-	for ev := range eventCh {
-		if e := mb.Observe(ev); e != nil && obsErr == nil {
-			obsErr = e
-		}
-	}
-	if perr := <-producerErr; perr != nil {
-		return "", 0, nil, fmt.Errorf("muxl unwrap: %w", perr)
-	}
-	if obsErr != nil {
-		return "", 0, nil, fmt.Errorf("metafile build: %w", obsErr)
-	}
-	// Unwrap returns nil on context cancellation, which would otherwise let a
-	// truncated stream yield a partial metafile. Refuse to publish that.
-	if err := ctx.Err(); err != nil {
-		return "", 0, nil, err
-	}
-
-	cid := hasher.CID()
-	size := counter.load()
-	return cid, size, mb.Finalize(cid, size), nil
 }
 
 // assembleContentBlob writes header ++ objects to contentKey. For an S3 store

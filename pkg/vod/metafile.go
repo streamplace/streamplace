@@ -68,6 +68,13 @@ type Metafile struct {
 	BlobCID  string                   `json:"blobCid"`
 	BlobSize int64                    `json:"blobSize"`
 	Tracks   map[string]MetafileTrack `json:"tracks"`
+	// FlatHeaderSize is the byte length of the synthesized flat-MP4 header that
+	// the canonical fragments are stored behind in the blob ([flat-header][
+	// fragments]). Segment Offsets are fragment-relative (from 0), so HLS adds
+	// this to reach the right byte range in the blob; the flat-MP4 path serves
+	// the whole blob directly. Zero for legacy [init][segments] blobs whose
+	// offsets are already absolute.
+	FlatHeaderSize int64 `json:"flatHeaderSize,omitempty"`
 }
 
 // MetafileTrack describes one track within a MUXL container.
@@ -124,6 +131,13 @@ type metafileBuilder struct {
 	runningOffset int64 // bytes written to the concatenated output so far
 	seenInit      bool
 
+	// leadingInitInBlob is true when the blob being measured physically begins
+	// with the init segment ([init][segments], the legacy/transfer shape), so
+	// segment offsets start after it. False for the flat-MP4 shape, where the
+	// stored blob is [flat-header][bare fragments]: segment offsets are
+	// fragment-relative (from 0) and HLS adds the flat-header size at serve time.
+	leadingInitInBlob bool
+
 	// lastTFDT / tfdtSeen track each track's previous baseMediaDecodeTime so a
 	// backward jump (a concatenated reconnect/restart) can be flagged as a
 	// discontinuity. See MetafileSegment.Discontinuity.
@@ -133,13 +147,23 @@ type metafileBuilder struct {
 
 func newMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder {
 	return &metafileBuilder{
-		ctx:           ctx,
-		store:         store,
-		trackInitCIDs: map[string]string{},
-		trackSegments: map[string][]MetafileSegment{},
-		lastTFDT:      map[string]uint64{},
-		tfdtSeen:      map[string]bool{},
+		ctx:               ctx,
+		store:             store,
+		trackInitCIDs:     map[string]string{},
+		trackSegments:     map[string][]MetafileSegment{},
+		leadingInitInBlob: true,
+		lastTFDT:          map[string]uint64{},
+		tfdtSeen:          map[string]bool{},
 	}
+}
+
+// newFragmentMetafileBuilder builds a metafile whose segment offsets are
+// relative to the bare canonical fragments (from 0), for the flat-MP4 blob
+// shape [flat-header][fragments] where the fragments don't start at byte 0.
+func newFragmentMetafileBuilder(ctx context.Context, store blob.Store) *metafileBuilder {
+	b := newMetafileBuilder(ctx, store)
+	b.leadingInitInBlob = false
+	return b
 }
 
 // Observe processes one MuxlEvent. Order matters — events must arrive
@@ -168,7 +192,14 @@ func (b *metafileBuilder) Observe(ev *muxl.MuxlEvent) error {
 			}
 			b.trackInitCIDs[tid] = cid
 		}
-		b.runningOffset = int64(len(ev.Data))
+		// Advance past the leading init only when it physically prefixes the
+		// blob. For the flat-MP4 shape the fragments start at 0 (the flat-header
+		// is added at serve/store time, not measured here).
+		if b.leadingInitInBlob {
+			b.runningOffset = int64(len(ev.Data))
+		} else {
+			b.runningOffset = 0
+		}
 	case "segment", "signed-segment":
 		// Within a single segment event, per-track byte slices are
 		// concatenated in sorted key order (matching ParseMuxlEvents'

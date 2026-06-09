@@ -578,3 +578,5 @@ require (
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
+
+replace github.com/streamplace/muxl/go => /home/iameli/code/muxl/go

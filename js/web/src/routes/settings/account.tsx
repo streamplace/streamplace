@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSession } from "../../lib/session";
@@ -100,6 +100,30 @@ function AccountSettings() {
             />
           </svg>
         </a>
+      </div>
+
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <Link
+          to="/settings/badges"
+          className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+        >
+          <span className="text-sm">{t("badges")}</span>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            className="text-[var(--color-fg-muted)]"
+          >
+            <path
+              d="M6 3l5 5-5 5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Link>
       </div>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">

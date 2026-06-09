@@ -22,6 +22,8 @@ import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
+import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
+import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
@@ -92,6 +94,16 @@ const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
   path: '/branding',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsBadgesRoute = SettingsBadgesRouteImport.update({
+  id: '/badges',
+  path: '/badges',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsBadgeIssuerRoute = SettingsBadgeIssuerRouteImport.update({
+  id: '/badge-issuer',
+  path: '/badge-issuer',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
   id: '/advanced',
   path: '/advanced',
@@ -122,6 +134,8 @@ export interface FileRoutesByFullPath {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
+  '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -140,6 +154,8 @@ export interface FileRoutesByTo {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
+  '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -160,6 +176,8 @@ export interface FileRoutesById {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
+  '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -181,6 +199,8 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/badge-issuer'
+    | '/settings/badges'
     | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
@@ -199,6 +219,8 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/badge-issuer'
+    | '/settings/badges'
     | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
@@ -218,6 +240,8 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/badge-issuer'
+    | '/settings/badges'
     | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
@@ -330,6 +354,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsBrandingRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/badges': {
+      id: '/settings/badges'
+      path: '/badges'
+      fullPath: '/settings/badges'
+      preLoaderRoute: typeof SettingsBadgesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/badge-issuer': {
+      id: '/settings/badge-issuer'
+      path: '/badge-issuer'
+      fullPath: '/settings/badge-issuer'
+      preLoaderRoute: typeof SettingsBadgeIssuerRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/advanced': {
       id: '/settings/advanced'
       path: '/advanced'
@@ -375,6 +413,8 @@ interface SettingsRouteChildren {
   SettingsAboutRoute: typeof SettingsAboutRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAdvancedRoute: typeof SettingsAdvancedRoute
+  SettingsBadgeIssuerRoute: typeof SettingsBadgeIssuerRoute
+  SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsMultistreamRoute: typeof SettingsMultistreamRoute
@@ -389,6 +429,8 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAboutRoute: SettingsAboutRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAdvancedRoute: SettingsAdvancedRoute,
+  SettingsBadgeIssuerRoute: SettingsBadgeIssuerRoute,
+  SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsMultistreamRoute: SettingsMultistreamRoute,

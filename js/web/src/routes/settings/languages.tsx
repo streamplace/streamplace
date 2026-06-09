@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { CardMenuSection } from "@/components/ui/card";
 import { manifest } from "@streamplace/i18n";
 import { createFileRoute } from "@tanstack/react-router";
@@ -27,8 +26,6 @@ function LanguagesSettings() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings" label={t("settings-title")} />
-
       <div>
         <h1 className="text-xl font-semibold">{t("language-selection")}</h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">

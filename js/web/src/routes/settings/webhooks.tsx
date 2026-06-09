@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -169,8 +168,6 @@ function WebhookManager() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings/streaming" label={t("streaming")} />
-
       <div>
         <h1 className="text-xl font-semibold">{t("webhook-integrations")}</h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">

@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
@@ -346,8 +345,6 @@ function BadgeIssuerPanel() {
   // Main view
   return (
     <div className="space-y-6">
-      <BackLink to="/settings" label={t("settings-title")} />
-
       <p className="text-sm text-[var(--color-fg-muted)]">
         {t("issue-badges-manage-description")}
       </p>

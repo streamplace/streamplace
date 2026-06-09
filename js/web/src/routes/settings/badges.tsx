@@ -1,4 +1,3 @@
-import { BackLink } from "@/components/settings/back-link";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -162,8 +161,6 @@ function BadgeSelectionManager() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/settings/account" label={t("account")} />
-
       <h1 className="text-xl font-semibold">{t("badges")}</h1>
 
       {loading ? (

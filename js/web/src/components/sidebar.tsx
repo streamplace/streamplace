@@ -1,6 +1,6 @@
 import { EMPTY_LOGIN_SEARCH } from "@/lib/login-search";
 import { Link } from "@tanstack/react-router";
-import { Compass, House, LogIn, Settings, Users } from "lucide-react";
+import { House, LogIn, Settings, Users, Video } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -30,10 +30,10 @@ export default function SidebarComponent() {
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <Link to="/" className="w-full">
-                <SidebarMenuButton tooltip="Browse">
-                  <Compass />
-                  <span>Browse</span>
+              <Link to="/videos" className="w-full">
+                <SidebarMenuButton tooltip="Videos">
+                  <Video />
+                  <span>Videos</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

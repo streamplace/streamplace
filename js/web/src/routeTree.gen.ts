@@ -9,11 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as UserRouteImport } from './routes/$user'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as UserVodTidRouteImport } from './routes/$user.vod.$tid'
 
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -34,43 +41,75 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserVodTidRoute = UserVodTidRouteImport.update({
+  id: '/vod/$tid',
+  path: '/vod/$tid',
+  getParentRoute: () => UserRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/$user': typeof UserRoute
+  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
+  '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/$user': typeof UserRoute
+  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
+  '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/$user': typeof UserRoute
+  '/$user': typeof UserRouteWithChildren
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/videos': typeof VideosRoute
+  '/$user/vod/$tid': typeof UserVodTidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$user' | '/login' | '/settings'
+  fullPaths:
+    | '/'
+    | '/$user'
+    | '/login'
+    | '/settings'
+    | '/videos'
+    | '/$user/vod/$tid'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$user' | '/login' | '/settings'
-  id: '__root__' | '/' | '/$user' | '/login' | '/settings'
+  to: '/' | '/$user' | '/login' | '/settings' | '/videos' | '/$user/vod/$tid'
+  id:
+    | '__root__'
+    | '/'
+    | '/$user'
+    | '/login'
+    | '/settings'
+    | '/videos'
+    | '/$user/vod/$tid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  UserRoute: typeof UserRoute
+  UserRoute: typeof UserRouteWithChildren
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  VideosRoute: typeof VideosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -99,14 +138,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$user/vod/$tid': {
+      id: '/$user/vod/$tid'
+      path: '/vod/$tid'
+      fullPath: '/$user/vod/$tid'
+      preLoaderRoute: typeof UserVodTidRouteImport
+      parentRoute: typeof UserRoute
+    }
   }
 }
 
+interface UserRouteChildren {
+  UserVodTidRoute: typeof UserVodTidRoute
+}
+
+const UserRouteChildren: UserRouteChildren = {
+  UserVodTidRoute: UserVodTidRoute,
+}
+
+const UserRouteWithChildren = UserRoute._addFileChildren(UserRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  UserRoute: UserRoute,
+  UserRoute: UserRouteWithChildren,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  VideosRoute: VideosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

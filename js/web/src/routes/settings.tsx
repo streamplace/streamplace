@@ -107,33 +107,51 @@ function NavGroupItem({ item }: { item: NavGroup }) {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
+      {/* Mobile: just show as a regular link to the streaming page */}
+      <Link
+        to="/settings/streaming"
         className={cn(
           linkClass,
-          "w-full justify-between",
+          "md:hidden",
           isChildActive && "text-(--color-fg) font-medium",
         )}
       >
-        <span className="flex items-center gap-2">
-          <Icon className="size-4 hidden md:block" />
-          {t(item.labelKey)}
-        </span>
-        <ChevronDown
-          className={cn("size-3.5 transition-transform", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <div className="md:pl-2 md:ml-3 md:border-l md:border-(--color-border) space-y-0.5 mt-0.5 mb-1">
-          {item.children.map((child) => (
-            <Link key={child.to} to={child.to} className={childLinkClass}>
-              <child.icon className="size-3.5 hidden md:block" />
-              {t(child.labelKey)}
-            </Link>
-          ))}
-        </div>
-      )}
+        {t(item.labelKey)}
+      </Link>
+
+      {/* Desktop: expandable group */}
+      <div className="hidden md:block">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className={cn(
+            linkClass,
+            "w-full justify-between",
+            isChildActive && "text-(--color-fg) font-medium",
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <Icon className="size-4" />
+            {t(item.labelKey)}
+          </span>
+          <ChevronDown
+            className={cn(
+              "size-3.5 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+        {open && (
+          <div className="pl-2 ml-3 border-l border-(--color-border) space-y-0.5 mt-0.5 mb-1">
+            {item.children.map((child) => (
+              <Link key={child.to} to={child.to} className={childLinkClass}>
+                <child.icon className="size-3.5" />
+                {t(child.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -164,21 +182,35 @@ function SettingsLayout() {
   const { t } = useTranslation("settings");
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 md:gap-8 px-6 py-10 mx-auto">
-      <h2 className="text-2xl md:hidden font-semibold tracking-tight ml-2">
-        {t("settings-title")}
-      </h2>
+    <div className="flex flex-col md:flex-row gap-6 md:gap-8 px-4 md:px-6 py-6 md:py-10 mx-auto">
+      {/* Mobile: floating sticky nav */}
+      <div className="md:hidden sticky top-0 z-30 -mx-4 px-4 py-2 bg-[var(--color-bg)]/80 backdrop-blur-md border-b border-[var(--color-border)]">
+        <h2 className="text-lg font-semibold tracking-tight mb-2">
+          {t("settings-title")}
+        </h2>
 
-      <div className="relative md:w-52 shrink-0">
-        {/* gradient fades for mobile scroll hint */}
-        <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-[var(--color-bg)] to-transparent z-10 md:hidden" />
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[var(--color-bg)] to-transparent z-10 md:hidden" />
+        <div className="relative">
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-5 bg-gradient-to-r from-[var(--color-bg)]/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-5 bg-gradient-to-l from-[var(--color-bg)]/80 to-transparent z-10" />
 
-        <nav
-          className="flex md:flex-col gap-0.5 overflow-x-auto scrollbar-none md:overflow-visible md:sticky md:top-0 md:self-start"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-        >
-          <p className="hidden md:block text-2xl font-semibold px-2 pb-3">
+          <nav
+            className="flex gap-0.5 overflow-x-auto scrollbar-none"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          >
+            {NAV_ITEMS.map((item, i) => (
+              <DisplayNavItem
+                key={"labelKey" in item ? item.labelKey : `divider-${i}`}
+                item={item}
+              />
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Desktop: sidebar */}
+      <div className="hidden md:block md:w-52 shrink-0">
+        <nav className="flex flex-col gap-0.5 sticky top-6 self-start">
+          <p className="text-2xl font-semibold px-2 pb-3">
             {t("settings-title")}
           </p>
           {NAV_ITEMS.map((item, i) => (
@@ -190,7 +222,7 @@ function SettingsLayout() {
         </nav>
       </div>
 
-      <div className="flex-1 min-w-0 max-w-2xl w-screen mx-auto md:mx-0">
+      <div className="flex-1 min-w-0 md:max-w-2xl">
         <Outlet />
       </div>
     </div>

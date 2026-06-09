@@ -21,6 +21,7 @@ import { Route as SettingsRecommendationsRouteImport } from './routes/settings/r
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
@@ -86,6 +87,11 @@ const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
   path: '/languages',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
+  id: '/branding',
+  path: '/branding',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsAdvancedRoute = SettingsAdvancedRouteImport.update({
   id: '/advanced',
   path: '/advanced',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
+  '/settings/branding': typeof SettingsBrandingRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
+    | '/settings/branding'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -311,6 +323,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsLanguagesRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/branding': {
+      id: '/settings/branding'
+      path: '/branding'
+      fullPath: '/settings/branding'
+      preLoaderRoute: typeof SettingsBrandingRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/advanced': {
       id: '/settings/advanced'
       path: '/advanced'
@@ -356,6 +375,7 @@ interface SettingsRouteChildren {
   SettingsAboutRoute: typeof SettingsAboutRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAdvancedRoute: typeof SettingsAdvancedRoute
+  SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsMultistreamRoute: typeof SettingsMultistreamRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
@@ -369,6 +389,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAboutRoute: SettingsAboutRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAdvancedRoute: SettingsAdvancedRoute,
+  SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsMultistreamRoute: SettingsMultistreamRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,

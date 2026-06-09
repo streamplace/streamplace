@@ -21,6 +21,7 @@ import { Route as SettingsRecommendationsRouteImport } from './routes/settings/r
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsKeysRouteImport } from './routes/settings/keys'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
 import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
@@ -90,6 +91,11 @@ const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
   path: '/languages',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsKeysRoute = SettingsKeysRouteImport.update({
+  id: '/keys',
+  path: '/keys',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
   id: '/branding',
   path: '/branding',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
     | '/settings/privacy'
@@ -359,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsLanguagesRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/keys': {
+      id: '/settings/keys'
+      path: '/keys'
+      fullPath: '/settings/keys'
+      preLoaderRoute: typeof SettingsKeysRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/branding': {
       id: '/settings/branding'
       path: '/branding'
@@ -436,6 +455,7 @@ interface SettingsRouteChildren {
   SettingsBadgeIssuerRoute: typeof SettingsBadgeIssuerRoute
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
+  SettingsKeysRoute: typeof SettingsKeysRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsMultistreamRoute: typeof SettingsMultistreamRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
@@ -453,6 +473,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgeIssuerRoute: SettingsBadgeIssuerRoute,
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
+  SettingsKeysRoute: SettingsKeysRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsMultistreamRoute: SettingsMultistreamRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,

@@ -92,7 +92,11 @@ function StreamingSettings() {
       <h1 className="text-xl font-semibold">{t("streaming")}</h1>
 
       <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
-        <StreamingLink icon={Key} label={t("key-management")} disabled />
+        <StreamingLink
+          to="/settings/keys"
+          icon={Key}
+          label={t("key-management")}
+        />
         <StreamingLink
           icon={Heart}
           label={t("recommendations-to-others")}

@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/settings/back-link";
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import { manifest } from "@streamplace/i18n";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
@@ -36,14 +36,14 @@ function LanguagesSettings() {
         </p>
       </div>
 
-      <CardDivide>
+      <CardMenuSection>
         <div className="flex items-center gap-2 px-3 py-2.5">
           <span>{currentLang?.flag || "🌍"}</span>
           <span className="font-medium">
             {currentLang?.nativeName || i18n.language}
           </span>
         </div>
-      </CardDivide>
+      </CardMenuSection>
 
       <input
         type="text"
@@ -53,7 +53,7 @@ function LanguagesSettings() {
         className="h-9 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 text-sm outline-none focus:border-[var(--color-accent)]"
       />
 
-      <CardDivide className="max-h-[60vh] overflow-y-auto">
+      <CardMenuSection className="max-h-[60vh] overflow-y-auto">
         {filteredLanguages.map(([code, info]) => {
           const isSelected = i18n.language === code;
           return (
@@ -93,7 +93,7 @@ function LanguagesSettings() {
             {t("no-languages-found")}
           </div>
         )}
-      </CardDivide>
+      </CardMenuSection>
     </div>
   );
 }

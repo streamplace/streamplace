@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/settings/back-link";
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Globe, Heart, Key, Webhook } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -63,7 +63,7 @@ function StreamingSettings() {
       <BackLink to="/settings" label={t("settings-title")} />
       <h1 className="text-xl font-semibold">{t("streaming")}</h1>
 
-      <CardDivide>
+      <CardMenuSection>
         <StreamingLink
           to="/settings/keys"
           icon={Key}
@@ -84,7 +84,7 @@ function StreamingSettings() {
           icon={Globe}
           label={t("multistream")}
         />
-      </CardDivide>
+      </CardMenuSection>
     </div>
   );
 }

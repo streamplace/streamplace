@@ -1,6 +1,6 @@
 import { BackLink } from "@/components/settings/back-link";
 import { Button } from "@/components/ui/button";
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -206,7 +206,7 @@ function WebhookManager() {
           {t("no-webhooks-yet")}
         </div>
       ) : (
-        <CardDivide>
+        <CardMenuSection>
           {webhooks.map((webhook) => (
             <div
               key={webhook.id}
@@ -261,7 +261,7 @@ function WebhookManager() {
               </div>
             </div>
           ))}
-        </CardDivide>
+        </CardMenuSection>
       )}
 
       {/* Create/Edit dialog */}

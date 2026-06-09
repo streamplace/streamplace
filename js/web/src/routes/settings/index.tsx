@@ -1,4 +1,4 @@
-import { CardDivide } from "@/components/ui/card";
+import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Globe, Info, Lock, Shield, User2, Video } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -23,7 +23,7 @@ function CategoryLink({ to, icon: Icon, label }: CategoryLinkProps) {
     >
       <div className="flex items-center gap-3">
         <Icon size={20} className="text-[var(--color-fg-muted)]" />
-        <span className="text-sm">{label}</span>
+        <span className="text">{label}</span>
       </div>
       <svg
         width="16"
@@ -56,7 +56,7 @@ function SettingsIndex() {
       </header>
 
       {/* Account status */}
-      <CardDivide>
+      <CardMenuSection>
         <div className="px-3 py-2.5 flex items-center justify-between">
           <div className="text-sm">
             {state.status === "authenticated" ? (
@@ -92,10 +92,10 @@ function SettingsIndex() {
             </Link>
           )}
         </div>
-      </CardDivide>
+      </CardMenuSection>
 
       {isLoggedIn && (
-        <CardDivide>
+        <CardMenuSection>
           <CategoryLink
             to="/settings/account"
             icon={User2}
@@ -111,10 +111,10 @@ function SettingsIndex() {
             icon={Shield}
             label={t("privacy-security")}
           />
-        </CardDivide>
+        </CardMenuSection>
       )}
 
-      <CardDivide>
+      <CardMenuSection>
         <CategoryLink
           to="/settings/languages"
           icon={Globe}
@@ -126,7 +126,7 @@ function SettingsIndex() {
           label={t("advanced")}
         />
         <CategoryLink to="/settings/about" icon={Info} label={t("about")} />
-      </CardDivide>
+      </CardMenuSection>
     </div>
   );
 }

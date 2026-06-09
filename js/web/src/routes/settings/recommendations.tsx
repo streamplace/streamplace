@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { CardMenuSection } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -7,11 +8,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  DragDropContext,
+  Draggable,
+  Droppable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  ArrowDown,
-  ArrowUp,
   Check,
+  GripVertical,
   Pencil,
   Plus,
   RefreshCw,
@@ -64,13 +70,11 @@ function RecommendationsManager() {
         setStreamers([]);
         return;
       }
-
       const response = await agent.com.atproto.repo.getRecord({
         repo: userDID,
         collection: "place.stream.live.recommendations",
         rkey: "self",
       });
-
       const record = response.data.value as { streamers?: string[] };
       setStreamers(record.streamers || []);
     } catch (error: any) {
@@ -89,7 +93,6 @@ function RecommendationsManager() {
     try {
       if (!agent.did) throw new Error("User DID not found");
       setSaving(true);
-
       await agent.com.atproto.repo.putRecord({
         repo: agent.did,
         collection: "place.stream.live.recommendations",
@@ -99,7 +102,6 @@ function RecommendationsManager() {
           createdAt: new Date().toISOString(),
         },
       });
-
       setStreamers(newStreamers);
     } catch (error: any) {
       console.error("Failed to save recommendations:", error);
@@ -196,8 +198,12 @@ function RecommendationsManager() {
     setDeleteIndex(null);
   };
 
-  const handleMove = async (from: number, to: number) => {
-    if (to < 0 || to >= streamers.length) return;
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+    const from = result.source.index;
+    const to = result.destination.index;
+    if (from === to) return;
+
     const newStreamers = [...streamers];
     const [item] = newStreamers.splice(from, 1);
     newStreamers.splice(to, 0, item);
@@ -246,27 +252,29 @@ function RecommendationsManager() {
 
       {/* Search bar */}
       {streamers.length < 8 && (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 space-y-2">
-          <div className="flex items-center gap-2">
-            <Search
-              size={16}
-              className="text-[var(--color-fg-muted)] shrink-0"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search for streamers..."
-            />
+        <CardMenuSection>
+          <div className="px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <Search
+                size={16}
+                className="text-[var(--color-fg-muted)] shrink-0"
+              />
+              <Input
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search for streamers..."
+              />
+            </div>
           </div>
 
           {searching && (
-            <div className="text-xs text-[var(--color-fg-muted)] py-1">
+            <div className="px-3 py-2 text-xs text-[var(--color-fg-muted)]">
               Searching…
             </div>
           )}
 
           {!searching && searchResults.length > 0 && (
-            <div className="divide-y divide-[var(--color-border)]">
+            <>
               {searchResults.map((actor) => {
                 const alreadyAdded = streamers.includes(actor.did);
                 return (
@@ -275,7 +283,7 @@ function RecommendationsManager() {
                     type="button"
                     onClick={() => !alreadyAdded && handleSelectActor(actor)}
                     disabled={alreadyAdded}
-                    className="flex items-center justify-between w-full px-2 py-1.5 text-left hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50 rounded"
+                    className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
                   >
                     <span className="text-sm">@{actor.handle}</span>
                     {alreadyAdded && (
@@ -286,119 +294,132 @@ function RecommendationsManager() {
                   </button>
                 );
               })}
-            </div>
+            </>
           )}
 
           {!searching && searchQuery.trim() && searchResults.length === 0 && (
-            <div className="text-xs text-[var(--color-fg-muted)] py-1">
+            <div className="px-3 py-2 text-xs text-[var(--color-fg-muted)]">
               No results found
             </div>
           )}
-        </div>
+        </CardMenuSection>
       )}
 
-      {/* Streamer list */}
+      {/* Streamer list with drag-to-reorder */}
       {loading ? (
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
       ) : (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <CardMenuSection>
           {streamers.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-[var(--color-fg-muted)]">
               {t("no-recommendations-yet")}
             </div>
           ) : (
-            streamers.map((streamer, index) => (
-              <div
-                key={`${streamer}-${index}`}
-                className="flex items-center gap-2 px-3 py-2"
-              >
-                {/* Reorder buttons */}
-                <div className="flex flex-col shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleMove(index, index - 1)}
-                    disabled={index === 0 || saving}
-                    className="p-0.5 rounded hover:bg-[var(--color-bg)] disabled:opacity-30 transition-colors"
-                  >
-                    <ArrowUp
-                      size={12}
-                      className="text-[var(--color-fg-muted)]"
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMove(index, index + 1)}
-                    disabled={index === streamers.length - 1 || saving}
-                    className="p-0.5 rounded hover:bg-[var(--color-bg)] disabled:opacity-30 transition-colors"
-                  >
-                    <ArrowDown
-                      size={12}
-                      className="text-[var(--color-fg-muted)]"
-                    />
-                  </button>
-                </div>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="recommendations">
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps}>
+                    {streamers.map((streamer, index) => (
+                      <Draggable
+                        key={`${streamer}-${index}`}
+                        draggableId={`${streamer}-${index}`}
+                        index={index}
+                      >
+                        {(dragProvided, snapshot) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            className={`flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] last:border-b-0 ${
+                              snapshot.isDragging
+                                ? "bg-[var(--color-bg-elevated)] shadow-lg rounded-md"
+                                : ""
+                            }`}
+                          >
+                            {/* Drag handle */}
+                            <div
+                              {...dragProvided.dragHandleProps}
+                              className="shrink-0 cursor-grab active:cursor-grabbing p-0.5"
+                            >
+                              <GripVertical
+                                size={16}
+                                className="text-[var(--color-fg-muted)] opacity-60"
+                              />
+                            </div>
 
-                {/* Content */}
-                {editingIndex === index ? (
-                  <>
-                    <Input
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      placeholder="did:plc:..."
-                      autoFocus
-                      className="flex-1"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSaveEdit}
-                      className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                    >
-                      <Check size={16} className="text-[var(--color-accent)]" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!streamer) {
-                          setStreamers((prev) =>
-                            prev.filter((_, i) => i !== index),
-                          );
-                        }
-                        setEditingIndex(null);
-                      }}
-                      className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                    >
-                      <X size={16} className="text-[var(--color-fg-muted)]" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="flex-1 text-sm truncate font-mono">
-                      {streamer || "(empty)"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingIndex(index);
-                        setEditValue(streamer);
-                      }}
-                      className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                    >
-                      <Pencil
-                        size={16}
-                        className="text-[var(--color-fg-muted)]"
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteIndex(index)}
-                      className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                    >
-                      <X size={16} className="text-destructive" />
-                    </button>
-                  </>
+                            {/* Content */}
+                            {editingIndex === index ? (
+                              <>
+                                <Input
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  placeholder="did:plc:..."
+                                  autoFocus
+                                  className="flex-1"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleSaveEdit}
+                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+                                >
+                                  <Check
+                                    size={16}
+                                    className="text-[var(--color-accent)]"
+                                  />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!streamer) {
+                                      setStreamers((prev) =>
+                                        prev.filter((_, i) => i !== index),
+                                      );
+                                    }
+                                    setEditingIndex(null);
+                                  }}
+                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+                                >
+                                  <X
+                                    size={16}
+                                    className="text-[var(--color-fg-muted)]"
+                                  />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex-1 text-sm truncate font-mono">
+                                  {streamer || "(empty)"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingIndex(index);
+                                    setEditValue(streamer);
+                                  }}
+                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+                                >
+                                  <Pencil
+                                    size={16}
+                                    className="text-[var(--color-fg-muted)]"
+                                  />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteIndex(index)}
+                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+                                >
+                                  <X size={16} className="text-destructive" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
                 )}
-              </div>
-            ))
+              </Droppable>
+            </DragDropContext>
           )}
 
           {streamers.length < 8 && (
@@ -411,7 +432,7 @@ function RecommendationsManager() {
               <span className="text-sm">Add DID manually</span>
             </button>
           )}
-        </div>
+        </CardMenuSection>
       )}
 
       {saving && (

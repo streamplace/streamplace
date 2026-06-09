@@ -31,7 +31,8 @@
     "react-i18next": "^15.7.3",
     "i18next": "^25.4.2",
     "i18next-fluent": "^2.0.0",
-    "@streamplace/i18n": "workspace:*"
+    "@streamplace/i18n": "workspace:*",
+    "@hello-pangea/dnd": "^18.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",

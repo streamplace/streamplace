@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,9 +84,37 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 
+	// The session only counts as a viewer once the peer connection actually
+	// establishes — counting at SDP-answer time inflated the count with
+	// handshakes that never connected (each lingering until ICE failure
+	// detection). The mutex pairs the increment with exactly one decrement
+	// even if a connect races session teardown.
+	var viewerMu sync.Mutex
+	viewerCounted := false
+	viewerDone := false
+	markConnected := func() {
+		viewerMu.Lock()
+		defer viewerMu.Unlock()
+		if viewerDone || viewerCounted {
+			return
+		}
+		viewerCounted = true
+		mm.IncrementViewerCount(user, "webrtc")
+	}
+	markDone := func() {
+		viewerMu.Lock()
+		defer viewerMu.Unlock()
+		viewerDone = true
+		if viewerCounted {
+			viewerCounted = false
+			mm.DecrementViewerCount(user, "webrtc")
+		}
+	}
+
 	go func() {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+		defer markDone()
 
 		latency := time.Duration(0)
 
@@ -194,9 +223,6 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 			}
 		}()
 
-		mm.IncrementViewerCount(user, "webrtc")
-		defer mm.DecrementViewerCount(user, "webrtc")
-
 		if !audioOnly {
 			go func() {
 				rtcpBuf := make([]byte, 1500)
@@ -227,6 +253,10 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 			log.Log(ctx, "Peer Connection State has changed", "state", s.String())
+
+			if s == webrtc.PeerConnectionStateConnected {
+				markConnected()
+			}
 
 			if s == webrtc.PeerConnectionStateFailed || s == webrtc.PeerConnectionStateClosed || s == webrtc.PeerConnectionStateDisconnected {
 				// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.

@@ -242,5 +242,15 @@
   "issue-badges-recipient-did": "DID do destinatário",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "Toque para emitir",
-  "issue-badges-your-definitions": "Suas definições de emblemas"
+  "issue-badges-your-definitions": "Suas definições de emblemas",
+  "chat-profile": "Perfil de chat",
+  "chat-profile-login-required": "Faça login para editar seu perfil de chat.",
+  "chat-profile-saved": "Perfil de chat salvo",
+  "chat-profile-save-failed": "Falha ao salvar perfil de chat",
+  "chat-profile-name-color": "Cor do nome",
+  "chat-profile-name-color-description": "Escolha a cor do seu nome no chat.",
+  "chat-profile-preview-message": "Olá, mundo!",
+  "chat-profile-self-labels": "Rótulos pessoais",
+  "chat-profile-label-bot": "Bot",
+  "chat-profile-label-bot-description": "Marque suas mensagens de chat como provenientes de um bot."
 }

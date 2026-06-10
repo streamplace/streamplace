@@ -4,20 +4,21 @@
 // avatar, title, handle, activity label, and tags. Links to /$user.
 
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import type { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
 import { formatViewers } from "../../lib/format";
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  events: "Events",
-  just_chatting: "Just Chatting",
-  music: "Music",
-  art: "Art",
-  software_dev: "Software Dev",
-  cooking: "Cooking",
-  miniatures: "Miniatures",
-  makers_crafting: "Makers & Crafting",
-  fitness: "Fitness",
-  sports: "Sports",
+const ACTIVITY_I18N_KEYS: Record<string, string> = {
+  events: "activity-events",
+  just_chatting: "activity-just-chatting",
+  music: "activity-music",
+  art: "activity-art",
+  software_dev: "activity-software-dev",
+  cooking: "activity-cooking",
+  miniatures: "activity-miniatures",
+  makers_crafting: "activity-makers-crafting",
+  fitness: "activity-fitness",
+  sports: "activity-sports",
 };
 
 function displayTag(tag: string): string {
@@ -34,6 +35,7 @@ function displayTag(tag: string): string {
 
 export function getStreamActivity(
   record: PlaceStreamLivestream.Record,
+  t: (key: string) => string,
 ): string | undefined {
   if (!record.activity) return undefined;
   const act = record.activity;
@@ -42,7 +44,7 @@ export function getStreamActivity(
   }
   if (act.$type === "place.stream.defs#activityLabel") {
     const label = act as PlaceStreamDefs.ActivityLabel;
-    return ACTIVITY_LABELS[label.label] ?? label.label;
+    return t(ACTIVITY_I18N_KEYS[label.label] ?? label.label);
   }
   return undefined;
 }
@@ -53,10 +55,11 @@ interface StreamCardProps {
 }
 
 export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
+  const { t } = useTranslation("common");
   const record = stream.record as PlaceStreamLivestream.Record;
   const handle = stream.author.handle || stream.author.did;
-  const title = record.title || "A livestream!";
-  const activity = getStreamActivity(record);
+  const title = record.title || t("default-stream-title");
+  const activity = getStreamActivity(record, t);
   const tags = record.tags ?? [];
   const viewers = stream.viewerCount?.count;
   const user = handle;
@@ -80,7 +83,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
         {/* Live dot */}
         <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-red-600 px-2 py-0.5 rounded text-white text-xs font-bold uppercase tracking-wide">
           <div className="w-1.5 h-1.5 rounded-full bg-white" />
-          Live
+          {t("live-badge")}
         </div>
         {/* Viewer count */}
         {viewers !== undefined && viewers !== null && (

@@ -4,6 +4,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { VideoCard } from "../components/video/video-card";
 import useAvatars from "../hooks/use-avatars";
 import { useVideoList } from "../hooks/use-video-list";
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/videos")({
 });
 
 function VideosPage() {
+  const { t } = useTranslation("common");
   const { videos, loading, error, hasMore, loadMore } = useVideoList();
 
   const dids = useMemo(
@@ -38,7 +40,7 @@ function VideosPage() {
   return (
     <div className="max-w-[1600px] mx-auto px-4 py-6">
       <h1 className="text-2xl font-semibold font-display text-[var(--color-fg)] mb-6">
-        Videos
+        {t("videos-title")}
       </h1>
 
       {videos.length > 0 && (
@@ -74,7 +76,7 @@ function VideosPage() {
         <div className="text-center py-20">
           <div className="text-2xl mb-2">🎬</div>
           <p className="text-[var(--color-fg-muted)]">
-            {error ? `Couldn't load videos: ${error}` : "No videos yet."}
+            {error ? t("could-not-load-videos", { error }) : t("no-videos-yet")}
           </p>
         </div>
       )}

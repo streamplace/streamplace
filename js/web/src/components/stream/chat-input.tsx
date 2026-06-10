@@ -8,6 +8,7 @@ import { SuggestionPluginKey } from "@tiptap/suggestion";
 import { EmojiPicker } from "frimousse";
 import { Reply, Smile, X } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
 import { useStore } from "zustand";
 import { useChatSend } from "../../hooks/use-chat-send";
@@ -161,6 +162,7 @@ function createMentionSuggestion() {
 }
 
 export function ChatInput({ store }: { store: LivestreamStore }) {
+  const { t } = useTranslation("common");
   const { state } = useSession();
   const isAuthed = state.status === "authenticated";
   const send = useChatSend(store);
@@ -198,7 +200,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           hardBreak: false,
         }),
         Placeholder.configure({
-          placeholder: "Send a message",
+          placeholder: t("chat-send-message"),
         }),
         Mention.configure({
           HTMLAttributes: {
@@ -274,7 +276,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       await send(text);
       editor.commands.clearContent();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
+      setError(err instanceof Error ? err.message : t("chat-failed-send"));
     } finally {
       setSending(false);
     }
@@ -301,9 +303,9 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           search={EMPTY_LOGIN_SEARCH}
           className="text-[var(--color-accent)] hover:underline font-medium"
         >
-          Log in
+          {t("log-in")}
         </Link>{" "}
-        to chat
+        {t("chat-log-in-to")}
       </div>
     );
   }
@@ -316,10 +318,9 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
         <div className="flex items-center gap-2 px-2 py-1 mb-1 rounded bg-[var(--color-bg-overlay)] border border-[var(--color-border)] text-xs">
           <Reply className="w-3 h-3 text-[var(--color-fg-muted)] flex-shrink-0" />
           <span className="text-[var(--color-fg-muted)] flex-1 truncate">
-            Replying to{" "}
-            <span className="font-medium">
-              {replyToMessage.author.handle || replyToMessage.author.did}
-            </span>
+            {t("chat-replying-to", {
+              handle: replyToMessage.author.handle || replyToMessage.author.did,
+            })}
           </span>
           <button
             type="button"
@@ -359,7 +360,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
               variant="ghost"
               size="icon"
               className="h-9 w-9 flex-shrink-0"
-              aria-label="Insert emoji"
+              aria-label={t("chat-insert-emoji")}
             >
               <Smile className="w-4 h-4" />
             </Button>
@@ -379,7 +380,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
         </Popover>
 
         <Button type="submit" size="sm" disabled={sending || textLength === 0}>
-          {sending ? "..." : "Chat"}
+          {sending ? "..." : t("chat-send-button")}
         </Button>
       </form>
 

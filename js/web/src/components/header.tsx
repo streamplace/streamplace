@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import useAvatars from "../hooks/use-avatars";
 import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
 import { useSession } from "../lib/session";
@@ -15,6 +16,7 @@ interface SearchResult {
 }
 
 export default function Header() {
+  const { t } = useTranslation("common");
   const { state } = useSession();
   const userProfile = useUserProfile();
   useAvatars(state.status === "authenticated" ? [state.session.did] : []);
@@ -164,7 +166,7 @@ export default function Header() {
                 onFocus={() => {
                   if (query.trim() && results.length > 0) setOpen(true);
                 }}
-                placeholder="Search..."
+                placeholder={t("search-placeholder")}
                 className="w-full h-8 pl-8 pr-8 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
               />
               {query && (
@@ -233,7 +235,8 @@ export default function Header() {
                     onClick={() => setOpen(false)}
                     className="flex items-center gap-2 text-center py-2 text-sm text-[var(--color-accent)] hover:bg-[var(--color-bg-overlay)] transition-colors"
                   >
-                    More results <ArrowRight className="w-3.5 h-3.5 inline" />
+                    {t("more-results")}{" "}
+                    <ArrowRight className="w-3.5 h-3.5 inline" />
                   </Link>
                 </div>
               </div>
@@ -247,8 +250,12 @@ export default function Header() {
               <Link
                 to="/settings/account"
                 className="flex items-center gap-2 rounded-full hover:bg-[var(--color-bg-overlay)] transition-colors pl-1 pr-3 py-1"
-                title={displayName ? `Signed in as @${handle}` : "Profile"}
-                aria-label={displayName ? `Signed in as @${handle}` : "Profile"}
+                title={
+                  displayName ? t("signed-in-as", { handle }) : t("profile")
+                }
+                aria-label={
+                  displayName ? t("signed-in-as", { handle }) : t("profile")
+                }
               >
                 {avatar ? (
                   <img
@@ -272,7 +279,7 @@ export default function Header() {
                 search={EMPTY_LOGIN_SEARCH}
                 className="text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
               >
-                Log in
+                {t("log-in")}
               </Link>
             )}
           </nav>

@@ -242,5 +242,15 @@
   "issue-badges-recipient-did": "DID du destinataire",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "Appuyer pour délivrer",
-  "issue-badges-your-definitions": "Vos définitions de badges"
+  "issue-badges-your-definitions": "Vos définitions de badges",
+  "chat-profile": "Profil de chat",
+  "chat-profile-login-required": "Connectez-vous pour modifier votre profil de chat.",
+  "chat-profile-saved": "Profil de chat enregistré",
+  "chat-profile-save-failed": "Échec de l'enregistrement du profil de chat",
+  "chat-profile-name-color": "Couleur du nom",
+  "chat-profile-name-color-description": "Choisissez la couleur de votre nom dans le chat.",
+  "chat-profile-preview-message": "Bonjour le monde !",
+  "chat-profile-self-labels": "Étiquettes personnelles",
+  "chat-profile-label-bot": "Bot",
+  "chat-profile-label-bot-description": "Marquez vos messages de chat comme provenant d'un bot."
 }

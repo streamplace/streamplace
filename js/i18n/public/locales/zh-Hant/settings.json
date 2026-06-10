@@ -242,5 +242,15 @@
   "issue-badges-recipient-did": "收件者 DID",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "點擊頒發",
-  "issue-badges-your-definitions": "您的徽章定義"
+  "issue-badges-your-definitions": "您的徽章定義",
+  "chat-profile": "聊天資料",
+  "chat-profile-login-required": "請登入以編輯您的聊天資料。",
+  "chat-profile-saved": "聊天資料已儲存",
+  "chat-profile-save-failed": "儲存聊天資料失敗",
+  "chat-profile-name-color": "名稱顏色",
+  "chat-profile-name-color-description": "選擇您在聊天中的名稱顏色。",
+  "chat-profile-preview-message": "你好，世界！",
+  "chat-profile-self-labels": "自我標籤",
+  "chat-profile-label-bot": "機器人",
+  "chat-profile-label-bot-description": "將您的聊天訊息標記為來自機器人。"
 }

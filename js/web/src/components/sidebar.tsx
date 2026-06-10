@@ -1,6 +1,7 @@
 import { EMPTY_LOGIN_SEARCH } from "@/lib/login-search";
 import { Link } from "@tanstack/react-router";
 import { House, LogIn, Settings, Users, Video } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +16,7 @@ import {
 } from "./ui/sidebar";
 
 export default function SidebarComponent() {
+  const { t } = useTranslation("common");
   return (
     <Sidebar side="left" collapsible="icon" variant="sidebar">
       <SidebarHeader className="h-10" />
@@ -23,24 +25,24 @@ export default function SidebarComponent() {
           <SidebarMenu>
             <SidebarMenuItem>
               <Link to="/" className="w-full">
-                <SidebarMenuButton tooltip="Home" isActive>
+                <SidebarMenuButton tooltip={t("nav-home")} isActive>
                   <House />
-                  <span>Home</span>
+                  <span>{t("nav-home")}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link to="/videos" className="w-full">
-                <SidebarMenuButton tooltip="Videos">
+                <SidebarMenuButton tooltip={t("nav-videos")}>
                   <Video />
-                  <span>Videos</span>
+                  <span>{t("nav-videos")}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Following" disabled>
+              <SidebarMenuButton tooltip={t("nav-following")} disabled>
                 <Users />
-                <span>Following</span>
+                <span>{t("nav-following")}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -49,21 +51,21 @@ export default function SidebarComponent() {
         <SidebarSeparator />
 
         <SidebarGroup>
-          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("nav-account")}</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <Link to="/login" search={EMPTY_LOGIN_SEARCH} className="w-full">
-                <SidebarMenuButton tooltip="Log in">
+                <SidebarMenuButton tooltip={t("log-in")}>
                   <LogIn />
-                  <span>Log in</span>
+                  <span>{t("log-in")}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link to="/settings" className="w-full">
-                <SidebarMenuButton tooltip="Settings">
+                <SidebarMenuButton tooltip={t("nav-settings")}>
                   <Settings />
-                  <span>Settings</span>
+                  <span>{t("nav-settings")}</span>
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

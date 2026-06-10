@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSession } from "../lib/session";
 
 export const Route = createFileRoute("/login")({
@@ -26,6 +27,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { t } = useTranslation("common");
   const { state, signIn } = useSession();
   const navigate = useNavigate();
   const search = Route.useSearch();
@@ -60,7 +62,7 @@ function LoginPage() {
     try {
       await signIn(handle.trim());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed");
+      setError(err instanceof Error ? err.message : t("sign-in-failed"));
       setSubmitting(false);
     }
   };
@@ -68,7 +70,9 @@ function LoginPage() {
   if (isCallbackInFlight && state.status !== "authenticated") {
     return (
       <div className="max-w-md mx-auto px-6 py-16 text-center">
-        <p className="text-[var(--color-fg-muted)]">Completing sign-in…</p>
+        <p className="text-[var(--color-fg-muted)]">
+          {t("completing-sign-in")}
+        </p>
       </div>
     );
   }
@@ -76,16 +80,18 @@ function LoginPage() {
   if (state.status === "authenticated") {
     return (
       <div className="max-w-md mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold font-display">You're already logged in.</h1>
+        <h1 className="text-2xl font-semibold font-display">
+          {t("already-logged-in")}
+        </h1>
         <p className="mt-2 text-[var(--color-fg-muted)]">
-          Signed in as <code className="font-mono">{state.session.sub}</code>
+          {t("signed-in-as-code", { handle: state.session.sub })}
         </p>
         <button
           type="button"
           onClick={() => navigate({ to: "/" })}
           className="mt-6 inline-flex items-center px-4 h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium"
         >
-          Go home
+          {t("go-home")}
         </button>
       </div>
     );
@@ -93,15 +99,16 @@ function LoginPage() {
 
   return (
     <div className="max-w-md mx-auto px-6 py-16">
-      <h1 className="text-2xl font-semibold font-display">Log in</h1>
+      <h1 className="text-2xl font-semibold font-display">{t("log-in")}</h1>
       <p className="mt-2 text-[var(--color-fg-muted)]">
-        Sign in with your Bluesky handle. You'll be redirected to your PDS to
-        authorize this app.
+        {t("sign-in-description")}
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block">
-          <span className="text-sm text-[var(--color-fg-muted)]">Handle</span>
+          <span className="text-sm text-[var(--color-fg-muted)]">
+            {t("handle-label")}
+          </span>
           <input
             type="text"
             value={handle}
@@ -120,7 +127,7 @@ function LoginPage() {
           disabled={submitting || state.status === "loading"}
           className="w-full h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--color-accent-fg)] font-medium transition-colors"
         >
-          {submitting ? "Redirecting…" : "Continue"}
+          {submitting ? t("redirecting") : t("continue")}
         </button>
       </form>
     </div>

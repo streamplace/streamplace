@@ -1,6 +1,7 @@
 import { ChatSidebar } from "@/components/stream/chat-sidebar";
 import { StreamInfo } from "@/components/stream/stream-info";
 import { VideoSection } from "@/components/stream/video-section";
+import { useDevMode } from "@/hooks/use-dev-mode";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@streamplace/core";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/$user/")({
   component: StreamPage,
@@ -114,6 +116,7 @@ function StreamPage() {
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
+  const [devMode] = useDevMode();
   const [chatOpen, setChatOpen] = useState(() => {
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem("streamplace:chat-open") !== "false";
@@ -137,7 +140,12 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         className={`flex-1 flex min-h-0 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
       >
         <div className="flex-1 min-w-0 overflow-y-auto">
-          <VideoSection store={store} user={user} liveness={liveness} />
+          <VideoSection
+            store={store}
+            user={user}
+            liveness={liveness}
+            devMode={devMode}
+          />
           <StreamInfo
             store={store}
             user={user}
@@ -160,6 +168,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 }
 
 function OfflinePage({ user }: { user: string }) {
+  const { t } = useTranslation("common");
   return (
     <div className="max-w-2xl mx-auto px-6 py-20 text-center">
       <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] mb-6">
@@ -177,24 +186,25 @@ function OfflinePage({ user }: { user: string }) {
           />
         </svg>
       </div>
-      <h1 className="text-2xl font-semibold font-display">Stream is offline</h1>
+      <h1 className="text-2xl font-semibold font-display">
+        {t("stream-is-offline-title")}
+      </h1>
       <p className="text-sm text-[var(--color-fg-muted)] mt-2">
-        <span className="font-mono">{user}</span> is not currently streaming.
-        Check back later.
+        {t("user-not-streaming-check-back", { user })}
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <Link
           to="/"
           className="h-9 inline-flex items-center px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] text-sm font-medium"
         >
-          Back to home
+          {t("back-to-home")}
         </Link>
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="h-9 px-4 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-sm"
         >
-          Refresh
+          {t("refresh")}
         </button>
       </div>
     </div>

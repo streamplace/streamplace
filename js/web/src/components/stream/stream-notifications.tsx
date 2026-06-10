@@ -4,6 +4,7 @@ import type { LivestreamStore } from "@streamplace/core";
 import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   ChatMessageViewHydrated,
   PinnedRecordViewHydrated,
@@ -47,6 +48,7 @@ function PinnedNotification({
   store: LivestreamStore;
   comment: PinnedRecordViewHydrated;
 }) {
+  const { t } = useTranslation("common");
   const { state: sessionState, pdsAgent, did } = useSession();
   const streamerDid = useStore(store, (s) => s.livestream?.author.did);
   const canUnpin = did && streamerDid && did === streamerDid;
@@ -142,7 +144,7 @@ function PinnedNotification({
               type="button"
               onClick={handleUnpin}
               className="p-1 rounded hover:bg-white/10 text-neutral-400 hover:text-neutral-200 transition-colors"
-              aria-label="Unpin message"
+              aria-label={t("chat-unpin-message")}
             >
               <X className="w-4 h-4" />
             </button>
@@ -151,7 +153,7 @@ function PinnedNotification({
             type="button"
             onClick={handleDismiss}
             className="p-1 rounded hover:bg-white/10 text-neutral-400 hover:text-neutral-200 transition-colors"
-            aria-label="Dismiss pinned message"
+            aria-label={t("chat-dismiss-pinned")}
           >
             <EyeOff className="w-4 h-4" />
           </button>
@@ -190,6 +192,7 @@ function PinnedRichText({
 }
 
 function TeleportNotification({ teleport }: { teleport: any }) {
+  const { t } = useTranslation("common");
   const targetDid = teleport.target;
   const startsAt = teleport.startsAt
     ? new Date(teleport.startsAt).getTime()
@@ -212,7 +215,7 @@ function TeleportNotification({ teleport }: { teleport: any }) {
   return (
     <div className="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-info)]/10">
       <p className="text-xs text-[var(--color-fg-muted)]">
-        Teleporting in{" "}
+        {t("teleporting-in")}{" "}
         <span className="font-mono font-medium text-[var(--color-fg)]">
           {display}
         </span>

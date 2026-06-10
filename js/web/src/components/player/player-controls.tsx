@@ -2,13 +2,16 @@
 // `controls` attribute so the player matches the rest of the web brand.
 // Hides when the video is playing and the user is idle; stays visible
 // when the video is paused or has errored.
-import { Maximize, Minimize, Pause, Play, Settings, Volume2, VolumeX } from "lucide-react";
 import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+  Maximize,
+  Minimize,
+  Pause,
+  Play,
+  Settings,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
+import { type RefObject, useCallback, useEffect, useState } from "react";
 import { cn } from "../../lib/utils";
 import {
   DropdownMenu,
@@ -173,9 +176,12 @@ export function PlayerControls({
   // Keyboard shortcuts: space=play/pause, m=mute, f=fullscreen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't hijack typing in inputs.
-      const tag = (e.target as HTMLElement | null)?.tagName;
+      // Don't hijack typing in inputs or anywhere a user is composing text
+      // (contenteditable covers rich editors like the Tiptap chat input).
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (target?.isContentEditable) return;
       if (e.key === " ") {
         e.preventDefault();
         togglePlay();
@@ -318,7 +324,10 @@ export function PlayerControls({
                     onValueChange={(v) => onQualityChange(Number(v))}
                   >
                     {qualities.map((q) => (
-                      <DropdownMenuRadioItem key={q.index} value={String(q.index)}>
+                      <DropdownMenuRadioItem
+                        key={q.index}
+                        value={String(q.index)}
+                      >
                         {q.label}
                       </DropdownMenuRadioItem>
                     ))}

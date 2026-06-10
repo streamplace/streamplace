@@ -246,6 +246,31 @@ code {
     animation: particle-burst 0.7s ease-out 1.31s both;
     transform: translate(40px, 38px) skewX(40deg) scale(2);
   }
+
+  /* Gentle rocking for the empty-state scope illustration. Pivots around
+     the viewBox center (340, 180) and adds ~5deg of motion on top of the
+     SVG's static -rotate-10, so the effective swing is roughly -12 to -7deg. */
+  @keyframes scope-rock {
+    0%,
+    100% {
+      transform: rotate(-2.5deg);
+    }
+    50% {
+      transform: rotate(10deg);
+    }
+  }
+
+  .animate-scope-rock {
+    animation: scope-rock 12.6s ease-in-out infinite;
+    transform-box: view-box;
+    transform-origin: 340px 180px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-scope-rock {
+      animation: none;
+    }
+  }
 }
 
 body {
@@ -285,4 +310,38 @@ body {
 /* Hide scrollbar but keep scroll functionality */
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.85);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.animate-scale {
+  animation: scale-in 0.8s ease-out both;
+  /* set centre to avoid scaling from top-left */
+  transform-origin: center;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-staggered {
+  animation: fade-in 0.8s ease-out both;
+  animation-delay: calc(sibling-index() * 0.2s);
+}
+
+.animate-in-hubble {
+  animation: fade-in 0.8s ease-out both;
+  animation-delay: 1s;
 }

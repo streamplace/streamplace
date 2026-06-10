@@ -76,9 +76,9 @@ export function VideoSectionInner({
   const segRatio = segment ? segment.width / segment.height : 16 / 9;
 
   return (
-    <div className="w-full max-h-[calc(100vh-240px)] h-full bg-black">
+    <div className="w-full max-h-[calc(min(100vh-240px,100%))] h-full bg-black">
       <div
-        className="relative bg-black h-full mx-auto"
+        className="relative h-full bg-green-400 mx-auto"
         style={{
           maxHeight: "calc(100vh-240px)",
         }}

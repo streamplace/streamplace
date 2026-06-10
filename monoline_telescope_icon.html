@@ -1,0 +1,212 @@
+<h2
+  class="sr-only"
+  style="
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  "
+>
+  A monochrome line-art space telescope icon that rocks back and forth up to an
+  adjustable 20 degree maximum, with speed, direction, and pause controls.
+</h2>
+
+<div style="display: flex; align-items: center; gap: 12px; margin: 0 0 0.75rem">
+  <label
+    style="font-size: 14px; color: var(--color-text-secondary); min-width: 90px"
+    >max angle</label
+  >
+  <input
+    type="range"
+    id="amp"
+    min="0"
+    max="20"
+    step="1"
+    value="20"
+    style="flex: 1"
+  />
+  <span
+    id="amp-out"
+    style="
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 36px;
+      text-align: right;
+    "
+    >20°</span
+  >
+</div>
+
+<div style="display: flex; align-items: center; gap: 12px; margin: 0 0 1rem">
+  <label
+    style="font-size: 14px; color: var(--color-text-secondary); min-width: 90px"
+    >speed</label
+  >
+  <input
+    type="range"
+    id="spd"
+    min="1"
+    max="10"
+    step="1"
+    value="4"
+    style="flex: 1"
+  />
+  <span
+    id="spd-out"
+    style="
+      font-size: 14px;
+      font-weight: 500;
+      min-width: 36px;
+      text-align: right;
+    "
+    >4</span
+  >
+</div>
+
+<div style="display: flex; align-items: center; gap: 8px; margin: 0 0 1.5rem">
+  <button id="dir-btn">
+    <i
+      class="ti ti-refresh"
+      aria-hidden="true"
+      style="font-size: 16px; vertical-align: -2px; margin-right: 6px"
+    ></i
+    ><span id="dir-label">counterclockwise first</span>
+  </button>
+  <button id="play-btn">
+    <i
+      class="ti ti-player-pause"
+      aria-hidden="true"
+      style="font-size: 16px; vertical-align: -2px; margin-right: 6px"
+    ></i
+    ><span id="play-label">pause</span>
+  </button>
+  <span
+    id="angle-out"
+    style="
+      margin-left: auto;
+      font-size: 14px;
+      color: var(--color-text-secondary);
+    "
+    >0°</span
+  >
+</div>
+
+<svg
+  width="100%"
+  viewBox="0 0 680 360"
+  role="img"
+  style="display: block; color: var(--color-text-primary)"
+>
+  <title>Monoline space telescope icon</title>
+  <desc>
+    A single-color, stroke-based space telescope in the style of an icon
+    library, gently rotating around its center.
+  </desc>
+
+  <g
+    stroke="currentColor"
+    stroke-width="2"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <g opacity="0.35">
+      <path d="M90 70 l0 12 M84 76 l12 0" />
+      <path d="M590 60 l0 10 M585 65 l10 0" />
+      <circle cx="150" cy="290" r="2.5" />
+      <circle cx="540" cy="300" r="2.5" />
+      <circle cx="610" cy="180" r="2" />
+      <circle cx="70" cy="190" r="2" />
+      <path d="M520 110 a14 14 0 1 1 -6 26" />
+    </g>
+
+    <g id="scope" transform="rotate(0 340 180)">
+      <rect x="178" y="152" width="104" height="56" rx="6" />
+      <line x1="204" y1="152" x2="204" y2="208" />
+      <line x1="230" y1="152" x2="230" y2="208" />
+      <line x1="256" y1="152" x2="256" y2="208" />
+
+      <rect x="398" y="152" width="104" height="56" rx="6" />
+      <line x1="424" y1="152" x2="424" y2="208" />
+      <line x1="450" y1="152" x2="450" y2="208" />
+      <line x1="476" y1="152" x2="476" y2="208" />
+
+      <line x1="282" y1="180" x2="296" y2="180" />
+      <line x1="384" y1="180" x2="398" y2="180" />
+
+      <path
+        d="M296 134 h88 a14 14 0 0 1 14 14 v64 a14 14 0 0 1 -14 14 h-88 a14 14 0 0 1 -14 -14 v-64 a14 14 0 0 1 14 -14 z"
+      />
+      <line x1="282" y1="156" x2="398" y2="156" />
+      <line x1="282" y1="204" x2="398" y2="204" />
+
+      <circle cx="340" cy="180" r="13" />
+      <circle cx="340" cy="180" r="5" />
+
+      <path d="M398 162 h26 v36 h-26" />
+      <ellipse cx="430" cy="180" rx="7" ry="24" />
+
+      <line x1="340" y1="134" x2="340" y2="106" />
+      <path d="M331 106 h18" />
+      <circle cx="340" cy="98" r="6" />
+
+      <path d="M312 222 l-10 16 M368 222 l10 16" />
+    </g>
+  </g>
+</svg>
+
+<script>
+  const scope = document.getElementById("scope");
+  const amp = document.getElementById("amp");
+  const spd = document.getElementById("spd");
+  const ampOut = document.getElementById("amp-out");
+  const spdOut = document.getElementById("spd-out");
+  const angleOut = document.getElementById("angle-out");
+  const dirBtn = document.getElementById("dir-btn");
+  const dirLabel = document.getElementById("dir-label");
+  const playBtn = document.getElementById("play-btn");
+  const playLabel = document.getElementById("play-label");
+
+  let direction = 1;
+  let playing = true;
+  let phase = 0;
+  let last = performance.now();
+
+  amp.addEventListener("input", () => {
+    ampOut.textContent = amp.value + "°";
+  });
+  spd.addEventListener("input", () => {
+    spdOut.textContent = spd.value;
+  });
+
+  dirBtn.addEventListener("click", () => {
+    direction *= -1;
+    dirLabel.textContent =
+      direction === 1 ? "counterclockwise first" : "clockwise first";
+  });
+
+  playBtn.addEventListener("click", () => {
+    playing = !playing;
+    playLabel.textContent = playing ? "pause" : "play";
+    playBtn.querySelector("i").className = playing
+      ? "ti ti-player-pause"
+      : "ti ti-player-play";
+    if (playing) {
+      last = performance.now();
+      requestAnimationFrame(tick);
+    }
+  });
+
+  function tick(now) {
+    if (!playing) return;
+    const dt = (now - last) / 1000;
+    last = now;
+    phase += dt * Number(spd.value) * 0.5;
+    const angle = -direction * Number(amp.value) * Math.sin(phase);
+    scope.setAttribute("transform", "rotate(" + angle.toFixed(2) + " 340 180)");
+    angleOut.textContent = Math.round(-angle) + "°";
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>

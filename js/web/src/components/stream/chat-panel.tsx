@@ -5,25 +5,19 @@ import {
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
 import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
-import { Link } from "@tanstack/react-router";
-import { Reply, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, Reply } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ChatMessageViewHydrated,
   PlaceStreamBadgeDefs,
 } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { useChatSend } from "../../hooks/use-chat-send";
-import { EMPTY_LOGIN_SEARCH } from "../../lib/login-search";
-import { useSession } from "../../lib/session";
-import { Button } from "../ui/button";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "../ui/hover-card";
-import { Popover, PopoverContent } from "../ui/popover";
 
 export function ChatPanel({ store }: { store: LivestreamStore }) {
   const { chat, authors, replyToMessage } = useStore(
@@ -37,7 +31,7 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const isAtBottomRef = useRef(true);
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevChatLenRef = useRef(chat.length);
 
@@ -46,8 +40,7 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
     const el = scrollRef.current;
     if (!el) return;
     const threshold = 40;
-    isAtBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
   }, []);
 
   // When new messages arrive, auto-scroll only if already at bottom.
@@ -57,19 +50,23 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
 
     if (delta <= 0) return;
 
-    if (isAtBottomRef.current) {
+    if (isAtBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       setNewMessageCount(0);
     } else {
       setNewMessageCount((c) => c + delta);
     }
-  }, [chat.length]);
+  }, [chat.length, isAtBottom]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setNewMessageCount(0);
-    isAtBottomRef.current = true;
   }, []);
+
+  // Clear the badge when the user scrolls back to the bottom.
+  useEffect(() => {
+    if (isAtBottom) setNewMessageCount(0);
+  }, [isAtBottom]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 max-w-full relative">
@@ -97,14 +94,18 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
         <div ref={messagesEndRef} />
       </div>
 
-      {newMessageCount > 0 && (
+      {!isAtBottom && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[var(--color-accent)] text-white text-xs font-medium shadow-lg hover:opacity-90 transition-opacity z-10"
+          className="absolute bottom-2 right-3 w-8 h-8 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-md flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors z-10"
+          aria-label="Scroll to bottom"
         >
-          {newMessageCount === 1
-            ? "1 new message"
-            : `${newMessageCount} new messages`}
+          <ArrowDown className="w-4 h-4" />
+          {newMessageCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-accent)] text-white text-[10px] font-medium flex items-center justify-center">
+              {newMessageCount}
+            </span>
+          )}
         </button>
       )}
     </div>
@@ -142,10 +143,13 @@ function ChatMessage({
         <span className="text tabular-nums">
           {formatTime(message.record.createdAt)}
         </span>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 flex-wrap items-center gap-1">
           {message.badges?.map((badge, i) => (
-            <BadgeIcon key={i} badge={badge} />
+            <span className="items-end justify-end gap-0.5 inline-block">
+              <BadgeIcon key={i} badge={badge} />
+            </span>
           ))}
+
           <UserHandle
             author={message.author}
             color={profile?.color}
@@ -449,7 +453,7 @@ function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
     <img
       src={src}
       alt={badge.badgeType}
-      className="inline-block w-4 h-4 rounded-xs align-middle relative -top-px mr-1"
+      className="inline-block w-4 h-4 rounded-xs align-middle relative top-0.5 mr-1"
     />
   );
 }
@@ -483,249 +487,6 @@ function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
           {issuedBy}
         </div>
       </div>
-    </div>
-  );
-}
-
-function useMentionState(value: string, chat: ChatMessageViewHydrated[]) {
-  const cursorPos = useRef(0);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const onInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    cursorPos.current = e.target.selectionStart || 0;
-    setSelectedIndex(0);
-  }, []);
-
-  const mentionActive = useMemo(() => {
-    const pos = cursorPos.current;
-    if (pos === 0) return null;
-    const before = value.slice(0, pos);
-    const atIdx = before.lastIndexOf("@");
-    if (atIdx === -1) return null;
-    const after = before.slice(atIdx + 1);
-    if (after.includes(" ")) return null;
-    return { query: after.toLowerCase(), start: atIdx };
-  }, [value]);
-
-  const suggestions = useMemo(() => {
-    if (!mentionActive) return [];
-    const seen = new Set<string>();
-    const matches: ChatMessageViewHydrated["author"][] = [];
-    for (const msg of chat) {
-      const did = msg.author.did;
-      if (seen.has(did)) continue;
-      seen.add(did);
-      const handle = (msg.author.handle || "").toLowerCase();
-      const display = (msg.author.displayName || "").toLowerCase();
-      if (
-        handle.includes(mentionActive.query) ||
-        display.includes(mentionActive.query)
-      ) {
-        matches.push(msg.author);
-      }
-    }
-    return matches.slice(0, 8);
-  }, [chat, mentionActive]);
-
-  const insertMention = useCallback(
-    (author: ChatMessageViewHydrated["author"]) => {
-      if (!mentionActive) return value;
-      const before = value.slice(0, mentionActive.start);
-      const after = value.slice(cursorPos.current);
-      return `${before}@${author.handle} ${after}`;
-    },
-    [value, mentionActive],
-  );
-
-  return {
-    mentionActive,
-    suggestions,
-    selectedIndex,
-    setSelectedIndex,
-    onInput,
-    insertMention,
-  };
-}
-
-export function ChatInput({ store }: { store: LivestreamStore }) {
-  const { state } = useSession();
-  const isAuthed = state.status === "authenticated";
-  const send = useChatSend(store);
-  const replyToMessage = useStore(store, (s) => s.replyToMessage);
-  const chat = useStore(store, (s) => s.chat);
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const {
-    mentionActive,
-    suggestions,
-    selectedIndex,
-    setSelectedIndex,
-    onInput,
-    insertMention,
-  } = useMentionState(value, chat);
-
-  const trimmed = value.trim();
-
-  const onSubmit = useCallback(async () => {
-    if (!trimmed || sending) return;
-    setError(null);
-    setSending(true);
-    try {
-      await send(trimmed);
-      setValue("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
-    } finally {
-      setSending(false);
-    }
-  }, [trimmed, sending, send]);
-
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!mentionActive || suggestions.length === 0) return;
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((i) => (i + 1) % suggestions.length);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex(
-          (i) => (i - 1 + suggestions.length) % suggestions.length,
-        );
-      } else if (e.key === "Enter" || e.key === "Tab") {
-        e.preventDefault();
-        const author = suggestions[selectedIndex];
-        if (author) {
-          setValue(insertMention(author));
-        }
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        setSelectedIndex(0);
-      }
-    },
-    [
-      mentionActive,
-      suggestions,
-      selectedIndex,
-      setSelectedIndex,
-      insertMention,
-    ],
-  );
-
-  if (!isAuthed) {
-    return (
-      <div className="text-sm text-[var(--color-fg-muted)] text-center py-1">
-        <Link
-          to="/login"
-          search={EMPTY_LOGIN_SEARCH}
-          className="text-[var(--color-accent)] hover:underline font-medium"
-        >
-          Log in
-        </Link>{" "}
-        to chat
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      {replyToMessage && (
-        <div className="flex items-center gap-2 px-2 py-1 mb-1 rounded bg-[var(--color-bg-overlay)] border border-[var(--color-border)] text-xs">
-          <Reply className="w-3 h-3 text-[var(--color-fg-muted)] flex-shrink-0" />
-          <span className="text-[var(--color-fg-muted)] flex-1 truncate">
-            Replying to{" "}
-            <span className="font-medium">
-              {replyToMessage.author.handle || replyToMessage.author.did}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              store.setState((s) => ({ ...s, replyToMessage: null }))
-            }
-            className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
-          >
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (mentionActive && suggestions.length > 0) return;
-          onSubmit();
-        }}
-        className="flex gap-2"
-      >
-        <Popover open={!!mentionActive && suggestions.length > 0}>
-          <div className="flex-1 relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-                onInput(e);
-              }}
-              onKeyDown={onKeyDown}
-              placeholder="Send a message"
-              maxLength={300}
-              className="w-full h-9 px-3 pr-10 rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus:border-[var(--color-accent)] focus:outline-none placeholder:text-[var(--color-fg-subtle)]"
-              disabled={sending}
-              aria-label="Chat message"
-            />
-            {value.length > 200 && (
-              <span
-                className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] tabular-nums ${value.length >= 300 ? "text-[var(--color-danger)]" : "text-[var(--color-fg-subtle)]"}`}
-              >
-                {300 - value.length}
-              </span>
-            )}
-
-            <PopoverContent
-              align="start"
-              className="w-full max-h-48 overflow-y-auto p-1"
-            >
-              {suggestions.map((author, i) => (
-                <button
-                  key={author.did}
-                  type="button"
-                  className={`flex items-center gap-2 w-full px-2 py-1.5 rounded text-left ${i === selectedIndex ? "bg-[var(--color-bg-overlay)]" : ""}`}
-                  onClick={() => setValue(insertMention(author))}
-                  onMouseEnter={() => setSelectedIndex(i)}
-                >
-                  <img
-                    src={author.avatar ?? undefined}
-                    alt=""
-                    className="w-5 h-5 rounded-full bg-[var(--color-bg)] flex-shrink-0"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display =
-                        "none";
-                    }}
-                  />
-                  <span className="font-medium truncate">
-                    {author.displayName || author.handle}
-                  </span>
-                  <span className="text-[var(--color-fg-muted)] text-xs flex-shrink-0">
-                    @{author.handle}
-                  </span>
-                </button>
-              ))}
-            </PopoverContent>
-          </div>
-        </Popover>
-
-        <Button type="submit" size="sm" disabled={sending || trimmed === ""}>
-          {sending ? "…" : "Chat"}
-        </Button>
-      </form>
-
-      {error && (
-        <div className="text-xs text-[var(--color-danger)] mt-1">{error}</div>
-      )}
     </div>
   );
 }

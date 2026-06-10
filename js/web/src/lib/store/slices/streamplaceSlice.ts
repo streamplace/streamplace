@@ -1,9 +1,11 @@
-// Streamplace server URL, mute flag, chat-warning state, live-users list.
+// Streamplace server URL, mute flag, chat-warning state.
 // Mirrors js/app/store/slices/streamplaceSlice.ts.
-import type { PlaceStreamLivestream, PlaceStreamSegment } from "streamplace";
+//
+// Live-users polling now lives in hooks/use-live-users.ts (React Query).
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
 import { getStreamplaceUrl } from "../../streamplace-url";
+import { AppStore } from "../index";
 
 // Build-time env override. Empty string when not set; the slice falls back
 // to `getStreamplaceUrl()` (env > window.location.origin) at runtime.
@@ -27,30 +29,16 @@ const USER_MUTED_KEY = "streamplaceUserMuted";
 const URL_KEY = "streamplaceUrl";
 const CHAT_WARNING_KEY = "streamplaceChatWarning2";
 
-export interface Identity {
-  id: string;
-  handle?: string;
-  did?: string;
-}
-
 export interface StreamplaceSlice {
   url: string;
-  identity: Identity | null;
   initialized: boolean;
   userMuted: boolean | null;
   chatWarned: boolean;
-  mySegments: PlaceStreamSegment.SegmentView[];
-  liveUsers: PlaceStreamLivestream.LivestreamView[] | null;
-  liveUsersLoading: boolean;
-  liveUsersError: string | null;
   // actions
   initialize: () => Promise<void>;
   setURL: (url: string) => void;
   userMute: (muted: boolean) => void;
   chatWarn: (warned: boolean) => void;
-  getIdentity: () => Promise<void>;
-  fetchLiveUsers: () => Promise<void>;
-  pollMySegments: () => Promise<void>;
   getRecommendations: (userDID: string) => Promise<{
     recommendations: Array<{
       $type: string;
@@ -62,10 +50,12 @@ export interface StreamplaceSlice {
   }>;
 }
 
-export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
-  set,
-  get,
-) => ({
+export const createStreamplaceSlice: StateCreator<
+  AppStore,
+  [],
+  [],
+  StreamplaceSlice
+> = (set, get) => ({
   // Initial value resolves at module load. `initialize()` re-reads from
   // storage and may overwrite this with the persisted override.
   url: (() => {
@@ -75,14 +65,9 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
       return DEFAULT_URL;
     }
   })(),
-  identity: null,
   initialized: false,
   userMuted: null,
   chatWarned: false,
-  mySegments: [],
-  liveUsers: null,
-  liveUsersLoading: false,
-  liveUsersError: null,
   initialize: async () => {
     let [url, userMutedStr, chatWarningStr] = await Promise.all([
       storage.getItem(URL_KEY),
@@ -126,62 +111,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     });
     set({ chatWarned: warned });
   },
-  getIdentity: async () => {
-    const state = get() as StreamplaceSlice;
-    const res = await fetch(`${state.url}/api/identity`);
-    const identity = await res.json();
-    set({ identity });
-  },
-  fetchLiveUsers: async () => {
-    set({ liveUsersLoading: true, liveUsersError: null });
-    try {
-      const state = get() as any;
-      // anonPDSAgent is created by loadOAuthClient — works even when
-      // not logged in. Falls back to constructing one from url if not
-      // yet available.
-      let agent = state.anonPDSAgent;
-      if (!agent) {
-        const { StreamplaceAgent } = await import("streamplace");
-        agent = new StreamplaceAgent(state.url);
-      }
-      const result = await agent.place.stream.live.getLiveUsers();
-      set({
-        liveUsers: result.data.streams ?? [],
-        liveUsersLoading: false,
-        liveUsersError: null,
-      });
-    } catch (err: any) {
-      set({
-        liveUsersLoading: false,
-        liveUsersError: err?.message ?? "Failed to fetch live users",
-      });
-    }
-  },
-  pollMySegments: async () => {
-    try {
-      // need access to bluesky slice - will handle in combined store
-      const state = get() as any;
-      if (!state.pdsAgent) {
-        return;
-      }
-      if (!state.oauthSession) {
-        return;
-      }
-      const result = await state.pdsAgent.place.stream.live.getSegments({
-        userDID: state.oauthSession?.did ?? "",
-      });
-      set({ mySegments: result.data.segments ?? [] });
-    } catch {
-      // silently fail
-    }
-  },
   getRecommendations: async (userDID: string) => {
-    // need access to bluesky slice - will handle in combined store
-    const state = get() as any;
-    if (!state.pdsAgent) {
+    const { pdsAgent } = get();
+    if (!pdsAgent) {
       throw new Error("no pdsAgent");
     }
-    const result = await state.pdsAgent.place.stream.live.getRecommendations({
+    const result = await pdsAgent.place.stream.live.getRecommendations({
       userDID,
     });
     return result.data;

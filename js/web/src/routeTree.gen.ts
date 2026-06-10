@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
@@ -29,6 +30,7 @@ import { Route as SettingsBackupRouteImport } from './routes/settings/backup'
 import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
+import { Route as ChatPopoutUserRouteImport } from './routes/chat-popout.$user'
 import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
 
 const VideosRoute = VideosRouteImport.update({
@@ -39,6 +41,11 @@ const VideosRoute = VideosRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -131,6 +138,11 @@ const SettingsAboutRoute = SettingsAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => SettingsRoute,
 } as any)
+const ChatPopoutUserRoute = ChatPopoutUserRouteImport.update({
+  id: '/chat-popout/$user',
+  path: '/chat-popout/$user',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UserVideoTidRoute = UserVideoTidRouteImport.update({
   id: '/$user/video/$tid',
   path: '/$user/video/$tid',
@@ -140,8 +152,10 @@ const UserVideoTidRoute = UserVideoTidRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -163,7 +177,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/search': typeof SearchRoute
   '/videos': typeof VideosRoute
+  '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -186,8 +202,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
   '/videos': typeof VideosRoute
+  '/chat-popout/$user': typeof ChatPopoutUserRoute
   '/settings/about': typeof SettingsAboutRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/advanced': typeof SettingsAdvancedRoute
@@ -211,8 +229,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/search'
     | '/settings'
     | '/videos'
+    | '/chat-popout/$user'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -234,7 +254,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/search'
     | '/videos'
+    | '/chat-popout/$user'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -256,8 +278,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/search'
     | '/settings'
     | '/videos'
+    | '/chat-popout/$user'
     | '/settings/about'
     | '/settings/account'
     | '/settings/advanced'
@@ -280,8 +304,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   VideosRoute: typeof VideosRoute
+  ChatPopoutUserRoute: typeof ChatPopoutUserRoute
   UserIndexRoute: typeof UserIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
 }
@@ -300,6 +326,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -428,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAboutRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/chat-popout/$user': {
+      id: '/chat-popout/$user'
+      path: '/chat-popout/$user'
+      fullPath: '/chat-popout/$user'
+      preLoaderRoute: typeof ChatPopoutUserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$user/video/$tid': {
       id: '/$user/video/$tid'
       path: '/$user/video/$tid'
@@ -481,8 +521,10 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
   VideosRoute: VideosRoute,
+  ChatPopoutUserRoute: ChatPopoutUserRoute,
   UserIndexRoute: UserIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
 }

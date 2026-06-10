@@ -8,7 +8,6 @@
 import { StateCreator } from "zustand";
 import { getPDSServiceEndpoint, resolveDIDDocument } from "../../did";
 import { AppStore } from "../index";
-import { BlueskySlice } from "./blueskySlice";
 
 export interface ContentMetadataSlice {
   creating: boolean;
@@ -65,15 +64,12 @@ export const createContentMetadataSlice: StateCreator<
   }) => {
     set({ creating: true, error: null });
     try {
-      // need access to bluesky slice - combined store provides it
-      const state = get() as any;
-      const bluesky: BlueskySlice = state;
-
-      if (!bluesky.pdsAgent) {
+      const { pdsAgent, oauthSession } = get();
+      if (!pdsAgent) {
         throw new Error("No agent");
       }
 
-      const did = bluesky.oauthSession?.did;
+      const did = oauthSession?.did;
       if (!did) {
         throw new Error("No DID");
       }
@@ -91,7 +87,7 @@ export const createContentMetadataSlice: StateCreator<
           }),
       };
 
-      const result = await bluesky.pdsAgent.com.atproto.repo.createRecord({
+      const result = await pdsAgent.com.atproto.repo.createRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
         rkey: "self",
@@ -127,14 +123,12 @@ export const createContentMetadataSlice: StateCreator<
   }) => {
     set({ updating: true, error: null });
     try {
-      const state = get() as any;
-      const bluesky: BlueskySlice = state;
-
-      if (!bluesky.pdsAgent) {
+      const { pdsAgent, oauthSession } = get();
+      if (!pdsAgent) {
         throw new Error("No agent");
       }
 
-      const did = bluesky.oauthSession?.did;
+      const did = oauthSession?.did;
       if (!did) {
         throw new Error("No DID");
       }
@@ -153,7 +147,7 @@ export const createContentMetadataSlice: StateCreator<
           }),
       };
 
-      const result = await bluesky.pdsAgent.com.atproto.repo.putRecord({
+      const result = await pdsAgent.com.atproto.repo.putRecord({
         repo: did,
         collection: "place.stream.metadata.configuration",
         rkey: rkey || "self",
@@ -182,14 +176,12 @@ export const createContentMetadataSlice: StateCreator<
   getContentMetadata: async ({ userDid, rkey = "self" } = {}) => {
     set({ error: null });
     try {
-      const state = get() as any;
-      const bluesky: BlueskySlice = state;
-
-      if (!bluesky.pdsAgent) {
+      const { pdsAgent, oauthSession } = get();
+      if (!pdsAgent) {
         throw new Error("No agent");
       }
 
-      const targetDid = userDid || bluesky.oauthSession?.did;
+      const targetDid = userDid || oauthSession?.did;
       if (!targetDid) {
         throw new Error("No DID provided or user not authenticated");
       }
@@ -203,8 +195,8 @@ export const createContentMetadataSlice: StateCreator<
           // best-effort: fall through to default agent
         }
 
-        let agent = bluesky.pdsAgent;
-        if (targetPDS && targetPDS !== (bluesky.pdsAgent as any)?.host) {
+        let agent = pdsAgent;
+        if (targetPDS && targetPDS !== (pdsAgent as any)?.host) {
           const { StreamplaceAgent } = await import("streamplace");
           agent = new StreamplaceAgent(targetPDS) as any;
         }

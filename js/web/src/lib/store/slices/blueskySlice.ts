@@ -524,12 +524,12 @@ export const createBlueskySlice: StateCreator<
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) {
       set({ isDeletingKey: false });
-      return;
+      throw new Error("No agent");
     }
     const did = state.oauthSession?.did;
     if (!did) {
       set({ isDeletingKey: false });
-      return;
+      throw new Error("No DID");
     }
     try {
       await state.pdsAgent.com.atproto.repo.deleteRecord({
@@ -553,8 +553,8 @@ export const createBlueskySlice: StateCreator<
         },
       });
     } catch (error) {
-      console.error("deleteStreamKeyRecord rejected", error);
       set({ isDeletingKey: false });
+      throw error;
     }
   },
 
@@ -631,8 +631,14 @@ export const createBlueskySlice: StateCreator<
       } else {
         console.log("not a record", res.data.value);
       }
-    } catch (error) {
-      console.error("getChatProfileRecordFromPDS error", error);
+    } catch (error: any) {
+      set({
+        chatProfile: {
+          loading: false,
+          error: error?.message ?? "Failed to get chat profile",
+          profile: null,
+        },
+      });
     }
   },
 
@@ -694,122 +700,103 @@ export const createBlueskySlice: StateCreator<
   },
 
   followUser: async (subjectDID: string) => {
-    try {
-      const state = get() as BlueskySlice;
-      if (!state.pdsAgent) {
-        throw new Error("No agent");
-      }
-      const did = state.oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
-      await state.pdsAgent.follow(subjectDID);
-      console.log("followUser fulfilled", { subjectDID });
-    } catch (error) {
-      console.error("followUser rejected", error);
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
     }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    await state.pdsAgent.follow(subjectDID);
   },
 
   unfollowUser: async (subjectDID: string, followUri?: string) => {
-    try {
-      const state = get() as BlueskySlice;
-      if (!state.pdsAgent) {
-        throw new Error("No agent");
-      }
-      const did = state.oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
 
-      if (followUri) {
-        await state.pdsAgent.deleteFollow(followUri);
-      } else {
-        const streamplaceUrl = get().url;
-        const res = await fetch(
-          `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
-          {
-            credentials: "include",
-          },
-        );
-        const data = await res.json();
+    if (followUri) {
+      await state.pdsAgent.deleteFollow(followUri);
+    } else {
+      const streamplaceUrl = get().url;
+      const res = await fetch(
+        `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
+        {
+          credentials: "include",
+        },
+      );
+      const data = await res.json();
 
-        if (!data.follow || !data.follow.uri) {
-          throw new Error("Follow record not found");
-        }
-
-        await state.pdsAgent.deleteFollow(data.follow.uri);
+      if (!data.follow || !data.follow.uri) {
+        throw new Error("Follow record not found");
       }
 
-      console.log("unfollowUser fulfilled", { subjectDID });
-    } catch (error) {
-      console.error("unfollowUser rejected", error);
+      await state.pdsAgent.deleteFollow(data.follow.uri);
     }
   },
 
   getServerSettingsFromPDS: async () => {
-    try {
-      const state = get() as BlueskySlice;
-      const did = state.oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
-      if (!state.pdsAgent) {
-        throw new Error("No agent");
-      }
-      const streamplaceUrl = get().url;
-      const u = new URL(streamplaceUrl);
-      const res = await state.pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: "place.stream.server.settings",
-        rkey: u.host,
-      });
-      if (!res.success) {
-        throw new Error("Failed to get chat profile record");
-      }
+    const state = get() as BlueskySlice;
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const streamplaceUrl = get().url;
+    const u = new URL(streamplaceUrl);
+    const res = await state.pdsAgent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: "place.stream.server.settings",
+      rkey: u.host,
+    });
+    if (!res.success) {
+      throw new Error("Failed to get server settings record");
+    }
 
-      if (PlaceStreamServerSettings.isRecord(res.data.value)) {
-        set({
-          serverSettings: res.data.value as PlaceStreamServerSettings.Record,
-        });
-      } else {
-        console.log("not a record", res.data.value);
-      }
-    } catch (error) {
-      console.error("getServerSettingsFromPDS rejected", error);
+    if (PlaceStreamServerSettings.isRecord(res.data.value)) {
+      set({
+        serverSettings: res.data.value as PlaceStreamServerSettings.Record,
+      });
+    } else {
+      console.log("not a record", res.data.value);
     }
   },
 
   createServerSettingsRecord: async (debugRecording: boolean) => {
-    try {
-      const state = get() as BlueskySlice;
-      if (!state.pdsAgent) {
-        throw new Error("No agent");
-      }
-      const did = state.oauthSession?.did;
-      if (!did) {
-        throw new Error("No DID");
-      }
-      const streamplaceUrl = get().url;
-      const u = new URL(streamplaceUrl);
-      const serverSettings: PlaceStreamServerSettings.Record = {
-        $type: "place.stream.server.settings",
-        debugRecording: debugRecording,
-      };
-
-      const res = await state.pdsAgent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.server.settings",
-        record: serverSettings,
-        rkey: u.host,
-      });
-      if (!res.success) {
-        throw new Error("Failed to create server settings record");
-      }
-      set({
-        serverSettings: serverSettings,
-      });
-    } catch (error) {
-      console.error("createServerSettingsRecord rejected", error);
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
     }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    const streamplaceUrl = get().url;
+    const u = new URL(streamplaceUrl);
+    const serverSettings: PlaceStreamServerSettings.Record = {
+      $type: "place.stream.server.settings",
+      debugRecording: debugRecording,
+    };
+
+    const res = await state.pdsAgent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: "place.stream.server.settings",
+      record: serverSettings,
+      rkey: u.host,
+    });
+    if (!res.success) {
+      throw new Error("Failed to create server settings record");
+    }
+    set({
+      serverSettings: serverSettings,
+    });
   },
 });

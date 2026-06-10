@@ -26,6 +26,12 @@ export function useChatSend(store: LivestreamStore) {
         throw new Error("No active livestream to chat on");
       }
 
+      // Grab and clear reply context before composing the message.
+      const replyTo = store.getState().replyToMessage;
+      if (replyTo) {
+        store.setState((s) => ({ ...s, replyToMessage: null }));
+      }
+
       // Detect links and mentions so the message renders with rich
       // formatting for ourselves (optimistic) and for anyone who
       // receives the record afterwards.
@@ -45,6 +51,14 @@ export function useChatSend(store: LivestreamStore) {
 
       const localUri = `local-${Date.now()}`;
       const createdAt = new Date().toISOString();
+
+      const replyRef = replyTo
+        ? {
+            root: { uri: replyTo.uri, cid: replyTo.cid },
+            parent: { uri: replyTo.uri, cid: replyTo.cid },
+          }
+        : undefined;
+
       const localMessage: ChatMessageViewHydrated = {
         uri: localUri,
         cid: "",
@@ -54,11 +68,25 @@ export function useChatSend(store: LivestreamStore) {
           text: trimmed,
           createdAt,
           streamer: streamerDid,
+          ...(replyRef ? { reply: replyRef } : {}),
           ...(facets
             ? { facets: facets as ChatMessageViewHydrated["record"]["facets"] }
             : {}),
         },
         indexedAt: createdAt,
+        ...(replyTo
+          ? {
+              replyTo: {
+                $type: "place.stream.chat.defs#messageView",
+                uri: replyTo.uri,
+                cid: replyTo.cid,
+                author: replyTo.author,
+                record: replyTo.record,
+                indexedAt: replyTo.indexedAt,
+                chatProfile: replyTo.chatProfile,
+              } as ChatMessageViewHydrated["replyTo"],
+            }
+          : {}),
       };
 
       store.setState((s) => reduceChat(s, [localMessage], [], []));

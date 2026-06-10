@@ -8,8 +8,7 @@
 //
 // This module is intentionally tiny and synchronous. Anything that
 // wants the URL to be reactive (auto-update without a reload) should
-// read from the slice via useStreamplaceUrl() or useStreamplaceNode()
-// instead.
+// read from the slice via useStreamplaceUrl() instead.
 
 const ENV_KEY = "VITE_STREAMPLACE_URL";
 const SLICE_URL_KEY = "streamplaceUrl";

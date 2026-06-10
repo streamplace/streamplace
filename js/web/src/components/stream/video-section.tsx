@@ -76,13 +76,17 @@ export function VideoSectionInner({
   const segRatio = segment ? segment.width / segment.height : 16 / 9;
 
   return (
-    <div className="w-full max-h-[calc(min(100vh-240px,100%))] h-full bg-black">
-      <div
-        className="relative h-full bg-green-400 mx-auto"
-        style={{
-          maxHeight: "calc(100vh-240px)",
-        }}
-      >
+    <div
+      className="w-full bg-black"
+      style={{
+        // constrain height to the lesser of: (container width / segRatio) or (viewport height - header/padding).
+        // this keeps the video at its natural aspect ratio on wide screens while preventing it from
+        // overflowing the viewport on tall/narrow ones. segRatio falls back to 16/9 when no segment data is available.
+        maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
+        aspectRatio: `${segRatio}`,
+      }}
+    >
+      <div className="relative h-full bg-green-400 mx-auto">
         {neverLive ? (
           <img
             src={thumbnailUrl}

@@ -1,26 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { StreamCard } from "../components/stream/stream-card";
 import useAvatars from "../hooks/use-avatars";
+import { useLiveUsers } from "../hooks/use-live-users";
 import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
-import {
-  useLiveUsers,
-  useLiveUsersError,
-  useLiveUsersLoading,
-} from "../lib/store/hooks";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
-  const streams = useLiveUsers();
-  const loading = useLiveUsersLoading();
-  const error = useLiveUsersError();
+  const { data: streams, isLoading, error } = useLiveUsers();
 
   const allDids = streams?.map((s) => s.author.did) ?? [];
   const avatars = useAvatars(allDids);
 
-  if (streams === null && loading) {
+  if (streams === undefined && isLoading) {
     return (
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -43,7 +37,7 @@ function HomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8">
-      {error && streams === null && (
+      {error && !streams && (
         <div className="mb-6 p-4 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-sm text-[var(--color-fg-muted)]">
           Could not load streams. You might be offline.
         </div>
@@ -231,38 +225,47 @@ function HomePage() {
                   r="2"
                 ></circle>
               </g>
-              <g className="animate-in-hubble">
-                <g
-                  id="scope"
-                  transform="rotate(0 340 180)"
-                  className="animate-scope-rock scale-50"
-                  stroke-width="2"
-                >
-                  <g transform="rotate(90, 230, 180)">
-                    <rect x="178" y="152" width="104" height="56" rx="6"></rect>
-                    <line x1="204" y1="152" x2="204" y2="208"></line>
-                    <line x1="230" y1="120" x2="230" y2="208"></line>
-                    <line x1="256" y1="152" x2="256" y2="208"></line>
-                  </g>
-                  <g transform="rotate(90, 450, 180)">
-                    <rect x="398" y="152" width="104" height="56" rx="6"></rect>
-                    <line x1="424" y1="152" x2="424" y2="208"></line>
-                    <line x1="450" y1="152" x2="450" y2="248"></line>
-                    <line x1="476" y1="152" x2="476" y2="208"></line>
-                  </g>
+              <g className="scale-50 translate-x-43 translate-y-20">
+                <g className="animate-in-hubble">
+                  <g id="scope" className="animate-scope-rock" stroke-width="2">
+                    <g transform="rotate(90, 230, 180)">
+                      <rect
+                        x="178"
+                        y="152"
+                        width="104"
+                        height="56"
+                        rx="6"
+                      ></rect>
+                      <line x1="204" y1="152" x2="204" y2="208"></line>
+                      <line x1="230" y1="120" x2="230" y2="208"></line>
+                      <line x1="256" y1="152" x2="256" y2="208"></line>
+                    </g>
+                    <g transform="rotate(90, 450, 180)">
+                      <rect
+                        x="398"
+                        y="152"
+                        width="104"
+                        height="56"
+                        rx="6"
+                      ></rect>
+                      <line x1="424" y1="152" x2="424" y2="208"></line>
+                      <line x1="450" y1="152" x2="450" y2="248"></line>
+                      <line x1="476" y1="152" x2="476" y2="208"></line>
+                    </g>
 
-                  <line x1="282" y1="180" x2="296" y2="180"></line>
-                  <line x1="384" y1="180" x2="398" y2="180"></line>
+                    <line x1="282" y1="180" x2="296" y2="180"></line>
+                    <line x1="384" y1="180" x2="398" y2="180"></line>
 
-                  <path d="M296 134 h88 a14 14 0 0 1 14 14 v64 a14 14 0 0 1 -14 14 h-88 a14 14 0 0 1 -14 -14 v-64 a14 14 0 0 1 14 -14 z"></path>
-                  <line x1="282" y1="156" x2="398" y2="156"></line>
-                  <line x1="282" y1="204" x2="398" y2="204"></line>
-                  <circle cx="340" cy="180" r="13"></circle>
-                  <circle cx="340" cy="180" r="5"></circle>
-                  <line x1="340" y1="134" x2="340" y2="106"></line>
-                  <path d="M331 106 h18"></path>
-                  <circle cx="340" cy="98" r="6"></circle>
-                  <path d="M312 222 l-10 16 M368 222 l10 16"></path>
+                    <path d="M296 134 h88 a14 14 0 0 1 14 14 v64 a14 14 0 0 1 -14 14 h-88 a14 14 0 0 1 -14 -14 v-64 a14 14 0 0 1 14 -14 z"></path>
+                    <line x1="282" y1="156" x2="398" y2="156"></line>
+                    <line x1="282" y1="204" x2="398" y2="204"></line>
+                    <circle cx="340" cy="180" r="13"></circle>
+                    <circle cx="340" cy="180" r="5"></circle>
+                    <line x1="340" y1="134" x2="340" y2="106"></line>
+                    <path d="M331 106 h18"></path>
+                    <circle cx="340" cy="98" r="6"></circle>
+                    <path d="M312 222 l-10 16 M368 222 l10 16"></path>
+                  </g>
                 </g>
               </g>
             </g>
@@ -286,7 +289,7 @@ function HomePage() {
         </div>
       )}
 
-      {streams === null && !loading && (
+      {!streams && !isLoading && !error && (
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-4xl font-semibold font-display tracking-tight">
             The video layer for everything.

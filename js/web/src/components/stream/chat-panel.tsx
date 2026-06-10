@@ -5,21 +5,28 @@ import {
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
 import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
-import { ArrowDown, Reply } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChatMessageViewHydrated,
   PlaceStreamBadgeDefs,
 } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { useSession } from "../../lib/session";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "../ui/hover-card";
 
-export function ChatPanel({ store }: { store: LivestreamStore }) {
+export function ChatPanel({
+  store,
+  reversed = false,
+}: {
+  store: LivestreamStore;
+  reversed?: boolean;
+}) {
   const { chat, authors, replyToMessage } = useStore(
     store,
     useShallow((s) => ({
@@ -30,43 +37,55 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
   );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [isAtAnchor, setIsAtAnchor] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevChatLenRef = useRef(chat.length);
 
-  // Track whether the user is scrolled to the bottom.
+  // Track whether the user is scrolled to the anchor end.
+  // Normal: anchor is bottom. Reversed: anchor is top.
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
     const threshold = 40;
-    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
-  }, []);
+    if (reversed) {
+      setIsAtAnchor(el.scrollTop < threshold);
+    } else {
+      setIsAtAnchor(
+        el.scrollHeight - el.scrollTop - el.clientHeight < threshold,
+      );
+    }
+  }, [reversed]);
 
-  // When new messages arrive, auto-scroll only if already at bottom.
+  // When new messages arrive, auto-scroll only if already at anchor.
   useEffect(() => {
     const delta = chat.length - prevChatLenRef.current;
     prevChatLenRef.current = chat.length;
 
     if (delta <= 0) return;
 
-    if (isAtBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (isAtAnchor) {
+      anchorRef.current?.scrollIntoView({ behavior: "smooth" });
       setNewMessageCount(0);
     } else {
       setNewMessageCount((c) => c + delta);
     }
-  }, [chat.length, isAtBottom]);
+  }, [chat.length, isAtAnchor]);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToAnchor = useCallback(() => {
+    anchorRef.current?.scrollIntoView({ behavior: "smooth" });
     setNewMessageCount(0);
   }, []);
 
-  // Clear the badge when the user scrolls back to the bottom.
+  // Clear the badge when the user scrolls back to the anchor.
   useEffect(() => {
-    if (isAtBottom) setNewMessageCount(0);
-  }, [isAtBottom]);
+    if (isAtAnchor) setNewMessageCount(0);
+  }, [isAtAnchor]);
+
+  const displayMessages = useMemo(() => {
+    const sliced = chat.slice(-1500);
+    return reversed ? [...sliced].reverse() : sliced;
+  }, [chat, reversed]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0 max-w-full relative">
@@ -75,32 +94,36 @@ export function ChatPanel({ store }: { store: LivestreamStore }) {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-0.5"
       >
-        {chat.length === 0 ? (
+        {reversed && <div ref={anchorRef} />}
+        {displayMessages.length === 0 ? (
           <div className="text-center text-[var(--color-fg-muted)] text-sm py-8">
             No messages yet
           </div>
         ) : (
-          chat
-            .slice(-100)
-            .map((msg) => (
-              <ChatMessage
-                key={msg.uri}
-                message={msg}
-                profile={authors[msg.author.did]}
-                authors={authors}
-              />
-            ))
+          displayMessages.map((msg) => (
+            <ChatMessage
+              key={msg.uri}
+              message={msg}
+              profile={authors[msg.author.did]}
+              authors={authors}
+              store={store}
+            />
+          ))
         )}
-        <div ref={messagesEndRef} />
+        {!reversed && <div ref={anchorRef} />}
       </div>
 
-      {!isAtBottom && (
+      {!isAtAnchor && (
         <button
-          onClick={scrollToBottom}
+          onClick={scrollToAnchor}
           className="absolute bottom-2 right-3 w-8 h-8 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-md flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors z-10"
-          aria-label="Scroll to bottom"
+          aria-label={reversed ? "Scroll to top" : "Scroll to bottom"}
         >
-          <ArrowDown className="w-4 h-4" />
+          {reversed ? (
+            <ArrowUp className="w-4 h-4" />
+          ) : (
+            <ArrowDown className="w-4 h-4" />
+          )}
           {newMessageCount > 0 && (
             <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-accent)] text-white text-[10px] font-medium flex items-center justify-center">
               {newMessageCount}
@@ -116,12 +139,41 @@ function ChatMessage({
   message,
   profile,
   authors,
+  store,
 }: {
   message: ChatMessageViewHydrated;
   profile: ChatMessageViewHydrated["chatProfile"];
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
+  store: LivestreamStore;
 }) {
+  const { state, pdsAgent, did } = useSession();
   const isSystem = message.author.did === "did:sys:system";
+  const isOwn = did === message.author.did;
+
+  // Check if current user is the streamer (can pin messages).
+  const streamerDid = useStore(store, (s) => s.livestream?.author.did);
+  const canPin = did && streamerDid && did === streamerDid;
+
+  const handleReply = useCallback(() => {
+    store.setState((s) => ({ ...s, replyToMessage: message }));
+  }, [store, message]);
+
+  const handlePin = useCallback(async () => {
+    if (!pdsAgent || !streamerDid) return;
+    try {
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: streamerDid,
+        collection: "place.stream.chat.pinnedRecord",
+        record: {
+          $type: "place.stream.chat.pinnedRecord",
+          pinnedMessage: message.uri,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      console.error("Failed to pin message:", e);
+    }
+  }, [pdsAgent, streamerDid, message.uri]);
 
   if (isSystem) {
     return (
@@ -132,7 +184,31 @@ function ChatMessage({
   }
 
   return (
-    <div className="py-0.5 group hover:bg-[var(--color-bg-overlay)] rounded px-2 -mx-2 leading-snug">
+    <div className="py-0.5 group hover:bg-[var(--color-bg-overlay)] rounded px-2 -mx-2 leading-snug relative">
+      {/* Hover actions — visible on group hover */}
+      <div className="absolute right-0 top-0 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        {state.status === "authenticated" && !isOwn && (
+          <button
+            type="button"
+            onClick={handleReply}
+            className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors"
+            aria-label="Reply to message"
+          >
+            <Reply className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {canPin && (
+          <button
+            type="button"
+            onClick={handlePin}
+            className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-overlay)] transition-colors"
+            aria-label="Pin message"
+          >
+            <Pin className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+
       {message.replyTo && (
         <div className="pl-[60px]">
           <ReplyBanner parent={message.replyTo} authors={authors} />
@@ -145,7 +221,10 @@ function ChatMessage({
         </span>
         <div className="flex-1 min-w-0 flex-wrap items-center gap-1">
           {message.badges?.map((badge, i) => (
-            <span className="items-end justify-end gap-0.5 inline-block">
+            <span
+              key={i}
+              className="items-end justify-end gap-0.5 inline-block"
+            >
               <BadgeIcon key={i} badge={badge} />
             </span>
           ))}

@@ -516,7 +516,9 @@ function StatsOverlay({
         <Row label="Protocol" value={protocol} />
         <Row label="Latency Mode" value={latencyMode} />
         <Row label="Render Surface" value="video" />
-        {stats.hlsVersion && <Row label="Backend" value={stats.hlsVersion} />}
+        {stats.hlsVersion && (
+          <Row label="hls.js version" value={stats.hlsVersion} />
+        )}
         <Row label="Session" value={sessionId} />
       </div>
     </div>

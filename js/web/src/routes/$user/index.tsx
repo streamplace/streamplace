@@ -35,6 +35,7 @@ function StreamPage() {
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let currentConnectId = 0;
     let mounted = true;
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
     const scheduleReconnect = () => {
       if (!mounted || reconnectTimeout) return;
@@ -53,12 +54,23 @@ function StreamPage() {
 
       ws.onopen = () => {};
 
+      let messageBuffer: any[] = [];
+      const flush = () => {
+        flushTimer = null;
+        const batch = messageBuffer;
+        messageBuffer = [];
+        store.current?.setState((s) => handleWebSocketMessages(s, batch));
+      };
+
       ws.onmessage = (event) => {
         if (connectId !== currentConnectId) return;
         try {
           const messages = JSON.parse(event.data);
           const list = Array.isArray(messages) ? messages : [messages];
-          store.current?.setState((s) => handleWebSocketMessages(s, list));
+          messageBuffer.push(...list);
+          if (!flushTimer) {
+            flushTimer = setTimeout(flush, 0);
+          }
         } catch {}
       };
 
@@ -80,6 +92,7 @@ function StreamPage() {
 
     return () => {
       mounted = false;
+      if (flushTimer) clearTimeout(flushTimer);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       ws?.close();
     };

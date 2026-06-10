@@ -1,11 +1,9 @@
 /* tw overwrites this but that's ok, we want both */
-@import "reset.css";
+@import "./fonts.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @import "tw-animate-css";
-
-@import "./fonts.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -135,7 +133,7 @@ code {
   --color-accent-hover: var(--color-accent);
   --color-accent-fg: var(--color-accent-foreground);
   --color-danger: var(--color-chart-1);
-  --color-success: var(--color-primary);
+  --color-success: var(--color-chart-4);
 
   --color-info: var(--color-chart-3);
 
@@ -344,4 +342,30 @@ body {
 .animate-in-hubble {
   animation: fade-in 0.8s ease-out both;
   animation-delay: 1s;
+}
+
+/* Custom scrollbar styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sidebar-ring) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-sidebar-ring);
+  opacity: 0.2;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sidebar-ring);
+  opacity: 0.2;
 }

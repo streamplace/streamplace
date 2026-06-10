@@ -2,7 +2,7 @@ import { CardMenuSection } from "@/components/ui/card";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { useDevMode } from "../../hooks/use-dev-mode";
 
 export const Route = createFileRoute("/settings/about")({
   component: AboutSettings,
@@ -14,12 +14,13 @@ function AboutSettings() {
   const { t } = useTranslation("settings");
   const [tapCount, setTapCount] = useState(0);
   const isDev = typeof import.meta !== "undefined" && import.meta.env?.DEV;
+  const [devMode, toggleDevMode] = useDevMode();
 
   const handleVersionPress = () => {
     const newCount = tapCount + 1;
     setTapCount(newCount);
     if (newCount >= UNLOCK_TAP_COUNT) {
-      toast("You are now a developer", { description: "have fun! lol" });
+      toggleDevMode();
       setTapCount(0);
     }
   };
@@ -49,6 +50,17 @@ function AboutSettings() {
           </span>
         </button>
       </CardMenuSection>
+
+      {(devMode || isDev) && (
+        <CardMenuSection>
+          <div className="flex items-center justify-between px-3 py-2.5">
+            <span className="text-sm">Developer Mode</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 font-mono">
+              active
+            </span>
+          </div>
+        </CardMenuSection>
+      )}
 
       {isStreamplace && (
         <CardMenuSection>

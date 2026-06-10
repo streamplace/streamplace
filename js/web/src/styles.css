@@ -369,3 +369,13 @@ body {
   background: var(--color-sidebar-ring);
   opacity: 0.2;
 }
+
+/* Danmu (scrolling chat overlay) animation */
+@keyframes danmu-scroll {
+  from {
+    transform: translateX(var(--danmu-start, 100vw));
+  }
+  to {
+    transform: translateX(calc(-100%));
+  }
+}

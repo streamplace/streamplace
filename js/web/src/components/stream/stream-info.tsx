@@ -2,6 +2,7 @@ import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { PlaceStreamDefs } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -18,17 +19,17 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 
-const ACTIVITY_LABELS: Record<string, string> = {
-  events: "Events",
-  just_chatting: "Just Chatting",
-  music: "Music",
-  art: "Art",
-  software_dev: "Software Dev",
-  cooking: "Cooking",
-  miniatures: "Miniatures",
-  makers_crafting: "Makers & Crafting",
-  fitness: "Fitness",
-  sports: "Sports",
+const ACTIVITY_I18N_KEYS: Record<string, string> = {
+  events: "activity-events",
+  just_chatting: "activity-just-chatting",
+  music: "activity-music",
+  art: "activity-art",
+  software_dev: "activity-software-dev",
+  cooking: "activity-cooking",
+  miniatures: "activity-miniatures",
+  makers_crafting: "activity-makers-crafting",
+  fitness: "activity-fitness",
+  sports: "activity-sports",
 };
 
 export function activityLabel(
@@ -37,11 +38,12 @@ export function activityLabel(
     | PlaceStreamDefs.ActivityLabel
     | { $type: string }
     | undefined,
+  t: (key: string) => string,
 ): string | null {
   if (!activity) return null;
   if ("name" in activity && activity.name) return activity.name;
   if ("label" in activity)
-    return ACTIVITY_LABELS[activity.label] ?? activity.label;
+    return t(ACTIVITY_I18N_KEYS[activity.label] ?? activity.label);
   return null;
 }
 
@@ -58,6 +60,7 @@ export function StreamInfo({
   chatOpen: boolean;
   onToggleChat: () => void;
 }) {
+  const { t } = useTranslation("common");
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -70,7 +73,7 @@ export function StreamInfo({
   const record = state.livestream?.record;
   const author = state.livestream?.author;
   const title = record?.title || user;
-  const activity = activityLabel(record?.activity);
+  const activity = activityLabel(record?.activity, t);
   const tags = record?.tags;
   const viewers = formatViewers(state.viewers);
   const isLive = liveness === "live";
@@ -96,7 +99,7 @@ export function StreamInfo({
             </span>
             {isLive && viewers && (
               <span className="text-xs text-[var(--color-fg-muted)] flex-shrink-0">
-                {viewers} watching
+                {t("watching-count", { count: state.viewers ?? 0 })}
               </span>
             )}
           </div>
@@ -126,7 +129,7 @@ export function StreamInfo({
           {sessionState.status === "authenticated" &&
             sessionState.session.did !== author?.did && (
               <Button type="button">
-                <Plus className="size-4" /> Follow
+                <Plus className="size-4" /> {t("follow")}
               </Button>
             )}
           <CopyButton type="live" nodeBaseURL={node} />
@@ -209,6 +212,7 @@ function CopyButton({
   type: "vod" | "live";
   rkey?: string;
 }) {
+  const { t } = useTranslation("common");
   const share = nodeBaseURL
     ? assembleShareLink(nodeBaseURL, type, false, rkey)
     : undefined;
@@ -238,7 +242,7 @@ function CopyButton({
         </DropdownMenuTrigger>
         <DropdownMenuContent className="min-w-40">
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Copy</DropdownMenuLabel>
+            <DropdownMenuLabel>{t("share-copy")}</DropdownMenuLabel>
             <DropdownMenuItem
               onClick={() => {
                 if (share) {
@@ -246,7 +250,7 @@ function CopyButton({
                 }
               }}
             >
-              <ClipboardCopy /> Copy Link
+              <ClipboardCopy /> {t("share-copy-link")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -257,7 +261,7 @@ function CopyButton({
                 }
               }}
             >
-              <ClipboardCopy /> Copy Embed Code
+              <ClipboardCopy /> {t("share-copy-embed-code")}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
@@ -266,7 +270,7 @@ function CopyButton({
                 }
               }}
             >
-              <ClipboardCopy /> Copy Embed URL
+              <ClipboardCopy /> {t("share-copy-embed-url")}
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>

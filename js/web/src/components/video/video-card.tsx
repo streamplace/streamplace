@@ -4,6 +4,7 @@
 // /$user/vod/:tid.
 
 import { Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import type { PlaceStreamVideo } from "streamplace";
 import type { VideoView } from "../../hooks/use-video-list";
 import {
@@ -12,16 +13,6 @@ import {
   getVideoThumbnailUrl,
 } from "../../lib/video";
 
-function formatCount(count: number): string {
-  if (count >= 1_000_000) {
-    return `${(count / 1_000_000).toFixed(count >= 10_000_000 ? 0 : 1)}M`;
-  }
-  if (count >= 1_000) {
-    return `${(count / 1_000).toFixed(count >= 10_000 ? 0 : 1)}K`;
-  }
-  return `${count}`;
-}
-
 export function VideoCard({
   video,
   avatarUrl,
@@ -29,11 +20,12 @@ export function VideoCard({
   video: VideoView;
   avatarUrl?: string;
 }) {
+  const { t } = useTranslation("common");
   const record = video.record as PlaceStreamVideo.Record;
   const author = video.author;
   const user = author.handle || author.did;
   const tid = getTidFromAtUri(video.uri);
-  const title = record.title || "Untitled";
+  const title = record.title || t("untitled");
   const thumbnailUrl = getVideoThumbnailUrl(record, author.did);
   const duration = formatDuration(record.durationMs);
   const viewCount = video.viewCounts?.count ?? 0;
@@ -103,8 +95,8 @@ export function VideoCard({
             @{user}
           </div>
           <div className="text-xs text-[var(--color-fg-muted)]">
-            {formatCount(viewCount)} view{viewCount === 1 ? "" : "s"} ·{" "}
-            {formatCount(likeCount)} like{likeCount === 1 ? "" : "s"}
+            {t("views-count", { count: viewCount })} ·{" "}
+            {t("likes-count", { count: likeCount })}
           </div>
         </div>
       </div>

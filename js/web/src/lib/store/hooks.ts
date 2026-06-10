@@ -39,6 +39,7 @@ export const useIsReady = () => {
   return true;
 };
 export const useCachedProfiles = () => useStore((state) => state.profileCache);
+export const useChatProfile = () => useStore((state) => state.chatProfile);
 
 // PDS Agent (convenience — reads from bluesky slice)
 export const usePDSAgent = () => useStore((state) => state.pdsAgent);

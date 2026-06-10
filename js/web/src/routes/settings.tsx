@@ -12,6 +12,7 @@ import {
   Info,
   Key,
   Lock,
+  Palette,
   Shield,
   User2,
   Video,
@@ -39,6 +40,12 @@ type NavItem =
 
 const NAV_ITEMS: NavItem[] = [
   { role: "link", to: "/settings/account", icon: User2, labelKey: "account" },
+  {
+    role: "link",
+    to: "/settings/chat-profile",
+    icon: Palette,
+    labelKey: "chat-profile",
+  },
   {
     role: "group",
     icon: Video,

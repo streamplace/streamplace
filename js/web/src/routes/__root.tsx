@@ -10,9 +10,10 @@ import {
 import { Component, type ReactNode, useEffect, useState } from "react";
 import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
+import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
-const POPOUT_PREFIXES = ["/chat-popout/"];
+const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -44,17 +45,17 @@ class ErrorBoundary extends Component<
       return (
         <div className="flex flex-col items-center justify-center min-h-svh px-6 text-center">
           <h1 className="text-2xl font-semibold font-display mb-2">
-            Something went wrong
+            {i18next.t("something-went-wrong")}
           </h1>
           <p className="text-[var(--color-fg-muted)] mb-6 max-w-md">
-            {this.state.error.message || "An unexpected error occurred."}
+            {this.state.error.message || i18next.t("unexpected-error")}
           </p>
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
             className="h-10 px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium transition-colors"
           >
-            Try again
+            {i18next.t("try-again")}
           </button>
         </div>
       );

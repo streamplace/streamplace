@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 import { StreamCard } from "../components/stream/stream-card";
 import useAvatars from "../hooks/use-avatars";
 import { useLiveUsers } from "../hooks/use-live-users";
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/")({
 });
 
 function HomePage() {
+  const { t } = useTranslation("common");
   const { data: streams, isLoading, error } = useLiveUsers();
 
   const allDids = streams?.map((s) => s.author.did) ?? [];
@@ -39,7 +41,7 @@ function HomePage() {
     <div className="max-w-6xl mx-auto px-6 py-8">
       {error && !streams && (
         <div className="mb-6 p-4 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-sm text-[var(--color-fg-muted)]">
-          Could not load streams. You might be offline.
+          {t("could-not-load-streams")}
         </div>
       )}
 
@@ -47,8 +49,7 @@ function HomePage() {
         <div className="flex items-center gap-2 mb-6">
           <div className="w-2 h-2 rounded-full bg-red-500" />
           <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
-            {streams.length} {streams.length === 1 ? "person" : "people"} live
-            now
+            {t("live-now-count", { count: streams.length })}
           </h2>
         </div>
       )}
@@ -271,9 +272,11 @@ function HomePage() {
             </g>
           </svg>
           <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
-            No one is streaming right now
+            {t("no-one-streaming")}
           </h2>
-          <p className="text-[var(--color-fg-muted)] mt-1">Check back later?</p>
+          <p className="text-[var(--color-fg-muted)] mt-1">
+            {t("check-back-later")}
+          </p>
         </div>
       )}
 
@@ -292,10 +295,10 @@ function HomePage() {
       {!streams && !isLoading && !error && (
         <div className="max-w-2xl mx-auto text-center">
           <h1 className="text-4xl font-semibold font-display tracking-tight">
-            The video layer for everything.
+            {t("hero-title")}
           </h1>
           <p className="mt-4 text-lg text-[var(--color-fg-muted)]">
-            Streamplace is a streaming platform built on the AT Protocol.
+            {t("hero-description")}
           </p>
           <div className="mt-8 flex gap-3 justify-center">
             <Link
@@ -303,13 +306,13 @@ function HomePage() {
               search={EMPTY_LOGIN_SEARCH}
               className="inline-flex items-center px-4 h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium transition-colors"
             >
-              Log in
+              {t("log-in")}
             </Link>
             <a
               href="https://stream.place"
               className="inline-flex items-center px-4 h-10 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg)] transition-colors"
             >
-              Learn more
+              {t("learn-more")}
             </a>
           </div>
         </div>

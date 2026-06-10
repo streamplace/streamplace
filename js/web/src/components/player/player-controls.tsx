@@ -53,6 +53,12 @@ export type PlayerControlsProps = {
   showStats: boolean;
   /** Toggle the stats overlay. */
   onShowStatsChange: (showStats: boolean) => void;
+  /** Whether the danmu overlay is visible. Only shown in dev mode. */
+  showDanmu: boolean;
+  /** Toggle the danmu overlay. */
+  onShowDanmuChange: (showDanmu: boolean) => void;
+  /** When true, show developer-only controls like danmu. */
+  devMode?: boolean;
 };
 
 export function PlayerControls({
@@ -69,6 +75,9 @@ export function PlayerControls({
   onUseWebRTCChange,
   showStats,
   onShowStatsChange,
+  showDanmu,
+  onShowDanmuChange,
+  devMode = false,
 }: PlayerControlsProps) {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -76,6 +85,8 @@ export function PlayerControls({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Mirror video element state into React.
   useEffect(() => {
@@ -287,12 +298,17 @@ export function PlayerControls({
           />
         )}
 
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={setSettingsOpen}>
           <DropdownMenuTrigger
             className="text-white hover:text-white/80 transition-colors p-1"
             aria-label="Settings"
           >
-            <Settings className="w-5 h-5" />
+            <Settings
+              className={cn(
+                "w-5 h-5 transition-transform duration-300",
+                settingsOpen && "rotate-60",
+              )}
+            />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             side="top"
@@ -343,6 +359,14 @@ export function PlayerControls({
             >
               Stats for nerds
             </DropdownMenuCheckboxItem>
+            {devMode && (
+              <DropdownMenuCheckboxItem
+                checked={showDanmu}
+                onCheckedChange={onShowDanmuChange}
+              >
+                Danmu (chat overlay)
+              </DropdownMenuCheckboxItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

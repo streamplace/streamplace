@@ -1,10 +1,12 @@
 import type { LivestreamStore } from "@streamplace/core";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import { DanmuOverlay } from "./danmu-overlay";
 import { UserOffline } from "./user-offline";
 
 type Segment = { width: number; height: number } | null;
@@ -14,11 +16,15 @@ export function VideoSection({
   store,
   user,
   liveness,
+  devMode = false,
 }: {
   store: LivestreamStore;
   user: string;
   liveness: Liveness;
+  devMode?: boolean;
 }) {
+  const [showDanmu, setShowDanmu] = useState(false);
+
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -45,6 +51,10 @@ export function VideoSection({
       problems={state.problems}
       playlistUrl={playlistUrl}
       thumbnailUrl={thumbnailUrl}
+      store={store}
+      showDanmu={showDanmu}
+      onShowDanmuChange={setShowDanmu}
+      devMode={devMode}
     />
   );
 }
@@ -61,6 +71,10 @@ export function VideoSectionInner({
   playlistUrl,
   thumbnailUrl,
   mode = "live",
+  store,
+  showDanmu = false,
+  onShowDanmuChange,
+  devMode = false,
 }: {
   user: string;
   liveness: Liveness;
@@ -69,7 +83,12 @@ export function VideoSectionInner({
   playlistUrl: string;
   thumbnailUrl: string;
   mode?: "live" | "vod";
+  store?: LivestreamStore;
+  showDanmu?: boolean;
+  onShowDanmuChange?: (show: boolean) => void;
+  devMode?: boolean;
 }) {
+  const { t } = useTranslation("common");
   const neverLive = liveness === "never-live";
 
   // calculate seg ratio for poster aspect ratio correction
@@ -97,14 +116,27 @@ export function VideoSectionInner({
             }}
           />
         ) : (
-          <Player src={playlistUrl} poster={thumbnailUrl} active mode={mode} />
+          <Player
+            src={playlistUrl}
+            poster={thumbnailUrl}
+            active
+            mode={mode}
+            showDanmu={showDanmu}
+            onShowDanmuChange={onShowDanmuChange}
+            devMode={devMode}
+          />
+        )}
+
+        {/* Danmu overlay sits on top of the video */}
+        {store && (
+          <DanmuOverlay store={store} enabled={showDanmu && !neverLive} />
         )}
 
         {liveness === "live" && (
           <div className="absolute top-3 left-3 pointer-events-none z-10">
             <div className="flex items-center gap-1.5 bg-red-600 px-2 py-0.5 rounded text-white text-xs font-bold uppercase tracking-wide">
               <div className="w-1.5 h-1.5 rounded-full bg-white" />
-              Live
+              {t("live-badge")}
             </div>
           </div>
         )}
@@ -113,9 +145,9 @@ export function VideoSectionInner({
           <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
             <div className="text-center">
               <div className="w-10 h-10 mx-auto mb-3 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
-              <p className="text-amber-400 font-medium">Reconnecting…</p>
+              <p className="text-amber-400 font-medium">{t("reconnecting")}</p>
               <p className="text-white/60 text-sm mt-1">
-                The stream may resume shortly.
+                {t("stream-may-resume")}
               </p>
             </div>
           </div>

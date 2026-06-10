@@ -23,6 +23,7 @@ import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
 import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
 import { Route as SettingsKeysRouteImport } from './routes/settings/keys'
+import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
 import { Route as SettingsBadgeIssuerRouteImport } from './routes/settings/badge-issuer'
@@ -31,7 +32,11 @@ import { Route as SettingsAdvancedRouteImport } from './routes/settings/advanced
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
 import { Route as ChatPopoutUserRouteImport } from './routes/chat-popout.$user'
+import { Route as EmbedUserIndexRouteImport } from './routes/embed/$user/index'
+import { Route as EmbedInfoWidgetUserRouteImport } from './routes/embed/info-widget/$user'
+import { Route as EmbedDanmuObsUserRouteImport } from './routes/embed/danmu-obs/$user'
 import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
+import { Route as EmbedUserVideoTidRouteImport } from './routes/embed/$user/video/$tid'
 
 const VideosRoute = VideosRouteImport.update({
   id: '/videos',
@@ -103,6 +108,11 @@ const SettingsKeysRoute = SettingsKeysRouteImport.update({
   path: '/keys',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
+  id: '/chat-profile',
+  path: '/chat-profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsBrandingRoute = SettingsBrandingRouteImport.update({
   id: '/branding',
   path: '/branding',
@@ -143,9 +153,29 @@ const ChatPopoutUserRoute = ChatPopoutUserRouteImport.update({
   path: '/chat-popout/$user',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmbedUserIndexRoute = EmbedUserIndexRouteImport.update({
+  id: '/embed/$user/',
+  path: '/embed/$user/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmbedInfoWidgetUserRoute = EmbedInfoWidgetUserRouteImport.update({
+  id: '/embed/info-widget/$user',
+  path: '/embed/info-widget/$user',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmbedDanmuObsUserRoute = EmbedDanmuObsUserRouteImport.update({
+  id: '/embed/danmu-obs/$user',
+  path: '/embed/danmu-obs/$user',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UserVideoTidRoute = UserVideoTidRouteImport.update({
   id: '/$user/video/$tid',
   path: '/$user/video/$tid',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmbedUserVideoTidRoute = EmbedUserVideoTidRouteImport.update({
+  id: '/embed/$user/video/$tid',
+  path: '/embed/$user/video/$tid',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -163,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -173,6 +204,10 @@ export interface FileRoutesByFullPath {
   '/$user/': typeof UserIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
+  '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/embed/$user/': typeof EmbedUserIndexRoute
+  '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -187,6 +222,7 @@ export interface FileRoutesByTo {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -197,6 +233,10 @@ export interface FileRoutesByTo {
   '/$user': typeof UserIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
+  '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/embed/$user': typeof EmbedUserIndexRoute
+  '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -213,6 +253,7 @@ export interface FileRoutesById {
   '/settings/badge-issuer': typeof SettingsBadgeIssuerRoute
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
+  '/settings/chat-profile': typeof SettingsChatProfileRoute
   '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
   '/settings/multistream': typeof SettingsMultistreamRoute
@@ -223,6 +264,10 @@ export interface FileRoutesById {
   '/$user/': typeof UserIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
+  '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
+  '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/embed/$user/': typeof EmbedUserIndexRoute
+  '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -240,6 +285,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/chat-profile'
     | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
@@ -250,6 +296,10 @@ export interface FileRouteTypes {
     | '/$user/'
     | '/settings/'
     | '/$user/video/$tid'
+    | '/embed/danmu-obs/$user'
+    | '/embed/info-widget/$user'
+    | '/embed/$user/'
+    | '/embed/$user/video/$tid'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -264,6 +314,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/chat-profile'
     | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
@@ -274,6 +325,10 @@ export interface FileRouteTypes {
     | '/$user'
     | '/settings'
     | '/$user/video/$tid'
+    | '/embed/danmu-obs/$user'
+    | '/embed/info-widget/$user'
+    | '/embed/$user'
+    | '/embed/$user/video/$tid'
   id:
     | '__root__'
     | '/'
@@ -289,6 +344,7 @@ export interface FileRouteTypes {
     | '/settings/badge-issuer'
     | '/settings/badges'
     | '/settings/branding'
+    | '/settings/chat-profile'
     | '/settings/keys'
     | '/settings/languages'
     | '/settings/multistream'
@@ -299,6 +355,10 @@ export interface FileRouteTypes {
     | '/$user/'
     | '/settings/'
     | '/$user/video/$tid'
+    | '/embed/danmu-obs/$user'
+    | '/embed/info-widget/$user'
+    | '/embed/$user/'
+    | '/embed/$user/video/$tid'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -310,6 +370,10 @@ export interface RootRouteChildren {
   ChatPopoutUserRoute: typeof ChatPopoutUserRoute
   UserIndexRoute: typeof UserIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
+  EmbedDanmuObsUserRoute: typeof EmbedDanmuObsUserRoute
+  EmbedInfoWidgetUserRoute: typeof EmbedInfoWidgetUserRoute
+  EmbedUserIndexRoute: typeof EmbedUserIndexRoute
+  EmbedUserVideoTidRoute: typeof EmbedUserVideoTidRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -412,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsKeysRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/chat-profile': {
+      id: '/settings/chat-profile'
+      path: '/chat-profile'
+      fullPath: '/settings/chat-profile'
+      preLoaderRoute: typeof SettingsChatProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/branding': {
       id: '/settings/branding'
       path: '/branding'
@@ -468,11 +539,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatPopoutUserRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/embed/$user/': {
+      id: '/embed/$user/'
+      path: '/embed/$user'
+      fullPath: '/embed/$user/'
+      preLoaderRoute: typeof EmbedUserIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embed/info-widget/$user': {
+      id: '/embed/info-widget/$user'
+      path: '/embed/info-widget/$user'
+      fullPath: '/embed/info-widget/$user'
+      preLoaderRoute: typeof EmbedInfoWidgetUserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embed/danmu-obs/$user': {
+      id: '/embed/danmu-obs/$user'
+      path: '/embed/danmu-obs/$user'
+      fullPath: '/embed/danmu-obs/$user'
+      preLoaderRoute: typeof EmbedDanmuObsUserRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$user/video/$tid': {
       id: '/$user/video/$tid'
       path: '/$user/video/$tid'
       fullPath: '/$user/video/$tid'
       preLoaderRoute: typeof UserVideoTidRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/embed/$user/video/$tid': {
+      id: '/embed/$user/video/$tid'
+      path: '/embed/$user/video/$tid'
+      fullPath: '/embed/$user/video/$tid'
+      preLoaderRoute: typeof EmbedUserVideoTidRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -486,6 +585,7 @@ interface SettingsRouteChildren {
   SettingsBadgeIssuerRoute: typeof SettingsBadgeIssuerRoute
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
+  SettingsChatProfileRoute: typeof SettingsChatProfileRoute
   SettingsKeysRoute: typeof SettingsKeysRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
   SettingsMultistreamRoute: typeof SettingsMultistreamRoute
@@ -504,6 +604,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgeIssuerRoute: SettingsBadgeIssuerRoute,
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
+  SettingsChatProfileRoute: SettingsChatProfileRoute,
   SettingsKeysRoute: SettingsKeysRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
   SettingsMultistreamRoute: SettingsMultistreamRoute,
@@ -527,6 +628,10 @@ const rootRouteChildren: RootRouteChildren = {
   ChatPopoutUserRoute: ChatPopoutUserRoute,
   UserIndexRoute: UserIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
+  EmbedDanmuObsUserRoute: EmbedDanmuObsUserRoute,
+  EmbedInfoWidgetUserRoute: EmbedInfoWidgetUserRoute,
+  EmbedUserIndexRoute: EmbedUserIndexRoute,
+  EmbedUserVideoTidRoute: EmbedUserVideoTidRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

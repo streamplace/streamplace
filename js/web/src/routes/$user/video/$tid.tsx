@@ -5,12 +5,14 @@ import { formatDuration } from "@/lib/video";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/$user/video/$tid")({
   component: VodPage,
 });
 
 function VodPage() {
+  const { t } = useTranslation("common");
   const { user, tid } = Route.useParams();
   const { record, author, loading, error } = useVideoRecord(user, tid);
   const [downloading, setDownloading] = useState(false);
@@ -24,7 +26,7 @@ function VodPage() {
     };
   }, [user, tid]);
 
-  const title = record?.title || "Untitled";
+  const title = record?.title || t("untitled");
 
   const handleDownload = useCallback(async () => {
     setDownloading(true);
@@ -110,14 +112,14 @@ function VodPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-start gap-2">
                   <h2 className="flex-1 font-display font-semibold text-[var(--color-fg)] line-clamp-2">
-                    {loading ? "Loading..." : title}
+                    {loading ? t("loading") : title}
                   </h2>
                   <button
                     type="button"
                     onClick={handleDownload}
                     disabled={downloading}
                     className="flex-shrink-0 p-2 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors disabled:opacity-50"
-                    title="Download video"
+                    title={t("download-video")}
                   >
                     <Download className="w-4 h-4" />
                   </button>

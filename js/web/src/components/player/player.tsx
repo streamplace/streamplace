@@ -36,6 +36,12 @@ export type PlayerProps = {
   onError?: (message: string) => void;
   /** Called once playback has actually started. */
   onPlaying?: () => void;
+  /** Whether the danmu overlay is visible. */
+  showDanmu?: boolean;
+  /** Toggle the danmu overlay. */
+  onShowDanmuChange?: (show: boolean) => void;
+  /** Whether to show developer-only controls. */
+  devMode?: boolean;
 };
 
 /** One quality option shown in the player's settings menu. */
@@ -121,6 +127,9 @@ export function Player({
   active,
   onError,
   onPlaying,
+  showDanmu = false,
+  onShowDanmuChange,
+  devMode = false,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -320,6 +329,9 @@ export function Player({
           onUseWebRTCChange={handleWebRTCChange}
           showStats={showStats}
           onShowStatsChange={setShowStats}
+          showDanmu={showDanmu}
+          onShowDanmuChange={(v) => onShowDanmuChange?.(v)}
+          devMode={devMode}
         />
       )}
 

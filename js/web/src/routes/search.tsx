@@ -5,6 +5,7 @@ import { usePDSAgent } from "@/lib/store/hooks";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SearchResult {
   did: string;
@@ -22,6 +23,7 @@ export const Route = createFileRoute("/search")({
 });
 
 function SearchPage() {
+  const { t } = useTranslation("common");
   const { q: initialQ } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const agent = usePDSAgent();
@@ -94,7 +96,7 @@ function SearchPage() {
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
-          placeholder="Search for streamers..."
+          placeholder={t("search-for-streamers")}
           className="w-full h-10 pl-9 pr-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
         />
       </div>
@@ -108,7 +110,7 @@ function SearchPage() {
       {!searching && query.trim() && results.length === 0 && (
         <div className="text-center py-12">
           <p className="text-[var(--color-fg-muted)]">
-            No results for &ldquo;{query}&rdquo;
+            {t("no-results-for", { query })}
           </p>
         </div>
       )}
@@ -153,9 +155,7 @@ function SearchPage() {
       {!query.trim() && (
         <div className="text-center py-16">
           <Search className="w-8 h-8 mx-auto text-[var(--color-fg-muted)] mb-3" />
-          <p className="text-[var(--color-fg-muted)]">
-            Find streamers by name or handle
-          </p>
+          <p className="text-[var(--color-fg-muted)]">{t("find-streamers")}</p>
         </div>
       )}
     </div>

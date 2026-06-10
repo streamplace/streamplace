@@ -1,5 +1,6 @@
 import type { LivestreamStore } from "@streamplace/core";
 import { ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { formatViewers } from "../../lib/format";
@@ -15,6 +16,7 @@ export function ChatSidebar({
   store: LivestreamStore;
   onClose?: () => void;
 }) {
+  const { t } = useTranslation("common");
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -40,11 +42,11 @@ export function ChatSidebar({
           />
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium truncate">
-              {author?.displayName || author?.handle || "Streamer"}
+              {author?.displayName || author?.handle || t("streamer-fallback")}
             </div>
             {viewers && (
               <div className="text-xs text-[var(--color-fg-subtle)]">
-                {viewers} watching
+                {t("watching-count", { count: state.viewers ?? 0 })}
               </div>
             )}
           </div>
@@ -55,7 +57,7 @@ export function ChatSidebar({
               target="_blank"
               rel="noopener noreferrer"
               className="p-1 rounded hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-              title="Pop out chat"
+              title={t("chat-pop-out")}
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
@@ -65,7 +67,7 @@ export function ChatSidebar({
                 type="button"
                 onClick={onClose}
                 className="p-1 rounded hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex-shrink-0"
-                aria-label="Close chat"
+                aria-label={t("chat-close")}
               >
                 <svg
                   className="w-4 h-4"

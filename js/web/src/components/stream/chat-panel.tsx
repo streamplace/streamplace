@@ -7,6 +7,7 @@ import type { LivestreamStore } from "@streamplace/core";
 import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   ChatMessageViewHydrated,
   PlaceStreamBadgeDefs,
@@ -27,6 +28,7 @@ export function ChatPanel({
   store: LivestreamStore;
   reversed?: boolean;
 }) {
+  const { t } = useTranslation("common");
   const { chat, authors, replyToMessage } = useStore(
     store,
     useShallow((s) => ({
@@ -97,7 +99,7 @@ export function ChatPanel({
         {reversed && <div ref={anchorRef} />}
         {displayMessages.length === 0 ? (
           <div className="text-center text-[var(--color-fg-muted)] text-sm py-8">
-            No messages yet
+            {t("chat-no-messages")}
           </div>
         ) : (
           displayMessages.map((msg) => (
@@ -117,7 +119,9 @@ export function ChatPanel({
         <button
           onClick={scrollToAnchor}
           className="absolute bottom-2 right-3 w-8 h-8 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-md flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors z-10"
-          aria-label={reversed ? "Scroll to top" : "Scroll to bottom"}
+          aria-label={
+            reversed ? t("chat-scroll-to-top") : t("chat-scroll-to-bottom")
+          }
         >
           {reversed ? (
             <ArrowUp className="w-4 h-4" />
@@ -146,6 +150,7 @@ function ChatMessage({
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
   store: LivestreamStore;
 }) {
+  const { t } = useTranslation("common");
   const { state, pdsAgent, did } = useSession();
   const isSystem = message.author.did === "did:sys:system";
   const isOwn = did === message.author.did;
@@ -192,7 +197,7 @@ function ChatMessage({
             type="button"
             onClick={handleReply}
             className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors"
-            aria-label="Reply to message"
+            aria-label={t("chat-reply-to-message")}
           >
             <Reply className="w-3.5 h-3.5" />
           </button>
@@ -202,7 +207,7 @@ function ChatMessage({
             type="button"
             onClick={handlePin}
             className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-overlay)] transition-colors"
-            aria-label="Pin message"
+            aria-label={t("chat-pin-message")}
           >
             <Pin className="w-3.5 h-3.5" />
           </button>
@@ -340,6 +345,7 @@ function UserHandle({
   color: { red: number; green: number; blue: number } | undefined;
   badges?: PlaceStreamBadgeDefs.BadgeView[];
 }) {
+  const { t } = useTranslation("common");
   const name = author.displayName || author.handle || author.did;
   const handle = author.handle;
 
@@ -410,7 +416,7 @@ function UserHandle({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-shrink-0 text-[#0F73FF] hover:opacity-80"
-                aria-label="View profile on Bluesky"
+                aria-label={t("chat-view-profile-bluesky")}
               >
                 <BskyIcon size={20} />
               </a>
@@ -484,27 +490,12 @@ const BADGE_SRC: Record<string, string> = {
   "place.stream.badge.defs#bot": "/robot_2x.png",
 };
 
-const BADGE_META: Record<string, { label: string; issuedBy: string }> = {
-  "place.stream.badge.defs#mod": {
-    label: "Moderator",
-    issuedBy: "Issued by Streamplace",
-  },
-  "place.stream.badge.defs#streamer": {
-    label: "Streamer",
-    issuedBy: "Issued by Streamplace",
-  },
-  "place.stream.badge.defs#vip": {
-    label: "VIP",
-    issuedBy: "Issued by Streamplace",
-  },
-  "place.stream.badge.defs#bot": {
-    label: "Bot",
-    issuedBy: "Self-labeled",
-  },
-  "place.stream.badge.defs#event": {
-    label: "Event",
-    issuedBy: "Issued by Streamplace",
-  },
+const BADGE_I18N_KEYS: Record<string, string> = {
+  "place.stream.badge.defs#mod": "badge-moderator",
+  "place.stream.badge.defs#streamer": "badge-streamer",
+  "place.stream.badge.defs#vip": "badge-vip",
+  "place.stream.badge.defs#bot": "badge-bot",
+  "place.stream.badge.defs#event": "badge-event",
 };
 
 function shortDid(did: string): string {
@@ -514,15 +505,17 @@ function shortDid(did: string): string {
   return `${did.slice(0, 12)}…`;
 }
 
-function issuerLabel(badge: PlaceStreamBadgeDefs.BadgeView): string {
-  // Service-issued badges come from the streamplace node itself.
+function issuerLabel(
+  badge: PlaceStreamBadgeDefs.BadgeView,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
   if (badge.issuer && badge.issuer.startsWith("did:web:")) {
-    return "Issued by Streamplace";
+    return t("badge-issued-by-streamplace");
   }
   if (badge.issuer) {
-    return `Issued by ${shortDid(badge.issuer)}`;
+    return t("badge-issued-by", { issuer: shortDid(badge.issuer) });
   }
-  return "Issued";
+  return t("badge-issued");
 }
 
 function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
@@ -538,16 +531,18 @@ function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
 }
 
 function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
+  const { t } = useTranslation("common");
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
-  const meta = BADGE_META[badge.badgeType];
-  // Prefer the badge def's own name (e.g. "Contest Winner"), then the
-  // built-in label for known types, then a humanized fallback.
+  const i18nKey = BADGE_I18N_KEYS[badge.badgeType];
   const rawTag = badge.badgeType.split("#")[1] ?? "";
   const label =
     badge.name?.trim() ||
-    meta?.label ||
-    (rawTag ? rawTag[0].toUpperCase() + rawTag.slice(1) : "Badge");
-  const issuedBy = meta?.issuedBy ?? issuerLabel(badge);
+    (i18nKey ? t(i18nKey) : null) ||
+    (rawTag ? rawTag[0].toUpperCase() + rawTag.slice(1) : t("badge-fallback"));
+  const isSelfLabeled = badge.badgeType === "place.stream.badge.defs#bot";
+  const issuedBy = isSelfLabeled
+    ? t("badge-self-labeled")
+    : issuerLabel(badge, t);
 
   return (
     <div className="flex items-center gap-2 p-2 rounded-md bg-[var(--color-bg-overlay)] border border-[var(--color-border)]">

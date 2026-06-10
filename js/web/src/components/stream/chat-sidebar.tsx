@@ -4,7 +4,8 @@ import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { formatViewers } from "../../lib/format";
 import { SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sidebar";
-import { ChatInput, ChatPanel } from "./chat-panel";
+import { ChatInput } from "./chat-input";
+import { ChatPanel } from "./chat-panel";
 import { StreamNotifications } from "./stream-notifications";
 
 export function ChatSidebar({

@@ -181,7 +181,13 @@ export function Player({
   }, [useWebRTC]);
 
   useEffect(() => {
-    console.log("[player] render", { src, active, useWebRTC, transportKey, error });
+    console.log("[player] render", {
+      src,
+      active,
+      useWebRTC,
+      transportKey,
+      error,
+    });
   });
 
   // Mirror the video element's state into React.

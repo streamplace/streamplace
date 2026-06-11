@@ -6,6 +6,7 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -14,6 +15,8 @@ import {
 interface FullscreenContextValue {
   fullscreen: boolean;
   setFullscreen: (value: boolean) => void;
+  theatre: boolean;
+  setTheatre: (value: boolean) => void;
 }
 
 const FullscreenContext = createContext<FullscreenContextValue | undefined>(
@@ -22,6 +25,13 @@ const FullscreenContext = createContext<FullscreenContextValue | undefined>(
 
 export const FullscreenProvider = ({ children }: { children: ReactNode }) => {
   const [fullscreen, setFullscreen] = useState(false);
+  const [theatre, setTheatre] = useState(() => {
+    try {
+      return localStorage.getItem("streamplace:theatre") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     // Browser-level fullscreen state is the source of truth on web;
@@ -34,8 +44,24 @@ export const FullscreenProvider = ({ children }: { children: ReactNode }) => {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  const handleSetTheatre = useCallback((value: boolean) => {
+    setTheatre(value);
+    try {
+      localStorage.setItem("streamplace:theatre", String(value));
+    } catch {
+      // ignore
+    }
+  }, []);
+
   return (
-    <FullscreenContext.Provider value={{ fullscreen, setFullscreen }}>
+    <FullscreenContext.Provider
+      value={{
+        fullscreen,
+        setFullscreen,
+        theatre,
+        setTheatre: handleSetTheatre,
+      }}
+    >
       {children}
     </FullscreenContext.Provider>
   );

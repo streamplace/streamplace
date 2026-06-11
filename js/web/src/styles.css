@@ -379,3 +379,35 @@ body {
     transform: translateX(calc(-100%));
   }
 }
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-down {
+  animation: fadeInDown 250ms ease-in-out;
+}
+
+@keyframes fadeOutUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+}
+.animate-fade-out-up {
+  animation: fadeOutUp 1000ms ease-in-out;
+}

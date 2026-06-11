@@ -244,47 +244,68 @@ export default function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-4">
-            {did ? (
-              <Link
-                to="/settings/account"
-                className="flex items-center gap-2 rounded-full hover:bg-[var(--color-bg-overlay)] transition-colors pl-1 pr-3 py-1"
-                title={
-                  displayName ? t("signed-in-as", { handle }) : t("profile")
-                }
-                aria-label={
-                  displayName ? t("signed-in-as", { handle }) : t("profile")
-                }
-              >
-                {avatar ? (
-                  <img
-                    src={avatar}
-                    alt=""
-                    className="w-7 h-7 rounded-full bg-(--color-bg) object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display =
-                        "none";
-                    }}
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border)] flex items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
-                    {(displayName?.[0] || handle?.[0] || "?").toUpperCase()}
-                  </div>
-                )}
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                search={EMPTY_LOGIN_SEARCH}
-                className="text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-              >
-                {t("log-in")}
-              </Link>
-            )}
-          </nav>
-        </div>
+        <UserProfile
+          did={did}
+          displayName={displayName}
+          t={t}
+          handle={handle}
+          avatar={avatar}
+        />
       </header>
     </>
+  );
+}
+
+export function UserProfile({
+  did,
+  displayName,
+  t,
+  handle,
+  avatar,
+}: {
+  did: string | null;
+  displayName: string | undefined;
+  t: any;
+  handle: string | undefined;
+  avatar: string | undefined;
+}) {
+  return (
+    <div className="flex items-center gap-4">
+      <nav className="flex items-center gap-4">
+        {did ? (
+          <Link
+            to="/settings/account"
+            className="flex items-center gap-2 rounded-full hover:bg-[var(--color-bg-overlay)] transition-colors pl-1 pr-3 py-1"
+            title={displayName ? t("signed-in-as", { handle }) : t("profile")}
+            aria-label={
+              displayName ? t("signed-in-as", { handle }) : t("profile")
+            }
+          >
+            {avatar ? (
+              <img
+                src={avatar}
+                alt=""
+                className="w-7 h-7 rounded-full bg-(--color-bg) object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border)] flex items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
+                {(displayName?.[0] || handle?.[0] || "?").toUpperCase()}
+              </div>
+            )}
+          </Link>
+        ) : (
+          <Link
+            to="/login"
+            search={EMPTY_LOGIN_SEARCH}
+            className="text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+          >
+            {t("log-in")}
+          </Link>
+        )}
+      </nav>
+    </div>
   );
 }

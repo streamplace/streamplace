@@ -443,6 +443,54 @@ Full light mode + dark mode implementation. `prefers-color-scheme` media query l
 
 ---
 
+## Progress
+
+### Phase 1: Foundation — Complete
+
+| Item                   | Status | Notes                                                                                                                                          |
+| ---------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1a. React Query        | Done   | `@tanstack/react-query` in main.tsx. `useVideoList` migrated to `useInfiniteQuery`. `fetchLiveUsers` migrated to `useQuery` with 30s interval. |
+| 1b. Error boundary     | Done   | React error boundary at router level with fallback UI and retry.                                                                               |
+| 1c. Suspense fallbacks | Done   | Route-level Suspense with loading skeletons.                                                                                                   |
+| 1d. Mount providers    | Done   | TooltipProvider, FullscreenProvider, VideoElementProvider mounted.                                                                             |
+| 1e. Theme provider     | Done   | Media query listener, manual toggle, localStorage persistence.                                                                                 |
+| 1f. i18n audit         | Done   | Keys added to en-US common.ftl. Stream/video components updated.                                                                               |
+| 1g. Sentry             | Done   | `@sentry/react` initialized in main.tsx, source maps in Vite build.                                                                            |
+| 1h. Code review        | Done   | Zustand slices audited, dead code removed.                                                                                                     |
+
+### Phase 2: Feature Parity — In Progress
+
+| Item                       | Status  | Notes                                                                                            |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+| 2a. Chat popout            | Done    | `/chat-popout/$user` route, standalone window, WebSocket chat.                                   |
+| 2b. Block/mute in chat     | Pending | `createBlockRecord` still stubbed. UI buttons not wired.                                         |
+| 2c. Chat profile edit      | Done    | Inline editor with color picker, avatar, badges.                                                 |
+| 2d. VOD download           | Done    | Fetch + Blob + createObjectURL + anchor download.                                                |
+| 2e. Multi-stream viewer    | Pending | Not started.                                                                                     |
+| 2f. Search                 | Done    | Inline header bar with popover results.                                                          |
+| 2g. Upload VOD             | Pending | Not started.                                                                                     |
+| 2h. Embed screens          | Done    | `/embed/$user`, `/embed/$user/video/$tid`, `/embed/info-widget/$user`, `/embed/danmu-obs/$user`. |
+| 2i. Popout windows         | Pending | Not started.                                                                                     |
+| 2k. About/Download/Support | Pending | Not started.                                                                                     |
+
+### Additional Work Done (not in original plan)
+
+- Reply + pin message actions in chat
+- Danmu (bullet comments) overlay with mobile-parity implementation
+- Danmu toggle persisted to localStorage, standalone button in player controls
+- Migrated fetchLiveUsers from zustand to React Query
+
+### Phase 3: Go-Live — Not Started
+
+### Phase 4: Web-Native Enhancements — In Progress
+
+| Item                   | Status | Notes                                                                                                                                                                         |
+| ---------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4a. Picture-in-Picture | Done   | PiP toggle button in player controls. Uses `requestPictureInPicture()` API. Support detection, state tracking via events.                                                     |
+| 4b. Theatre mode       | Done   | Sidebar + header hidden, video fills viewport. Toggle button in player controls, `T` keyboard shortcut. State persisted to localStorage. Works on both live streams and VODs. |
+
+---
+
 ## Suggested Priority Order
 
 ### Phase 1: Foundation (Do First)
@@ -479,10 +527,11 @@ Full light mode + dark mode implementation. `prefers-color-scheme` media query l
 
 ### Phase 4: Web-Native Enhancements (Nice-to-Have)
 
-1. Picture-in-Picture (4a)
-2. Web Share API (4b)
-3. Keyboard shortcuts (4c)
-4. Multi-window player (4d)
-5. Deep linking (4e)
-6. Theming (4f)
-7. PWA (4g)
+1. Picture-in-Picture (4a) — Done
+2. Theatre mode — Done
+3. Web Share API (4b)
+4. Keyboard shortcuts (4c)
+5. Multi-window player (4d)
+6. Deep linking (4e)
+7. Theming (4f)
+8. PWA (4g)

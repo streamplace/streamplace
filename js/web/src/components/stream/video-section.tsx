@@ -1,13 +1,32 @@
 import type { LivestreamStore } from "@streamplace/core";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
+import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { UserOffline } from "./user-offline";
+
+const DANMU_KEY = "danmu-enabled";
+
+function readDanmuPreference(): boolean {
+  try {
+    return localStorage.getItem(DANMU_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeDanmuPreference(enabled: boolean) {
+  try {
+    localStorage.setItem(DANMU_KEY, String(enabled));
+  } catch {
+    // ignore
+  }
+}
 
 type Segment = { width: number; height: number } | null;
 type Problem = { code: string; severity: string; message: string };
@@ -16,14 +35,17 @@ export function VideoSection({
   store,
   user,
   liveness,
-  devMode = false,
 }: {
   store: LivestreamStore;
   user: string;
   liveness: Liveness;
-  devMode?: boolean;
 }) {
-  const [showDanmu, setShowDanmu] = useState(false);
+  const [showDanmu, setShowDanmu] = useState(readDanmuPreference);
+
+  const handleDanmuChange = useCallback((enabled: boolean) => {
+    setShowDanmu(enabled);
+    writeDanmuPreference(enabled);
+  }, []);
 
   const state = useStore(
     store,
@@ -53,8 +75,7 @@ export function VideoSection({
       thumbnailUrl={thumbnailUrl}
       store={store}
       showDanmu={showDanmu}
-      onShowDanmuChange={setShowDanmu}
-      devMode={devMode}
+      onShowDanmuChange={handleDanmuChange}
     />
   );
 }
@@ -74,7 +95,6 @@ export function VideoSectionInner({
   store,
   showDanmu = false,
   onShowDanmuChange,
-  devMode = false,
 }: {
   user: string;
   liveness: Liveness;
@@ -86,9 +106,9 @@ export function VideoSectionInner({
   store?: LivestreamStore;
   showDanmu?: boolean;
   onShowDanmuChange?: (show: boolean) => void;
-  devMode?: boolean;
 }) {
   const { t } = useTranslation("common");
+  const { theatre } = useFullscreen();
   const neverLive = liveness === "never-live";
 
   // calculate seg ratio for poster aspect ratio correction
@@ -98,11 +118,14 @@ export function VideoSectionInner({
     <div
       className="w-full bg-black"
       style={{
-        // constrain height to the lesser of: (container width / segRatio) or (viewport height - header/padding).
-        // this keeps the video at its natural aspect ratio on wide screens while preventing it from
-        // overflowing the viewport on tall/narrow ones. segRatio falls back to 16/9 when no segment data is available.
-        maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
-        aspectRatio: `${segRatio}`,
+        // In theatre mode the sidebar and header are hidden, so the video
+        // fills the full viewport. Otherwise constrain to aspect ratio.
+        ...(theatre
+          ? { height: "100vh" }
+          : {
+              maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
+              aspectRatio: `${segRatio}`,
+            }),
       }}
     >
       <div className="relative h-full bg-green-400 mx-auto">
@@ -123,7 +146,6 @@ export function VideoSectionInner({
             mode={mode}
             showDanmu={showDanmu}
             onShowDanmuChange={onShowDanmuChange}
-            devMode={devMode}
           />
         )}
 

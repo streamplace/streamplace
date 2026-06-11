@@ -6,13 +6,17 @@ import {
   Maximize,
   Minimize,
   Pause,
+  PictureInPicture,
   Play,
+  RectangleHorizontal,
   Settings,
   Volume2,
   VolumeX,
 } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useState } from "react";
+import { useFullscreen } from "../../contexts/fullscreen-context";
 import { cn } from "../../lib/utils";
+import MuIcon from "../svg/mu";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -53,12 +57,10 @@ export type PlayerControlsProps = {
   showStats: boolean;
   /** Toggle the stats overlay. */
   onShowStatsChange: (showStats: boolean) => void;
-  /** Whether the danmu overlay is visible. Only shown in dev mode. */
+  /** Whether the danmu overlay is visible. */
   showDanmu: boolean;
   /** Toggle the danmu overlay. */
   onShowDanmuChange: (showDanmu: boolean) => void;
-  /** When true, show developer-only controls like danmu. */
-  devMode?: boolean;
 };
 
 export function PlayerControls({
@@ -77,7 +79,6 @@ export function PlayerControls({
   onShowStatsChange,
   showDanmu,
   onShowDanmuChange,
-  devMode = false,
 }: PlayerControlsProps) {
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -85,8 +86,11 @@ export function PlayerControls({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPiP, setIsPiP] = useState(false);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const { theatre, setTheatre } = useFullscreen();
 
   // Mirror video element state into React.
   useEffect(() => {
@@ -133,6 +137,39 @@ export function PlayerControls({
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  // Track PiP state.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onEnter = () => setIsPiP(true);
+    const onLeave = () => setIsPiP(false);
+    video.addEventListener("enterpictureinpicture", onEnter);
+    video.addEventListener("leavepictureinpicture", onLeave);
+    // Sync initial state.
+    setIsPiP(!!document.pictureInPictureElement);
+    return () => {
+      video.removeEventListener("enterpictureinpicture", onEnter);
+      video.removeEventListener("leavepictureinpicture", onLeave);
+    };
+  }, [videoRef]);
+
+  const pipSupported =
+    typeof document !== "undefined" && !!document.pictureInPictureEnabled;
+
+  const togglePiP = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await video.requestPictureInPicture();
+      }
+    } catch {
+      // PiP can be denied by the browser or user settings.
+    }
+  }, [videoRef]);
 
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
@@ -202,11 +239,14 @@ export function PlayerControls({
       } else if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.key === "t" || e.key === "T") {
+        e.preventDefault();
+        setTheatre(!theatre);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePlay, toggleMute, toggleFullscreen]);
+  }, [togglePlay, toggleMute, toggleFullscreen, theatre, setTheatre]);
 
   const visible = forceVisible || showControls || bigPlay;
 
@@ -286,6 +326,46 @@ export function PlayerControls({
 
         <div className="flex-1" />
 
+        {pipSupported && (
+          <button
+            type="button"
+            onClick={togglePiP}
+            className={cn(
+              "transition-colors p-1",
+              isPiP ? "text-white" : "text-white/40 hover:text-white/80",
+            )}
+            aria-label={
+              isPiP ? "Exit picture-in-picture" : "Picture-in-picture"
+            }
+          >
+            <PictureInPicture className="w-5 h-5" />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setTheatre(!theatre)}
+          className={cn(
+            "transition-colors p-1",
+            theatre ? "text-white" : "text-white/40 hover:text-white/80",
+          )}
+          aria-label={theatre ? "Exit theatre mode" : "Theatre mode"}
+        >
+          <RectangleHorizontal className="w-5 h-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onShowDanmuChange(!showDanmu)}
+          className={cn(
+            "transition-colors p-1",
+            showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
+          )}
+          aria-label={showDanmu ? "Disable danmu" : "Enable danmu"}
+        >
+          <MuIcon size={20} />
+        </button>
+
         {!isLive && duration > 0 && (
           <Slider
             min={0}
@@ -359,14 +439,6 @@ export function PlayerControls({
             >
               Stats for nerds
             </DropdownMenuCheckboxItem>
-            {devMode && (
-              <DropdownMenuCheckboxItem
-                checked={showDanmu}
-                onCheckedChange={onShowDanmuChange}
-              >
-                Danmu (chat overlay)
-              </DropdownMenuCheckboxItem>
-            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

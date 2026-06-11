@@ -1,12 +1,17 @@
+import DashboardChrome from "@/components/dashboard/dashboard-chrome";
 import Header from "@/components/header";
 import SidebarComponent from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { FullscreenProvider } from "@/contexts/fullscreen-context";
+import {
+  FullscreenProvider,
+  useFullscreen,
+} from "@/contexts/fullscreen-context";
 import {
   createRootRoute,
   Outlet,
   useRouterState,
 } from "@tanstack/react-router";
+import { Loader } from "lucide-react";
 import { Component, type ReactNode, useEffect, useState } from "react";
 import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
@@ -14,6 +19,9 @@ import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
 const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
+
+/** Routes that should render the dashboard's own chrome, separate from the main app. */
+const DASHBOARD_PREFIX = "/dashboard";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -69,7 +77,7 @@ class ErrorBoundary extends Component<
 function RouteLoadingSkeleton() {
   return (
     <div className="flex items-center justify-center min-h-svh">
-      <div className="w-6 h-6 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin" />
+      <Loader className="animate-spin text-[var(--color-fg-muted)]" />
     </div>
   );
 }
@@ -78,7 +86,79 @@ function RootLayout() {
   const pathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? "",
   });
-  const isPopout = POPOUT_PREFIXES.some((p) => pathname.startsWith(p));
+
+  const browserPathname =
+    typeof window !== "undefined" ? window.location.pathname : "";
+
+  const actualPathname = pathname || browserPathname;
+
+  const isPopout = POPOUT_PREFIXES.some((p) => actualPathname.startsWith(p));
+  const isDashboard =
+    actualPathname === DASHBOARD_PREFIX ||
+    actualPathname.startsWith(`${DASHBOARD_PREFIX}/`);
+
+  console.log(
+    "Rendering RootLayout, browser:",
+    actualPathname,
+    "router: ",
+    pathname,
+    "isPopout:",
+    isPopout,
+    isDashboard,
+  );
+
+  // pause until we can get a valid pathname, to avoid rendering the wrong chrome on initial load
+  if (!actualPathname) {
+    return <RouteLoadingSkeleton />;
+  }
+
+  // Popout routes get no chrome — just providers and the outlet.
+  if (isPopout) {
+    return (
+      <ErrorBoundary>
+        <TooltipProvider>
+          <Outlet />
+        </TooltipProvider>
+      </ErrorBoundary>
+    );
+  }
+
+  // Dashboard routes get their own chrome, separate from the main app.
+  // See /dashboard/index.tsx and components/dashboard/dashboard-chrome.tsx for details.
+  if (isDashboard) {
+    // if no pathname from router, we aren't ready yet
+    if (!pathname) {
+      return <RouteLoadingSkeleton />;
+    }
+    return (
+      <ErrorBoundary>
+        <TooltipProvider>
+          <FullscreenProvider>
+            <DashboardChrome />
+          </FullscreenProvider>
+        </TooltipProvider>
+      </ErrorBoundary>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      <TooltipProvider>
+        <FullscreenProvider>
+          <ChromeLayout />
+        </FullscreenProvider>
+      </TooltipProvider>
+    </ErrorBoundary>
+  );
+}
+
+/**
+ * Renders sidebar + header chrome. The Outlet is always mounted so that
+ * route-level state (player, chat WebSocket, etc.) persists when theatre
+ * mode toggles. Only the chrome siblings are conditionally rendered.
+ */
+function ChromeLayout() {
+  const { theatre } = useFullscreen();
 
   const [open, setOpen] = useState(() => {
     if (typeof localStorage === "undefined") return true;
@@ -97,39 +177,22 @@ function RootLayout() {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // Popout routes get no chrome — just providers and the outlet.
-  if (isPopout) {
-    return (
-      <ErrorBoundary>
-        <TooltipProvider>
-          <Outlet />
-        </TooltipProvider>
-      </ErrorBoundary>
-    );
-  }
-
   return (
-    <ErrorBoundary>
-      <TooltipProvider>
-        <FullscreenProvider>
-          <SidebarProvider
-            open={open}
-            onOpenChange={(o) => {
-              setOpen(o);
-              localStorage.setItem("streamplace:nav-open", String(o));
-            }}
-            className="h-svh"
-          >
-            <SidebarComponent />
-            <SidebarInset>
-              <Header />
-              <div className="flex flex-1 flex-col min-h-0 mx-auto w-full">
-                <Outlet />
-              </div>
-            </SidebarInset>
-          </SidebarProvider>
-        </FullscreenProvider>
-      </TooltipProvider>
-    </ErrorBoundary>
+    <SidebarProvider
+      open={theatre ? false : open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        localStorage.setItem("streamplace:nav-open", String(o));
+      }}
+      className="h-svh"
+    >
+      {!theatre && <SidebarComponent />}
+      <SidebarInset>
+        {!theatre && <Header />}
+        <div className="flex flex-1 flex-col min-h-0 mx-auto w-full">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

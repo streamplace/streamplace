@@ -3,10 +3,10 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useStore } from "../../lib/store";
-import { useKeyRecords } from "../../lib/store/hooks";
+import { useStore } from "../../../lib/store";
+import { useKeyRecords } from "../../../lib/store/hooks";
 
-export const Route = createFileRoute("/settings/keys")({
+export const Route = createFileRoute("/dashboard/keys/")({
   component: KeyManager,
 });
 

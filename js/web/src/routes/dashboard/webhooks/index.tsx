@@ -14,9 +14,9 @@ import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { usePDSAgent } from "../../lib/store/hooks";
+import { usePDSAgent } from "../../../lib/store/hooks";
 
-export const Route = createFileRoute("/settings/webhooks")({
+export const Route = createFileRoute("/dashboard/webhooks/")({
   component: WebhookManager,
 });
 
@@ -169,7 +169,9 @@ function WebhookManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold font-display">{t("webhook-integrations")}</h1>
+        <h1 className="text-xl font-semibold font-display">
+          {t("webhook-integrations")}
+        </h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">
           {t("webhook-integrations-description")}
         </p>

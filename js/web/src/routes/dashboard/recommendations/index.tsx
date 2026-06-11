@@ -15,12 +15,8 @@ import {
 } from "@/components/ui/input-group";
 import useAvatars from "@/hooks/use-avatars";
 import { cn } from "@/lib/utils";
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  type DropResult,
-} from "@hello-pangea/dnd";
+import { DragDropProvider } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Check,
@@ -34,15 +30,134 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { usePDSAgent } from "../../lib/store/hooks";
+import { usePDSAgent } from "../../../lib/store/hooks";
 
-export const Route = createFileRoute("/settings/recommendations")({
+export const Route = createFileRoute("/dashboard/recommendations/")({
   component: RecommendationsManager,
 });
 
 interface ActorSearchResult {
   did: string;
   handle: string;
+}
+
+/** Props for a single sortable streamer row. */
+interface SortableStreamerRowProps {
+  id: string;
+  index: number;
+  streamer: string;
+  resolvedHandle?: string;
+  resolvedAvatar?: string;
+  editingIndex: number | null;
+  editValue: string;
+  onEditValueChange: (value: string) => void;
+  onStartEdit: (index: number, value: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: (index: number, hadValue: boolean) => void;
+  onDelete: (index: number) => void;
+}
+
+function SortableStreamerRow({
+  id,
+  index,
+  streamer,
+  resolvedHandle,
+  resolvedAvatar,
+  editingIndex,
+  editValue,
+  onEditValueChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}: SortableStreamerRowProps) {
+  const { ref, isDragging, handleRef } = useSortable({ id, index });
+  const isEditing = editingIndex === index;
+
+  return (
+    <div
+      ref={ref}
+      className={`flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] last:border-b-0 ${
+        isDragging ? "bg-[var(--color-bg-elevated)] shadow-lg rounded-md" : ""
+      }`}
+    >
+      {/* Drag handle */}
+      <div
+        ref={handleRef}
+        className="shrink-0 cursor-grab active:cursor-grabbing p-0.5"
+      >
+        <GripVertical
+          size={16}
+          className="text-[var(--color-fg-muted)] opacity-60"
+        />
+      </div>
+
+      {/* Content */}
+      {isEditing ? (
+        <>
+          <Input
+            value={editValue}
+            onChange={(e) => onEditValueChange(e.target.value)}
+            placeholder="did:plc:..."
+            autoFocus
+            className="flex-1"
+          />
+          <button
+            type="button"
+            onClick={onSaveEdit}
+            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+          >
+            <Check size={16} className="text-[var(--color-accent)]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onCancelEdit(index, !!streamer)}
+            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+          >
+            <X size={16} className="text-[var(--color-fg-muted)]" />
+          </button>
+        </>
+      ) : (
+        <>
+          {resolvedAvatar ? (
+            <img
+              src={resolvedAvatar}
+              alt=""
+              className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0" />
+          )}
+          <span
+            className={cn(
+              "flex-1 truncate",
+              !resolvedHandle && "font-mono text-sm",
+            )}
+          >
+            {resolvedHandle ? "@" : ""}
+            {resolvedHandle || streamer || "(empty)"}
+          </span>
+          <button
+            type="button"
+            onClick={() => onStartEdit(index, streamer)}
+            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+          >
+            <Pencil size={16} className="text-[var(--color-fg-muted)]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(index)}
+            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+          >
+            <X size={16} className="text-destructive" />
+          </button>
+        </>
+      )}
+    </div>
+  );
 }
 
 function RecommendationsManager() {
@@ -208,16 +323,17 @@ function RecommendationsManager() {
     setDeleteIndex(null);
   };
 
-  const handleDragEnd = async (result: DropResult) => {
-    if (!result.destination) return;
-    const from = result.source.index;
-    const to = result.destination.index;
-    if (from === to) return;
+  const handleDragEnd = (event: any) => {
+    if (event.canceled) return;
+    const { source } = event.operation;
+    if (!isSortable(source)) return;
+    const { initialIndex, index: toIndex } = source;
+    if (initialIndex === toIndex) return;
 
     const newStreamers = [...streamers];
-    const [item] = newStreamers.splice(from, 1);
-    newStreamers.splice(to, 0, item);
-    await saveRecommendations(newStreamers);
+    const [item] = newStreamers.splice(initialIndex, 1);
+    newStreamers.splice(toIndex, 0, item);
+    saveRecommendations(newStreamers);
   };
 
   useEffect(() => {
@@ -323,136 +439,35 @@ function RecommendationsManager() {
               {t("no-recommendations-yet")}
             </div>
           ) : (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="recommendations">
-                {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps}>
-                    {streamers.map((streamer, index) => (
-                      <Draggable
-                        key={`${streamer}-${index}`}
-                        draggableId={`${streamer}-${index}`}
-                        index={index}
-                      >
-                        {(dragProvided, snapshot) => (
-                          <div
-                            ref={dragProvided.innerRef}
-                            {...dragProvided.draggableProps}
-                            className={`flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] last:border-b-0 ${
-                              snapshot.isDragging
-                                ? "bg-[var(--color-bg-elevated)] shadow-lg rounded-md"
-                                : ""
-                            }`}
-                          >
-                            {/* Drag handle */}
-                            <div
-                              {...dragProvided.dragHandleProps}
-                              className="shrink-0 cursor-grab active:cursor-grabbing p-0.5"
-                            >
-                              <GripVertical
-                                size={16}
-                                className="text-[var(--color-fg-muted)] opacity-60"
-                              />
-                            </div>
-
-                            {/* Content */}
-                            {editingIndex === index ? (
-                              <>
-                                <Input
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  placeholder="did:plc:..."
-                                  autoFocus
-                                  className="flex-1"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={handleSaveEdit}
-                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                                >
-                                  <Check
-                                    size={16}
-                                    className="text-[var(--color-accent)]"
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (!streamer) {
-                                      setStreamers((prev) =>
-                                        prev.filter((_, i) => i !== index),
-                                      );
-                                    }
-                                    setEditingIndex(null);
-                                  }}
-                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                                >
-                                  <X
-                                    size={16}
-                                    className="text-[var(--color-fg-muted)]"
-                                  />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                {resolvedStreamers[streamer]?.avatar ? (
-                                  <img
-                                    src={resolvedStreamers[streamer].avatar}
-                                    alt=""
-                                    className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0"
-                                    onError={(e) => {
-                                      (
-                                        e.currentTarget as HTMLImageElement
-                                      ).style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0" />
-                                )}
-                                <span
-                                  className={cn(
-                                    "flex-1 truncate",
-                                    !resolvedStreamers[streamer]?.handle &&
-                                      "font-mono text-sm",
-                                  )}
-                                >
-                                  {resolvedStreamers[streamer]?.handle
-                                    ? "@"
-                                    : ""}
-                                  {resolvedStreamers[streamer]?.handle ||
-                                    streamer ||
-                                    "(empty)"}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingIndex(index);
-                                    setEditValue(streamer);
-                                  }}
-                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                                >
-                                  <Pencil
-                                    size={16}
-                                    className="text-[var(--color-fg-muted)]"
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteIndex(index)}
-                                  className="p-1.5 rounded hover:bg-[var(--color-bg)]"
-                                >
-                                  <X size={16} className="text-destructive" />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
+            <DragDropProvider onDragEnd={handleDragEnd}>
+              {streamers.map((streamer, index) => (
+                <SortableStreamerRow
+                  key={`${streamer}-${index}`}
+                  id={`${streamer}-${index}`}
+                  index={index}
+                  streamer={streamer}
+                  resolvedHandle={resolvedStreamers[streamer]?.handle}
+                  resolvedAvatar={resolvedStreamers[streamer]?.avatar}
+                  editingIndex={editingIndex}
+                  editValue={editValue}
+                  onEditValueChange={setEditValue}
+                  onStartEdit={(i, val) => {
+                    setEditingIndex(i);
+                    setEditValue(val);
+                  }}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={(i, hadValue) => {
+                    if (!hadValue) {
+                      setStreamers((prev) =>
+                        prev.filter((_, idx) => idx !== i),
+                      );
+                    }
+                    setEditingIndex(null);
+                  }}
+                  onDelete={setDeleteIndex}
+                />
+              ))}
+            </DragDropProvider>
           )}
 
           {streamers.length < 8 && (

@@ -1,7 +1,7 @@
 import { ChatSidebar } from "@/components/stream/chat-sidebar";
 import { StreamInfo } from "@/components/stream/stream-info";
 import { VideoSection } from "@/components/stream/video-section";
-import { useDevMode } from "@/hooks/use-dev-mode";
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import {
@@ -116,7 +116,7 @@ function StreamPage() {
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
-  const [devMode] = useDevMode();
+  const { theatre } = useFullscreen();
   const [chatOpen, setChatOpen] = useState(() => {
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem("streamplace:chat-open") !== "false";
@@ -140,24 +140,21 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         className={`flex-1 flex min-h-0 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
       >
         <div className="flex-1 min-w-0 overflow-y-auto">
-          <VideoSection
-            store={store}
-            user={user}
-            liveness={liveness}
-            devMode={devMode}
-          />
-          <StreamInfo
-            store={store}
-            user={user}
-            liveness={liveness}
-            chatOpen={chatOpen}
-            onToggleChat={toggleChat}
-          />
+          <VideoSection store={store} user={user} liveness={liveness} />
+          {!theatre && (
+            <StreamInfo
+              store={store}
+              user={user}
+              liveness={liveness}
+              chatOpen={chatOpen}
+              onToggleChat={toggleChat}
+            />
+          )}
         </div>
       </div>
 
       <div
-        className={`fixed top-12 bottom-0 right-0 w-[360px] max-w-90 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out z-20 ${
+        className={`fixed ${theatre ? "top-0" : "top-12"} bottom-0 right-0 w-[360px] max-w-90 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out z-20 ${
           chatOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

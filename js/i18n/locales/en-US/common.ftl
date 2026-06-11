@@ -157,6 +157,10 @@ back-to-home = Back to home
 download-video = Download video
 untitled = Untitled
 default-stream-title = A livestream!
+pip-enter = Picture-in-picture
+pip-exit = Exit picture-in-picture
+theatre-enter = Theatre mode
+theatre-exit = Exit theatre mode
 
 ## Notifications
 teleporting-in = Teleporting in

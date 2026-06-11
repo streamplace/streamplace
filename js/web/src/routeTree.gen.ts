@@ -15,14 +15,10 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as UserIndexRouteImport } from './routes/$user/index'
-import { Route as SettingsWebhooksRouteImport } from './routes/settings/webhooks'
-import { Route as SettingsStreamingRouteImport } from './routes/settings/streaming'
-import { Route as SettingsRecommendationsRouteImport } from './routes/settings/recommendations'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
-import { Route as SettingsMultistreamRouteImport } from './routes/settings/multistream'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
-import { Route as SettingsKeysRouteImport } from './routes/settings/keys'
 import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
@@ -33,6 +29,11 @@ import { Route as SettingsAccountRouteImport } from './routes/settings/account'
 import { Route as SettingsAboutRouteImport } from './routes/settings/about'
 import { Route as ChatPopoutUserRouteImport } from './routes/chat-popout.$user'
 import { Route as EmbedUserIndexRouteImport } from './routes/embed/$user/index'
+import { Route as DashboardWebhooksIndexRouteImport } from './routes/dashboard/webhooks/index'
+import { Route as DashboardStreamIndexRouteImport } from './routes/dashboard/stream/index'
+import { Route as DashboardRecommendationsIndexRouteImport } from './routes/dashboard/recommendations/index'
+import { Route as DashboardMultistreamIndexRouteImport } from './routes/dashboard/multistream/index'
+import { Route as DashboardKeysIndexRouteImport } from './routes/dashboard/keys/index'
 import { Route as EmbedInfoWidgetUserRouteImport } from './routes/embed/info-widget/$user'
 import { Route as EmbedDanmuObsUserRouteImport } from './routes/embed/danmu-obs/$user'
 import { Route as UserVideoTidRouteImport } from './routes/$user/video/$tid'
@@ -68,44 +69,24 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => SettingsRoute,
 } as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UserIndexRoute = UserIndexRouteImport.update({
   id: '/$user/',
   path: '/$user/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsWebhooksRoute = SettingsWebhooksRouteImport.update({
-  id: '/webhooks',
-  path: '/webhooks',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsStreamingRoute = SettingsStreamingRouteImport.update({
-  id: '/streaming',
-  path: '/streaming',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsRecommendationsRoute = SettingsRecommendationsRouteImport.update({
-  id: '/recommendations',
-  path: '/recommendations',
-  getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
   getParentRoute: () => SettingsRoute,
 } as any)
-const SettingsMultistreamRoute = SettingsMultistreamRouteImport.update({
-  id: '/multistream',
-  path: '/multistream',
-  getParentRoute: () => SettingsRoute,
-} as any)
 const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
   id: '/languages',
   path: '/languages',
-  getParentRoute: () => SettingsRoute,
-} as any)
-const SettingsKeysRoute = SettingsKeysRouteImport.update({
-  id: '/keys',
-  path: '/keys',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
@@ -158,6 +139,33 @@ const EmbedUserIndexRoute = EmbedUserIndexRouteImport.update({
   path: '/embed/$user/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardWebhooksIndexRoute = DashboardWebhooksIndexRouteImport.update({
+  id: '/dashboard/webhooks/',
+  path: '/dashboard/webhooks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardStreamIndexRoute = DashboardStreamIndexRouteImport.update({
+  id: '/dashboard/stream/',
+  path: '/dashboard/stream/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRecommendationsIndexRoute =
+  DashboardRecommendationsIndexRouteImport.update({
+    id: '/dashboard/recommendations/',
+    path: '/dashboard/recommendations/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DashboardMultistreamIndexRoute =
+  DashboardMultistreamIndexRouteImport.update({
+    id: '/dashboard/multistream/',
+    path: '/dashboard/multistream/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DashboardKeysIndexRoute = DashboardKeysIndexRouteImport.update({
+  id: '/dashboard/keys/',
+  path: '/dashboard/keys/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EmbedInfoWidgetUserRoute = EmbedInfoWidgetUserRouteImport.update({
   id: '/embed/info-widget/$user',
   path: '/embed/info-widget/$user',
@@ -194,18 +202,19 @@ export interface FileRoutesByFullPath {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
-  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
-  '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
-  '/settings/recommendations': typeof SettingsRecommendationsRoute
-  '/settings/streaming': typeof SettingsStreamingRoute
-  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/$user/': typeof UserIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/dashboard/keys/': typeof DashboardKeysIndexRoute
+  '/dashboard/multistream/': typeof DashboardMultistreamIndexRoute
+  '/dashboard/recommendations/': typeof DashboardRecommendationsIndexRoute
+  '/dashboard/stream/': typeof DashboardStreamIndexRoute
+  '/dashboard/webhooks/': typeof DashboardWebhooksIndexRoute
   '/embed/$user/': typeof EmbedUserIndexRoute
   '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
@@ -223,18 +232,19 @@ export interface FileRoutesByTo {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
-  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
-  '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
-  '/settings/recommendations': typeof SettingsRecommendationsRoute
-  '/settings/streaming': typeof SettingsStreamingRoute
-  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/$user': typeof UserIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/dashboard/keys': typeof DashboardKeysIndexRoute
+  '/dashboard/multistream': typeof DashboardMultistreamIndexRoute
+  '/dashboard/recommendations': typeof DashboardRecommendationsIndexRoute
+  '/dashboard/stream': typeof DashboardStreamIndexRoute
+  '/dashboard/webhooks': typeof DashboardWebhooksIndexRoute
   '/embed/$user': typeof EmbedUserIndexRoute
   '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
@@ -254,18 +264,19 @@ export interface FileRoutesById {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
-  '/settings/keys': typeof SettingsKeysRoute
   '/settings/languages': typeof SettingsLanguagesRoute
-  '/settings/multistream': typeof SettingsMultistreamRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
-  '/settings/recommendations': typeof SettingsRecommendationsRoute
-  '/settings/streaming': typeof SettingsStreamingRoute
-  '/settings/webhooks': typeof SettingsWebhooksRoute
   '/$user/': typeof UserIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/$user/video/$tid': typeof UserVideoTidRoute
   '/embed/danmu-obs/$user': typeof EmbedDanmuObsUserRoute
   '/embed/info-widget/$user': typeof EmbedInfoWidgetUserRoute
+  '/dashboard/keys/': typeof DashboardKeysIndexRoute
+  '/dashboard/multistream/': typeof DashboardMultistreamIndexRoute
+  '/dashboard/recommendations/': typeof DashboardRecommendationsIndexRoute
+  '/dashboard/stream/': typeof DashboardStreamIndexRoute
+  '/dashboard/webhooks/': typeof DashboardWebhooksIndexRoute
   '/embed/$user/': typeof EmbedUserIndexRoute
   '/embed/$user/video/$tid': typeof EmbedUserVideoTidRoute
 }
@@ -286,18 +297,19 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
-    | '/settings/keys'
     | '/settings/languages'
-    | '/settings/multistream'
     | '/settings/privacy'
-    | '/settings/recommendations'
-    | '/settings/streaming'
-    | '/settings/webhooks'
     | '/$user/'
+    | '/dashboard/'
     | '/settings/'
     | '/$user/video/$tid'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
+    | '/dashboard/keys/'
+    | '/dashboard/multistream/'
+    | '/dashboard/recommendations/'
+    | '/dashboard/stream/'
+    | '/dashboard/webhooks/'
     | '/embed/$user/'
     | '/embed/$user/video/$tid'
   fileRoutesByTo: FileRoutesByTo
@@ -315,18 +327,19 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
-    | '/settings/keys'
     | '/settings/languages'
-    | '/settings/multistream'
     | '/settings/privacy'
-    | '/settings/recommendations'
-    | '/settings/streaming'
-    | '/settings/webhooks'
     | '/$user'
+    | '/dashboard'
     | '/settings'
     | '/$user/video/$tid'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
+    | '/dashboard/keys'
+    | '/dashboard/multistream'
+    | '/dashboard/recommendations'
+    | '/dashboard/stream'
+    | '/dashboard/webhooks'
     | '/embed/$user'
     | '/embed/$user/video/$tid'
   id:
@@ -345,18 +358,19 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
-    | '/settings/keys'
     | '/settings/languages'
-    | '/settings/multistream'
     | '/settings/privacy'
-    | '/settings/recommendations'
-    | '/settings/streaming'
-    | '/settings/webhooks'
     | '/$user/'
+    | '/dashboard/'
     | '/settings/'
     | '/$user/video/$tid'
     | '/embed/danmu-obs/$user'
     | '/embed/info-widget/$user'
+    | '/dashboard/keys/'
+    | '/dashboard/multistream/'
+    | '/dashboard/recommendations/'
+    | '/dashboard/stream/'
+    | '/dashboard/webhooks/'
     | '/embed/$user/'
     | '/embed/$user/video/$tid'
   fileRoutesById: FileRoutesById
@@ -369,9 +383,15 @@ export interface RootRouteChildren {
   VideosRoute: typeof VideosRoute
   ChatPopoutUserRoute: typeof ChatPopoutUserRoute
   UserIndexRoute: typeof UserIndexRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
   EmbedDanmuObsUserRoute: typeof EmbedDanmuObsUserRoute
   EmbedInfoWidgetUserRoute: typeof EmbedInfoWidgetUserRoute
+  DashboardKeysIndexRoute: typeof DashboardKeysIndexRoute
+  DashboardMultistreamIndexRoute: typeof DashboardMultistreamIndexRoute
+  DashboardRecommendationsIndexRoute: typeof DashboardRecommendationsIndexRoute
+  DashboardStreamIndexRoute: typeof DashboardStreamIndexRoute
+  DashboardWebhooksIndexRoute: typeof DashboardWebhooksIndexRoute
   EmbedUserIndexRoute: typeof EmbedUserIndexRoute
   EmbedUserVideoTidRoute: typeof EmbedUserVideoTidRoute
 }
@@ -420,33 +440,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$user/': {
       id: '/$user/'
       path: '/$user'
       fullPath: '/$user/'
       preLoaderRoute: typeof UserIndexRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/settings/webhooks': {
-      id: '/settings/webhooks'
-      path: '/webhooks'
-      fullPath: '/settings/webhooks'
-      preLoaderRoute: typeof SettingsWebhooksRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/streaming': {
-      id: '/settings/streaming'
-      path: '/streaming'
-      fullPath: '/settings/streaming'
-      preLoaderRoute: typeof SettingsStreamingRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/recommendations': {
-      id: '/settings/recommendations'
-      path: '/recommendations'
-      fullPath: '/settings/recommendations'
-      preLoaderRoute: typeof SettingsRecommendationsRouteImport
-      parentRoute: typeof SettingsRoute
     }
     '/settings/privacy': {
       id: '/settings/privacy'
@@ -455,25 +461,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPrivacyRouteImport
       parentRoute: typeof SettingsRoute
     }
-    '/settings/multistream': {
-      id: '/settings/multistream'
-      path: '/multistream'
-      fullPath: '/settings/multistream'
-      preLoaderRoute: typeof SettingsMultistreamRouteImport
-      parentRoute: typeof SettingsRoute
-    }
     '/settings/languages': {
       id: '/settings/languages'
       path: '/languages'
       fullPath: '/settings/languages'
       preLoaderRoute: typeof SettingsLanguagesRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/settings/keys': {
-      id: '/settings/keys'
-      path: '/keys'
-      fullPath: '/settings/keys'
-      preLoaderRoute: typeof SettingsKeysRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/chat-profile': {
@@ -546,6 +538,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmbedUserIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/webhooks/': {
+      id: '/dashboard/webhooks/'
+      path: '/dashboard/webhooks'
+      fullPath: '/dashboard/webhooks/'
+      preLoaderRoute: typeof DashboardWebhooksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/stream/': {
+      id: '/dashboard/stream/'
+      path: '/dashboard/stream'
+      fullPath: '/dashboard/stream/'
+      preLoaderRoute: typeof DashboardStreamIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/recommendations/': {
+      id: '/dashboard/recommendations/'
+      path: '/dashboard/recommendations'
+      fullPath: '/dashboard/recommendations/'
+      preLoaderRoute: typeof DashboardRecommendationsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/multistream/': {
+      id: '/dashboard/multistream/'
+      path: '/dashboard/multistream'
+      fullPath: '/dashboard/multistream/'
+      preLoaderRoute: typeof DashboardMultistreamIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/keys/': {
+      id: '/dashboard/keys/'
+      path: '/dashboard/keys'
+      fullPath: '/dashboard/keys/'
+      preLoaderRoute: typeof DashboardKeysIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/embed/info-widget/$user': {
       id: '/embed/info-widget/$user'
       path: '/embed/info-widget/$user'
@@ -586,13 +613,8 @@ interface SettingsRouteChildren {
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsChatProfileRoute: typeof SettingsChatProfileRoute
-  SettingsKeysRoute: typeof SettingsKeysRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
-  SettingsMultistreamRoute: typeof SettingsMultistreamRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
-  SettingsRecommendationsRoute: typeof SettingsRecommendationsRoute
-  SettingsStreamingRoute: typeof SettingsStreamingRoute
-  SettingsWebhooksRoute: typeof SettingsWebhooksRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -605,13 +627,8 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsChatProfileRoute: SettingsChatProfileRoute,
-  SettingsKeysRoute: SettingsKeysRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
-  SettingsMultistreamRoute: SettingsMultistreamRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
-  SettingsRecommendationsRoute: SettingsRecommendationsRoute,
-  SettingsStreamingRoute: SettingsStreamingRoute,
-  SettingsWebhooksRoute: SettingsWebhooksRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 
@@ -627,9 +644,15 @@ const rootRouteChildren: RootRouteChildren = {
   VideosRoute: VideosRoute,
   ChatPopoutUserRoute: ChatPopoutUserRoute,
   UserIndexRoute: UserIndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
   EmbedDanmuObsUserRoute: EmbedDanmuObsUserRoute,
   EmbedInfoWidgetUserRoute: EmbedInfoWidgetUserRoute,
+  DashboardKeysIndexRoute: DashboardKeysIndexRoute,
+  DashboardMultistreamIndexRoute: DashboardMultistreamIndexRoute,
+  DashboardRecommendationsIndexRoute: DashboardRecommendationsIndexRoute,
+  DashboardStreamIndexRoute: DashboardStreamIndexRoute,
+  DashboardWebhooksIndexRoute: DashboardWebhooksIndexRoute,
   EmbedUserIndexRoute: EmbedUserIndexRoute,
   EmbedUserVideoTidRoute: EmbedUserVideoTidRoute,
 }

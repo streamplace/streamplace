@@ -1,11 +1,9 @@
-import { getRgbColor } from "@/lib/color";
 import type { LivestreamStore } from "@streamplace/core";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { ChatMessageViewHydrated } from "streamplace";
 import { useStore } from "zustand";
+import { useDanmuLanes } from "./use-danmu-lanes";
 
-// Duration constants (ms). Text length maps to a scroll duration
-// between MIN and MAX so short messages fly by faster.
 const MIN_DURATION = 6000;
 const MAX_DURATION = 12000;
 const DEFAULT_LANE_COUNT = 12;
@@ -13,8 +11,12 @@ const DEFAULT_OPACITY = 80;
 const DEFAULT_SPEED = 1;
 const DEFAULT_MAX_MESSAGES = 50;
 const FONT_SIZE_PERCENTAGE = 0.7;
+const MAX_PROCESSED_MESSAGES = 10;
+
+// px from top of video where danmu won't appear (avoid overlapping with title)
 const TOP_GAP = 20;
-const BOTTOM_GAP = 60;
+// px from bottom of video (avoid overlapping with controls)
+const BOTTOM_GAP = 20;
 
 function mapRange(
   num: number,
@@ -37,6 +39,19 @@ function baseDuration(message: { record: { text: string } }) {
   );
 }
 
+function brightenColor(
+  color: { red: number; green: number; blue: number } = {
+    red: 123,
+    green: 123,
+    blue: 123,
+  },
+) {
+  const red = mapRange(color.red, 0, 255, 100, 230);
+  const green = mapRange(color.green, 0, 255, 100, 230);
+  const blue = mapRange(color.blue, 0, 255, 100, 230);
+  return `rgb(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)})`;
+}
+
 interface DanmuOverlayProps {
   store: LivestreamStore;
   enabled?: boolean;
@@ -46,12 +61,10 @@ interface DanmuOverlayProps {
   maxMessages?: number;
 }
 
-interface ActiveDanmu {
-  id: string;
+interface ActiveDanmuMessage {
   message: ChatMessageViewHydrated;
   lane: number;
   duration: number;
-  width: number;
 }
 
 export function DanmuOverlay({
@@ -66,31 +79,42 @@ export function DanmuOverlay({
   const segment = useStore(store, (s) => s.segment);
 
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
-  const [activeDanmu, setActiveDanmu] = useState<ActiveDanmu[]>([]);
+  const [activeDanmu, setActiveDanmu] = useState<
+    Map<string, ActiveDanmuMessage>
+  >(new Map());
   const processedRef = useRef(new Set<string>());
   const mountTimeRef = useRef(Date.now());
   const lastChatLenRef = useRef(0);
-  const idCounterRef = useRef(0);
-  const laneOccupancyRef = useRef<number[]>(new Array(laneCount).fill(0));
 
-  const assignLane = useCallback((): number => {
-    const occ = laneOccupancyRef.current;
-    let minLane = 0;
-    let minVal = occ[0];
-    for (let i = 1; i < occ.length; i++) {
-      if (occ[i] < minVal) {
-        minVal = occ[i];
-        minLane = i;
-      }
-    }
-    occ[minLane]++;
-    return minLane;
-  }, []);
+  const { assignLane, updateDanmuWidth, releaseLane, cleanup } = useDanmuLanes(
+    laneCount,
+    containerSize.width,
+  );
 
-  const releaseLane = useCallback((lane: number) => {
-    const occ = laneOccupancyRef.current;
-    if (occ[lane] > 0) occ[lane]--;
-  }, []);
+  // Periodic cleanup of expired lane tracking
+  useEffect(() => {
+    const interval = setInterval(cleanup, 1000);
+    return () => clearInterval(interval);
+  }, [cleanup]);
+
+  const handleMessageComplete = useCallback(
+    (messageId: string) => {
+      releaseLane(messageId);
+      setActiveDanmu((prev) => {
+        const next = new Map(prev);
+        next.delete(messageId);
+        return next;
+      });
+    },
+    [releaseLane],
+  );
+
+  const handleWidthMeasured = useCallback(
+    (messageId: string, width: number) => {
+      updateDanmuWidth(messageId, width);
+    },
+    [updateDanmuWidth],
+  );
 
   // Process new chat messages into danmu
   useEffect(() => {
@@ -100,7 +124,7 @@ export function DanmuOverlay({
     if (newCount <= 0) return;
     lastChatLenRef.current = chat.length;
 
-    const newMessages = chat.slice(0, newCount).filter((msg) => {
+    const newMessages = chat.slice(-newCount).filter((msg) => {
       if (processedRef.current.has(msg.uri)) return false;
       if (msg.author.did === "did:sys:system") return false;
       if (msg.deleted) return false;
@@ -111,41 +135,36 @@ export function DanmuOverlay({
 
     if (newMessages.length === 0) return;
 
-    const toAdd: ActiveDanmu[] = [];
-    for (const msg of newMessages.slice(0, 10)) {
+    const messagesToAdd: ActiveDanmuMessage[] = [];
+
+    for (const msg of newMessages.slice(0, maxMessages)) {
       if (processedRef.current.has(msg.uri)) continue;
       processedRef.current.add(msg.uri);
 
-      // Prune old processed entries
-      if (processedRef.current.size > 200) {
-        const iter = processedRef.current.values();
-        for (let i = 0; i < 100; i++) {
-          const val = iter.next().value;
-          if (val) processedRef.current.delete(val);
-        }
+      if (processedRef.current.size > MAX_PROCESSED_MESSAGES) {
+        const toRemove = Array.from(processedRef.current).slice(
+          0,
+          processedRef.current.size - MAX_PROCESSED_MESSAGES,
+        );
+        toRemove.forEach((uri) => processedRef.current.delete(uri));
       }
 
-      const dur = baseDuration(msg) / speed;
-      const lane = assignLane();
-      toAdd.push({
-        id: `danmu-${++idCounterRef.current}`,
-        message: msg,
-        lane,
-        duration: dur,
-        width: 0,
-      });
+      const duration = baseDuration(msg) / speed;
+      const lane = assignLane(msg.uri, duration);
+
+      if (lane !== null) {
+        messagesToAdd.push({ message: msg, lane, duration });
+      }
     }
 
-    if (toAdd.length > 0) {
-      setActiveDanmu((prev) => [...prev, ...toAdd].slice(-maxMessages));
-
-      // Schedule cleanup
-      for (const item of toAdd) {
-        setTimeout(() => {
-          releaseLane(item.lane);
-          setActiveDanmu((prev) => prev.filter((d) => d.id !== item.id));
-        }, item.duration);
-      }
+    if (messagesToAdd.length > 0) {
+      setActiveDanmu((prev) => {
+        const next = new Map(prev);
+        for (const danmu of messagesToAdd) {
+          next.set(danmu.message.uri, danmu);
+        }
+        return next;
+      });
     }
   }, [
     chat.length,
@@ -154,30 +173,28 @@ export function DanmuOverlay({
     maxMessages,
     containerSize.width,
     assignLane,
-    releaseLane,
   ]);
 
-  // Calculate video area for positioning
+  // Calculate video area for positioning (matching mobile layout)
   const segVideo = segment?.video?.[0];
   const videoAR = segVideo ? segVideo.width / segVideo.height : 16 / 9;
   const containerAR = containerSize.width / containerSize.height;
 
-  let videoWidth: number;
   let videoHeight: number;
   let videoTop: number;
 
   if (containerAR > videoAR) {
+    // Container is wider than video - letterbox on sides
     videoHeight = containerSize.height;
-    videoWidth = videoHeight * videoAR;
     videoTop = 0;
+    // Adjust for top/bottom gaps iff we don't have top letterboxing
+    videoTop += TOP_GAP;
+    videoHeight -= TOP_GAP + BOTTOM_GAP;
   } else {
-    videoWidth = containerSize.width;
-    videoHeight = videoWidth / videoAR;
+    // Container is taller than video - letterbox on top/bottom
+    videoHeight = containerSize.width / videoAR;
     videoTop = (containerSize.height - videoHeight) / 2;
   }
-
-  videoTop += TOP_GAP;
-  videoHeight -= TOP_GAP + BOTTOM_GAP;
 
   const laneHeight = videoHeight / laneCount;
   const fontSize = laneHeight * FONT_SIZE_PERCENTAGE;
@@ -201,9 +218,9 @@ export function DanmuOverlay({
       }}
     >
       {containerSize.width > 0 &&
-        activeDanmu.map((d) => (
+        Array.from(activeDanmu.entries()).map(([id, d]) => (
           <DanmuMessageElement
-            key={d.id}
+            key={id}
             message={d.message}
             lane={d.lane}
             laneHeight={laneHeight}
@@ -211,13 +228,8 @@ export function DanmuOverlay({
             fontSize={fontSize}
             duration={d.duration}
             containerWidth={containerSize.width}
-            onWidthMeasured={(w) => {
-              setActiveDanmu((prev) =>
-                prev.map((item) =>
-                  item.id === d.id ? { ...item, width: w } : item,
-                ),
-              );
-            }}
+            onComplete={handleMessageComplete}
+            onWidthMeasured={handleWidthMeasured}
           />
         ))}
     </div>
@@ -233,6 +245,7 @@ const DanmuMessageElement = memo(
     fontSize,
     duration,
     containerWidth,
+    onComplete,
     onWidthMeasured,
   }: {
     message: ChatMessageViewHydrated;
@@ -242,7 +255,8 @@ const DanmuMessageElement = memo(
     fontSize: number;
     duration: number;
     containerWidth: number;
-    onWidthMeasured: (width: number) => void;
+    onComplete: (messageId: string) => void;
+    onWidthMeasured: (messageId: string, width: number) => void;
   }) => {
     const ref = useRef<HTMLDivElement>(null);
     const measuredRef = useRef(false);
@@ -250,12 +264,18 @@ const DanmuMessageElement = memo(
     useEffect(() => {
       if (ref.current && !measuredRef.current) {
         measuredRef.current = true;
-        onWidthMeasured(ref.current.offsetWidth);
+        onWidthMeasured(message.uri, ref.current.offsetWidth);
       }
-    }, [onWidthMeasured]);
+    }, [message.uri, onWidthMeasured]);
 
-    const color = getRgbColor(message.chatProfile?.color);
-    const totalDistance = containerWidth + (ref.current?.offsetWidth ?? 200);
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        onComplete(message.uri);
+      }, duration);
+      return () => clearTimeout(timer);
+    }, [message.uri, duration, onComplete]);
+
+    const color = brightenColor(message.chatProfile?.color);
 
     return (
       <div
@@ -266,7 +286,7 @@ const DanmuMessageElement = memo(
             top: videoTop + lane * laneHeight,
             color,
             fontSize,
-            textShadow: "1px 1px 2px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.5)",
+            textShadow: "1px 1px 2px rgba(0,0,0,0.8), 0 0 64px rgba(0,0,0,0.5)",
             animation: `danmu-scroll ${duration}ms linear forwards`,
             "--danmu-start": `${containerWidth}px`,
             willChange: "transform",

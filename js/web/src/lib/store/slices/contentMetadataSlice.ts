@@ -17,7 +17,10 @@ export interface ContentMetadataSlice {
   // actions
   createContentMetadata: (params: {
     contentWarnings?: string[];
-    distributionPolicy?: { deleteAfter?: number };
+    distributionPolicy?: {
+      deleteAfter?: number;
+      allowedBroadcasters?: string[];
+    };
     contentRights?: {
       creator?: string;
       copyrightNotice?: string;
@@ -30,7 +33,10 @@ export interface ContentMetadataSlice {
     rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
-    distributionPolicy?: { deleteAfter?: number };
+    distributionPolicy?: {
+      deleteAfter?: number;
+      allowedBroadcasters?: string[];
+    };
     contentRights?: {
       creator?: string;
       copyrightNotice?: string;
@@ -80,7 +86,18 @@ export const createContentMetadataSlice: StateCreator<
         ...(contentWarnings.length > 0 && {
           contentWarnings: { warnings: contentWarnings },
         }),
-        ...(distributionPolicy.deleteAfter && { distributionPolicy }),
+        ...((distributionPolicy.deleteAfter !== undefined ||
+          (distributionPolicy.allowedBroadcasters &&
+            distributionPolicy.allowedBroadcasters.length > 0)) && {
+          distributionPolicy: {
+            ...(distributionPolicy.deleteAfter !== undefined && {
+              deleteAfter: distributionPolicy.deleteAfter,
+            }),
+            ...(distributionPolicy.allowedBroadcasters && {
+              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
+            }),
+          },
+        }),
         ...(contentRights &&
           Object.keys(contentRights).length > 0 && {
             contentRights,
@@ -140,7 +157,18 @@ export const createContentMetadataSlice: StateCreator<
         ...(contentWarnings.length > 0 && {
           contentWarnings: { warnings: contentWarnings },
         }),
-        ...(distributionPolicy.deleteAfter && { distributionPolicy }),
+        ...((distributionPolicy.deleteAfter !== undefined ||
+          (distributionPolicy.allowedBroadcasters &&
+            distributionPolicy.allowedBroadcasters.length > 0)) && {
+          distributionPolicy: {
+            ...(distributionPolicy.deleteAfter !== undefined && {
+              deleteAfter: distributionPolicy.deleteAfter,
+            }),
+            ...(distributionPolicy.allowedBroadcasters && {
+              allowedBroadcasters: distributionPolicy.allowedBroadcasters,
+            }),
+          },
+        }),
         ...(contentRights &&
           Object.keys(contentRights).length > 0 && {
             contentRights,

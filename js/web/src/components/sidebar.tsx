@@ -1,7 +1,15 @@
 import { EMPTY_LOGIN_SEARCH } from "@/lib/login-search";
 import { Link } from "@tanstack/react-router";
-import { House, LogIn, Settings, Users, Video } from "lucide-react";
+import {
+  House,
+  LayoutDashboard,
+  LogIn,
+  Settings,
+  Users,
+  Video,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useSession } from "../lib/session";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +25,9 @@ import {
 
 export default function SidebarComponent() {
   const { t } = useTranslation("common");
+  const { state } = useSession();
+  const isAuthenticated = state.status === "authenticated";
+
   return (
     <Sidebar side="left" collapsible="icon" variant="sidebar">
       <SidebarHeader className="h-10" />
@@ -45,6 +56,20 @@ export default function SidebarComponent() {
                 <span>{t("nav-following")}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {isAuthenticated && (
+              <SidebarMenuItem>
+                <Link to="/dashboard" className="w-full">
+                  <SidebarMenuButton
+                    tooltip={t("nav-dashboard", { defaultValue: "Dashboard" })}
+                  >
+                    <LayoutDashboard />
+                    <span>
+                      {t("nav-dashboard", { defaultValue: "Dashboard" })}
+                    </span>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
 

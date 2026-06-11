@@ -13,9 +13,9 @@ import { Edit2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { usePDSAgent } from "../../lib/store/hooks";
+import { usePDSAgent } from "../../../lib/store/hooks";
 
-export const Route = createFileRoute("/settings/multistream")({
+export const Route = createFileRoute("/dashboard/multistream/")({
   component: MultistreamManager,
 });
 
@@ -206,7 +206,9 @@ function MultistreamManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold font-display">{t("multistream-targets")}</h1>
+        <h1 className="text-xl font-semibold font-display">
+          {t("multistream-targets")}
+        </h1>
         <p className="text-sm text-[var(--color-fg-muted)] mt-1">
           {t("multistream-description")}
         </p>

@@ -8,15 +8,11 @@ import {
 import {
   ChevronDown,
   Globe,
-  Heart,
   Info,
-  Key,
   Lock,
   Palette,
   Shield,
   User2,
-  Video,
-  Webhook,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -45,21 +41,6 @@ const NAV_ITEMS: NavItem[] = [
     to: "/settings/chat-profile",
     icon: Palette,
     labelKey: "chat-profile",
-  },
-  {
-    role: "group",
-    icon: Video,
-    labelKey: "streaming",
-    children: [
-      { to: "/settings/keys", icon: Key, labelKey: "key-management" },
-      {
-        to: "/settings/recommendations",
-        icon: Heart,
-        labelKey: "recommendations-to-others",
-      },
-      { to: "/settings/webhooks", icon: Webhook, labelKey: "webhooks" },
-      { to: "/settings/multistream", icon: Globe, labelKey: "multistream" },
-    ],
   },
   {
     role: "link",
@@ -115,18 +96,6 @@ function NavGroupItem({ item }: { item: NavGroup }) {
 
   return (
     <div>
-      {/* Mobile: just show as a regular link to the streaming page */}
-      <Link
-        to="/settings/streaming"
-        className={cn(
-          linkClass,
-          "lg:hidden",
-          isChildActive && "text-(--color-fg) font-medium",
-        )}
-      >
-        {t(item.labelKey)}
-      </Link>
-
       {/* Desktop: expandable group */}
       <div className="hidden lg:block">
         <button

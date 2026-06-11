@@ -40,8 +40,6 @@ export type PlayerProps = {
   showDanmu?: boolean;
   /** Toggle the danmu overlay. */
   onShowDanmuChange?: (show: boolean) => void;
-  /** Whether to show developer-only controls. */
-  devMode?: boolean;
 };
 
 /** One quality option shown in the player's settings menu. */
@@ -129,7 +127,6 @@ export function Player({
   onPlaying,
   showDanmu = false,
   onShowDanmuChange,
-  devMode = false,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -331,7 +328,6 @@ export function Player({
           onShowStatsChange={setShowStats}
           showDanmu={showDanmu}
           onShowDanmuChange={(v) => onShowDanmuChange?.(v)}
-          devMode={devMode}
         />
       )}
 

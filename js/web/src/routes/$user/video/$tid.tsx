@@ -1,4 +1,5 @@
 import { VideoSectionInner } from "@/components/stream/video-section";
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useVideoRecord } from "@/hooks/use-video-record";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { formatDuration } from "@/lib/video";
@@ -16,6 +17,7 @@ function VodPage() {
   const { user, tid } = Route.useParams();
   const { record, author, loading, error } = useVideoRecord(user, tid);
   const [downloading, setDownloading] = useState(false);
+  const { theatre } = useFullscreen();
 
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
@@ -107,60 +109,62 @@ function VodPage() {
             thumbnailUrl={thumbnailUrl}
             mode="vod"
           />
-          <div className="mt-3 space-y-3 mx-3">
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start gap-2">
-                  <h2 className="flex-1 font-display font-semibold text-[var(--color-fg)] line-clamp-2">
-                    {loading ? t("loading") : title}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={handleDownload}
-                    disabled={downloading}
-                    className="flex-shrink-0 p-2 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors disabled:opacity-50"
-                    title={t("download-video")}
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
+          {!theatre && (
+            <div className="mt-3 space-y-3 mx-3">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2">
+                    <h2 className="flex-1 font-display font-semibold text-[var(--color-fg)] line-clamp-2">
+                      {loading ? t("loading") : title}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="flex-shrink-0 p-2 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors disabled:opacity-50"
+                      title={t("download-video")}
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
 
-                <div className="flex items-center gap-2 mt-1 text-sm text-[var(--color-fg-muted)]">
-                  <span className="truncate">
-                    {author?.displayName || author?.handle || user}
-                  </span>
-                  {(author?.displayName || author?.handle) && (
-                    <span className="text-[var(--color-fg-subtle)]">@</span>
+                  <div className="flex items-center gap-2 mt-1 text-sm text-[var(--color-fg-muted)]">
+                    <span className="truncate">
+                      {author?.displayName || author?.handle || user}
+                    </span>
+                    {(author?.displayName || author?.handle) && (
+                      <span className="text-[var(--color-fg-subtle)]">@</span>
+                    )}
+                    <span className="truncate">{author?.handle || user}</span>
+                  </div>
+
+                  {duration && (
+                    <span className="text-xs text-[var(--color-fg-muted)] mt-1 block">
+                      {duration}
+                    </span>
                   )}
-                  <span className="truncate">{author?.handle || user}</span>
+
+                  {createdAt && (
+                    <span className="text-xs text-[var(--color-fg-muted)]">
+                      {createdAt}
+                    </span>
+                  )}
+
+                  {description && (
+                    <p className="text-sm text-[var(--color-fg)] mt-3 whitespace-pre-wrap">
+                      {description}
+                    </p>
+                  )}
+
+                  {error && (
+                    <p className="text-sm text-[var(--color-danger)] mt-2">
+                      {error}
+                    </p>
+                  )}
                 </div>
-
-                {duration && (
-                  <span className="text-xs text-[var(--color-fg-muted)] mt-1 block">
-                    {duration}
-                  </span>
-                )}
-
-                {createdAt && (
-                  <span className="text-xs text-[var(--color-fg-muted)]">
-                    {createdAt}
-                  </span>
-                )}
-
-                {description && (
-                  <p className="text-sm text-[var(--color-fg)] mt-3 whitespace-pre-wrap">
-                    {description}
-                  </p>
-                )}
-
-                {error && (
-                  <p className="text-sm text-[var(--color-danger)] mt-2">
-                    {error}
-                  </p>
-                )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

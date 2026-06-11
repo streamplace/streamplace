@@ -98,6 +98,11 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 		if body == "" {
 			return echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 		}
+		// A live player re-fetches the media playlist every target duration,
+		// so this is the session's heartbeat into the viewer count. Master
+		// requests don't count — one-shot fetchers (preview cards, health
+		// checks) aren't viewers.
+		s.mm.TouchHLSSession(did, sid)
 	}
 
 	h := c.Response().Header()
@@ -135,6 +140,10 @@ func (s *Server) HandleGetLiveSegment(c echo.Context) error {
 	if w == nil {
 		return echo.NewHTTPError(http.StatusNotFound, "StreamNotLive")
 	}
+
+	// Segment fetches keep the playback session alive in the viewer count
+	// (sid is threaded through every segment URL by the playlist handler).
+	s.mm.TouchHLSSession(did, c.QueryParam("sid"))
 
 	var data []byte
 	isInit := seg == "init"

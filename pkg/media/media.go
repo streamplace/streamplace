@@ -54,6 +54,10 @@ type MediaManager struct {
 	webrtcConfig        webrtc.Configuration
 	localDB             localdb.LocalDB
 
+	// hlsSessions tracks live HLS playback sessions by (streamer, sid) so
+	// stateless HLS requests feed the viewer count. See hls_sessions.go.
+	hlsSessions *hlsSessionTracker
+
 	// Node S2PA transcode signer (cert + PKCS#8 key PEM), built once from the
 	// server-repo key. Used to sign transcode-completed audio tracks under the
 	// node's own did:web identity, signed in-wasm (the node key is software).
@@ -113,7 +117,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	if err != nil {
 		return nil, err
 	}
-	return &MediaManager{
+	mm := &MediaManager{
 		cli:          cli,
 		liveWindows:  map[string]*livehls.Writer{},
 		httpPipes:    map[string]io.Writer{},
@@ -124,7 +128,12 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		webrtcConfig: config,
 		localDB:      ldb,
 		transcoders:  map[string]*streamTranscoder{},
-	}, nil
+	}
+	mm.hlsSessions = newHLSSessionTracker(hlsSessionTTL,
+		func(streamer string) { mm.IncrementViewerCount(streamer, "hls") },
+		func(streamer string) { mm.DecrementViewerCount(streamer, "hls") },
+	)
+	return mm, nil
 }
 
 func (mm *MediaManager) HandleData(node *irohStreamplace.PublicKey, data []byte) {

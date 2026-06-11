@@ -237,9 +237,9 @@ func ViewerDec(user string, protocol string) {
 		}
 		viewersByProtocol[protocol]--
 		if viewersByProtocol[protocol] == 0 {
-			Viewers.DeleteLabelValues(protocol)
+			ViewersTotal.DeleteLabelValues(protocol)
 		} else {
-			Viewers.WithLabelValues(protocol).Set(float64(viewersByProtocol[protocol]))
+			ViewersTotal.WithLabelValues(protocol).Set(float64(viewersByProtocol[protocol]))
 		}
 	}()
 }

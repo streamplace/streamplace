@@ -648,6 +648,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 	case *streamplace.LiveViewerCount:
 		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)
+		// Our own record loops back through our own firehose; indexing it
+		// would stack the federated copy of our local count on top of the
+		// live one, double-counting every local viewer.
+		if rec.Server == atsync.CLI.ServerDID() {
+			break
+		}
 		// Check if the reporting server's DID is labeled as banned or !no-viewers
 		serverLabels, err := atsync.Model.GetActiveLabels(rec.Server)
 		if err != nil {

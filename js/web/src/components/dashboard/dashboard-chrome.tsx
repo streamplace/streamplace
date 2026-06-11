@@ -1,4 +1,5 @@
 import { LivestreamProvider } from "@/components/stream/livestream-provider";
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSession } from "@/lib/session";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
@@ -37,11 +38,11 @@ interface NavLink {
 /** Main nav — appears above the Settings group. */
 const MAIN_NAV: NavLink[] = [
   { to: "/dashboard", icon: LayoutGrid, labelKey: "control-panel" },
-  { to: "/dashboard/stream", icon: Radio, labelKey: "stream-settings" },
 ];
 
 /** Settings group — appears under a "Settings" header. */
 const SETTINGS_NAV: NavLink[] = [
+  { to: "/dashboard/stream", icon: Radio, labelKey: "stream-settings" },
   { to: "/dashboard/keys", icon: Key, labelKey: "key-manager" },
   { to: "/dashboard/multistream", icon: Share2, labelKey: "multistream" },
   {
@@ -57,6 +58,7 @@ const DASHBOARD_NAV_OPEN_KEY = "streamplace:dashboard-nav-open";
 export default function DashboardChrome() {
   const { t } = useTranslation("settings");
   const { state } = useSession();
+  const { theatre } = useFullscreen();
 
   const [open, setOpen] = useState<boolean>(() => {
     if (typeof localStorage === "undefined") return true;
@@ -82,7 +84,7 @@ export default function DashboardChrome() {
           <DashboardMetricsProvider>
             <SidebarProvider
               className="h-svh"
-              open={open}
+              open={theatre ? false : open}
               onOpenChange={(o) => {
                 setOpen(o);
                 if (typeof localStorage !== "undefined") {
@@ -90,14 +92,18 @@ export default function DashboardChrome() {
                 }
               }}
             >
-              <DashboardSidebar />
+              {!theatre && <DashboardSidebar />}
               <SidebarInset>
-                <header className="flex items-center gap-2 h-12 px-4 bg-sidebar border-b border-[var(--color-border)] z-99">
-                  <SidebarTrigger className="-ml-1" />
-                  <h1 className="text-lg font-semibold font-display">
-                    {t("nav-dashboard", { defaultValue: "Creator Dashboard" })}
-                  </h1>
-                </header>
+                {!theatre && (
+                  <header className="flex items-center gap-2 h-12 px-4 bg-sidebar border-b border-[var(--color-border)] z-99">
+                    <SidebarTrigger className="-ml-1" />
+                    <h1 className="text-lg font-semibold font-display">
+                      {t("nav-dashboard", {
+                        defaultValue: "Creator Dashboard",
+                      })}
+                    </h1>
+                  </header>
+                )}
                 <div className="flex flex-1 flex-col min-h-0 mx-auto w-full">
                   <Outlet />
                 </div>

@@ -56,6 +56,12 @@ function Admonition({
       "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-100 border-red-400/40",
   } as const;
 
+  const iconSize = {
+    sm: "size-10 -mt-2",
+    md: "size-14 -mt-3",
+    lg: "size-18 -mt-4",
+  };
+
   const Icon =
     {
       note: LucideNotebookPen,
@@ -71,7 +77,7 @@ function Admonition({
         className={`flex flex-col items-start ${colors[type as keyof typeof colors] || colors.info} border ${sizes[size]}`}
       >
         <div className="flex items-start gap-2">
-          <Icon className="w-12 h-auto mt-0.5" />
+          <Icon className={cn(iconSize[size])} />
           <div>{children}</div>
         </div>
       </Card>

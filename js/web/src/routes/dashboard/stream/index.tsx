@@ -1,4 +1,6 @@
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CUSTOM_LICENSE, LICENSE_OPTIONS } from "@/lib/content-licenses";
 import { CONTENT_WARNINGS } from "@/lib/content-warnings";
 import { useSession } from "@/lib/session";
@@ -10,21 +12,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useStore as useZustandStore } from "zustand";
-
-/**
- * Stream Settings page. Mirrors the RN app's LivestreamPanel's Metadata
- * and Moderation tabs as two stacked sections on the same page. The
- * Create flow (title/activity/tags/thumbnail/go-live) lives in the
- * `stream-info` dashboard widget, not here.
- *
- * The Metadata section follows the RN's `ContentMetadataForm` shape
- * with three sub-blocks: Content Warnings, Content Rights (optional),
- * and Distribution (optional). All three are saved together through
- * the same slice action.
- *
- * Layout follows `routes/settings.tsx`: sticky header on mobile,
- * sidebar nav on desktop, content area on the right.
- */
 
 export const Route = createFileRoute("/dashboard/stream/")({
   component: StreamSettingsPage,
@@ -114,8 +101,6 @@ export function StreamSettingsPage() {
     </div>
   );
 }
-
-// ─── Metadata section ──────────────────────────────────────────────
 
 function MetadataSection() {
   const { t } = useTranslation("common");
@@ -333,7 +318,6 @@ function MetadataSection() {
         </p>
       ) : (
         <>
-          {/* ── Content Warnings ──────────────────────────────────── */}
           <SubSection
             title={t("content-warnings", {
               defaultValue: "Content Warnings",
@@ -431,11 +415,11 @@ function MetadataSection() {
                   defaultValue: "Custom License URL/Text",
                 })}
               >
-                <input
+                <Input
                   type="text"
                   value={customLicense}
                   onChange={(e) => setCustomLicense(e.target.value)}
-                  placeholder="https://… or any text"
+                  placeholder="https://… or text"
                   className="w-full h-9 px-3 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
                 />
               </Field>
@@ -445,7 +429,7 @@ function MetadataSection() {
                 defaultValue: "Copyright Notice",
               })}
             >
-              <textarea
+              <Textarea
                 value={contentRights.copyrightNotice ?? ""}
                 onChange={(e) =>
                   setContentRights({
@@ -459,7 +443,7 @@ function MetadataSection() {
               />
             </Field>
             <Field label={t("credit-line", { defaultValue: "Credit Line" })}>
-              <textarea
+              <Textarea
                 value={contentRights.creditLine ?? ""}
                 onChange={(e) =>
                   setContentRights({
@@ -467,9 +451,8 @@ function MetadataSection() {
                     creditLine: e.target.value,
                   })
                 }
-                placeholder="Photo by Your Name"
+                placeholder="Your Name"
                 rows={2}
-                className="w-full px-3 py-2 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)] resize-none"
               />
             </Field>
           </SubSection>
@@ -560,8 +543,6 @@ function MetadataSection() {
   );
 }
 
-// ─── Moderation section ────────────────────────────────────────────
-
 function ModerationSection() {
   const { t } = useTranslation("common");
   return (
@@ -587,8 +568,6 @@ function ModerationSection() {
   );
 }
 
-// ─── Shared form primitives ─────────────────────────────────────────
-
 function SubSection({
   title,
   required,
@@ -609,12 +588,12 @@ function SubSection({
         <h3 className="text-sm font-semibold flex items-center gap-2">
           {title}
           {required && (
-            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--color-accent)]/15 text-[var(--color-accent)]">
+            <span className="text-xs px-1.5 rounded-full bg-muted text-foreground">
               {t("required", { defaultValue: "Required" })}
             </span>
           )}
           {optional && (
-            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--color-bg-elevated)] text-[var(--color-fg-muted)]">
+            <span className="text-xs px-1.5 bg-muted rounded-full text-muted-foreground">
               {t("optional", { defaultValue: "Optional" })}
             </span>
           )}

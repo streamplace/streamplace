@@ -24,6 +24,12 @@ default-url = Par défaut : { $url }
 enter-custom-node-url = Saisir l'URL du nœud personnalisé
 save-button = ENREGISTRER
 
+## New Web Opt-in
+try-new-web = Essayer la nouvelle web (bêta)
+try-new-web-description = Passez à la nouvelle interface web. Vous pouvez revenir à tout moment depuis ce même réglage.
+try-old-app = Utiliser l'interface d'origine
+try-old-app-description = Revenir à l'interface d'origine de Streamplace.
+
 ## Language Settings
 language-selection = Langue
 language-selection-description = Choisissez votre langue préférée

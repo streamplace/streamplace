@@ -17,6 +17,10 @@
   "default-url": "默认：{$url}",
   "enter-custom-node-url": "输入自定义节点网址",
   "save-button": "保存",
+  "try-new-web": "试用新版网页 (beta)",
+  "try-new-web-description": "切换到新的网页界面。你可以随时通过此设置切换回来。",
+  "try-old-app": "使用原版界面",
+  "try-old-app-description": "返回 Streamplace 原版界面。",
   "language-selection": "语言",
   "language-selection-description": "选择您偏好的语言",
   "input-search-languages": "搜索语言...",
@@ -237,15 +241,5 @@
   "issue-badges-recipient-did": "收件人 DID",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "点击颁发",
-  "issue-badges-your-definitions": "您的徽章定义",
-  "chat-profile": "聊天资料",
-  "chat-profile-login-required": "请登录以编辑您的聊天资料。",
-  "chat-profile-saved": "聊天资料已保存",
-  "chat-profile-save-failed": "保存聊天资料失败",
-  "chat-profile-name-color": "名称颜色",
-  "chat-profile-name-color-description": "选择您在聊天中的名称颜色。",
-  "chat-profile-preview-message": "你好，世界！",
-  "chat-profile-self-labels": "自我标签",
-  "chat-profile-label-bot": "机器人",
-  "chat-profile-label-bot-description": "将您的聊天消息标记为来自机器人。"
+  "issue-badges-your-definitions": "您的徽章定义"
 }

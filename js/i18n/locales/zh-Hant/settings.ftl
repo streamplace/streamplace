@@ -25,6 +25,12 @@ default-url = 預設：{ $url }
 enter-custom-node-url = 輸入自訂節點網址
 save-button = 儲存
 
+## New Web Opt-in
+try-new-web = 試用新版網頁 (beta)
+try-new-web-description = 切換到新的網頁介面。你可以隨時透過此設定切換回來。
+try-old-app = 使用原版介面
+try-old-app-description = 返回 Streamplace 原版介面。
+
 ## Language Settings
 language-selection = 語言
 language-selection-description = 選擇您偏好的語言

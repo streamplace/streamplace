@@ -1,6 +1,13 @@
 import { Text, useTheme, zero } from "@streamplace/components";
 import { X } from "lucide-react-native";
-import { Modal, Pressable, TouchableOpacity, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import LoginForm from "./login-form";
 
 interface LoginModalProps {
@@ -27,7 +34,8 @@ export default function LoginModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={[
           zero.layout.flex[1],
           zero.layout.flex.center,
@@ -79,7 +87,7 @@ export default function LoginModal({
             onOpenPdsModal={onOpenPdsModal}
           />
         </Pressable>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

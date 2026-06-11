@@ -17,6 +17,10 @@
   "default-url": "Predeterminado: {$url}",
   "enter-custom-node-url": "Introduce la URL del nodo personalizado",
   "save-button": "Guardar",
+  "try-new-web": "Probar la nueva web (beta)",
+  "try-new-web-description": "Cambia a la nueva interfaz web. Puedes volver en cualquier momento desde este mismo ajuste.",
+  "try-old-app": "Usar la interfaz original",
+  "try-old-app-description": "Vuelve a la interfaz original de Streamplace.",
   "language-selection": "Idioma",
   "language-selection-description": "Elige tu idioma preferido",
   "help-translate": "Ayúdanos a traducir Streamplace",
@@ -242,15 +246,5 @@
   "issue-badges-recipient-did": "DID del destinatario",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "Toca para emitir",
-  "issue-badges-your-definitions": "Tus definiciones de insignias",
-  "chat-profile": "Perfil de chat",
-  "chat-profile-login-required": "Inicia sesión para editar tu perfil de chat.",
-  "chat-profile-saved": "Perfil de chat guardado",
-  "chat-profile-save-failed": "Error al guardar el perfil de chat",
-  "chat-profile-name-color": "Color de nombre",
-  "chat-profile-name-color-description": "Elige el color de tu nombre en el chat.",
-  "chat-profile-preview-message": "¡Hola, mundo!",
-  "chat-profile-self-labels": "Etiquetas propias",
-  "chat-profile-label-bot": "Bot",
-  "chat-profile-label-bot-description": "Marca tus mensajes de chat como provenientes de un bot."
+  "issue-badges-your-definitions": "Tus definiciones de insignias"
 }

@@ -26,6 +26,12 @@ default-url = Predeterminado: { $url }
 enter-custom-node-url = Introduce la URL del nodo personalizado
 save-button = GUARDAR
 
+## New Web Opt-in
+try-new-web = Probar la nueva web (beta)
+try-new-web-description = Cambia a la nueva interfaz web. Puedes volver en cualquier momento desde este mismo ajuste.
+try-old-app = Usar la interfaz original
+try-old-app-description = Vuelve a la interfaz original de Streamplace.
+
 ## Language Settings
 language-selection = Idioma
 language-selection-description = Elige tu idioma preferido

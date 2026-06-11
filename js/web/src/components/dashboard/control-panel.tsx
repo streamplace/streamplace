@@ -1,7 +1,15 @@
+import { useFullscreen } from "@/contexts/fullscreen-context";
 import { cn } from "@/lib/utils";
 import { DragDropProvider, useDraggable } from "@dnd-kit/react";
 import type { LivestreamStore } from "@streamplace/core";
-import { Plus, RotateCcw, Save, Trash2, X } from "lucide-react";
+import {
+  Plus,
+  RectangleHorizontal,
+  RotateCcw,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { useLayout } from "./hooks/use-layout";
@@ -45,6 +53,8 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
     loadPreset,
     deletePreset,
   } = useLayout();
+
+  const { theatre, setTheatre } = useFullscreen();
 
   const [presetName, setPresetName] = useState("");
   const [showSaveInput, setShowSaveInput] = useState(false);
@@ -200,124 +210,143 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col h-full min-h-0">
+      <div className="flex flex-col h-full min-h-0 relative">
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] shrink-0">
-          {/* Preset selector */}
-          {presets.length > 0 && (
-            <select
-              value=""
-              onChange={(e) => {
-                if (e.target.value) loadPreset(e.target.value);
-              }}
-              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)]"
-            >
-              <option value="">Load preset…</option>
-              {presets.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {/* Save preset */}
-          {showSaveInput ? (
-            <div className="flex items-center gap-1">
-              <input
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSavePreset();
-                  if (e.key === "Escape") setShowSaveInput(false);
+        {!theatre && (
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] shrink-0">
+            {/* Preset selector */}
+            {presets.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) loadPreset(e.target.value);
                 }}
-                placeholder="Preset name…"
-                autoFocus
-                className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] w-32"
-              />
+                className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)]"
+              >
+                <option value="">Load preset…</option>
+                {presets.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Save preset */}
+            {showSaveInput ? (
+              <div className="flex items-center gap-1">
+                <input
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSavePreset();
+                    if (e.key === "Escape") setShowSaveInput(false);
+                  }}
+                  placeholder="Preset name…"
+                  autoFocus
+                  className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] w-32"
+                />
+                <button
+                  type="button"
+                  onClick={handleSavePreset}
+                  className="h-7 px-2 text-xs rounded bg-[var(--color-accent)] text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)] transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={handleSavePreset}
-                className="h-7 px-2 text-xs rounded bg-[var(--color-accent)] text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)] transition-colors"
+                onClick={() => setShowSaveInput(true)}
+                className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
               >
-                Save
+                <Save className="size-3" />
+                Save Preset
               </button>
-            </div>
-          ) : (
+            )}
+
+            {/* Preset management */}
+            {presets.length > 0 && (
+              <div className="flex items-center gap-1">
+                {presets.map((p) => (
+                  <div
+                    key={p.name}
+                    className="flex items-center gap-0.5 h-7 px-1.5 text-xs rounded bg-[var(--color-bg)] border border-[var(--color-border)]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => loadPreset(p.name)}
+                      className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+                    >
+                      {p.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deletePreset(p.name)}
+                      className="text-[var(--color-fg-muted)] hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex-1" />
+
+            {/* Add Widget toggle */}
             <button
               type="button"
-              onClick={() => setShowSaveInput(true)}
-              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+              id="drawer-toggle-button"
+              onClick={() => setDrawerOpen((v) => !v)}
+              className={cn(
+                "h-7 px-2 text-xs rounded border transition-colors flex items-center gap-1",
+                drawerOpen
+                  ? "bg-[var(--color-accent)]/15 border-[var(--color-accent)] text-[var(--color-accent)]"
+                  : "border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+              )}
+              aria-pressed={drawerOpen}
             >
-              <Save className="size-3" />
-              Save Preset
+              {drawerOpen ? (
+                <X className="size-3" />
+              ) : (
+                <Plus className="size-3" />
+              )}
+              {drawerOpen ? "Close" : "Add Widget"}
             </button>
-          )}
 
-          {/* Preset management */}
-          {presets.length > 0 && (
-            <div className="flex items-center gap-1">
-              {presets.map((p) => (
-                <div
-                  key={p.name}
-                  className="flex items-center gap-0.5 h-7 px-1.5 text-xs rounded bg-[var(--color-bg)] border border-[var(--color-border)]"
-                >
-                  <button
-                    type="button"
-                    onClick={() => loadPreset(p.name)}
-                    className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
-                  >
-                    {p.name}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deletePreset(p.name)}
-                    className="text-[var(--color-fg-muted)] hover:text-red-400 transition-colors"
-                  >
-                    <Trash2 className="size-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+            {/* Reset */}
+            <button
+              type="button"
+              onClick={resetLayout}
+              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+              title="Reset to default layout"
+            >
+              <RotateCcw className="size-3" />
+              Reset
+            </button>
 
-          <div className="flex-1" />
-
-          {/* Add Widget toggle */}
-          <button
-            type="button"
-            id="drawer-toggle-button"
-            onClick={() => setDrawerOpen((v) => !v)}
-            className={cn(
-              "h-7 px-2 text-xs rounded border transition-colors flex items-center gap-1",
-              drawerOpen
-                ? "bg-[var(--color-accent)]/15 border-[var(--color-accent)] text-[var(--color-accent)]"
-                : "border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
-            )}
-            aria-pressed={drawerOpen}
-          >
-            {drawerOpen ? (
-              <X className="size-3" />
-            ) : (
-              <Plus className="size-3" />
-            )}
-            {drawerOpen ? "Close" : "Add Widget"}
-          </button>
-
-          {/* Reset */}
-          <button
-            type="button"
-            onClick={resetLayout}
-            className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
-            title="Reset to default layout"
-          >
-            <RotateCcw className="size-3" />
-            Reset
-          </button>
-        </div>
+            {/* Theatre mode */}
+            <button
+              type="button"
+              onClick={() => setTheatre(true)}
+              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+              title="Theatre mode"
+              aria-label="Theatre mode"
+            >
+              <RectangleHorizontal className="size-3" />
+              Theatre
+            </button>
+          </div>
+        )}
 
         {/* Drawer (slides down between toolbar and layout) */}
-        <WidgetDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+        {!theatre && (
+          <WidgetDrawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+          />
+        )}
 
         {/* Layout area */}
         <div className="flex-1 min-h-0 p-1.5">
@@ -331,6 +360,21 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             dragState={dragState}
           />
         </div>
+
+        {/* Theatre-mode exit button: floating top-right inside the control
+            panel so it's reachable after the toolbar and drawer are gone. */}
+        {theatre && (
+          <button
+            type="button"
+            onClick={() => setTheatre(false)}
+            aria-label="Exit theatre mode"
+            title="Exit theatre mode"
+            className="absolute top-2 right-10 z-20 h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/80 backdrop-blur text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border-strong)] transition-colors flex items-center gap-1 opacity-50 hover:opacity-100"
+          >
+            <X className="size-3" />
+            Exit Theatre
+          </button>
+        )}
       </div>
     </DragDropProvider>
   );
@@ -399,7 +443,7 @@ function WidgetDrawer({
     <>
       <div
         className={cn(
-          "absolute top-12 left-0 right-0 mx-auto max-w-2xl w-full z-10",
+          "absolute top-0 left-0 right-0 mx-auto max-w-2xl w-full z-10",
           exiting ? "animate-fade-out-up" : "animate-fade-in-down",
         )}
         ref={outerDivRef}

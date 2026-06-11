@@ -61,7 +61,7 @@ export function StreamMonitorWidget({
     : t("offline", { defaultValue: "OFFLINE" });
 
   return (
-    <div className="h-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] overflow-hidden flex flex-col">
+    <div className="h-full rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] overflow-hidden flex flex-col">
       {/* Video area */}
       <div className="relative bg-black flex-1 h-full w-full">
         {visible && isLive ? (

@@ -23,6 +23,12 @@ default-url = Default: { $url }
 enter-custom-node-url = Introduceți adresa URL a nodului personalizat
 save-button = SALVARE
 
+## New Web Opt-in
+try-new-web = Încercați noul web (beta)
+try-new-web-description = Comutați la noua interfață web. Puteți reveni oricând din aceeași setare.
+try-old-app = Folosiți interfața originală
+try-old-app-description = Reveniți la interfața originală Streamplace.
+
 ## Language Settings
 language-selection = Limbă
 language-selection-description = Alegeți-vă limba preferată

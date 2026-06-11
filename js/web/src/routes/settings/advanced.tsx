@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../lib/store";
 import { useStreamplaceUrl } from "../../lib/store/hooks";
+import { isWebBetaEnabled, setWebBetaEnabled } from "../../lib/web-beta";
 
 export const Route = createFileRoute("/settings/advanced")({
   component: AdvancedSettings,
@@ -21,10 +22,15 @@ function AdvancedSettings() {
 
   const [overrideEnabled, setOverrideEnabled] = useState(false);
   const [newUrl, setNewUrl] = useState("");
+  const [webBeta, setWebBeta] = useState(false);
 
   useEffect(() => {
     setOverrideEnabled(url !== defaultUrl);
   }, [url, defaultUrl]);
+
+  useEffect(() => {
+    setWebBeta(isWebBetaEnabled());
+  }, []);
 
   const onSubmitUrl = () => {
     if (newUrl) {
@@ -36,6 +42,16 @@ function AdvancedSettings() {
   const handleToggle = (enabled: boolean) => {
     setOverrideEnabled(enabled);
     if (!enabled) setURL(defaultUrl);
+  };
+
+  // Toggling web-beta writes a cookie and reloads. The reload is what
+  // actually flips the user over to the other frontend — the server
+  // reads the cookie on the next request and picks the matching bundle.
+  const handleWebBetaToggle = (enabled: boolean) => {
+    setWebBetaEnabled(enabled);
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   return (
@@ -80,6 +96,20 @@ function AdvancedSettings() {
             </div>
           </CardRow>
         )}
+      </Card>
+
+      <Card>
+        <CardRow>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-medium">{t("try-new-web")}</div>
+              <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                {t("try-new-web-description")}
+              </div>
+            </div>
+            <Switch checked={webBeta} onCheckedChange={handleWebBetaToggle} />
+          </div>
+        </CardRow>
       </Card>
     </div>
   );

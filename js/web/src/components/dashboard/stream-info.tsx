@@ -300,7 +300,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         <p className="text-sm px-2 pb-4">
           {t("content-warnings-info", {
             defaultValue:
-              "You're required to flag your stream with themes that viewers may want a heads-up about.",
+              "You're required to flag your stream if it has themes that viewers may want a heads-up about.",
           })}
         </p>
         <ContentWarningsQuickEdit
@@ -514,13 +514,15 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
         <Button
           variant="outline"
-          size="sm"
+          size="default"
           onClick={() => setPage("contentWarnings")}
           className="w-full"
         >
-          {t("content-warnings", {
-            defaultValue: "Content Warnings",
-          })}
+          <div className="flex-1 text-base text-left">
+            {t("add-content-warnings", {
+              defaultValue: "Add content warnings",
+            })}
+          </div>
           <ChevronRight className="size-4" />
         </Button>
 

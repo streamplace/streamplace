@@ -195,7 +195,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
   const showAudience = activeAudienceIds.length > 0;
 
   return (
-    <div className="h-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 flex flex-col gap-3 min-h-0">
+    <div className="h-full rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 flex flex-col gap-3 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2">

@@ -17,6 +17,10 @@
   "default-url": "Default: {$url}",
   "enter-custom-node-url": "Introduceți adresa URL a nodului personalizat",
   "save-button": "Salvare",
+  "try-new-web": "Încercați noul web (beta)",
+  "try-new-web-description": "Comutați la noua interfață web. Puteți reveni oricând din aceeași setare.",
+  "try-old-app": "Folosiți interfața originală",
+  "try-old-app-description": "Reveniți la interfața originală Streamplace.",
   "language-selection": "Limbă",
   "language-selection-description": "Alegeți-vă limba preferată",
   "input-search-languages": "Căutați limbi...",
@@ -202,15 +206,5 @@
   "issue-badges-recipient-did": "DID destinatar",
   "issue-badges-recipient-did-placeholder": "did:plc:...",
   "issue-badges-tap-to-issue": "Atingeți pentru a emite",
-  "issue-badges-your-definitions": "Definițiile dvs. de insigne",
-  "chat-profile": "Profil de chat",
-  "chat-profile-login-required": "Conectați-vă pentru a vă edita profilul de chat.",
-  "chat-profile-saved": "Profilul de chat a fost salvat",
-  "chat-profile-save-failed": "Nu s-a putut salva profilul de chat",
-  "chat-profile-name-color": "Culoarea numelui",
-  "chat-profile-name-color-description": "Alegeți culoarea numelui dvs. în chat.",
-  "chat-profile-preview-message": "Salut, lume!",
-  "chat-profile-self-labels": "Etichete proprii",
-  "chat-profile-label-bot": "Bot",
-  "chat-profile-label-bot-description": "Marcați mesajele de chat ca provenind de la un bot."
+  "issue-badges-your-definitions": "Definițiile dvs. de insigne"
 }

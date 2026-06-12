@@ -8,8 +8,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
-    monospace;
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
 :root {
@@ -137,13 +137,15 @@ code {
 
   --color-info: var(--color-chart-3);
 
-  --font-display: "Valley Sans", -apple-system, BlinkMacSystemFont,
-    "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-  --font-sans: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
-  --font-mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo,
-    Consolas, monospace;
+  --font-display:
+    "Valley Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Segoe UI", system-ui, sans-serif;
+  --font-sans:
+    "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "Ioskeley Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: var(--radius);
@@ -153,7 +155,7 @@ code {
 
 @layer base {
   * {
-    @apply border-border outline-ring/50 transition-colors font-sans;
+    @apply border-border outline-ring/50 font-sans transition-colors;
     font-size: 16px;
   }
   body {

@@ -144,7 +144,7 @@ function AdmonitionLink({
       target={external ? "_blank" : undefined}
       rel={external ? "noopener noreferrer" : undefined}
       className={cn(
-        "hover:underline font-medium",
+        "font-medium hover:underline",
         colors[ctx.type as keyof typeof colors],
         size,
       )}

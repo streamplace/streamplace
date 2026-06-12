@@ -106,7 +106,7 @@ function EmbedDanmuObs() {
   }, [user]);
 
   if (!initialized || !store.current) {
-    return <div className="w-screen h-screen bg-transparent" />;
+    return <div className="h-screen w-screen bg-transparent" />;
   }
 
   return (
@@ -201,13 +201,13 @@ function DanmuBody({
 
   return (
     <div
-      className="w-screen h-screen bg-transparent overflow-hidden relative pointer-events-none"
+      className="pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent"
       style={{ opacity }}
     >
       {messages.map((msg) => (
         <div
           key={msg.id}
-          className="absolute whitespace-nowrap text-lg font-bold"
+          className="absolute text-lg font-bold whitespace-nowrap"
           style={{
             top: `${msg.lane * laneHeight}%`,
             color: msg.color,

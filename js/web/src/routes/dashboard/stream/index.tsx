@@ -43,19 +43,19 @@ export function StreamSettingsPage() {
   const { t } = useTranslation("common");
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-4 lg:px-6 py-6 lg:py-10 mx-auto max-w-screen">
+    <div className="mx-auto flex max-w-screen flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-10">
       {/* Mobile: floating sticky nav */}
-      <div className="lg:hidden sticky top-0 z-30 -mx-4 px-4 py-2 bg-[var(--color-bg)]/80 backdrop-blur-md">
-        <h2 className="text-lg font-semibold tracking-tight mb-2 font-display">
+      <div className="sticky top-0 z-30 -mx-4 bg-[var(--color-bg)]/80 px-4 py-2 backdrop-blur-md lg:hidden">
+        <h2 className="font-display mb-2 text-lg font-semibold tracking-tight">
           {t("stream-settings", { defaultValue: "Stream Settings" })}
         </h2>
 
         <div className="relative -mx-4 px-4">
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent z-10" />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent z-10" />
+          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent" />
 
           <nav
-            className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-5 px-5"
+            className="-mx-5 flex scrollbar-none gap-0.5 overflow-x-auto px-5"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {NAV_ITEMS.map((item) => {
@@ -72,9 +72,9 @@ export function StreamSettingsPage() {
       </div>
 
       {/* Desktop: sidebar */}
-      <div className="hidden lg:block lg:w-52 shrink-0">
-        <nav className="flex flex-col gap-0.5 sticky top-6 self-start">
-          <p className="text-2xl font-semibold px-2 pb-3 font-display">
+      <div className="hidden shrink-0 lg:block lg:w-52">
+        <nav className="sticky top-6 flex flex-col gap-0.5 self-start">
+          <p className="font-display px-2 pb-3 text-2xl font-semibold">
             {t("stream-settings", { defaultValue: "Stream Settings" })}
           </p>
           {NAV_ITEMS.map((item) => {
@@ -90,7 +90,7 @@ export function StreamSettingsPage() {
       </div>
 
       {/* Content: both sections stacked */}
-      <div className="flex-1 min-w-0 md:max-w-md xl:max-w-xl w-full md:w-screen mt-0.75 space-y-10">
+      <div className="mt-0.75 w-full min-w-0 flex-1 space-y-10 md:w-screen md:max-w-md xl:max-w-xl">
         <section id="metadata" className="scroll-mt-20">
           <MetadataSection />
         </section>
@@ -306,7 +306,7 @@ function MetadataSection() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold font-display">
+      <h2 className="font-display text-lg font-semibold">
         {t("metadata", { defaultValue: "Metadata" })}
       </h2>
 
@@ -328,16 +328,16 @@ function MetadataSection() {
                 "You're required to flag your stream with themes that viewers may want a heads-up about.",
             })}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {CONTENT_WARNINGS.map((cw) => {
                 const checked = selectedWarnings.has(cw.value);
                 return (
                   <label
                     key={cw.value}
                     className={cn(
-                      "flex items-start gap-2 p-3 rounded-md border cursor-pointer transition-colors",
+                      "flex cursor-pointer items-start gap-2 rounded-md border p-3 transition-colors",
                       checked
-                        ? "bg-[var(--color-accent)]/10 border-[var(--color-accent)]"
+                        ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
                         : "border-[var(--color-border)] hover:border-[var(--color-border-strong)]",
                     )}
                   >
@@ -387,14 +387,14 @@ function MetadataSection() {
                   })
                 }
                 placeholder={currentYear.toString()}
-                className="w-full h-9 px-3 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+                className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
               />
             </Field>
             <Field label={t("license", { defaultValue: "License" })}>
               <select
                 value={licenseSelect}
                 onChange={(e) => setLicenseSelect(e.target.value)}
-                className="w-full h-9 px-3 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+                className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
               >
                 <option value="">
                   {t("select-license", { defaultValue: "Select a license…" })}
@@ -420,7 +420,7 @@ function MetadataSection() {
                   value={customLicense}
                   onChange={(e) => setCustomLicense(e.target.value)}
                   placeholder="https://… or text"
-                  className="w-full h-9 px-3 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+                  className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
                 />
               </Field>
             )}
@@ -439,7 +439,7 @@ function MetadataSection() {
                 }
                 placeholder="© 2025 Your Name"
                 rows={2}
-                className="w-full px-3 py-2 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)] resize-none"
+                className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
               />
             </Field>
             <Field label={t("credit-line", { defaultValue: "Credit Line" })}>
@@ -490,7 +490,7 @@ function MetadataSection() {
                   onChange={(e) => setAllowedBroadcasters(e.target.value)}
                   placeholder="did:plc:abc123…&#10;did:plc:def456…"
                   rows={4}
-                  className="w-full px-3 py-2 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)] resize-none font-mono"
+                  className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 font-mono text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
                 />
               </Field>
             )}
@@ -515,7 +515,7 @@ function MetadataSection() {
                   type="number"
                   value={deleteAfter}
                   onChange={(e) => setDeleteAfter(e.target.value)}
-                  className="w-full h-9 px-3 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+                  className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
                 />
               </Field>
             )}
@@ -525,13 +525,13 @@ function MetadataSection() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="h-9 px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
             {t("save", { defaultValue: "Save" })}
           </button>
 
-          <p className="text-xs text-[var(--color-fg-muted)] flex items-center gap-1">
+          <p className="flex items-center gap-1 text-xs text-[var(--color-fg-muted)]">
             <ExternalLink className="size-3" />
             {t("metadata-learn-more", {
               defaultValue: "Learn more about content metadata",
@@ -547,11 +547,11 @@ function ModerationSection() {
   const { t } = useTranslation("common");
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold font-display">
+      <h2 className="font-display text-lg font-semibold">
         {t("moderation", { defaultValue: "Moderation" })}
       </h2>
       <div>
-        <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
           {t("moderation-help", {
             defaultValue:
               "Add/remove stream moderators. Moderators can hide chat messages and time out users in your chat.",
@@ -585,21 +585,21 @@ function SubSection({
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold flex items-center gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
           {title}
           {required && (
-            <span className="text-xs px-1.5 rounded-full bg-muted text-foreground">
+            <span className="bg-muted text-foreground rounded-full px-1.5 text-xs">
               {t("required", { defaultValue: "Required" })}
             </span>
           )}
           {optional && (
-            <span className="text-xs px-1.5 bg-muted rounded-full text-muted-foreground">
+            <span className="bg-muted text-muted-foreground rounded-full px-1.5 text-xs">
               {t("optional", { defaultValue: "Optional" })}
             </span>
           )}
         </h3>
         {help && (
-          <p className="text-xs text-[var(--color-fg-muted)] mt-1">{help}</p>
+          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{help}</p>
         )}
       </div>
       <div className="space-y-3">{children}</div>
@@ -639,7 +639,7 @@ function Toggle({
   label: string;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm cursor-pointer">
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
       <input
         type="checkbox"
         checked={checked}

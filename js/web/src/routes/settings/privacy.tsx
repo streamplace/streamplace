@@ -33,7 +33,9 @@ function PrivacySettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-display">{t("privacy-security")}</h1>
+      <h1 className="font-display text-xl font-semibold">
+        {t("privacy-security")}
+      </h1>
 
       <Card>
         <CardRow>
@@ -42,7 +44,7 @@ function PrivacySettings() {
               <div className="text-sm font-medium">
                 {t("debug-recording-title", { host: u.host })}
               </div>
-              <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                 {t("debug-recording-description")}
               </div>
             </div>

@@ -34,7 +34,7 @@
     "knip": "^5.59.1",
     "lerna": "^8.2.2",
     "lint-staged": "^15.2.10",
-    "prettier": "^3.8.4",
+    "prettier": "3.8.4",
     "typescript": "^5.8.3"
   },
   "workspaces": [

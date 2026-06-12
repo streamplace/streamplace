@@ -68,26 +68,26 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
     <Link
       to="/$user"
       params={{ user }}
-      className="group flex flex-col rounded-xl overflow-hidden border border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:border-[var(--color-border-strong)] transition-colors"
+      className="group flex flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] transition-colors hover:border-[var(--color-border-strong)]"
     >
       {/* Thumbnail */}
       <div className="relative aspect-video bg-black">
         <img
           src={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
           }}
         />
         {/* Live dot */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-red-600 px-2 py-0.5 rounded text-white text-xs font-bold uppercase tracking-wide">
-          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+        <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded bg-red-600 px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
+          <div className="h-1.5 w-1.5 rounded-full bg-white" />
           {t("live-badge")}
         </div>
         {/* Viewer count */}
         {viewers !== undefined && viewers !== null && (
-          <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-sm rounded px-2 py-0.5 text-white text-xs font-medium">
+          <div className="absolute top-2 right-2 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
             {formatViewers(viewers)}
           </div>
         )}
@@ -96,42 +96,42 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
       {/* Content */}
       <div className="flex items-start gap-3 px-3 py-2.5">
         {/* Avatar */}
-        <div className="w-9 h-9 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border)] overflow-hidden flex-shrink-0">
+        <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)]">
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt=""
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
               {handle[0]?.toUpperCase() ?? "?"}
             </div>
           )}
         </div>
 
         {/* Text */}
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-[var(--color-fg)] truncate">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-[var(--color-fg)]">
             {title}
           </div>
-          <div className="text-xs text-[var(--color-fg-muted)] truncate mt-0.5">
+          <div className="mt-0.5 truncate text-xs text-[var(--color-fg-muted)]">
             @{handle}
           </div>
           {(activity || tags.length > 0) && (
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap overflow-hidden">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
               {activity && (
-                <span className="text-xs text-[var(--color-fg-muted)] flex-shrink-0">
+                <span className="flex-shrink-0 text-xs text-[var(--color-fg-muted)]">
                   {activity}
                 </span>
               )}
               {tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border)] text-[var(--color-fg-subtle)] flex-shrink-0"
+                  className="flex-shrink-0 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)] px-2 py-0.5 text-xs text-[var(--color-fg-subtle)]"
                 >
                   {displayTag(tag)}
                 </span>

@@ -77,14 +77,14 @@ function SortableStreamerRow({
   return (
     <div
       ref={ref}
-      className={`flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] last:border-b-0 ${
-        isDragging ? "bg-[var(--color-bg-elevated)] shadow-lg rounded-md" : ""
+      className={`flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 last:border-b-0 ${
+        isDragging ? "rounded-md bg-[var(--color-bg-elevated)] shadow-lg" : ""
       }`}
     >
       {/* Drag handle */}
       <div
         ref={handleRef}
-        className="shrink-0 cursor-grab active:cursor-grabbing p-0.5"
+        className="shrink-0 cursor-grab p-0.5 active:cursor-grabbing"
       >
         <GripVertical
           size={16}
@@ -105,14 +105,14 @@ function SortableStreamerRow({
           <button
             type="button"
             onClick={onSaveEdit}
-            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
           >
             <Check size={16} className="text-[var(--color-accent)]" />
           </button>
           <button
             type="button"
             onClick={() => onCancelEdit(index, !!streamer)}
-            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
           >
             <X size={16} className="text-[var(--color-fg-muted)]" />
           </button>
@@ -123,13 +123,13 @@ function SortableStreamerRow({
             <img
               src={resolvedAvatar}
               alt=""
-              className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0"
+              className="h-6 w-6 flex-shrink-0 rounded-full bg-[var(--color-bg)]"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-6 h-6 rounded-full bg-[var(--color-bg)] flex-shrink-0" />
+            <div className="h-6 w-6 flex-shrink-0 rounded-full bg-[var(--color-bg)]" />
           )}
           <span
             className={cn(
@@ -143,14 +143,14 @@ function SortableStreamerRow({
           <button
             type="button"
             onClick={() => onStartEdit(index, streamer)}
-            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
           >
             <Pencil size={16} className="text-[var(--color-fg-muted)]" />
           </button>
           <button
             type="button"
             onClick={() => onDelete(index)}
-            className="p-1.5 rounded hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
           >
             <X size={16} className="text-destructive" />
           </button>
@@ -358,10 +358,10 @@ function RecommendationsManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-display font-semibold">
+          <h1 className="font-display text-xl font-semibold">
             {t("recommendations-to-others")}
           </h1>
-          <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
             {t("recommendations-description")}
           </p>
         </div>
@@ -407,7 +407,7 @@ function RecommendationsManager() {
                     type="button"
                     onClick={() => !alreadyAdded && handleSelectActor(actor)}
                     disabled={alreadyAdded}
-                    className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
                   >
                     <span className="text-sm">@{actor.handle}</span>
                     {alreadyAdded && (
@@ -474,7 +474,7 @@ function RecommendationsManager() {
             <button
               type="button"
               onClick={handleAddManual}
-              className="flex items-center gap-2 px-3 py-2.5 w-full hover:bg-[var(--color-bg)] transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
             >
               <Plus size={16} className="text-[var(--color-fg-muted)]" />
               <span className="text-sm">Add DID manually</span>
@@ -501,7 +501,7 @@ function RecommendationsManager() {
             <DialogTitle>{t("delete")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm">{t("confirm-delete")}</p>
-          <p className="text-xs text-[var(--color-fg-muted)] mt-1">
+          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
             {t("action-cannot-be-undone")}
           </p>
           <DialogFooter>

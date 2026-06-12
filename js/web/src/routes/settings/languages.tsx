@@ -27,8 +27,10 @@ function LanguagesSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold font-display">{t("language-selection")}</h1>
-        <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+        <h1 className="font-display text-xl font-semibold">
+          {t("language-selection")}
+        </h1>
+        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
           {t("language-selection-description")}
         </p>
       </div>
@@ -61,7 +63,7 @@ function LanguagesSettings() {
                 void i18n.changeLanguage(code);
                 setSearchQuery("");
               }}
-              className="flex items-center justify-between w-full px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors text-left"
+              className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg)]"
             >
               <div className="flex items-center gap-2">
                 <span>{info.flag}</span>
@@ -73,7 +75,7 @@ function LanguagesSettings() {
                     {info.nativeName}
                   </span>
                   {info.name !== info.nativeName && (
-                    <span className="text-xs text-[var(--color-fg-muted)] ml-2">
+                    <span className="ml-2 text-xs text-[var(--color-fg-muted)]">
                       {info.name}
                     </span>
                   )}

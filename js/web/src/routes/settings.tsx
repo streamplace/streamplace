@@ -104,7 +104,7 @@ function NavGroupItem({ item }: { item: NavGroup }) {
           className={cn(
             linkClass,
             "w-full justify-between",
-            isChildActive && "text-(--color-fg) font-medium",
+            isChildActive && "font-medium text-(--color-fg)",
           )}
         >
           <span className="flex items-center gap-2">
@@ -119,7 +119,7 @@ function NavGroupItem({ item }: { item: NavGroup }) {
           />
         </button>
         {open && (
-          <div className="ml-4.5 border-l border-(--color-border) space-y-0.5 mt-0.5 mb-1">
+          <div className="mt-0.5 mb-1 ml-4.5 space-y-0.5 border-l border-(--color-border)">
             {item.children.map((child) => (
               <Link key={child.to} to={child.to} className={childLinkClass}>
                 <child.icon className="size-3.5" />
@@ -136,7 +136,7 @@ function NavGroupItem({ item }: { item: NavGroup }) {
 function DisplayNavItem({ item }: { item: NavItem }) {
   if (item.role === "divider") {
     return (
-      <div className="border-b border-(--color-border) my-0.5 lg:mx-2 lg:border-b-0 lg:my-2" />
+      <div className="my-0.5 border-b border-(--color-border) lg:mx-2 lg:my-2 lg:border-b-0" />
     );
   }
 
@@ -149,7 +149,7 @@ function DisplayNavItem({ item }: { item: NavItem }) {
 
   return (
     <Link to={item.to} className={linkClass}>
-      <Icon className="size-4 hidden lg:block" />
+      <Icon className="hidden size-4 lg:block" />
       {t(item.labelKey)}
     </Link>
   );
@@ -159,19 +159,19 @@ function SettingsLayout() {
   const { t } = useTranslation("settings");
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 px-4 lg:px-6 py-6 lg:py-10 mx-auto max-w-screen">
+    <div className="mx-auto flex max-w-screen flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-10">
       {/* Mobile: floating sticky nav */}
-      <div className="lg:hidden sticky top-0 z-30 -mx-4 px-4 py-2 bg-[var(--color-bg)]/80 backdrop-blur-md">
-        <h2 className="text-lg font-semibold tracking-tight mb-2 font-display">
+      <div className="sticky top-0 z-30 -mx-4 bg-[var(--color-bg)]/80 px-4 py-2 backdrop-blur-md lg:hidden">
+        <h2 className="font-display mb-2 text-lg font-semibold tracking-tight">
           {t("settings-title")}
         </h2>
 
         <div className="relative -mx-4 px-4">
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent z-10" />
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent z-10" />
+          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent" />
 
           <nav
-            className="flex gap-0.5 overflow-x-auto scrollbar-none -mx-5 px-5"
+            className="-mx-5 flex scrollbar-none gap-0.5 overflow-x-auto px-5"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {NAV_ITEMS.map((item, i) => (
@@ -185,9 +185,9 @@ function SettingsLayout() {
       </div>
 
       {/* Desktop: sidebar */}
-      <div className="hidden lg:block lg:w-52 shrink-0">
-        <nav className="flex flex-col gap-0.5 sticky top-6 self-start">
-          <p className="text-2xl font-semibold px-2 pb-3 font-display">
+      <div className="hidden shrink-0 lg:block lg:w-52">
+        <nav className="sticky top-6 flex flex-col gap-0.5 self-start">
+          <p className="font-display px-2 pb-3 text-2xl font-semibold">
             {t("settings-title")}
           </p>
           {NAV_ITEMS.map((item, i) => (
@@ -199,7 +199,7 @@ function SettingsLayout() {
         </nav>
       </div>
 
-      <div className="flex-1 min-w-0 md:max-w-md xl:max-w-xl w-full md:w-screen mt-0.75">
+      <div className="mt-0.75 w-full min-w-0 flex-1 md:w-screen md:max-w-md xl:max-w-xl">
         <Outlet />
       </div>
     </div>

@@ -81,43 +81,43 @@ export function StreamInfo({
   const node = useStreamplaceUrl();
 
   return (
-    <div className="mt-3 space-y-3 mx-3">
+    <div className="mx-3 mt-3 space-y-3">
       <div className="flex items-start gap-3">
         <img
           src={author?.avatar ?? undefined}
           alt=""
-          className="w-10 h-10 rounded-full bg-[var(--color-bg-elevated)] flex-shrink-0"
+          className="h-10 w-10 flex-shrink-0 rounded-full bg-[var(--color-bg-elevated)]"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = "none";
           }}
         />
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate">
               {author?.displayName || author?.handle || user}
             </span>
             {isLive && viewers && (
-              <span className="text-xs text-[var(--color-fg-muted)] flex-shrink-0">
+              <span className="flex-shrink-0 text-xs text-[var(--color-fg-muted)]">
                 {t("watching-count", { count: state.viewers ?? 0 })}
               </span>
             )}
           </div>
 
-          <h2 className="font-display font-semibold text-[var(--color-fg)] mt-0.5 line-clamp-2">
+          <h2 className="font-display mt-0.5 line-clamp-2 font-semibold text-[var(--color-fg)]">
             {title}
           </h2>
 
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {activity && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-fg-muted)]">
+              <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
                 {activity}
               </span>
             )}
             {tags?.map((tag) => (
               <span
                 key={tag}
-                className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-[var(--color-fg-subtle)]"
+                className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs text-[var(--color-fg-subtle)]"
               >
                 {tag.startsWith("lang:") ? tag.slice(5).toUpperCase() : tag}
               </span>
@@ -125,7 +125,7 @@ export function StreamInfo({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-2">
           {sessionState.status === "authenticated" &&
             sessionState.session.did !== author?.did && (
               <Button type="button">

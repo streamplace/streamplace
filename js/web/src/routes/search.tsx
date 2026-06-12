@@ -88,27 +88,27 @@ function SearchPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full px-4 py-6">
+    <div className="mx-auto w-full max-w-2xl px-4 py-6">
       <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-fg-muted)]" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[var(--color-fg-muted)]" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           placeholder={t("search-for-streamers")}
-          className="w-full h-10 pl-9 pr-4 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+          className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pr-4 pl-9 text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
         />
       </div>
 
       {searching && results.length === 0 && (
         <div className="flex justify-center py-12">
-          <div className="w-5 h-5 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin" />
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
         </div>
       )}
 
       {!searching && query.trim() && results.length === 0 && (
-        <div className="text-center py-12">
+        <div className="py-12 text-center">
           <p className="text-[var(--color-fg-muted)]">
             {t("no-results-for", { query })}
           </p>
@@ -122,16 +122,16 @@ function SearchPage() {
               key={actor.did}
               to="/$user"
               params={{ user: actor.handle }}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-[var(--color-bg-elevated)] transition-colors"
+              className="flex items-center gap-3 rounded-lg p-3 transition-colors hover:bg-[var(--color-bg-elevated)]"
             >
               {avatars[actor.did]?.avatar ? (
                 <img
                   src={avatars[actor.did].avatar}
                   alt=""
-                  className="w-10 h-10 rounded-full bg-[var(--color-bg)] object-cover"
+                  className="h-10 w-10 rounded-full bg-[var(--color-bg)] object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-[var(--color-bg-overlay)] border border-[var(--color-border)] flex items-center justify-center text-sm font-medium text-[var(--color-fg-muted)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)] text-sm font-medium text-[var(--color-fg-muted)]">
                   {(
                     actor.displayName?.[0] ||
                     actor.handle[0] ||
@@ -140,10 +140,10 @@ function SearchPage() {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-[var(--color-fg)] truncate">
+                <div className="truncate text-sm font-medium text-[var(--color-fg)]">
                   {actor.displayName || actor.handle}
                 </div>
-                <div className="text-xs text-[var(--color-fg-muted)] truncate">
+                <div className="truncate text-xs text-[var(--color-fg-muted)]">
                   @{actor.handle}
                 </div>
               </div>
@@ -153,8 +153,8 @@ function SearchPage() {
       )}
 
       {!query.trim() && (
-        <div className="text-center py-16">
-          <Search className="w-8 h-8 mx-auto text-[var(--color-fg-muted)] mb-3" />
+        <div className="py-16 text-center">
+          <Search className="mx-auto mb-3 h-8 w-8 text-[var(--color-fg-muted)]" />
           <p className="text-[var(--color-fg-muted)]">{t("find-streamers")}</p>
         </div>
       )}

@@ -297,11 +297,11 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
 
   if (!isAuthed) {
     return (
-      <div className="text-sm text-[var(--color-fg-muted)] text-center py-1">
+      <div className="py-1 text-center text-sm text-[var(--color-fg-muted)]">
         <Link
           to="/login"
           search={EMPTY_LOGIN_SEARCH}
-          className="text-[var(--color-accent)] hover:underline font-medium"
+          className="font-medium text-[var(--color-accent)] hover:underline"
         >
           {t("log-in")}
         </Link>{" "}
@@ -315,9 +315,9 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   return (
     <div>
       {replyToMessage && (
-        <div className="flex items-center gap-2 px-2 py-1 mb-1 rounded bg-[var(--color-bg-overlay)] border border-[var(--color-border)] text-xs">
-          <Reply className="w-3 h-3 text-[var(--color-fg-muted)] flex-shrink-0" />
-          <span className="text-[var(--color-fg-muted)] flex-1 truncate">
+        <div className="mb-1 flex items-center gap-2 rounded border border-[var(--color-border)] bg-[var(--color-bg-overlay)] px-2 py-1 text-xs">
+          <Reply className="h-3 w-3 flex-shrink-0 text-[var(--color-fg-muted)]" />
+          <span className="flex-1 truncate text-[var(--color-fg-muted)]">
             {t("chat-replying-to", {
               handle: replyToMessage.author.handle || replyToMessage.author.did,
             })}
@@ -329,7 +329,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
             }
             className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
           >
-            <X className="w-3 h-3" />
+            <X className="h-3 w-3" />
           </button>
         </div>
       )}
@@ -339,14 +339,14 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           e.preventDefault();
           onSubmit();
         }}
-        className="flex gap-2 items-end"
+        className="flex items-end gap-2"
       >
-        <div className="flex-1 relative rounded-md bg-[var(--color-bg)] border border-[var(--color-border)] focus-within:border-[var(--color-accent)]">
+        <div className="relative flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] focus-within:border-[var(--color-accent)]">
           {editor && <EditorContent editor={editor} />}
 
           {textLength > 200 && (
             <span
-              className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] tabular-nums pointer-events-none ${textLength >= MAX_LENGTH ? "text-[var(--color-danger)]" : "text-[var(--color-fg-subtle)]"}`}
+              className={`pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[10px] tabular-nums ${textLength >= MAX_LENGTH ? "text-[var(--color-danger)]" : "text-[var(--color-fg-subtle)]"}`}
             >
               {MAX_LENGTH - textLength}
             </span>
@@ -362,16 +362,16 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
               className="h-9 w-9 flex-shrink-0"
               aria-label={t("chat-insert-emoji")}
             >
-              <Smile className="w-4 h-4" />
+              <Smile className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
             align="end"
             side="top"
-            className="p-0 w-[280px] h-[320px] overflow-hidden"
+            className="h-[320px] w-[280px] overflow-hidden p-0"
           >
             <EmojiPicker.Root onEmojiSelect={handleEmojiSelect}>
-              <EmojiPicker.Search className="w-full px-3 py-2 text-sm border-b border-[var(--color-border)] outline-none bg-[var(--color-bg)]" />
+              <EmojiPicker.Search className="w-full border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm outline-none" />
               <EmojiPicker.Viewport className="h-[280px] overflow-y-auto">
                 <EmojiPicker.List />
               </EmojiPicker.Viewport>
@@ -385,7 +385,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       </form>
 
       {error && (
-        <div className="text-xs text-[var(--color-danger)] mt-1">{error}</div>
+        <div className="mt-1 text-xs text-[var(--color-danger)]">{error}</div>
       )}
     </div>
   );

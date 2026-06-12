@@ -210,10 +210,10 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col h-full min-h-0 relative">
+      <div className="relative flex h-full min-h-0 flex-col">
         {/* Toolbar */}
         {!theatre && (
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] shrink-0">
+          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2">
             {/* Preset selector */}
             {presets.length > 0 && (
               <select
@@ -221,7 +221,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                 onChange={(e) => {
                   if (e.target.value) loadPreset(e.target.value);
                 }}
-                className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)]"
+                className="h-7 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs text-[var(--color-fg)]"
               >
                 <option value="">Load preset…</option>
                 {presets.map((p) => (
@@ -244,12 +244,12 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                   }}
                   placeholder="Preset name…"
                   autoFocus
-                  className="h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] w-32"
+                  className="h-7 w-32 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs text-[var(--color-fg)]"
                 />
                 <button
                   type="button"
                   onClick={handleSavePreset}
-                  className="h-7 px-2 text-xs rounded bg-[var(--color-accent)] text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)] transition-colors"
+                  className="h-7 rounded bg-[var(--color-accent)] px-2 text-xs text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
                 >
                   Save
                 </button>
@@ -258,7 +258,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
               <button
                 type="button"
                 onClick={() => setShowSaveInput(true)}
-                className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+                className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
               >
                 <Save className="size-3" />
                 Save Preset
@@ -271,19 +271,19 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                 {presets.map((p) => (
                   <div
                     key={p.name}
-                    className="flex items-center gap-0.5 h-7 px-1.5 text-xs rounded bg-[var(--color-bg)] border border-[var(--color-border)]"
+                    className="flex h-7 items-center gap-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 text-xs"
                   >
                     <button
                       type="button"
                       onClick={() => loadPreset(p.name)}
-                      className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+                      className="text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
                     >
                       {p.name}
                     </button>
                     <button
                       type="button"
                       onClick={() => deletePreset(p.name)}
-                      className="text-[var(--color-fg-muted)] hover:text-red-400 transition-colors"
+                      className="text-[var(--color-fg-muted)] transition-colors hover:text-red-400"
                     >
                       <Trash2 className="size-3" />
                     </button>
@@ -300,10 +300,10 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
               id="drawer-toggle-button"
               onClick={() => setDrawerOpen((v) => !v)}
               className={cn(
-                "h-7 px-2 text-xs rounded border transition-colors flex items-center gap-1",
+                "flex h-7 items-center gap-1 rounded border px-2 text-xs transition-colors",
                 drawerOpen
-                  ? "bg-[var(--color-accent)]/15 border-[var(--color-accent)] text-[var(--color-accent)]"
-                  : "border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
+                  : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]",
               )}
               aria-pressed={drawerOpen}
             >
@@ -319,7 +319,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             <button
               type="button"
               onClick={resetLayout}
-              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+              className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
               title="Reset to default layout"
             >
               <RotateCcw className="size-3" />
@@ -330,7 +330,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             <button
               type="button"
               onClick={() => setTheatre(true)}
-              className="h-7 px-2 text-xs rounded border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex items-center gap-1"
+              className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
               title="Theatre mode"
               aria-label="Theatre mode"
             >
@@ -349,7 +349,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
         )}
 
         {/* Layout area */}
-        <div className="flex-1 min-h-0 p-1.5">
+        <div className="min-h-0 flex-1 p-1.5">
           <DraggableLayoutRenderer
             layout={layout}
             store={store}
@@ -369,7 +369,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             onClick={() => setTheatre(false)}
             aria-label="Exit theatre mode"
             title="Exit theatre mode"
-            className="absolute top-2 right-10 z-20 h-7 px-2 text-xs rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/80 backdrop-blur text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:border-[var(--color-border-strong)] transition-colors flex items-center gap-1 opacity-50 hover:opacity-100"
+            className="absolute top-2 right-10 z-20 flex h-7 items-center gap-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/80 px-2 text-xs text-[var(--color-fg-muted)] opacity-50 backdrop-blur transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)] hover:opacity-100"
           >
             <X className="size-3" />
             Exit Theatre
@@ -443,12 +443,12 @@ function WidgetDrawer({
     <>
       <div
         className={cn(
-          "absolute top-0 left-0 right-0 mx-auto max-w-2xl w-full z-10",
+          "absolute top-0 right-0 left-0 z-10 mx-auto w-full max-w-2xl",
           exiting ? "animate-fade-out-up" : "animate-fade-in-down",
         )}
         ref={outerDivRef}
       >
-        <div className="flex flex-col gap-1 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] rounded-b-lg shrink-0">
+        <div className="flex shrink-0 flex-col gap-1 rounded-b-lg border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
           <div className="flex items-center justify-between">
             <div className="text-[var(--color-fg-muted)]">
               Drag a widget to add it
@@ -479,7 +479,7 @@ function DrawerWidgetCard({ widgetKey }: { widgetKey: string }) {
     <div
       ref={ref}
       className={cn(
-        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] cursor-grab active:cursor-grabbing select-none transition-opacity hover:border-[var(--color-border-strong)]",
+        "flex cursor-grab items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-1.5 transition-opacity select-none hover:border-[var(--color-border-strong)] active:cursor-grabbing",
         isDragging && "opacity-50",
       )}
       style={

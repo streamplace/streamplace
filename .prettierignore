@@ -10,3 +10,4 @@ lexicons/tools
 lexicons/games
 js/app/assets/emoji-data-stripped.json
 **/routeTree.gen.ts
+*.html

@@ -108,8 +108,8 @@ export function LivestreamProvider({
 
   if (!initialized || !store.current) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-5 h-5 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin" />
+      <div className="flex h-full items-center justify-center">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
       </div>
     );
   }

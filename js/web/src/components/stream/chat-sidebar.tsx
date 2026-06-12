@@ -29,19 +29,19 @@ export function ChatSidebar({
   const viewers = formatViewers(state.viewers);
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 border-l">
+    <div className="flex min-h-0 flex-1 flex-col border-l">
       <SidebarHeader>
         <div className="flex items-center gap-3 py-1">
           <img
             src={author?.avatar ?? undefined}
             alt=""
-            className="w-8 h-8 rounded-full bg-[var(--color-bg)] flex-shrink-0"
+            className="h-8 w-8 flex-shrink-0 rounded-full bg-[var(--color-bg)]"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
           />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium truncate">
+            <div className="truncate text-sm font-medium">
               {author?.displayName || author?.handle || t("streamer-fallback")}
             </div>
             {viewers && (
@@ -56,21 +56,21 @@ export function ChatSidebar({
               href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1 rounded hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+              className="rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
               title={t("chat-pop-out")}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
 
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors flex-shrink-0"
+                className="flex-shrink-0 rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
                 aria-label={t("chat-close")}
               >
                 <svg
-                  className="w-4 h-4"
+                  className="h-4 w-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -90,7 +90,7 @@ export function ChatSidebar({
 
       <StreamNotifications store={store} />
 
-      <SidebarContent className="p-0! overflow-hidden">
+      <SidebarContent className="overflow-hidden p-0!">
         <ChatPanel store={store} />
       </SidebarContent>
 

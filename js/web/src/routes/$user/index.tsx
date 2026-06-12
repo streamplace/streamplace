@@ -102,10 +102,10 @@ function StreamPage() {
 
   if (!initialized || !store.current) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="animate-pulse">
-          <div className="h-8 bg-[var(--color-bg-elevated)] rounded w-48 mb-4" />
-          <div className="aspect-video bg-[var(--color-bg-elevated)] rounded" />
+          <div className="mb-4 h-8 w-48 rounded bg-[var(--color-bg-elevated)]" />
+          <div className="aspect-video rounded bg-[var(--color-bg-elevated)]" />
         </div>
       </div>
     );
@@ -135,11 +135,11 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full">
+    <div className="flex h-full flex-col gap-3">
       <div
-        className={`flex-1 flex min-h-0 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
+        className={`flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
       >
-        <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="min-w-0 flex-1 overflow-y-auto">
           <VideoSection store={store} user={user} liveness={liveness} />
           {!theatre && (
             <StreamInfo
@@ -154,7 +154,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
       </div>
 
       <div
-        className={`fixed ${theatre ? "top-0" : "top-12"} bottom-0 right-0 w-[360px] max-w-90 flex flex-col overflow-hidden transition-transform duration-300 ease-in-out z-20 ${
+        className={`fixed ${theatre ? "top-0" : "top-12"} right-0 bottom-0 z-20 flex w-[360px] max-w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
           chatOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -167,10 +167,10 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 function OfflinePage({ user }: { user: string }) {
   const { t } = useTranslation("common");
   return (
-    <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-      <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] mb-6">
+    <div className="mx-auto max-w-2xl px-6 py-20 text-center">
+      <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
         <svg
-          className="w-5 h-5 text-[var(--color-fg-subtle)]"
+          className="h-5 w-5 text-[var(--color-fg-subtle)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -183,23 +183,23 @@ function OfflinePage({ user }: { user: string }) {
           />
         </svg>
       </div>
-      <h1 className="text-2xl font-semibold font-display">
+      <h1 className="font-display text-2xl font-semibold">
         {t("stream-is-offline-title")}
       </h1>
-      <p className="text-sm text-[var(--color-fg-muted)] mt-2">
+      <p className="mt-2 text-sm text-[var(--color-fg-muted)]">
         {t("user-not-streaming-check-back", { user })}
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <Link
           to="/"
-          className="h-9 inline-flex items-center px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] text-sm font-medium"
+          className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-4 text-sm font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)]"
         >
           {t("back-to-home")}
         </Link>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="h-9 px-4 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-sm"
+          className="h-9 rounded-md border border-[var(--color-border)] px-4 text-sm hover:border-[var(--color-border-strong)]"
         >
           {t("refresh")}
         </button>

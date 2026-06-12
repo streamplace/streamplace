@@ -56,7 +56,7 @@ function KeyManager() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-display">{t("key-manager")}</h1>
+      <h1 className="font-display text-xl font-semibold">{t("key-manager")}</h1>
 
       {keyRecords === null || keyObj === null ? (
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
@@ -66,7 +66,7 @@ function KeyManager() {
           <button
             type="button"
             onClick={() => getStreamKeyRecords()}
-            className="h-8 px-3 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-sm"
+            className="h-8 rounded-md border border-[var(--color-border)] px-3 text-sm hover:border-[var(--color-border-strong)]"
           >
             {t("refresh")}
           </button>
@@ -75,12 +75,12 @@ function KeyManager() {
         <div className="space-y-4">
           <div>
             <p className="text-sm font-medium">{t("your-stream-pubkeys")}</p>
-            <p className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+            <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
               {t("pubkey-description")}
             </p>
           </div>
 
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+          <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
             {keyRecords.records.map((keyRecord) => {
               const rkey = keyRecord.uri.split("/").pop() as string;
               const value = keyRecord.value as {
@@ -98,7 +98,7 @@ function KeyManager() {
                 >
                   <div className="min-w-0 flex-1 space-y-0.5">
                     {value.signingKey && (
-                      <div className="text-xs font-mono truncate">
+                      <div className="truncate font-mono text-xs">
                         {value.signingKey}
                       </div>
                     )}
@@ -113,7 +113,7 @@ function KeyManager() {
                     type="button"
                     onClick={() => handleDelete(rkey)}
                     disabled={isDeleting}
-                    className="shrink-0 w-6 h-6 rounded flex items-center justify-center bg-[var(--color-bg)] hover:bg-[var(--color-border)] transition-colors disabled:opacity-50"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--color-bg)] transition-colors hover:bg-[var(--color-border)] disabled:opacity-50"
                   >
                     <X size={14} />
                   </button>

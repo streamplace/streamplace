@@ -203,7 +203,7 @@ export function DanmuOverlay({
 
   return (
     <div
-      className="absolute inset-0 overflow-hidden pointer-events-none"
+      className="pointer-events-none absolute inset-0 overflow-hidden"
       style={{ opacity: opacity / 100 }}
       ref={(el) => {
         if (el) {
@@ -280,7 +280,7 @@ const DanmuMessageElement = memo(
     return (
       <div
         ref={ref}
-        className="absolute left-0 whitespace-nowrap font-semibold"
+        className="absolute left-0 font-semibold whitespace-nowrap"
         style={
           {
             top: videoTop + lane * laneHeight,

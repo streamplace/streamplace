@@ -257,7 +257,7 @@ export function Player({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-black group"
+      className="group relative h-full w-full bg-black"
       onMouseMove={bumpControls}
       onMouseLeave={() => {
         if (playing && !error) {
@@ -286,13 +286,13 @@ export function Player({
           muted
           autoPlay
           playsInline
-          className="absolute inset-0 w-full h-full object-contain"
+          className="absolute inset-0 h-full w-full object-contain"
         />
       ) : (
         <img
           src={fallbackPoster ?? poster}
           alt=""
-          className="absolute inset-0 w-full h-full object-contain bg-black"
+          className="absolute inset-0 h-full w-full bg-black object-contain"
         />
       )}
 
@@ -341,7 +341,7 @@ export function Player({
       )}
 
       {error && (
-        <div className="absolute top-2 left-2 right-2 bg-red-500/90 text-white text-sm px-3 py-2 rounded pointer-events-auto">
+        <div className="pointer-events-auto absolute top-2 right-2 left-2 rounded bg-red-500/90 px-3 py-2 text-sm text-white">
           {error}
         </div>
       )}
@@ -483,14 +483,14 @@ function StatsOverlay({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       className={cn(
-        "absolute top-12 right-2 z-20 touch-none select-none bg-black/80 text-white text-[11px] font-mono leading-snug rounded min-w-48",
+        "absolute top-12 right-2 z-20 min-w-48 touch-none rounded bg-black/80 font-mono text-[11px] leading-snug text-white select-none",
         isDragging
           ? "cursor-grabbing shadow-lg ring-1 ring-white/20"
           : "cursor-grab hover:bg-black/90",
       )}
       style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
     >
-      <div className="font-mono text-sm text-white/40 mb-1 select-none w-full bg-muted/50 px-2.5 pt-1.5 pb-0.5 rounded-t">
+      <div className="bg-muted/50 mb-1 w-full rounded-t px-2.5 pt-1.5 pb-0.5 font-mono text-sm text-white/40 select-none">
         Stats
       </div>
       <div className="px-2.5 py-1.5">
@@ -537,7 +537,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 text-xs">
       <span className="text-primary/50 font-mono text-sm">{label}</span>
-      <span className="tabular-nums font-mono text-sm ">{value}</span>
+      <span className="font-mono text-sm tabular-nums">{value}</span>
     </div>
   );
 }

@@ -56,14 +56,14 @@ function AdvancedSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-display">{t("advanced")}</h1>
+      <h1 className="font-display text-xl font-semibold">{t("advanced")}</h1>
 
       <Card>
         <CardRow>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium">{t("use-custom-node")}</div>
-              <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                 {t("default-url", { url: defaultUrl })}
               </div>
             </div>
@@ -83,13 +83,13 @@ function AdvancedSettings() {
                 }
                 spellCheck={false}
                 autoComplete="off"
-                className="flex-1 h-9 rounded-lg border border-[var(--color-border)] bg-transparent px-3 text-sm font-mono outline-none focus:border-[var(--color-accent)]"
+                className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-transparent px-3 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
               />
               <button
                 type="button"
                 onClick={onSubmitUrl}
                 disabled={!newUrl.trim()}
-                className="h-9 px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--color-accent-fg)] text-sm font-medium"
+                className="h-9 rounded-md bg-[var(--color-accent)] px-4 text-sm font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t("save-button")}
               </button>
@@ -103,7 +103,7 @@ function AdvancedSettings() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-sm font-medium">{t("try-new-web")}</div>
-              <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                 {t("try-new-web-description")}
               </div>
             </div>

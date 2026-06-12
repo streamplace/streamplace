@@ -33,10 +33,12 @@ function AccountSettings() {
           <img
             src={userProfile.avatar}
             alt=""
-            className="w-20 h-20 rounded-full"
+            className="h-20 w-20 rounded-full"
           />
         )}
-        <h1 className="text-xl font-semibold font-display">@{userProfile.handle}</h1>
+        <h1 className="font-display text-xl font-semibold">
+          @{userProfile.handle}
+        </h1>
       </div>
 
       <CardMenuSection>
@@ -44,7 +46,7 @@ function AccountSettings() {
           href={`https://bsky.app/profile/${userProfile.handle}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
         >
           <span className="text-sm">{t("edit-profile-bluesky")}</span>
           <svg
@@ -68,7 +70,7 @@ function AccountSettings() {
       <CardMenuSection>
         <Link
           to="/settings/badges"
-          className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
         >
           <span className="text-sm">{t("badges")}</span>
           <svg
@@ -96,7 +98,7 @@ function AccountSettings() {
             void signOut();
             navigate({ to: "/settings" });
           }}
-          className="flex items-center gap-3 px-3 py-2.5 w-full hover:bg-[var(--color-bg)] transition-colors text-left"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg)]"
         >
           <LogOut size={20} className="text-[var(--color-fg-muted)]" />
           <span className="text-sm">{t("log-out")}</span>

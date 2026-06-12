@@ -18,17 +18,17 @@ function HomePage() {
 
   if (streams === undefined && isLoading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="mx-auto max-w-6xl px-6 py-12">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] animate-pulse"
+              className="animate-pulse rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)]"
             >
-              <div className="aspect-video bg-[var(--color-bg-overlay)] rounded-t-xl" />
-              <div className="p-3 space-y-2">
-                <div className="h-4 bg-[var(--color-bg-overlay)] rounded w-3/4" />
-                <div className="h-3 bg-[var(--color-bg-overlay)] rounded w-1/2" />
+              <div className="aspect-video rounded-t-xl bg-[var(--color-bg-overlay)]" />
+              <div className="space-y-2 p-3">
+                <div className="h-4 w-3/4 rounded bg-[var(--color-bg-overlay)]" />
+                <div className="h-3 w-1/2 rounded bg-[var(--color-bg-overlay)]" />
               </div>
             </div>
           ))}
@@ -38,29 +38,29 @@ function HomePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-8">
       {error && !streams && (
-        <div className="mb-6 p-4 rounded-lg bg-[var(--color-bg-elevated)] border border-[var(--color-border)] text-sm text-[var(--color-fg-muted)]">
+        <div className="mb-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 text-sm text-[var(--color-fg-muted)]">
           {t("could-not-load-streams")}
         </div>
       )}
 
       {streams && streams.length > 0 && (
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-2 h-2 rounded-full bg-red-500" />
-          <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
+        <div className="mb-6 flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-red-500" />
+          <h2 className="font-display text-lg font-semibold text-[var(--color-fg)]">
             {t("live-now-count", { count: streams.length })}
           </h2>
         </div>
       )}
 
       {streams && streams.length === 0 && (
-        <div className="text-center py-20 pt-52">
+        <div className="py-20 pt-52 text-center">
           <svg
             width="100%"
             viewBox="0 0 680 360"
             role="img"
-            className="-rotate-3 scale-400 mb-6"
+            className="mb-6 scale-400 -rotate-3"
           >
             <g
               stroke="currentColor"
@@ -71,7 +71,7 @@ function HomePage() {
             >
               <g
                 opacity="0.35"
-                className="animate-scale delay-300 animate-fade-in-staggered"
+                className="animate-scale animate-fade-in-staggered delay-300"
               >
                 <circle
                   style={{ "--anim-order": 0 } as any}
@@ -226,7 +226,7 @@ function HomePage() {
                   r="2"
                 ></circle>
               </g>
-              <g className="scale-50 translate-x-43 translate-y-20">
+              <g className="translate-x-43 translate-y-20 scale-50">
                 <g className="animate-in-hubble">
                   <g id="scope" className="animate-scope-rock" stroke-width="2">
                     <g transform="rotate(90, 230, 180)">
@@ -271,17 +271,17 @@ function HomePage() {
               </g>
             </g>
           </svg>
-          <h2 className="text-lg font-semibold font-display text-[var(--color-fg)]">
+          <h2 className="font-display text-lg font-semibold text-[var(--color-fg)]">
             {t("no-one-streaming")}
           </h2>
-          <p className="text-[var(--color-fg-muted)] mt-1">
+          <p className="mt-1 text-[var(--color-fg-muted)]">
             {t("check-back-later")}
           </p>
         </div>
       )}
 
       {streams && streams.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {streams.map((stream) => (
             <StreamCard
               key={stream.uri}
@@ -293,24 +293,24 @@ function HomePage() {
       )}
 
       {!streams && !isLoading && !error && (
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-4xl font-semibold font-display tracking-tight">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="font-display text-4xl font-semibold tracking-tight">
             {t("hero-title")}
           </h1>
           <p className="mt-4 text-lg text-[var(--color-fg-muted)]">
             {t("hero-description")}
           </p>
-          <div className="mt-8 flex gap-3 justify-center">
+          <div className="mt-8 flex justify-center gap-3">
             <Link
               to="/login"
               search={EMPTY_LOGIN_SEARCH}
-              className="inline-flex items-center px-4 h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium transition-colors"
+              className="inline-flex h-10 items-center rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
             >
               {t("log-in")}
             </Link>
             <a
               href="https://stream.place"
-              className="inline-flex items-center px-4 h-10 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg)] transition-colors"
+              className="inline-flex h-10 items-center rounded-md border border-[var(--color-border)] px-4 text-[var(--color-fg)] transition-colors hover:border-[var(--color-border-strong)]"
             >
               {t("learn-more")}
             </a>

@@ -195,14 +195,14 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
   const showAudience = activeAudienceIds.length > 0;
 
   return (
-    <div className="h-full rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 flex flex-col gap-3 min-h-0">
+    <div className="flex h-full min-h-0 flex-col gap-3 rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 shrink-0">
+      <div className="flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold">
             {t("stream-health", { defaultValue: "Stream Health" })}
           </h3>
-          <div className={`w-2 h-2 rounded-full ${qualityStyles.dot}`} />
+          <div className={`h-2 w-2 rounded-full ${qualityStyles.dot}`} />
           <span className={`text-xs font-medium ${qualityStyles.text}`}>
             {qualityLabel}
           </span>
@@ -214,9 +214,9 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
               type="button"
               onClick={() => setRange(r.id)}
               className={cn(
-                "px-1.5 py-0.5 text-[10px] rounded transition-colors",
+                "rounded px-1.5 py-0.5 text-[10px] transition-colors",
                 range === r.id
-                  ? "bg-[var(--color-accent)]/20 text-[var(--color-accent)] font-semibold"
+                  ? "bg-[var(--color-accent)]/20 font-semibold text-[var(--color-accent)]"
                   : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
               )}
               aria-pressed={range === r.id}
@@ -233,7 +233,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
       <div
         ref={chartContainerRef}
         className={cn(
-          "flex-1 min-h-0 min-w-0 flex gap-1",
+          "flex min-h-0 min-w-0 flex-1 gap-1",
           isLandscape ? "flex-row" : "flex-col",
         )}
       >
@@ -244,7 +244,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
           <AudienceChart history={history} activeIds={activeAudienceIds} />
         )}
         {!showVideo && !showAudience && (
-          <div className="flex-1 flex items-center justify-center text-xs text-[var(--color-fg-muted)] border border-dashed border-[var(--color-border)] rounded">
+          <div className="flex flex-1 items-center justify-center rounded border border-dashed border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">
             {t("select-metric", { defaultValue: "Click a metric to overlay" })}
           </div>
         )}
@@ -252,7 +252,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
 
       {/* Metric chips — each shows its current value always, and toggles
           that metric in/out of the chart when clicked. */}
-      <div className="flex flex-wrap gap-1.5 shrink-0">
+      <div className="flex shrink-0 flex-wrap gap-1.5">
         {METRIC_KEYS.map((id) => {
           const metric = METRICS[id];
           const isActive = activeMetrics.has(id);
@@ -263,7 +263,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
               type="button"
               onClick={() => toggleMetric(id)}
               className={cn(
-                "flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-colors",
+                "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
                 isActive
                   ? "border-transparent"
                   : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]",
@@ -289,7 +289,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
               }
             >
               <div
-                className="w-1.5 h-1.5 rounded-full shrink-0"
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
                 style={{
                   backgroundColor: metric.color,
                   opacity: isActive ? 1 : 0.45,
@@ -311,7 +311,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
 
       {/* Footer stats — avg + peak per active metric (current is in the chip) */}
       {activeMetrics.size > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs shrink-0">
+        <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 text-xs">
           {METRIC_KEYS.filter((id) => activeMetrics.has(id)).map((id) => {
             const metric = METRICS[id];
             const s = stats[id];
@@ -319,7 +319,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
             return (
               <div key={id} className="flex items-center gap-1.5 tabular-nums">
                 <div
-                  className="w-1.5 h-1.5 rounded-full"
+                  className="h-1.5 w-1.5 rounded-full"
                   style={{ backgroundColor: metric.color }}
                 />
                 <span className="text-[var(--color-fg-muted)]">
@@ -351,8 +351,8 @@ function VideoChart({ history, activeIds }: ChartProps) {
     (id) => METRICS[id].yAxisId === "secondary",
   );
   return (
-    <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-      <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider px-1 mb-0.5 shrink-0">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase">
         {t("video", { defaultValue: "Video" })}
       </div>
       <ResponsiveContainer width="100%" height="100%">
@@ -434,8 +434,8 @@ function VideoChart({ history, activeIds }: ChartProps) {
 function AudienceChart({ history, activeIds }: ChartProps) {
   const { t } = useTranslation("common");
   return (
-    <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-      <div className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wider px-1 mb-0.5 shrink-0">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase">
         {t("audience", { defaultValue: "Audience" })}
       </div>
       <ResponsiveContainer width="100%" height="100%">

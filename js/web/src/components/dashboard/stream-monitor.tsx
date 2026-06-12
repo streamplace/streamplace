@@ -61,9 +61,9 @@ export function StreamMonitorWidget({
     : t("offline", { defaultValue: "OFFLINE" });
 
   return (
-    <div className="h-full rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] overflow-hidden flex flex-col">
+    <div className="flex h-full flex-col overflow-hidden rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       {/* Video area */}
-      <div className="relative bg-black flex-1 h-full w-full">
+      <div className="relative h-full w-full flex-1 bg-black">
         {visible && isLive ? (
           <Player src={playlistUrl} poster={thumbnailUrl} active mode="live" />
         ) : (
@@ -72,7 +72,7 @@ export function StreamMonitorWidget({
               <img
                 src={thumbnailUrl}
                 alt=""
-                className="absolute inset-0 w-full h-full object-contain"
+                className="absolute inset-0 h-full w-full object-contain"
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).style.visibility =
                     "hidden";
@@ -80,7 +80,7 @@ export function StreamMonitorWidget({
               />
             ) : (
               <div className="text-center">
-                <Radio className="size-8 mx-auto text-[var(--color-fg-muted)] mb-2" />
+                <Radio className="mx-auto mb-2 size-8 text-[var(--color-fg-muted)]" />
                 <p className="text-sm text-[var(--color-fg-muted)]">
                   {t("stream-offline", {
                     defaultValue: "Stream is offline",
@@ -93,9 +93,9 @@ export function StreamMonitorWidget({
 
         {/* LIVE badge */}
         {isLive && (
-          <div className="absolute top-2 left-2 pointer-events-none z-10">
-            <div className="flex items-center gap-1 bg-red-600 px-1.5 py-0.5 rounded text-white text-[10px] font-bold uppercase tracking-wide">
-              <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          <div className="pointer-events-none absolute top-2 left-2 z-10">
+            <div className="flex items-center gap-1 rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase">
+              <div className="h-1.5 w-1.5 rounded-full bg-white" />
               {t("live-badge", { defaultValue: "LIVE" })}
             </div>
           </div>
@@ -103,20 +103,20 @@ export function StreamMonitorWidget({
       </div>
 
       {/* Info bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-[var(--color-border)]">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+      <div className="flex items-center justify-between border-t border-[var(--color-border)] px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {connectionIcon}
-          <span className="text-sm truncate">
+          <span className="truncate text-sm">
             {title || t("untitled-stream", { defaultValue: "Untitled Stream" })}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-2">
           {isLive && (
             <button
               type="button"
               onClick={() => setVisible((v) => !v)}
-              className="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+              className="rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg)] hover:text-[var(--color-fg)]"
               title={
                 visible
                   ? t("hide-stream", { defaultValue: "Hide stream" })
@@ -131,7 +131,7 @@ export function StreamMonitorWidget({
             </button>
           )}
           <span
-            className={`text-xs font-medium uppercase tracking-wider ${
+            className={`text-xs font-medium tracking-wider uppercase ${
               isLive ? "text-[var(--color-fg)]" : "text-[var(--color-fg-muted)]"
             }`}
           >

@@ -9,11 +9,11 @@ export function UserOffline({ user }: { user: string }) {
   const { t } = useTranslation("common");
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-      <div className="text-center px-6">
+      <div className="px-6 text-center">
         <div className="text-lg font-medium text-white/90">
           {t("stream-offline")}
         </div>
-        <div className="text-sm text-white/60 mt-1">
+        <div className="mt-1 text-sm text-white/60">
           {t("user-not-streaming", { user })}
         </div>
       </div>

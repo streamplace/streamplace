@@ -156,21 +156,21 @@ function ChatPopoutPage() {
 
   if (!initialized || !store.current) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="w-5 h-5 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin" />
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
       </div>
     );
   }
 
   return (
     <div
-      className="flex flex-col h-screen bg-[var(--color-background)]"
+      className="flex h-screen flex-col bg-[var(--color-background)]"
       style={
         hidden ? { opacity: 0, pointerEvents: "none" as const } : undefined
       }
     >
       {!hidePinnedCommentsVal && <StreamNotifications store={store.current} />}
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col">
         <ChatPanel store={store.current} reversed={reverseVal} />
       </div>
       {!hideChatBoxVal && (

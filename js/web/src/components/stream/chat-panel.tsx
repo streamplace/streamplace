@@ -129,7 +129,7 @@ export function ChatPanel({
             <ArrowDown className="h-4 w-4" />
           )}
           {newMessageCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-(--color-accent) px-1 text-[10px] font-medium text-white">
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--color-accent) px-1 text-[10px] font-medium text-white">
               {newMessageCount}
             </span>
           )}
@@ -215,7 +215,7 @@ function ChatMessage({
       </div>
 
       {message.replyTo && (
-        <div className="pl-[60px]">
+        <div className="pl-15">
           <ReplyBanner parent={message.replyTo} authors={authors} />
         </div>
       )}

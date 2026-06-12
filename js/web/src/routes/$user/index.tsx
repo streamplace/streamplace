@@ -137,7 +137,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   return (
     <div className="flex h-full flex-col gap-3">
       <div
-        className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
+        className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-90" : "mr-0"}`}
       >
         <div className="min-w-0 flex-1 overflow-y-auto">
           <VideoSection store={store} user={user} liveness={liveness} />
@@ -154,7 +154,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
       </div>
 
       <div
-        className={`fixed ${theatre ? "top-0" : "top-12"} right-0 bottom-0 z-20 flex w-[360px] max-w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed ${theatre ? "top-0" : "top-12"} right-0 bottom-0 z-20 flex w-90 max-w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
           chatOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

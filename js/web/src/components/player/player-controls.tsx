@@ -260,7 +260,7 @@ export function PlayerControls({
       {/* Top gradient — subtle hint that there's a controls bar.
           Not strictly needed since the bar has its own background, but
           gives the play button overlay a darker canvas. */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
 
       {bigPlay && (
         <button
@@ -277,7 +277,7 @@ export function PlayerControls({
       )}
 
       <div
-        className="pointer-events-auto relative flex items-center gap-2 bg-gradient-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"
+        className="pointer-events-auto relative flex items-center gap-2 bg-linear-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"
         // The wrapper itself is a "control surface" so clicks on the
         // gradient below the buttons don't bubble to the play handler.
         onClick={(e) => e.stopPropagation()}

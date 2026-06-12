@@ -75,7 +75,7 @@ function PopoverContent({
   return (
     <div
       className={cn(
-        "absolute z-50 min-w-[12rem] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-md",
+        "absolute z-50 min-w-48 overflow-hidden rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md",
         side === "bottom" && "top-full mt-1",
         side === "top" && "bottom-full mb-1",
         align === "start" && "left-0",

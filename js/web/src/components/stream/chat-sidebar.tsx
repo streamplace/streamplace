@@ -35,7 +35,7 @@ export function ChatSidebar({
           <img
             src={author?.avatar ?? undefined}
             alt=""
-            className="h-8 w-8 flex-shrink-0 rounded-full bg-[var(--color-bg)]"
+            className="h-8 w-8 shrink-0 rounded-full bg-(--color-bg)"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
@@ -45,7 +45,7 @@ export function ChatSidebar({
               {author?.displayName || author?.handle || t("streamer-fallback")}
             </div>
             {viewers && (
-              <div className="text-xs text-[var(--color-fg-subtle)]">
+              <div className="text-xs text-(--color-fg-subtle)">
                 {t("watching-count", { count: state.viewers ?? 0 })}
               </div>
             )}
@@ -56,7 +56,7 @@ export function ChatSidebar({
               href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
+              className="rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
               title={t("chat-pop-out")}
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -66,7 +66,7 @@ export function ChatSidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-shrink-0 rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
+                className="shrink-0 rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
                 aria-label={t("chat-close")}
               >
                 <svg

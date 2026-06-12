@@ -114,50 +114,50 @@ function VodPage() {
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
-                    <h2 className="font-display line-clamp-2 flex-1 font-semibold text-[var(--color-fg)]">
+                    <h2 className="font-display line-clamp-2 flex-1 font-semibold text-(--color-fg)">
                       {loading ? t("loading") : title}
                     </h2>
                     <button
                       type="button"
                       onClick={handleDownload}
                       disabled={downloading}
-                      className="flex-shrink-0 rounded-md border border-[var(--color-border)] p-2 text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)] disabled:opacity-50"
+                      className="shrink-0 rounded-md border border-(--color-border) p-2 text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg) disabled:opacity-50"
                       title={t("download-video")}
                     >
                       <Download className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="mt-1 flex items-center gap-2 text-sm text-[var(--color-fg-muted)]">
+                  <div className="mt-1 flex items-center gap-2 text-sm text-(--color-fg-muted)">
                     <span className="truncate">
                       {author?.displayName || author?.handle || user}
                     </span>
                     {(author?.displayName || author?.handle) && (
-                      <span className="text-[var(--color-fg-subtle)]">@</span>
+                      <span className="text-(--color-fg-subtle)">@</span>
                     )}
                     <span className="truncate">{author?.handle || user}</span>
                   </div>
 
                   {duration && (
-                    <span className="mt-1 block text-xs text-[var(--color-fg-muted)]">
+                    <span className="mt-1 block text-xs text-(--color-fg-muted)">
                       {duration}
                     </span>
                   )}
 
                   {createdAt && (
-                    <span className="text-xs text-[var(--color-fg-muted)]">
+                    <span className="text-xs text-(--color-fg-muted)">
                       {createdAt}
                     </span>
                   )}
 
                   {description && (
-                    <p className="mt-3 text-sm whitespace-pre-wrap text-[var(--color-fg)]">
+                    <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
                       {description}
                     </p>
                   )}
 
                   {error && (
-                    <p className="mt-2 text-sm text-[var(--color-danger)]">
+                    <p className="mt-2 text-sm text-(--color-danger)">
                       {error}
                     </p>
                   )}

@@ -68,7 +68,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
     <Link
       to="/$user"
       params={{ user }}
-      className="group flex flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] transition-colors hover:border-[var(--color-border-strong)]"
+      className="group flex flex-col overflow-hidden rounded-xl border border-(--color-border) bg-(--color-bg-elevated) transition-colors hover:border-(--color-border-strong)"
     >
       {/* Thumbnail */}
       <div className="relative aspect-video bg-black">
@@ -96,7 +96,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
       {/* Content */}
       <div className="flex items-start gap-3 px-3 py-2.5">
         {/* Avatar */}
-        <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)]">
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-(--color-border) bg-(--color-bg-overlay)">
           {avatarUrl ? (
             <img
               src={avatarUrl}
@@ -107,7 +107,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
               }}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-(--color-fg-muted)">
               {handle[0]?.toUpperCase() ?? "?"}
             </div>
           )}
@@ -115,23 +115,23 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
 
         {/* Text */}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-[var(--color-fg)]">
+          <div className="truncate text-sm font-medium text-(--color-fg)">
             {title}
           </div>
-          <div className="mt-0.5 truncate text-xs text-[var(--color-fg-muted)]">
+          <div className="mt-0.5 truncate text-xs text-(--color-fg-muted)">
             @{handle}
           </div>
           {(activity || tags.length > 0) && (
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
               {activity && (
-                <span className="flex-shrink-0 text-xs text-[var(--color-fg-muted)]">
+                <span className="shrink-0 text-xs text-(--color-fg-muted)">
                   {activity}
                 </span>
               )}
               {tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="flex-shrink-0 rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)] px-2 py-0.5 text-xs text-[var(--color-fg-subtle)]"
+                  className="shrink-0 rounded-full border border-(--color-border) bg-(--color-bg-overlay) px-2 py-0.5 text-xs text-(--color-fg-subtle)"
                 >
                   {displayTag(tag)}
                 </span>

@@ -53,7 +53,7 @@ export function StreamMonitorWidget({
       <WifiOff className="size-3.5 text-red-400" />
     )
   ) : (
-    <Wifi className="size-3.5 text-[var(--color-fg-muted)]" />
+    <Wifi className="size-3.5 text-(--color-fg-muted)" />
   );
 
   const statusLabel = isLive
@@ -61,7 +61,7 @@ export function StreamMonitorWidget({
     : t("offline", { defaultValue: "OFFLINE" });
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex h-full flex-col overflow-hidden rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated)">
       {/* Video area */}
       <div className="relative h-full w-full flex-1 bg-black">
         {visible && isLive ? (
@@ -80,8 +80,8 @@ export function StreamMonitorWidget({
               />
             ) : (
               <div className="text-center">
-                <Radio className="mx-auto mb-2 size-8 text-[var(--color-fg-muted)]" />
-                <p className="text-sm text-[var(--color-fg-muted)]">
+                <Radio className="mx-auto mb-2 size-8 text-(--color-fg-muted)" />
+                <p className="text-sm text-(--color-fg-muted)">
                   {t("stream-offline", {
                     defaultValue: "Stream is offline",
                   })}
@@ -103,7 +103,7 @@ export function StreamMonitorWidget({
       </div>
 
       {/* Info bar */}
-      <div className="flex items-center justify-between border-t border-[var(--color-border)] px-3 py-2">
+      <div className="flex items-center justify-between border-t border-(--color-border) px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {connectionIcon}
           <span className="truncate text-sm">
@@ -111,12 +111,12 @@ export function StreamMonitorWidget({
           </span>
         </div>
 
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {isLive && (
             <button
               type="button"
               onClick={() => setVisible((v) => !v)}
-              className="rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg)] hover:text-[var(--color-fg)]"
+              className="rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg) hover:text-(--color-fg)"
               title={
                 visible
                   ? t("hide-stream", { defaultValue: "Hide stream" })
@@ -132,7 +132,7 @@ export function StreamMonitorWidget({
           )}
           <span
             className={`text-xs font-medium tracking-wider uppercase ${
-              isLive ? "text-[var(--color-fg)]" : "text-[var(--color-fg-muted)]"
+              isLive ? "text-(--color-fg)" : "text-(--color-fg-muted)"
             }`}
           >
             {statusLabel}

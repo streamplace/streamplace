@@ -161,14 +161,14 @@ function SettingsLayout() {
   return (
     <div className="mx-auto flex max-w-screen flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-10">
       {/* Mobile: floating sticky nav */}
-      <div className="sticky top-0 z-30 -mx-4 bg-[var(--color-bg)]/80 px-4 py-2 backdrop-blur-md lg:hidden">
+      <div className="sticky top-0 z-30 -mx-4 bg-(--color-bg)/80 px-4 py-2 backdrop-blur-md lg:hidden">
         <h2 className="font-display mb-2 text-lg font-semibold tracking-tight">
           {t("settings-title")}
         </h2>
 
         <div className="relative -mx-4 px-4">
-          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent" />
-          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent" />
+          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-linear-to-r from-(--color-bg) to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-linear-to-l from-(--color-bg) to-transparent" />
 
           <nav
             className="-mx-5 flex scrollbar-none gap-0.5 overflow-x-auto px-5"

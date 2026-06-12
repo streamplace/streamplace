@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
@@ -42,9 +43,9 @@ function BrandingAdmin() {
       setUploading(true);
       const textBytes = new TextEncoder().encode(value.trim());
       const base64Data = btoa(String.fromCharCode(...textBytes));
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: "text/plain",
       });
@@ -84,9 +85,9 @@ function BrandingAdmin() {
         });
       }
 
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: file.type,
         width,
@@ -104,9 +105,9 @@ function BrandingAdmin() {
     if (!agent) return;
     try {
       setUploading(true);
-      await agent.place.stream.branding.deleteBlob({
+      await agent.client.call(place.stream.branding.deleteBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
       });
       toast.success(`${key} deleted`);
     } catch (error: any) {
@@ -144,7 +145,7 @@ function BrandingAdmin() {
 
   if (!agent) {
     return (
-      <div className="text-sm text-[var(--color-fg-muted)]">
+      <div className="text-sm text-(--color-fg-muted)">
         {t("branding-login-required")}
       </div>
     );
@@ -156,22 +157,22 @@ function BrandingAdmin() {
         <h1 className="font-display text-xl font-semibold">
           {t("branding-admin")}
         </h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+        <p className="mt-1 text-sm text-(--color-fg-muted)">
           {t("branding-admin-description")}
         </p>
       </div>
 
       {uploading && (
-        <div className="text-sm text-[var(--color-fg-muted)]">Uploading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Uploading…</div>
       )}
 
       {/* Broadcaster DID */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+        <h2 className="text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
           {t("branding-configuration")}
         </h2>
-        <div className="space-y-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-          <label className="block text-xs font-medium text-[var(--color-fg-muted)]">
+        <div className="space-y-2 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
+          <label className="block text-xs font-medium text-(--color-fg-muted)">
             {t("branding-broadcaster-did")}
           </label>
           <Input
@@ -179,7 +180,7 @@ function BrandingAdmin() {
             onChange={(e) => setBroadcasterDID(e.target.value)}
             placeholder={t("branding-default-streamer-placeholder")}
           />
-          <p className="text-xs text-[var(--color-fg-muted)]">
+          <p className="text-xs text-(--color-fg-muted)">
             {t("branding-broadcaster-did-description")}
           </p>
         </div>
@@ -187,10 +188,10 @@ function BrandingAdmin() {
 
       {/* Text settings */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+        <h2 className="text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
           {t("branding-text-settings")}
         </h2>
-        <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
           <BrandingTextField
             label={t("branding-site-title")}
             value={siteTitle}
@@ -221,10 +222,10 @@ function BrandingAdmin() {
 
       {/* Colors */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+        <h2 className="text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
           {t("branding-colors")}
         </h2>
-        <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
           <BrandingTextField
             label={t("branding-primary-color")}
             value={primaryColor}
@@ -246,10 +247,10 @@ function BrandingAdmin() {
 
       {/* Images */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+        <h2 className="text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
           {t("branding-images")}
         </h2>
-        <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
           <BrandingImageField
             label={t("branding-main-logo")}
             description={t("branding-main-logo-description")}
@@ -279,10 +280,10 @@ function BrandingAdmin() {
 
       {/* Legal links */}
       <section className="space-y-3">
-        <h2 className="text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+        <h2 className="text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
           {t("branding-legal-links")}
         </h2>
-        <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+        <div className="space-y-3 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Input
               value={legalLinkText}
@@ -322,7 +323,7 @@ function BrandingAdmin() {
         </div>
 
         {legalLinks.length > 0 && (
-          <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+          <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
             {legalLinks.map((link, index) => (
               <div
                 key={index}
@@ -330,7 +331,7 @@ function BrandingAdmin() {
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium">{link.text}</div>
-                  <div className="truncate text-xs text-[var(--color-fg-muted)]">
+                  <div className="truncate text-xs text-(--color-fg-muted)">
                     {link.url}
                   </div>
                 </div>
@@ -441,7 +442,7 @@ function BrandingImageField({
   return (
     <div className="space-y-2 p-4">
       <div className="text-sm font-medium">{label}</div>
-      <div className="text-xs text-[var(--color-fg-muted)]">{description}</div>
+      <div className="text-xs text-(--color-fg-muted)">{description}</div>
       <div className="flex gap-2">
         <Button onClick={handleSelect} disabled={disabled} size="sm">
           Upload

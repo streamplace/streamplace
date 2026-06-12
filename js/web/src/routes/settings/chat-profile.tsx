@@ -74,7 +74,7 @@ function ChatProfileSettings() {
   if (!userProfile) {
     return (
       <div className="space-y-6">
-        <div className="text-sm text-[var(--color-fg-muted)]">
+        <div className="text-sm text-(--color-fg-muted)">
           {t("chat-profile-login-required")}
         </div>
       </div>
@@ -114,16 +114,16 @@ function ChatProfileSettings() {
         </h3>
         <CardMenuSection>
           <div className="space-y-3 px-3 py-3">
-            <p className="text-xs text-[var(--color-fg-muted)]">
+            <p className="text-xs text-(--color-fg-muted)">
               {t("chat-profile-name-color-description")}
             </p>
 
             {/* Preview */}
-            <div className="flex items-center gap-2 rounded-md bg-[var(--color-bg)] px-3 py-2">
+            <div className="flex items-center gap-2 rounded-md bg-(--color-bg) px-3 py-2">
               <span className="text-sm" style={{ color }}>
                 @{userProfile.handle}
               </span>
-              <span className="text-sm text-[var(--color-fg-muted)]">
+              <span className="text-sm text-(--color-fg-muted)">
                 {t("chat-profile-preview-message")}
               </span>
             </div>
@@ -134,7 +134,7 @@ function ChatProfileSettings() {
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-10 cursor-pointer rounded-md border border-[var(--color-border)] bg-transparent p-0.5"
+                className="h-10 w-10 cursor-pointer rounded-md border border-(--color-border) bg-transparent p-0.5"
               />
               <input
                 type="text"
@@ -152,7 +152,7 @@ function ChatProfileSettings() {
                     setColor(defaultHex);
                   }
                 }}
-                className="w-24 rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1.5 font-mono text-sm"
+                className="w-24 rounded-md border border-(--color-border) bg-transparent px-2 py-1.5 font-mono text-sm"
                 maxLength={7}
               />
             </div>
@@ -169,7 +169,7 @@ function ChatProfileSettings() {
           <div className="flex items-center justify-between px-3 py-2.5">
             <div>
               <span className="text-sm">{t("chat-profile-label-bot")}</span>
-              <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              <p className="mt-0.5 text-xs text-(--color-fg-muted)">
                 {t("chat-profile-label-bot-description")}
               </p>
             </div>
@@ -178,7 +178,7 @@ function ChatProfileSettings() {
               role="switch"
               aria-checked={isBot}
               onClick={() => setIsBot(!isBot)}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isBot ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"} `}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isBot ? "bg-(--color-accent)" : "bg-(--color-border)"} `}
             >
               <span
                 className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform ${isBot ? "translate-x-4" : "translate-x-0"} `}
@@ -195,7 +195,7 @@ function ChatProfileSettings() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="rounded-md bg-(--color-accent) px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {saving ? t("saving") : t("save-button")}
           </button>

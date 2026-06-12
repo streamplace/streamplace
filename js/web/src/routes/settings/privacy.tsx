@@ -44,7 +44,7 @@ function PrivacySettings() {
               <div className="text-sm font-medium">
                 {t("debug-recording-title", { host: u.host })}
               </div>
-              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              <div className="mt-0.5 text-xs text-(--color-fg-muted)">
                 {t("debug-recording-description")}
               </div>
             </div>

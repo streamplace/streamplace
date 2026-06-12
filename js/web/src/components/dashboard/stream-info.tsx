@@ -274,7 +274,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
   if (!agent) {
     return (
-      <div className="rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 text-sm text-[var(--color-fg-muted)]">
+      <div className="rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)">
         {t("login-required", {
           defaultValue: "Please log in to manage streams.",
         })}
@@ -284,7 +284,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
   if (page === "contentWarnings") {
     return (
-      <div className="h-full overflow-auto rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2">
+      <div className="h-full overflow-auto rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated) px-2">
         <Button
           variant="outline"
           size="sm"
@@ -312,11 +312,11 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
   }
 
   return (
-    <div className="h-full overflow-auto rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="h-full overflow-auto rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated)">
       <div className="space-y-4 p-4">
         {/* Title */}
         <div className="space-y-0">
-          <label className="mb-1 block text-sm text-[var(--color-fg-muted)]">
+          <label className="mb-1 block text-sm text-(--color-fg-muted)">
             {t("title", { defaultValue: "Title" })}
           </label>
           <Textarea
@@ -333,7 +333,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
               className={cn(
                 "text-xs",
                 title.length <= 120
-                  ? "text-[var(--color-fg-muted)]"
+                  ? "text-(--color-fg-muted)"
                   : title.length < 140
                     ? "text-amber-400"
                     : "text-red-400",
@@ -349,7 +349,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
         {/* Tags */}
         <div className="space-y-1.5">
-          <label className="mb-1 block text-sm text-[var(--color-fg-muted)]">
+          <label className="mb-1 block text-sm text-(--color-fg-muted)">
             {t("tags", { defaultValue: "Tags" })}
           </label>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -358,13 +358,13 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
               .map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 rounded-full border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/10 px-2 py-0.5 text-sm text-[var(--color-accent)]"
+                  className="inline-flex items-center gap-1 rounded-full border border-(--color-accent)/20 bg-(--color-accent)/10 px-2 py-0.5 text-sm text-(--color-accent)"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="hover:text-[var(--color-accent-fg)]"
+                    className="hover:text-(--color-accent-fg)"
                   >
                     <X className="size-3" />
                   </button>
@@ -388,7 +388,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
             )}
             {/* Language picker */}
             <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1 text-sm">
+              <DropdownMenuTrigger className="flex items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg) px-2 py-1 text-sm">
                 {language
                   ? language
                   : t("language", { defaultValue: "Language" })}
@@ -431,7 +431,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
                     : withoutLang,
                 );
               }}
-              className="px-2 py-1 text-sm rounded-full border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg-muted)]"
+              className="px-2 py-1 text-sm rounded-full border border-(--color-border) bg-(--color-bg) text-(--color-fg-muted)"
             >
               <option value="">
                 {t("language", { defaultValue: "Language" })}
@@ -447,9 +447,9 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
         {/* Thumbnail */}
         <div className="space-y-1.5">
-          <label className="mb-1 block text-sm text-[var(--color-fg-muted)]">
+          <label className="mb-1 block text-sm text-(--color-fg-muted)">
             {t("thumbnail", { defaultValue: "Thumbnail" })}
-            <span className="ml-1 text-sm text-[var(--color-fg-muted)]/60">
+            <span className="ml-1 text-sm text-(--color-fg-muted)/60">
               ({t("optional", { defaultValue: "optional" })})
             </span>
           </label>
@@ -472,7 +472,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
             <button
               type="button"
               onClick={handleThumbnailSelect}
-              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-[var(--color-border)] text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)]"
+              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-(--color-border) text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong)"
             >
               <ImagePlus className="size-6" />
               <span className="text-sm">
@@ -483,15 +483,15 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         </div>
 
         {/* Options */}
-        <div className="space-y-2 rounded-md border border-[var(--color-border)] p-3">
+        <div className="space-y-2 rounded-md border border-(--color-border) p-3">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={createPost}
               onChange={(e) => setCreatePost(e.target.checked)}
-              className="rounded border-[var(--color-border)]"
+              className="rounded border-(--color-border)"
             />
-            <span className="text-sm text-[var(--color-fg)]">
+            <span className="text-sm text-(--color-fg)">
               {t("create-bluesky-post", {
                 defaultValue: "Create Bluesky post",
               })}
@@ -502,9 +502,9 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
               type="checkbox"
               checked={idleTimeout}
               onChange={(e) => setIdleTimeout(e.target.checked)}
-              className="rounded border-[var(--color-border)]"
+              className="rounded border-(--color-border)"
             />
-            <span className="text-sm text-[var(--color-fg)]">
+            <span className="text-sm text-(--color-fg)">
               {t("end-automatically", {
                 defaultValue: "End livestream automatically",
               })}
@@ -548,7 +548,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
             disabled={!canSubmit || !isLive}
             className={cn(
               "flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors",
-              "bg-[var(--color-accent)] text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)]",
+              "bg-(--color-accent) text-(--color-accent-fg) hover:bg-(--color-accent-hover)",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
@@ -564,7 +564,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
               "flex h-9 w-full items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors",
               canEnd
                 ? "border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                : "cursor-not-allowed border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg-muted)] opacity-50",
+                : "cursor-not-allowed border border-(--color-border) bg-(--color-bg) text-(--color-fg-muted) opacity-50",
             )}
           >
             {endingLivestream ? (
@@ -694,11 +694,11 @@ function ContentWarningsQuickEdit({
               type="checkbox"
               checked={checked}
               onChange={() => toggle(cw.value)}
-              className="mt-0.5 size-3.5 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-ring)]"
+              className="focus:ring-ring mt-0.5 size-3.5 rounded border-(--color-border) text-(--color-accent)"
             />
             <div className="space-y-0">
               <div className={"font-medium"}>{cw.label}</div>
-              <span className="text-sm leading-px text-[var(--color-fg-muted)]">
+              <span className="text-sm leading-px text-(--color-fg-muted)">
                 {t(cw.label + "-description", { defaultValue: cw.description })}
               </span>
             </div>

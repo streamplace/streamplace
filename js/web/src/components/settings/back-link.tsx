@@ -10,7 +10,7 @@ function BackLink({ to, label }: BackLinkProps) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center gap-1.5 text-sm text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
+      className="inline-flex items-center gap-1.5 text-sm text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
     >
       <ChevronLeft size={16} />
       {label}

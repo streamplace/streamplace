@@ -172,7 +172,7 @@ function WebhookManager() {
         <h1 className="font-display text-xl font-semibold">
           {t("webhook-integrations")}
         </h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+        <p className="mt-1 text-sm text-(--color-fg-muted)">
           {t("webhook-integrations-description")}
         </p>
       </div>
@@ -195,13 +195,13 @@ function WebhookManager() {
 
       {/* Webhook list */}
       {loading ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : webhooks === null ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">
+        <div className="text-sm text-(--color-fg-muted)">
           {t("failed-load-webhooks")}
         </div>
       ) : webhooks.length === 0 ? (
-        <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
+        <div className="py-8 text-center text-sm text-(--color-fg-muted)">
           {t("no-webhooks-yet")}
         </div>
       ) : (
@@ -217,24 +217,24 @@ function WebhookManager() {
                     {webhook.name || t("untitled-webhook")}
                   </span>
                   {!webhook.active && (
-                    <span className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)]">
+                    <span className="rounded bg-(--color-bg) px-1.5 py-0.5 text-xs text-(--color-fg-muted)">
                       {t("inactive")}
                     </span>
                   )}
                 </div>
                 {webhook.description && (
-                  <div className="text-xs text-[var(--color-fg-muted)]">
+                  <div className="text-xs text-(--color-fg-muted)">
                     {webhook.description}
                   </div>
                 )}
-                <div className="truncate font-mono text-xs text-[var(--color-fg-muted)]">
+                <div className="truncate font-mono text-xs text-(--color-fg-muted)">
                   {webhook.url}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {webhook.events.map((event) => (
                     <span
                       key={event}
-                      className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs"
+                      className="rounded bg-(--color-bg) px-1.5 py-0.5 text-xs"
                     >
                       {event}
                     </span>
@@ -245,15 +245,15 @@ function WebhookManager() {
                 <button
                   type="button"
                   onClick={() => handleEdit(webhook)}
-                  className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)]"
+                  className="rounded p-1.5 transition-colors hover:bg-(--color-bg)"
                 >
-                  <Edit2 size={16} className="text-[var(--color-fg-muted)]" />
+                  <Edit2 size={16} className="text-(--color-fg-muted)" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteTarget(webhook)}
                   disabled={deletingIds.has(webhook.id)}
-                  className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
+                  className="rounded p-1.5 transition-colors hover:bg-(--color-bg) disabled:opacity-50"
                 >
                   <Trash2 size={16} className="text-destructive" />
                 </button>
@@ -385,7 +385,7 @@ function WebhookFormDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               {t("name-optional")}
             </label>
             <Input
@@ -399,7 +399,7 @@ function WebhookFormDialog({
 
           {/* URL */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               Webhook URL *
             </label>
             <Input
@@ -416,7 +416,7 @@ function WebhookFormDialog({
 
           {/* Description */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               Description (optional)
             </label>
             <Input
@@ -430,7 +430,7 @@ function WebhookFormDialog({
 
           {/* Events */}
           <div>
-            <label className="mb-2 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-2 block text-xs font-medium text-(--color-fg-muted)">
               Events *
             </label>
             {EVENT_OPTIONS.map((opt) => (
@@ -442,7 +442,7 @@ function WebhookFormDialog({
                   type="checkbox"
                   checked={form.events.includes(opt.value)}
                   onChange={() => toggleEvent(opt.value)}
-                  className="size-4 rounded border-[var(--color-border)]"
+                  className="size-4 rounded border-(--color-border)"
                 />
                 <span className="text-sm">{opt.label}</span>
               </label>
@@ -455,7 +455,7 @@ function WebhookFormDialog({
           {/* Prefix & Suffix */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+              <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
                 Prefix
               </label>
               <Input
@@ -467,7 +467,7 @@ function WebhookFormDialog({
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+              <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
                 Suffix
               </label>
               <Input
@@ -483,7 +483,7 @@ function WebhookFormDialog({
           {/* Text Replacements */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-xs font-medium text-[var(--color-fg-muted)]">
+              <label className="text-xs font-medium text-(--color-fg-muted)">
                 Text Replacements
               </label>
               <Button
@@ -514,7 +514,7 @@ function WebhookFormDialog({
                   placeholder="input text"
                   className="flex-1"
                 />
-                <span className="text-xs text-[var(--color-fg-muted)]">→</span>
+                <span className="text-xs text-(--color-fg-muted)">→</span>
                 <Input
                   value={rule.to}
                   onChange={(e) =>
@@ -526,7 +526,7 @@ function WebhookFormDialog({
                     }))
                   }
                   placeholder="output text"
-                  className="flex-[2]"
+                  className="flex-2"
                 />
                 {form.rewrite.length > 1 && (
                   <button
@@ -537,7 +537,7 @@ function WebhookFormDialog({
                         rewrite: prev.rewrite.filter((_, j) => j !== i),
                       }))
                     }
-                    className="rounded p-1 hover:bg-[var(--color-bg)]"
+                    className="rounded p-1 hover:bg-(--color-bg)"
                   >
                     <X size={14} className="text-destructive" />
                   </button>
@@ -548,7 +548,7 @@ function WebhookFormDialog({
 
           {/* Mute Words */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               Mute Words (Chat Only)
             </label>
             <Input

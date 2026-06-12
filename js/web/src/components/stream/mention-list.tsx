@@ -103,7 +103,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     return (
       <div
         ref={listRef}
-        className="max-h-64 overflow-hidden overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-lg"
+        className="max-h-64 overflow-hidden overflow-y-auto rounded-lg border border-(--color-border) bg-(--color-bg-elevated) shadow-lg"
       >
         {items.map((item, i) => {
           const colorStr = item.color
@@ -117,7 +117,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
               data-selected={isSelected}
               role="option"
               aria-selected={isSelected}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm outline-none hover:bg-[var(--color-bg-overlay)] focus:bg-[var(--color-bg-overlay)] ${isSelected ? "bg-[var(--color-bg-overlay)]" : ""}`}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm outline-none hover:bg-(--color-bg-overlay) focus:bg-(--color-bg-overlay) ${isSelected ? "bg-(--color-bg-overlay)" : ""}`}
               // mousedown (not click) keeps the editor focused so the
               // suggestion plugin stays alive; click fires after blur and
               // would close the popup before command() runs.
@@ -131,14 +131,14 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                 <img
                   src={item.avatar}
                   alt=""
-                  className="h-6 w-6 flex-shrink-0 rounded-full"
+                  className="h-6 w-6 shrink-0 rounded-full"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).style.display =
                       "none";
                   }}
                 />
               ) : (
-                <div className="h-6 w-6 flex-shrink-0 rounded-full bg-[var(--color-muted)]" />
+                <div className="bg-muted h-6 w-6 shrink-0 rounded-full" />
               )}
               <span
                 className="truncate text-sm font-medium"
@@ -147,7 +147,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
                 {item.displayName || item.handle}
               </span>
               {item.displayName && item.handle && (
-                <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                <span className="truncate text-xs text-(--color-fg-muted)">
                   @{item.handle}
                 </span>
               )}

@@ -195,7 +195,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
   const showAudience = activeAudienceIds.length > 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 rounded-b-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -216,8 +216,8 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
               className={cn(
                 "rounded px-1.5 py-0.5 text-[10px] transition-colors",
                 range === r.id
-                  ? "bg-[var(--color-accent)]/20 font-semibold text-[var(--color-accent)]"
-                  : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]",
+                  ? "bg-(--color-accent)/20 font-semibold text-(--color-accent)"
+                  : "text-(--color-fg-muted) hover:text-(--color-fg)",
               )}
               aria-pressed={range === r.id}
             >
@@ -244,7 +244,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
           <AudienceChart history={history} activeIds={activeAudienceIds} />
         )}
         {!showVideo && !showAudience && (
-          <div className="flex flex-1 items-center justify-center rounded border border-dashed border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">
+          <div className="flex flex-1 items-center justify-center rounded border border-dashed border-(--color-border) text-xs text-(--color-fg-muted)">
             {t("select-metric", { defaultValue: "Click a metric to overlay" })}
           </div>
         )}
@@ -266,7 +266,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
                 "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
                 isActive
                   ? "border-transparent"
-                  : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]",
+                  : "border-(--color-border) text-(--color-fg-muted) hover:border-(--color-border-strong) hover:text-(--color-fg)",
               )}
               style={
                 isActive
@@ -299,7 +299,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
               <span
                 className={cn(
                   "tabular-nums",
-                  isActive ? "font-semibold" : "text-[var(--color-fg)]",
+                  isActive ? "font-semibold" : "text-(--color-fg)",
                 )}
               >
                 {metric.format(current)}
@@ -322,13 +322,11 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
                   className="h-1.5 w-1.5 rounded-full"
                   style={{ backgroundColor: metric.color }}
                 />
-                <span className="text-[var(--color-fg-muted)]">
-                  {metric.label}
-                </span>
-                <span className="text-[10px] text-[var(--color-fg-muted)]">
+                <span className="text-(--color-fg-muted)">{metric.label}</span>
+                <span className="text-[10px] text-(--color-fg-muted)">
                   avg {metric.format(s.avg)}
                 </span>
-                <span className="text-[10px] text-[var(--color-fg-muted)]">
+                <span className="text-[10px] text-(--color-fg-muted)">
                   peak {metric.format(s.peak)}
                 </span>
               </div>
@@ -352,7 +350,7 @@ function VideoChart({ history, activeIds }: ChartProps) {
   );
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase">
+      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-(--color-fg-muted) uppercase">
         {t("video", { defaultValue: "Video" })}
       </div>
       <ResponsiveContainer width="100%" height="100%">
@@ -435,7 +433,7 @@ function AudienceChart({ history, activeIds }: ChartProps) {
   const { t } = useTranslation("common");
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-[var(--color-fg-muted)] uppercase">
+      <div className="mb-0.5 shrink-0 px-1 text-[10px] tracking-wider text-(--color-fg-muted) uppercase">
         {t("audience", { defaultValue: "Audience" })}
       </div>
       <ResponsiveContainer width="100%" height="100%">

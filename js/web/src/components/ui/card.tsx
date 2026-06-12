@@ -24,7 +24,7 @@ function CardMenuSection({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]",
+        "divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)",
         className,
       )}
       {...props}

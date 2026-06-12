@@ -77,8 +77,8 @@ function SortableStreamerRow({
   return (
     <div
       ref={ref}
-      className={`flex items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 last:border-b-0 ${
-        isDragging ? "rounded-md bg-[var(--color-bg-elevated)] shadow-lg" : ""
+      className={`flex items-center gap-2 border-b border-(--color-border) px-3 py-2 last:border-b-0 ${
+        isDragging ? "rounded-md bg-(--color-bg-elevated) shadow-lg" : ""
       }`}
     >
       {/* Drag handle */}
@@ -88,7 +88,7 @@ function SortableStreamerRow({
       >
         <GripVertical
           size={16}
-          className="text-[var(--color-fg-muted)] opacity-60"
+          className="text-(--color-fg-muted) opacity-60"
         />
       </div>
 
@@ -105,16 +105,16 @@ function SortableStreamerRow({
           <button
             type="button"
             onClick={onSaveEdit}
-            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-(--color-bg)"
           >
-            <Check size={16} className="text-[var(--color-accent)]" />
+            <Check size={16} className="text-(--color-accent)" />
           </button>
           <button
             type="button"
             onClick={() => onCancelEdit(index, !!streamer)}
-            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-(--color-bg)"
           >
-            <X size={16} className="text-[var(--color-fg-muted)]" />
+            <X size={16} className="text-(--color-fg-muted)" />
           </button>
         </>
       ) : (
@@ -123,13 +123,13 @@ function SortableStreamerRow({
             <img
               src={resolvedAvatar}
               alt=""
-              className="h-6 w-6 flex-shrink-0 rounded-full bg-[var(--color-bg)]"
+              className="h-6 w-6 shrink-0 rounded-full bg-(--color-bg)"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="h-6 w-6 flex-shrink-0 rounded-full bg-[var(--color-bg)]" />
+            <div className="h-6 w-6 shrink-0 rounded-full bg-(--color-bg)" />
           )}
           <span
             className={cn(
@@ -143,14 +143,14 @@ function SortableStreamerRow({
           <button
             type="button"
             onClick={() => onStartEdit(index, streamer)}
-            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-(--color-bg)"
           >
-            <Pencil size={16} className="text-[var(--color-fg-muted)]" />
+            <Pencil size={16} className="text-(--color-fg-muted)" />
           </button>
           <button
             type="button"
             onClick={() => onDelete(index)}
-            className="rounded p-1.5 hover:bg-[var(--color-bg)]"
+            className="rounded p-1.5 hover:bg-(--color-bg)"
           >
             <X size={16} className="text-destructive" />
           </button>
@@ -348,7 +348,7 @@ function RecommendationsManager() {
 
   if (!agent) {
     return (
-      <div className="text-sm text-[var(--color-fg-muted)]">
+      <div className="text-sm text-(--color-fg-muted)">
         Please log in to manage recommendations.
       </div>
     );
@@ -361,7 +361,7 @@ function RecommendationsManager() {
           <h1 className="font-display text-xl font-semibold">
             {t("recommendations-to-others")}
           </h1>
-          <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+          <p className="mt-1 text-sm text-(--color-fg-muted)">
             {t("recommendations-description")}
           </p>
         </div>
@@ -392,7 +392,7 @@ function RecommendationsManager() {
           </div>
 
           {searching && (
-            <div className="px-3 py-2 text-xs text-[var(--color-fg-muted)]">
+            <div className="px-3 py-2 text-xs text-(--color-fg-muted)">
               Searching…
             </div>
           )}
@@ -407,11 +407,11 @@ function RecommendationsManager() {
                     type="button"
                     onClick={() => !alreadyAdded && handleSelectActor(actor)}
                     disabled={alreadyAdded}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-(--color-bg) disabled:opacity-50"
                   >
                     <span className="text-sm">@{actor.handle}</span>
                     {alreadyAdded && (
-                      <span className="text-xs text-[var(--color-fg-muted)]">
+                      <span className="text-xs text-(--color-fg-muted)">
                         Added
                       </span>
                     )}
@@ -422,7 +422,7 @@ function RecommendationsManager() {
           )}
 
           {!searching && searchQuery.trim() && searchResults.length === 0 && (
-            <div className="px-3 py-2 text-xs text-[var(--color-fg-muted)]">
+            <div className="px-3 py-2 text-xs text-(--color-fg-muted)">
               No results found
             </div>
           )}
@@ -431,11 +431,11 @@ function RecommendationsManager() {
 
       {/* Streamer list with drag-to-reorder */}
       {loading ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : (
         <CardMenuSection>
           {streamers.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-[var(--color-fg-muted)]">
+            <div className="px-3 py-6 text-center text-sm text-(--color-fg-muted)">
               {t("no-recommendations-yet")}
             </div>
           ) : (
@@ -474,9 +474,9 @@ function RecommendationsManager() {
             <button
               type="button"
               onClick={handleAddManual}
-              className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
+              className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
             >
-              <Plus size={16} className="text-[var(--color-fg-muted)]" />
+              <Plus size={16} className="text-(--color-fg-muted)" />
               <span className="text-sm">Add DID manually</span>
             </button>
           )}
@@ -484,9 +484,7 @@ function RecommendationsManager() {
       )}
 
       {saving && (
-        <div className="text-xs text-[var(--color-fg-muted)]">
-          {t("saving")}
-        </div>
+        <div className="text-xs text-(--color-fg-muted)">{t("saving")}</div>
       )}
 
       {/* Delete confirmation */}
@@ -501,7 +499,7 @@ function RecommendationsManager() {
             <DialogTitle>{t("delete")}</DialogTitle>
           </DialogHeader>
           <p className="text-sm">{t("confirm-delete")}</p>
-          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">
+          <p className="mt-1 text-xs text-(--color-fg-muted)">
             {t("action-cannot-be-undone")}
           </p>
           <DialogFooter>

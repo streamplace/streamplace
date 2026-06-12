@@ -41,7 +41,7 @@ function getTargetHostname(target: MultistreamTarget): string | null {
 }
 
 function statusColor(target: MultistreamTarget): string {
-  if (!target.record.active) return "text-[var(--color-fg-muted)]";
+  if (!target.record.active) return "text-(--color-fg-muted)";
   switch (target.latestEvent?.status) {
     case "active":
       return "text-green-400";
@@ -50,7 +50,7 @@ function statusColor(target: MultistreamTarget): string {
     case "pending":
       return "text-amber-400 animate-pulse";
     default:
-      return "text-[var(--color-fg-muted)]";
+      return "text-(--color-fg-muted)";
   }
 }
 
@@ -114,8 +114,8 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
 
   if (loading && targets.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-        <div className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)]">
+      <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
+        <div className="flex items-center gap-2 text-sm text-(--color-fg-muted)">
           <Loader2 className="size-4 animate-spin" />
           {t("loading-multistream", {
             defaultValue: "Loading multistream…",
@@ -127,8 +127,8 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
 
   if (targets.length === 0) {
     return (
-      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
-        <div className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)]">
+      <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
+        <div className="flex items-center gap-2 text-sm text-(--color-fg-muted)">
           <Globe className="size-4" />
           {t("no-multistream-targets", {
             defaultValue: "No multistream targets configured",
@@ -139,18 +139,18 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
   }
 
   return (
-    <div className="h-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
-        <Globe className="size-4 text-[var(--color-fg-muted)]" />
+    <div className="h-full overflow-hidden rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
+      <div className="flex items-center gap-2 border-b border-(--color-border) px-4 py-3">
+        <Globe className="size-4 text-(--color-fg-muted)" />
         <h3 className="text-sm font-semibold">
           {t("multistream", { defaultValue: "Multistream" })}
         </h3>
         {loading && (
-          <Loader2 className="size-3 animate-spin text-[var(--color-fg-muted)]" />
+          <Loader2 className="size-3 animate-spin text-(--color-fg-muted)" />
         )}
       </div>
 
-      <div className="divide-y divide-[var(--color-border)]">
+      <div className="divide-y divide-(--color-border)">
         {targets.map((target) => {
           const name = getTargetName(target);
           const hostname = getTargetHostname(target);
@@ -165,7 +165,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm">{name}</span>
                   {target.record.name && hostname && (
-                    <span className="truncate text-xs text-[var(--color-fg-muted)]">
+                    <span className="truncate text-xs text-(--color-fg-muted)">
                       {hostname}
                     </span>
                   )}
@@ -190,11 +190,11 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
                 onClick={() => toggleTarget(target, !target.record.active)}
                 className={cn(
                   "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                  "focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 focus-visible:outline-none",
+                  "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
                   "disabled:cursor-not-allowed disabled:opacity-50",
                   target.record.active
-                    ? "bg-[var(--color-accent)]"
-                    : "bg-[var(--color-bg)]",
+                    ? "bg-(--color-accent)"
+                    : "bg-(--color-bg)",
                 )}
               >
                 <span

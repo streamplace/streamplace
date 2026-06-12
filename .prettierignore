@@ -4,5 +4,6 @@ js/app/android
 .ci/dockerfile-hash.yaml
 pnpm-lock.yaml
 js/app/assets/emoji-data-stripped.json
+js/web/public/emoji-data.json
 **/routeTree.gen.ts
 *.html

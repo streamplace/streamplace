@@ -251,5 +251,22 @@
   "chat-profile-preview-message": "Hello, world!",
   "chat-profile-self-labels": "Self Labels",
   "chat-profile-label-bot": "Bot",
-  "chat-profile-label-bot-description": "Mark your chat messages as coming from a bot."
+  "chat-profile-label-bot-description": "Mark your chat messages as coming from a bot.",
+  "control-panel": "Control Panel",
+  "create-stream-key-in-stream-settings": "Create a stream key in Stream Settings",
+  "creator-settings": "Creator Settings",
+  "delete-all-keys": "Delete All Keys",
+  "delete-all-keys-btn": "Delete All",
+  "delete-all-keys-description": "This will permanently remove all {$count} stream keys. Any streaming software configured with these keys will stop working.",
+  "delete-all-keys-title": "Delete all stream keys?",
+  "failed-delete-keys": "Failed to delete {$count} key(s)",
+  "failed-to-delete-key": "Failed to delete key",
+  "my-videos": "My Videos",
+  "stream-settings": "Stream Settings",
+  "stream-settings-link": "Stream Settings",
+  "time-ago-days": "{$days}d ago",
+  "time-ago-hours": "{$hours}h ago",
+  "time-ago-minutes": "{$minutes}m ago",
+  "time-ago-seconds": "{$seconds}s ago",
+  "upload-videos": "Upload Videos"
 }

@@ -30,7 +30,7 @@ export function ChatSidebar({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border-l">
-      <SidebarHeader>
+      <SidebarHeader className="wide:flex hidden">
         <div className="flex items-center gap-3 py-1">
           <img
             src={author?.avatar ?? undefined}

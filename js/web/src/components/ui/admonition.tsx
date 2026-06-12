@@ -37,29 +37,29 @@ function Admonition({
   children,
   size = "md",
 }: {
-  type: string;
+  type: "note" | "tip" | "info" | "warning" | "danger";
   children: React.ReactNode;
   size?: "sm" | "md" | "lg";
 }) {
   const sizes = {
     sm: "py-2 px-3",
     md: "py-2 px-3",
-    lg: "py-4 px-6",
+    lg: "py-2 px-3",
   };
   const colors = {
     note: "bg-blue-50 text-blue-800 dark:bg-blue-400/20 dark:text-blue-100 border-blue-400/40",
     tip: "bg-green-50 text-green-800 dark:bg-green-400/20 dark:text-green-100 border-green-400/40",
     info: "bg-blue-50 text-blue-800 dark:bg-blue-400/20 dark:text-blue-100 border-blue-400/40",
     warning:
-      "bg-yellow-50 text-yellow-800 dark:bg-yellow-400/20 dark:text-yellow-100 border-yellow-400/40",
+      "bg-yellow-50 text-yellow-800 dark:bg-yellow-500/25 dark:text-yellow-100 border-yellow-400/40",
     danger:
       "bg-red-50 text-red-800 dark:bg-red-900/20 dark:text-red-100 border-red-400/40",
   } as const;
 
   const iconSize = {
-    sm: "size-10 -mt-2",
-    md: "size-14 -mt-3",
-    lg: "size-18 -mt-4",
+    sm: "size-8 w-12",
+    md: "size-12 w-16",
+    lg: "size-14 w-20",
   };
 
   const Icon =

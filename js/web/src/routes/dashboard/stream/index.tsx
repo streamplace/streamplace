@@ -1,4 +1,15 @@
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
+import { Admonition } from "@/components/ui/admonition";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CUSTOM_LICENSE, LICENSE_OPTIONS } from "@/lib/content-licenses";
@@ -6,8 +17,18 @@ import { CONTENT_WARNINGS } from "@/lib/content-warnings";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Loader2, Shield, Tags } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ChevronRight,
+  Clipboard,
+  ExternalLink,
+  Eye,
+  EyeClosed,
+  Key,
+  Loader2,
+  Shield,
+  Tags,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -24,6 +45,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { to: "/dashboard/stream#stream-key", icon: Key, labelKey: "stream-key" },
   { to: "/dashboard/stream#metadata", icon: Tags, labelKey: "metadata" },
   { to: "/dashboard/stream#moderation", icon: Shield, labelKey: "moderation" },
 ];
@@ -91,6 +113,9 @@ export function StreamSettingsPage() {
 
       {/* Content: both sections stacked */}
       <div className="mt-0.75 w-full min-w-0 flex-1 space-y-10 md:w-screen md:max-w-md xl:max-w-xl">
+        <section id="stream-key" className="scroll-mt-20">
+          <StreamKeySection />
+        </section>
         <section id="metadata" className="scroll-mt-20">
           <MetadataSection />
         </section>
@@ -539,6 +564,155 @@ function MetadataSection() {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function StreamKeySection() {
+  const { t } = useTranslation("common");
+  const createStreamKeyRecord = useStore((s) => s.createStreamKeyRecord);
+  const newKey = useStore((s) => s.newKey);
+  const [creating, setCreating] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+
+  const handleCreate = useCallback(async () => {
+    setShowCreateDialog(false);
+    setCreating(true);
+    try {
+      await createStreamKeyRecord(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create key");
+    } finally {
+      setCreating(false);
+    }
+  }, [createStreamKeyRecord]);
+
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-lg font-semibold">
+          {t("stream-key", { defaultValue: "Stream Key" })}
+        </h2>
+        <p className="text-sm text-(--color-fg-muted)">
+          {t("stream-key-help", {
+            defaultValue:
+              "Your stream key identifies you to Streamplace. You can have more than one stream key at a time, and it's a good idea to prune old keys that you aren't using via the key manager.",
+          })}
+        </p>
+      </div>
+
+      {/* Newly created key */}
+      {newKey && (
+        <div className="space-y-3">
+          <Admonition type="warning" size="sm">
+            <Admonition.Title>
+              {t("stream-key-save-now", {
+                defaultValue: "Please save this stream key somewhere safe.",
+              })}
+            </Admonition.Title>
+            <Admonition.Description>
+              {t("stream-key-info-description", {
+                defaultValue:
+                  "For security reasons, you won't be able to view it again through your account. If you lose this stream key, you'll need to generate a new one.",
+              })}
+            </Admonition.Description>
+          </Admonition>
+
+          <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
+            <p className="mb-1 text-[11px] font-medium text-(--color-fg-muted)">
+              {t("stream-key-label", { defaultValue: "Stream Key" })}
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed break-all">
+                {revealed
+                  ? newKey.privateKey
+                  : newKey.privateKey.slice(0, 5) +
+                    Array(newKey.privateKey.length - 5)
+                      .fill("*")
+                      .join("")}
+              </code>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setRevealed((r) => !r)}
+              >
+                {revealed ? <Eye /> : <EyeClosed />}
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleCopy(newKey.privateKey)}
+                className="shrink-0 rounded p-1 text-(--color-fg-muted) hover:bg-(--color-accent-subtle) hover:text-(--color-accent)"
+              >
+                <Clipboard className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => setShowCreateDialog(true)}
+          disabled={creating}
+          variant="secondary"
+        >
+          {creating && <Loader2 className="size-4 animate-spin" />}
+          {t("create-stream-key", { defaultValue: "Create Stream Key" })}
+        </Button>
+        <div className="flex-1" />
+        <Link to="/dashboard/keys" className="ml-auto">
+          <Button disabled={creating} variant="secondary">
+            {t("key-manager", { defaultValue: "Key Manager" })} <ChevronRight />
+          </Button>
+        </Link>
+      </div>
+
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("create-key-title", {
+                defaultValue: "Are you sure about creating a new stream key?",
+              })}
+            </DialogTitle>
+            <DialogDescription className="font-semibold">
+              <span className="text-red-400">
+                {t("create-key-do-not-share", {
+                  defaultValue: `DO NOT SHARE THIS KEY OR SHOW IT ON STREAM, as ANYONE with this key may be able to stream from your account!`,
+                })}
+              </span>{" "}
+              <span className="text-red-400">
+                {t("create-key-description-staff", {
+                  defaultValue: `Staff will never, ever ask for your stream key!`,
+                })}
+              </span>
+              <br />
+              <br />
+              <span>
+                {t("create-key-description-delete-if-exposed", {
+                  defaultValue: `If you think your stream key has been exposed, delete it immediately and create a new one!`,
+                })}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleCreate} variant="destructive">
+              {creating && <Loader2 className="size-4 animate-spin" />}
+              {t("create-stream-key", { defaultValue: "Create Stream Key" })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

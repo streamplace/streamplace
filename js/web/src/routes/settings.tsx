@@ -13,6 +13,7 @@ import {
   Palette,
   Shield,
   User2,
+  Video,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -57,6 +58,12 @@ const NAV_ITEMS: NavItem[] = [
   },
   { role: "link", to: "/settings/advanced", icon: Lock, labelKey: "advanced" },
   { role: "link", to: "/settings/about", icon: Info, labelKey: "about" },
+  {
+    role: "link",
+    to: "/dashboard/stream",
+    icon: Video,
+    labelKey: "creator-settings",
+  },
 ];
 
 const linkClass = cn(

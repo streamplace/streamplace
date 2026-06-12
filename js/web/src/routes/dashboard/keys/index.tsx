@@ -1,7 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useStore } from "../../../lib/store";
 import { useKeyRecords } from "../../../lib/store/hooks";
@@ -30,6 +39,7 @@ function KeyManager() {
   const keyRecords = keyObj?.records ?? null;
 
   const [deletingKeys, setDeletingKeys] = useState<Set<string>>(new Set());
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const handleDelete = async (rkey: string) => {
     if (deletingKeys.has(rkey)) return;
@@ -47,6 +57,25 @@ function KeyManager() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    setShowDeleteAllDialog(false);
+    const rkeys =
+      keyRecords?.records.map((r) => r.uri.split("/").pop() as string) ?? [];
+    if (rkeys.length === 0) return;
+    setDeletingKeys(new Set(rkeys));
+    let failed = 0;
+    for (const rkey of rkeys) {
+      try {
+        await deleteStreamKeyRecord(rkey);
+      } catch {
+        failed++;
+      }
+    }
+    if (failed > 0) {
+      toast.error(`Failed to delete ${failed} key${failed > 1 ? "s" : ""}`);
+    }
+  };
+
   useEffect(() => {
     const timeout = setTimeout(() => {
       getStreamKeyRecords();
@@ -55,7 +84,7 @@ function KeyManager() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <h1 className="font-display text-xl font-semibold">{t("key-manager")}</h1>
 
       {keyRecords === null || keyObj === null ? (
@@ -63,6 +92,17 @@ function KeyManager() {
       ) : keyRecords.records.length === 0 ? (
         <div className="space-y-3">
           <p className="text-sm text-(--color-fg-muted)">{t("no-keys")}</p>
+          <p>
+            <Trans key="create-stream-key-in-stream-settings">
+              Create a stream key in{" "}
+              <Link
+                to="/dashboard/stream"
+                className="font-semibold hover:underline"
+              >
+                Stream Settings
+              </Link>
+            </Trans>
+          </p>
           <button
             type="button"
             onClick={() => getStreamKeyRecords()}
@@ -73,11 +113,22 @@ function KeyManager() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div>
-            <p className="text-sm font-medium">{t("your-stream-pubkeys")}</p>
-            <p className="mt-0.5 text-xs text-(--color-fg-muted)">
-              {t("pubkey-description")}
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">{t("your-stream-pubkeys")}</p>
+              <p className="mt-0.5 text-xs text-(--color-fg-muted)">
+                {t("pubkey-description")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteAllDialog(true)}
+              disabled={deletingKeys.size > 0}
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-(--color-border) px-3 text-sm text-(--color-fg-muted) transition-colors hover:border-red-500/50 hover:text-red-500 disabled:opacity-50"
+            >
+              <Trash2 size={14} />
+              {t("delete-all-keys", { defaultValue: "Delete All Keys" })}
+            </button>
           </div>
 
           <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
@@ -127,6 +178,31 @@ function KeyManager() {
           </p>
         </div>
       )}
+
+      <Dialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete all stream keys?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove all {keyRecords?.records.length ?? 0}{" "}
+              stream keys. Any streaming software configured with these keys
+              will stop working.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose className="inline-flex h-9 items-center justify-center rounded-md border border-(--color-border) px-4 text-sm font-medium transition-colors hover:bg-(--color-bg-elevated)">
+              Cancel
+            </DialogClose>
+            <button
+              type="button"
+              onClick={handleDeleteAll}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-red-500 px-4 text-sm font-medium text-white transition-colors hover:bg-red-600"
+            >
+              Delete All
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

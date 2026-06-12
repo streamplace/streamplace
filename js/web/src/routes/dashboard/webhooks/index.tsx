@@ -169,10 +169,10 @@ function WebhookManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold font-display">
+        <h1 className="font-display text-xl font-semibold">
           {t("webhook-integrations")}
         </h1>
-        <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
           {t("webhook-integrations-description")}
         </p>
       </div>
@@ -201,7 +201,7 @@ function WebhookManager() {
           {t("failed-load-webhooks")}
         </div>
       ) : webhooks.length === 0 ? (
-        <div className="text-center py-8 text-sm text-[var(--color-fg-muted)]">
+        <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
           {t("no-webhooks-yet")}
         </div>
       ) : (
@@ -209,7 +209,7 @@ function WebhookManager() {
           {webhooks.map((webhook) => (
             <div
               key={webhook.id}
-              className="px-3 py-3 flex items-start justify-between gap-3"
+              className="flex items-start justify-between gap-3 px-3 py-3"
             >
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function WebhookManager() {
                     {webhook.name || t("untitled-webhook")}
                   </span>
                   {!webhook.active && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
+                    <span className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)]">
                       {t("inactive")}
                     </span>
                   )}
@@ -227,25 +227,25 @@ function WebhookManager() {
                     {webhook.description}
                   </div>
                 )}
-                <div className="text-xs text-[var(--color-fg-muted)] font-mono truncate">
+                <div className="truncate font-mono text-xs text-[var(--color-fg-muted)]">
                   {webhook.url}
                 </div>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex flex-wrap gap-1">
                   {webhook.events.map((event) => (
                     <span
                       key={event}
-                      className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-bg)]"
+                      className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs"
                     >
                       {event}
                     </span>
                   ))}
                 </div>
               </div>
-              <div className="flex gap-1 shrink-0">
+              <div className="flex shrink-0 gap-1">
                 <button
                   type="button"
                   onClick={() => handleEdit(webhook)}
-                  className="p-1.5 rounded hover:bg-[var(--color-bg)] transition-colors"
+                  className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)]"
                 >
                   <Edit2 size={16} className="text-[var(--color-fg-muted)]" />
                 </button>
@@ -253,7 +253,7 @@ function WebhookManager() {
                   type="button"
                   onClick={() => setDeleteTarget(webhook)}
                   disabled={deletingIds.has(webhook.id)}
-                  className="p-1.5 rounded hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
+                  className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
                 >
                   <Trash2 size={16} className="text-destructive" />
                 </button>
@@ -291,7 +291,7 @@ function WebhookManager() {
               name: deleteTarget?.name || t("untitled-webhook"),
             })}
           </p>
-          <p className="text-xs text-destructive mt-2">
+          <p className="text-destructive mt-2 text-xs">
             {t("action-cannot-be-undone")}
           </p>
           <DialogFooter>
@@ -375,7 +375,7 @@ function WebhookFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {webhook ? t("edit-webhook") : t("create-webhook")}
@@ -385,7 +385,7 @@ function WebhookFormDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("name-optional")}
             </label>
             <Input
@@ -399,7 +399,7 @@ function WebhookFormDialog({
 
           {/* URL */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               Webhook URL *
             </label>
             <Input
@@ -410,13 +410,13 @@ function WebhookFormDialog({
               placeholder="https://discord.com/api/webhooks/..."
             />
             {errors.url && (
-              <p className="text-xs text-destructive mt-1">{errors.url}</p>
+              <p className="text-destructive mt-1 text-xs">{errors.url}</p>
             )}
           </div>
 
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               Description (optional)
             </label>
             <Input
@@ -430,13 +430,13 @@ function WebhookFormDialog({
 
           {/* Events */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-2 block">
+            <label className="mb-2 block text-xs font-medium text-[var(--color-fg-muted)]">
               Events *
             </label>
             {EVENT_OPTIONS.map((opt) => (
               <label
                 key={opt.value}
-                className="flex items-center gap-2 mb-1.5 cursor-pointer"
+                className="mb-1.5 flex cursor-pointer items-center gap-2"
               >
                 <input
                   type="checkbox"
@@ -448,14 +448,14 @@ function WebhookFormDialog({
               </label>
             ))}
             {errors.events && (
-              <p className="text-xs text-destructive mt-1">{errors.events}</p>
+              <p className="text-destructive mt-1 text-xs">{errors.events}</p>
             )}
           </div>
 
           {/* Prefix & Suffix */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+              <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
                 Prefix
               </label>
               <Input
@@ -467,7 +467,7 @@ function WebhookFormDialog({
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+              <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
                 Suffix
               </label>
               <Input
@@ -482,7 +482,7 @@ function WebhookFormDialog({
 
           {/* Text Replacements */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <label className="text-xs font-medium text-[var(--color-fg-muted)]">
                 Text Replacements
               </label>
@@ -500,7 +500,7 @@ function WebhookFormDialog({
               </Button>
             </div>
             {form.rewrite.map((rule, i) => (
-              <div key={i} className="flex gap-2 mb-2 items-center">
+              <div key={i} className="mb-2 flex items-center gap-2">
                 <Input
                   value={rule.from}
                   onChange={(e) =>
@@ -514,7 +514,7 @@ function WebhookFormDialog({
                   placeholder="input text"
                   className="flex-1"
                 />
-                <span className="text-[var(--color-fg-muted)] text-xs">→</span>
+                <span className="text-xs text-[var(--color-fg-muted)]">→</span>
                 <Input
                   value={rule.to}
                   onChange={(e) =>
@@ -537,7 +537,7 @@ function WebhookFormDialog({
                         rewrite: prev.rewrite.filter((_, j) => j !== i),
                       }))
                     }
-                    className="p-1 rounded hover:bg-[var(--color-bg)]"
+                    className="rounded p-1 hover:bg-[var(--color-bg)]"
                   >
                     <X size={14} className="text-destructive" />
                   </button>
@@ -548,7 +548,7 @@ function WebhookFormDialog({
 
           {/* Mute Words */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               Mute Words (Chat Only)
             </label>
             <Input

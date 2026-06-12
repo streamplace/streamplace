@@ -85,7 +85,7 @@ export function WidgetLeaf({
 
   if (!meta) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-[var(--color-fg-muted)]">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--color-fg-muted)]">
         Unknown widget: {widgetKey}
       </div>
     );
@@ -99,7 +99,7 @@ export function WidgetLeaf({
       ref={setRefs}
       data-leaf-id={leafId}
       className={cn(
-        "relative flex flex-col h-full min-h-0 rounded-lg overflow-hidden",
+        "relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg",
         "bg-[var(--color-bg)]",
         "transition-shadow",
         isDragging && "opacity-50 ring-2 ring-[var(--color-accent)]",
@@ -107,11 +107,11 @@ export function WidgetLeaf({
       )}
     >
       {/* Title bar */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-[var(--color-bg-elevated)] border rounded-t-lg border-b-0 border-[var(--color-border)] shrink-0">
+      <div className="flex shrink-0 items-center gap-2 rounded-t-lg border border-b-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-1.5">
         {/* Drag handle */}
         <div
           ref={handleRef}
-          className="cursor-grab active:cursor-grabbing p-0.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+          className="cursor-grab p-0.5 text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)] active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" />
         </div>
@@ -119,11 +119,11 @@ export function WidgetLeaf({
         <Icon className="size-3.5 text-[var(--color-fg-muted)]" />
 
         {/* Widget title / swap dropdown */}
-        <div className="relative flex-1 min-w-0">
+        <div className="relative min-w-0 flex-1">
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 text-xs font-medium text-[var(--color-fg)] hover:text-[var(--color-accent)] transition-colors truncate"
+            className="flex items-center gap-1 truncate text-xs font-medium text-[var(--color-fg)] transition-colors hover:text-[var(--color-accent)]"
           >
             {meta.title}
             {onWidgetChange && (
@@ -143,7 +143,7 @@ export function WidgetLeaf({
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-md overflow-hidden">
+              <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-md">
                 {WIDGET_KEYS.filter((k) => k !== "blank").map((key) => {
                   const wMeta = getWidgetMeta(key);
                   if (!wMeta) return null;
@@ -157,7 +157,7 @@ export function WidgetLeaf({
                         setDropdownOpen(false);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors",
+                        "flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                         key === widgetKey
                           ? "bg-[var(--color-bg)] text-[var(--color-accent)]"
                           : "text-[var(--color-fg)] hover:bg-[var(--color-bg)]",
@@ -181,7 +181,7 @@ export function WidgetLeaf({
             onClick={onWidgetRemove}
             title="Remove slot"
             aria-label="Remove slot"
-            className="shrink-0 p-0.5 rounded text-[var(--color-fg-muted)] hover:text-destructive hover:bg-[var(--color-bg)] transition-colors"
+            className="hover:text-destructive shrink-0 rounded p-0.5 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg)]"
           >
             <X className="size-3.5" />
           </button>
@@ -189,7 +189,7 @@ export function WidgetLeaf({
       </div>
 
       {/* Widget content */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <WidgetComponent store={store} user={user} />
       </div>
 
@@ -217,11 +217,11 @@ function SplitPreview({ quadrant }: { quadrant: Quadrant }) {
           "absolute bg-[var(--color-accent)]/20",
           horizontal
             ? quadrant.first
-              ? "left-0 top-0 bottom-0 w-1/2"
-              : "right-0 top-0 bottom-0 w-1/2"
+              ? "top-0 bottom-0 left-0 w-1/2"
+              : "top-0 right-0 bottom-0 w-1/2"
             : quadrant.first
-              ? "top-0 left-0 right-0 h-1/2"
-              : "bottom-0 left-0 right-0 h-1/2",
+              ? "top-0 right-0 left-0 h-1/2"
+              : "right-0 bottom-0 left-0 h-1/2",
         )}
       />
       {/* Divider line at the center */}
@@ -229,8 +229,8 @@ function SplitPreview({ quadrant }: { quadrant: Quadrant }) {
         className={cn(
           "absolute bg-[var(--color-accent)]",
           horizontal
-            ? "left-1/2 top-0 bottom-0 w-px -translate-x-1/2"
-            : "top-1/2 left-0 right-0 h-px -translate-y-1/2",
+            ? "top-0 bottom-0 left-1/2 w-px -translate-x-1/2"
+            : "top-1/2 right-0 left-0 h-px -translate-y-1/2",
         )}
       />
     </div>

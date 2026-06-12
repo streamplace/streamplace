@@ -51,17 +51,17 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-svh px-6 text-center">
-          <h1 className="text-2xl font-semibold font-display mb-2">
+        <div className="flex min-h-svh flex-col items-center justify-center px-6 text-center">
+          <h1 className="font-display mb-2 text-2xl font-semibold">
             {i18next.t("something-went-wrong")}
           </h1>
-          <p className="text-[var(--color-fg-muted)] mb-6 max-w-md">
+          <p className="mb-6 max-w-md text-[var(--color-fg-muted)]">
             {this.state.error.message || i18next.t("unexpected-error")}
           </p>
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
-            className="h-10 px-4 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium transition-colors"
+            className="h-10 rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
           >
             {i18next.t("try-again")}
           </button>
@@ -76,7 +76,7 @@ class ErrorBoundary extends Component<
 
 function RouteLoadingSkeleton() {
   return (
-    <div className="flex items-center justify-center min-h-svh">
+    <div className="flex min-h-svh items-center justify-center">
       <Loader className="animate-spin text-[var(--color-fg-muted)]" />
     </div>
   );
@@ -189,7 +189,7 @@ function ChromeLayout() {
       {!theatre && <SidebarComponent />}
       <SidebarInset>
         {!theatre && <Header />}
-        <div className="flex flex-1 flex-col min-h-0 mx-auto w-full">
+        <div className="mx-auto flex min-h-0 w-full flex-1 flex-col">
           <Outlet />
         </div>
       </SidebarInset>

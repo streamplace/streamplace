@@ -38,13 +38,13 @@ function VideosPage() {
   }, [loadMore]);
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 py-6">
-      <h1 className="text-2xl font-semibold font-display text-[var(--color-fg)] mb-6">
+    <div className="mx-auto max-w-[1600px] px-4 py-6">
+      <h1 className="font-display mb-6 text-2xl font-semibold text-[var(--color-fg)]">
         {t("videos-title")}
       </h1>
 
       {videos.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {videos.map((video) => (
             <VideoCard
               key={video.uri}
@@ -56,15 +56,15 @@ function VideosPage() {
       )}
 
       {loading && videos.length === 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="animate-pulse space-y-2">
               <div className="aspect-video rounded-xl bg-[var(--color-bg-elevated)]" />
               <div className="flex gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[var(--color-bg-elevated)]" />
+                <div className="h-8 w-8 rounded-full bg-[var(--color-bg-elevated)]" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-3.5 bg-[var(--color-bg-elevated)] rounded w-3/4" />
-                  <div className="h-3 bg-[var(--color-bg-elevated)] rounded w-1/2" />
+                  <div className="h-3.5 w-3/4 rounded bg-[var(--color-bg-elevated)]" />
+                  <div className="h-3 w-1/2 rounded bg-[var(--color-bg-elevated)]" />
                 </div>
               </div>
             </div>
@@ -73,8 +73,8 @@ function VideosPage() {
       )}
 
       {!loading && videos.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-2xl mb-2">🎬</div>
+        <div className="py-20 text-center">
+          <div className="mb-2 text-2xl">🎬</div>
           <p className="text-[var(--color-fg-muted)]">
             {error ? t("could-not-load-videos", { error }) : t("no-videos-yet")}
           </p>
@@ -85,7 +85,7 @@ function VideosPage() {
       {hasMore && <div ref={sentinelRef} className="h-1" />}
       {loading && videos.length > 0 && (
         <div className="flex justify-center py-8">
-          <div className="w-6 h-6 border-2 border-[var(--color-border)] border-t-[var(--color-accent)] rounded-full animate-spin" />
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
         </div>
       )}
     </div>

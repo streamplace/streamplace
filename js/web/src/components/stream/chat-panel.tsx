@@ -90,15 +90,15 @@ export function ChatPanel({
   }, [chat, reversed]);
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 max-w-full relative">
+    <div className="relative flex min-h-0 max-w-full flex-1 flex-col">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-3 space-y-0.5"
+        className="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto p-3"
       >
         {reversed && <div ref={anchorRef} />}
         {displayMessages.length === 0 ? (
-          <div className="text-center text-[var(--color-fg-muted)] text-sm py-8">
+          <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
             {t("chat-no-messages")}
           </div>
         ) : (
@@ -118,18 +118,18 @@ export function ChatPanel({
       {!isAtAnchor && (
         <button
           onClick={scrollToAnchor}
-          className="absolute bottom-2 right-3 w-8 h-8 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-md flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors z-10"
+          className="absolute right-3 bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-fg-muted)] shadow-md transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
           aria-label={
             reversed ? t("chat-scroll-to-top") : t("chat-scroll-to-bottom")
           }
         >
           {reversed ? (
-            <ArrowUp className="w-4 h-4" />
+            <ArrowUp className="h-4 w-4" />
           ) : (
-            <ArrowDown className="w-4 h-4" />
+            <ArrowDown className="h-4 w-4" />
           )}
           {newMessageCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-accent)] text-white text-[10px] font-medium flex items-center justify-center">
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] font-medium text-white">
               {newMessageCount}
             </span>
           )}
@@ -182,34 +182,34 @@ function ChatMessage({
 
   if (isSystem) {
     return (
-      <div className="py-1.5 px-2 rounded bg-[var(--color-bg-overlay)] border border-[var(--color-border)] my-1">
-        <p className="text-sm text-center">{message.record.text}</p>
+      <div className="my-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-overlay)] px-2 py-1.5">
+        <p className="text-center text-sm">{message.record.text}</p>
       </div>
     );
   }
 
   return (
-    <div className="py-0.5 group hover:bg-[var(--color-bg-overlay)] rounded px-2 -mx-2 leading-snug relative">
+    <div className="group relative -mx-2 rounded px-2 py-0.5 leading-snug hover:bg-[var(--color-bg-overlay)]">
       {/* Hover actions — visible on group hover */}
-      <div className="absolute right-0 top-0 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+      <div className="absolute top-0 right-0 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {state.status === "authenticated" && !isOwn && (
           <button
             type="button"
             onClick={handleReply}
-            className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-overlay)] transition-colors"
+            className="rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-1 text-[var(--color-fg-muted)] shadow-sm transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
             aria-label={t("chat-reply-to-message")}
           >
-            <Reply className="w-3.5 h-3.5" />
+            <Reply className="h-3.5 w-3.5" />
           </button>
         )}
         {canPin && (
           <button
             type="button"
             onClick={handlePin}
-            className="p-1 rounded bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-sm text-[var(--color-fg-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-bg-overlay)] transition-colors"
+            className="rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-1 text-[var(--color-fg-muted)] shadow-sm transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-accent)]"
             aria-label={t("chat-pin-message")}
           >
-            <Pin className="w-3.5 h-3.5" />
+            <Pin className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
@@ -224,11 +224,11 @@ function ChatMessage({
         <span className="text tabular-nums">
           {formatTime(message.record.createdAt)}
         </span>
-        <div className="flex-1 min-w-0 flex-wrap items-center gap-1">
+        <div className="min-w-0 flex-1 flex-wrap items-center gap-1">
           {message.badges?.map((badge, i) => (
             <span
               key={i}
-              className="items-end justify-end gap-0.5 inline-block"
+              className="inline-block items-end justify-end gap-0.5"
             >
               <BadgeIcon key={i} badge={badge} />
             </span>
@@ -293,7 +293,7 @@ function RichTextMessage({
               href={linkFtr.uri}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--color-accent)] hover:underline break-all"
+              className="break-all text-[var(--color-accent)] hover:underline"
             >
               {seg.text}
             </a>
@@ -353,7 +353,7 @@ function UserHandle({
     <HoverCard trigger="click">
       <HoverCardTrigger>
         <span
-          className="font-medium cursor-pointer hover:underline"
+          className="cursor-pointer font-medium hover:underline"
           style={
             color
               ? { color: `rgb(${color.red}, ${color.green}, ${color.blue})` }
@@ -366,11 +366,11 @@ function UserHandle({
       <HoverCardContent
         side="top"
         align="start"
-        className="w-72 p-0 overflow-hidden"
+        className="w-72 overflow-hidden p-0"
       >
         {/* Banner — gradient tinted with the user's chat color */}
         <div
-          className="h-20 relative"
+          className="relative h-20"
           style={
             color
               ? {
@@ -380,23 +380,23 @@ function UserHandle({
           }
         />
 
-        <div className="px-3 pt-1 relative">
+        <div className="relative px-3 pt-1">
           {/* Avatar overlapping the banner */}
           <img
             src={author.avatar ?? undefined}
             alt=""
-            className="w-12 h-12 rounded-full border-2 border-[var(--color-bg-elevated)] bg-[var(--color-bg)] absolute -top-6 left-3"
+            className="absolute -top-6 left-3 h-12 w-12 rounded-full border-2 border-[var(--color-bg-elevated)] bg-[var(--color-bg)]"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
           />
 
           {/* Handle row */}
-          <div className="pt-7 pb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 pt-7 pb-2">
             <div className="min-w-0">
               {name !== handle && (
                 <div
-                  className="font-medium truncate"
+                  className="truncate font-medium"
                   style={
                     color
                       ? {
@@ -425,7 +425,7 @@ function UserHandle({
 
           {/* Badges */}
           {badges && badges.length > 0 && (
-            <div className="pb-2 space-y-1">
+            <div className="space-y-1 pb-2">
               {badges.map((badge, i) => (
                 <BadgeRow key={i} badge={badge} />
               ))}
@@ -473,9 +473,9 @@ function ReplyBanner({
     | undefined;
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-[var(--color-fg-subtle)] mb-0.5 truncate">
-      <Reply className="w-3 h-3 flex-shrink-0" />
-      <span className="font-medium flex-shrink-0">@{handle}</span>
+    <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-[var(--color-fg-subtle)]">
+      <Reply className="h-3 w-3 flex-shrink-0" />
+      <span className="flex-shrink-0 font-medium">@{handle}</span>
       <span className="truncate">
         <RichTextMessage text={text} facets={facets} authors={authors} />
       </span>
@@ -525,7 +525,7 @@ function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
     <img
       src={src}
       alt={badge.badgeType}
-      className="inline-block w-4 h-4 rounded-xs align-middle relative top-0.5 mr-1"
+      className="relative top-0.5 mr-1 inline-block h-4 w-4 rounded-xs align-middle"
     />
   );
 }
@@ -545,19 +545,19 @@ function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
     : issuerLabel(badge, t);
 
   return (
-    <div className="flex items-center gap-2 p-2 rounded-md bg-[var(--color-bg-overlay)] border border-[var(--color-border)]">
+    <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-overlay)] p-2">
       {src ? (
         <img
           src={src}
           alt={badge.badgeType}
-          className="w-6 h-6 rounded-xs flex-shrink-0"
+          className="h-6 w-6 flex-shrink-0 rounded-xs"
         />
       ) : (
-        <div className="w-6 h-6 rounded-xs flex-shrink-0 bg-[var(--color-bg)]" />
+        <div className="h-6 w-6 flex-shrink-0 rounded-xs bg-[var(--color-bg)]" />
       )}
       <div className="min-w-0 flex-1">
-        <div className="font-medium leading-tight">{label}</div>
-        <div className="text-sm text-[var(--color-fg-muted)] leading-tight">
+        <div className="leading-tight font-medium">{label}</div>
+        <div className="text-sm leading-tight text-[var(--color-fg-muted)]">
           {issuedBy}
         </div>
       </div>

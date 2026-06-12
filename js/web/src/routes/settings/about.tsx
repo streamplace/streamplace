@@ -32,7 +32,7 @@ function AboutSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-display">{t("about")}</h1>
+      <h1 className="font-display text-xl font-semibold">{t("about")}</h1>
 
       <CardMenuSection>
         <div className="flex items-center justify-between px-3 py-2.5">
@@ -42,7 +42,7 @@ function AboutSettings() {
         <button
           type="button"
           onClick={handleVersionPress}
-          className="flex items-center justify-between px-3 py-2.5 w-full hover:bg-[var(--color-bg)] transition-colors"
+          className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
         >
           <span className="text-sm">Build</span>
           <span className="text-sm text-[var(--color-fg-muted)]">
@@ -55,7 +55,7 @@ function AboutSettings() {
         <CardMenuSection>
           <div className="flex items-center justify-between px-3 py-2.5">
             <span className="text-sm">Developer Mode</span>
-            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 font-mono">
+            <span className="rounded bg-green-500/20 px-2 py-0.5 font-mono text-xs text-green-400">
               active
             </span>
           </div>
@@ -68,7 +68,7 @@ function AboutSettings() {
             href="https://privacy.stream.place"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors"
+            className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
           >
             <span className="text-sm">Privacy Policy</span>
             <svg

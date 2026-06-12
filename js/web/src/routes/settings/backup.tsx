@@ -164,7 +164,7 @@ function BackupSettings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-display">{t("backup")}</h1>
+      <h1 className="font-display text-xl font-semibold">{t("backup")}</h1>
 
       {loading ? (
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
@@ -175,7 +175,7 @@ function BackupSettings() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium">{t("backup-enabled")}</div>
-                <div className="text-xs text-[var(--color-fg-muted)] mt-0.5">
+                <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
                   {t("backup-enabled-description")}
                 </div>
               </div>
@@ -186,9 +186,9 @@ function BackupSettings() {
           {/* S3 configuration (shown when enabled) */}
           {enabled && (
             <>
-              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4 space-y-4">
+              <div className="space-y-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
                 <div>
-                  <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+                  <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
                     {t("backup-connection-url")}
                   </label>
                   <Input
@@ -219,9 +219,9 @@ function BackupSettings() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+              <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-sm shrink-0">
+                  <span className="shrink-0 text-sm">
                     {t("backup-endpoint")}
                   </span>
                   <Input
@@ -230,22 +230,22 @@ function BackupSettings() {
                       handleConfigChange("endpoint", e.target.value)
                     }
                     placeholder="s3.us-east-1.example.com"
-                    className="text-right font-mono text-xs max-w-[250px]"
+                    className="max-w-[250px] text-right font-mono text-xs"
                   />
                 </div>
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-sm shrink-0">{t("backup-bucket")}</span>
+                  <span className="shrink-0 text-sm">{t("backup-bucket")}</span>
                   <Input
                     value={config.bucket}
                     onChange={(e) =>
                       handleConfigChange("bucket", e.target.value)
                     }
                     placeholder="my-bucket"
-                    className="text-right font-mono text-xs max-w-[250px]"
+                    className="max-w-[250px] text-right font-mono text-xs"
                   />
                 </div>
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-sm shrink-0">
+                  <span className="shrink-0 text-sm">
                     {t("backup-access-key")}
                   </span>
                   <Input
@@ -254,11 +254,11 @@ function BackupSettings() {
                       handleConfigChange("accessKey", e.target.value)
                     }
                     placeholder="ACCESS_KEY"
-                    className="text-right font-mono text-xs max-w-[250px]"
+                    className="max-w-[250px] text-right font-mono text-xs"
                   />
                 </div>
                 <div className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-sm shrink-0">
+                  <span className="shrink-0 text-sm">
                     {t("backup-secret-key")}
                   </span>
                   <Input
@@ -274,7 +274,7 @@ function BackupSettings() {
                         ? t("backup-secret-key-set-placeholder")
                         : t("backup-secret-key-placeholder")
                     }
-                    className="text-right font-mono text-xs max-w-[250px]"
+                    className="max-w-[250px] text-right font-mono text-xs"
                   />
                 </div>
               </div>

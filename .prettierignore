@@ -5,3 +5,4 @@ js/app/android
 pnpm-lock.yaml
 js/app/assets/emoji-data-stripped.json
 **/routeTree.gen.ts
+*.html

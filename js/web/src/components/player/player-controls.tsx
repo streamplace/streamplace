@@ -254,30 +254,30 @@ export function PlayerControls({
     <div
       className={cn(
         "absolute inset-0 flex flex-col justify-end transition-opacity duration-200",
-        visible ? "opacity-100" : "opacity-0 pointer-events-none",
+        visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
       {/* Top gradient — subtle hint that there's a controls bar.
           Not strictly needed since the bar has its own background, but
           gives the play button overlay a darker canvas. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
       {bigPlay && (
         <button
           type="button"
           onClick={togglePlay}
-          className="absolute inset-0 flex items-center justify-center pointer-events-auto"
+          className="pointer-events-auto absolute inset-0 flex items-center justify-center"
           aria-label="Play"
         >
-          <div className="flex items-center gap-3 bg-white/10 hover:bg-white/20 backdrop-blur px-5 py-3 rounded-full border border-white/20 transition-colors">
-            <Play className="w-6 h-6 text-white fill-white" />
-            <span className="text-white font-medium">Play</span>
+          <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
+            <Play className="h-6 w-6 fill-white text-white" />
+            <span className="font-medium text-white">Play</span>
           </div>
         </button>
       )}
 
       <div
-        className="relative flex items-center gap-2 sm:gap-3 px-3 py-2 bg-gradient-to-t from-black/80 to-black/0 pointer-events-auto"
+        className="pointer-events-auto relative flex items-center gap-2 bg-gradient-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"
         // The wrapper itself is a "control surface" so clicks on the
         // gradient below the buttons don't bubble to the play handler.
         onClick={(e) => e.stopPropagation()}
@@ -285,33 +285,33 @@ export function PlayerControls({
         <button
           type="button"
           onClick={togglePlay}
-          className="text-white hover:text-white/80 transition-colors p-1"
+          className="p-1 text-white transition-colors hover:text-white/80"
           aria-label={playing ? "Pause" : "Play"}
         >
           {playing ? (
-            <Pause className="w-5 h-5 fill-white" />
+            <Pause className="h-5 w-5 fill-white" />
           ) : (
-            <Play className="w-5 h-5 fill-white" />
+            <Play className="h-5 w-5 fill-white" />
           )}
         </button>
 
         {!isLive && (
-          <span className="text-xs text-white/80 tabular-nums font-mono ml-1">
+          <span className="ml-1 font-mono text-xs text-white/80 tabular-nums">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
         )}
 
-        <div className="flex items-center gap-1.5 group/vol">
+        <div className="group/vol flex items-center gap-1.5">
           <button
             type="button"
             onClick={toggleMute}
-            className="text-white hover:text-white/80 transition-colors p-1"
+            className="p-1 text-white transition-colors hover:text-white/80"
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted || volume === 0 ? (
-              <VolumeX className="w-5 h-5" />
+              <VolumeX className="h-5 w-5" />
             ) : (
-              <Volume2 className="w-5 h-5" />
+              <Volume2 className="h-5 w-5" />
             )}
           </button>
           <Slider
@@ -331,14 +331,14 @@ export function PlayerControls({
             type="button"
             onClick={togglePiP}
             className={cn(
-              "transition-colors p-1",
+              "p-1 transition-colors",
               isPiP ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
               isPiP ? "Exit picture-in-picture" : "Picture-in-picture"
             }
           >
-            <PictureInPicture className="w-5 h-5" />
+            <PictureInPicture className="h-5 w-5" />
           </button>
         )}
 
@@ -346,19 +346,19 @@ export function PlayerControls({
           type="button"
           onClick={() => setTheatre(!theatre)}
           className={cn(
-            "transition-colors p-1",
+            "p-1 transition-colors",
             theatre ? "text-white" : "text-white/40 hover:text-white/80",
           )}
           aria-label={theatre ? "Exit theatre mode" : "Theatre mode"}
         >
-          <RectangleHorizontal className="w-5 h-5" />
+          <RectangleHorizontal className="h-5 w-5" />
         </button>
 
         <button
           type="button"
           onClick={() => onShowDanmuChange(!showDanmu)}
           className={cn(
-            "transition-colors p-1",
+            "p-1 transition-colors",
             showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
           )}
           aria-label={showDanmu ? "Disable danmu" : "Enable danmu"}
@@ -373,19 +373,19 @@ export function PlayerControls({
             step={0.1}
             value={currentTime}
             onValueChange={onSeekInput}
-            className="w-32 sm:w-48 accent-white h-1 cursor-pointer"
+            className="h-1 w-32 cursor-pointer accent-white sm:w-48"
             aria-label="Seek"
           />
         )}
 
         <DropdownMenu onOpenChange={setSettingsOpen}>
           <DropdownMenuTrigger
-            className="text-white hover:text-white/80 transition-colors p-1"
+            className="p-1 text-white transition-colors hover:text-white/80"
             aria-label="Settings"
           >
             <Settings
               className={cn(
-                "w-5 h-5 transition-transform duration-300",
+                "h-5 w-5 transition-transform duration-300",
                 settingsOpen && "rotate-60",
               )}
             />
@@ -393,7 +393,7 @@ export function PlayerControls({
           <DropdownMenuContent
             side="top"
             align="end"
-            className="bg-black/85 backdrop-blur border-white/10"
+            className="border-white/10 bg-black/85 backdrop-blur"
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel>Latency</DropdownMenuLabel>
@@ -445,13 +445,13 @@ export function PlayerControls({
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="text-white hover:text-white/80 transition-colors p-1"
+          className="p-1 text-white transition-colors hover:text-white/80"
           aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
         >
           {isFullscreen ? (
-            <Minimize className="w-5 h-5" />
+            <Minimize className="h-5 w-5" />
           ) : (
-            <Maximize className="w-5 h-5" />
+            <Maximize className="h-5 w-5" />
           )}
         </button>
       </div>

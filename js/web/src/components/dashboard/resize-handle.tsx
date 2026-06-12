@@ -61,17 +61,10 @@ export function ResizeHandle({ direction, onResize }: ResizeHandleProps) {
       role="separator"
       aria-orientation={isHorizontal ? "vertical" : "horizontal"}
       onPointerDown={handlePointerDown}
-      className={`
-        flex-shrink-0 z-10 group
-        ${isHorizontal ? "w-1.5 cursor-col-resize" : "h-1.5 cursor-row-resize"}
-      `}
+      className={`group z-10 flex-shrink-0 ${isHorizontal ? "w-1.5 cursor-col-resize" : "h-1.5 cursor-row-resize"} `}
     >
       <div
-        className={`
-          bg-transparent group-hover:bg-[var(--color-accent)]/40 group-active:bg-[var(--color-accent)]/60
-          transition-colors
-          ${isHorizontal ? "w-0.5 h-full mx-auto" : "h-0.5 w-full my-auto"}
-        `}
+        className={`bg-transparent transition-colors group-hover:bg-[var(--color-accent)]/40 group-active:bg-[var(--color-accent)]/60 ${isHorizontal ? "mx-auto h-full w-0.5" : "my-auto h-0.5 w-full"} `}
       />
     </div>
   );

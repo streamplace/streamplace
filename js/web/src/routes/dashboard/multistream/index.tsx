@@ -206,10 +206,10 @@ function MultistreamManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold font-display">
+        <h1 className="font-display text-xl font-semibold">
           {t("multistream-targets")}
         </h1>
-        <p className="text-sm text-[var(--color-fg-muted)] mt-1">
+        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
           {t("multistream-description")}
         </p>
       </div>
@@ -238,18 +238,18 @@ function MultistreamManager() {
           {t("failed-load-multistream-targets")}
         </div>
       ) : targets.length === 0 ? (
-        <div className="text-center py-8 text-sm text-[var(--color-fg-muted)]">
+        <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
           {t("no-multistream-targets-yet")}
         </div>
       ) : (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+        <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           {targets.map((target) => {
             const isDeleting = deletingUris.has(target.uri);
             const isToggling = togglingUris.has(target.uri);
             return (
               <div
                 key={target.uri}
-                className="px-3 py-3 flex items-start justify-between gap-3"
+                className="flex items-start justify-between gap-3 px-3 py-3"
                 style={{ opacity: isDeleting ? 0.5 : 1 }}
               >
                 <div className="min-w-0 flex-1 space-y-1">
@@ -258,12 +258,12 @@ function MultistreamManager() {
                       {targetTitle(target)}
                     </span>
                     {!target.record.active && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-[var(--color-bg)] text-[var(--color-fg-muted)]">
+                      <span className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)]">
                         inactive
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-[var(--color-fg-muted)] font-mono truncate">
+                  <div className="truncate font-mono text-xs text-[var(--color-fg-muted)]">
                     {redactUrl(target.record.url)}
                   </div>
                   <div className="text-xs text-[var(--color-fg-muted)]">
@@ -276,7 +276,7 @@ function MultistreamManager() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0 items-center">
+                <div className="flex shrink-0 items-center gap-1">
                   {/* Active toggle */}
                   <Switch
                     size="sm"
@@ -287,7 +287,7 @@ function MultistreamManager() {
                   <button
                     type="button"
                     onClick={() => handleEdit(target)}
-                    className="p-1.5 rounded hover:bg-[var(--color-bg)] transition-colors"
+                    className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)]"
                   >
                     <Edit2 size={16} className="text-[var(--color-fg-muted)]" />
                   </button>
@@ -295,7 +295,7 @@ function MultistreamManager() {
                     type="button"
                     onClick={() => setDeleteTarget(target)}
                     disabled={isDeleting}
-                    className="p-1.5 rounded hover:bg-[var(--color-bg)] transition-colors disabled:opacity-50"
+                    className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
                   >
                     <Trash2 size={16} className="text-destructive" />
                   </button>
@@ -335,7 +335,7 @@ function MultistreamManager() {
               target: deleteTarget ? targetTitle(deleteTarget) : "",
             })}
           </p>
-          <p className="text-xs text-destructive mt-2 font-semibold">
+          <p className="text-destructive mt-2 text-xs font-semibold">
             {t("this-action-cannot-be-undone")}
           </p>
           <DialogFooter>
@@ -421,7 +421,7 @@ function MultistreamFormDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("rtmp-target-name")} ({t("optional")})
             </label>
             <Input
@@ -435,7 +435,7 @@ function MultistreamFormDialog({
 
           {/* URL */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("rtmp-target-url")} *
             </label>
             <Input
@@ -454,7 +454,7 @@ function MultistreamFormDialog({
               }
             />
             {errors.url && (
-              <p className="text-xs text-destructive mt-1">{errors.url}</p>
+              <p className="text-destructive mt-1 text-xs">{errors.url}</p>
             )}
           </div>
 
@@ -469,7 +469,7 @@ function MultistreamFormDialog({
             />
           </div>
 
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {error && <p className="text-destructive text-xs">{error}</p>}
         </div>
 
         <DialogFooter>

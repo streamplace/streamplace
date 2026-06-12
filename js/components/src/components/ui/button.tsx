@@ -33,7 +33,8 @@ const buttonVariants = cva("", {
 });
 
 export interface ButtonProps
-  extends Omit<ButtonPrimitiveProps, "children">,
+  extends
+    Omit<ButtonPrimitiveProps, "children">,
     VariantProps<typeof buttonVariants> {
   href?: string; // For web support
   children?: React.ReactNode;

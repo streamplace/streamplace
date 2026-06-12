@@ -92,8 +92,8 @@ function EmbedInfoWidget() {
 
   if (!initialized || !store.current) {
     return (
-      <div className="w-screen h-screen bg-transparent flex items-center justify-center">
-        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      <div className="flex h-screen w-screen items-center justify-center bg-transparent">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
       </div>
     );
   }
@@ -127,13 +127,13 @@ function InfoWidgetBody({ store }: { store: LivestreamStore }) {
     : null;
 
   return (
-    <div className="w-screen h-screen bg-transparent flex items-start justify-end p-4">
-      <div className="bg-black/70 backdrop-blur-sm rounded-lg p-4 text-white text-sm min-w-[200px] font-mono space-y-2">
+    <div className="flex h-screen w-screen items-start justify-end bg-transparent p-4">
+      <div className="min-w-[200px] space-y-2 rounded-lg bg-black/70 p-4 font-mono text-sm text-white backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <div
-            className={`w-2 h-2 rounded-full ${state.websocketConnected ? "bg-green-400" : "bg-red-400"}`}
+            className={`h-2 w-2 rounded-full ${state.websocketConnected ? "bg-green-400" : "bg-red-400"}`}
           />
-          <span className="text-xs uppercase tracking-wider opacity-70">
+          <span className="text-xs tracking-wider uppercase opacity-70">
             {state.websocketConnected ? "connected" : "disconnected"}
           </span>
         </div>

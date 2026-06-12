@@ -19,7 +19,7 @@ function EmbedLive() {
   }, [user]);
 
   return (
-    <div className="w-screen h-screen bg-black flex items-center justify-center">
+    <div className="flex h-screen w-screen items-center justify-center bg-black">
       <Player src={playlistUrl} poster={thumbnailUrl} active mode="live" />
     </div>
   );

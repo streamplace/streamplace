@@ -38,9 +38,9 @@ export function ChatPanelWidget({ store }: { store: LivestreamStore }) {
   }, [state.chat]);
 
   return (
-    <div className="rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex flex-col h-full min-h-0 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-b-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       {/* Messages */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <ChatMessages store={store} />
       </div>
 

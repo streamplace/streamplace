@@ -97,9 +97,9 @@ function VodPage() {
     : null;
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      <div className="flex-1 flex min-h-0 gap-4">
-        <div className="flex-1 min-w-0 overflow-y-auto">
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex min-h-0 flex-1 gap-4">
+        <div className="min-w-0 flex-1 overflow-y-auto">
           <VideoSectionInner
             user={user}
             liveness="live"
@@ -110,25 +110,25 @@ function VodPage() {
             mode="vod"
           />
           {!theatre && (
-            <div className="mt-3 space-y-3 mx-3">
+            <div className="mx-3 mt-3 space-y-3">
               <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
-                    <h2 className="flex-1 font-display font-semibold text-[var(--color-fg)] line-clamp-2">
+                    <h2 className="font-display line-clamp-2 flex-1 font-semibold text-[var(--color-fg)]">
                       {loading ? t("loading") : title}
                     </h2>
                     <button
                       type="button"
                       onClick={handleDownload}
                       disabled={downloading}
-                      className="flex-shrink-0 p-2 rounded-md border border-[var(--color-border)] hover:border-[var(--color-border-strong)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors disabled:opacity-50"
+                      className="flex-shrink-0 rounded-md border border-[var(--color-border)] p-2 text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)] disabled:opacity-50"
                       title={t("download-video")}
                     >
-                      <Download className="w-4 h-4" />
+                      <Download className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-1 text-sm text-[var(--color-fg-muted)]">
+                  <div className="mt-1 flex items-center gap-2 text-sm text-[var(--color-fg-muted)]">
                     <span className="truncate">
                       {author?.displayName || author?.handle || user}
                     </span>
@@ -139,7 +139,7 @@ function VodPage() {
                   </div>
 
                   {duration && (
-                    <span className="text-xs text-[var(--color-fg-muted)] mt-1 block">
+                    <span className="mt-1 block text-xs text-[var(--color-fg-muted)]">
                       {duration}
                     </span>
                   )}
@@ -151,13 +151,13 @@ function VodPage() {
                   )}
 
                   {description && (
-                    <p className="text-sm text-[var(--color-fg)] mt-3 whitespace-pre-wrap">
+                    <p className="mt-3 text-sm whitespace-pre-wrap text-[var(--color-fg)]">
                       {description}
                     </p>
                   )}
 
                   {error && (
-                    <p className="text-sm text-[var(--color-danger)] mt-2">
+                    <p className="mt-2 text-sm text-[var(--color-danger)]">
                       {error}
                     </p>
                   )}

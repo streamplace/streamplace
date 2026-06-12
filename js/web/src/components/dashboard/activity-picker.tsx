@@ -142,12 +142,12 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm text-[var(--color-fg-muted)] mb-1 block">
+      <label className="mb-1 block text-sm text-[var(--color-fg-muted)]">
         {t("activity", { defaultValue: "Activity" })}
       </label>
 
       {/* Mode toggle */}
-      <div className="flex gap-1 mb-2">
+      <div className="mb-2 flex gap-1">
         <ModeButton
           active={mode === "game"}
           onClick={() => {
@@ -177,7 +177,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
         ) : (
           <div>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-[var(--color-fg-muted)] pointer-events-none" />
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-[var(--color-fg-muted)]" />
               <input
                 type="text"
                 value={query}
@@ -185,7 +185,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                 placeholder={t("activity-search-placeholder", {
                   defaultValue: "Search for a game…",
                 })}
-                className="w-full h-8 pl-8 pr-2 text-sm rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-ring)]"
+                className="h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pr-2 pl-8 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
               />
             </div>
             {searching && (
@@ -194,29 +194,29 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
               </div>
             )}
             {!searching && results.length > 0 && (
-              <div className="mt-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] overflow-hidden max-h-64 overflow-y-auto">
+              <div className="mt-1 max-h-64 overflow-hidden overflow-y-auto rounded-md border border-[var(--color-border)] bg-[var(--color-bg)]">
                 {results.map((game) => (
                   <button
                     key={game.uri}
                     type="button"
                     onClick={() => selectGame(game)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-[var(--color-bg-elevated)] transition-colors"
+                    className="flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-elevated)]"
                   >
                     {game.coverUrl ? (
                       <img
                         src={game.coverUrl}
                         alt=""
-                        className="w-8 h-10 object-cover rounded-sm shrink-0 bg-[var(--color-bg-elevated)]"
+                        className="h-10 w-8 shrink-0 rounded-sm bg-[var(--color-bg-elevated)] object-cover"
                       />
                     ) : (
-                      <div className="w-8 h-10 rounded-sm bg-[var(--color-bg-elevated)] shrink-0" />
+                      <div className="h-10 w-8 shrink-0 rounded-sm bg-[var(--color-bg-elevated)]" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">
+                      <div className="truncate text-sm font-medium">
                         {game.name}
                       </div>
                       {game.genres && game.genres.length > 0 && (
-                        <div className="text-[10px] text-[var(--color-fg-muted)] truncate">
+                        <div className="truncate text-[10px] text-[var(--color-fg-muted)]">
                           {game.genres.join(" · ")}
                         </div>
                       )}
@@ -253,9 +253,9 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                   )
                 }
                 className={cn(
-                  "px-2.5 py-1 text-sm rounded-full border transition-colors",
+                  "rounded-full border px-2.5 py-1 text-sm transition-colors",
                   isSelected
-                    ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-accent-fg)]"
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-fg)]"
                     : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)]",
                 )}
               >
@@ -283,9 +283,9 @@ function ModeButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "px-2.5 py-0.5 text-xs rounded-md border transition-colors",
+        "rounded-md border px-2.5 py-0.5 text-xs transition-colors",
         active
-          ? "bg-[var(--color-accent)]/15 border-[var(--color-accent)] text-[var(--color-accent)]"
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
           : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)]",
       )}
     >
@@ -310,19 +310,19 @@ function SelectedGameCard({
   // already showed the cover so the user has seen it.)
   void did;
   return (
-    <div className="flex items-center gap-2 p-2 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate text-[var(--color-accent)]">
+    <div className="flex items-center gap-2 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5 p-2">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-[var(--color-accent)]">
           {name}
         </div>
-        <div className="text-[10px] text-[var(--color-fg-muted)] truncate">
+        <div className="truncate text-[10px] text-[var(--color-fg-muted)]">
           {uri}
         </div>
       </div>
       <button
         type="button"
         onClick={onClear}
-        className="shrink-0 p-1 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] hover:bg-[var(--color-bg-elevated)]"
+        className="shrink-0 rounded p-1 text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-elevated)] hover:text-[var(--color-fg)]"
         aria-label="Clear activity"
       >
         <X className="size-3.5" />

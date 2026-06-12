@@ -67,7 +67,7 @@ export default function DashboardChrome() {
 
   if (state.status !== "authenticated") {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-[var(--color-fg-muted)]">
+      <div className="flex h-full items-center justify-center text-sm text-[var(--color-fg-muted)]">
         {t("login-required", {
           defaultValue: "Please log in to access the dashboard.",
         })}
@@ -95,16 +95,16 @@ export default function DashboardChrome() {
               {!theatre && <DashboardSidebar />}
               <SidebarInset>
                 {!theatre && (
-                  <header className="flex items-center gap-2 h-12 px-4 bg-sidebar border-b border-[var(--color-border)] z-99">
+                  <header className="bg-sidebar z-99 flex h-12 items-center gap-2 border-b border-[var(--color-border)] px-4">
                     <SidebarTrigger className="-ml-1" />
-                    <h1 className="text-lg font-semibold font-display">
+                    <h1 className="font-display text-lg font-semibold">
                       {t("nav-dashboard", {
                         defaultValue: "Creator Dashboard",
                       })}
                     </h1>
                   </header>
                 )}
-                <div className="flex flex-1 flex-col min-h-0 mx-auto w-full">
+                <div className="mx-auto flex min-h-0 w-full flex-1 flex-col">
                   <Outlet />
                 </div>
               </SidebarInset>

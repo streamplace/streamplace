@@ -78,7 +78,7 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       set(() => ({ ingestStarted: timestamp })),
 
     stopIngest: () => {
-      set(() => ({
+      (set(() => ({
         ingestLive: false,
         ingestConnectionState: "new",
         ingestStarted: null,
@@ -91,7 +91,7 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
               ingestStarted: null,
             })),
           200,
-        );
+        ));
     },
 
     fullscreen: false,

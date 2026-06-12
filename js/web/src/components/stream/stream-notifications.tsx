@@ -112,19 +112,19 @@ function PinnedNotification({
   if (dismissed) return null;
 
   return (
-    <div className="bg-neutral-900 rounded-lg overflow-hidden">
+    <div className="overflow-hidden rounded-lg bg-neutral-900">
       <div className="flex items-center gap-2 px-3 py-2">
         <div style={{ transform: "rotate(-25deg)" }} className="flex-shrink-0">
           <Pin
-            className="w-5 h-5"
+            className="h-5 w-5"
             style={{ color: authorColor || "var(--color-accent)" }}
             fill={authorColor || "var(--color-accent)"}
           />
         </div>
-        <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             <span
-              className="font-semibold text-sm"
+              className="text-sm font-semibold"
               style={{ color: authorColor || "var(--color-fg)" }}
             >
               {authorName}
@@ -138,24 +138,24 @@ function PinnedNotification({
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center gap-1">
           {canUnpin && (
             <button
               type="button"
               onClick={handleUnpin}
-              className="p-1 rounded hover:bg-white/10 text-neutral-400 hover:text-neutral-200 transition-colors"
+              className="rounded p-1 text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-200"
               aria-label={t("chat-unpin-message")}
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
             </button>
           )}
           <button
             type="button"
             onClick={handleDismiss}
-            className="p-1 rounded hover:bg-white/10 text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="rounded p-1 text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-200"
             aria-label={t("chat-dismiss-pinned")}
           >
-            <EyeOff className="w-4 h-4" />
+            <EyeOff className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -179,7 +179,7 @@ function PinnedRichText({
         href={linkFtr.uri}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-400 hover:underline break-all"
+        className="break-all text-blue-400 hover:underline"
       >
         {segment.text}
       </a>
@@ -213,7 +213,7 @@ function TeleportNotification({ teleport }: { teleport: any }) {
       : `0:${String(secs).padStart(2, "0")}`;
 
   return (
-    <div className="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-info)]/10">
+    <div className="border-b border-[var(--color-border)] bg-[var(--color-info)]/10 px-3 py-2">
       <p className="text-xs text-[var(--color-fg-muted)]">
         {t("teleporting-in")}{" "}
         <span className="font-mono font-medium text-[var(--color-fg)]">

@@ -138,7 +138,11 @@ export function WebRTCPlayer({
       peerConnection.addEventListener("connectionstatechange", () => {
         if (cancelled) return;
         const state = peerConnection.connectionState;
-        if (state === "failed" || state === "closed" || state === "disconnected") {
+        if (
+          state === "failed" ||
+          state === "closed" ||
+          state === "disconnected"
+        ) {
           onErrorRef.current?.("Connection lost — reconnecting");
           scheduleReconnect();
         }

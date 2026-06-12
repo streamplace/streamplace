@@ -189,14 +189,14 @@ function BadgeIssuerPanel() {
             setSelectedDef(null);
             setView("main");
           }}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
         >
           <ChevronLeft size={16} />
           {t("issue-badges-back-to-definitions")}
         </button>
 
         <div>
-          <h1 className="text-lg font-semibold font-display">
+          <h1 className="font-display text-lg font-semibold">
             {t("issue-badges-issue-badge")}
           </h1>
           <p className="text-sm text-[var(--color-fg-muted)]">
@@ -209,7 +209,7 @@ function BadgeIssuerPanel() {
         <BadgeDefRow def={selectedDef} />
 
         <div className="space-y-3">
-          <label className="text-xs font-medium text-[var(--color-fg-muted)] block">
+          <label className="block text-xs font-medium text-[var(--color-fg-muted)]">
             {t("issue-badges-recipient-did")}
           </label>
           <Input
@@ -236,14 +236,14 @@ function BadgeIssuerPanel() {
         <button
           type="button"
           onClick={() => setView("main")}
-          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] transition-colors"
+          className="flex items-center gap-2 text-sm text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
         >
           <ChevronLeft size={16} />
           {t("issue-badges-back-to-definitions")}
         </button>
 
         <div>
-          <h1 className="text-lg font-semibold font-display">
+          <h1 className="font-display text-lg font-semibold">
             {t("issue-badges-create-definition")}
           </h1>
           <p className="text-sm text-[var(--color-fg-muted)]">
@@ -254,7 +254,7 @@ function BadgeIssuerPanel() {
         <div className="space-y-4">
           {/* Badge type */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-2 block">
+            <label className="mb-2 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("issue-badges-badge-type")}
             </label>
             <div className="flex gap-2">
@@ -273,7 +273,7 @@ function BadgeIssuerPanel() {
 
           {/* Name */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("issue-badges-badge-name")}
             </label>
             <Input
@@ -286,7 +286,7 @@ function BadgeIssuerPanel() {
 
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-1 block">
+            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("issue-badges-description-optional")}
             </label>
             <Input
@@ -299,7 +299,7 @@ function BadgeIssuerPanel() {
 
           {/* Image */}
           <div>
-            <label className="text-xs font-medium text-[var(--color-fg-muted)] mb-2 block">
+            <label className="mb-2 block text-xs font-medium text-[var(--color-fg-muted)]">
               {t("issue-badges-image-optional")}
             </label>
             <div className="flex items-center gap-3">
@@ -308,7 +308,7 @@ function BadgeIssuerPanel() {
                   <img
                     src={createImageUri}
                     alt=""
-                    className="w-12 h-12 rounded"
+                    className="h-12 w-12 rounded"
                   />
                   <button
                     type="button"
@@ -316,7 +316,7 @@ function BadgeIssuerPanel() {
                       setCreateImageUri(null);
                       setCreateImageBlob(null);
                     }}
-                    className="p-1 rounded hover:bg-[var(--color-bg)]"
+                    className="rounded p-1 hover:bg-[var(--color-bg)]"
                   >
                     <X size={16} className="text-[var(--color-fg-muted)]" />
                   </button>
@@ -353,9 +353,9 @@ function BadgeIssuerPanel() {
       <button
         type="button"
         onClick={() => setView("create")}
-        className="flex items-center gap-3 w-full px-3 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:bg-[var(--color-bg)] transition-colors"
+        className="flex w-full items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-3 transition-colors hover:bg-[var(--color-bg)]"
       >
-        <div className="w-8 h-8 rounded-full bg-[var(--color-accent)]/10 flex items-center justify-center">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-accent)]/10">
           <Plus size={16} className="text-[var(--color-accent)]" />
         </div>
         <div className="text-left">
@@ -370,13 +370,13 @@ function BadgeIssuerPanel() {
 
       {/* Last result */}
       {lastResult && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
-          <Check size={14} className="text-green-500 shrink-0" />
+        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2">
+          <Check size={14} className="shrink-0 text-green-500" />
           <div className="min-w-0">
             <div className="text-sm font-medium text-green-500">
               {lastResult.label}
             </div>
-            <div className="text-xs text-[var(--color-fg-muted)] truncate font-mono">
+            <div className="truncate font-mono text-xs text-[var(--color-fg-muted)]">
               {lastResult.uri}
             </div>
           </div>
@@ -388,13 +388,13 @@ function BadgeIssuerPanel() {
         <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
       ) : defs.length > 0 ? (
         <section>
-          <h2 className="text-sm font-semibold font-display mb-1">
+          <h2 className="font-display mb-1 text-sm font-semibold">
             {t("issue-badges-your-definitions")}
           </h2>
-          <p className="text-xs text-[var(--color-fg-muted)] mb-3">
+          <p className="mb-3 text-xs text-[var(--color-fg-muted)]">
             {t("issue-badges-tap-to-issue")}
           </p>
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] divide-y divide-[var(--color-border)]">
+          <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
             {defs.map((def) => (
               <button
                 key={def.uri}
@@ -403,20 +403,20 @@ function BadgeIssuerPanel() {
                   setSelectedDef(def);
                   setView("issue");
                 }}
-                className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-[var(--color-bg)] transition-colors text-left"
+                className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg)]"
               >
                 {def.value.image ? (
                   <img
                     src={`https://cdn.bsky.app/img/feed_fullsize/plain/${getDidFromAtUri(def.uri)}/${def.value.image.ref.toString()}`}
                     alt=""
-                    className="w-7 h-7 rounded"
+                    className="h-7 w-7 rounded"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded bg-[var(--color-bg)] flex items-center justify-center text-xs">
+                  <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-bg)] text-xs">
                     🎭
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{def.value.name}</div>
                   <div className="text-xs text-[var(--color-fg-muted)]">
                     {def.value.badgeType.split("#")[1]}
@@ -433,15 +433,15 @@ function BadgeIssuerPanel() {
 
 function BadgeDefRow({ def }: { def: BadgeDefItem }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div className="flex items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2.5">
       {def.value.image ? (
         <img
           src={`https://cdn.bsky.app/img/feed_fullsize/plain/${getDidFromAtUri(def.uri)}/${def.value.image.ref.toString()}`}
           alt=""
-          className="w-7 h-7 rounded"
+          className="h-7 w-7 rounded"
         />
       ) : (
-        <div className="w-7 h-7 rounded bg-[var(--color-bg)] flex items-center justify-center text-xs">
+        <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--color-bg)] text-xs">
           🎭
         </div>
       )}

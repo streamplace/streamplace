@@ -69,7 +69,7 @@ function LoginPage() {
 
   if (isCallbackInFlight && state.status !== "authenticated") {
     return (
-      <div className="max-w-md mx-auto px-6 py-16 text-center">
+      <div className="mx-auto max-w-md px-6 py-16 text-center">
         <p className="text-[var(--color-fg-muted)]">
           {t("completing-sign-in")}
         </p>
@@ -79,8 +79,8 @@ function LoginPage() {
 
   if (state.status === "authenticated") {
     return (
-      <div className="max-w-md mx-auto px-6 py-16 text-center">
-        <h1 className="text-2xl font-semibold font-display">
+      <div className="mx-auto max-w-md px-6 py-16 text-center">
+        <h1 className="font-display text-2xl font-semibold">
           {t("already-logged-in")}
         </h1>
         <p className="mt-2 text-[var(--color-fg-muted)]">
@@ -89,7 +89,7 @@ function LoginPage() {
         <button
           type="button"
           onClick={() => navigate({ to: "/" })}
-          className="mt-6 inline-flex items-center px-4 h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-accent-fg)] font-medium"
+          className="mt-6 inline-flex h-10 items-center rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)]"
         >
           {t("go-home")}
         </button>
@@ -98,8 +98,8 @@ function LoginPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto px-6 py-16">
-      <h1 className="text-2xl font-semibold font-display">{t("log-in")}</h1>
+    <div className="mx-auto max-w-md px-6 py-16">
+      <h1 className="font-display text-2xl font-semibold">{t("log-in")}</h1>
       <p className="mt-2 text-[var(--color-fg-muted)]">
         {t("sign-in-description")}
       </p>
@@ -116,7 +116,7 @@ function LoginPage() {
             placeholder="you.bsky.social"
             autoComplete="username"
             required
-            className="mt-1 w-full h-10 px-3 rounded-md bg-[var(--color-bg-elevated)] border border-[var(--color-border)] focus:border-[var(--color-accent)] focus:outline-none transition-colors"
+            className="mt-1 h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 transition-colors focus:border-[var(--color-accent)] focus:outline-none"
           />
         </label>
 
@@ -125,7 +125,7 @@ function LoginPage() {
         <button
           type="submit"
           disabled={submitting || state.status === "loading"}
-          className="w-full h-10 rounded-md bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--color-accent-fg)] font-medium transition-colors"
+          className="h-10 w-full rounded-md bg-[var(--color-accent)] font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? t("redirecting") : t("continue")}
         </button>

@@ -38,17 +38,17 @@ export function VideoCard({
       className="group flex flex-col gap-2"
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video rounded-xl overflow-hidden bg-[var(--color-bg-elevated)]">
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-[var(--color-bg-elevated)]">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center text-[var(--color-fg-muted)]">
             <svg
-              className="w-8 h-8 opacity-40"
+              className="h-8 w-8 opacity-40"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -63,7 +63,7 @@ export function VideoCard({
           </div>
         )}
         {duration && (
-          <div className="absolute bottom-1.5 right-1.5 bg-black/80 rounded px-1.5 py-0.5 text-white text-xs font-medium tabular-nums">
+          <div className="absolute right-1.5 bottom-1.5 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium text-white tabular-nums">
             {duration}
           </div>
         )}
@@ -71,27 +71,27 @@ export function VideoCard({
 
       {/* Metadata */}
       <div className="flex items-start gap-2.5 px-0.5">
-        <div className="w-8 h-8 rounded-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] overflow-hidden flex-shrink-0">
+        <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
           {avatarUrl ? (
             <img
               src={avatarUrl}
               alt=""
-              className="w-full h-full object-cover"
+              className="h-full w-full object-cover"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
               {user[0]?.toUpperCase() ?? "?"}
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-[var(--color-fg)] line-clamp-2 leading-tight">
+        <div className="min-w-0 flex-1">
+          <div className="line-clamp-2 text-sm leading-tight font-semibold text-[var(--color-fg)]">
             {title}
           </div>
-          <div className="text-xs text-[var(--color-fg-muted)] mt-0.5 truncate">
+          <div className="mt-0.5 truncate text-xs text-[var(--color-fg-muted)]">
             @{user}
           </div>
           <div className="text-xs text-[var(--color-fg-muted)]">

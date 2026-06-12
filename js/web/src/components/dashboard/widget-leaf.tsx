@@ -143,7 +143,7 @@ export function WidgetLeaf({
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md">
+              <div className="absolute top-full left-0 z-50 mt-1 min-w-40 overflow-hidden rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md">
                 {WIDGET_KEYS.filter((k) => k !== "blank").map((key) => {
                   const wMeta = getWidgetMeta(key);
                   if (!wMeta) return null;

@@ -29,12 +29,13 @@ export function ChatPanel({
   reversed?: boolean;
 }) {
   const { t } = useTranslation("common");
-  const { chat, authors, replyToMessage } = useStore(
+  const { chat, authors, replyToMessage, websocketConnected } = useStore(
     store,
     useShallow((s) => ({
       chat: s.chat,
       authors: s.authors,
       replyToMessage: s.replyToMessage,
+      websocketConnected: s.websocketConnected,
     })),
   );
 
@@ -98,19 +99,40 @@ export function ChatPanel({
       >
         {reversed && <div ref={anchorRef} />}
         {displayMessages.length === 0 ? (
-          <div className="py-8 text-center text-sm text-(--color-fg-muted)">
-            {t("chat-no-messages")}
-          </div>
+          !websocketConnected ? (
+            <ChatSkeleton />
+          ) : (
+            <div className="py-8 text-center text-sm text-(--color-fg-muted)">
+              {t("chat-no-messages")}
+            </div>
+          )
         ) : (
-          displayMessages.map((msg) => (
-            <ChatMessage
-              key={msg.uri}
-              message={msg}
-              profile={authors[msg.author.did]}
-              authors={authors}
-              store={store}
-            />
-          ))
+          displayMessages.map((msg, i) => {
+            const prev = i > 0 ? displayMessages[i - 1] : null;
+            const isGrouped =
+              !!prev &&
+              prev.author.did === msg.author.did &&
+              !prev.author.did.startsWith("did:sys:") &&
+              !msg.author.did.startsWith("did:sys:") &&
+              !msg.replyTo &&
+              // Only group within a reasonable time window (5 minutes)
+              Math.abs(
+                new Date(msg.record.createdAt).getTime() -
+                  new Date(prev.record.createdAt).getTime(),
+              ) <
+                5 * 60 * 1000;
+
+            return (
+              <ChatMessage
+                key={msg.uri}
+                message={msg}
+                profile={authors[msg.author.did]}
+                authors={authors}
+                store={store}
+                isGrouped={isGrouped}
+              />
+            );
+          })
         )}
         {!reversed && <div ref={anchorRef} />}
       </div>
@@ -144,11 +166,13 @@ function ChatMessage({
   profile,
   authors,
   store,
+  isGrouped = false,
 }: {
   message: ChatMessageViewHydrated;
   profile: ChatMessageViewHydrated["chatProfile"];
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
   store: LivestreamStore;
+  isGrouped?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { state, pdsAgent, did } = useSession();
@@ -189,7 +213,9 @@ function ChatMessage({
   }
 
   return (
-    <div className="group relative -mx-2 rounded px-2 py-0.5 leading-snug hover:bg-(--color-bg-overlay)">
+    <div
+      className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
+    >
       {/* Hover actions — visible on group hover */}
       <div className="absolute top-0 right-0 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {state.status === "authenticated" && !isOwn && (
@@ -215,31 +241,41 @@ function ChatMessage({
       </div>
 
       {message.replyTo && (
-        <div className="pl-15">
-          <ReplyBanner parent={message.replyTo} authors={authors} />
+        <div className="flex gap-2 pl-2">
+          <div className="w-0.5 shrink-0 rounded-full bg-(--color-accent)/30" />
+          <div className="min-w-0 flex-1">
+            <ReplyBanner parent={message.replyTo} authors={authors} />
+          </div>
         </div>
       )}
 
-      <div className="flex items-start gap-2">
-        <span className="text tabular-nums">
-          {formatTime(message.record.createdAt)}
-        </span>
+      <div
+        className={`flex items-start gap-2 ${isGrouped ? "pl-17" : ""} ${message.replyTo ? "pl-5" : ""}`}
+      >
+        {!isGrouped && (
+          <span className="text tabular-nums">
+            {formatTime(message.record.createdAt)}
+          </span>
+        )}
         <div className="min-w-0 flex-1 flex-wrap items-center gap-1">
-          {message.badges?.map((badge, i) => (
-            <span
-              key={i}
-              className="inline-block items-end justify-end gap-0.5"
-            >
-              <BadgeIcon key={i} badge={badge} />
-            </span>
-          ))}
+          {!isGrouped &&
+            message.badges?.map((badge, i) => (
+              <span
+                key={i}
+                className="inline-block items-end justify-end gap-0.5"
+              >
+                <BadgeIcon key={i} badge={badge} />
+              </span>
+            ))}
 
-          <UserHandle
-            author={message.author}
-            color={profile?.color}
-            badges={message.badges}
-          />
-          <span>{": "}</span>
+          {!isGrouped && (
+            <UserHandle
+              author={message.author}
+              color={profile?.color}
+              badges={message.badges}
+            />
+          )}
+          {!isGrouped && <span>{": "}</span>}
           <RichTextMessage
             text={message.record.text}
             facets={message.record.facets}
@@ -561,6 +597,36 @@ function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
           {issuedBy}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ChatSkeleton() {
+  const lines = [
+    { handle: 16, msg: 60 },
+    { handle: 20, msg: 80 },
+    { handle: 14, msg: 45 },
+    { handle: 18, msg: 70 },
+    { handle: 12, msg: 55 },
+  ];
+
+  return (
+    <div className="space-y-2 p-3">
+      {lines.map((line, i) => (
+        <div key={i} className="flex items-start gap-2">
+          <span className="h-3 w-10 shrink-0 animate-pulse rounded bg-(--color-bg-elevated)" />
+          <div className="flex flex-1 flex-wrap items-center gap-1">
+            <span
+              className="h-3 animate-pulse rounded bg-(--color-bg-elevated)"
+              style={{ width: `${line.handle * 0.5}rem` }}
+            />
+            <span
+              className="h-3 animate-pulse rounded bg-(--color-bg-elevated)"
+              style={{ width: `${line.msg * 0.45}rem` }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

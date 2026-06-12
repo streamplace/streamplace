@@ -798,6 +798,9 @@ importers:
       '@atproto/api':
         specifier: ^0.19.3
         version: 0.19.3
+      '@atproto/crypto':
+        specifier: ^0.4.5
+        version: 0.4.5
       '@atproto/oauth-client-browser':
         specifier: ^0.4.1
         version: 0.4.1
@@ -897,9 +900,15 @@ importers:
       tiptap:
         specifier: ^1.32.2
         version: 1.32.2(vue-template-compiler@2.7.16)(vue@2.7.16)
+      tus-js-client:
+        specifier: ^4.3.1
+        version: 4.3.1
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      viem:
+        specifier: ^2.47.2
+        version: 2.47.2(bufferutil@4.0.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -22956,7 +22965,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -25079,6 +25088,11 @@ snapshots:
     optionalDependencies:
       typescript: 5.6.3
       zod: 4.4.3
+
+  abitype@1.2.3(typescript@5.9.3)(zod@3.25.76):
+    optionalDependencies:
+      typescript: 5.9.3
+      zod: 3.25.76
 
   abitype@1.2.3(typescript@5.9.3)(zod@4.4.3):
     optionalDependencies:
@@ -32606,6 +32620,21 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
+  ox@0.14.0(typescript@5.9.3)(zod@3.25.76):
+    dependencies:
+      '@adraffy/ens-normalize': 1.11.1
+      '@noble/ciphers': 1.3.0
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      eventemitter3: 5.0.1
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - zod
+
   ox@0.14.0(typescript@5.9.3)(zod@4.4.3):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
@@ -36180,6 +36209,23 @@ snapshots:
       - utf-8-validate
       - zod
 
+  viem@2.47.2(bufferutil@4.0.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
+      isows: 1.0.7(ws@8.18.3(bufferutil@4.0.8)(utf-8-validate@5.0.10))
+      ox: 0.14.0(typescript@5.9.3)(zod@3.25.76)
+      ws: 8.18.3(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
   viem@2.47.2(bufferutil@4.0.8)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.4.3):
     dependencies:
       '@noble/curves': 1.9.1
@@ -36354,7 +36400,7 @@ snapshots:
       sockjs: 0.3.24
       spdy: 4.0.2
       webpack-dev-middleware: 5.3.4(webpack@5.94.0(@swc/core@1.15.18(@swc/helpers@0.5.17)))
-      ws: 8.18.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+      ws: 8.19.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
     optionalDependencies:
       webpack: 5.94.0(@swc/core@1.15.18(@swc/helpers@0.5.17))
     transitivePeerDependencies:

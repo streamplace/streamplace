@@ -7,6 +7,11 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Custom variant for wide viewports (aspect ratio > 1).
+   Wide: sidebar layout (video left, chat right).
+   Tall: stacked layout (video top, chat bottom). */
+@custom-variant wide (@media (min-aspect-ratio: 1/1));
+
 code {
   font-family:
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;

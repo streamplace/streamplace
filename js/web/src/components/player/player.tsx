@@ -117,6 +117,26 @@ function writeTransportPreference(useWebRTC: boolean) {
   }
 }
 
+const QUALITY_KEY = "player-quality";
+
+function readQualityPreference(): number | null {
+  try {
+    const v = localStorage.getItem(QUALITY_KEY);
+    if (v !== null) return parseInt(v, 10);
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
+function writeQualityPreference(index: number) {
+  try {
+    localStorage.setItem(QUALITY_KEY, String(index));
+  } catch {
+    // ignore
+  }
+}
+
 export function Player({
   src,
   mode = "live",
@@ -252,6 +272,7 @@ export function Player({
 
   const setQuality = useCallback((index: number) => {
     backendRef.current?.setQuality(index);
+    writeQualityPreference(index);
   }, []);
 
   return (

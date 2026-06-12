@@ -1,6 +1,13 @@
 import { ChatSidebar } from "@/components/stream/chat-sidebar";
 import { StreamInfo } from "@/components/stream/stream-info";
 import { VideoSection } from "@/components/stream/video-section";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
@@ -10,8 +17,11 @@ import {
   type LivestreamStore,
 } from "@streamplace/core";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ChevronUp, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
 export const Route = createFileRoute("/$user/")({
   component: StreamPage,
@@ -135,30 +145,44 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div
-        className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-90" : "mr-0"}`}
-      >
-        <div className="min-w-0 flex-1 overflow-y-auto">
-          <VideoSection store={store} user={user} liveness={liveness} />
-          {!theatre && (
-            <StreamInfo
-              store={store}
-              user={user}
-              liveness={liveness}
-              chatOpen={chatOpen}
-              onToggleChat={toggleChat}
-            />
-          )}
+    <div className="flex h-full flex-col">
+      {/* Sidebar layout (wide viewport) */}
+      <div className="wide:flex wide:h-full wide:flex-col wide:gap-3 hidden">
+        <div
+          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
+        >
+          <div className="min-w-0 flex-1 overflow-y-auto">
+            <VideoSection store={store} user={user} liveness={liveness} />
+            {!theatre && (
+              <StreamInfo
+                store={store}
+                user={user}
+                liveness={liveness}
+                chatOpen={chatOpen}
+                onToggleChat={toggleChat}
+              />
+            )}
+          </div>
+        </div>
+
+        <div
+          className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+            chatOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <ChatSidebar store={store} onClose={toggleChat} />
         </div>
       </div>
 
-      <div
-        className={`fixed ${theatre ? "top-0" : "top-12"} right-0 bottom-0 z-20 flex w-90 max-w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
-          chatOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <ChatSidebar store={store} onClose={toggleChat} />
+      {/* Stacked layout (portrait/tall) */}
+      <div className="wide:hidden flex min-h-0 flex-1 flex-col">
+        <VideoSection store={store} user={user} liveness={liveness} />
+
+        <MobileStreamBar store={store} user={user} />
+
+        <div className="flex min-h-0 flex-1 flex-col border-t">
+          <ChatSidebar store={store} />
+        </div>
       </div>
     </div>
   );
@@ -204,6 +228,114 @@ function OfflinePage({ user }: { user: string }) {
           {t("refresh")}
         </button>
       </div>
+    </div>
+  );
+}
+
+function MobileStreamBar({
+  store,
+  user,
+}: {
+  store: LivestreamStore;
+  user: string;
+}) {
+  const { t } = useTranslation("common");
+  const state = useStore(
+    store,
+    useShallow((s) => ({
+      livestream: s.livestream,
+      viewers: s.viewers,
+    })),
+  );
+
+  const author = state.livestream?.author;
+  const record = state.livestream?.record;
+  const title = record?.title || user;
+
+  return (
+    <div className="flex items-center gap-2 border-b px-3 py-2">
+      <img
+        src={author?.avatar ?? undefined}
+        alt=""
+        className="h-7 w-7 shrink-0 rounded-full bg-(--color-bg-elevated)"
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+        }}
+      />
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium">{title}</div>
+        <div className="truncate text-xs text-(--color-fg-muted)">
+          {author?.displayName || author?.handle || user}
+          {state.viewers != null && (
+            <> &middot; {t("watching-count", { count: state.viewers })}</>
+          )}
+        </div>
+      </div>
+
+      <Sheet>
+        <SheetTrigger
+          render={
+            <button
+              type="button"
+              className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+              aria-label={t("stream-info")}
+            >
+              <ChevronUp className="h-4 w-4" />
+            </button>
+          }
+        />
+        <SheetContent side="bottom" className="rounded-t-xl">
+          <SheetHeader>
+            <SheetTitle>{title}</SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-6">
+            <div className="flex items-center gap-3">
+              <img
+                src={author?.avatar ?? undefined}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded-full bg-(--color-bg-elevated)"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">
+                  {author?.displayName || author?.handle || user}
+                </div>
+                {author?.handle && (
+                  <div className="text-sm text-(--color-fg-muted)">
+                    @{author.handle}
+                  </div>
+                )}
+              </div>
+              <a
+                href={`https://bsky.app/profile/${author?.handle || ""}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </div>
+            {record?.description ? (
+              <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
+                {record.description as string}
+              </p>
+            ) : null}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <a
+        href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+        title={t("chat-pop-out")}
+      >
+        <ExternalLink className="h-4 w-4" />
+      </a>
     </div>
   );
 }

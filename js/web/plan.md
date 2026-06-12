@@ -12,9 +12,10 @@ The existing React Native app (`js/app`) is the source of truth. The new web app
 - Single live stream viewer (HLS + WebRTC)
 - Single VOD viewer
 - VOD browse
+- VOD upload (tus-js-client, metadata, thumbnails, progress)
 - OAuth login/registration
 - Chat (send/receive, mentions, emoji)
-- Settings: account, streaming (read-only keys), recommendations, webhooks, multistream, privacy, backup, branding, badges, languages, advanced, about
+- Settings: account, streaming (keys with create/delete), recommendations, webhooks, multistream, privacy, backup, branding, badges, languages, advanced, about
 - Player with stats overlay, keyboard shortcuts, quality selector
 - i18n (7 locales via `@streamplace/i18n`)
 
@@ -22,34 +23,21 @@ The existing React Native app (`js/app`) is the source of truth. The new web app
 
 From `blueskySlice.ts` header comments:
 
-- `createStreamKeyRecord` - throws
 - `createLivestreamRecord` - throws
 - `updateLivestreamRecord` - throws
 - `golivePost` - throws
-- `createBlockRecord` - throws
+- `createBlockRecord` - throws (low priority, not in RN either)
 
 ### Web App: Missing Entirely
 
 - Go-live flow (no route, no UI, no broadcaster backend)
-- Stream key creation (keys.tsx is read-only delete)
 - Following feed (sidebar "Following" is disabled)
 - Notifications surface (no route, no header bell)
-- Search (no route)
-- Chat popout route (`/chat-popout/:handle` linked but no route file)
-- Upload VOD
-- Multi-stream viewer
-- Embed screens (stream, VOD, info widget, danmu OBS)
+- Multi-stream viewer (grid of multiple live streams; `dashboard/multistream/` is for RTMP target management, not viewing)
 - Popout windows (livestream, multistream, stream monitor, info widget)
 - Download screen
 - Support screen
-- "What is Streamplace?" about screen
-- Error boundary
-- Suspense fallback
-- Theme provider (useColorScheme is hardcoded "dark")
-- TooltipProvider (not mounted globally)
-- FullscreenProvider (declared but not mounted)
-- VideoElementProvider (declared but not mounted)
-- React Query (all fetching is hand-rolled useState/useEffect)
+- "What is Streamplace?" about screen (web has `/settings/about` but that's settings-scoped, not a public landing page)
 
 ### RN App: Feature Inventory
 
@@ -80,6 +68,45 @@ All screens in `js/app/src/screens/`:
 | `popout-info-widget.tsx`    | Info widget popout                         |
 | `support.tsx`               | Support page                               |
 | `app-return.tsx`            | OAuth return handling                      |
+
+### Screen-by-Screen Comparison
+
+| RN Screen                   | Web Equivalent                 | Status     | Notes                                                                                    |
+| --------------------------- | ------------------------------ | ---------- | ---------------------------------------------------------------------------------------- |
+| `home.tsx`                  | `$user/index.tsx`, `index.tsx` | ✅ Parity  | Web has infinite scroll instead of pull-to-refresh. Both show live grid + viewer counts. |
+| `mobile-stream.tsx`         | `$user/index.tsx`              | ⚠️ Partial | Web is desktop-focused. No dedicated mobile-optimized live view.                         |
+| `mobile-go-live.tsx`        | —                              | ❌ Missing | Mobile camera ingest, no web equivalent.                                                 |
+| `launch-go-live.tsx`        | —                              | ❌ Missing | "Ready to go live?" prompt, no web equivalent.                                           |
+| `live-dashboard.tsx`        | `dashboard/stream/index.tsx`   | ✅ Parity  | Web has additional metadata/moderation sections.                                         |
+| `video-list.tsx`            | `videos.tsx`                   | ✅ Parity  | Both use same API, infinite scroll, responsive grid.                                     |
+| `video.tsx`                 | `$user/video/$tid.tsx`         | ✅ Parity  | Single VOD playback.                                                                     |
+| `vod.tsx`                   | `$user/video/$tid.tsx`         | ✅ Merged  | RN has separate vod.tsx and video.tsx; web combines into one route.                      |
+| `upload.tsx`                | `dashboard/upload.tsx`         | ✅ Done    | tus upload, metadata form, thumbnail, progress. In creator dashboard.                    |
+| `chat-popout.tsx`           | `chat-popout.$user.tsx`        | ✅ Done    | Standalone chat window.                                                                  |
+| `multi.tsx`                 | —                              | ❌ Missing | Grid of multiple simultaneous live streams. Not the same as dashboard/multistream.       |
+| `about.tsx`                 | `settings/about.tsx`           | ⚠️ Partial | Web version is settings-scoped. RN has a public "What is Streamplace?" page.             |
+| `download.tsx`              | —                              | ❌ Missing | App download/promo page with store links.                                                |
+| `embed.tsx`                 | `embed/$user/index.tsx`        | ✅ Done    | Minimal-chrome stream embed.                                                             |
+| `vod-embed.tsx`             | `embed/$user/video/$tid.tsx`   | ✅ Done    | VOD embed.                                                                               |
+| `danmu-obs.tsx`             | `embed/danmu-obs/$user.tsx`    | ✅ Done    | Danmu OBS overlay, full feature parity.                                                  |
+| `info-widget-embed.tsx`     | `embed/info-widget/$user.tsx`  | ✅ Done    | Info widget embed.                                                                       |
+| `popout-livestream.tsx`     | —                              | ❌ Missing | Popout livestream player window.                                                         |
+| `popout-multistream.tsx`    | —                              | ❌ Missing | Popout multistream window.                                                               |
+| `popout-stream-monitor.tsx` | —                              | ❌ Missing | Popout stream monitor.                                                                   |
+| `popout-info-widget.tsx`    | —                              | ❌ Missing | Covered by `/embed/info-widget/$user` but no dedicated popout route.                     |
+| `support.tsx`               | —                              | ❌ Missing | Redirects to Google Form.                                                                |
+| `app-return.tsx`            | Handled by `login.tsx`         | ✅ Done    | OAuth callback handled differently on web.                                               |
+
+### Web Features Beyond RN Parity
+
+| Feature                            | Status  | Notes                                                        |
+| ---------------------------------- | ------- | ------------------------------------------------------------ |
+| Search (header bar + popover)      | ✅ Done | RN has no equivalent search UI.                              |
+| Danmu overlay                      | ✅ Done | Bullet comments with lane assignment, mobile parity.         |
+| Theatre mode                       | ✅ Done | Sidebar + header hidden, `T` shortcut. RN has no equivalent. |
+| Picture-in-Picture                 | ✅ Done | Web-native PiP API. RN has no equivalent.                    |
+| Dashboard webhooks/branding/badges | ✅ Done | Advanced settings panels not in RN.                          |
+| Keyboard shortcuts                 | ✅ Done | Space, m, f, T shortcuts. RN has no equivalent.              |
 
 ### RN App: Navigation Tree
 
@@ -182,6 +209,28 @@ RootStack
 | `@react-native-firebase/app`                              | Firebase base                 | N/A                                                               |
 | `expo-localization`                                       | Locale detection              | navigator.language / Intl                                         |
 | `expo-system-ui`                                          | System UI                     | N/A                                                               |
+
+### API Usage: Web-Only vs RN-Only
+
+**APIs used in web but not RN:**
+
+- `agent.place.stream.multistream.listTargets` / `putTarget` / `createTarget` / `deleteTarget` (RTMP target management)
+- `agent.place.stream.server.listWebhooks` / `updateWebhook` / `createWebhook` / `deleteWebhook`
+- `agent.place.stream.badge.def.list` / `def.create` / `issuance.create` (badge issuer)
+- `agent.place.stream.branding.updateBlob` / `deleteBlob`
+- `agent.place.stream.server.getStorage` / `upsertStorage`
+
+**APIs used in RN but not web:**
+
+- `agent.place.stream.media.getUploadStatus` / `createUpload` / `publishVideo` (upload flow)
+- Grid-based multi-stream viewing (not RTMP management)
+
+**Shared APIs (both use):**
+
+- `agent.place.stream.live.getLiveUsers` (home page)
+- `agent.place.stream.live.searchActorsTypeahead` (search/recommendations)
+- `agent.place.stream.media.getVideoList` (video listings)
+- Chat APIs (messages, pinned comments, mentions)
 
 ---
 
@@ -327,15 +376,11 @@ These don't need to be full routes. They can be:
 
 The functionality should be accessible without cluttering the route tree.
 
-#### 2l. VOD Download
-
-Already covered in 2d. (Duplicate removed.)
-
 ---
 
 ### Phase 3: Go-Live & Broadcaster Flow
 
-The biggest gap. This is deferred because the approach is still being thought through. The RN app has a complete go-live flow; the web app has zero.
+The biggest gap. The RN app has a complete go-live flow; the web app has zero. This phase covers both OBS-based (RTMP) and browser-based (WebRTC) broadcasting.
 
 #### 3a. Stream Key Creation
 
@@ -343,9 +388,11 @@ Un-stub `createStreamKeyRecord` in `blueskySlice.ts`. Add `@atproto/crypto` + `v
 
 #### 3b. Go-Live Route & UI
 
-New route: `/go-live` (or `/settings/go-live`)
+New route: `/go-live`
 
 "Start streaming" button in sidebar (replace disabled Following with Go Live when logged in). Stream key display + copy-to-clipboard. OBS/Restream setup instructions. RTMP URL + stream key display.
+
+This covers both `launch-go-live.tsx` (the "Ready to go live?" prompt) and the go-live entry point from the RN app.
 
 #### 3c. Live Dashboard
 
@@ -369,6 +416,8 @@ The RN app uses `BentoGrid` from `@streamplace/components` which is RN-specific.
 
 This is significant work and only matters for a subset of users who want browser-based broadcasting. Could be deferred to after initial go-live if OBS-only (RTMP key + instructions) is sufficient.
 
+Note: The RN app has `mobile-go-live.tsx` for mobile camera ingest. On web, this could be a simpler route or part of the go-live flow using `getUserMedia()` + WebRTC, which works on mobile browsers.
+
 #### 3e. Following Feed
 
 Sidebar "Following" link → working route. Fetch following list from PDS, filter live users to followed accounts, display as StreamCard grid (same as home, filtered).
@@ -381,31 +430,35 @@ This may need server-side work depending on how following data is fetched, plus 
 
 These go beyond parity to make the web app genuinely better than the RN app on desktop.
 
-#### 4a. Picture-in-Picture
+#### 4a. Picture-in-Picture ✅
 
 `video.requestPictureInPicture()` API. PiP button in player controls. Continue watching while browsing other tabs.
 
-#### 4b. Web Share API
+#### 4b. Theatre Mode ✅
+
+Sidebar + header hidden, video fills viewport. Toggle button in player controls, `T` keyboard shortcut. State persisted to localStorage.
+
+#### 4c. Web Share API
 
 Share button on streams and VODs. `navigator.share({ title, url, text })`. Fallback to copy-to-clipboard.
 
-#### 4c. Keyboard Shortcuts
+#### 4d. Keyboard Shortcuts
 
-Global shortcuts: `G` for go-live, `/` for search, `?` for help. Player shortcuts: already done (space, m, f). Chat shortcuts: `Enter` to send, `Escape` to close.
+Global shortcuts: `G` for go-live, `/` for search, `?` for help. Player shortcuts: already done (space, m, f, T). Chat shortcuts: `Enter` to send, `Escape` to close.
 
-#### 4d. Multi-Window / Pop-Out Player
+#### 4e. Multi-Window / Pop-Out Player
 
 Pop-out player to separate browser window. `window.open()` with minimal player UI. Sync play/pause state between windows.
 
-#### 4e. URL-Based Deep Linking
+#### 4f. URL-Based Deep Linking ✅
 
 Every view has a stable URL (already done with TanStack Router). Shareable links to specific moments in VODs. Embeddable via query params.
 
-#### 4f. Theming
+#### 4g. Theming ✅
 
 Full light mode + dark mode implementation. `prefers-color-scheme` media query listener. Manual toggle in settings. CSS variables already partially defined in `styles.css`.
 
-#### 4g. PWA (Progressive Web App)
+#### 4h. PWA (Progressive Web App)
 
 `manifest.json` with app name, icons, theme color. Service worker for offline shell caching. "Add to Home Screen" prompt. Offline fallback page.
 
@@ -460,18 +513,18 @@ Full light mode + dark mode implementation. `prefers-color-scheme` media query l
 
 ### Phase 2: Feature Parity — In Progress
 
-| Item                       | Status  | Notes                                                                                            |
-| -------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
-| 2a. Chat popout            | Done    | `/chat-popout/$user` route, standalone window, WebSocket chat.                                   |
-| 2b. Block/mute in chat     | Pending | `createBlockRecord` still stubbed. UI buttons not wired.                                         |
-| 2c. Chat profile edit      | Done    | Inline editor with color picker, avatar, badges.                                                 |
-| 2d. VOD download           | Done    | Fetch + Blob + createObjectURL + anchor download.                                                |
-| 2e. Multi-stream viewer    | Pending | Not started.                                                                                     |
-| 2f. Search                 | Done    | Inline header bar with popover results.                                                          |
-| 2g. Upload VOD             | Pending | Not started.                                                                                     |
-| 2h. Embed screens          | Done    | `/embed/$user`, `/embed/$user/video/$tid`, `/embed/info-widget/$user`, `/embed/danmu-obs/$user`. |
-| 2i. Popout windows         | Pending | Not started.                                                                                     |
-| 2k. About/Download/Support | Pending | Not started.                                                                                     |
+| Item                       | Status  | Notes                                                                                                                          |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 2a. Chat popout            | Done    | `/chat-popout/$user` route, standalone window, WebSocket chat.                                                                 |
+| 2b. Block/mute in chat     | Pending | `createBlockRecord` still stubbed. UI buttons not wired.                                                                       |
+| 2c. Chat profile edit      | Done    | Inline editor with color picker, avatar, badges.                                                                               |
+| 2d. VOD download           | Done    | Fetch + Blob + createObjectURL + anchor download.                                                                              |
+| 2e. Multi-stream viewer    | Pending | Not started. `multi.tsx` in RN shows grid of concurrent streams; web has nothing for this.                                     |
+| 2f. Search                 | Done    | Inline header bar with popover results.                                                                                        |
+| 2g. Upload VOD             | Done    | `/dashboard/upload` route with tus upload, metadata form, thumbnail, progress, video management. Moved into creator dashboard. |
+| 2h. Embed screens          | Done    | `/embed/$user`, `/embed/$user/video/$tid`, `/embed/info-widget/$user`, `/embed/danmu-obs/$user`.                               |
+| 2i. Popout windows         | Pending | Missing: popout-livestream, popout-multistream, popout-stream-monitor, popout-info-widget.                                     |
+| 2k. About/Download/Support | Pending | About: web has settings/about but no public landing page. Download + Support completely missing.                               |
 
 ### Additional Work Done (not in original plan)
 
@@ -479,59 +532,27 @@ Full light mode + dark mode implementation. `prefers-color-scheme` media query l
 - Danmu (bullet comments) overlay with mobile-parity implementation
 - Danmu toggle persisted to localStorage, standalone button in player controls
 - Migrated fetchLiveUsers from zustand to React Query
+- VOD upload with tus-js-client, metadata form, thumbnail, progress tracking
 
-### Phase 3: Go-Live — Not Started
+### Phase 3: Go-Live — In Progress
+
+| Item                    | Status  | Notes                                                                                                      |
+| ----------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
+| 3a. Stream Key Creation | Done    | `createStreamKeyRecord` in blueskySlice with @atproto/crypto + viem. Key list + create in Stream Settings. |
+| 3b. Go-Live Route & UI  | Pending | Not started.                                                                                               |
+| 3c. Live Dashboard      | Pending | Not started.                                                                                               |
+| 3d. WebRTC Publishing   | Pending | Deferred.                                                                                                  |
+| 3e. Following Feed      | Pending | Not started.                                                                                               |
 
 ### Phase 4: Web-Native Enhancements — In Progress
 
-| Item                   | Status | Notes                                                                                                                                                                         |
-| ---------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4a. Picture-in-Picture | Done   | PiP toggle button in player controls. Uses `requestPictureInPicture()` API. Support detection, state tracking via events.                                                     |
-| 4b. Theatre mode       | Done   | Sidebar + header hidden, video fills viewport. Toggle button in player controls, `T` keyboard shortcut. State persisted to localStorage. Works on both live streams and VODs. |
-
----
-
-## Suggested Priority Order
-
-### Phase 1: Foundation (Do First)
-
-1. React Query setup + incremental migration (1a)
-2. Mount missing providers: Tooltip, Fullscreen, VideoElement (1d)
-3. Error boundary (1b)
-4. Suspense fallbacks (1c)
-5. Theme provider plumbing (1e)
-6. i18n audit (1f)
-7. Sentry (1g)
-8. Code review & cleanup (1h)
-
-### Phase 2: Feature Parity (Do Second)
-
-1. Chat popout (2a)
-2. Block/mute in chat (2b)
-3. Chat profile edit (2c)
-4. VOD download (2d)
-5. Search (2f)
-6. Multi-stream viewer (2e)
-7. Upload VOD (2g)
-8. Embed screens (2h)
-9. About/Download/Support accessible somewhere (2k)
-10. Popout windows (2i)
-
-### Phase 3: Go-Live (Do Last)
-
-1. Stream key creation (3a)
-2. Go-live route + sidebar button (3b)
-3. Live dashboard with movable widgets (3c)
-4. WebRTC publishing (3d)
-5. Following feed (3e)
-
-### Phase 4: Web-Native Enhancements (Nice-to-Have)
-
-1. Picture-in-Picture (4a) — Done
-2. Theatre mode — Done
-3. Web Share API (4b)
-4. Keyboard shortcuts (4c)
-5. Multi-window player (4d)
-6. Deep linking (4e)
-7. Theming (4f)
-8. PWA (4g)
+| Item                       | Status  | Notes                                                                                                                                                                         |
+| -------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4a. Picture-in-Picture     | Done    | PiP toggle button in player controls. Uses `requestPictureInPicture()` API. Support detection, state tracking via events.                                                     |
+| 4b. Theatre mode           | Done    | Sidebar + header hidden, video fills viewport. Toggle button in player controls, `T` keyboard shortcut. State persisted to localStorage. Works on both live streams and VODs. |
+| 4c. Web Share API          | Pending | Not started.                                                                                                                                                                  |
+| 4d. Keyboard Shortcuts     | Partial | Player shortcuts done (space, m, f, T). Global shortcuts (`G`, `/`, `?`) not implemented.                                                                                     |
+| 4e. Multi-Window/Pop-Out   | Pending | Not started.                                                                                                                                                                  |
+| 4f. URL-Based Deep Linking | Done    | TanStack Router provides stable URLs for all routes.                                                                                                                          |
+| 4g. Theming                | Done    | Media query listener, manual toggle, localStorage persistence.                                                                                                                |
+| 4h. PWA                    | Pending | Not started.                                                                                                                                                                  |

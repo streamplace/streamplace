@@ -4,11 +4,13 @@ import { useSession } from "@/lib/session";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  ArrowUpFromLine,
   Key,
   LayoutGrid,
   ListVideo,
   Radio,
   Share2,
+  Video,
   Webhook,
 } from "lucide-react";
 import { useState } from "react";
@@ -38,6 +40,16 @@ interface NavLink {
 /** Main nav — appears above the Settings group. */
 const MAIN_NAV: NavLink[] = [
   { to: "/dashboard", icon: LayoutGrid, labelKey: "control-panel" },
+  {
+    to: "/dashboard/upload",
+    icon: ArrowUpFromLine,
+    labelKey: "upload-videos",
+  },
+  {
+    to: "/dashboard/videos",
+    icon: Video,
+    labelKey: "my-videos",
+  },
 ];
 
 /** Settings group — appears under a "Settings" header. */

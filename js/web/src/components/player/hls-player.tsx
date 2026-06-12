@@ -7,6 +7,18 @@ import Hls, { type Level } from "hls.js";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
 import type { PlayerBackendHandle, PlayerStats, QualityOption } from "./player";
 
+const QUALITY_KEY = "player-quality";
+
+function readQualityPreference(): number | null {
+  try {
+    const v = localStorage.getItem(QUALITY_KEY);
+    if (v !== null) return parseInt(v, 10);
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
 export type HLSPlayerProps = {
   /** The video element managed by the parent <Player>. */
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -88,6 +100,11 @@ export function HLSPlayer({
           firstLevel: data.firstLevel,
         });
         onQualitiesChange?.(buildQualities(hls.levels));
+        // Restore persisted quality preference.
+        const saved = readQualityPreference();
+        if (saved !== null && saved >= -1 && saved < hls.levels.length) {
+          hls.currentLevel = saved;
+        }
         video
           .play()
           .catch((err) => console.warn("[hls-player] play() rejected", err));

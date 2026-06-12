@@ -26,6 +26,7 @@ import { Agent } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { OAuthSession } from "@atproto/oauth-client-browser";
+import { getBrowserName } from "@streamplace/core";
 import {
   PlaceStreamChatProfile,
   PlaceStreamLivestream,
@@ -112,7 +113,7 @@ export interface BlueskySlice {
   createStreamKeyRecord: (store: boolean) => Promise<void>;
   clearStreamKeyRecord: () => void;
   getStreamKeyRecords: () => Promise<void>;
-  deleteStreamKeyRecord: (rkey: string) => Promise<void>;
+  deleteStreamKeyRecord: (rkey: string, batchRkeys?: string[]) => Promise<void>;
   setPDS: (pds: string) => Promise<void>;
   createLivestreamRecord: (
     title: string,
@@ -461,7 +462,54 @@ export const createBlueskySlice: StateCreator<
   // Generate-keypair code is also used by createLivestreamRecord for
   // blob uploads, so adding the deps unblocks both at once.
   createStreamKeyRecord: async (_store: boolean) => {
-    throw new Error("createStreamKeyRecord not yet ported (Phase 3/4)");
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) throw new Error("No agent");
+    const did = state.oauthSession?.did;
+    if (!did) throw new Error("No DID");
+
+    const { Secp256k1Keypair, bytesToMultibase } =
+      await import("@atproto/crypto");
+    const { privateKeyToAccount } = await import("viem/accounts");
+
+    const keypair = await Secp256k1Keypair.create({ exportable: true });
+    const exportedKey = await keypair.export();
+    const didBytes = new TextEncoder().encode(did);
+    const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
+    const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
+    const hexKey = Array.from(exportedKey)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const account = privateKeyToAccount(`0x${hexKey}`);
+
+    let userAgent = "";
+    if (typeof navigator !== "undefined") {
+      userAgent = navigator.userAgent;
+    }
+
+    const browserFamilyName = getBrowserName(userAgent);
+
+    const record = {
+      $type: "place.stream.key" as const,
+      signingKey: keypair.did(),
+      createdAt: new Date().toISOString(),
+      createdBy: `Streamplace Web${browserFamilyName ? ` on ${browserFamilyName}` : ""}`,
+    };
+
+    await state.pdsAgent.com.atproto.repo.createRecord({
+      repo: did,
+      collection: "place.stream.key",
+      record,
+    });
+
+    const newKey = {
+      privateKey: multibaseKey,
+      did: keypair.did(),
+      address: account.address.toLowerCase(),
+    };
+
+    set({ newKey });
+    // Refresh the list
+    await get().getStreamKeyRecords();
   },
   clearStreamKeyRecord: () => {
     set({ newKey: null });
@@ -497,16 +545,25 @@ export const createBlueskySlice: StateCreator<
       return;
     }
     try {
-      const result = await state.pdsAgent.com.atproto.repo.listRecords({
-        repo: did,
-        collection: "place.stream.key",
-        limit: 100,
-      });
+      // Fetch all keys (paginate through results)
+      let allRecords: any[] = [];
+      let cursor: string | undefined;
+      do {
+        const result = await state.pdsAgent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: "place.stream.key",
+          limit: 100,
+          ...(cursor ? { cursor } : {}),
+        });
+        allRecords = allRecords.concat(result.data.records);
+        cursor = result.data.cursor;
+      } while (cursor);
+
       set({
         streamKeysResponse: {
           loading: false,
           error: null,
-          records: result.data,
+          records: { records: allRecords },
         },
       });
     } catch (error: any) {
@@ -519,7 +576,7 @@ export const createBlueskySlice: StateCreator<
       });
     }
   },
-  deleteStreamKeyRecord: async (rkey: string) => {
+  deleteStreamKeyRecord: async (rkey: string, batchRkeys?: string[]) => {
     set({ isDeletingKey: true });
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) {
@@ -532,14 +589,31 @@ export const createBlueskySlice: StateCreator<
       throw new Error("No DID");
     }
     try {
-      await state.pdsAgent.com.atproto.repo.deleteRecord({
-        repo: did,
-        collection: "place.stream.key",
-        rkey,
-      });
+      const keysToDelete = batchRkeys ?? [rkey];
+
+      if (keysToDelete.length === 1) {
+        // Single delete
+        await state.pdsAgent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: "place.stream.key",
+          rkey: keysToDelete[0],
+        });
+      } else {
+        // Batch delete via applyWrites
+        await state.pdsAgent.com.atproto.repo.applyWrites({
+          repo: did,
+          writes: keysToDelete.map((k) => ({
+            $type: "com.atproto.repo.applyWrites#delete" as const,
+            collection: "place.stream.key",
+            rkey: k,
+          })),
+        });
+      }
+
+      const deletedSet = new Set(keysToDelete);
       const records = state.streamKeysResponse.records
         ? state.streamKeysResponse.records.records.filter(
-            (r) => r.uri.split("/").pop() !== rkey,
+            (r) => !deletedSet.has(r.uri.split("/").pop() as string),
           )
         : [];
       set({

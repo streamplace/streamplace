@@ -383,7 +383,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
                   }
                 }}
                 placeholder={t("add-tag", { defaultValue: "Add tag…" })}
-                className="min-w-[80px] flex-1 rounded-full px-2 py-0 text-sm"
+                className="min-w-20 flex-1 rounded-full px-2 py-0 text-sm"
               />
             )}
             {/* Language picker */}

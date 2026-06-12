@@ -104,8 +104,8 @@ function StreamPage() {
     return (
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="animate-pulse">
-          <div className="mb-4 h-8 w-48 rounded bg-[var(--color-bg-elevated)]" />
-          <div className="aspect-video rounded bg-[var(--color-bg-elevated)]" />
+          <div className="mb-4 h-8 w-48 rounded bg-(--color-bg-elevated)" />
+          <div className="aspect-video rounded bg-(--color-bg-elevated)" />
         </div>
       </div>
     );
@@ -137,7 +137,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   return (
     <div className="flex h-full flex-col gap-3">
       <div
-        className={`flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
+        className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "mr-[360px]" : "mr-0"}`}
       >
         <div className="min-w-0 flex-1 overflow-y-auto">
           <VideoSection store={store} user={user} liveness={liveness} />
@@ -168,9 +168,9 @@ function OfflinePage({ user }: { user: string }) {
   const { t } = useTranslation("common");
   return (
     <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-      <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+      <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated)">
         <svg
-          className="h-5 w-5 text-[var(--color-fg-subtle)]"
+          className="h-5 w-5 text-(--color-fg-subtle)"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -186,20 +186,20 @@ function OfflinePage({ user }: { user: string }) {
       <h1 className="font-display text-2xl font-semibold">
         {t("stream-is-offline-title")}
       </h1>
-      <p className="mt-2 text-sm text-[var(--color-fg-muted)]">
+      <p className="mt-2 text-sm text-(--color-fg-muted)">
         {t("user-not-streaming-check-back", { user })}
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <Link
           to="/"
-          className="inline-flex h-9 items-center rounded-md bg-[var(--color-accent)] px-4 text-sm font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)]"
+          className="inline-flex h-9 items-center rounded-md bg-(--color-accent) px-4 text-sm font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover)"
         >
           {t("back-to-home")}
         </Link>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="h-9 rounded-md border border-[var(--color-border)] px-4 text-sm hover:border-[var(--color-border-strong)]"
+          className="h-9 rounded-md border border-(--color-border) px-4 text-sm hover:border-(--color-border-strong)"
         >
           {t("refresh")}
         </button>

@@ -108,6 +108,7 @@ chat-view-profile-bluesky = View profile on Bluesky
 chat-send-message = Send a message
 chat-replying-to = Replying to { $handle }
 chat-insert-emoji = Insert emoji
+chat-skin-tone = Skin tone
 chat-send-button = Chat
 chat-failed-send = Failed to send message
 chat-log-in-to = Log in to chat

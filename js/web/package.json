@@ -6,9 +6,12 @@
   "description": "Streamplace web app (Vite + TanStack Router). True-DOM, no React Native.",
   "scripts": {
     "dev": "vite --port 5173",
+    "predev": "pnpm gen:emoji",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5173",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "gen:emoji": "node scripts/gen-emoji-data.mjs",
+    "prebuild": "pnpm gen:emoji"
   },
   "dependencies": {
     "@atproto/api": "^0.19.3",
@@ -54,6 +57,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.3.0",
+    "emojibase-data": "^17.0.0",
     "prettier": "3.4.2",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.3.0",

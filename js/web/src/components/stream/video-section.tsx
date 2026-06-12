@@ -153,16 +153,6 @@ export function VideoSectionInner({
         {store && (
           <DanmuOverlay store={store} enabled={showDanmu && !neverLive} />
         )}
-
-        {liveness === "live" && (
-          <div className="pointer-events-none absolute top-3 left-3 z-10">
-            <div className="flex items-center gap-1.5 rounded bg-red-600 px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
-              <div className="h-1.5 w-1.5 rounded-full bg-white" />
-              {t("live-badge")}
-            </div>
-          </div>
-        )}
-
         {liveness === "stale" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
             <div className="text-center">

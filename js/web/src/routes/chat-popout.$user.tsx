@@ -89,6 +89,7 @@ function ChatPopoutPage() {
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
     let currentConnectId = 0;
     let mounted = true;
 
@@ -110,7 +111,6 @@ function ChatPopoutPage() {
       ws.onopen = () => {};
 
       let messageBuffer: any[] = [];
-      let flushTimer: ReturnType<typeof setTimeout> | null = null;
       const flush = () => {
         flushTimer = null;
         const batch = messageBuffer;
@@ -157,14 +157,14 @@ function ChatPopoutPage() {
   if (!initialized || !store.current) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
       </div>
     );
   }
 
   return (
     <div
-      className="flex h-screen flex-col bg-[var(--color-background)]"
+      className="flex h-screen flex-col bg-(--color-background)"
       style={
         hidden ? { opacity: 0, pointerEvents: "none" as const } : undefined
       }

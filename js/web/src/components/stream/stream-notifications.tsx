@@ -1,5 +1,5 @@
 import { $Typed } from "@atproto/api";
-import type { FacetLink } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import type { Link as FacetLink } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
 import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react";
@@ -114,7 +114,7 @@ function PinnedNotification({
   return (
     <div className="overflow-hidden rounded-lg bg-neutral-900">
       <div className="flex items-center gap-2 px-3 py-2">
-        <div style={{ transform: "rotate(-25deg)" }} className="flex-shrink-0">
+        <div style={{ transform: "rotate(-25deg)" }} className="shrink-0">
           <Pin
             className="h-5 w-5"
             style={{ color: authorColor || "var(--color-accent)" }}
@@ -138,7 +138,7 @@ function PinnedNotification({
             </span>
           </div>
         </div>
-        <div className="flex flex-shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {canUnpin && (
             <button
               type="button"
@@ -213,10 +213,10 @@ function TeleportNotification({ teleport }: { teleport: any }) {
       : `0:${String(secs).padStart(2, "0")}`;
 
   return (
-    <div className="border-b border-[var(--color-border)] bg-[var(--color-info)]/10 px-3 py-2">
-      <p className="text-xs text-[var(--color-fg-muted)]">
+    <div className="border-b border-(--color-border) bg-(--color-info)/10 px-3 py-2">
+      <p className="text-xs text-(--color-fg-muted)">
         {t("teleporting-in")}{" "}
-        <span className="font-mono font-medium text-[var(--color-fg)]">
+        <span className="font-mono font-medium text-(--color-fg)">
           {display}
         </span>
       </p>

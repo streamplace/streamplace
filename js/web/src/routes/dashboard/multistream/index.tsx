@@ -209,7 +209,7 @@ function MultistreamManager() {
         <h1 className="font-display text-xl font-semibold">
           {t("multistream-targets")}
         </h1>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+        <p className="mt-1 text-sm text-(--color-fg-muted)">
           {t("multistream-description")}
         </p>
       </div>
@@ -232,17 +232,17 @@ function MultistreamManager() {
 
       {/* Target list */}
       {loading ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : targets === null ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">
+        <div className="text-sm text-(--color-fg-muted)">
           {t("failed-load-multistream-targets")}
         </div>
       ) : targets.length === 0 ? (
-        <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
+        <div className="py-8 text-center text-sm text-(--color-fg-muted)">
           {t("no-multistream-targets-yet")}
         </div>
       ) : (
-        <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
           {targets.map((target) => {
             const isDeleting = deletingUris.has(target.uri);
             const isToggling = togglingUris.has(target.uri);
@@ -258,19 +258,19 @@ function MultistreamManager() {
                       {targetTitle(target)}
                     </span>
                     {!target.record.active && (
-                      <span className="rounded bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-[var(--color-fg-muted)]">
+                      <span className="rounded bg-(--color-bg) px-1.5 py-0.5 text-xs text-(--color-fg-muted)">
                         inactive
                       </span>
                     )}
                   </div>
-                  <div className="truncate font-mono text-xs text-[var(--color-fg-muted)]">
+                  <div className="truncate font-mono text-xs text-(--color-fg-muted)">
                     {redactUrl(target.record.url)}
                   </div>
-                  <div className="text-xs text-[var(--color-fg-muted)]">
+                  <div className="text-xs text-(--color-fg-muted)">
                     {t("created")} {timeAgo(new Date(target.record.createdAt))}
                   </div>
                   {target.latestEvent && (
-                    <div className="text-xs text-[var(--color-fg-muted)]">
+                    <div className="text-xs text-(--color-fg-muted)">
                       {t("status")}: {target.latestEvent.status} ·{" "}
                       {timeAgo(new Date(target.latestEvent.createdAt))}
                     </div>
@@ -287,15 +287,15 @@ function MultistreamManager() {
                   <button
                     type="button"
                     onClick={() => handleEdit(target)}
-                    className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)]"
+                    className="rounded p-1.5 transition-colors hover:bg-(--color-bg)"
                   >
-                    <Edit2 size={16} className="text-[var(--color-fg-muted)]" />
+                    <Edit2 size={16} className="text-(--color-fg-muted)" />
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteTarget(target)}
                     disabled={isDeleting}
-                    className="rounded p-1.5 transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
+                    className="rounded p-1.5 transition-colors hover:bg-(--color-bg) disabled:opacity-50"
                   >
                     <Trash2 size={16} className="text-destructive" />
                   </button>
@@ -421,7 +421,7 @@ function MultistreamFormDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               {t("rtmp-target-name")} ({t("optional")})
             </label>
             <Input
@@ -435,7 +435,7 @@ function MultistreamFormDialog({
 
           {/* URL */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+            <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
               {t("rtmp-target-url")} *
             </label>
             <Input

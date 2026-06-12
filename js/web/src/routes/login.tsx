@@ -70,9 +70,7 @@ function LoginPage() {
   if (isCallbackInFlight && state.status !== "authenticated") {
     return (
       <div className="mx-auto max-w-md px-6 py-16 text-center">
-        <p className="text-[var(--color-fg-muted)]">
-          {t("completing-sign-in")}
-        </p>
+        <p className="text-(--color-fg-muted)">{t("completing-sign-in")}</p>
       </div>
     );
   }
@@ -83,13 +81,13 @@ function LoginPage() {
         <h1 className="font-display text-2xl font-semibold">
           {t("already-logged-in")}
         </h1>
-        <p className="mt-2 text-[var(--color-fg-muted)]">
+        <p className="mt-2 text-(--color-fg-muted)">
           {t("signed-in-as-code", { handle: state.session.sub })}
         </p>
         <button
           type="button"
           onClick={() => navigate({ to: "/" })}
-          className="mt-6 inline-flex h-10 items-center rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)]"
+          className="mt-6 inline-flex h-10 items-center rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover)"
         >
           {t("go-home")}
         </button>
@@ -100,13 +98,11 @@ function LoginPage() {
   return (
     <div className="mx-auto max-w-md px-6 py-16">
       <h1 className="font-display text-2xl font-semibold">{t("log-in")}</h1>
-      <p className="mt-2 text-[var(--color-fg-muted)]">
-        {t("sign-in-description")}
-      </p>
+      <p className="mt-2 text-(--color-fg-muted)">{t("sign-in-description")}</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <label className="block">
-          <span className="text-sm text-[var(--color-fg-muted)]">
+          <span className="text-sm text-(--color-fg-muted)">
             {t("handle-label")}
           </span>
           <input
@@ -116,16 +112,16 @@ function LoginPage() {
             placeholder="you.bsky.social"
             autoComplete="username"
             required
-            className="mt-1 h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 transition-colors focus:border-[var(--color-accent)] focus:outline-none"
+            className="mt-1 h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg-elevated) px-3 transition-colors focus:border-(--color-accent) focus:outline-none"
           />
         </label>
 
-        {error && <p className="text-sm text-[var(--color-danger)]">{error}</p>}
+        {error && <p className="text-sm text-(--color-danger)">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting || state.status === "loading"}
-          className="h-10 w-full rounded-md bg-[var(--color-accent)] font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-10 w-full rounded-md bg-(--color-accent) font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting ? t("redirecting") : t("continue")}
         </button>

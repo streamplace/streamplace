@@ -20,7 +20,7 @@ function ProblemIcon({ severity }: { severity: string }) {
     case "info":
       return <Info className="size-5 text-blue-400" />;
     default:
-      return <Info className="size-5 text-[var(--color-fg-muted)]" />;
+      return <Info className="size-5 text-(--color-fg-muted)" />;
   }
 }
 
@@ -33,7 +33,7 @@ function severityBg(severity: string): string {
     case "info":
       return "bg-blue-500/10 border-blue-500/20";
     default:
-      return "bg-[var(--color-bg-elevated)] border-[var(--color-border)]";
+      return "bg-(--color-bg-elevated) border-(--color-border)";
   }
 }
 
@@ -51,8 +51,8 @@ export function ProblemsWidget({ store }: { store: LivestreamStore }) {
   }
 
   return (
-    <div className="h-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-3">
+    <div className="h-full overflow-hidden rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
+      <div className="flex items-center justify-between border-b border-(--color-border) px-4 py-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="size-4 text-amber-400" />
           <h3 className="text-sm font-semibold">
@@ -67,14 +67,14 @@ export function ProblemsWidget({ store }: { store: LivestreamStore }) {
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="rounded p-1 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg)] hover:text-[var(--color-fg)]"
+          className="rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg) hover:text-(--color-fg)"
           aria-label={t("dismiss")}
         >
           <X className="size-4" />
         </button>
       </div>
 
-      <div className="divide-y divide-[var(--color-border)]">
+      <div className="divide-y divide-(--color-border)">
         {problems.map((problem: Problem) => (
           <div
             key={problem.code}
@@ -83,7 +83,7 @@ export function ProblemsWidget({ store }: { store: LivestreamStore }) {
             <ProblemIcon severity={problem.severity} />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium">{problem.code}</div>
-              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              <div className="mt-0.5 text-xs text-(--color-fg-muted)">
                 {problem.message}
               </div>
               {problem.link && (
@@ -91,7 +91,7 @@ export function ProblemsWidget({ store }: { store: LivestreamStore }) {
                   href={problem.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-xs text-[var(--color-accent)] hover:underline"
+                  className="mt-1 inline-block text-xs text-(--color-accent) hover:underline"
                 >
                   Learn more
                 </a>

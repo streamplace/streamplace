@@ -63,7 +63,7 @@ function AdvancedSettings() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium">{t("use-custom-node")}</div>
-              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              <div className="mt-0.5 text-xs text-(--color-fg-muted)">
                 {t("default-url", { url: defaultUrl })}
               </div>
             </div>
@@ -83,13 +83,13 @@ function AdvancedSettings() {
                 }
                 spellCheck={false}
                 autoComplete="off"
-                className="h-9 flex-1 rounded-lg border border-[var(--color-border)] bg-transparent px-3 font-mono text-sm outline-none focus:border-[var(--color-accent)]"
+                className="h-9 flex-1 rounded-lg border border-(--color-border) bg-transparent px-3 font-mono text-sm outline-none focus:border-(--color-accent)"
               />
               <button
                 type="button"
                 onClick={onSubmitUrl}
                 disabled={!newUrl.trim()}
-                className="h-9 rounded-md bg-[var(--color-accent)] px-4 text-sm font-medium text-[var(--color-accent-fg)] hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-9 rounded-md bg-(--color-accent) px-4 text-sm font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t("save-button")}
               </button>
@@ -103,7 +103,7 @@ function AdvancedSettings() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-sm font-medium">{t("try-new-web")}</div>
-              <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+              <div className="mt-0.5 text-xs text-(--color-fg-muted)">
                 {t("try-new-web-description")}
               </div>
             </div>

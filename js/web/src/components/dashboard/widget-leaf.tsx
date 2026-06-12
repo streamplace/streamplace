@@ -85,7 +85,7 @@ export function WidgetLeaf({
 
   if (!meta) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-[var(--color-fg-muted)]">
+      <div className="flex h-full items-center justify-center text-sm text-(--color-fg-muted)">
         Unknown widget: {widgetKey}
       </div>
     );
@@ -100,30 +100,30 @@ export function WidgetLeaf({
       data-leaf-id={leafId}
       className={cn(
         "relative flex h-full min-h-0 flex-col overflow-hidden rounded-lg",
-        "bg-[var(--color-bg)]",
+        "bg-(--color-bg)",
         "transition-shadow",
-        isDragging && "opacity-50 ring-2 ring-[var(--color-accent)]",
-        dropTarget && !isDragging && "ring-2 ring-[var(--color-accent)]",
+        isDragging && "opacity-50 ring-2 ring-(--color-accent)",
+        dropTarget && !isDragging && "ring-2 ring-(--color-accent)",
       )}
     >
       {/* Title bar */}
-      <div className="flex shrink-0 items-center gap-2 rounded-t-lg border border-b-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-1.5">
+      <div className="flex shrink-0 items-center gap-2 rounded-t-lg border border-b-0 border-(--color-border) bg-(--color-bg-elevated) px-2 py-1.5">
         {/* Drag handle */}
         <div
           ref={handleRef}
-          className="cursor-grab p-0.5 text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)] active:cursor-grabbing"
+          className="cursor-grab p-0.5 text-(--color-fg-muted) transition-colors hover:text-(--color-fg) active:cursor-grabbing"
         >
           <GripVertical className="size-3.5" />
         </div>
 
-        <Icon className="size-3.5 text-[var(--color-fg-muted)]" />
+        <Icon className="size-3.5 text-(--color-fg-muted)" />
 
         {/* Widget title / swap dropdown */}
         <div className="relative min-w-0 flex-1">
           <button
             type="button"
             onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 truncate text-xs font-medium text-[var(--color-fg)] transition-colors hover:text-[var(--color-accent)]"
+            className="flex items-center gap-1 truncate text-xs font-medium text-(--color-fg) transition-colors hover:text-(--color-accent)"
           >
             {meta.title}
             {onWidgetChange && (
@@ -143,7 +143,7 @@ export function WidgetLeaf({
                 className="fixed inset-0 z-40"
                 onClick={() => setDropdownOpen(false)}
               />
-              <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-md">
+              <div className="absolute top-full left-0 z-50 mt-1 min-w-[160px] overflow-hidden rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md">
                 {WIDGET_KEYS.filter((k) => k !== "blank").map((key) => {
                   const wMeta = getWidgetMeta(key);
                   if (!wMeta) return null;
@@ -159,8 +159,8 @@ export function WidgetLeaf({
                       className={cn(
                         "flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors",
                         key === widgetKey
-                          ? "bg-[var(--color-bg)] text-[var(--color-accent)]"
-                          : "text-[var(--color-fg)] hover:bg-[var(--color-bg)]",
+                          ? "bg-(--color-bg) text-(--color-accent)"
+                          : "text-(--color-fg) hover:bg-(--color-bg)",
                       )}
                     >
                       <WIcon className="size-3.5" />
@@ -181,7 +181,7 @@ export function WidgetLeaf({
             onClick={onWidgetRemove}
             title="Remove slot"
             aria-label="Remove slot"
-            className="hover:text-destructive shrink-0 rounded p-0.5 text-[var(--color-fg-muted)] transition-colors hover:bg-[var(--color-bg)]"
+            className="hover:text-destructive shrink-0 rounded p-0.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg)"
           >
             <X className="size-3.5" />
           </button>
@@ -214,7 +214,7 @@ function SplitPreview({ quadrant }: { quadrant: Quadrant }) {
       {/* Highlighted half */}
       <div
         className={cn(
-          "absolute bg-[var(--color-accent)]/20",
+          "absolute bg-(--color-accent)/20",
           horizontal
             ? quadrant.first
               ? "top-0 bottom-0 left-0 w-1/2"
@@ -227,7 +227,7 @@ function SplitPreview({ quadrant }: { quadrant: Quadrant }) {
       {/* Divider line at the center */}
       <div
         className={cn(
-          "absolute bg-[var(--color-accent)]",
+          "absolute bg-(--color-accent)",
           horizontal
             ? "top-0 bottom-0 left-1/2 w-px -translate-x-1/2"
             : "top-1/2 right-0 left-0 h-px -translate-y-1/2",

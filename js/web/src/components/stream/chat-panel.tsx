@@ -98,7 +98,7 @@ export function ChatPanel({
       >
         {reversed && <div ref={anchorRef} />}
         {displayMessages.length === 0 ? (
-          <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
+          <div className="py-8 text-center text-sm text-(--color-fg-muted)">
             {t("chat-no-messages")}
           </div>
         ) : (
@@ -118,7 +118,7 @@ export function ChatPanel({
       {!isAtAnchor && (
         <button
           onClick={scrollToAnchor}
-          className="absolute right-3 bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-fg-muted)] shadow-md transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
+          className="absolute right-3 bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated) text-(--color-fg-muted) shadow-md transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
           aria-label={
             reversed ? t("chat-scroll-to-top") : t("chat-scroll-to-bottom")
           }
@@ -129,7 +129,7 @@ export function ChatPanel({
             <ArrowDown className="h-4 w-4" />
           )}
           {newMessageCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] font-medium text-white">
+            <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-(--color-accent) px-1 text-[10px] font-medium text-white">
               {newMessageCount}
             </span>
           )}
@@ -182,21 +182,21 @@ function ChatMessage({
 
   if (isSystem) {
     return (
-      <div className="my-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-overlay)] px-2 py-1.5">
+      <div className="my-1 rounded border border-(--color-border) bg-(--color-bg-overlay) px-2 py-1.5">
         <p className="text-center text-sm">{message.record.text}</p>
       </div>
     );
   }
 
   return (
-    <div className="group relative -mx-2 rounded px-2 py-0.5 leading-snug hover:bg-[var(--color-bg-overlay)]">
+    <div className="group relative -mx-2 rounded px-2 py-0.5 leading-snug hover:bg-(--color-bg-overlay)">
       {/* Hover actions — visible on group hover */}
       <div className="absolute top-0 right-0 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {state.status === "authenticated" && !isOwn && (
           <button
             type="button"
             onClick={handleReply}
-            className="rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-1 text-[var(--color-fg-muted)] shadow-sm transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-fg)]"
+            className="rounded border border-(--color-border) bg-(--color-bg-elevated) p-1 text-(--color-fg-muted) shadow-sm transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
             aria-label={t("chat-reply-to-message")}
           >
             <Reply className="h-3.5 w-3.5" />
@@ -206,7 +206,7 @@ function ChatMessage({
           <button
             type="button"
             onClick={handlePin}
-            className="rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-1 text-[var(--color-fg-muted)] shadow-sm transition-colors hover:bg-[var(--color-bg-overlay)] hover:text-[var(--color-accent)]"
+            className="rounded border border-(--color-border) bg-(--color-bg-elevated) p-1 text-(--color-fg-muted) shadow-sm transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-accent)"
             aria-label={t("chat-pin-message")}
           >
             <Pin className="h-3.5 w-3.5" />
@@ -293,7 +293,7 @@ function RichTextMessage({
               href={linkFtr.uri}
               target="_blank"
               rel="noopener noreferrer"
-              className="break-all text-[var(--color-accent)] hover:underline"
+              className="break-all text-(--color-accent) hover:underline"
             >
               {seg.text}
             </a>
@@ -385,7 +385,7 @@ function UserHandle({
           <img
             src={author.avatar ?? undefined}
             alt=""
-            className="absolute -top-6 left-3 h-12 w-12 rounded-full border-2 border-[var(--color-bg-elevated)] bg-[var(--color-bg)]"
+            className="absolute -top-6 left-3 h-12 w-12 rounded-full border-2 border-(--color-bg-elevated) bg-(--color-bg)"
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.display = "none";
             }}
@@ -415,7 +415,7 @@ function UserHandle({
                 href={`https://bsky.app/profile/${handle}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-shrink-0 text-[#0F73FF] hover:opacity-80"
+                className="shrink-0 text-[#0F73FF] hover:opacity-80"
                 aria-label={t("chat-view-profile-bluesky")}
               >
                 <BskyIcon size={20} />
@@ -473,9 +473,9 @@ function ReplyBanner({
     | undefined;
 
   return (
-    <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-[var(--color-fg-subtle)]">
-      <Reply className="h-3 w-3 flex-shrink-0" />
-      <span className="flex-shrink-0 font-medium">@{handle}</span>
+    <div className="mb-0.5 flex items-center gap-1 truncate text-[11px] text-(--color-fg-subtle)">
+      <Reply className="h-3 w-3 shrink-0" />
+      <span className="shrink-0 font-medium">@{handle}</span>
       <span className="truncate">
         <RichTextMessage text={text} facets={facets} authors={authors} />
       </span>
@@ -545,19 +545,19 @@ function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
     : issuerLabel(badge, t);
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-overlay)] p-2">
+    <div className="flex items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-2">
       {src ? (
         <img
           src={src}
           alt={badge.badgeType}
-          className="h-6 w-6 flex-shrink-0 rounded-xs"
+          className="h-6 w-6 shrink-0 rounded-xs"
         />
       ) : (
-        <div className="h-6 w-6 flex-shrink-0 rounded-xs bg-[var(--color-bg)]" />
+        <div className="h-6 w-6 shrink-0 rounded-xs bg-(--color-bg)" />
       )}
       <div className="min-w-0 flex-1">
         <div className="leading-tight font-medium">{label}</div>
-        <div className="text-sm leading-tight text-[var(--color-fg-muted)]">
+        <div className="text-sm leading-tight text-(--color-fg-muted)">
           {issuedBy}
         </div>
       </div>

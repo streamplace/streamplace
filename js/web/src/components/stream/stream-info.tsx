@@ -86,7 +86,7 @@ export function StreamInfo({
         <img
           src={author?.avatar ?? undefined}
           alt=""
-          className="h-10 w-10 flex-shrink-0 rounded-full bg-[var(--color-bg-elevated)]"
+          className="h-10 w-10 shrink-0 rounded-full bg-(--color-bg-elevated)"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.display = "none";
           }}
@@ -98,26 +98,26 @@ export function StreamInfo({
               {author?.displayName || author?.handle || user}
             </span>
             {isLive && viewers && (
-              <span className="flex-shrink-0 text-xs text-[var(--color-fg-muted)]">
+              <span className="shrink-0 text-xs text-(--color-fg-muted)">
                 {t("watching-count", { count: state.viewers ?? 0 })}
               </span>
             )}
           </div>
 
-          <h2 className="font-display mt-0.5 line-clamp-2 font-semibold text-[var(--color-fg)]">
+          <h2 className="font-display mt-0.5 line-clamp-2 font-semibold text-(--color-fg)">
             {title}
           </h2>
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {activity && (
-              <span className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs text-[var(--color-fg-muted)]">
+              <span className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs text-(--color-fg-muted)">
                 {activity}
               </span>
             )}
             {tags?.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs text-[var(--color-fg-subtle)]"
+                className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs text-(--color-fg-subtle)"
               >
                 {tag.startsWith("lang:") ? tag.slice(5).toUpperCase() : tag}
               </span>
@@ -125,7 +125,7 @@ export function StreamInfo({
           </div>
         </div>
 
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {sessionState.status === "authenticated" &&
             sessionState.session.did !== author?.did && (
               <Button type="button">

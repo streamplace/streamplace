@@ -59,14 +59,14 @@ function KeyManager() {
       <h1 className="font-display text-xl font-semibold">{t("key-manager")}</h1>
 
       {keyRecords === null || keyObj === null ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : keyRecords.records.length === 0 ? (
         <div className="space-y-3">
-          <p className="text-sm text-[var(--color-fg-muted)]">{t("no-keys")}</p>
+          <p className="text-sm text-(--color-fg-muted)">{t("no-keys")}</p>
           <button
             type="button"
             onClick={() => getStreamKeyRecords()}
-            className="h-8 rounded-md border border-[var(--color-border)] px-3 text-sm hover:border-[var(--color-border-strong)]"
+            className="h-8 rounded-md border border-(--color-border) px-3 text-sm hover:border-(--color-border-strong)"
           >
             {t("refresh")}
           </button>
@@ -75,12 +75,12 @@ function KeyManager() {
         <div className="space-y-4">
           <div>
             <p className="text-sm font-medium">{t("your-stream-pubkeys")}</p>
-            <p className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+            <p className="mt-0.5 text-xs text-(--color-fg-muted)">
               {t("pubkey-description")}
             </p>
           </div>
 
-          <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+          <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
             {keyRecords.records.map((keyRecord) => {
               const rkey = keyRecord.uri.split("/").pop() as string;
               const value = keyRecord.value as {
@@ -103,7 +103,7 @@ function KeyManager() {
                       </div>
                     )}
                     {value.createdAt && (
-                      <div className="text-xs text-[var(--color-fg-muted)]">
+                      <div className="text-xs text-(--color-fg-muted)">
                         made {timeAgo(new Date(value.createdAt))}
                         {value.createdBy && ` by ${value.createdBy}`}
                       </div>
@@ -113,7 +113,7 @@ function KeyManager() {
                     type="button"
                     onClick={() => handleDelete(rkey)}
                     disabled={isDeleting}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[var(--color-bg)] transition-colors hover:bg-[var(--color-border)] disabled:opacity-50"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-(--color-bg) transition-colors hover:bg-(--color-border) disabled:opacity-50"
                   >
                     <X size={14} />
                   </button>
@@ -122,7 +122,7 @@ function KeyManager() {
             })}
           </div>
 
-          <p className="text-xs text-[var(--color-fg-muted)]">
+          <p className="text-xs text-(--color-fg-muted)">
             {t("keys-count", { count: keyRecords.records.length })}
           </p>
         </div>

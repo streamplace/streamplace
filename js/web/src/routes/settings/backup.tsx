@@ -167,15 +167,15 @@ function BackupSettings() {
       <h1 className="font-display text-xl font-semibold">{t("backup")}</h1>
 
       {loading ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : (
         <div className="space-y-4">
           {/* Enable toggle */}
-          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+          <div className="rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium">{t("backup-enabled")}</div>
-                <div className="mt-0.5 text-xs text-[var(--color-fg-muted)]">
+                <div className="mt-0.5 text-xs text-(--color-fg-muted)">
                   {t("backup-enabled-description")}
                 </div>
               </div>
@@ -186,9 +186,9 @@ function BackupSettings() {
           {/* S3 configuration (shown when enabled) */}
           {enabled && (
             <>
-              <div className="space-y-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-4">
+              <div className="space-y-4 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-[var(--color-fg-muted)]">
+                  <label className="mb-1 block text-xs font-medium text-(--color-fg-muted)">
                     {t("backup-connection-url")}
                   </label>
                   <Input
@@ -208,7 +208,7 @@ function BackupSettings() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-[var(--color-fg-muted)]">
+                  <span className="text-xs text-(--color-fg-muted)">
                     {t("show-password-in-url")}
                   </span>
                   <Switch
@@ -219,7 +219,7 @@ function BackupSettings() {
                 </div>
               </div>
 
-              <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+              <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
                 <div className="flex items-center justify-between px-3 py-2.5">
                   <span className="shrink-0 text-sm">
                     {t("backup-endpoint")}

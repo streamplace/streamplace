@@ -156,7 +156,7 @@ export default function Header() {
         <div ref={containerRef} className="ml-24 flex flex-1 justify-center">
           <div className="relative w-full max-w-sm">
             <div className="relative flex items-center">
-              <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-[var(--color-fg-muted)]" />
+              <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-(--color-fg-muted)" />
               <input
                 ref={inputRef}
                 type="text"
@@ -167,13 +167,13 @@ export default function Header() {
                   if (query.trim() && results.length > 0) setOpen(true);
                 }}
                 placeholder={t("search-placeholder")}
-                className="h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pr-8 pl-8 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                className="focus:ring-ring h-8 w-full rounded-md border border-(--color-border) bg-(--color-bg) pr-8 pl-8 text-sm text-(--color-fg) placeholder:text-(--color-fg-muted) focus:ring-1 focus:outline-none"
               />
               {query && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-2 rounded p-0.5 text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]"
+                  className="absolute right-2 rounded p-0.5 text-(--color-fg-muted) hover:text-(--color-fg)"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -184,11 +184,11 @@ export default function Header() {
             {open && (results.length > 0 || searching) && (
               <div
                 ref={resultsRef}
-                className="absolute top-full right-0 left-0 z-50 mt-1 max-h-80 overflow-hidden overflow-y-auto rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-md"
+                className="absolute top-full right-0 left-0 z-50 mt-1 max-h-80 overflow-hidden overflow-y-auto rounded-md border border-(--color-border) bg-(--color-bg-elevated) shadow-md"
               >
                 {searching && results.length === 0 && (
                   <div className="flex items-center justify-center py-6">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--color-border)] border-t-[var(--color-accent)]" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
                   </div>
                 )}
                 {results.map((actor, i) => (
@@ -199,18 +199,18 @@ export default function Header() {
                     onMouseEnter={() => setHighlightIndex(i)}
                     className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
                       i === highlightIndex
-                        ? "bg-[var(--color-bg-overlay)]"
-                        : "hover:bg-[var(--color-bg-overlay)]"
+                        ? "bg-(--color-bg-overlay)"
+                        : "hover:bg-(--color-bg-overlay)"
                     }`}
                   >
                     {avatars[actor.did]?.avatar ? (
                       <img
                         src={avatars[actor.did].avatar}
                         alt=""
-                        className="h-7 w-7 flex-shrink-0 rounded-full bg-[var(--color-bg)] object-cover"
+                        className="h-7 w-7 shrink-0 rounded-full bg-(--color-bg) object-cover"
                       />
                     ) : (
-                      <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)] text-xs font-medium text-[var(--color-fg-muted)]">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-overlay) text-xs font-medium text-(--color-fg-muted)">
                         {(
                           actor.displayName?.[0] ||
                           actor.handle[0] ||
@@ -219,10 +219,10 @@ export default function Header() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-[var(--color-fg)]">
+                      <div className="truncate text-sm font-medium text-(--color-fg)">
                         {actor.displayName || actor.handle}
                       </div>
-                      <div className="truncate text-xs text-[var(--color-fg-muted)]">
+                      <div className="truncate text-xs text-(--color-fg-muted)">
                         @{actor.handle}
                       </div>
                     </div>
@@ -233,7 +233,7 @@ export default function Header() {
                     to="/search"
                     search={{ q: query || undefined }}
                     onClick={() => setOpen(false)}
-                    className="flex items-center gap-2 py-2 text-center text-sm text-[var(--color-accent)] transition-colors hover:bg-[var(--color-bg-overlay)]"
+                    className="flex items-center gap-2 py-2 text-center text-sm text-(--color-accent) transition-colors hover:bg-(--color-bg-overlay)"
                   >
                     {t("more-results")}{" "}
                     <ArrowRight className="inline h-3.5 w-3.5" />
@@ -275,7 +275,7 @@ export function UserProfile({
         {did ? (
           <Link
             to="/settings/account"
-            className="flex items-center gap-2 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-[var(--color-bg-overlay)]"
+            className="flex items-center gap-2 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-(--color-bg-overlay)"
             title={displayName ? t("signed-in-as", { handle }) : t("profile")}
             aria-label={
               displayName ? t("signed-in-as", { handle }) : t("profile")
@@ -291,7 +291,7 @@ export function UserProfile({
                 }}
               />
             ) : (
-              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-bg-overlay)] text-xs font-medium text-[var(--color-fg-muted)]">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-overlay) text-xs font-medium text-(--color-fg-muted)">
                 {(displayName?.[0] || handle?.[0] || "?").toUpperCase()}
               </div>
             )}
@@ -300,7 +300,7 @@ export function UserProfile({
           <Link
             to="/login"
             search={EMPTY_LOGIN_SEARCH}
-            className="text-sm font-medium text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
+            className="text-sm font-medium text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
           >
             {t("log-in")}
           </Link>

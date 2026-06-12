@@ -18,7 +18,7 @@ function AccountSettings() {
   if (state.status !== "authenticated" || !userProfile) {
     return (
       <div className="space-y-6">
-        <div className="text-sm text-[var(--color-fg-muted)]">
+        <div className="text-sm text-(--color-fg-muted)">
           Please log in to access this page.
         </div>
       </div>
@@ -46,7 +46,7 @@ function AccountSettings() {
           href={`https://bsky.app/profile/${userProfile.handle}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
+          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
         >
           <span className="text-sm">{t("edit-profile-bluesky")}</span>
           <svg
@@ -54,7 +54,7 @@ function AccountSettings() {
             height="16"
             viewBox="0 0 16 16"
             fill="none"
-            className="text-[var(--color-fg-muted)]"
+            className="text-(--color-fg-muted)"
           >
             <path
               d="M12 9V13a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4M10 2h4v4M14 2L7 9"
@@ -70,7 +70,7 @@ function AccountSettings() {
       <CardMenuSection>
         <Link
           to="/settings/badges"
-          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
+          className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
         >
           <span className="text-sm">{t("badges")}</span>
           <svg
@@ -78,7 +78,7 @@ function AccountSettings() {
             height="16"
             viewBox="0 0 16 16"
             fill="none"
-            className="text-[var(--color-fg-muted)]"
+            className="text-(--color-fg-muted)"
           >
             <path
               d="M6 3l5 5-5 5"
@@ -98,9 +98,9 @@ function AccountSettings() {
             void signOut();
             navigate({ to: "/settings" });
           }}
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg)]"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"
         >
-          <LogOut size={20} className="text-[var(--color-fg-muted)]" />
+          <LogOut size={20} className="text-(--color-fg-muted)" />
           <span className="text-sm">{t("log-out")}</span>
         </button>
       </CardMenuSection>

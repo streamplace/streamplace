@@ -37,15 +37,15 @@ function AboutSettings() {
       <CardMenuSection>
         <div className="flex items-center justify-between px-3 py-2.5">
           <span className="text-sm">Streamplace</span>
-          <span className="text-sm text-[var(--color-fg-muted)]">v0.0.0</span>
+          <span className="text-sm text-(--color-fg-muted)">v0.0.0</span>
         </div>
         <button
           type="button"
           onClick={handleVersionPress}
-          className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
+          className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
         >
           <span className="text-sm">Build</span>
-          <span className="text-sm text-[var(--color-fg-muted)]">
+          <span className="text-sm text-(--color-fg-muted)">
             {isDev ? "dev" : "prod"}
           </span>
         </button>
@@ -68,7 +68,7 @@ function AboutSettings() {
             href="https://privacy.stream.place"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-[var(--color-bg)]"
+            className="flex items-center justify-between px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
           >
             <span className="text-sm">Privacy Policy</span>
             <svg
@@ -76,7 +76,7 @@ function AboutSettings() {
               height="16"
               viewBox="0 0 16 16"
               fill="none"
-              className="text-[var(--color-fg-muted)]"
+              className="text-(--color-fg-muted)"
             >
               <path
                 d="M12 9V13a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4M10 2h4v4M14 2L7 9"

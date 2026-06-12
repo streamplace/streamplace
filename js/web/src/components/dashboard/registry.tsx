@@ -31,7 +31,7 @@ export interface WidgetMeta {
 function BlankWidget() {
   const { t } = useTranslation("settings");
   return (
-    <div className="m-2 flex h-full items-center justify-center rounded-md border-2 border-dashed border-[var(--color-border)] text-xs text-[var(--color-fg-muted)]">
+    <div className="m-2 flex h-full items-center justify-center rounded-md border-2 border-dashed border-(--color-border) text-xs text-(--color-fg-muted)">
       {t("drop-widget-here", { defaultValue: "Drop a widget here" })}
     </div>
   );

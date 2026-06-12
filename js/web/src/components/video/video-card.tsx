@@ -38,7 +38,7 @@ export function VideoCard({
       className="group flex flex-col gap-2"
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-[var(--color-bg-elevated)]">
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-(--color-bg-elevated)">
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -46,7 +46,7 @@ export function VideoCard({
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-[var(--color-fg-muted)]">
+          <div className="absolute inset-0 flex items-center justify-center text-(--color-fg-muted)">
             <svg
               className="h-8 w-8 opacity-40"
               fill="none"
@@ -71,7 +71,7 @@ export function VideoCard({
 
       {/* Metadata */}
       <div className="flex items-start gap-2.5 px-0.5">
-        <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-(--color-border) bg-(--color-bg-elevated)">
           {avatarUrl ? (
             <img
               src={avatarUrl}
@@ -82,19 +82,19 @@ export function VideoCard({
               }}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-[var(--color-fg-muted)]">
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-(--color-fg-muted)">
               {user[0]?.toUpperCase() ?? "?"}
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="line-clamp-2 text-sm leading-tight font-semibold text-[var(--color-fg)]">
+          <div className="line-clamp-2 text-sm leading-tight font-semibold text-(--color-fg)">
             {title}
           </div>
-          <div className="mt-0.5 truncate text-xs text-[var(--color-fg-muted)]">
+          <div className="mt-0.5 truncate text-xs text-(--color-fg-muted)">
             @{user}
           </div>
-          <div className="text-xs text-[var(--color-fg-muted)]">
+          <div className="text-xs text-(--color-fg-muted)">
             {t("views-count", { count: viewCount })} ·{" "}
             {t("likes-count", { count: likeCount })}
           </div>

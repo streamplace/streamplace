@@ -164,19 +164,19 @@ function BadgeSelectionManager() {
       <h1 className="font-display text-xl font-semibold">{t("badges")}</h1>
 
       {loading ? (
-        <div className="text-sm text-[var(--color-fg-muted)]">Loading…</div>
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
       ) : !hasStreamerBadges && !hasUserBadges ? (
-        <div className="py-8 text-center text-sm text-[var(--color-fg-muted)]">
+        <div className="py-8 text-center text-sm text-(--color-fg-muted)">
           {t("badges-empty-state")}
         </div>
       ) : (
         <div className="space-y-6">
           {hasStreamerBadges && (
             <section>
-              <h2 className="mb-2 text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+              <h2 className="mb-2 text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
                 {t("badges-streamer-section")}
               </h2>
-              <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+              <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
                 {streamerSlot!.available.map((badge) => (
                   <BadgeRow
                     key={badge.issuanceUri}
@@ -191,10 +191,10 @@ function BadgeSelectionManager() {
 
           {hasUserBadges && (
             <section>
-              <h2 className="mb-2 text-sm font-medium tracking-wide text-[var(--color-fg-muted)] uppercase">
+              <h2 className="mb-2 text-sm font-medium tracking-wide text-(--color-fg-muted) uppercase">
                 {t("badges-cosmetic-section")}
               </h2>
-              <div className="divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+              <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
                 {userSlot!.available.map((badge) => (
                   <BadgeRow
                     key={badge.issuanceUri}
@@ -230,34 +230,34 @@ function BadgeRow({
       type="button"
       onClick={onToggle}
       disabled={toggling}
-      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-bg)] disabled:opacity-50"
+      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg) disabled:opacity-50"
     >
       {badge.imageUrl ? (
         <img src={badge.imageUrl} alt="" className="h-6 w-6 rounded" />
       ) : (
-        <div className="h-6 w-6 rounded bg-[var(--color-bg)]" />
+        <div className="h-6 w-6 rounded bg-(--color-bg)" />
       )}
 
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium">{badgeName}</div>
         {badge.description && (
-          <div className="truncate text-xs text-[var(--color-fg-muted)]">
+          <div className="truncate text-xs text-(--color-fg-muted)">
             {badge.description}
           </div>
         )}
-        <div className="text-xs text-[var(--color-fg-muted)]">
+        <div className="text-xs text-(--color-fg-muted)">
           {t("badges-issued-by", { issuer: badge.issuer })}
         </div>
       </div>
 
       {toggling ? (
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--color-accent)] border-t-transparent" />
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-accent) border-t-transparent" />
       ) : isSelected ? (
-        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-accent)]">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-(--color-accent)">
           <Check size={12} className="text-white" />
         </div>
       ) : (
-        <div className="h-5 w-5 rounded-full border-2 border-[var(--color-border)]" />
+        <div className="h-5 w-5 rounded-full border-2 border-(--color-border)" />
       )}
     </button>
   );

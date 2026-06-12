@@ -18,8 +18,8 @@ function Separator({
       className={cn(
         "shrink-0 border-none",
         orientation === "horizontal"
-          ? "h-px w-full bg-[var(--color-border)]"
-          : "h-full w-px bg-[var(--color-border)]",
+          ? "h-px w-full bg-(--color-border)"
+          : "h-full w-px bg-(--color-border)",
         className,
       )}
       {...props}

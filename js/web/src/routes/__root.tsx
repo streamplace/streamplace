@@ -55,13 +55,13 @@ class ErrorBoundary extends Component<
           <h1 className="font-display mb-2 text-2xl font-semibold">
             {i18next.t("something-went-wrong")}
           </h1>
-          <p className="mb-6 max-w-md text-[var(--color-fg-muted)]">
+          <p className="mb-6 max-w-md text-(--color-fg-muted)">
             {this.state.error.message || i18next.t("unexpected-error")}
           </p>
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
-            className="h-10 rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="h-10 rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
           >
             {i18next.t("try-again")}
           </button>
@@ -77,7 +77,7 @@ class ErrorBoundary extends Component<
 function RouteLoadingSkeleton() {
   return (
     <div className="flex min-h-svh items-center justify-center">
-      <Loader className="animate-spin text-[var(--color-fg-muted)]" />
+      <Loader className="animate-spin text-(--color-fg-muted)" />
     </div>
   );
 }

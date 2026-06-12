@@ -122,7 +122,7 @@ function HoverCardContent({
   return (
     <div
       className={cn(
-        "absolute z-50 w-64 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-lg",
+        "absolute z-50 w-64 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) shadow-lg",
         side === "top" && "bottom-full mb-2",
         side === "bottom" && "top-full mt-2",
         align === "center" && "left-1/2 -translate-x-1/2",

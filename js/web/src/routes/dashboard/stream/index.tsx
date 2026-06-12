@@ -45,14 +45,14 @@ export function StreamSettingsPage() {
   return (
     <div className="mx-auto flex max-w-screen flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-10">
       {/* Mobile: floating sticky nav */}
-      <div className="sticky top-0 z-30 -mx-4 bg-[var(--color-bg)]/80 px-4 py-2 backdrop-blur-md lg:hidden">
+      <div className="sticky top-0 z-30 -mx-4 bg-(--color-bg)/80 px-4 py-2 backdrop-blur-md lg:hidden">
         <h2 className="font-display mb-2 text-lg font-semibold tracking-tight">
           {t("stream-settings", { defaultValue: "Stream Settings" })}
         </h2>
 
         <div className="relative -mx-4 px-4">
-          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-gradient-to-r from-[var(--color-bg)] to-transparent" />
-          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-gradient-to-l from-[var(--color-bg)] to-transparent" />
+          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-linear-to-r from-(--color-bg) to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-linear-to-l from-(--color-bg) to-transparent" />
 
           <nav
             className="-mx-5 flex scrollbar-none gap-0.5 overflow-x-auto px-5"
@@ -311,7 +311,7 @@ function MetadataSection() {
       </h2>
 
       {!userDid ? (
-        <p className="text-sm text-[var(--color-fg-muted)]">
+        <p className="text-sm text-(--color-fg-muted)">
           {t("login-required", {
             defaultValue: "Please log in to manage streams.",
           })}
@@ -337,19 +337,19 @@ function MetadataSection() {
                     className={cn(
                       "flex cursor-pointer items-start gap-2 rounded-md border p-3 transition-colors",
                       checked
-                        ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
-                        : "border-[var(--color-border)] hover:border-[var(--color-border-strong)]",
+                        ? "border-(--color-accent) bg-(--color-accent)/10"
+                        : "border-(--color-border) hover:border-(--color-border-strong)",
                     )}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleWarning(cw.value)}
-                      className="mt-0.5 size-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-ring)]"
+                      className="focus:ring-ring mt-0.5 size-4 rounded border-(--color-border) text-(--color-accent)"
                     />
                     <div className="min-w-0">
                       <div className="text-sm font-medium">{cw.label}</div>
-                      <div className="text-[11px] text-[var(--color-fg-muted)]">
+                      <div className="text-[11px] text-(--color-fg-muted)">
                         {cw.description}
                       </div>
                     </div>
@@ -387,14 +387,14 @@ function MetadataSection() {
                   })
                 }
                 placeholder={currentYear.toString()}
-                className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"
               />
             </Field>
             <Field label={t("license", { defaultValue: "License" })}>
               <select
                 value={licenseSelect}
                 onChange={(e) => setLicenseSelect(e.target.value)}
-                className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"
               >
                 <option value="">
                   {t("select-license", { defaultValue: "Select a license…" })}
@@ -420,7 +420,7 @@ function MetadataSection() {
                   value={customLicense}
                   onChange={(e) => setCustomLicense(e.target.value)}
                   placeholder="https://… or text"
-                  className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                  className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"
                 />
               </Field>
             )}
@@ -439,7 +439,7 @@ function MetadataSection() {
                 }
                 placeholder="© 2025 Your Name"
                 rows={2}
-                className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                className="focus:ring-ring w-full resize-none rounded-md border border-(--color-border) bg-(--color-bg) px-3 py-2 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"
               />
             </Field>
             <Field label={t("credit-line", { defaultValue: "Credit Line" })}>
@@ -490,7 +490,7 @@ function MetadataSection() {
                   onChange={(e) => setAllowedBroadcasters(e.target.value)}
                   placeholder="did:plc:abc123…&#10;did:plc:def456…"
                   rows={4}
-                  className="w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 font-mono text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                  className="focus:ring-ring w-full resize-none rounded-md border border-(--color-border) bg-(--color-bg) px-3 py-2 font-mono text-sm text-(--color-fg) placeholder:text-(--color-fg-muted) focus:ring-1 focus:outline-none"
                 />
               </Field>
             )}
@@ -515,7 +515,7 @@ function MetadataSection() {
                   type="number"
                   value={deleteAfter}
                   onChange={(e) => setDeleteAfter(e.target.value)}
-                  className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm text-[var(--color-fg)] focus:ring-1 focus:ring-[var(--color-ring)] focus:outline-none"
+                  className="focus:ring-ring h-9 w-full rounded-md border border-(--color-border) bg-(--color-bg) px-3 text-sm text-(--color-fg) focus:ring-1 focus:outline-none"
                 />
               </Field>
             )}
@@ -525,13 +525,13 @@ function MetadataSection() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-4 font-medium text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 items-center gap-2 rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}
             {t("save", { defaultValue: "Save" })}
           </button>
 
-          <p className="flex items-center gap-1 text-xs text-[var(--color-fg-muted)]">
+          <p className="flex items-center gap-1 text-xs text-(--color-fg-muted)">
             <ExternalLink className="size-3" />
             {t("metadata-learn-more", {
               defaultValue: "Learn more about content metadata",
@@ -551,14 +551,14 @@ function ModerationSection() {
         {t("moderation", { defaultValue: "Moderation" })}
       </h2>
       <div>
-        <p className="mt-1 text-sm text-[var(--color-fg-muted)]">
+        <p className="mt-1 text-sm text-(--color-fg-muted)">
           {t("moderation-help", {
             defaultValue:
               "Add/remove stream moderators. Moderators can hide chat messages and time out users in your chat.",
           })}
         </p>
       </div>
-      <div className="rounded-lg border border-dashed border-[var(--color-border)] p-6 text-sm text-[var(--color-fg-muted)]">
+      <div className="rounded-lg border border-dashed border-(--color-border) p-6 text-sm text-(--color-fg-muted)">
         {t("moderation-coming-soon", {
           defaultValue:
             "Moderator management hooks aren't on the web yet — this section is a placeholder.",
@@ -598,9 +598,7 @@ function SubSection({
             </span>
           )}
         </h3>
-        {help && (
-          <p className="mt-1 text-xs text-[var(--color-fg-muted)]">{help}</p>
-        )}
+        {help && <p className="mt-1 text-xs text-(--color-fg-muted)">{help}</p>}
       </div>
       <div className="space-y-3">{children}</div>
     </div>
@@ -618,13 +616,11 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-[var(--color-fg-muted)]">
+      <label className="text-xs font-medium text-(--color-fg-muted)">
         {label}
       </label>
       {children}
-      {help && (
-        <p className="text-[11px] text-[var(--color-fg-muted)]">{help}</p>
-      )}
+      {help && <p className="text-[11px] text-(--color-fg-muted)">{help}</p>}
     </div>
   );
 }
@@ -644,7 +640,7 @@ function Toggle({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-ring)]"
+        className="focus:ring-ring size-4 rounded border-(--color-border) text-(--color-accent)"
       />
       <span>{label}</span>
     </label>

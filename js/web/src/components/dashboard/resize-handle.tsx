@@ -61,10 +61,10 @@ export function ResizeHandle({ direction, onResize }: ResizeHandleProps) {
       role="separator"
       aria-orientation={isHorizontal ? "vertical" : "horizontal"}
       onPointerDown={handlePointerDown}
-      className={`group z-10 flex-shrink-0 ${isHorizontal ? "w-1.5 cursor-col-resize" : "h-1.5 cursor-row-resize"} `}
+      className={`group z-10 shrink-0 ${isHorizontal ? "w-1.5 cursor-col-resize" : "h-1.5 cursor-row-resize"} `}
     >
       <div
-        className={`bg-transparent transition-colors group-hover:bg-[var(--color-accent)]/40 group-active:bg-[var(--color-accent)]/60 ${isHorizontal ? "mx-auto h-full w-0.5" : "my-auto h-0.5 w-full"} `}
+        className={`bg-transparent transition-colors group-hover:bg-(--color-accent)/40 group-active:bg-(--color-accent)/60 ${isHorizontal ? "mx-auto h-full w-0.5" : "my-auto h-0.5 w-full"} `}
       />
     </div>
   );

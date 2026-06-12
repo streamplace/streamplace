@@ -213,7 +213,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       <div className="relative flex h-full min-h-0 flex-col">
         {/* Toolbar */}
         {!theatre && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 border-b border-(--color-border) bg-(--color-bg-elevated) px-3 py-2">
             {/* Preset selector */}
             {presets.length > 0 && (
               <select
@@ -221,7 +221,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                 onChange={(e) => {
                   if (e.target.value) loadPreset(e.target.value);
                 }}
-                className="h-7 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs text-[var(--color-fg)]"
+                className="h-7 rounded border border-(--color-border) bg-(--color-bg) px-2 text-xs text-(--color-fg)"
               >
                 <option value="">Load preset…</option>
                 {presets.map((p) => (
@@ -244,12 +244,12 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                   }}
                   placeholder="Preset name…"
                   autoFocus
-                  className="h-7 w-32 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs text-[var(--color-fg)]"
+                  className="h-7 w-32 rounded border border-(--color-border) bg-(--color-bg) px-2 text-xs text-(--color-fg)"
                 />
                 <button
                   type="button"
                   onClick={handleSavePreset}
-                  className="h-7 rounded bg-[var(--color-accent)] px-2 text-xs text-[var(--color-accent-fg)] transition-colors hover:bg-[var(--color-accent-hover)]"
+                  className="h-7 rounded bg-(--color-accent) px-2 text-xs text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
                 >
                   Save
                 </button>
@@ -258,7 +258,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
               <button
                 type="button"
                 onClick={() => setShowSaveInput(true)}
-                className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
+                className="flex h-7 items-center gap-1 rounded border border-(--color-border) px-2 text-xs text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg)"
               >
                 <Save className="size-3" />
                 Save Preset
@@ -271,19 +271,19 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
                 {presets.map((p) => (
                   <div
                     key={p.name}
-                    className="flex h-7 items-center gap-0.5 rounded border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 text-xs"
+                    className="flex h-7 items-center gap-0.5 rounded border border-(--color-border) bg-(--color-bg) px-1.5 text-xs"
                   >
                     <button
                       type="button"
                       onClick={() => loadPreset(p.name)}
-                      className="text-[var(--color-fg-muted)] transition-colors hover:text-[var(--color-fg)]"
+                      className="text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
                     >
                       {p.name}
                     </button>
                     <button
                       type="button"
                       onClick={() => deletePreset(p.name)}
-                      className="text-[var(--color-fg-muted)] transition-colors hover:text-red-400"
+                      className="text-(--color-fg-muted) transition-colors hover:text-red-400"
                     >
                       <Trash2 className="size-3" />
                     </button>
@@ -302,8 +302,8 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
               className={cn(
                 "flex h-7 items-center gap-1 rounded border px-2 text-xs transition-colors",
                 drawerOpen
-                  ? "border-[var(--color-accent)] bg-[var(--color-accent)]/15 text-[var(--color-accent)]"
-                  : "border-[var(--color-border)] text-[var(--color-fg-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]",
+                  ? "border-(--color-accent) bg-(--color-accent)/15 text-(--color-accent)"
+                  : "border-(--color-border) text-(--color-fg-muted) hover:border-(--color-border-strong) hover:text-(--color-fg)",
               )}
               aria-pressed={drawerOpen}
             >
@@ -319,7 +319,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             <button
               type="button"
               onClick={resetLayout}
-              className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
+              className="flex h-7 items-center gap-1 rounded border border-(--color-border) px-2 text-xs text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg)"
               title="Reset to default layout"
             >
               <RotateCcw className="size-3" />
@@ -330,7 +330,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             <button
               type="button"
               onClick={() => setTheatre(true)}
-              className="flex h-7 items-center gap-1 rounded border border-[var(--color-border)] px-2 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)]"
+              className="flex h-7 items-center gap-1 rounded border border-(--color-border) px-2 text-xs text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg)"
               title="Theatre mode"
               aria-label="Theatre mode"
             >
@@ -369,7 +369,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
             onClick={() => setTheatre(false)}
             aria-label="Exit theatre mode"
             title="Exit theatre mode"
-            className="absolute top-2 right-10 z-20 flex h-7 items-center gap-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)]/80 px-2 text-xs text-[var(--color-fg-muted)] opacity-50 backdrop-blur transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-fg)] hover:opacity-100"
+            className="absolute top-2 right-10 z-20 flex h-7 items-center gap-1 rounded border border-(--color-border) bg-(--color-bg-elevated)/80 px-2 text-xs text-(--color-fg-muted) opacity-50 backdrop-blur transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg) hover:opacity-100"
           >
             <X className="size-3" />
             Exit Theatre
@@ -448,13 +448,13 @@ function WidgetDrawer({
         )}
         ref={outerDivRef}
       >
-        <div className="flex shrink-0 flex-col gap-1 rounded-b-lg border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2">
+        <div className="flex shrink-0 flex-col gap-1 rounded-b-lg border-b border-(--color-border) bg-(--color-bg) px-3 py-2">
           <div className="flex items-center justify-between">
-            <div className="text-[var(--color-fg-muted)]">
+            <div className="text-(--color-fg-muted)">
               Drag a widget to add it
             </div>
             <Button variant="ghost" size="icon" onClick={handleClose}>
-              <X className="size-4 text-[var(--color-fg-muted)]" />
+              <X className="size-4 text-(--color-fg-muted)" />
             </Button>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -479,14 +479,14 @@ function DrawerWidgetCard({ widgetKey }: { widgetKey: string }) {
     <div
       ref={ref}
       className={cn(
-        "flex cursor-grab items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-1.5 transition-opacity select-none hover:border-[var(--color-border-strong)] active:cursor-grabbing",
+        "flex cursor-grab items-center gap-1.5 rounded-md border border-(--color-border) bg-(--color-bg-elevated) px-2.5 py-1.5 transition-opacity select-none hover:border-(--color-border-strong) active:cursor-grabbing",
         isDragging && "opacity-50",
       )}
       style={
         isDragging ? { color: meta.color, borderColor: meta.color } : undefined
       }
     >
-      <Icon className="size-3.5 text-[var(--color-fg-muted)]" />
+      <Icon className="size-3.5 text-(--color-fg-muted)" />
       <span className="text-xs font-medium">{meta.title}</span>
     </div>
   );

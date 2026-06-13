@@ -113,7 +113,10 @@ export interface BlueskySlice {
   createStreamKeyRecord: (store: boolean) => Promise<void>;
   clearStreamKeyRecord: () => void;
   getStreamKeyRecords: () => Promise<void>;
-  deleteStreamKeyRecord: (rkey: string, batchRkeys?: string[]) => Promise<void>;
+  deleteStreamKeyRecord: (
+    rkey?: string,
+    batchRkeys?: string[],
+  ) => Promise<void>;
   setPDS: (pds: string) => Promise<void>;
   createLivestreamRecord: (
     title: string,
@@ -576,7 +579,12 @@ export const createBlueskySlice: StateCreator<
       });
     }
   },
-  deleteStreamKeyRecord: async (rkey: string, batchRkeys?: string[]) => {
+  deleteStreamKeyRecord: async (rkey?: string, batchRkeys?: string[]) => {
+    // If batchRkeys is provided, it takes precedence over rkey and deletes all keys in the array.
+    // If not, it deletes the single rkey. If neither is provided, it throws an error.
+    if (!rkey && !batchRkeys) {
+      throw new Error("No rkey(s) provided for deletion");
+    }
     set({ isDeletingKey: true });
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) {
@@ -596,17 +604,18 @@ export const createBlueskySlice: StateCreator<
         await state.pdsAgent.com.atproto.repo.deleteRecord({
           repo: did,
           collection: "place.stream.key",
-          rkey: keysToDelete[0],
+          rkey: keysToDelete[0] as string,
         });
       } else {
         // Batch delete via applyWrites
         await state.pdsAgent.com.atproto.repo.applyWrites({
           repo: did,
+          // TODO: type this properly
           writes: keysToDelete.map((k) => ({
             $type: "com.atproto.repo.applyWrites#delete" as const,
             collection: "place.stream.key",
             rkey: k,
-          })),
+          })) as any,
         });
       }
 

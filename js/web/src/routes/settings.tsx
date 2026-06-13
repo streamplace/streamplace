@@ -192,7 +192,7 @@ function SettingsLayout() {
       </div>
 
       {/* Desktop: sidebar */}
-      <div className="hidden shrink-0 lg:block lg:w-52">
+      <div className="hidden shrink-0 lg:block lg:w-56">
         <nav className="sticky top-6 flex flex-col gap-0.5 self-start">
           <p className="font-display px-2 pb-3 text-2xl font-semibold">
             {t("settings-title")}

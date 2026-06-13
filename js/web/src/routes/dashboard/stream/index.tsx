@@ -11,23 +11,24 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { CUSTOM_LICENSE, LICENSE_OPTIONS } from "@/lib/content-licenses";
 import { CONTENT_WARNINGS } from "@/lib/content-warnings";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
+import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
-  ChevronRight,
   Clipboard,
   ExternalLink,
-  Eye,
-  EyeClosed,
   Key,
   Loader2,
   Shield,
   Tags,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -94,7 +95,7 @@ export function StreamSettingsPage() {
       </div>
 
       {/* Desktop: sidebar */}
-      <div className="hidden shrink-0 lg:block lg:w-52">
+      <div className="hidden shrink-0 lg:block lg:w-56">
         <nav className="sticky top-6 flex flex-col gap-0.5 self-start">
           <p className="font-display px-2 pb-3 text-2xl font-semibold">
             {t("stream-settings", { defaultValue: "Stream Settings" })}
@@ -571,10 +572,42 @@ function MetadataSection() {
 function StreamKeySection() {
   const { t } = useTranslation("common");
   const createStreamKeyRecord = useStore((s) => s.createStreamKeyRecord);
+  const deleteStreamKeyRecord = useStore((s) => s.deleteStreamKeyRecord);
+  const getStreamKeyRecords = useStore((s) => s.getStreamKeyRecords);
+  const pdsAgent = useStore((s) => s.pdsAgent);
+  const keyObj = useKeyRecords();
+  const keyRecords = keyObj?.records ?? null;
   const newKey = useStore((s) => s.newKey);
   const [creating, setCreating] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [revealed, setRevealed] = useState(false);
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
+  const [deletingKeys, setDeletingKeys] = useState<Set<string>>(new Set());
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [ingestUrls, setIngestUrls] = useState<{ type: string; url: string }[]>(
+    [],
+  );
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      getStreamKeyRecords();
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [getStreamKeyRecords]);
+
+  // Fetch ingest URLs
+  useEffect(() => {
+    if (!pdsAgent) return;
+    pdsAgent.place.stream.ingest
+      .getIngestUrls({})
+      .then((res) => {
+        setIngestUrls(
+          res.data.ingests
+            .map((i: any) => ({ type: i.type || "unknown", url: i.url }))
+            .filter((i) => i.url),
+        );
+      })
+      .catch(() => {});
+  }, [pdsAgent]);
 
   const handleCreate = useCallback(async () => {
     setShowCreateDialog(false);
@@ -582,16 +615,55 @@ function StreamKeySection() {
     try {
       await createStreamKeyRecord(true);
     } catch (err: any) {
-      toast.error(err.message || "Failed to create key");
+      toast.error(err.message || t("failed-to-create-key"));
     } finally {
       setCreating(false);
     }
-  }, [createStreamKeyRecord]);
+  }, [createStreamKeyRecord, t]);
 
-  const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
-  }, []);
+  const handleDelete = useCallback(
+    async (rkey: string) => {
+      if (deletingKeys.has(rkey)) return;
+      setDeletingKeys((prev) => new Set(prev).add(rkey));
+      try {
+        await deleteStreamKeyRecord(rkey);
+      } catch (err: any) {
+        toast.error(err.message || t("failed-to-delete-key"));
+      } finally {
+        setDeletingKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(rkey);
+          return next;
+        });
+      }
+    },
+    [deletingKeys, deleteStreamKeyRecord, t],
+  );
+
+  const handleDeleteAll = useCallback(async () => {
+    setShowDeleteAllDialog(false);
+    const rkeys =
+      keyRecords?.records.map((r) => r.uri.split("/").pop() as string) ?? [];
+    if (rkeys.length === 0) return;
+    setDeletingKeys(new Set(rkeys));
+    try {
+      await deleteStreamKeyRecord(undefined, rkeys);
+    } catch (err: any) {
+      toast.error(err.message || t("failed-delete-keys"));
+    }
+    setDeletingKeys(new Set());
+  }, [keyRecords, deleteStreamKeyRecord, t]);
+
+  const handleCopy = useCallback(
+    (text: string) => {
+      navigator.clipboard.writeText(text);
+      toast.success(t("copied-to-clipboard"));
+    },
+    [t],
+  );
+
+  const visibleKeys = keyRecords?.records.slice(0, visibleCount) ?? [];
+  const hasMore = keyRecords && keyRecords.records.length > visibleCount;
 
   return (
     <div className="space-y-6">
@@ -602,7 +674,7 @@ function StreamKeySection() {
         <p className="text-sm text-(--color-fg-muted)">
           {t("stream-key-help", {
             defaultValue:
-              "Your stream key identifies you to Streamplace. You can have more than one stream key at a time, and it's a good idea to prune old keys that you aren't using via the key manager.",
+              "Your stream key identifies you to Streamplace. You can have more than one stream key at a time, and it's a good idea to prune old keys that you aren't using.",
           })}
         </p>
       </div>
@@ -630,25 +702,13 @@ function StreamKeySection() {
             </p>
             <div className="flex items-center gap-2">
               <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed break-all">
-                {revealed
-                  ? newKey.privateKey
-                  : newKey.privateKey.slice(0, 5) +
-                    Array(newKey.privateKey.length - 5)
-                      .fill("*")
-                      .join("")}
+                {newKey.privateKey}
               </code>
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setRevealed((r) => !r)}
-              >
-                {revealed ? <Eye /> : <EyeClosed />}
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
                 onClick={() => handleCopy(newKey.privateKey)}
-                className="shrink-0 rounded p-1 text-(--color-fg-muted) hover:bg-(--color-accent-subtle) hover:text-(--color-accent)"
+                className="shrink-0"
               >
                 <Clipboard className="size-3.5" />
               </Button>
@@ -657,23 +717,102 @@ function StreamKeySection() {
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          disabled={creating}
-          variant="secondary"
-        >
-          {creating && <Loader2 className="size-4 animate-spin" />}
-          {t("create-stream-key", { defaultValue: "Create Stream Key" })}
-        </Button>
-        <div className="flex-1" />
-        <Link to="/dashboard/keys" className="ml-auto">
-          <Button disabled={creating} variant="secondary">
-            {t("key-manager", { defaultValue: "Key Manager" })} <ChevronRight />
-          </Button>
-        </Link>
-      </div>
+      {/* Existing keys */}
+      {
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              {t("your-stream-pubkeys", { defaultValue: "Your Keys" })}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowCreateDialog(true)}
+                disabled={creating}
+                variant="secondary"
+              >
+                {creating && <Loader2 className="size-4 animate-spin" />}
+                {t("create-stream-key", { defaultValue: "Create Stream Key" })}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteAllDialog(true)}
+                disabled={deletingKeys.size > 0}
+              >
+                <Trash2 size={14} />
+                {t("delete-all-keys", { defaultValue: "Delete All" })}
+              </Button>
+            </div>
+          </div>
 
+          <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
+            {visibleKeys.map((keyRecord) => {
+              const rkey = keyRecord.uri.split("/").pop() as string;
+              const value = keyRecord.value as {
+                signingKey?: string;
+                createdAt?: string;
+                createdBy?: string;
+              };
+              const isDeleting = deletingKeys.has(rkey);
+
+              return (
+                <div
+                  key={rkey}
+                  className="flex items-center justify-between gap-3 px-3 py-2.5"
+                  style={{ opacity: isDeleting ? 0.5 : 1 }}
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    {value.signingKey && (
+                      <div className="truncate font-mono text-xs">
+                        {value.signingKey}
+                      </div>
+                    )}
+                    {value.createdAt && (
+                      <div className="text-xs text-(--color-fg-muted)">
+                        {value.createdBy || "Created"} &middot;{" "}
+                        {new Date(value.createdAt).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDelete(rkey)}
+                    disabled={isDeleting}
+                  >
+                    <X size={14} />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((c) => c + 10)}
+              className="w-full rounded-md border border-(--color-border) py-2 text-sm text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-elevated)"
+            >
+              {t("load-more", { defaultValue: "Load more" })} (
+              {keyRecords.records.length - visibleCount}{" "}
+              {t("remaining", { defaultValue: "remaining" })})
+            </button>
+          )}
+
+          <p className="text-xs text-(--color-fg-muted)">
+            {t("keys-count", {
+              count: keyRecords?.records.length || 0,
+              defaultValue: "{$count} keys",
+            })}
+          </p>
+        </div>
+      }
+
+      {/* Go Live instructions */}
+      {keyRecords && keyRecords.records.length > 0 && (
+        <GoLiveSection ingestUrls={ingestUrls} />
+      )}
+
+      {/* Create dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent>
           <DialogHeader>
@@ -685,26 +824,31 @@ function StreamKeySection() {
             <DialogDescription className="font-semibold">
               <span className="text-red-400">
                 {t("create-key-do-not-share", {
-                  defaultValue: `DO NOT SHARE THIS KEY OR SHOW IT ON STREAM, as ANYONE with this key may be able to stream from your account!`,
+                  defaultValue:
+                    "DO NOT SHARE THIS KEY OR SHOW IT ON STREAM, as ANYONE with this key may be able to stream from your account!",
                 })}
               </span>{" "}
               <span className="text-red-400">
                 {t("create-key-description-staff", {
-                  defaultValue: `Staff will never, ever ask for your stream key!`,
+                  defaultValue:
+                    "Staff will never, ever ask for your stream key!",
                 })}
               </span>
               <br />
               <br />
               <span>
                 {t("create-key-description-delete-if-exposed", {
-                  defaultValue: `If you think your stream key has been exposed, delete it immediately and create a new one!`,
+                  defaultValue:
+                    "If you think your stream key has been exposed, delete it immediately and create a new one!",
                 })}
               </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <DialogClose>
-              <Button variant="outline">Cancel</Button>
+              <Button variant="outline">
+                {t("cancel", { defaultValue: "Cancel" })}
+              </Button>
             </DialogClose>
             <Button onClick={handleCreate} variant="destructive">
               {creating && <Loader2 className="size-4 animate-spin" />}
@@ -713,6 +857,150 @@ function StreamKeySection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete all dialog */}
+      <Dialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("delete-all-keys-title", {
+                defaultValue: "Delete all stream keys?",
+              })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("delete-all-keys-description", {
+                defaultValue:
+                  "This will permanently remove all stream keys. Any streaming software configured with these keys will stop working.",
+                count: keyRecords?.records.length ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose>
+              <Button variant="outline">
+                {t("cancel", { defaultValue: "Cancel" })}
+              </Button>
+            </DialogClose>
+            <button
+              type="button"
+              onClick={handleDeleteAll}
+              className="inline-flex h-9 items-center justify-center rounded-md bg-red-500 px-4 text-sm font-medium text-white transition-colors hover:bg-red-600"
+            >
+              {t("delete-all-keys-btn", { defaultValue: "Delete All" })}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function GoLiveSection({
+  ingestUrls,
+}: {
+  ingestUrls: { type: string; url: string }[];
+}) {
+  const { t } = useTranslation("common");
+  const [mode, setMode] = useState<"rtmp" | "whip">("rtmp");
+
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+  }, []);
+
+  const rtmpIngest = ingestUrls.find((i) => i.type === "rtmp");
+  const whipIngest = ingestUrls.find((i) => i.type === "whip");
+
+  const activeIngest = mode === "rtmp" ? rtmpIngest : whipIngest;
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold">
+        {t("go-live", { defaultValue: "Go Live" })}
+      </h3>
+      <div className="space-y-4 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4">
+        <Tabs value={mode} onValueChange={(v) => setMode(v as "rtmp" | "whip")}>
+          <TabsList variant="default">
+            <TabsTrigger value="rtmp">RTMP</TabsTrigger>
+            <TabsTrigger value="whip">WHIP</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {activeIngest ? (
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-(--color-fg-muted)">
+              {t("server-url", { defaultValue: "Server URL" })}
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 font-mono text-xs leading-relaxed break-all">
+                {activeIngest.url}
+              </code>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => handleCopy(activeIngest.url)}
+                className="shrink-0"
+              >
+                <Clipboard className="size-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-(--color-fg-muted)">
+            {t("no-ingest", {
+              defaultValue: `${mode.toUpperCase()} ingest not available.`,
+            })}
+          </p>
+        )}
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium text-(--color-fg-muted)">
+            {t("obs-instructions", { defaultValue: "OBS Settings" })}
+          </p>
+          <div className="space-y-2 rounded-md bg-(--color-bg) p-3 font-mono text-xs">
+            <div>
+              <span className="text-(--color-fg-muted)">
+                Settings &gt; Stream
+              </span>
+              <ul className="mt-1 space-y-0.5 pl-3">
+                <li>
+                  Service = <span className="text-(--color-fg)">Custom...</span>
+                </li>
+                <li>
+                  Server ={" "}
+                  <span className="text-(--color-fg)">
+                    {activeIngest?.url || "—"}
+                  </span>
+                </li>
+                {mode === "rtmp" ? (
+                  <li>
+                    Stream Key ={" "}
+                    <span className="text-(--color-fg)">(your stream key)</span>
+                  </li>
+                ) : (
+                  <li>
+                    Bearer Token ={" "}
+                    <span className="text-(--color-fg)">(your stream key)</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+            <div>
+              <span className="text-(--color-fg-muted)">
+                Settings &gt; Output (Advanced)
+              </span>
+              <ul className="mt-1 space-y-0.5 pl-3">
+                <li>
+                  B-frames = <span className="text-(--color-fg)">Off</span>
+                </li>
+                <li>
+                  Keyframe Interval ={" "}
+                  <span className="text-(--color-fg)">1 second</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

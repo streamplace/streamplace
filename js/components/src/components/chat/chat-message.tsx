@@ -4,17 +4,29 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { memo, useCallback } from "react";
-import { Linking, Platform, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Facet, RichtextSegment, segmentize } from "../../lib/facet";
 import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
 import { formatHandleWithAt } from "../../utils/format-handle";
-import { atoms, colors, layout } from "../ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  atoms,
+  colors,
+  layout,
+  useTheme,
+} from "../ui";
 
 import { useLivestreamStore } from "../../livestream-store";
 import { Text } from "../ui/text";
 import { BadgeDisplayRow } from "./badge";
-import { UserProfileCard } from "./user-profile-card";
+import {
+  ProfileCardContent,
+  UserProfileCard,
+  useProfileCardData,
+} from "./user-profile-card";
 
 const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
@@ -85,6 +97,93 @@ export const RichTextMessage = ({
 
   return segs.map((seg, i) => renderSegment(seg, i, userCache));
 };
+
+// Web flows the whole message inline inside a single <Text>, with the badges +
+// handle rendered as an inline-block via display: "inline".
+const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
+  return (
+    <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+      <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
+        <View
+          style={
+            {
+              display: "inline",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              flexDirection: "row",
+              marginBottom: -6,
+            } as any
+          }
+        >
+          <BadgeDisplayRow badges={item.badges} />
+          <Text
+            style={{
+              cursor: "pointer",
+              color: getRgbColor(item.chatProfile?.color),
+            }}
+          >
+            {formatHandleWithAt(item.author)}
+          </Text>
+        </View>
+      </UserProfileCard>
+      <Text color="default">{": "}</Text>
+      <RichTextMessage
+        text={item.record.text}
+        facets={item.record.facets || []}
+      />
+    </Text>
+  );
+};
+
+// Native can't reliably nest views or images inside <Text>, so the badges sit in
+// a flex row beside the message instead of inline. Tapping the badges or the
+// handle opens the same profile bottom sheet via two triggers on one menu.
+const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const { theme } = useTheme();
+  const data = useProfileCardData(item.author, item.badges);
+  return (
+    <DropdownMenu
+      style={[
+        layout.flex.row,
+        flex.shrink[1],
+        { minWidth: 0, alignItems: "flex-start" },
+      ]}
+    >
+      {!!item.badges?.length && (
+        <DropdownMenuTrigger asChild>
+          <Pressable
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              // match the base text line height so badges center on the first line
+              height: 24,
+              // iOS centers glyphs higher in the line box than Android
+              marginTop: Platform.OS === "ios" ? -2 : 0,
+            }}
+          >
+            <BadgeDisplayRow badges={item.badges} />
+          </Pressable>
+        </DropdownMenuTrigger>
+      )}
+      <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+        <DropdownMenuTrigger asChild>
+          <Text style={{ color: getRgbColor(item.chatProfile?.color) }}>
+            {formatHandleWithAt(item.author)}
+          </Text>
+        </DropdownMenuTrigger>
+        <Text color="default">{": "}</Text>
+        <RichTextMessage
+          text={item.record.text}
+          facets={item.record.facets || []}
+        />
+      </Text>
+      <DropdownMenuContent style={{ minWidth: 280, maxWidth: 320 }}>
+        <ProfileCardContent data={data} theme={theme} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 export const RenderChatMessage = memo(
   function RenderChatMessage({
     item,
@@ -159,41 +258,11 @@ export const RenderChatMessage = memo(
               {formatTime(item.record.createdAt)}
             </Text>
           )}
-          <Text style={[flex.shrink[1], { minWidth: 0 }]}>
-            <UserProfileCard
-              uri={item.uri}
-              author={item.author}
-              badges={item.badges}
-            >
-              <View
-                style={
-                  {
-                    // display: inline is a no-op on mobile
-                    display: Platform.OS === "web" ? "inline" : undefined,
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    flexDirection: "row",
-                    marginBottom: -4.5,
-                  } as any
-                }
-              >
-                <BadgeDisplayRow badges={item.badges} />
-                <Text
-                  style={{
-                    cursor: "pointer",
-                    color: getRgbColor(item.chatProfile?.color),
-                  }}
-                >
-                  {formatHandleWithAt(item.author)}
-                </Text>
-              </View>
-            </UserProfileCard>
-            <Text color="default">{": "}</Text>
-            <RichTextMessage
-              text={item.record.text}
-              facets={item.record.facets || []}
-            />
-          </Text>
+          {Platform.OS === "web" ? (
+            <MessageBodyWeb item={item} />
+          ) : (
+            <MessageBodyNative item={item} />
+          )}
         </View>
       </>
     );

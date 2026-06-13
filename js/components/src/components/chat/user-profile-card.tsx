@@ -92,7 +92,7 @@ interface ProfileCardData {
   streamer: ProfileViewBasic | undefined;
 }
 
-function useProfileCardData(
+export function useProfileCardData(
   author: ProfileViewBasic,
   badges: ChatMessageViewHydrated["badges"],
 ): ProfileCardData {
@@ -181,7 +181,7 @@ const BadgeRow = ({
   );
 };
 
-const ProfileCardContent = ({
+export const ProfileCardContent = ({
   data,
   theme,
 }: {

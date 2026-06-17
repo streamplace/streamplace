@@ -25,7 +25,7 @@ type SessionState =
 
 type SessionContextValue = {
   state: SessionState;
-  signIn: (handle: string) => Promise<void>;
+  signIn: (handle: string, mode?: "popup" | "redirect") => Promise<void>;
   signOut: () => Promise<void>;
   pdsAgent: StreamplaceAgent | null;
   did: string | null;
@@ -39,7 +39,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const pdsAgent = useStore((state) => state.pdsAgent);
   const login = useStore((state) => state.login);
   const logout = useStore((state) => state.logout);
-  const openLoginLink = useStore((state) => state.openLoginLink);
 
   const state: SessionState = useMemo(() => {
     if (authStatus === "loggedIn" && oauthSession) {
@@ -52,10 +51,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [authStatus, oauthSession]);
 
   const signIn = useCallback(
-    async (handle: string) => {
-      await login(handle, openLoginLink);
+    async (handle: string, mode: "popup" | "redirect" = "popup") => {
+      await login(handle, mode);
     },
-    [login, openLoginLink],
+    [login],
   );
 
   const signOut = useCallback(async () => {

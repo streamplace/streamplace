@@ -1,4 +1,4 @@
-// Platform-specific state: notification tokens, login-link handoff, etc.
+// Platform-specific state: notification tokens, etc.
 // On web, push notifications are a no-op; the slice exists to mirror
 // js/app/store/slices/platformSlice.ts (the web variant, not .native.ts).
 import { StateCreator } from "zustand";
@@ -10,7 +10,6 @@ export interface PlatformSlice {
   // actions
   handleNotification: (payload?: { [key: string]: string | object }) => void;
   clearNotification: () => void;
-  openLoginLink: (url: string) => Promise<void>;
   initPushNotifications: () => Promise<void>;
   registerNotificationToken: () => Promise<void>;
 }
@@ -28,15 +27,6 @@ export const createPlatformSlice: StateCreator<PlatformSlice> = (set) => ({
   },
   clearNotification: () => {
     set({ notificationDestination: null });
-  },
-  openLoginLink: async (url: string) => {
-    set({ status: "loading" });
-    try {
-      window.location.href = url;
-      set({ status: "idle" });
-    } catch {
-      set({ status: "failed" });
-    }
   },
   initPushNotifications: async () => {
     // mobile-only, web notifications someday

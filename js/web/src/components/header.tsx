@@ -3,8 +3,8 @@ import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import useAvatars from "../hooks/use-avatars";
-import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
 import { useSession } from "../lib/session";
+import { useStore } from "../lib/store";
 import { usePDSAgent, useUserProfile } from "../lib/store/hooks";
 import StreamplaceSvg from "./svg/streamplace-bw";
 import { SidebarTrigger } from "./ui/sidebar";
@@ -297,13 +297,13 @@ export function UserProfile({
             )}
           </Link>
         ) : (
-          <Link
-            to="/login"
-            search={EMPTY_LOGIN_SEARCH}
+          <button
+            type="button"
+            onClick={() => useStore.getState().openLoginModal()}
             className="text-sm font-medium text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
           >
             {t("log-in")}
-          </Link>
+          </button>
         )}
       </nav>
     </div>

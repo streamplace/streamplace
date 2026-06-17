@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSession } from "../lib/session";
 
@@ -34,12 +34,66 @@ function LoginPage() {
   const [handle, setHandle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  // Saved on first render so we can call the real window.close() after
+  // the countdown, even though we've patched it to a no-op for the rest
+  // of the popup's lifetime.
+  const originalCloseRef = useRef<(() => void) | null>(null);
 
-  // This route doubles as the OAuth callback target.
+  // When this page is the OAuth callback target *and* was opened as a
+  // popup by signInPopup, the library's initCallback will call
+  // window.close() (and re-throw) once it's sent the result to the
+  // opener. We don't want the popup to vanish instantly — override
+  // window.close with a no-op so we can show a "closing in a few
+  // seconds" countdown first.
+  if (
+    typeof window !== "undefined" &&
+    window.opener &&
+    !originalCloseRef.current
+  ) {
+    originalCloseRef.current = window.close.bind(window);
+    window.close = () => {};
+  }
+
+  // This route doubles as the OAuth callback target. In the popup case,
+  // client.initCallback (called by BlueskyProvider) sends the result back
+  // to the opener via BroadcastChannel and throws
+  // LoginContinuedInParentWindowError after calling window.close().
+  // Our oauthCallback catch then sets authStatus to "loggedOut" (which
+  // is the signal for the countdown effect below). In the direct /login
+  // case (user landed here directly, or popup-blocked fallback),
+  // initCallback returns the session, state becomes "authenticated",
+  // and we navigate to / via the effect further down.
   const isCallbackInFlight =
     Boolean(search.code) ||
     Boolean(search.error) ||
     Boolean(state.status === "loading");
+
+  const countdownStarted = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.opener) return;
+    if (countdownStarted.current) return;
+    if (!isCallbackInFlight) return;
+    // Wait for the library's initCallback to finish — state.status is
+    // "loading" while oauthCallback is awaiting, then leaves "loading"
+    // when the popup's catch sets authStatus to "loggedOut".
+    if (state.status === "loading") return;
+
+    countdownStarted.current = true;
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((c) => (c !== null ? c - 1 : null));
+    }, 1000);
+    const timer = setTimeout(() => {
+      clearInterval(interval);
+      if (originalCloseRef.current) originalCloseRef.current();
+      else window.close();
+    }, 3000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
+  }, [state.status, isCallbackInFlight]);
 
   useEffect(() => {
     if (search.error) {
@@ -50,7 +104,11 @@ function LoginPage() {
       );
       return;
     }
-    if (state.status === "authenticated") {
+    // In the popup case state.status never reaches "authenticated"
+    // (the session lives in the opener, not the popup), so the
+    // countdown effect above handles the close. The navigate fires
+    // only for the direct /login case.
+    if (state.status === "authenticated" && !window.opener) {
       navigate({ to: "/" });
     }
   }, [state.status, search.error, search.errorDescription, navigate]);
@@ -60,7 +118,11 @@ function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(handle.trim());
+      // /login is the full-page route — always do a full-page redirect
+      // to the PDS rather than opening a popup. This is the reliable
+      // fallback for users who landed here directly, or who got bounced
+      // here by the modal's popup-blocker detection.
+      await signIn(handle.trim(), "redirect");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("sign-in-failed"));
       setSubmitting(false);
@@ -68,6 +130,16 @@ function LoginPage() {
   };
 
   if (isCallbackInFlight && state.status !== "authenticated") {
+    if (countdown !== null) {
+      return (
+        <div className="mx-auto max-w-md px-6 py-16 text-center">
+          <p className="text-(--color-fg-muted)">
+            {t("closing-in", { count: countdown }) ??
+              `Closing in ${countdown}…`}
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="mx-auto max-w-md px-6 py-16 text-center">
         <p className="text-(--color-fg-muted)">{t("completing-sign-in")}</p>

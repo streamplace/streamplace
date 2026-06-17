@@ -1,4 +1,3 @@
-import { EMPTY_LOGIN_SEARCH } from "@/lib/login-search";
 import { Link } from "@tanstack/react-router";
 import {
   House,
@@ -10,6 +9,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useSession } from "../lib/session";
+import { useStore } from "../lib/store";
 import {
   Sidebar,
   SidebarContent,
@@ -79,12 +79,13 @@ export default function SidebarComponent() {
           <SidebarGroupLabel>{t("nav-account")}</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-              <Link to="/login" search={EMPTY_LOGIN_SEARCH} className="w-full">
-                <SidebarMenuButton tooltip={t("log-in")}>
-                  <LogIn />
-                  <span>{t("log-in")}</span>
-                </SidebarMenuButton>
-              </Link>
+              <SidebarMenuButton
+                tooltip={t("log-in")}
+                onClick={() => useStore.getState().openLoginModal()}
+              >
+                <LogIn />
+                <span>{t("log-in")}</span>
+              </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link to="/settings" className="w-full">

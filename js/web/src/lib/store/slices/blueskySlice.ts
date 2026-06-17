@@ -87,15 +87,13 @@ export interface BlueskySlice {
   clearNotification: () => void;
   loadOAuthClient: () => Promise<void>;
   oauthError: (error: string, description: string) => void;
-  login: (
-    handle: string,
-    openLoginLink: (url: string) => Promise<void>,
-  ) => Promise<void>;
+  login: (handle: string, mode?: "popup" | "redirect") => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
   getProfiles: (actors: string[]) => Promise<void>;
   oauthCallback: (url: string) => Promise<void>;
   setReturnRoute: (route: { name: string; params?: any } | null) => void;
+  setLoginError: (error: string | null) => void;
   showLoginModal: boolean;
   openLoginModal: (returnRoute?: { name: string; params?: any }) => void;
   closeLoginModal: () => void;
@@ -223,6 +221,10 @@ export const createBlueskySlice: StateCreator<
     set({ showLoginModal: false });
   },
 
+  setLoginError: (error) => {
+    set((s) => ({ loginState: { ...s.loginState, error } }));
+  },
+
   openPdsModal: () => {
     set({ showPdsModal: true });
   },
@@ -291,10 +293,7 @@ export const createBlueskySlice: StateCreator<
     });
   },
 
-  login: async (
-    handle: string,
-    openLoginLink: (url: string) => Promise<void>,
-  ) => {
+  login: async (handle: string, mode: "popup" | "redirect" = "popup") => {
     set({
       loginState: {
         loading: true,
@@ -308,26 +307,51 @@ export const createBlueskySlice: StateCreator<
       if (!updatedState.client) {
         throw new Error("No client");
       }
-      const u = await updatedState.client.authorize(handle, {});
-      console.log("Opening link");
-      await openLoginLink(u.toString());
-      // brief delay so the user doesn't see the form text flash back
-      await new Promise((resolve) => setTimeout(resolve, 5000));
+      if (mode === "redirect") {
+        // Full-page redirect to the PDS OAuth page. The user
+        // authenticates, comes back to /login?code=..., the callback
+        // runs, and the user is logged in. Used by the /login route,
+        // which is the fallback for users on the full-page already
+        // (or who got bounced here by the modal's popup-blocker
+        // detection). The promise never resolves — the page is
+        // navigating away.
+        const url = await updatedState.client.authorize(handle, {});
+        window.location.href = url.href;
+        await new Promise<never>(() => {});
+        return;
+      }
+      // mode === "popup": use the library's built-in popup flow. It
+      // opens the popup synchronously (before authorize, to avoid
+      // popup blockers), writes the OAuth state in sessionStorage, and
+      // listens on a BroadcastChannel for the popup's initCallback to
+      // send back the result. Resolves with the restored OAuthSession.
+      const session = await updatedState.client.signInPopup(handle);
+      await storage.setItem(DID_KEY, session.did);
       set({
-        loginState: {
-          loading: false,
-          error: null,
-        },
+        client: updatedState.client,
+        oauthSession: session,
+        pdsAgent: new StreamplaceAgent(session),
+        authStatus: "loggedIn",
       });
     } catch (error: any) {
-      console.error("login rejected", error);
+      console.error("login rejected", error, error?.cause);
+      let message = error?.message || "unknown error";
+      // The library's OAuthResponseError message is "OAuth unknown error"
+      // when the PDS returns a non-OK token-exchange response without
+      // standard `error` / `error_description` fields. In practice this
+      // is almost always transient — the PDS is still processing the
+      // previous session's revoke, rate-limiting, etc. Surface it as a
+      // "try again in a moment" hint instead of a dead-end.
+      if (message.startsWith("OAuth unknown error")) {
+        message = "Sign-in failed. Please wait a moment and try again.";
+      }
       set({
         loginState: {
           loading: false,
-          error: error?.message ?? null,
+          error: message,
         },
         notification: {
-          message: error?.message || "unknown error",
+          message,
           type: "error",
         },
       });
@@ -412,7 +436,16 @@ export const createBlueskySlice: StateCreator<
       const streamplaceUrl = get().url;
       const client = await createOAuthClient(streamplaceUrl);
       try {
-        const ret = await client.callback(params);
+        // initCallback handles the popup handoff via BroadcastChannel:
+        // when the state param is POPUP_STATE_PREFIX-prefixed (i.e. this
+        // page was opened by signInPopup), initCallback sends the result
+        // back to the parent and throws LoginContinuedInParentWindowError
+        // after also calling window.close(). The route's countdown UI
+        // shows briefly before the popup actually closes.
+        const ret = await client.initCallback(params);
+        if (!ret) {
+          return;
+        }
         await storage.setItem(DID_KEY, ret.session.did);
         set({
           client,
@@ -421,11 +454,33 @@ export const createBlueskySlice: StateCreator<
           authStatus: "loggedIn",
         });
       } catch (e: any) {
+        // In the popup case, the library's initCallback sends the result
+        // (success or error) to the parent via BroadcastChannel and
+        // throws LoginContinuedInParentWindowError. The parent owns the
+        // session state; the popup is just a pass-through. We don't
+        // want a notification toast in a closing popup, and we don't
+        // need to clobber the auth status beyond "loading -> not loading"
+        // (which the route watches to start the closing countdown).
+        if (
+          typeof window !== "undefined" &&
+          window.opener &&
+          e?.code === "LOGIN_CONTINUED_IN_PARENT_WINDOW"
+        ) {
+          set({ authStatus: "loggedOut" });
+          return;
+        }
+
         let message = e.message;
         let cause = e.cause;
         while (cause) {
           message = `${message}: ${cause.message}`;
           cause = cause.cause;
+        }
+        // PDS token-exchange failure with no useful error fields —
+        // almost always transient (rate limiting, revoke still
+        // processing). Tell the user to try again in a moment.
+        if (message.startsWith("OAuth unknown error")) {
+          message = "Sign-in failed. Please wait a moment and try again.";
         }
         console.error("oauthCallback error", message);
         set({
@@ -439,7 +494,10 @@ export const createBlueskySlice: StateCreator<
       }
     } catch (error: any) {
       console.error("oauthCallback rejected", error);
-      const message = error?.message || "authentication failed";
+      let message = error?.message || "authentication failed";
+      if (message.startsWith("OAuth unknown error")) {
+        message = "Sign-in failed. Please wait a moment and try again.";
+      }
       set({
         authStatus: "loggedOut",
         notification: {

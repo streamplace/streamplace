@@ -1,5 +1,4 @@
 import type { LivestreamStore } from "@streamplace/core";
-import { Link } from "@tanstack/react-router";
 import { Extension } from "@tiptap/core";
 import MentionBase from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -23,8 +22,8 @@ import {
   type Emoji,
   type EmojiData,
 } from "../../lib/emoji-data";
-import { EMPTY_LOGIN_SEARCH } from "../../lib/login-search";
 import { useSession } from "../../lib/session";
+import { useStore as useAppStore } from "../../lib/store";
 import { Button } from "../ui/button";
 import { EmojiList } from "./emoji-list";
 import { EmojiPicker } from "./emoji-picker";
@@ -493,13 +492,13 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   if (!isAuthed) {
     return (
       <div className="py-1 text-center text-sm text-(--color-fg-muted)">
-        <Link
-          to="/login"
-          search={EMPTY_LOGIN_SEARCH}
+        <button
+          type="button"
+          onClick={() => useAppStore.getState().openLoginModal()}
           className="font-medium text-(--color-accent) hover:underline"
         >
           {t("log-in")}
-        </Link>{" "}
+        </button>{" "}
         {t("chat-log-in-to")}
       </div>
     );

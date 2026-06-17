@@ -144,6 +144,10 @@ func makeGit() error {
 			outMap[macK] = macV
 		}
 		outMap["STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-windows-amd64.exe", gitlabURL(), StreamplaceBranch, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_LINUX_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-linux-amd64.AppImage", gitlabURL(), StreamplaceBranch, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_LINUX_ARM64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-linux-arm64.AppImage", gitlabURL(), StreamplaceBranch, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_DARWIN_AMD64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-darwin-amd64.dmg", gitlabURL(), StreamplaceBranch, desc, desc)
+		outMap["STREAMPLACE_DESKTOP_URL_DARWIN_ARM64"] = fmt.Sprintf("%s/packages/generic/%s/%s/streamplace-desktop-%s-darwin-arm64.dmg", gitlabURL(), StreamplaceBranch, desc, desc)
 		for k, v := range outMap {
 			out = out + fmt.Sprintf("%s=%s\n", k, v)
 		}

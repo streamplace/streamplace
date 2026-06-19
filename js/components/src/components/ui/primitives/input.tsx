@@ -19,8 +19,10 @@ import {
 import { useTheme } from "../../../lib/theme/theme";
 import * as tokens from "../../../lib/theme/tokens";
 
-export interface InputPrimitiveProps
-  extends Omit<TextInputProps, "onChange" | "onFocus" | "onBlur"> {
+export interface InputPrimitiveProps extends Omit<
+  TextInputProps,
+  "onChange" | "onFocus" | "onBlur"
+> {
   error?: boolean;
   disabled?: boolean;
   loading?: boolean;

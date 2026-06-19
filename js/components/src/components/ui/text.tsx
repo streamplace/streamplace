@@ -61,7 +61,8 @@ const textVariants = cva("", {
 });
 
 export interface TextProps
-  extends Omit<TextPrimitiveProps, "variant" | "size" | "weight" | "color">,
+  extends
+    Omit<TextPrimitiveProps, "variant" | "size" | "weight" | "color">,
     Omit<VariantProps<typeof textVariants>, "color"> {
   // Override color to accept hex values and custom strings
   color?:

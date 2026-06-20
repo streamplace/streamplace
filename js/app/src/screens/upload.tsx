@@ -21,6 +21,7 @@ import {
 } from "@streamplace/components/src/lib/metadata-constants";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import ActivityPicker from "components/activity-picker";
+import AQLink from "components/aqlink";
 import Loading from "components/loading/loading";
 import BetaAccessGate from "components/upload/beta-access-gate";
 import { Image } from "expo-image";
@@ -33,7 +34,7 @@ import {
   Video,
   X,
 } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
@@ -460,8 +461,15 @@ export default function UploadScreen() {
 
   // ── VOD manager ────────────────────────────────────────────────────────────
 
-  const [managerMode, setManagerMode] = useState<"upload" | "videos">("upload");
+  const [managerMode, setManagerMode] = useState<
+    "upload" | "videos" | "livestreams"
+  >("upload");
   const [userVideos, setUserVideos] = useState<any[]>([]);
+  const [livestreams, setLivestreams] = useState<any[]>([]);
+  const [livestreamsLoading, setLivestreamsLoading] = useState(false);
+  const [finalizing, setFinalizing] = useState<
+    Record<string, "finalizing" | "publishing" | "error">
+  >({});
   const [editingVideoUri, setEditingVideoUri] = useState<string | undefined>(
     undefined,
   );
@@ -480,11 +488,139 @@ export default function UploadScreen() {
     }
   }, [agent]);
 
+  const fetchLivestreams = useCallback(async () => {
+    if (!agent || !agent.did) return;
+    setLivestreamsLoading(true);
+    try {
+      const res = await agent.com.atproto.repo.listRecords({
+        repo: agent.did,
+        collection: "place.stream.livestream",
+        limit: 100,
+      });
+      const records = (res.data.records ?? []).slice().sort((a, b) => {
+        const at = ((a.value as any)?.createdAt as string) ?? "";
+        const bt = ((b.value as any)?.createdAt as string) ?? "";
+        return bt.localeCompare(at); // newest first
+      });
+      setLivestreams(records);
+    } catch (err) {
+      console.error("Failed to fetch livestreams", err);
+    } finally {
+      setLivestreamsLoading(false);
+    }
+  }, [agent]);
+
+  // Cross-reference the user's published videos against their livestreams via
+  // the video record's `connections` array: a finalized livestream is one some
+  // VOD links back to. media.publishVideo preserves client-supplied
+  // connections, so the finalize flow below stamps the source livestream there.
+  const livestreamToVideo = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of userVideos) {
+      const rec = (v.record?.value || v.record || {}) as any;
+      for (const c of rec.connections ?? []) {
+        const uri = c?.ref?.uri;
+        if (
+          typeof uri === "string" &&
+          uri.includes("/place.stream.livestream/")
+        ) {
+          map.set(uri, v.uri);
+        }
+      }
+    }
+    return map;
+  }, [userVideos]);
+
   useEffect(() => {
-    if (managerMode === "videos") {
+    // The livestreams tab also needs the videos list to compute which streams
+    // have already been finalized.
+    if (managerMode === "videos" || managerMode === "livestreams") {
       fetchVideos();
     }
-  }, [managerMode, fetchVideos]);
+    if (managerMode === "livestreams") {
+      fetchLivestreams();
+    }
+  }, [managerMode, fetchVideos, fetchLivestreams]);
+
+  // Finalize a single livestream into a VOD: kick off the server-side finalize
+  // task, poll until processing completes, then auto-publish a video record
+  // that inherits the livestream's metadata and links back to it via
+  // `connections`. First pass is fire-and-forget (no draft step).
+  const finalizeLivestreamRow = useCallback(
+    async (ls: { uri: string; cid: string; value: any }) => {
+      if (!agent || !agent.did) return;
+      setFinalizing((m) => ({ ...m, [ls.uri]: "finalizing" }));
+      try {
+        const res = await agent.place.stream.media.finalizeLivestream({
+          livestream: ls.uri,
+        });
+        if (!res.success) throw new Error("finalizeLivestream failed");
+        const { uploadId } = res.data;
+
+        // Wait for the finalize task to remux + process the recording.
+        await new Promise<void>((resolve, reject) => {
+          const check = async () => {
+            try {
+              const st = await agent.place.stream.media.getUploadStatus({
+                uploadId,
+              });
+              const d = st.data;
+              if (d.status === "done") return resolve();
+              if (d.status === "error")
+                return reject(new Error(d.error ?? "Processing failed"));
+              setTimeout(check, POLL_INTERVAL_MS);
+            } catch {
+              setTimeout(check, POLL_INTERVAL_MS);
+            }
+          };
+          check();
+        });
+
+        setFinalizing((m) => ({ ...m, [ls.uri]: "publishing" }));
+
+        const lsRec = (ls.value ?? {}) as any;
+        const record: PlaceStreamVideo.Record = {
+          $type: "place.stream.video",
+          title: (lsRec.title || "Livestream").trim(),
+          // source + durationMs + createdAt are server-authoritative: the
+          // server overrides them from the processed upload at publish time.
+          createdAt: new Date().toISOString(),
+          durationMs: 0,
+          source: {
+            $type: "place.stream.media.defs#sourceTracks",
+            tracks: [],
+          },
+          connections: [
+            {
+              $type: "place.stream.video#connection",
+              ref: { uri: ls.uri, cid: ls.cid },
+            },
+          ],
+        };
+        if (lsRec.activity) record.activity = lsRec.activity;
+        if (Array.isArray(lsRec.tags) && lsRec.tags.length > 0)
+          record.tags = lsRec.tags;
+
+        const pub = await agent.place.stream.media.publishVideo({
+          uploadId,
+          record,
+        });
+        if (!pub.success) throw new Error("publishVideo failed");
+
+        setFinalizing((m) => {
+          const next = { ...m };
+          delete next[ls.uri];
+          return next;
+        });
+        // Refresh videos so the row flips to its finalized state.
+        await fetchVideos();
+      } catch (err) {
+        console.error("Failed to finalize livestream", err);
+        setFinalizing((m) => ({ ...m, [ls.uri]: "error" }));
+      }
+    },
+    [agent, fetchVideos],
+  );
 
   const handleSelectVideo = useCallback((video: any) => {
     const rec = video.record?.value || video.record || {};
@@ -665,6 +801,49 @@ export default function UploadScreen() {
     );
   }
 
+  const renderTab = (
+    mode: "upload" | "videos" | "livestreams",
+    label: string,
+    position: "left" | "middle" | "right",
+  ) => {
+    const active = managerMode === mode;
+    const radiusOverride =
+      position === "left"
+        ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 }
+        : position === "right"
+          ? { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }
+          : { borderRadius: 0 };
+    return (
+      <Pressable
+        onPress={() => setManagerMode(mode)}
+        style={[
+          zero.px[4],
+          zero.py[2],
+          zero.r.lg,
+          radiusOverride,
+          active
+            ? { backgroundColor: theme.colors.primary }
+            : {
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                ...(position === "left" ? {} : { borderLeftWidth: 0 }),
+              },
+        ]}
+      >
+        <Text
+          style={{
+            color: active ? "#fff" : theme.colors.foreground,
+            fontWeight: "600",
+            fontSize: 14,
+          }}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+
   return (
     <ScrollView>
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
@@ -678,67 +857,9 @@ export default function UploadScreen() {
             gap: 0,
           }}
         >
-          <Pressable
-            onPress={() => setManagerMode("upload")}
-            style={[
-              zero.px[4],
-              zero.py[2],
-              zero.r.lg,
-              {
-                borderBottomRightRadius: 0,
-                borderTopRightRadius: 0,
-              },
-              managerMode === "upload"
-                ? { backgroundColor: theme.colors.primary }
-                : {
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: theme.colors.border,
-                  },
-            ]}
-          >
-            <Text
-              style={{
-                color:
-                  managerMode === "upload" ? "#fff" : theme.colors.foreground,
-                fontWeight: "600",
-                fontSize: 14,
-              }}
-            >
-              Upload
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setManagerMode("videos")}
-            style={[
-              zero.px[4],
-              zero.py[2],
-              zero.r.lg,
-              {
-                borderBottomLeftRadius: 0,
-                borderTopLeftRadius: 0,
-              },
-              managerMode === "videos"
-                ? { backgroundColor: theme.colors.primary }
-                : {
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: theme.colors.border,
-                    borderLeftWidth: 0,
-                  },
-            ]}
-          >
-            <Text
-              style={{
-                color:
-                  managerMode === "videos" ? "#fff" : theme.colors.foreground,
-                fontWeight: "600",
-                fontSize: 14,
-              }}
-            >
-              My Videos
-            </Text>
-          </Pressable>
+          {renderTab("upload", "Upload", "left")}
+          {renderTab("videos", "My Videos", "middle")}
+          {renderTab("livestreams", "Livestreams", "right")}
         </View>
 
         {/* Video list mode */}
@@ -820,6 +941,122 @@ export default function UploadScreen() {
                     </Text>
                   </View>
                 </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Livestreams list mode */}
+        {managerMode === "livestreams" && (
+          <View style={{ maxWidth: 960, width: "100%", gap: 12 }}>
+            {livestreamsLoading && livestreams.length === 0 && (
+              <View style={[zero.p[6], { alignItems: "center" }]}>
+                <LoaderCircle size={32} color={theme.colors.mutedForeground} />
+              </View>
+            )}
+            {!livestreamsLoading && livestreams.length === 0 && (
+              <View style={[zero.p[6], { alignItems: "center" }]}>
+                <Video size={48} color={theme.colors.mutedForeground} />
+                <Text
+                  color="muted"
+                  size="sm"
+                  style={{ marginTop: 12, textAlign: "center" }}
+                >
+                  No livestreams yet. When you go live, your past streams show
+                  up here to finalize into VODs.
+                </Text>
+              </View>
+            )}
+            {livestreams.map((ls: any) => {
+              const rec = ls.value || {};
+              const ended = !!rec.endedAt;
+              const vodUri = livestreamToVideo.get(ls.uri);
+              const status = finalizing[ls.uri];
+              return (
+                <View
+                  key={ls.uri}
+                  style={[
+                    zero.p[3],
+                    zero.r.md,
+                    {
+                      flexDirection: "row",
+                      gap: 12,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.background,
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontWeight: "600", fontSize: 14 }}
+                    >
+                      {rec.title || "Untitled livestream"}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {rec.createdAt
+                        ? new Date(rec.createdAt).toLocaleString()
+                        : ""}
+                      {ended ? " · Ended" : " · Live"}
+                    </Text>
+                  </View>
+                  {vodUri ? (
+                    <AQLink
+                      to={{
+                        screen: "Video",
+                        params: {
+                          user: agent?.did ?? "",
+                          tid: vodUri.split("/").pop() ?? "",
+                        },
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <CheckCircle2 size={16} color={theme.colors.primary} />
+                        <Text size="sm" style={{ color: theme.colors.primary }}>
+                          View VOD
+                        </Text>
+                      </View>
+                    </AQLink>
+                  ) : status === "finalizing" || status === "publishing" ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <LoaderCircle
+                        size={16}
+                        color={theme.colors.mutedForeground}
+                      />
+                      <Text size="xs" color="muted">
+                        {status === "publishing"
+                          ? "Publishing…"
+                          : "Finalizing…"}
+                      </Text>
+                    </View>
+                  ) : !ended ? (
+                    <Tooltip content="This stream is still live. Finalize once it has ended.">
+                      <Button size="sm" disabled onPress={() => {}}>
+                        <Text style={{ color: "#fff" }}>Finalize</Text>
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Button size="sm" onPress={() => finalizeLivestreamRow(ls)}>
+                      <Text style={{ color: "#fff" }}>
+                        {status === "error" ? "Retry" : "Finalize"}
+                      </Text>
+                    </Button>
+                  )}
+                </View>
               );
             })}
           </View>

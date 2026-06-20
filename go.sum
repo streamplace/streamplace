@@ -1375,6 +1375,8 @@ github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAy
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507 h1:e8M3qPLr37NxEjlr18TaAwGP+OVyherVjgUG5VVmgWI=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507/go.mod h1:Pm2I1+iDXn/hLbF7XCg/DsZi6uDCiOo7hZGWprSM7k0=
+github.com/streamplace/muxl/go v0.3.4 h1:M/G8CRKjAmfsyWtolLziUtNrNtS3lJFq/H6IhnY1yBo=
+github.com/streamplace/muxl/go v0.3.4/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
 github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44 h1:b38ToXNQCvKqBlx0SeQYUOhx6uqqnrF5AL6B0Z3zzdk=
 github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44/go.mod h1:j1+zdhe1IC0+PTE2rIXk2LqYn4Lz2x9SJaV3eHkQyfs=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

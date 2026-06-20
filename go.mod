@@ -66,7 +66,7 @@ require (
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/muxl/go v0.3.2
+	github.com/streamplace/muxl/go v0.3.4
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -572,5 +572,3 @@ require (
 	mvdan.cc/unparam v0.0.0-20250301125049-0df0534333a4 // indirect
 	star-tex.org/x/tex v0.7.1 // indirect
 )
-
-replace github.com/streamplace/muxl/go => /home/iameli/code/muxl/go

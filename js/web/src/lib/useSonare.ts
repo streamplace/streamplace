@@ -17,18 +17,18 @@ function generateSonare(length: number, suffixLength: number) {
   return word;
 }
 
-// Sonare-based random ID generator. It generates three words,
-// separated by dashes, and optionally adds a random suffix of specified length.
+// Sonare-based random ID generator. It generates a string of N words
+// separated by dashes, optionally with a random suffix of specified length.
 // Note that THIS IS NOT A CRYPTOGRAPHICALLY SECURE ID GENERATOR.
 export function useSonare(
-  { length: number, suffixLength } = { length: 2, suffixLength: 4 },
+  { length, suffixLength } = { length: 2, suffixLength: 4 },
 ) {
-  let [sona, setSona] = useState(() => {
-    return generateSonare(number, suffixLength);
+  const [sona, setSona] = useState(() => {
+    return generateSonare(length, suffixLength);
   });
 
   const regenerate = () => {
-    setSona(generateSonare(number, suffixLength));
+    setSona(generateSonare(length, suffixLength));
   };
 
   return [sona, regenerate] as const;

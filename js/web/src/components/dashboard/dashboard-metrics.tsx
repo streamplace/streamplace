@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { useStore } from "zustand";
-import { useShallow } from "zustand/react/shallow";
 import { useDashboardStore } from "./dashboard-store-context";
 
 /** How often we sample the live metrics into the history buffer. */
@@ -97,57 +96,39 @@ export function DashboardMetricsProvider({ children }: ProviderProps) {
   const currentBitrateRef = useRef(0);
   const currentSegmentTimingRef = useRef(0);
   const currentFpsRef = useRef(0);
-  const latestInputsRef = useRef({ chat: [] as any[], viewers: 0 });
-  latestInputsRef.current = {
-    chat: store.getState().chat,
-    viewers: store.getState().viewers ?? 0,
-  };
 
-  // Subscribe to the store so the refs stay current. We don't render off
-  // of these — they're read inside the sampling interval.
-  const storeState = useStore(
-    store,
-    useShallow((s) => ({
-      segment: s.segment,
-      livestream: s.livestream,
-      chat: s.chat,
-      viewers: s.viewers,
-    })),
-  );
+  // Subscribe to the slice so the effect deps below fire when segments
+  // change. The effects themselves only write to refs, so we don't render
+  // off the segment subscription. `livestream` is read for `hasLivestream`.
+  const segment = useStore(store, (s) => s.segment);
+  const livestream = useStore(store, (s) => s.livestream);
 
   // Update bitrate from the current segment.
   useEffect(() => {
-    const seg = store.getState().segment;
-    if (!seg?.size || !seg?.duration) return;
-    const kbps = (seg.size * 8) / (seg.duration / 1_000_000_000) / 1000;
+    if (!segment?.size || !segment?.duration) return;
+    const kbps = (segment.size * 8) / (segment.duration / 1_000_000_000) / 1000;
     currentBitrateRef.current = kbps;
-  }, [
-    store,
-    store.getState().segment?.size,
-    store.getState().segment?.duration,
-  ]);
+  }, [segment?.size, segment?.duration]);
 
   // Update FPS from the current segment's video track.
   useEffect(() => {
-    const seg = store.getState().segment;
-    const videoTrack = seg?.video?.[0];
+    const videoTrack = segment?.video?.[0];
     if (!videoTrack?.framerate) return;
     const { num, den } = videoTrack.framerate;
     if (!den) return;
     currentFpsRef.current = num / den;
-  }, [store, store.getState().segment?.video]);
+  }, [segment?.video]);
 
   // Update segment timing (ms since previous segment).
   const lastSegmentAtRef = useRef<number | null>(null);
   useEffect(() => {
-    const seg = store.getState().segment;
-    if (!seg) return;
+    if (!segment) return;
     const now = Date.now();
     if (lastSegmentAtRef.current !== null) {
       currentSegmentTimingRef.current = now - lastSegmentAtRef.current;
     }
     lastSegmentAtRef.current = now;
-  }, [store, store.getState().segment]);
+  }, [segment]);
 
   // When the user changes the range, resize the history buffer. The window
   // then refills as new samples arrive.
@@ -195,9 +176,9 @@ export function DashboardMetricsProvider({ children }: ProviderProps) {
       history,
       range,
       setRange,
-      hasLivestream: !!storeState.livestream,
+      hasLivestream: !!livestream,
     }),
-    [history, range, storeState.livestream],
+    [history, range, livestream],
   );
 
   return (

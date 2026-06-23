@@ -194,27 +194,15 @@ export function Player({
     setStats(null);
   }, [src, active]);
 
-  // When the user toggles transport (HLS <-> WebRTC) we want the source
-  // to re-load, so clear quality + playback state and force the backend
-  // to remount via a changing key.
-  const [transportKey, setTransportKey] = useState(0);
+  // When the user toggles transport (HLS <-> WebRTC) the backend child
+  // inside <PlayerBackend> is a different component type, so React
+  // unmounts the old one and mounts the new one automatically. We just
+  // need to reset the chrome's per-transport state.
   useEffect(() => {
-    console.log("[player] useWebRTC changed", { useWebRTC, transportKey });
     setQualities([]);
     setCurrentQuality(-1);
     setStats(null);
-    setTransportKey((k) => k + 1);
   }, [useWebRTC]);
-
-  useEffect(() => {
-    console.log("[player] render", {
-      src,
-      active,
-      useWebRTC,
-      transportKey,
-      error,
-    });
-  });
 
   // Mirror the video element's state into React.
   useEffect(() => {
@@ -319,7 +307,6 @@ export function Player({
 
       {active && (
         <PlayerBackend
-          key={transportKey}
           src={src}
           useWebRTC={useWebRTC}
           videoRef={videoRef}
@@ -395,7 +382,7 @@ function PlayerBackend({
   onStatsChange: (stats: PlayerStats) => void;
   ref: RefObject<PlayerBackendHandle | null>;
 }) {
-  let [sona, resetSona] = useSonare();
+  const [sona, resetSona] = useSonare();
   useEffect(() => {
     resetSona();
   }, [src]);

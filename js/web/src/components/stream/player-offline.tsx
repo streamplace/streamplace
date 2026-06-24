@@ -107,9 +107,10 @@ export function PlayerOffline({
       )}
       <div aria-hidden className="absolute inset-0 bg-black/40" />
 
-      <div className="relative flex h-full items-center gap-4 px-6">
-        <div className="flex min-w-0 flex-[3] flex-col items-start justify-center gap-2 text-left">
-          <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white/80 uppercase">
+      <div className="relative flex h-full items-stretch gap-3 p-4">
+        {/* Left: OFFLINE message panel */}
+        <div className="flex min-w-0 flex-[2] flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
+          <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
             {t("offline")}
           </span>
           {recommendation ? (
@@ -128,19 +129,22 @@ export function PlayerOffline({
               <img
                 src={avatar}
                 alt=""
-                className="h-6 w-6 rounded-full border border-white/20 object-cover"
+                className="h-5 w-5 rounded-full border border-white/20 object-cover"
               />
-              <p className="text-sm font-medium text-white">@{handle}</p>
+              <p className="text-xs font-medium text-white/80">@{handle}</p>
             </div>
           )}
         </div>
 
+        {/* Right: embedded recommendation */}
         {recommendation && (
-          <RecommendationEmbed
-            did={recommendation.did}
-            handle={recHandle}
-            avatar={recAvatar}
-          />
+          <div className="min-w-0 flex-[3]">
+            <RecommendationEmbed
+              did={recommendation.did}
+              handle={recHandle}
+              avatar={recAvatar}
+            />
+          </div>
         )}
       </div>
     </div>
@@ -169,8 +173,8 @@ function RecommendationEmbed({
   }, [did]);
 
   return (
-    <div className="flex w-[42%] max-w-[280px] flex-col items-stretch gap-1.5">
-      <div className="relative aspect-video w-full overflow-hidden rounded-md border border-white/10 bg-black">
+    <div className="flex h-full flex-col items-stretch gap-2 rounded-xl border border-white/10 bg-black/50 p-2 backdrop-blur-sm">
+      <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg bg-black">
         <Player
           src={playlistUrl}
           poster={thumbnailUrl}
@@ -190,18 +194,18 @@ function RecommendationEmbed({
           className="absolute inset-0 z-10"
         />
       </div>
-      <div className="flex items-center gap-2 px-0.5 text-left">
+      <div className="flex shrink-0 items-center gap-2 px-1 text-left">
         {avatar ? (
           <img
             src={avatar}
             alt=""
-            className="h-5 w-5 shrink-0 rounded-full border border-white/20 object-cover"
+            className="h-6 w-6 shrink-0 rounded-full border border-white/20 object-cover"
           />
         ) : (
-          <div className="h-5 w-5 shrink-0 rounded-full border border-white/20 bg-white/10" />
+          <div className="h-6 w-6 shrink-0 rounded-full border border-white/20 bg-white/10" />
         )}
-        <p className="min-w-0 truncate text-xs text-white/80">
-          Watch @{handle ?? did}
+        <p className="min-w-0 truncate text-sm text-white">
+          Watch <span className="font-semibold">@{handle ?? did}</span>
         </p>
       </div>
     </div>

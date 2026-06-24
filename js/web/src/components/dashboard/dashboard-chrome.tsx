@@ -1,6 +1,8 @@
 import { LivestreamProvider } from "@/components/stream/livestream-provider";
+import { Button } from "@/components/ui/button";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSession } from "@/lib/session";
+import { useStore } from "@/lib/store";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -78,11 +80,26 @@ export default function DashboardChrome() {
   });
 
   if (state.status !== "authenticated") {
+    // "loading" means the OAuth client is restoring the session; don't
+    // flash the "please log in" prompt on refresh for an already-logged-in
+    // user.
+    if (state.status === "loading") {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
+        </div>
+      );
+    }
     return (
-      <div className="flex h-full items-center justify-center text-sm text-(--color-fg-muted)">
-        {t("login-required", {
-          defaultValue: "Please log in to access the dashboard.",
-        })}
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-(--color-fg-muted)">
+        <p>
+          {t("login-required", {
+            defaultValue: "Please log in to access the dashboard.",
+          })}
+        </p>
+        <Button onClick={() => useStore.getState().openLoginModal()}>
+          {t("log-in")}
+        </Button>
       </div>
     );
   }

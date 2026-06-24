@@ -107,45 +107,89 @@ export function PlayerOffline({
       )}
       <div aria-hidden className="absolute inset-0 bg-black/40" />
 
-      <div className="relative flex h-full items-stretch gap-3 p-4">
-        {/* Left: OFFLINE message panel */}
-        <div className="flex min-w-0 flex-[2] flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
-          <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
-            {t("offline")}
-          </span>
+      <div className="relative flex h-full items-center justify-center p-4">
+        {/* Under lg: stacked, 4:3 outer. Video on top, OFFLINE state
+            below. */}
+        <div className="flex aspect-[4/3] w-full max-w-full flex-col gap-2 lg:hidden">
           {recommendation ? (
-            <p className="text-base text-white">
-              Looks like <span className="font-semibold">@{handle}</span> is
-              offline, but they recommend checking out:
-            </p>
-          ) : (
-            <p className="text-base text-white">
-              Looks like <span className="font-semibold">@{handle}</span> is
-              offline right now. Check back later.
-            </p>
-          )}
-          {avatar && (
-            <div className="mt-1 flex items-center gap-2">
-              <img
-                src={avatar}
-                alt=""
-                className="h-5 w-5 rounded-full border border-white/20 object-cover"
+            <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
+              <RecommendationEmbed
+                did={recommendation.did}
+                handle={recHandle}
+                avatar={recAvatar}
               />
-              <p className="text-xs font-medium text-white/80">@{handle}</p>
             </div>
-          )}
+          ) : null}
+          <div className="flex min-h-0 flex-1 flex-col items-start justify-center gap-1.5 rounded-xl border border-white/10 bg-black/50 p-3 text-left">
+            <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
+              {t("offline")}
+            </span>
+            <p className="text-sm text-white">
+              {recommendation ? (
+                <>
+                  Looks like <span className="font-semibold">@{handle}</span> is
+                  offline, but they recommend checking out:
+                </>
+              ) : (
+                <>
+                  Looks like <span className="font-semibold">@{handle}</span> is
+                  offline right now. Check back later.
+                </>
+              )}
+            </p>
+            {avatar && (
+              <div className="mt-0.5 flex items-center gap-2">
+                <img
+                  src={avatar}
+                  alt=""
+                  className="h-5 w-5 rounded-full border border-white/20 object-cover"
+                />
+                <p className="text-xs font-medium text-white/80">@{handle}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right: embedded recommendation */}
-        {recommendation && (
-          <div className="min-w-0 flex-[3]">
-            <RecommendationEmbed
-              did={recommendation.did}
-              handle={recHandle}
-              avatar={recAvatar}
-            />
+        {/* lg and above: side-by-side. Left text panel 5:3, right
+            video panel 16:9. */}
+        <div className="hidden h-full w-full items-center justify-center gap-4 lg:flex">
+          <div className="flex aspect-[5/3] h-full max-w-[50%] flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
+            <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
+              {t("offline")}
+            </span>
+            {recommendation ? (
+              <p className="text-base text-white">
+                Looks like <span className="font-semibold">@{handle}</span> is
+                offline, but they recommend checking out:
+              </p>
+            ) : (
+              <p className="text-base text-white">
+                Looks like <span className="font-semibold">@{handle}</span> is
+                offline right now. Check back later.
+              </p>
+            )}
+            {avatar && (
+              <div className="mt-1 flex items-center gap-2">
+                <img
+                  src={avatar}
+                  alt=""
+                  className="h-5 w-5 rounded-full border border-white/20 object-cover"
+                />
+                <p className="text-xs font-medium text-white/80">@{handle}</p>
+              </div>
+            )}
           </div>
-        )}
+
+          {recommendation ? (
+            <div className="aspect-video h-full max-w-[55%]">
+              <RecommendationEmbed
+                did={recommendation.did}
+                handle={recHandle}
+                avatar={recAvatar}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

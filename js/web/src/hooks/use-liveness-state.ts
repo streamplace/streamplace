@@ -8,14 +8,18 @@ import { useShallow } from "zustand/react/shallow";
 // a "reconnecting" overlay quickly when the stream is hiccuping.
 const STALE_AFTER_SECONDS = 10;
 
-// "offline" is the authoritative "the stream is done" signal, derived
-// from the server's lastSeenAt on the livestream record (updated by
-// the director every ~30s whenever a segment is ingested). 5 minutes
-// gives transient stalls a chance to recover without falsely flipping
-// to the offline page. As a fallback, if the livestream record's
-// lastSeenAt isn't available, we use the local segment age — covers
-// the case where the WebSocket hasn't delivered the record yet but
-// segments stopped flowing long ago.
+// "offline" is the "the stream is done" signal. Driven by local
+// segment age: if no segment has arrived in this window, we treat
+// the stream as offline.
+//
+// We initially tried to drive this off livestream.record.lastSeenAt
+// (the server's view of "last segment submitted"), but the WebSocket
+// only delivers the livestream record on connect — the server's
+// periodic 30s updates to lastSeenAt aren't pushed to clients, so
+// the client-side lastSeenAt is frozen at connect time and goes
+// stale while the streamer is still active. Local segment age has
+// the same 0–30s lag as lastSeenAt would (segments arrive via the
+// same WebSocket) without the staleness.
 const OFFLINE_AFTER_SECONDS = 300;
 
 export type Liveness = "live" | "stale" | "offline" | "never-live";
@@ -41,38 +45,18 @@ export function useLivenessState(store: LivestreamStore): Liveness {
     return () => window.clearInterval(id);
   }, [state.segment]);
 
-  // The lastSeenAt-based offline check needs a re-render driver so it
-  // progresses over time when no segments are arriving. Run a 1s tick
-  // while a livestream is being tracked; clean up when it goes away.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!state.livestream?.record.lastSeenAt) return;
-    setNow(Date.now());
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [state.livestream?.record.lastSeenAt]);
-
   // Hard offline: the streamer explicitly ended the stream.
   if (state.livestream?.record.endedAt) {
     return "offline";
-  }
-
-  // Authoritative offline: server hasn't seen a segment in 5m.
-  const lastSeenAt = state.livestream?.record.lastSeenAt;
-  if (lastSeenAt) {
-    const secondsSinceLastSeen = (now - new Date(lastSeenAt).getTime()) / 1000;
-    if (secondsSinceLastSeen >= OFFLINE_AFTER_SECONDS) {
-      return "offline";
-    }
   }
 
   if (!state.hasReceivedSegment && !state.livestream) {
     return "never-live";
   }
 
-  // Stale is purely about local playback freshness — the server
-  // thinks the stream is fine but this client hasn't seen a segment
-  // in a while. Reset to live as soon as a new segment arrives.
+  // Local segment age doubles as a server signal — if no segment has
+  // arrived in OFFLINE_AFTER_SECONDS, the server isn't pushing any.
+  if (secondsSinceSegment >= OFFLINE_AFTER_SECONDS) return "offline";
   if (secondsSinceSegment >= STALE_AFTER_SECONDS) return "stale";
   return "live";
 }

@@ -106,6 +106,9 @@ export default function DashboardChrome() {
 
   const user = state.session.did;
 
+  // are we in /dashboard/? if so hide the header
+  const isDashboardRoot = window.location.pathname === "/dashboard";
+
   return (
     <LivestreamProvider user={user}>
       {(store) => (
@@ -123,8 +126,8 @@ export default function DashboardChrome() {
             >
               {!theatre && <DashboardSidebar />}
               <SidebarInset>
-                {!theatre && (
-                  <header className="bg-sidebar z-99 flex h-12 items-center gap-2 border-b border-(--color-border) px-4">
+                {!theatre && !isDashboardRoot && (
+                  <header className="bg-sidebar z-99 flex h-12 items-center gap-2 px-4">
                     <SidebarTrigger className="-ml-1" />
                     <h1 className="font-display text-lg font-semibold">
                       {t("nav-dashboard", {

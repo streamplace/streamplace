@@ -7,6 +7,7 @@ import { useSession } from "../lib/session";
 import { useStore } from "../lib/store";
 import { usePDSAgent, useUserProfile } from "../lib/store/hooks";
 import StreamplaceSvg from "./svg/streamplace-bw";
+import { Button } from "./ui/button";
 import { SidebarTrigger } from "./ui/sidebar";
 
 interface SearchResult {
@@ -271,11 +272,11 @@ export function UserProfile({
 }) {
   return (
     <div className="flex items-center gap-4">
-      <nav className="flex items-center gap-4">
+      <nav className="flex items-center gap-2 pr-3">
         {did ? (
           <Link
             to="/settings/account"
-            className="flex items-center gap-2 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-(--color-bg-overlay)"
+            className="flex items-center gap-2 rounded-full py-1 pl-1 transition-colors hover:bg-(--color-bg-overlay)"
             title={displayName ? t("signed-in-as", { handle }) : t("profile")}
             aria-label={
               displayName ? t("signed-in-as", { handle }) : t("profile")
@@ -297,13 +298,21 @@ export function UserProfile({
             )}
           </Link>
         ) : (
-          <button
-            type="button"
-            onClick={() => useStore.getState().openLoginModal()}
-            className="text-sm font-medium text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
-          >
-            {t("log-in")}
-          </button>
+          <>
+            <Button
+              onClick={() => useStore.getState().openLoginModal()}
+              variant="outline"
+              className="rounded-full text-sm"
+            >
+              {t("log-in")}
+            </Button>
+            <Button
+              onClick={() => useStore.getState().openPdsModal()}
+              className="rounded-full text-sm"
+            >
+              {t("sign-up", { defaultValue: "Sign up" })}
+            </Button>
+          </>
         )}
       </nav>
     </div>

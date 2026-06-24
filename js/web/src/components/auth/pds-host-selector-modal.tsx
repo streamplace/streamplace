@@ -22,7 +22,7 @@ import { useStore } from "@/lib/store";
 import { SHUFFLED_PDS_HOSTS, type PdsHost } from "@streamplace/core";
 import { Check, ExternalLink } from "lucide-react";
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 
 interface PdsHostSelectorModalProps {
   open: boolean;
@@ -189,33 +189,33 @@ export function PdsHostSelectorModal({
             <ExternalLink className="size-3.5" />
           </button>
 
-          <div className="rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-3 text-sm text-(--color-fg-muted)">
+          <div className="space-y-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-3 text-sm text-(--color-fg-muted)">
             <p>{t("pds-selector-info")}</p>
             {!useCustom && (
-              <p className="mt-2">
-                {t("pds-selector-read-policies", {
-                  label: selectedHostObj.label,
-                  tosLink: (children: React.ReactNode) => (
-                    <button
-                      type="button"
-                      onClick={handleTOS}
-                      className="text-(--color-accent) hover:underline"
-                    >
-                      {children}
-                    </button>
-                  ),
-                  privacyLink: (children: React.ReactNode) => (
-                    <button
-                      type="button"
-                      onClick={handlePrivacy}
-                      className="text-(--color-accent) hover:underline"
-                    >
-                      {children}
-                    </button>
-                  ),
-                })}
+              <p>
+                <Trans
+                  i18nKey="pds-selector-read-policies"
+                  values={{ label: selectedHostObj.label }}
+                  components={{
+                    tosLink: (
+                      <button
+                        type="button"
+                        onClick={handleTOS}
+                        className="text-secondary hover:underline"
+                      />
+                    ),
+                    privacyLink: (
+                      <button
+                        type="button"
+                        onClick={handlePrivacy}
+                        className="text-secondary hover:underline"
+                      />
+                    ),
+                  }}
+                />
               </p>
             )}
+            <p>{t("pds-selector-different-policies")}</p>
           </div>
 
           {!useCustom && selectedHostObj.handlePolicyDocs && (
@@ -227,17 +227,18 @@ export function PdsHostSelectorModal({
                 className="mt-0.5"
               />
               <span className="text-sm">
-                {t("pds-selector-handle-policy-checkbox", {
-                  policyLink: (children: React.ReactNode) => (
-                    <button
-                      type="button"
-                      onClick={handleHandlePolicy}
-                      className="text-(--color-accent) hover:underline"
-                    >
-                      {children}
-                    </button>
-                  ),
-                })}
+                <Trans
+                  i18nKey="pds-selector-handle-policy-checkbox"
+                  components={{
+                    policyLink: (
+                      <button
+                        type="button"
+                        onClick={handleHandlePolicy}
+                        className="text-secondary hover:underline"
+                      />
+                    ),
+                  }}
+                />
               </span>
             </label>
           )}

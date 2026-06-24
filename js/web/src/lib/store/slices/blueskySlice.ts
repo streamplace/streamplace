@@ -133,6 +133,7 @@ export interface BlueskySlice {
     red: number,
     green: number,
     blue: number,
+    selfLabels?: string[],
   ) => Promise<void>;
   followUser: (subjectDID: string) => Promise<void>;
   unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
@@ -426,6 +427,10 @@ export const createBlueskySlice: StateCreator<
       if (!(params.has("code") && params.has("state") && params.has("iss"))) {
         if (params.has("error")) {
           const blueskySlice = get() as BlueskySlice;
+          console.log("OAuth error params", {
+            error: params.get("error"),
+            error_description: params.get("error_description"),
+          });
           blueskySlice.oauthError(
             params.get("error") ?? "",
             params.get("error_description") ?? "",
@@ -783,7 +788,12 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  createChatProfileRecord: async (red: number, green: number, blue: number) => {
+  createChatProfileRecord: async (
+    red: number,
+    green: number,
+    blue: number,
+    selfLabels?: string[],
+  ) => {
     set({
       chatProfile: {
         loading: true,
@@ -810,6 +820,7 @@ export const createBlueskySlice: StateCreator<
           green: green,
           blue: blue,
         },
+        selfLabels: selfLabels,
       };
 
       const res = await state.pdsAgent.com.atproto.repo.putRecord({

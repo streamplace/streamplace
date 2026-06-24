@@ -36,15 +36,6 @@ export default function BlueskyProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return;
     const url = window.location.href;
     if (url.includes("code=") || url.includes("error=")) {
-      // In the popup case (opened by signInPopup), the /login route
-      // handles the callback itself: it does the code exchange,
-      // forwards the result to the opener via BroadcastChannel, shows
-      // a "closing in N seconds" countdown, then closes the popup
-      // itself. If we let the slice's oauthCallback run initCallback
-      // here, the library would call window.close() immediately after
-      // sending the result to the parent, and the countdown would
-      // never render.
-      if (window.opener) return;
       void oauthCallback(url);
     } else {
       void loadOAuthClient();

@@ -33,7 +33,7 @@ function CardMenuSection({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardRow({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("px-3 py-2.5", className)} {...props} />;
+  return <div className={cn("px-3", className)} {...props} />;
 }
 
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
+import { SidebarTrigger } from "../ui/sidebar";
 import { useLayout } from "./hooks/use-layout";
 import {
   removeLeafAt,
@@ -213,7 +214,8 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       <div className="relative flex h-full min-h-0 flex-col">
         {/* Toolbar */}
         {!theatre && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-(--color-border) bg-(--color-bg-elevated) px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 bg-(--color-sidebar) px-3 py-2.5">
+            <SidebarTrigger />
             {/* Preset selector */}
             {presets.length > 0 && (
               <select

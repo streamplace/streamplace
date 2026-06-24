@@ -491,14 +491,14 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
 
   if (!isAuthed) {
     return (
-      <div className="py-1 text-center text-sm text-(--color-fg-muted)">
-        <button
+      <div className="py-2 text-center text-sm text-(--color-fg-muted)">
+        <Button
           type="button"
           onClick={() => useAppStore.getState().openLoginModal()}
           className="font-medium text-(--color-accent) hover:underline"
         >
           {t("log-in")}
-        </button>{" "}
+        </Button>{" "}
         {t("chat-log-in-to")}
       </div>
     );

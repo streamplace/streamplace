@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Card, CardRow } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { createFileRoute } from "@tanstack/react-router";
@@ -73,7 +74,7 @@ function AdvancedSettings() {
 
         {overrideEnabled && (
           <CardRow>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-center gap-2">
               <input
                 type="url"
                 value={newUrl}
@@ -85,14 +86,14 @@ function AdvancedSettings() {
                 autoComplete="off"
                 className="h-9 flex-1 rounded-lg border border-(--color-border) bg-transparent px-3 font-mono text-sm outline-none focus:border-(--color-accent)"
               />
-              <button
+              <Button
                 type="button"
+                size="lg"
                 onClick={onSubmitUrl}
                 disabled={!newUrl.trim()}
-                className="h-9 rounded-md bg-(--color-accent) px-4 text-sm font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t("save-button")}
-              </button>
+              </Button>
             </div>
           </CardRow>
         )}

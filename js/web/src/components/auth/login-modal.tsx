@@ -18,13 +18,12 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { useActorTypeahead, type Actor } from "@streamplace/core";
-import { AtSign, CornerDownLeft, Info } from "lucide-react";
+import { AtSign, CornerDownLeft } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -179,10 +178,10 @@ export function LoginModal() {
       }}
     >
       <DialogContent>
-        <DialogHeader>
+        <div className="mb-2 flex flex-col gap-2">
           <DialogTitle>{t("log-in")}</DialogTitle>
           <DialogDescription>{t("sign-in-description")}</DialogDescription>
-        </DialogHeader>
+        </div>
         {submitting ? (
           <div className="space-y-3 py-6 text-center">
             <p className="text-sm text-(--color-fg-muted)">
@@ -198,26 +197,7 @@ export function LoginModal() {
             </Button>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm text-(--color-fg-muted)">
-              <span>Sign in using your handle on the AT Protocol</span>
-              <button
-                type="button"
-                onClick={() =>
-                  window.open(
-                    "https://atproto.academy/docs/Authentication/why",
-                    "_blank",
-                    "noopener",
-                  )
-                }
-                className="inline-flex items-center text-(--color-accent) hover:underline"
-                aria-label="Why ATProto?"
-              >
-                <Info className="size-3.5" />
-              </button>
-              <span>(e.g. your Bluesky handle)</span>
-            </div>
-
+          <form onSubmit={onSubmit} className="space-y-2">
             <div>
               <label
                 htmlFor="login-handle"

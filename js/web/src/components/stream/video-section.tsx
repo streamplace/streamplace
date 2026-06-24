@@ -127,12 +127,20 @@ export function VideoSectionInner({
       style={{
         // In theatre mode the sidebar and header are hidden, so the video
         // fills the full viewport. Otherwise constrain to aspect ratio.
+        // When offline, halve the height so the offline banner sits as a
+        // shorter block at the top of the page (matching the Twitch-style
+        // "offline card" layout) instead of a full video-sized box.
         ...(theatre
           ? { height: "100vh" }
-          : {
-              maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
-              aspectRatio: `${segRatio}`,
-            }),
+          : offline
+            ? {
+                maxHeight: `min(calc(50vw / ${segRatio}), calc(50vh - 120px))`,
+                aspectRatio: `${segRatio * 2}`,
+              }
+            : {
+                maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
+                aspectRatio: `${segRatio}`,
+              }),
       }}
     >
       <div className="relative mx-auto h-full">

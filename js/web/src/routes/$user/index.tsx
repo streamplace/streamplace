@@ -127,7 +127,12 @@ function StreamPage() {
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
   const { theatre } = useFullscreen();
+  // Offline streams default to a closed chat — the chat has nothing
+  // to show, and the shorter offline player should take the page
+  // width. Live streams honor the user's saved preference.
+  const isOffline = liveness === "offline" || liveness === "never-live";
   const [chatOpen, setChatOpen] = useState(() => {
+    if (isOffline) return false;
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem("streamplace:chat-open") !== "false";
   });
@@ -140,16 +145,23 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
     });
   }, []);
 
-  // Hide the chat sidebar when the stream is offline or the streamer
-  // has never gone live — no chat to show in either case.
-  const showChat = liveness !== "offline" && liveness !== "never-live";
+  // Auto-close the chat when a live stream goes offline. The user
+  // can still open it manually to see the backlog; this just gets
+  // the page back to a sensible default. (The reverse case — a
+  // closed chat reopening when the stream goes live — doesn't
+  // auto-open, the user has the toggle for that.)
+  useEffect(() => {
+    if (isOffline && chatOpen) {
+      setChatOpen(false);
+    }
+  }, [isOffline, chatOpen]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Sidebar layout (wide viewport) */}
       <div className="wide:flex wide:h-full wide:flex-col wide:gap-3 hidden">
         <div
-          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen && showChat ? "wide:mr-90" : ""}`}
+          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
         >
           <div className="min-w-0 flex-1 overflow-y-auto">
             <VideoSection store={store} user={user} liveness={liveness} />
@@ -165,15 +177,13 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
           </div>
         </div>
 
-        {showChat && (
-          <div
-            className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
-              chatOpen ? "translate-x-0" : "translate-x-full"
-            }`}
-          >
-            <ChatSidebar store={store} onClose={toggleChat} />
-          </div>
-        )}
+        <div
+          className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+            chatOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <ChatSidebar store={store} onClose={toggleChat} />
+        </div>
       </div>
 
       {/* Stacked layout (portrait/tall) */}
@@ -182,11 +192,9 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
         <MobileStreamBar store={store} user={user} />
 
-        {showChat && (
-          <div className="flex min-h-0 flex-1 flex-col border-t">
-            <ChatSidebar store={store} />
-          </div>
-        )}
+        <div className="flex min-h-0 flex-1 flex-col border-t">
+          <ChatSidebar store={store} />
+        </div>
       </div>
     </div>
   );

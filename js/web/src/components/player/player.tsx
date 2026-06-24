@@ -166,18 +166,23 @@ export function Player({
   // Stable per-mount id for video playback
   const [sessionId] = useSonare();
 
-  const surfaceError = useCallback(
-    (msg: string) => {
-      setError(msg);
-      onError?.(msg);
-      // WebRTC failed — fall back to HLS automatically.
-      if (useWebRTC) {
-        setUseWebRTC(false);
-        writeTransportPreference(false);
-      }
-    },
-    [onError, useWebRTC],
-  );
+  // Refs so the video event-listener effect below doesn't have to list
+  // these as deps — it would otherwise tear down and re-add its
+  // listeners on every transport toggle or parent re-render.
+  const useWebRTCRef = useRef(useWebRTC);
+  const onErrorRef = useRef(onError);
+  useWebRTCRef.current = useWebRTC;
+  onErrorRef.current = onError;
+
+  const surfaceError = useCallback((msg: string) => {
+    setError(msg);
+    onErrorRef.current?.(msg);
+    // WebRTC failed — fall back to HLS automatically.
+    if (useWebRTCRef.current) {
+      setUseWebRTC(false);
+      writeTransportPreference(false);
+    }
+  }, []);
 
   const handleWebRTCChange = useCallback((value: boolean) => {
     setUseWebRTC(value);
@@ -382,10 +387,6 @@ function PlayerBackend({
   onStatsChange: (stats: PlayerStats) => void;
   ref: RefObject<PlayerBackendHandle | null>;
 }) {
-  const [sona, resetSona] = useSonare();
-  useEffect(() => {
-    resetSona();
-  }, [src]);
   if (useWebRTC || src.startsWith("webrtc://")) {
     return (
       <WebRTCPlayer
@@ -400,7 +401,6 @@ function PlayerBackend({
   }
   return (
     <HLSPlayer
-      key={sona}
       ref={ref}
       videoRef={videoRef}
       src={src}

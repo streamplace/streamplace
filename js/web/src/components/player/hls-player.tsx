@@ -54,6 +54,11 @@ export function HLSPlayer({
   ref?: RefObject<PlayerBackendHandle | null>;
 }) {
   const hlsRef = useRef<Hls | null>(null);
+  // Ref so the stats-polling interval (a child of the main effect) can
+  // call the latest onStatsChange without re-creating the interval on
+  // every parent render.
+  const onStatsChangeRef = useRef(onStatsChange);
+  onStatsChangeRef.current = onStatsChange;
 
   useImperativeHandle(
     ref ?? { current: null },
@@ -211,7 +216,7 @@ export function HLSPlayer({
           ? Math.max(0, liveEdge - video.currentTime)
           : undefined;
 
-      onStatsChange?.({
+      onStatsChangeRef.current?.({
         width: currentLevelData?.width ?? video.videoWidth,
         height: currentLevelData?.height ?? video.videoHeight,
         viewportWidth: typeof window === "undefined" ? 0 : window.innerWidth,
@@ -229,7 +234,7 @@ export function HLSPlayer({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [active, onStatsChange, videoRef]);
+  }, [active, videoRef]);
 
   return null;
 }

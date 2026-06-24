@@ -19,6 +19,14 @@ import i18next from "../lib/i18n";
 /** Routes that should render without sidebar/header chrome. */
 const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
 
+/** Routes that own their own chrome via a layout route
+ *  (see routes/dashboard/route.tsx). The root only needs to know about
+ *  these to decide whether to wrap with ChromeLayout or render the
+ *  Outlet bare. The dashboard's provider tree is mounted by the layout
+ *  route itself, not by this check, so a stale read here is just a
+ *  visual flash — not a render race. */
+const DASHBOARD_PREFIX = "/dashboard";
+
 export const Route = createRootRoute({
   component: RootLayout,
   pendingComponent: RouteLoadingSkeleton,
@@ -80,13 +88,12 @@ function RouteLoadingSkeleton() {
 
 function RootLayout() {
   // Popout routes (chat popout, embeds) skip the regular chrome and
-  // render their own minimal layout. Everything else gets the full
-  // provider tree; the chrome decision (regular vs dashboard) is now
-  // owned by route layouts — see routes/dashboard/route.tsx for the
-  // dashboard chrome layout, and the non-dashboard routes get the
-  // regular chrome via ChromeLayout below. The root no longer switches
-  // chrome based on pathname, which closed a render race where the
-  // dashboard route was mounted without its DashboardStoreContext.
+  // render their own minimal layout. Dashboard routes also skip the
+  // regular chrome — they own their own via routes/dashboard/route.tsx.
+  // The dashboard layout route mounts DashboardChrome (with its
+  // DashboardStoreContext etc.) before its children, so the chrome
+  // decision here is purely visual; a stale read just causes a brief
+  // flash, not a render race.
   const pathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? "",
   });
@@ -106,6 +113,22 @@ function RootLayout() {
       <ErrorBoundary>
         <TooltipProvider>
           <Outlet />
+        </TooltipProvider>
+      </ErrorBoundary>
+    );
+  }
+
+  const isDashboard =
+    actualPathname === DASHBOARD_PREFIX ||
+    actualPathname.startsWith(`${DASHBOARD_PREFIX}/`);
+
+  if (isDashboard) {
+    return (
+      <ErrorBoundary>
+        <TooltipProvider>
+          <FullscreenProvider>
+            <Outlet />
+          </FullscreenProvider>
         </TooltipProvider>
       </ErrorBoundary>
     );

@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore as useZustandStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
 import { useStore } from "../../lib/store";
 
@@ -26,6 +27,16 @@ export function PlayerOffline({
 }) {
   const { t } = useTranslation("common");
   const profile = useZustandStore(store, (s) => s.profile);
+  // Subscribe to the app's agent fields so the effect re-runs when
+  // loadOAuthClient finishes setting up the anon (or authed) agent.
+  // Without this, a fast-firing WebSocket profile delivery can race
+  // the OAuth client init and we end up stuck with no agent.
+  const { pdsAgent, anonPDSAgent } = useStore(
+    useShallow((s) => ({
+      pdsAgent: s.pdsAgent,
+      anonPDSAgent: s.anonPDSAgent,
+    })),
+  );
   const avatars = useAvatars(profile?.did ? [profile.did] : []);
   const detailed = profile?.did ? avatars[profile.did] : null;
   const banner = detailed?.banner;
@@ -38,43 +49,33 @@ export function PlayerOffline({
   } | null>(null);
 
   useEffect(() => {
-    if (!profile?.did) {
-      console.log("[PlayerOffline] no profile.did yet, skipping fetch");
-      return;
-    }
+    if (!profile?.did) return;
+    if (!pdsAgent && !anonPDSAgent) return;
     const getRecommendations = useStore.getState().getRecommendations;
     let mounted = true;
     const fetchRec = async () => {
       try {
-        console.log(
-          "[PlayerOffline] fetching recommendations for",
-          profile.did,
-        );
         const result = await getRecommendations(profile.did);
         if (!mounted) return;
-        console.log(
-          "[PlayerOffline] got recommendations:",
-          result.recommendations?.length,
-        );
         const first = result.recommendations?.find(
           (r) =>
             r.$type ===
               "place.stream.live.getRecommendations#livestreamRecommendation" &&
             (r as { did?: string }).did,
         ) as { did?: string; source?: string } | undefined;
-        console.log("[PlayerOffline] first recommendation:", first);
         if (first?.did) {
           setRecommendation({ did: first.did, source: first.source ?? "" });
         }
-      } catch (err) {
-        console.error("[PlayerOffline] recommendations fetch failed:", err);
+      } catch {
+        // Silent: recommendations are best-effort. The OFFLINE state
+        // is still useful on its own.
       }
     };
     fetchRec();
     return () => {
       mounted = false;
     };
-  }, [profile?.did]);
+  }, [profile?.did, pdsAgent, anonPDSAgent]);
 
   // Look up the recommended streamer's profile so the card can
   // show their avatar and handle.

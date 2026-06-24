@@ -112,11 +112,18 @@ export const createStreamplaceSlice: StateCreator<
     set({ chatWarned: warned });
   },
   getRecommendations: async (userDID: string) => {
-    const { pdsAgent } = get();
-    if (!pdsAgent) {
+    // Fall back to the anonymous PDS agent when the user isn't logged
+    // in. The getRecommendations endpoint is a public read on the
+    // Streamplace server — it returns the streamer's own
+    // recommendations list filtered to currently-live streamers, or
+    // falls back to the streamer's follows that are live. No auth
+    // required, so a logged-out viewer can still see suggestions.
+    const { pdsAgent, anonPDSAgent } = get();
+    const agent = pdsAgent ?? anonPDSAgent;
+    if (!agent) {
       throw new Error("no pdsAgent");
     }
-    const result = await pdsAgent.place.stream.live.getRecommendations({
+    const result = await agent.place.stream.live.getRecommendations({
       userDID,
     });
     return result.data;

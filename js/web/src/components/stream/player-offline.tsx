@@ -108,21 +108,31 @@ export function PlayerOffline({
       <div aria-hidden className="absolute inset-0 bg-black/40" />
 
       <div className="relative flex h-full items-center gap-4 px-6">
-        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+        <div className="flex min-w-0 flex-[3] flex-col items-start justify-center gap-2 text-left">
           <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white/80 uppercase">
             {t("offline")}
           </span>
-          {avatar && (
-            <img
-              src={avatar}
-              alt=""
-              className="h-12 w-12 rounded-full border-2 border-white/20 object-cover"
-            />
+          {recommendation ? (
+            <p className="text-base text-white">
+              Looks like <span className="font-semibold">@{handle}</span> is
+              offline, but they recommend checking out:
+            </p>
+          ) : (
+            <p className="text-base text-white">
+              Looks like <span className="font-semibold">@{handle}</span> is
+              offline right now. Check back later.
+            </p>
           )}
-          <p className="text-sm font-medium text-white">@{handle}</p>
-          <p className="text-xs text-white/60">
-            {t("user-not-streaming-check-back", { user: handle })}
-          </p>
+          {avatar && (
+            <div className="mt-1 flex items-center gap-2">
+              <img
+                src={avatar}
+                alt=""
+                className="h-6 w-6 rounded-full border border-white/20 object-cover"
+              />
+              <p className="text-sm font-medium text-white">@{handle}</p>
+            </div>
+          )}
         </div>
 
         {recommendation && (
@@ -159,7 +169,7 @@ function RecommendationEmbed({
   }, [did]);
 
   return (
-    <div className="flex w-[42%] max-w-[260px] flex-col items-stretch gap-1.5">
+    <div className="flex w-[42%] max-w-[280px] flex-col items-stretch gap-1.5">
       <div className="relative aspect-video w-full overflow-hidden rounded-md border border-white/10 bg-black">
         <Player
           src={playlistUrl}

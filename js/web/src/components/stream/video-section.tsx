@@ -9,6 +9,7 @@ import type { Liveness } from "../../hooks/use-liveness-state";
 import { captureError } from "../../lib/log";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
+import { PlayerOffline } from "./player-offline";
 import { UserOffline } from "./user-offline";
 
 const DANMU_KEY = "danmu-enabled";
@@ -111,6 +112,11 @@ export function VideoSectionInner({
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
   const neverLive = liveness === "never-live";
+  const offline = liveness === "offline";
+  // Show the live player when neither never-live nor offline. This
+  // includes the initial "loading" state (liveness starts undefined
+  // for the brief moment before the WebSocket connects) and "live".
+  const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction
   const segRatio = segment ? segment.width / segment.height : 16 / 9;
@@ -129,7 +135,7 @@ export function VideoSectionInner({
             }),
       }}
     >
-      <div className="relative mx-auto h-full bg-green-400">
+      <div className="relative mx-auto h-full">
         {neverLive ? (
           <img
             src={thumbnailUrl}
@@ -140,20 +146,34 @@ export function VideoSectionInner({
             }}
           />
         ) : (
-          <Player
-            src={playlistUrl}
-            poster={thumbnailUrl}
-            active
-            mode={mode}
-            showDanmu={showDanmu}
-            onShowDanmuChange={onShowDanmuChange}
-            onError={(message) => captureError(message, { user, mode })}
-          />
+          <>
+            {/* Live player fades out when the stream goes offline. */}
+            <div
+              className={`absolute inset-0 transition-opacity duration-500 ${
+                showPlayer ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <Player
+                src={playlistUrl}
+                poster={thumbnailUrl}
+                active
+                mode={mode}
+                showDanmu={showDanmu}
+                onShowDanmuChange={onShowDanmuChange}
+                onError={(message) => captureError(message, { user, mode })}
+              />
+            </div>
+            {offline && store && (
+              <div className="animate-in fade-in absolute inset-0 duration-500">
+                <PlayerOffline store={store} user={user} />
+              </div>
+            )}
+          </>
         )}
 
         {/* Danmu overlay sits on top of the video */}
         {store && (
-          <DanmuOverlay store={store} enabled={showDanmu && !neverLive} />
+          <DanmuOverlay store={store} enabled={showDanmu && showPlayer} />
         )}
         {liveness === "stale" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">

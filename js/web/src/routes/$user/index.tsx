@@ -16,7 +16,7 @@ import {
   makeLivestreamStore,
   type LivestreamStore,
 } from "@streamplace/core";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ChevronUp, ExternalLink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -140,16 +140,16 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
     });
   }, []);
 
-  if (liveness === "offline") {
-    return <OfflinePage user={user} />;
-  }
+  // Hide the chat sidebar when the stream is offline or the streamer
+  // has never gone live — no chat to show in either case.
+  const showChat = liveness !== "offline" && liveness !== "never-live";
 
   return (
     <div className="flex h-full flex-col">
       {/* Sidebar layout (wide viewport) */}
       <div className="wide:flex wide:h-full wide:flex-col wide:gap-3 hidden">
         <div
-          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen ? "wide:mr-90" : ""}`}
+          className={`z-0 flex min-h-0 flex-1 gap-4 transition-[margin] duration-300 ease-in-out ${chatOpen && showChat ? "wide:mr-90" : ""}`}
         >
           <div className="min-w-0 flex-1 overflow-y-auto">
             <VideoSection store={store} user={user} liveness={liveness} />
@@ -165,13 +165,15 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
           </div>
         </div>
 
-        <div
-          className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
-            chatOpen ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <ChatSidebar store={store} onClose={toggleChat} />
-        </div>
+        {showChat && (
+          <div
+            className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+              chatOpen ? "translate-x-0" : "translate-x-full"
+            }`}
+          >
+            <ChatSidebar store={store} onClose={toggleChat} />
+          </div>
+        )}
       </div>
 
       {/* Stacked layout (portrait/tall) */}
@@ -180,53 +182,11 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
         <MobileStreamBar store={store} user={user} />
 
-        <div className="flex min-h-0 flex-1 flex-col border-t">
-          <ChatSidebar store={store} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OfflinePage({ user }: { user: string }) {
-  const { t } = useTranslation("common");
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-      <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated)">
-        <svg
-          className="h-5 w-5 text-(--color-fg-subtle)"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5.636 5.636a9 9 0 1 0 12.728 12.728A9 9 0 0 0 5.636 5.636Z"
-          />
-        </svg>
-      </div>
-      <h1 className="font-display text-2xl font-semibold">
-        {t("stream-is-offline-title")}
-      </h1>
-      <p className="mt-2 text-sm text-(--color-fg-muted)">
-        {t("user-not-streaming-check-back", { user })}
-      </p>
-      <div className="mt-8 flex items-center justify-center gap-3">
-        <Link
-          to="/"
-          className="inline-flex h-9 items-center rounded-md bg-(--color-accent) px-4 text-sm font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover)"
-        >
-          {t("back-to-home")}
-        </Link>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="h-9 rounded-md border border-(--color-border) px-4 text-sm hover:border-(--color-border-strong)"
-        >
-          {t("refresh")}
-        </button>
+        {showChat && (
+          <div className="flex min-h-0 flex-1 flex-col border-t">
+            <ChatSidebar store={store} />
+          </div>
+        )}
       </div>
     </div>
   );

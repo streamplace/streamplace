@@ -1,4 +1,3 @@
-import DashboardChrome from "@/components/dashboard/dashboard-chrome";
 import Header from "@/components/header";
 import SidebarComponent from "@/components/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,9 +18,6 @@ import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
 const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
-
-/** Routes that should render the dashboard's own chrome, separate from the main app. */
-const DASHBOARD_PREFIX = "/dashboard";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -83,6 +79,14 @@ function RouteLoadingSkeleton() {
 }
 
 function RootLayout() {
+  // Popout routes (chat popout, embeds) skip the regular chrome and
+  // render their own minimal layout. Everything else gets the full
+  // provider tree; the chrome decision (regular vs dashboard) is now
+  // owned by route layouts — see routes/dashboard/route.tsx for the
+  // dashboard chrome layout, and the non-dashboard routes get the
+  // regular chrome via ChromeLayout below. The root no longer switches
+  // chrome based on pathname, which closed a render race where the
+  // dashboard route was mounted without its DashboardStoreContext.
   const pathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? "",
   });
@@ -92,50 +96,16 @@ function RootLayout() {
 
   const actualPathname = pathname || browserPathname;
 
-  const isPopout = POPOUT_PREFIXES.some((p) => actualPathname.startsWith(p));
-  const isDashboard =
-    actualPathname === DASHBOARD_PREFIX ||
-    actualPathname.startsWith(`${DASHBOARD_PREFIX}/`);
-
-  console.log(
-    "Rendering RootLayout, browser:",
-    actualPathname,
-    "router: ",
-    pathname,
-    "isPopout:",
-    isPopout,
-    isDashboard,
-  );
-
   // pause until we can get a valid pathname, to avoid rendering the wrong chrome on initial load
   if (!actualPathname) {
     return <RouteLoadingSkeleton />;
   }
 
-  // Popout routes get no chrome — just providers and the outlet.
-  if (isPopout) {
+  if (POPOUT_PREFIXES.some((p) => actualPathname.startsWith(p))) {
     return (
       <ErrorBoundary>
         <TooltipProvider>
           <Outlet />
-        </TooltipProvider>
-      </ErrorBoundary>
-    );
-  }
-
-  // Dashboard routes get their own chrome, separate from the main app.
-  // See /dashboard/index.tsx and components/dashboard/dashboard-chrome.tsx for details.
-  if (isDashboard) {
-    // if no pathname from router, we aren't ready yet
-    if (!pathname) {
-      return <RouteLoadingSkeleton />;
-    }
-    return (
-      <ErrorBoundary>
-        <TooltipProvider>
-          <FullscreenProvider>
-            <DashboardChrome />
-          </FullscreenProvider>
         </TooltipProvider>
       </ErrorBoundary>
     );

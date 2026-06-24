@@ -223,7 +223,21 @@ export function Player({
       onPlaying?.();
     };
     const onLoadedMetadata = () => setManifestReady(true);
-    const onErrorEvt = () => surfaceError("Video element error");
+    const onErrorEvt = () => {
+      const code = video.error?.code;
+      // MediaError code 1 (MEDIA_ERR_ABORTED) fires when the user or
+      // a backend tears down the source — not a real error to surface.
+      if (code === 1) return;
+      surfaceError(
+        code === 2
+          ? "Network error"
+          : code === 3
+            ? "Playback error"
+            : code === 4
+              ? "Stream format not supported"
+              : "Playback error",
+      );
+    };
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -287,7 +301,9 @@ export function Player({
         const video = videoRef.current;
         if (!video) return;
         if (video.paused) {
-          video.play().catch(() => {});
+          video
+            .play()
+            .catch((err) => console.warn("[player] play() rejected", err));
         } else {
           video.pause();
         }

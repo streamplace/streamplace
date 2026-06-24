@@ -111,6 +111,7 @@ export function HLSPlayer({
         const status = (data.response as Response | undefined)?.status;
         if (status === 404) {
           onError?.("Stream not live");
+          hls.stopLoad();
           return;
         }
         switch (data.type) {
@@ -145,7 +146,9 @@ export function HLSPlayer({
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = src;
       const onCanPlay = () => {
-        video.play().catch(() => {});
+        video
+          .play()
+          .catch((err) => console.warn("[hls-player] play() rejected", err));
         video.removeEventListener("canplay", onCanPlay);
       };
       video.addEventListener("canplay", onCanPlay);

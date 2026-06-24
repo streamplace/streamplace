@@ -29,6 +29,11 @@ const RECONNECT_DELAY_MS = 3000;
 const STUCK_THRESHOLD_MS = 2000;
 const ICE_GATHERING_TIMEOUT_MS = 1000;
 const STATS_POLL_MS = 1000;
+// After this many consecutive failed reconnect attempts, give up and
+// surface a terminal error instead of looping. Picked to give transient
+// network blips time to clear (e.g. ~45s at the default 3s delay) but
+// stop hammering a clearly-broken stream.
+const MAX_RECONNECT_ATTEMPTS = 15;
 
 /**
  * Extracts the streamer handle/DID from a Streamplace playlist URL.
@@ -67,6 +72,8 @@ export function WebRTCPlayer({
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const gaveUpRef = useRef(false);
   const agentRef = useRef<StreamplaceAgent | null>(null);
 
   // WebRTC doesn't have quality levels — expose a no-op so the chrome
@@ -125,11 +132,17 @@ export function WebRTCPlayer({
       // When tracks arrive, attach the first stream to the video element.
       peerConnection.addEventListener("track", (event) => {
         if (cancelled) return;
+        // First media arriving means the connection actually works. If
+        // we later stall and have to reconnect, start the failure count
+        // from scratch — this isn't a string of broken attempts.
+        reconnectAttemptsRef.current = 0;
         if (event.streams && event.streams[0]) {
           const v = videoRef.current;
           if (v) {
             v.srcObject = event.streams[0];
-            v.play().catch(() => {});
+            v.play().catch((err) =>
+              console.warn("[webrtc-player] play() rejected", err),
+            );
           }
         }
       });
@@ -176,11 +189,17 @@ export function WebRTCPlayer({
     const pendingCleanup = { current: null as (() => void) | null };
 
     function scheduleReconnect() {
-      if (cancelled) return;
+      if (cancelled || gaveUpRef.current) return;
       if (reconnectTimerRef.current) return;
+      reconnectAttemptsRef.current += 1;
+      if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
+        gaveUpRef.current = true;
+        onErrorRef.current?.("Stream unavailable — stopped reconnecting");
+        return;
+      }
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null;
-        if (!cancelled && activeRef.current) {
+        if (!cancelled && activeRef.current && !gaveUpRef.current) {
           // Tear down old connection, spin up a new one.
           pcRef.current?.close();
           pcRef.current = null;

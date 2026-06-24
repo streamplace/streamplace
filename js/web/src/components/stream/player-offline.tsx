@@ -1,11 +1,14 @@
 import type { LivestreamStore } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore as useZustandStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
+import { captureError } from "../../lib/log";
 import { useStore } from "../../lib/store";
+import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import { Player } from "../player/player";
 
 // Replaces the player when the stream is offline. Renders the
 // streamer's banner as a blurred background with an offline badge,
@@ -104,42 +107,92 @@ export function PlayerOffline({
       )}
       <div aria-hidden className="absolute inset-0 bg-black/40" />
 
-      <div className="relative flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white/80 uppercase">
-          {t("offline")}
-        </span>
-        {avatar && (
+      <div className="relative flex h-full items-center gap-4 px-6">
+        <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+          <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white/80 uppercase">
+            {t("offline")}
+          </span>
+          {avatar && (
+            <img
+              src={avatar}
+              alt=""
+              className="h-12 w-12 rounded-full border-2 border-white/20 object-cover"
+            />
+          )}
+          <p className="text-sm font-medium text-white">@{handle}</p>
+          <p className="text-xs text-white/60">
+            {t("user-not-streaming-check-back", { user: handle })}
+          </p>
+        </div>
+
+        {recommendation && (
+          <RecommendationEmbed
+            did={recommendation.did}
+            handle={recHandle}
+            avatar={recAvatar}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Embeds a small live-player preview for the recommended streamer.
+// Clicking anywhere on the preview navigates to the streamer's page
+// (a transparent Link overlay sits on top of the Player so the
+// Player's own click-to-play/pause handler never fires).
+function RecommendationEmbed({
+  did,
+  handle,
+  avatar,
+}: {
+  did: string;
+  handle?: string;
+  avatar?: string;
+}) {
+  const { playlistUrl, thumbnailUrl } = useMemo(() => {
+    const base = getStreamplaceUrl();
+    return {
+      playlistUrl: `${base}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(did)}`,
+      thumbnailUrl: `${base}/api/playback/${encodeURIComponent(did)}/stream.jpg`,
+    };
+  }, [did]);
+
+  return (
+    <div className="flex w-[42%] max-w-[260px] flex-col items-stretch gap-1.5">
+      <div className="relative aspect-video w-full overflow-hidden rounded-md border border-white/10 bg-black">
+        <Player
+          src={playlistUrl}
+          poster={thumbnailUrl}
+          active
+          mode="live"
+          onError={(message) =>
+            captureError(message, { user: did, source: "recommendation-embed" })
+          }
+        />
+        {/* Transparent Link overlay so clicks navigate to the
+            streamer's page instead of toggling the embedded player's
+            play/pause. */}
+        <Link
+          to="/$user"
+          params={{ user: handle ?? did }}
+          aria-label={handle ? `Watch ${handle}` : "Watch this streamer"}
+          className="absolute inset-0 z-10"
+        />
+      </div>
+      <div className="flex items-center gap-2 px-0.5 text-left">
+        {avatar ? (
           <img
             src={avatar}
             alt=""
-            className="h-16 w-16 rounded-full border-2 border-white/20 object-cover"
+            className="h-5 w-5 shrink-0 rounded-full border border-white/20 object-cover"
           />
-        )}
-        <p className="text-lg font-medium text-white">@{handle}</p>
-        {recommendation ? (
-          <Link
-            to="/$user"
-            params={{ user: recHandle ?? recommendation.did }}
-            className="mt-2 flex items-center gap-3 rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-left text-white/90 transition-colors hover:bg-black/60"
-          >
-            {recAvatar ? (
-              <img
-                src={recAvatar}
-                alt=""
-                className="h-8 w-8 rounded-full border border-white/20 object-cover"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full border border-white/20 bg-white/10" />
-            )}
-            <span className="text-sm">
-              Watch @{recHandle ?? recommendation.did} instead
-            </span>
-          </Link>
         ) : (
-          <p className="text-sm text-white/60">
-            {t("user-not-streaming-check-back", { user: handle })}
-          </p>
+          <div className="h-5 w-5 shrink-0 rounded-full border border-white/20 bg-white/10" />
         )}
+        <p className="min-w-0 truncate text-xs text-white/80">
+          Watch @{handle ?? did}
+        </p>
       </div>
     </div>
   );

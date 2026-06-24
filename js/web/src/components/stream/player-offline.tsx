@@ -110,7 +110,7 @@ export function PlayerOffline({
       <div className="relative flex h-full items-center justify-center p-4">
         {/* Under lg: stacked, 4:3 outer. Video on top, OFFLINE state
             below. */}
-        <div className="flex aspect-[4/3] w-full max-w-full flex-col gap-2 lg:hidden">
+        <div className="flex aspect-[4/3] max-h-full max-w-full flex-col gap-2 lg:hidden">
           {recommendation ? (
             <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
               <RecommendationEmbed

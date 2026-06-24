@@ -38,34 +38,42 @@ export function PlayerOffline({
   } | null>(null);
 
   useEffect(() => {
-    if (!profile?.did) return;
+    if (!profile?.did) {
+      console.log("[PlayerOffline] no profile.did yet, skipping fetch");
+      return;
+    }
     const getRecommendations = useStore.getState().getRecommendations;
     let mounted = true;
     const fetchRec = async () => {
       try {
+        console.log(
+          "[PlayerOffline] fetching recommendations for",
+          profile.did,
+        );
         const result = await getRecommendations(profile.did);
         if (!mounted) return;
+        console.log(
+          "[PlayerOffline] got recommendations:",
+          result.recommendations?.length,
+        );
         const first = result.recommendations?.find(
           (r) =>
             r.$type ===
               "place.stream.live.getRecommendations#livestreamRecommendation" &&
             (r as { did?: string }).did,
         ) as { did?: string; source?: string } | undefined;
+        console.log("[PlayerOffline] first recommendation:", first);
         if (first?.did) {
           setRecommendation({ did: first.did, source: first.source ?? "" });
         }
-      } catch {
-        // Silent: recommendations are best-effort. The OFFLINE state
-        // is still useful on its own.
+      } catch (err) {
+        console.error("[PlayerOffline] recommendations fetch failed:", err);
       }
     };
     fetchRec();
     return () => {
       mounted = false;
     };
-    // The captured useAppStore.getState().getRecommendations is stable
-    // for the lifetime of the app, so depending on profile.did is
-    // enough.
   }, [profile?.did]);
 
   // Look up the recommended streamer's profile so the card can

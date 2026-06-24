@@ -127,13 +127,15 @@ export function VideoSectionInner({
       style={{
         // In theatre mode the sidebar and header are hidden, so the video
         // fills the full viewport. Otherwise match the live aspect ratio
-        // via the segRatio-driven maxHeight, and use half-height for
-        // offline. Using an explicit height (not aspect-ratio) lets CSS
-        // transition the size change when the stream goes live/offline.
+        // via the segRatio-driven maxHeight. When offline, collapse to a
+        // 4:3 panel (75vw of height) capped at half the viewport so the
+        // page below gets room. Using an explicit height (not
+        // aspect-ratio) lets CSS transition the size change when the
+        // stream goes live/offline.
         ...(theatre
           ? { height: "100vh" }
           : offline
-            ? { height: `min(calc(50vw / ${segRatio}), calc(50vh - 120px))` }
+            ? { height: "min(75vw, 50vh)" }
             : {
                 height: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
               }),

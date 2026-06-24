@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
+import { captureError } from "../../lib/log";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { UserOffline } from "./user-offline";
@@ -146,6 +147,7 @@ export function VideoSectionInner({
             mode={mode}
             showDanmu={showDanmu}
             onShowDanmuChange={onShowDanmuChange}
+            onError={(message) => captureError(message, { user, mode })}
           />
         )}
 

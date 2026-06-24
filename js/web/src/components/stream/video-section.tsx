@@ -123,23 +123,19 @@ export function VideoSectionInner({
 
   return (
     <div
-      className="w-full bg-black"
+      className="w-full bg-black transition-[height] duration-500 ease-in-out"
       style={{
         // In theatre mode the sidebar and header are hidden, so the video
-        // fills the full viewport. Otherwise constrain to aspect ratio.
-        // When offline, halve the height so the offline banner sits as a
-        // shorter block at the top of the page (matching the Twitch-style
-        // "offline card" layout) instead of a full video-sized box.
+        // fills the full viewport. Otherwise match the live aspect ratio
+        // via the segRatio-driven maxHeight, and use half-height for
+        // offline. Using an explicit height (not aspect-ratio) lets CSS
+        // transition the size change when the stream goes live/offline.
         ...(theatre
           ? { height: "100vh" }
           : offline
-            ? {
-                maxHeight: `min(calc(50vw / ${segRatio}), calc(50vh - 120px))`,
-                aspectRatio: `${segRatio * 2}`,
-              }
+            ? { height: `min(calc(50vw / ${segRatio}), calc(50vh - 120px))` }
             : {
-                maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
-                aspectRatio: `${segRatio}`,
+                height: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
               }),
       }}
     >

@@ -411,8 +411,12 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       ],
       editorProps: {
         attributes: {
+          // ProseMirror's default CSS adds white-space: pre-wrap and
+          // word-wrap: break-word, but that stylesheet isn't imported
+          // here, so we add the equivalents via Tailwind to keep long
+          // input from overflowing horizontally instead of wrapping.
           class:
-            "min-h-[36px] max-h-[120px] overflow-y-auto px-3 py-2 text-sm outline-none",
+            "min-h-[36px] max-h-[120px] min-w-0 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm outline-none",
         },
         handleKeyDown: (view, event) => {
           // Submit on Enter (not Shift+Enter) unless a suggestion popup is
@@ -535,7 +539,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
         }}
         className="flex items-end gap-2"
       >
-        <div className="relative flex-1 rounded-md border border-(--color-border) bg-(--color-bg) focus-within:border-(--color-accent)">
+        <div className="relative min-w-0 flex-1 rounded-lg border border-(--color-border) bg-(--color-bg) focus-within:border-(--color-accent)">
           {editor && <EditorContent editor={editor} />}
 
           {textLength > 200 && (
@@ -559,7 +563,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           <Smile className="h-4 w-4" />
         </Button>
 
-        <Button type="submit" size="sm" disabled={sending || textLength === 0}>
+        <Button type="submit" size="lg" disabled={sending || textLength === 0}>
           {sending ? "..." : t("chat-send-button")}
         </Button>
       </form>

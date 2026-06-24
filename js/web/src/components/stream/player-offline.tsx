@@ -1,5 +1,6 @@
 import type { LivestreamStore } from "@streamplace/core";
 import { Link } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore as useZustandStore } from "zustand";
@@ -110,9 +111,9 @@ export function PlayerOffline({
       <div className="relative flex h-full items-center justify-center p-4">
         {/* Under lg: stacked, 4:3 outer. Video on top, OFFLINE state
             below. */}
-        <div className="flex aspect-[4/3] max-h-full max-w-full flex-col gap-2 lg:hidden">
+        <div className="flex h-full max-h-full w-full max-w-full flex-col gap-2 lg:hidden">
           {recommendation ? (
-            <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black">
               <RecommendationEmbed
                 did={recommendation.did}
                 handle={recHandle}
@@ -120,7 +121,7 @@ export function PlayerOffline({
               />
             </div>
           ) : null}
-          <div className="flex min-h-0 flex-1 flex-col items-start justify-center gap-1.5 rounded-xl border border-white/10 bg-black/50 p-3 text-left">
+          <div className="flex shrink-0 flex-col items-start justify-center gap-1.5 rounded-xl border border-white/10 bg-black/50 p-3 text-left">
             <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
               {t("offline")}
             </span>
@@ -152,14 +153,12 @@ export function PlayerOffline({
 
         {/* lg and above: side-by-side. Left text panel 5:3, right
             video panel 16:9. */}
-        <div className="hidden h-full w-full items-center justify-center gap-4 lg:flex">
-          <div className="flex aspect-[5/3] h-full max-w-[50%] flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
-            <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
-              {t("offline")}
-            </span>
+        <div className="hidden h-full w-full items-center justify-center gap-4 py-24 lg:flex">
+          <div className="flex h-full max-w-sm flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
             {recommendation ? (
-              <p className="text-base text-white">
-                Looks like <span className="font-semibold">@{handle}</span> is
+              <p className="text-2xl text-white">
+                Looks like{" "}
+                <span className="text-2xl font-semibold">@{handle}</span> is
                 offline, but they recommend checking out:
               </p>
             ) : (
@@ -235,22 +234,25 @@ function RecommendationEmbed({
           to="/$user"
           params={{ user: handle ?? did }}
           aria-label={handle ? `Watch ${handle}` : "Watch this streamer"}
-          className="absolute inset-0 z-10"
-        />
-      </div>
-      <div className="flex shrink-0 items-center gap-2 px-1 text-left">
-        {avatar ? (
-          <img
-            src={avatar}
-            alt=""
-            className="h-6 w-6 shrink-0 rounded-full border border-white/20 object-cover"
-          />
-        ) : (
-          <div className="h-6 w-6 shrink-0 rounded-full border border-white/20 bg-white/10" />
-        )}
-        <p className="min-w-0 truncate text-sm text-white">
-          Watch <span className="font-semibold">@{handle ?? did}</span>
-        </p>
+          className="group absolute inset-0 z-10 mb-12 cursor-pointer bg-linear-to-t from-transparent via-black/20 to-black/20 opacity-0 transition-all duration-300 hover:opacity-100"
+        >
+          <div className="absolute right-4 bottom-2 flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-3 py-1 text-left opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:opacity-100">
+            {avatar ? (
+              <img
+                src={avatar}
+                alt=""
+                className="h-6 w-6 shrink-0 rounded-full border border-white/20 object-cover"
+              />
+            ) : (
+              <div className="h-6 w-6 shrink-0 rounded-full border border-white/20 bg-white/10" />
+            )}
+            <p className="min-w-0 truncate text-sm text-white">
+              You're going to{" "}
+              <span className="font-semibold">@{handle ?? did}</span>
+            </p>
+            <ChevronRight className="size-5" />
+          </div>
+        </Link>
       </div>
     </div>
   );

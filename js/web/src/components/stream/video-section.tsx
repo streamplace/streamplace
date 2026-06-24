@@ -135,7 +135,7 @@ export function VideoSectionInner({
         ...(theatre
           ? { height: "100vh" }
           : offline
-            ? { height: "min(75vw, 50vh)" }
+            ? { height: "min(100vw, 50vh)" }
             : {
                 height: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
               }),

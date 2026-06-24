@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -245,12 +246,12 @@ function RecommendationsManager() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q: query,
           limit: 10,
         });
         setSearchResults(
-          response.data.actors.map((a: any) => ({
+          response.actors.map((a: any) => ({
             did: a.did,
             handle: a.handle,
           })),
@@ -355,7 +356,7 @@ function RecommendationsManager() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto w-full max-w-2xl space-y-4 pt-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold">

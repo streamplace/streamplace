@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,10 +71,10 @@ function MultistreamManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const res = await agent.place.stream.multistream.listTargets({
+      const res = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
-      setTargets(res.data.targets as unknown as MultistreamTarget[]);
+      setTargets(res.targets as unknown as MultistreamTarget[]);
     } catch (error: any) {
       console.error("Failed to load multistream targets:", error);
       toast.error(error.message || "Failed to load targets");
@@ -105,24 +106,24 @@ function MultistreamManager() {
       setFormError("");
 
       if (editingTarget) {
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
-            url: data.url,
+            url: data.url as any,
             active: data.active,
-            createdAt: editingTarget.record.createdAt,
+            createdAt: editingTarget.record.createdAt as any,
           },
           rkey: editingTarget.uri.split("/").pop() || "",
         });
       } else {
-        await agent.place.stream.multistream.createTarget({
+        await agent.client.call(place.stream.multistream.createTarget, {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
-            url: data.url,
+            url: data.url as any,
             active: data.active,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString() as any,
           },
         });
       }
@@ -144,9 +145,9 @@ function MultistreamManager() {
     if (!agent) return;
     try {
       setTogglingUris((prev) => new Set(prev).add(target.uri));
-      await agent.place.stream.multistream.putTarget({
+      await agent.client.call(place.stream.multistream.putTarget, {
         multistreamTarget: {
-          ...target.record,
+          ...target.record as any,
           $type: "place.stream.multistream.target" as const,
           active: newActive,
         },
@@ -168,7 +169,7 @@ function MultistreamManager() {
     if (!agent || !deleteTarget) return;
     try {
       setDeletingUris((prev) => new Set(prev).add(deleteTarget.uri));
-      await agent.place.stream.multistream.deleteTarget({
+      await agent.client.call(place.stream.multistream.deleteTarget, {
         rkey: deleteTarget.uri.split("/").pop() || "",
       });
       setDeleteTarget(null);
@@ -204,7 +205,7 @@ function MultistreamManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <div>
         <h1 className="font-display text-xl font-semibold">
           {t("multistream-targets")}

@@ -331,7 +331,7 @@ function MetadataSection() {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <h2 className="font-display text-lg font-semibold">
         {t("metadata", { defaultValue: "Metadata" })}
       </h2>

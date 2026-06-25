@@ -1050,7 +1050,11 @@ export default function UploadScreen() {
                       </Button>
                     </Tooltip>
                   ) : (
-                    <Button size="sm" onPress={() => finalizeLivestreamRow(ls)}>
+                    <Button
+                      size="sm"
+                      onPress={() => finalizeLivestreamRow(ls)}
+                      style={{ width: "auto" }}
+                    >
                       <Text style={{ color: "#fff" }}>
                         {status === "error" ? "Retry" : "Finalize"}
                       </Text>

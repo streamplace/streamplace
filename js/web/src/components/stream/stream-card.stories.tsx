@@ -1,19 +1,21 @@
 import { withAllProviders } from "@/../.storybook/decorators";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import type { PlaceStreamLivestream } from "streamplace";
+import { PlaceStreamLivestream, place, place } from "streamplace";
 import { StreamCard } from "./stream-card";
 
 const meta: Meta<typeof StreamCard> = {
   component: StreamCard,
   parameters: {
-    layout: "centered",
+    layout: "fullscreen",
     backgrounds: { default: "dark" },
   },
   decorators: [
     withAllProviders,
     (Story) => (
-      <div className="w-full max-w-sm">
-        <Story />
+      <div className="flex h-svh w-full items-center justify-center bg-[#0c0a14] p-4">
+        <div className="w-full max-w-sm">
+          <Story />
+        </div>
       </div>
     ),
   ],
@@ -23,8 +25,8 @@ export default meta;
 type Story = StoryObj<typeof StreamCard>;
 
 function makeStream(
-  overrides: Partial<PlaceStreamLivestream.LivestreamView> = {},
-): PlaceStreamLivestream.LivestreamView {
+  overrides: Partial<place.stream.livestream.LivestreamView> = {},
+): place.stream.livestream.LivestreamView {
   return {
     uri: "at://did:plc:streamer/place.stream.livestream/abc",
     author: {
@@ -38,7 +40,7 @@ function makeStream(
     },
     viewerCount: { count: 42 },
     ...overrides,
-  } as PlaceStreamLivestream.LivestreamView;
+  } as place.stream.livestream.LivestreamView;
 }
 
 export const Default: Story = {

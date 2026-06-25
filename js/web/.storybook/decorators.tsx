@@ -2,33 +2,28 @@
 // the web app's components expect: i18n, TanStack Router, Zustand store,
 // and FullscreenProvider. Import the ones you need per story file.
 import { FullscreenProvider } from "@/contexts/fullscreen-context";
-import "@/lib/i18n";
-import { useStore } from "@/lib/store";
 import {
   createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
-  RouterProvider,
+  RouterContextProvider,
 } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-// Initialise the store so useStreamplaceUrl etc. don't blow up.
-// The slice reads from localStorage at init; in Storybook (jsdom)
-// localStorage is available but empty, so it falls back to
-// window.location.origin.
-useStore.getState().initialize();
-
-// A minimal router with a catch-all root route so <Link> works.
+// Minimal router: the /$user route exists so <Link> components
+// targeting /$user don't throw. We use RouterContextProvider (not
+// RouterProvider) because it puts the router in context for <Link>
+// without rendering the route tree, letting story content pass through.
 const rootRoute = createRootRoute({
   component: () => null,
 });
-const indexRoute = createRoute({
+const userRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/$user",
   component: () => null,
 });
-const routeTree = rootRoute.addChildren([indexRoute]);
+const routeTree = rootRoute.addChildren([userRoute]);
 const router = createRouter({
   routeTree,
   history: createMemoryHistory({ initialEntries: ["/"] }),
@@ -42,9 +37,9 @@ declare module "@tanstack/react-router" {
 
 export function withProviders({ children }: { children: ReactNode }) {
   return (
-    <RouterProvider router={router}>
+    <RouterContextProvider router={router}>
       <FullscreenProvider>{children}</FullscreenProvider>
-    </RouterProvider>
+    </RouterContextProvider>
   );
 }
 

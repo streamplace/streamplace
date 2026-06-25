@@ -1,10 +1,10 @@
 // WebRTC backend for the <Player> component. Owns RTCPeerConnection setup,
-// WHEP SDP negotiation, and reconnection. Renders nothing — the video element
+// WHEP SDP negotiation, and reconnection. Renders nothing; the video element
 // lives in <Player> so the chrome (controls, fullscreen, error display) is
 // shared across backends. This is a sibling of hls-player.tsx with the same
 // prop shape so the dispatch in PlayerBackend is a single conditional.
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
-import type { StreamplaceAgent } from "streamplace";
+import { type StreamplaceAgent, place } from "streamplace";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import type { PlayerBackendHandle, PlayerStats } from "./player";
 
@@ -13,7 +13,7 @@ export type WebRTCPlayerProps = {
   videoRef: RefObject<HTMLVideoElement | null>;
   /**
    * The source URL. For WebRTC this is the same HLS playlist URL used by the
-   * HLS backend — the streamer name is extracted from the `streamer` query
+   * HLS backend; the streamer name is extracted from the `streamer` query
    * param. This keeps the <Player> interface transport-agnostic.
    */
   src: string;
@@ -97,13 +97,13 @@ export function WebRTCPlayer({
   const gaveUpRef = useRef(false);
   const agentRef = useRef<StreamplaceAgent | null>(null);
 
-  // WebRTC doesn't have quality levels — expose a no-op so the chrome
+  // WebRTC doesn't have quality levels; expose a no-op so the chrome
   // doesn't break if the user clicks the quality menu.
   useImperativeHandle(
     ref ?? { current: null },
     () => ({
       setQuality: (_index: number) => {
-        // no-op — WebRTC delivers a single rendition
+        // no-op; WebRTC delivers a single rendition
       },
     }),
     [],
@@ -129,7 +129,7 @@ export function WebRTCPlayer({
 
     let cancelled = false;
 
-    // Lazily create the agent — imported dynamically so the HLS-only path
+    // Lazily create the agent; imported dynamically so the HLS-only path
     // never pays the import cost.
     async function getAgent(): Promise<StreamplaceAgent> {
       if (agentRef.current) return agentRef.current;
@@ -151,7 +151,7 @@ export function WebRTCPlayer({
       reconnectAttemptsRef.current += 1;
       if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
         gaveUpRef.current = true;
-        onErrorRef.current?.("Stream unavailable — stopped reconnecting");
+        onErrorRef.current?.("Stream unavailable. Stopped reconnecting.");
         return;
       }
       reconnectTimerRef.current = setTimeout(() => {
@@ -189,19 +189,19 @@ export function WebRTCPlayer({
         if (cancelled) return;
 
         // POST the offer via the WHEP endpoint.
-        const response = await agent.place.stream.playback.whep(
-          gatheredOffer.sdp,
+        const response = await agent.client.call(place.stream.playback.whep, 
+          gatheredOffer.sdp as any,
           {
-            qp: { rendition: "source", streamer },
+            params: { rendition: "source", streamer },
           },
         );
 
         if (cancelled) return;
 
         const answerSdp =
-          typeof response.data === "string"
-            ? response.data
-            : new TextDecoder().decode(response.data as BufferSource);
+          typeof response === "string"
+            ? response
+            : new TextDecoder().decode(response as BufferSource);
 
         await pc.setRemoteDescription(
           new RTCSessionDescription({ type: "answer", sdp: answerSdp }),
@@ -262,7 +262,7 @@ export function WebRTCPlayer({
 
           // Stuck detection: if no new frames for STUCK_THRESHOLD_MS, the
           // stream is probably stalled. Only start checking after we've
-          // received at least one frame — before that the connection is
+          // received at least one frame; before that the connection is
           // still establishing.
           const now = Date.now();
           if (
@@ -276,7 +276,7 @@ export function WebRTCPlayer({
           }
 
           if (hasReceivedFrames && now - lastChangeTime > STUCK_THRESHOLD_MS) {
-            onErrorRef.current?.("Stream stalled — reconnecting");
+            onErrorRef.current?.("Stream stalled. Reconnecting.");
             scheduleReconnect();
             return;
           }
@@ -353,7 +353,7 @@ export function WebRTCPlayer({
         if (cancelled) return;
         // First media arriving means the connection actually works. If
         // we later stall and have to reconnect, start the failure count
-        // from scratch — this isn't a string of broken attempts.
+        // from scratch; this isn't a string of broken attempts.
         reconnectAttemptsRef.current = 0;
         if (event.streams && event.streams[0]) {
           const v = videoRef.current;
@@ -375,7 +375,7 @@ export function WebRTCPlayer({
           state === "closed" ||
           state === "disconnected"
         ) {
-          onErrorRef.current?.("Connection lost — reconnecting");
+          onErrorRef.current?.("Connection lost. Reconnecting.");
           scheduleReconnect();
         }
       });
@@ -393,7 +393,7 @@ export function WebRTCPlayer({
     connect();
 
     // Cleanup runs on unmount or when deps change. Directly closes the
-    // peer connection via the ref — works even if connect() hasn't
+    // peer connection via the ref; works even if connect() hasn't
     // finished its async negotiate() round-trip yet, because pcRef is
     // set synchronously at the top of connect().
     return () => {

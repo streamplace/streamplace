@@ -45,7 +45,7 @@ const profileIsDifferent = (
     return true;
   }
   if (!newProfile.color) {
-    // idk. shouldn't happen.
+    // shouldn't happen, but don't overwrite an existing color with nothing.
     return false;
   }
   const { red: newRed, green: newGreen, blue: newBlue } = newProfile.color;

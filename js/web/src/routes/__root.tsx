@@ -24,7 +24,7 @@ const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
  *  these to decide whether to wrap with ChromeLayout or render the
  *  Outlet bare. The dashboard's provider tree is mounted by the layout
  *  route itself, not by this check, so a stale read here is just a
- *  visual flash — not a render race. */
+ *  visual flash; not a render race. */
 const DASHBOARD_PREFIX = "/dashboard";
 
 export const Route = createRootRoute({
@@ -89,7 +89,7 @@ function RouteLoadingSkeleton() {
 function RootLayout() {
   // Popout routes (chat popout, embeds) skip the regular chrome and
   // render their own minimal layout. Dashboard routes also skip the
-  // regular chrome — they own their own via routes/dashboard/route.tsx.
+  // regular chrome; they own their own via routes/dashboard/route.tsx.
   // The dashboard layout route mounts DashboardChrome (with its
   // DashboardStoreContext etc.) before its children, so the chrome
   // decision here is purely visual; a stale read just causes a brief

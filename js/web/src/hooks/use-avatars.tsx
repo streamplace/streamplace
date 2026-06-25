@@ -1,5 +1,4 @@
-// Cache and batch-fetch profile data for a list of DIDs. Port of
-// js/app/hooks/useAvatars.tsx.
+// Cache and batch-fetch profile data for a list of DIDs.
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { useEffect, useMemo } from "react";
 import { useStore } from "../lib/store";

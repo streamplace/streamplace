@@ -1,4 +1,4 @@
-// Standalone chat popout window. Minimal chrome — just the chat panel
+// Standalone chat popout window. Minimal chrome; just the chat panel
 // and input, no player, no sidebar, no header.
 //
 // Query parameters (useful for OBS browser sources):

@@ -140,7 +140,7 @@ export function LoginModal() {
       await signIn(trimmed);
     } catch {
       if (!popup) {
-        // Popup never opened — browser blocked it. Fall back to the
+        // Popup never opened; browser blocked it. Fall back to the
         // full-page /login route, which always does a full-page
         // redirect and works regardless of popup settings.
         goToLoginPage();

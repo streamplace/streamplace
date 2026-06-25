@@ -11,7 +11,7 @@ import { Player } from "../player/player";
 /**
  * Self-preview video monitor for the dashboard. Shows the streamer's
  * own stream with connection status, stream title, and a hide/show
- * toggle. Port of StreamMonitor from the RN app.
+ * toggle.
  */
 export function StreamMonitorWidget({
   store,

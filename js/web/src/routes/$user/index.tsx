@@ -127,7 +127,7 @@ function StreamPage() {
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
   const { theatre } = useFullscreen();
-  // Offline streams default to a closed chat — the chat has nothing
+  // Offline streams default to a closed chat; the chat has nothing
   // to show, and the shorter offline player should take the page
   // width. Live streams honor the user's saved preference.
   const isOffline = liveness === "offline" || liveness === "never-live";
@@ -147,8 +147,8 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 
   // Auto-close the chat when a live stream goes offline. The user
   // can still open it manually to see the backlog; this just gets
-  // the page back to a sensible default. (The reverse case — a
-  // closed chat reopening when the stream goes live — doesn't
+  // the page back to a sensible default. (The reverse case; a
+  // closed chat reopening when the stream goes live; doesn't
   // auto-open, the user has the toggle for that.)
   useEffect(() => {
     if (isOffline && chatOpen) {

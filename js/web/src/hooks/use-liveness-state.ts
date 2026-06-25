@@ -4,7 +4,7 @@ import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
 // "stale" fires when local playback hasn't received a segment in a
-// while — typically a network blip. Short by design so the user sees
+// while; typically a network blip. Short by design so the user sees
 // a "reconnecting" overlay quickly when the stream is hiccuping.
 const STALE_AFTER_SECONDS = 10;
 
@@ -14,7 +14,7 @@ const STALE_AFTER_SECONDS = 10;
 //
 // We initially tried to drive this off livestream.record.lastSeenAt
 // (the server's view of "last segment submitted"), but the WebSocket
-// only delivers the livestream record on connect — the server's
+// only delivers the livestream record on connect; the server's
 // periodic 30s updates to lastSeenAt aren't pushed to clients, so
 // the client-side lastSeenAt is frozen at connect time and goes
 // stale while the streamer is still active. Local segment age has
@@ -54,7 +54,7 @@ export function useLivenessState(store: LivestreamStore): Liveness {
     return "never-live";
   }
 
-  // Local segment age doubles as a server signal — if no segment has
+  // Local segment age doubles as a server signal; if no segment has
   // arrived in OFFLINE_AFTER_SECONDS, the server isn't pushing any.
   if (secondsSinceSegment >= OFFLINE_AFTER_SECONDS) return "offline";
   if (secondsSinceSegment >= STALE_AFTER_SECONDS) return "stale";

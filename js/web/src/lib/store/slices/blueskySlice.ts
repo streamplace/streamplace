@@ -101,7 +101,7 @@ export interface BlueskySlice {
   showPdsModal: boolean;
   openPdsModal: () => void;
   closePdsModal: () => void;
-  // TODO(phase 3/4): stream-key + go-live + block actions. See comment
+  // TODO: stream-key + go-live + block actions. See comment
   // at the top of this file.
   golivePost: (
     text: string,
@@ -316,7 +316,7 @@ export const createBlueskySlice: StateCreator<
         // runs, and the user is logged in. Used by the /login route,
         // which is the fallback for users on the full-page already
         // (or who got bounced here by the modal's popup-blocker
-        // detection). The promise never resolves — the page is
+        // detection). The promise never resolves; the page is
         // navigating away.
         const url = await updatedState.client.authorize(handle, {});
         window.location.href = url.href;
@@ -342,7 +342,7 @@ export const createBlueskySlice: StateCreator<
       // The library's OAuthResponseError message is "OAuth unknown error"
       // when the PDS returns a non-OK token-exchange response without
       // standard `error` / `error_description` fields. In practice this
-      // is almost always transient — the PDS is still processing the
+      // is almost always transient; the PDS is still processing the
       // previous session's revoke, rate-limiting, etc. Surface it as a
       // "try again in a moment" hint instead of a dead-end.
       if (message.startsWith("OAuth unknown error")) {
@@ -395,7 +395,7 @@ export const createBlueskySlice: StateCreator<
     } catch (error) {
       clearQueryParams();
       // Don't log the user out on a transient profile fetch failure.
-      // The session is still valid — the profile fetch can fail due
+      // The session is still valid; the profile fetch can fail due
       // to network blips, rate limiting, or PDS hiccups. Storing
       // the error lets the provider stop retrying without clobbering
       // the auth state.
@@ -492,7 +492,7 @@ export const createBlueskySlice: StateCreator<
           message = `${message}: ${cause.message}`;
           cause = cause.cause;
         }
-        // PDS token-exchange failure with no useful error fields —
+        // PDS token-exchange failure with no useful error fields;
         // almost always transient (rate limiting, revoke still
         // processing). Tell the user to try again in a moment.
         if (message.startsWith("OAuth unknown error")) {
@@ -524,7 +524,7 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO(phase 4): golivePost needs RichText from @atproto/api and is
+  // TODO: golivePost needs RichText from @atproto/api and is
   // called from createLivestreamRecord. Both port together.
   golivePost: async (_text: string, _now: Date, _thumbnail?: any) => {
     throw new Error("golivePost not yet ported (Phase 4)");
@@ -535,7 +535,7 @@ export const createBlueskySlice: StateCreator<
     throw new Error("createBlockRecord not ported");
   },
 
-  // TODO(phase 3/4): stream-key actions need @atproto/crypto + viem.
+  // TODO: stream-key actions need @atproto/crypto + viem.
   // Generate-keypair code is also used by createLivestreamRecord for
   // blob uploads, so adding the deps unblocks both at once.
   createStreamKeyRecord: async (_store: boolean) => {
@@ -742,7 +742,7 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO(phase 4): go-live. Needs golivePost (RichText) + blob upload
+  // TODO: go-live. Needs golivePost (RichText) + blob upload
   // helper. Both are pure @atproto/api code, no extra deps.
   createLivestreamRecord: async () => {
     throw new Error("createLivestreamRecord not yet ported (Phase 4)");

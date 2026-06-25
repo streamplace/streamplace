@@ -1,11 +1,6 @@
 // Debounced handle typeahead for the login form. Hits the public
 // Bluesky API's searchActorsTypeahead endpoint and returns the top N
-// matches. Platform-agnostic: just fetch + state, no React Native or
-// web-only APIs.
-//
-// Mirrors js/app/hooks/useActorTypeahead.tsx so both surfaces share
-// the same UX (minimum query length, debounce window, request-rate
-// floor, abort-on-stale).
+// matches.
 import { useEffect, useRef, useState } from "react";
 
 export interface Actor {
@@ -92,9 +87,9 @@ export function useActorTypeahead(query: string): TypeaheadResult {
         if (!controller.signal.aborted) {
           const newActors: Actor[] = data.actors || [];
 
-          // Skip the setState if the result is identical to what we
-          // already have — keeps the input stable when the typeahead
-          // returns the same matches on a re-fetch.
+          // Skip setState if the result matches what we already have.
+          // Keeps the input stable when the typeahead returns the same
+          // matches on a re-fetch.
           const actorsChanged =
             newActors.length !== actorsRef.current.length ||
             newActors.some(

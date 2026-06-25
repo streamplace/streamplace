@@ -1,5 +1,4 @@
-// Upload state machine for VOD uploads. Mirrors the RN upload flow but
-// simplified for the web (no expo-document-picker, no expo-file-system).
+// Upload state machine for VOD uploads.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlaceStreamVideo } from "streamplace";
 import * as tus from "tus-js-client";
@@ -54,18 +53,18 @@ export async function validateVideoFile(file: File): Promise<string | null> {
   const str = (offset: number, len: number) =>
     String.fromCharCode(...Array.from(b.slice(offset, offset + len)));
 
-  // MP4 / MOV / M4V — "ftyp" box at offset 4
+  // MP4 / MOV / M4V; "ftyp" box at offset 4
   if (str(4, 4) === "ftyp") return null;
-  // WebM / MKV — EBML magic
+  // WebM / MKV; EBML magic
   if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3)
     return null;
-  // AVI — "RIFF" header with "AVI " chunk
+  // AVI; "RIFF" header with "AVI " chunk
   if (str(0, 4) === "RIFF" && str(8, 4) === "AVI ") return null;
   // OGG (video: OGV, Theora)
   if (str(0, 4) === "OggS") return null;
   // FLV
   if (str(0, 3) === "FLV") return null;
-  // MPEG-TS — 188-byte packets starting with sync byte 0x47
+  // MPEG-TS; 188-byte packets starting with sync byte 0x47
   if (b[0] === 0x47) return null;
 
   return "File doesn't appear to be a supported video format (MP4, WebM, MKV, MOV, AVI, OGG, FLV, MPEG-TS).";
@@ -81,7 +80,7 @@ export function useUpload() {
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
   const [file, setFile] = useState<File | null>(null);
 
-  // metadata form — always editable
+  // metadata form; always editable
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -171,7 +170,7 @@ export function useUpload() {
         if (attempts > MAX_POLL_ATTEMPTS) {
           setPhase({
             kind: "error",
-            message: "Processing timed out — please try again later",
+            message: "Processing timed out. Please try again later.",
           });
           return;
         }

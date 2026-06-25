@@ -39,7 +39,7 @@ interface NavLink {
   labelKey: string;
 }
 
-/** Main nav — appears above the Settings group. */
+/** Main nav; appears above the Settings group. */
 const MAIN_NAV: NavLink[] = [
   { to: "/dashboard", icon: LayoutGrid, labelKey: "control-panel" },
   {
@@ -54,7 +54,7 @@ const MAIN_NAV: NavLink[] = [
   },
 ];
 
-/** Settings group — appears under a "Settings" header. */
+/** Settings group; appears under a "Settings" header. */
 const SETTINGS_NAV: NavLink[] = [
   { to: "/dashboard/stream", icon: Radio, labelKey: "stream-settings" },
   { to: "/dashboard/keys", icon: Key, labelKey: "key-manager" },

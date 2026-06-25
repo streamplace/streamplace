@@ -115,9 +115,9 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
 
   /**
    * Unified drop handler. Supports two kinds of source:
-   * - leaf source (`leaf-{path}`): move the widget — split the target
+   * - leaf source (`leaf-{path}`): move the widget; split the target
    *   and remove the source from its original slot
-   * - drawer source (`widget-{key}`): add the widget — split the target
+   * - drawer source (`widget-{key}`): add the widget; split the target
    *   with the dragged widget, no source removal
    */
   const handleDragEnd = useCallback(
@@ -174,7 +174,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       const finalSourceWidget = sourceWidget;
       let nextLayout: LayoutNode;
 
-      // Dropping onto a blank slot just fills it — no split, since a
+      // Dropping onto a blank slot just fills it; no split, since a
       // split with a blank in one half would be weird. For leaf
       // sources we also remove the source so the widget effectively
       // moves into the empty slot.

@@ -1,17 +1,5 @@
 // Web-native emoji picker.
 //
-// Adapted from js/app/components/emoji-picker/emoji-picker.web.tsx. The
-// structure (frimousse + custom category icons + skin tone tray/trigger +
-// active-emoji bar) is copied wholesale; the cross-package imports have
-// been swapped for web equivalents:
-//
-//   - theme/useTheme     -> CSS variables (var(--color-*))
-//   - hexToRgba/Text     -> inline span styles
-//   - react-native View  -> <div>
-//   - lucide-react-native-> lucide-react
-//   - utils/emoji        -> ../../lib/emoji-data
-//   - useAQState         -> ../../hooks/use-skin-tone (same shape)
-//
 // The skin tone is lifted to the parent: pass `skinTone` and
 // `onSkinToneChange` so the parent's state (and any shortcode-insertion
 // logic that reads it) stays in sync with the picker's selection.
@@ -74,7 +62,7 @@ interface EmojiPickerProps {
   /**
    * Ref to the trigger element (e.g., the smile button). The picker
    * portals to document.body and positions itself relative to this
-   * anchor — the popover that would otherwise host us has an
+   * anchor; the popover that would otherwise host us has an
    * `overflow-hidden` ancestor (the chat sidebar wrapper) that clips
    * any `position: absolute` content above the sidebar's top edge.
    */
@@ -298,7 +286,7 @@ export function EmojiPicker({
     };
   }, [isOpen, onClose]);
 
-  // Click-outside closes (unless the click is on the anchor — let the
+  // Click-outside closes (unless the click is on the anchor; let the
   // anchor's own onClick toggle).
   useEffect(() => {
     if (!isOpen) return;
@@ -323,7 +311,7 @@ export function EmojiPicker({
       const sizer = viewport.querySelector<HTMLElement>(
         "[frimousse-list-sizer]",
       );
-      // Skip index 0 — it's the hidden measurement element frimousse renders
+      // Skip index 0; it's the hidden measurement element frimousse renders
       const categories = Array.from(
         viewport.querySelectorAll<HTMLElement>("[frimousse-category]"),
       ).slice(1);
@@ -344,7 +332,7 @@ export function EmojiPicker({
     const viewport = viewportRef.current;
     if (!viewport) return;
     const sizer = viewport.querySelector<HTMLElement>("[frimousse-list-sizer]");
-    // Skip index 0 — it's the hidden measurement element frimousse renders
+    // Skip index 0; it's the hidden measurement element frimousse renders
     const categories = Array.from(
       viewport.querySelectorAll<HTMLElement>("[frimousse-category]"),
     ).slice(1);

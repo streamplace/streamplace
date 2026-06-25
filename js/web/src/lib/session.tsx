@@ -4,7 +4,7 @@
 // this provider just exposes reactive bindings ({state, signIn,
 // signOut, pdsAgent, did}) to consumers that want context semantics.
 //
-// `getClient` was dropped from the public API — nothing in the web
+// `getClient` was dropped from the public API; nothing in the web
 // uses it directly anymore, and callers who need the underlying
 // client can read the slice's `client` field.
 import { OAuthSession } from "@atproto/oauth-client-browser";

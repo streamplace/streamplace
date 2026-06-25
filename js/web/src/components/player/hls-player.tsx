@@ -1,5 +1,5 @@
 // HLS backend for the <Player> component. Owns hls.js setup, manifest
-// loading, and error recovery. Renders nothing — the video element
+// loading, and error recovery. Renders nothing; the video element
 // lives in <Player> so the chrome (controls, fullscreen, error display)
 // is shared across backends. When a WebRTC backend lands it will be a
 // sibling of this file with the same shape.
@@ -105,11 +105,11 @@ export function HLSPlayer({
         }
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            onError?.("Network error — retrying");
+            onError?.("Network error. Retrying.");
             hls.startLoad();
             return;
           case Hls.ErrorTypes.MEDIA_ERROR:
-            onError?.("Media error — recovering");
+            onError?.("Media error. Recovering.");
             hls.recoverMediaError();
             return;
           default:

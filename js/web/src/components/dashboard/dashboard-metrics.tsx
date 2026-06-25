@@ -13,7 +13,7 @@ import { useDashboardStore } from "./dashboard-store-context";
 /** How often we sample the live metrics into the history buffer. */
 const SAMPLE_INTERVAL_MS = 2000;
 
-/** Range presets — sliding-window lengths. */
+/** Range presets; sliding-window lengths. */
 export type DashboardRange = "1m" | "2m" | "5m" | "10m" | "25m";
 
 export const DASHBOARD_RANGES: {
@@ -78,7 +78,7 @@ interface ProviderProps {
  * history buffer. Mount this high in the tree (the dashboard chrome) so
  * the buffer keeps populating while the user navigates between dashboard
  * sub-routes. When the user is on a non-dashboard page the provider
- * unmounts and tracking stops — the buffer is fresh on remount.
+ * unmounts and tracking stops; the buffer is fresh on remount.
  */
 export function DashboardMetricsProvider({ children }: ProviderProps) {
   const store = useDashboardStore();

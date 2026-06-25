@@ -72,7 +72,7 @@ function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // /login is the full-page route — always do a full-page redirect
+      // /login is the full-page route; always do a full-page redirect
       // to the PDS rather than opening a popup. This is the reliable
       // fallback for users who landed here directly, or who got bounced
       // here by the modal's popup-blocker detection.

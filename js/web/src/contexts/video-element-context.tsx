@@ -1,6 +1,4 @@
-// Shared HTMLVideoElement for the player + chat overlay. Port of
-// js/app/contexts/VideoElementContext.tsx (already pure-React, no
-// platform changes needed).
+// Shared HTMLVideoElement for the player + chat overlay.
 import { createContext, ReactNode, useContext } from "react";
 
 interface VideoElementContextType {

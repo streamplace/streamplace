@@ -24,7 +24,7 @@ export default meta;
 type Story = StoryObj<typeof Player>;
 
 /**
- * Inactive player — shows the poster image only, no video backend.
+ * Inactive player; shows the poster image only, no video backend.
  */
 export const Inactive: Story = {
   args: {
@@ -48,7 +48,7 @@ export const LiveHLS: Story = {
 };
 
 /**
- * VOD mode — same backend but the chrome shows a scrubber instead of
+ * VOD mode; same backend but the chrome shows a scrubber instead of
  * the "LIVE" indicator.
  */
 export const VOD: Story = {
@@ -60,7 +60,7 @@ export const VOD: Story = {
 };
 
 /**
- * Inactive with a fallback poster — shown when the stream is offline.
+ * Inactive with a fallback poster; shown when the stream is offline.
  */
 export const Offline: Story = {
   args: {

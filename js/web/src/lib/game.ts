@@ -1,4 +1,4 @@
-// Helpers for game activity. Mirrors js/app/utils/game.ts.
+// Helpers for game activity.
 
 interface GameMediaItem {
   mediaType: string;

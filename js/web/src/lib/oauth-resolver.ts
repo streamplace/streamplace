@@ -1,5 +1,4 @@
-// Duck-typed OAuthResolver — avoids pnpm hoisting issues with @atproto/oauth-client base class.
-// Overrides resolveFromService to route through the Streamplace backend.
+// Duck-typed OAuthResolver that routes through the Streamplace backend.
 //
 // Why not extend the real `OAuthResolver`? @atproto/oauth-client 0.7.x
 // restricts its `exports` to the package root, so deep-importing
@@ -9,10 +8,10 @@
 // mirror the public surface here.
 //
 // Surface we need to satisfy (per @atproto/oauth-client 0.7.x):
-//   - resolve(input)              — high-level dispatcher; called by OAuthClient.authorize
-//   - resolveFromIdentity(input)  — called by OAuthServerAgent.verifyIssuer
-//   - resolveFromService(input)   — the original override target
-//   - getCurrentResourceServer()  — used by oauth.ts to inject login_hint on PAR
+//   - resolve(input)              high-level dispatcher; called by OAuthClient.authorize
+//   - resolveFromIdentity(input)  called by OAuthServerAgent.verifyIssuer
+//   - resolveFromService(input)   the original override target
+//   - getCurrentResourceServer()  used by oauth.ts to inject login_hint on PAR
 //
 // All three resolve* methods return streamplace's OAuth server metadata
 // regardless of input. The PAR / authorize flow injects `login_hint: input`

@@ -1,14 +1,7 @@
-// PDS (Personal Data Server) host list shown during signup. The
-// streamplace user needs a PDS before they can sign in — this is the
-// curated list we present to new users, plus an option to enter a
-// custom host.
-//
-// `handlePolicyDocs` is a special case: hosts that have a handle
-// policy (e.g. Blacksky's "you must follow this account") require the
-// user to check a box before continuing. We pre-shuffle the list once
-// at module load so the order feels fresh on each visit, but always
-// pin a non-policy host to the top so the first option is always
-// ready to go without an extra checkbox.
+// PDS host list shown during signup. `handlePolicyDocs` hosts require
+// the user to check a box before continuing. We pre-shuffle the list
+// at module load, but pin a non-policy host to the top so the first
+// option is always ready without an extra checkbox.
 export interface PdsHost {
   value: string;
   label: string;

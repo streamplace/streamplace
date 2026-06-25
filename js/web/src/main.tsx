@@ -58,8 +58,8 @@ if (!rootEl) {
 // Top-level modals + auth wiring. The login modal handles the
 // handle-entry + sign-in flow; clicking "Sign Up" closes it and
 // opens the PDS host selector, which on submit hands the chosen
-// PDS to signInPopup (the PDS URL goes through as the "handle" —
-// the OAuth client treats it as the identity server for the
+// PDS to signInPopup (the PDS URL goes through as the "handle"; the
+// OAuth client treats it as the identity server for the
 // round-trip, and the PDS handles account creation for new users).
 function AuthShell() {
   const showPdsModal = useStore((s) => s.showPdsModal);

@@ -37,7 +37,7 @@ export type PlayerControlsProps = {
   containerRef: RefObject<HTMLElement | null>;
   /** Live streams hide the scrubber and show a "LIVE" badge in its place. */
   isLive: boolean;
-  /** Parent controls visibility — auto-hide logic lives in the HLSPlayer. */
+  /** Parent controls visibility; auto-hide logic lives in the HLSPlayer. */
   showControls: boolean;
   /** When true, show a centered play button (no control bar). */
   bigPlay: boolean;
@@ -257,7 +257,7 @@ export function PlayerControls({
         visible ? "opacity-100" : "pointer-events-none opacity-0",
       )}
     >
-      {/* Top gradient — subtle hint that there's a controls bar.
+      {/* Top gradient; subtle hint that there's a controls bar.
           Not strictly needed since the bar has its own background, but
           gives the play button overlay a darker canvas. */}
       <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />

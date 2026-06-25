@@ -1,7 +1,7 @@
 // Public <Player> component. Owns the video element and the shared
 // chrome (controls overlay, error display, fullscreen, auto-hide,
 // click-to-toggle). The actual playback source is handled by a
-// backend — currently <HLSPlayer>, soon <WebRTCPlayer> and others.
+// backend, currently <HLSPlayer>, soon <WebRTCPlayer> and others.
 // Backends are rendered as siblings of the <video> element and use
 // the shared videoRef to attach their source. This keeps the chrome
 // implementation-free of any specific transport.
@@ -167,7 +167,7 @@ export function Player({
   const [sessionId] = useSonare();
 
   // Refs so the video event-listener effect below doesn't have to list
-  // these as deps — it would otherwise tear down and re-add its
+  // these as deps; it would otherwise tear down and re-add its
   // listeners on every transport toggle or parent re-render.
   const useWebRTCRef = useRef(useWebRTC);
   const onErrorRef = useRef(onError);
@@ -177,7 +177,7 @@ export function Player({
   const surfaceError = useCallback((msg: string) => {
     setError(msg);
     onErrorRef.current?.(msg);
-    // WebRTC failed — fall back to HLS automatically.
+    // WebRTC failed; fall back to HLS automatically.
     if (useWebRTCRef.current) {
       setUseWebRTC(false);
       writeTransportPreference(false);
@@ -226,7 +226,7 @@ export function Player({
     const onErrorEvt = () => {
       const code = video.error?.code;
       // MediaError code 1 (MEDIA_ERR_ABORTED) fires when the user or
-      // a backend tears down the source — not a real error to surface.
+      // a backend tears down the source; not a real error to surface.
       if (code === 1) return;
       surfaceError(
         code === 2
@@ -430,7 +430,7 @@ function PlayerBackend({
 }
 
 /**
- * "Stats for nerds" panel. Draggable, moveable window — grab anywhere
+ * "Stats for nerds" panel. Draggable, moveable window; grab anywhere
  * on the panel and drag to reposition. Uses pointer events so mouse and
  * touch both work, with setPointerCapture so the drag keeps tracking
  * even if the cursor leaves the panel mid-drag.
@@ -481,7 +481,11 @@ function StatsOverlay({
   const kbps = stats.bitrate ? Math.round(stats.bitrate / 1000) : null;
   const mbps = kbps ? (kbps / 1000).toFixed(2) : null;
   const bitrateDisplay =
-    mbps && kbps && kbps > 1000 ? `${mbps} Mbps` : kbps ? `${kbps} Kbps` : "—";
+    mbps && kbps && kbps > 1000
+      ? `${mbps} Mbps`
+      : kbps
+        ? `${kbps} Kbps`
+        : "N/A";
   return (
     <div
       role="dialog"
@@ -517,7 +521,7 @@ function StatsOverlay({
         <Row
           label="FPS"
           value={
-            stats.fps !== undefined ? Math.round(stats.fps).toString() : "—"
+            stats.fps !== undefined ? Math.round(stats.fps).toString() : "N/A"
           }
         />
         <Row

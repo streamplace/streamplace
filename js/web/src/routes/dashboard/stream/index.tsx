@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
 import { Admonition } from "@/components/ui/admonition";
 import { Button } from "@/components/ui/button";
@@ -597,11 +598,11 @@ function StreamKeySection() {
   // Fetch ingest URLs
   useEffect(() => {
     if (!pdsAgent) return;
-    pdsAgent.place.stream.ingest
-      .getIngestUrls({})
+    pdsAgent.client
+      .call(place.stream.ingest.getIngestUrls, {})
       .then((res) => {
         setIngestUrls(
-          res.data.ingests
+          res.ingests
             .map((i: any) => ({ type: i.type || "unknown", url: i.url }))
             .filter((i) => i.url),
         );
@@ -968,7 +969,7 @@ function GoLiveSection({
                 <li>
                   Server ={" "}
                   <span className="text-(--color-fg)">
-                    {activeIngest?.url || "—"}
+                    {activeIngest?.url || "N/A"}
                   </span>
                 </li>
                 {mode === "rtmp" ? (
@@ -1023,7 +1024,7 @@ function ModerationSection() {
       <div className="rounded-lg border border-dashed border-(--color-border) p-6 text-sm text-(--color-fg-muted)">
         {t("moderation-coming-soon", {
           defaultValue:
-            "Moderator management hooks aren't on the web yet — this section is a placeholder.",
+            "Moderator management hooks aren't on the web yet. This section is a placeholder.",
         })}
       </div>
     </div>

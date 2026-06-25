@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { Globe, Loader2 } from "lucide-react";
@@ -56,7 +57,7 @@ function statusColor(target: MultistreamTarget): string {
 
 /**
  * Lists multistream targets with active/inactive toggles and connection
- * status. Port of MultistreamStatus from the RN app.
+ * status.
  */
 export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
   const { t } = useTranslation("common");
@@ -69,10 +70,10 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.place.stream.multistream.listTargets({
+      const response = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
-      setTargets(response.data.targets as unknown as MultistreamTarget[]);
+      setTargets(response.targets as unknown as MultistreamTarget[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
       setTargets([]);
@@ -86,7 +87,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
       if (!agent) return;
       try {
         setToggling((prev) => new Set(prev).add(target.uri));
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             ...target.record,
             $type: "place.stream.multistream.target" as const,

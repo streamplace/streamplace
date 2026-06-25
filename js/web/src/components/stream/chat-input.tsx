@@ -269,14 +269,14 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   return {
     pluginKey: EmojiPluginKey,
     char: ":",
-    // Don't pop the popup open on a single `:` — only once the user has
+    // Don't pop the popup open on a single `:`; only once the user has
     // typed enough characters to plausibly match something. Without this
     // gate the popup opens with an empty list and looks broken.
     shouldShow: ({ query }: { query: string }) => query.length >= 3,
     items: ({ query }: { query: string }) => {
       const data = emojiDataRef.data;
       if (data) return searchEmojis(data, query);
-      // Data not yet loaded — kick off the fetch, cache the result, and
+      // Data not yet loaded; kick off the fetch, cache the result, and
       // resolve the items list once it lands. The suggestion plugin
       // accepts a Promise return value and will re-fire onUpdate.
       return getEmojiData().then((d) => {
@@ -337,7 +337,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   // sending state (which would recreate the editor on every send).
   const onSubmitRef = useRef<() => void>(() => {});
 
-  // Ref to the smile trigger button — passed to the picker so it can
+  // Ref to the smile trigger button; passed to the picker so it can
   // position itself relative to it (the picker portals to document.body
   // to escape the chat sidebar's overflow-hidden wrapper).
   const smileButtonRef = useRef<HTMLButtonElement>(null);
@@ -422,7 +422,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           // Submit on Enter (not Shift+Enter) unless a suggestion popup is
           // active. ProseMirror dispatches handleKeyDown with editor-view
           // props first and plugins after, so we can't rely on the
-          // suggestion plugin short-circuiting us — we have to check both
+          // suggestion plugin short-circuiting us; we have to check both
           // plugin states and decline to handle the event ourselves so
           // whichever plugin is open still gets a turn.
           if (event.key === "Enter" && !event.shiftKey) {

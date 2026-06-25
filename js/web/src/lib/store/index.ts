@@ -1,5 +1,4 @@
-// Combined Zustand store. Mirrors the shape of js/app/store/index.ts.
-// Slices are spread, not namespaced; selectors read from the flat state.
+// Combined Zustand store. Slices are spread, not namespaced; selectors read from the flat state.
 import { create } from "zustand";
 import { BaseSlice, createBaseSlice } from "./slices/baseSlice";
 import { BlueskySlice, createBlueskySlice } from "./slices/blueskySlice";

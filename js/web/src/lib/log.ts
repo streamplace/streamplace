@@ -10,7 +10,7 @@
 // message and a caller-supplied context bag.
 //
 // `log.warn` / `log.error` are for one-off developer logs that aren't
-// necessarily errors. They go to console only — use `captureError` if
+// necessarily errors. They go to console only; use `captureError` if
 // the message should reach Sentry.
 import * as Sentry from "@sentry/react";
 
@@ -19,7 +19,7 @@ export function captureError(
   context?: Record<string, unknown>,
 ): void {
   if (import.meta.env.DEV) {
-    // Don't spam Sentry with dev noise — console is enough.
+    // Don't spam Sentry with dev noise; console is enough.
     console.error(message, context);
     return;
   }

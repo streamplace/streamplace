@@ -46,7 +46,7 @@ function AdvancedSettings() {
   };
 
   // Toggling web-beta writes a cookie and reloads. The reload is what
-  // actually flips the user over to the other frontend — the server
+  // actually flips the user over to the other frontend; the server
   // reads the cookie on the next request and picks the matching bundle.
   const handleWebBetaToggle = (enabled: boolean) => {
     setWebBetaEnabled(enabled);

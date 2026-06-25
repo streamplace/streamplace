@@ -8,9 +8,9 @@ import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type {
+import {
   ChatMessageViewHydrated,
-  PlaceStreamBadgeDefs,
+  place,
 } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -216,7 +216,7 @@ function ChatMessage({
     <div
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
-      {/* Hover actions — visible on group hover */}
+      {/* Hover actions; visible on group hover */}
       <div className="absolute top-0 right-0 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {state.status === "authenticated" && !isOwn && (
           <button
@@ -379,7 +379,7 @@ function UserHandle({
 }: {
   author: ChatMessageViewHydrated["author"];
   color: { red: number; green: number; blue: number } | undefined;
-  badges?: PlaceStreamBadgeDefs.BadgeView[];
+  badges?: place.stream.badge.defs.BadgeView[];
 }) {
   const { t } = useTranslation("common");
   const name = author.displayName || author.handle || author.did;
@@ -404,7 +404,7 @@ function UserHandle({
         align="start"
         className="w-72 overflow-hidden p-0"
       >
-        {/* Banner — gradient tinted with the user's chat color */}
+        {/* Banner; gradient tinted with the user's chat color */}
         <div
           className="relative h-20"
           style={
@@ -542,7 +542,7 @@ function shortDid(did: string): string {
 }
 
 function issuerLabel(
-  badge: PlaceStreamBadgeDefs.BadgeView,
+  badge: place.stream.badge.defs.BadgeView,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
   if (badge.issuer && badge.issuer.startsWith("did:web:")) {
@@ -554,7 +554,7 @@ function issuerLabel(
   return t("badge-issued");
 }
 
-function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
+function BadgeIcon({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
   if (!src) return null;
   return (
@@ -566,7 +566,7 @@ function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
   );
 }
 
-function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
+function BadgeRow({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
   const { t } = useTranslation("common");
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
   const i18nKey = BADGE_I18N_KEYS[badge.badgeType];

@@ -1,8 +1,8 @@
 // Sidebar visibility/collapse state, persisted to storage.
-// Mirrors js/app/store/slices/sidebarSlice.ts. The web's current Sidebar
-// is a shadcn primitive with its own localStorage key ("streamplace:nav-open")
-// — the values here are kept in this slice for parity with the app so that
-// future port work (sidebar overlay, etc.) has a single source of truth.
+// The web's current Sidebar is a shadcn primitive with its own
+// localStorage key ("streamplace:nav-open"); the values here are kept
+// in this slice for parity with the app so future port work (sidebar
+// overlay, etc.) has a single source of truth.
 import { StateCreator } from "zustand";
 import { storage } from "../../storage";
 

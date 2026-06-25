@@ -4,7 +4,7 @@ import { reduceChat } from "./chat-reducer";
 import type { LivestreamState } from "./state";
 
 function makeMsg(
-  overrides: Partial<ChatMessageViewHydrated> & {
+  overrides: Omit<Partial<ChatMessageViewHydrated>, "uri"> & {
     uri?: string;
     did?: string;
     text?: string;
@@ -20,13 +20,6 @@ function makeMsg(
   return {
     uri,
     cid: "cid-" + uri,
-    author: { did, handle: did + ".bsky.social" },
-    record: {
-      $type: "place.stream.chat.message",
-      text,
-      createdAt,
-      streamer: "did:plc:streamer",
-    },
     indexedAt: createdAt,
     chatProfile: { color: { red: 255, green: 255, blue: 255 } },
     ...overrides,
@@ -257,7 +250,7 @@ describe("reduceChat", () => {
       chatProfile: profile as any,
     });
     const state2 = reduceChat(state, [msg2], [], []);
-    // Same ref — no re-render trigger
+    // Same ref, no re-render trigger.
     expect(state2.authors["did:plc:a"]).toBe(authorsBefore);
   });
 });

@@ -1,8 +1,4 @@
-// PDS host selector shown during signup. Mirrors
-// js/app/components/login/pds-host-selector-modal.tsx but uses the
-// web's Dialog primitive and Tailwind classes instead of React Native
-// styles. The host list itself lives in @streamplace/core so the app
-// and web share it.
+// PDS host selector shown during signup.
 //
 // The flow: user clicks "Sign Up" in the login modal → login modal
 // closes and this one opens → user picks a PDS (or enters a custom

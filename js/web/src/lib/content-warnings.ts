@@ -1,7 +1,4 @@
-// Local copy of the content-warnings schema constants. Mirrors
-// `CONTENT_WARNINGS` from @streamplace/components/lib/metadata-constants,
-// duplicated here because the web app doesn't depend on that package
-// (it's React-Native-coupled).
+// Content-warnings schema constants for the web app.
 
 export interface ContentWarning {
   value: string;

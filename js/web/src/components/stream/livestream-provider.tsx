@@ -17,8 +17,6 @@ interface LivestreamProviderProps {
  * Creates a LivestreamStore, connects a WebSocket for the given user,
  * and passes the store to children via a render prop. The WebSocket
  * reconnects automatically on close/error.
- *
- * This is the web equivalent of the RN app's LivestreamProvider.
  */
 export function LivestreamProvider({
   user,

@@ -1,6 +1,5 @@
 // Global VOD browse page. Fetches place.stream.media.getVideoList
-// with cursor-based infinite scroll. Port of
-// js/app/src/screens/video-list.tsx (without repo filter).
+// with cursor-based infinite scroll.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";

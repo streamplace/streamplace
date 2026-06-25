@@ -1,7 +1,6 @@
 // Listen for bluesky-side errors (OAuth failures, login issues) and
-// surface them as toasts. Call this once at the app level. Port of
-// js/app/hooks/useBlueskyNotifications.tsx. Uses the web's sonner
-// toast wrapper.
+// surface them as toasts. Call this once at the app level. Uses the
+// web's sonner toast wrapper.
 import { CircleX } from "lucide-react";
 import { useEffect } from "react";
 import { useStore } from "../lib/store";

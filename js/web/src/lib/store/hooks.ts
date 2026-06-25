@@ -1,4 +1,4 @@
-// Selector hooks for the combined store. Mirrors js/app/store/hooks.ts.
+// Selector hooks for the combined store.
 import { useStore } from "./index";
 
 // Streamplace
@@ -34,7 +34,7 @@ export const useIsReady = () => {
   if (!oauthSession) {
     return false;
   }
-  // Profile fetch failed — session is valid, just the profile didn't
+  // Profile fetch failed; session is valid, just the profile didn't
   // load. Don't block the app on a retry loop; the user can see the
   // app and try again.
   if (profileError) {
@@ -48,5 +48,5 @@ export const useIsReady = () => {
 export const useCachedProfiles = () => useStore((state) => state.profileCache);
 export const useChatProfile = () => useStore((state) => state.chatProfile);
 
-// PDS Agent (convenience — reads from bluesky slice)
+// PDS Agent (convenience; reads from bluesky slice)
 export const usePDSAgent = () => useStore((state) => state.pdsAgent);

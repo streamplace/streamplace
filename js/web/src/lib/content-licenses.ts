@@ -1,5 +1,4 @@
-// Local copy of the license constants. Mirrors `LICENSE_OPTIONS` from
-// @streamplace/components/lib/metadata-constants.
+// License constants for the web app.
 
 export interface LicenseOption {
   value: string;

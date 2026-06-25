@@ -1,8 +1,4 @@
-// DID-document resolution helpers. Copied from
-// js/components/src/utils/did.ts because the components package is
-// React-Native-coupled and the web build doesn't depend on it. The
-// implementation is platform-agnostic — pure fetch() — and is a good
-// candidate to move into @streamplace/core in a future refactor.
+// DID-document resolution helpers. Pure fetch, platform-agnostic.
 
 export interface DIDDocument {
   id: string;

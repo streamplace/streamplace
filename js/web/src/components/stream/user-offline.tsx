@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 // Inline "stream offline" overlay rendered on top of the video element
 // when the streamer is not currently live. Distinct from the
 // page-level offline state in routes/$user.tsx (which replaces the
-// whole player) — this is for the in-page "stream is offline, the
+// whole player); this is for the in-page "stream is offline, the
 // page is still here" case.
 export function UserOffline({ user }: { user: string }) {
   const { t } = useTranslation("common");

@@ -33,16 +33,20 @@ type relayCursor struct {
 	flushed int64        // last persisted value; only the flush loop touches it
 
 	// group is the highest MoQ group sequence seen on a moqt:// relay, used to
-	// resume replay across reconnects (see connectRelayMoq). -1 = none yet, tail
-	// from the live edge. In-memory only: it resumes within a process run, not
-	// across restarts (the relay's RAM replay window is lost on its restart
-	// anyway, and group ids aren't yet durable server-side).
-	group atomic.Int64
+	// resume replay (see connectRelayMoq). -1 = none yet, tail from the live
+	// edge. Persisted alongside the seq cursor, so a Streamplace restart resumes
+	// from the last group too — the relay assigns durable group ids across its
+	// own restarts, so a stored group stays valid (it just ages out of the
+	// relay's replay window if we are down too long, which is the gap PDS
+	// re-sync covers).
+	group        atomic.Int64
+	flushedGroup int64 // last persisted group; only the flush loop touches it
 }
 
 func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host string) *relayCursor {
 	rc := &relayCursor{host: host, model: atsync.Model}
 	rc.group.Store(-1) // -1 = no MoQ group seen yet (tail from live edge)
+	rc.flushedGroup = -1
 	stored, err := atsync.Model.GetRelayCursor(host)
 	if err != nil {
 		log.Error(ctx, "failed to load relay cursor; tailing from live", "err", err)
@@ -51,7 +55,11 @@ func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host stri
 	if stored != nil {
 		rc.latest.Store(stored.Cursor)
 		rc.flushed = stored.Cursor
-		log.Log(ctx, "resuming relay from stored cursor", "cursor", stored.Cursor)
+		if stored.GroupSeq != nil {
+			rc.group.Store(*stored.GroupSeq)
+			rc.flushedGroup = *stored.GroupSeq
+		}
+		log.Log(ctx, "resuming relay from stored cursor", "cursor", stored.Cursor, "group", rc.group.Load())
 	}
 	return rc
 }
@@ -109,12 +117,18 @@ func (rc *relayCursor) groupStart() (uint64, bool) {
 // Only ever called from the single flush goroutine, so flushed is unsynchronized.
 func (rc *relayCursor) flush(ctx context.Context) {
 	v := rc.latest.Load()
-	if v == rc.flushed {
+	g := rc.group.Load()
+	if v == rc.flushed && g == rc.flushedGroup {
 		return
 	}
-	if err := rc.model.UpsertRelayCursor(rc.host, v); err != nil {
-		log.Error(ctx, "failed to persist relay cursor", "err", err, "cursor", v)
+	var groupPtr *int64
+	if g >= 0 {
+		groupPtr = &g
+	}
+	if err := rc.model.UpsertRelayCursor(rc.host, v, groupPtr); err != nil {
+		log.Error(ctx, "failed to persist relay cursor", "err", err, "cursor", v, "group", g)
 		return
 	}
 	rc.flushed = v
+	rc.flushedGroup = g
 }

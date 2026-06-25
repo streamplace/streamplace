@@ -104,7 +104,7 @@ type Model interface {
 	UpdateLabelerCursor(did string, cursor int64) error
 
 	GetRelayCursor(host string) (*RelayCursor, error)
-	UpsertRelayCursor(host string, cursor int64) error
+	UpsertRelayCursor(host string, cursor int64, group *int64) error
 
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)

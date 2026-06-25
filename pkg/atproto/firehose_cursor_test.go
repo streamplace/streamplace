@@ -57,3 +57,55 @@ func TestRelayCursorResume(t *testing.T) {
 		t.Fatal("a different relay must not inherit another relay's cursor")
 	}
 }
+
+func TestRelayCursorGroupResume(t *testing.T) {
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	atsync := &ATProtoSynchronizer{Model: mod}
+	ctx := context.Background()
+	const host = "moqt://relay.example"
+
+	// A fresh moqt:// relay has no stored group, so we tail the live edge rather
+	// than requesting replay.
+	rc := atsync.newRelayCursor(ctx, host)
+	if _, ok := rc.groupStart(); ok {
+		t.Fatal("fresh moq relay should not request replay")
+	}
+
+	// observeGroup tracks the high-water group and never regresses on
+	// out-of-order delivery.
+	rc.observeGroup(500)
+	rc.observeGroup(200)
+	rc.observeGroup(640)
+	g, ok := rc.groupStart()
+	require.True(t, ok)
+	require.Equal(t, uint64(640), g)
+
+	// MoQ frames also carry the at-seq, so both advance; flush persists both.
+	rc.observe(9000)
+	rc.flush(ctx)
+	stored, err := mod.GetRelayCursor(host)
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+	require.Equal(t, int64(9000), stored.Cursor)
+	require.NotNil(t, stored.GroupSeq)
+	require.Equal(t, int64(640), *stored.GroupSeq)
+
+	// As if the process restarted: a new cursor resumes replay from the stored
+	// group (connectRelayMoq calls SubscribeFrom with it).
+	resumed := atsync.newRelayCursor(ctx, host)
+	g, ok = resumed.groupStart()
+	require.True(t, ok)
+	require.Equal(t, uint64(640), g)
+
+	// A WebSocket relay never sets a group, so its stored group stays NULL (it
+	// resumes by sequence number instead).
+	const wsHost = "wss://relay.example"
+	ws := atsync.newRelayCursor(ctx, wsHost)
+	ws.observe(123)
+	ws.flush(ctx)
+	wsStored, err := mod.GetRelayCursor(wsHost)
+	require.NoError(t, err)
+	require.NotNil(t, wsStored)
+	require.Nil(t, wsStored.GroupSeq)
+}

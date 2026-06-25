@@ -15,6 +15,11 @@ import (
 type RelayCursor struct {
 	Host   string `gorm:"primaryKey;column:host"`
 	Cursor int64  `gorm:"column:cursor"`
+	// GroupSeq is the high-water MoQ group sequence for moqt:// relays, used to
+	// resume replay via SubscribeFrom after a restart. NULL for WebSocket relays,
+	// which resume by the Cursor sequence number instead. (Column is not named
+	// "group" because that is a reserved SQL keyword.)
+	GroupSeq *int64 `gorm:"column:group_seq"`
 }
 
 // GetRelayCursor returns the stored cursor for a relay, or nil if we have never
@@ -31,10 +36,12 @@ func (m *DBModel) GetRelayCursor(host string) (*RelayCursor, error) {
 	return &rc, nil
 }
 
-// UpsertRelayCursor stores the latest consumed sequence number for a relay.
-func (m *DBModel) UpsertRelayCursor(host string, cursor int64) error {
+// UpsertRelayCursor stores the latest consumed sequence number for a relay, and
+// (for moqt:// relays) the high-water MoQ group sequence; pass group=nil for
+// WebSocket relays.
+func (m *DBModel) UpsertRelayCursor(host string, cursor int64, group *int64) error {
 	return m.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "host"}},
-		DoUpdates: clause.AssignmentColumns([]string{"cursor"}),
-	}).Create(&RelayCursor{Host: host, Cursor: cursor}).Error
+		DoUpdates: clause.AssignmentColumns([]string{"cursor", "group_seq"}),
+	}).Create(&RelayCursor{Host: host, Cursor: cursor, GroupSeq: group}).Error
 }

@@ -10,6 +10,10 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
+// TEMPORARY: track atmoq-go's eli/replay branch (SubscribeFrom group-resume)
+// until it's released; swap back to a versioned require once tagged.
+replace github.com/streamplace/atmoq-go => /home/iameli/code/atmoq-go
+
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 require (

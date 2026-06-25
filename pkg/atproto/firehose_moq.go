@@ -34,7 +34,16 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	}
 	defer sess.Close()
 
-	sub, err := sess.Subscribe(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack)
+	// Resume from the last group seen on a reconnect; tail the live edge on the
+	// first connect. If that group has aged out of the relay's replay window the
+	// relay jumps forward to the oldest it still retains, leaving a gap we accept
+	// here (deep recovery is a PDS re-sync, tracked separately).
+	var sub *atmoq.Subscription
+	if g, ok := cursor.groupStart(); ok {
+		sub, err = sess.SubscribeFrom(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack, g)
+	} else {
+		sub, err = sess.Subscribe(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack)
+	}
 	if err != nil {
 		return fmt.Errorf("subscribing to moq firehose: %w", err)
 	}
@@ -49,13 +58,16 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 
 	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version())
 	for {
-		raw, _, err := sub.ReadFrame(streamCtx)
+		raw, group, err := sub.ReadFrame(streamCtx)
 		if err != nil {
 			if streamCtx.Err() != nil {
 				return streamCtx.Err()
 			}
 			return fmt.Errorf("moq firehose read: %w", err)
 		}
+		// Track the group on every frame (before dedup) so a reconnect resumes
+		// from here; replayed frames are absorbed by the commit-CID deduper.
+		cursor.observeGroup(group)
 		if err := atsync.dispatchMoqFrame(streamCtx, raw, scheduler); err != nil {
 			return err
 		}

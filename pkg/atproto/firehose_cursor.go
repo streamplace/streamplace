@@ -31,10 +31,18 @@ type relayCursor struct {
 
 	latest  atomic.Int64 // highest seq seen; 0 = nothing yet (tail from live)
 	flushed int64        // last persisted value; only the flush loop touches it
+
+	// group is the highest MoQ group sequence seen on a moqt:// relay, used to
+	// resume replay across reconnects (see connectRelayMoq). -1 = none yet, tail
+	// from the live edge. In-memory only: it resumes within a process run, not
+	// across restarts (the relay's RAM replay window is lost on its restart
+	// anyway, and group ids aren't yet durable server-side).
+	group atomic.Int64
 }
 
 func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host string) *relayCursor {
 	rc := &relayCursor{host: host, model: atsync.Model}
+	rc.group.Store(-1) // -1 = no MoQ group seen yet (tail from live edge)
 	stored, err := atsync.Model.GetRelayCursor(host)
 	if err != nil {
 		log.Error(ctx, "failed to load relay cursor; tailing from live", "err", err)
@@ -68,6 +76,33 @@ func (rc *relayCursor) observe(seq int64) {
 func (rc *relayCursor) param() (int64, bool) {
 	v := rc.latest.Load()
 	return v, v > 0
+}
+
+// observeGroup advances the high-water MoQ group sequence. Called on every
+// frame received from a moqt:// relay (concurrency-safe).
+func (rc *relayCursor) observeGroup(seq uint64) {
+	s := int64(seq)
+	for {
+		cur := rc.group.Load()
+		if s <= cur {
+			return
+		}
+		if rc.group.CompareAndSwap(cur, s) {
+			return
+		}
+	}
+}
+
+// groupStart returns the MoQ group to resume replay from and whether to request
+// replay at all. Before any frame is seen we tail the live edge; after a
+// reconnect we resume from the last group seen so the relay replays from there
+// (already-seen frames in that group are deduped downstream).
+func (rc *relayCursor) groupStart() (uint64, bool) {
+	v := rc.group.Load()
+	if v < 0 {
+		return 0, false
+	}
+	return uint64(v), true
 }
 
 // flush persists the high-water mark if it has advanced since the last write.

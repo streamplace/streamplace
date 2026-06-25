@@ -238,6 +238,13 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	if err != nil {
 		return fmt.Errorf("invalid relay URI %q: %w", relay, err)
 	}
+	// MoQ relays (moqt:// and aliases) are consumed over QUIC instead of
+	// WebSocket. Everything downstream of frame-decode — dedup, cursor,
+	// handlers, backoff — is shared, so this is just a transport swap.
+	switch u.Scheme {
+	case "moqt", "moql", "moq", "moqs":
+		return atsync.connectRelayMoq(ctx, relay, cursor)
+	}
 	u.Path = "xrpc/com.atproto.sync.subscribeRepos"
 	if seq, ok := cursor.param(); ok {
 		q := u.Query()
@@ -272,7 +279,21 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	rsc := &events.RepoStreamCallbacks{
+	rsc := atsync.repoStreamCallbacks(ctx, cursor, cancel)
+	scheduler := parallel.NewScheduler(10, 100, relay, rsc.EventHandler)
+
+	log.Log(ctx, "connected to relay firehose")
+	return events.HandleRepoStream(streamCtx, con, scheduler, nil)
+}
+
+// repoStreamCallbacks builds the event callbacks shared by the WebSocket and
+// MoQ transports: liveness marking, cursor advance, cross-relay dedup, and
+// spawning the indexing handlers on the parent ctx. cancel ends the current
+// connection when the relay sends an error frame. The handlers run on ctx (not
+// the per-connection context) so an in-flight commit keeps indexing across a
+// reconnect.
+func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, cursor *relayCursor, cancel context.CancelFunc) *events.RepoStreamCallbacks {
+	return &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
 			atsync.markSeen()
 			cursor.observe(evt.Seq)
@@ -298,11 +319,6 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 			return fmt.Errorf("firehose error: %s: %s", evt.Error, evt.Message)
 		},
 	}
-
-	scheduler := parallel.NewScheduler(10, 100, relay, rsc.EventHandler)
-
-	log.Log(ctx, "connected to relay firehose")
-	return events.HandleRepoStream(streamCtx, con, scheduler, nil)
 }
 
 // identityDedupKey distinguishes a single identity broadcast (so the same one

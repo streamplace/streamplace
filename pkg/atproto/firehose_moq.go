@@ -49,10 +49,11 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	}
 	defer sub.Close()
 
-	spmetrics.FirehoseRelaysConnected.WithLabelValues(relay).Set(1)
-	defer spmetrics.FirehoseRelaysConnected.WithLabelValues(relay).Set(0)
+	protocol := relayProtocol(relay)
+	spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Set(1)
+	defer spmetrics.FirehoseRelaysConnected.WithLabelValues(relay, protocol).Set(0)
 
-	rsc := atsync.repoStreamCallbacks(ctx, cursor, cancel)
+	rsc := atsync.repoStreamCallbacks(ctx, relay, cursor, cancel)
 	scheduler := parallel.NewScheduler(10, 100, relay, rsc.EventHandler)
 	defer scheduler.Shutdown()
 

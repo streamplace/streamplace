@@ -11,13 +11,11 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -64,7 +62,7 @@ func TestMultiRelayDedup(t *testing.T) {
 	// Sanity-check the fan-out: two relays, no self.
 	require.Len(t, atsync.relayHosts(), 2)
 
-	dedupedBefore := counterValue(t, spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("commit"))
+	dedupedBefore := dedupedCommitTotal(t)
 
 	go func() {
 		_ = atsync.StartFirehose(ctx)
@@ -99,7 +97,7 @@ func TestMultiRelayDedup(t *testing.T) {
 
 	// And the duplicates the second relay delivered were dropped by the deduper.
 	err = untilNoErrors(t, func() error {
-		deduped := counterValue(t, spmetrics.FirehoseEventsDedupedTotal.WithLabelValues("commit"))
+		deduped := dedupedCommitTotal(t)
 		if deduped <= dedupedBefore {
 			return fmt.Errorf("expected commit dedup counter to climb (before=%v now=%v)", dedupedBefore, deduped)
 		}
@@ -108,9 +106,24 @@ func TestMultiRelayDedup(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func counterValue(t *testing.T, c prometheus.Counter) float64 {
+// dedupedCommitTotal sums the commit dedup counter across every relay/protocol
+// series (a duplicate is attributed to whichever relay delivered it second).
+func dedupedCommitTotal(t *testing.T) float64 {
 	t.Helper()
-	var m dto.Metric
-	require.NoError(t, c.Write(&m))
-	return m.GetCounter().GetValue()
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+	var sum float64
+	for _, mf := range mfs {
+		if mf.GetName() != "streamplace_firehose_events_deduped_total" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			for _, l := range m.GetLabel() {
+				if l.GetName() == "kind" && l.GetValue() == "commit" {
+					sum += m.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return sum
 }

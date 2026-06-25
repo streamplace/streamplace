@@ -86,6 +86,9 @@ func (rc *relayCursor) param() (int64, bool) {
 	return v, v > 0
 }
 
+// highSeq returns the high-water upstream sequence number observed so far.
+func (rc *relayCursor) highSeq() int64 { return rc.latest.Load() }
+
 // observeGroup advances the high-water MoQ group sequence. Called on every
 // frame received from a moqt:// relay (concurrency-safe).
 func (rc *relayCursor) observeGroup(seq uint64) {

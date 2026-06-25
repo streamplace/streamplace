@@ -103,23 +103,45 @@ var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of currently connected labeler firehoses",
 }, []string{"labeler"})
 
-// FirehoseRelaysConnected is 1 while a relay's subscribeRepos websocket is
-// connected and 0 while it is reconnecting, labeled by relay host. With
-// multi-relay support this shows at a glance how many of the configured
-// relays are currently feeding us.
+// FirehoseRelaysConnected is 1 while a relay's firehose is connected and 0
+// while it is reconnecting, labeled by relay host and protocol ("websocket" or
+// "moq"). With multi-relay support this shows at a glance how many of the
+// configured relays are currently feeding us.
 var FirehoseRelaysConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_firehose_relays_connected",
-	Help: "1 if the relay's firehose websocket is currently connected, else 0",
-}, []string{"relay"})
+	Help: "1 if the relay's firehose is currently connected, else 0",
+}, []string{"relay", "protocol"})
 
-// FirehoseEventsDedupedTotal counts events dropped because the same commit
-// (or identity update) already arrived from another relay. Labeled by event
-// kind ("commit" / "identity"). A high count is expected and healthy — it is
-// the redundant traffic we are paying for resilience.
+// FirehoseEventsReceivedTotal counts every event a relay delivered, before
+// cross-relay dedup, labeled by relay, protocol ("websocket"/"moq"), and kind.
+// Comparing rates across relays tells you whether they carry the same volume;
+// received minus deduped is each relay's first-seen (unique) contribution.
+var FirehoseEventsReceivedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_firehose_events_received_total",
+	Help: "firehose events delivered by each relay before dedup, by relay/protocol/kind",
+}, []string{"relay", "protocol", "kind"})
+
+// FirehoseEventsDedupedTotal counts events dropped because the same commit (or
+// identity update) already arrived from another relay, labeled by the relay that
+// delivered the duplicate, its protocol, and event kind. A relay whose deduped
+// count tracks its received count is fully redundant (a healthy mirror); a relay
+// with a high first-seen count (received minus deduped) is contributing events
+// the others are not — i.e. the relays are diverging.
 var FirehoseEventsDedupedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "streamplace_firehose_events_deduped_total",
-	Help: "firehose events dropped as cross-relay duplicates, by kind",
-}, []string{"kind"})
+	Help: "firehose events dropped as cross-relay duplicates, by relay/protocol/kind",
+}, []string{"relay", "protocol", "kind"})
+
+// FirehoseRelayHighSeq is the highest upstream sequence number seen from each
+// relay. A WebSocket bsky relay and a MoQ relay that bridges the same upstream
+// both carry bsky's original seq, so the difference between two relays' high_seq
+// is a direct, units-of-events measure of how far apart they are: a small,
+// roughly-constant skew means they are in sync (just a latency offset); a
+// growing gap means one relay is falling behind or stuck.
+var FirehoseRelayHighSeq = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "streamplace_firehose_relay_high_seq",
+	Help: "highest upstream sequence number seen from each relay (cross-relay diff = parity/lag)",
+}, []string{"relay", "protocol"})
 
 // --- isolated ingest workers ------------------------------------------------
 

@@ -242,7 +242,18 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
 
-	ss.s3Upload(ctx, notif)
+	// Record to S3 for live-to-VOD only while the stream is live (an un-ended
+	// place.stream.livestream record exists -> the segment is published).
+	// Segments that arrive before "go live" or after the livestream ends are
+	// NOT recorded: pushing them produced over-long VODs (the post-stop tail
+	// got absorbed into the recording). The moment publishing stops we complete
+	// the current object so it's immediately finalize-able instead of lingering
+	// un-completed (which made finalize report "no recorded S3 segments").
+	if notif.Metadata.Published {
+		ss.s3Upload(ctx, notif)
+	} else {
+		ss.s3Cutover(ctx)
+	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {

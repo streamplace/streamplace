@@ -116,6 +116,35 @@ func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	require.NotEqual(t, keys[0], keys[1], "rolled-over objects must have distinct keys")
 }
 
+// TestS3UploaderCutoverCompletesObject proves Cutover closes out the current
+// object so the next segment starts a fresh one. This is what makes a recording
+// finalize-able the moment a livestream ends, rather than lingering until the
+// cutoverEvery timer or stream teardown. cutoverEvery is huge so only the
+// explicit Cutover can trigger the rollover.
+func TestS3UploaderCutoverCompletesObject(t *testing.T) {
+	fc := &fakeUploadAPI{}
+	rec := &fakeRecorder{}
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+
+	ctx := context.Background()
+	seg := make([]byte, 1024) // under minPartSize: buffered until the object completes
+
+	u.SetLivestreamURI("at://A")
+	require.NoError(t, u.AddSegment(ctx, seg))
+	waitForStarts(t, rec, 1) // object 1
+
+	require.NoError(t, u.Cutover(ctx)) // completes object 1
+	require.NoError(t, u.AddSegment(ctx, seg))
+	waitForStarts(t, rec, 2) // object 2
+
+	require.NoError(t, u.Close(ctx))
+
+	require.Equal(t, 2, rec.count(), "Cutover must close the object so the next segment starts a new one")
+	keys := rec.startKeys()
+	require.Len(t, keys, 2)
+	require.NotEqual(t, keys[0], keys[1], "post-cutover object must have a distinct key")
+}
+
 // TestS3UploaderCloseIdempotent exercises the lifecycle fix that re-enabled
 // live S3 upload: Close must be safe to call repeatedly and concurrently (it
 // was a plain close(segCh) before, which panicked on the second call), and

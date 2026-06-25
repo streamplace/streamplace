@@ -49,6 +49,20 @@ func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNo
 	})
 }
 
+// s3Cutover completes the current live-recording object so it's immediately
+// finalize-able. Called when a segment arrives that is not part of a live
+// (published) stream — i.e. the livestream just ended, or hasn't started — so
+// the recording is closed out promptly rather than lingering un-completed until
+// stream teardown.
+func (ss *StreamSession) s3Cutover(ctx context.Context) {
+	if ss.s3Uploader == nil {
+		return
+	}
+	ss.Go(ctx, func() error {
+		return ss.s3Uploader.Cutover(ctx)
+	})
+}
+
 func (ss *StreamSession) s3Close(ctx context.Context) {
 	if ss.s3Uploader == nil {
 		return

@@ -57,7 +57,7 @@ type S3Uploader struct {
 	cutoverEvery time.Duration
 	keyPrefix    string // e.g. "did:plc:abc123/"
 	userDID      string
-	segCh        chan []byte // bare canonical MUXL segments awaiting upload
+	segCh        chan uploadCmd // bare canonical MUXL segments / cutover requests
 	done         chan error
 	recorder     Recorder
 
@@ -136,12 +136,20 @@ func newS3Uploader(client uploadAPI, bucket, userDID, keyPrefix string, cutoverE
 		cutoverEvery: cutoverEvery,
 		keyPrefix:    keyPrefix,
 		userDID:      userDID,
-		segCh:        make(chan []byte, 16),
+		segCh:        make(chan uploadCmd, 16),
 		done:         make(chan error, 1),
 		recorder:     recorder,
 	}
 	go u.uploadLoop(context.Background())
 	return u
+}
+
+// uploadCmd is one item on segCh: either a segment to append (seg != nil) or a
+// request to complete the current object now (cutover). Both travel the same
+// channel so a cutover stays FIFO-ordered behind the segments queued before it.
+type uploadCmd struct {
+	seg     []byte // bare canonical MUXL segment to append; nil for a cutover
+	cutover bool   // complete the current object now (see Cutover)
 }
 
 // AddSegment feeds one bare canonical MUXL segment (uuid+moof+mdat per track)
@@ -156,7 +164,26 @@ func (u *S3Uploader) AddSegment(ctx context.Context, data []byte) error {
 	}
 	seg := append([]byte(nil), data...)
 	select {
-	case u.segCh <- seg:
+	case u.segCh <- uploadCmd{seg: seg}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Cutover completes the current in-progress object (if any) so it becomes a
+// finalize-able, completed S3 segment, without tearing the uploader down — the
+// next AddSegment simply starts a fresh object. It's used when a livestream
+// ends (or the stream goes unpublished): the recording is closed out promptly
+// instead of waiting for the cutoverEvery timer or stream teardown, so finalize
+// can find the completed objects right away. A no-op if there's no current
+// object, and a no-op after Close.
+func (u *S3Uploader) Cutover(ctx context.Context) error {
+	if u.closed.Load() {
+		return nil
+	}
+	select {
+	case u.segCh <- uploadCmd{cutover: true}:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -325,7 +352,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 	var err error
 	for err == nil {
 		select {
-		case seg, ok := <-u.segCh:
+		case cmd, ok := <-u.segCh:
 			if !ok {
 				// No more segments; complete any in-progress upload.
 				err = completeUpload()
@@ -335,8 +362,17 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 				u.done <- err
 				return
 			}
-			log.Debug(ctx, "received segment for S3 upload", "size", len(seg))
-			if err = handleSegment(seg); err != nil {
+			if cmd.cutover {
+				// Close out the current object so it's immediately finalize-able
+				// (e.g. the livestream just ended). No-op if nothing is in flight.
+				if err = completeUpload(); err != nil {
+					err = fmt.Errorf("error completing upload on cutover: %w", err)
+					log.Error(ctx, "error completing upload on cutover", "error", err)
+				}
+				continue
+			}
+			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
+			if err = handleSegment(cmd.seg); err != nil {
 				log.Error(ctx, "error handling segment", "error", err)
 			}
 

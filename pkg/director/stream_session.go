@@ -126,7 +126,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
-	// ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
+	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
 
 	close(ss.started)
 
@@ -155,9 +155,13 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		case <-ss.segmentChan:
 			// reset timer
 		case <-ctx.Done():
-			// Signal all background workers to stop
+			// Drain all in-flight session goroutines (including the per-segment
+			// AddSegment senders) BEFORE closing the uploader, so no segment
+			// send can race the uploader's channel close. s3Close then flushes
+			// the final object on the uploader's own (still-live) context.
+			err := ss.g.Wait()
 			ss.s3Close(ctx)
-			return ss.g.Wait()
+			return err
 		// case <-time.After(time.Minute * 1):
 		case <-time.After(ss.cli.StreamSessionTimeout):
 			log.Log(ctx, "stream session timeout, shutting down", "timeout", ss.cli.StreamSessionTimeout)
@@ -238,7 +242,18 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
 
-	// ss.s3Upload(ctx, notif)
+	// Record to S3 for live-to-VOD only while the stream is live (an un-ended
+	// place.stream.livestream record exists -> the segment is published).
+	// Segments that arrive before "go live" or after the livestream ends are
+	// NOT recorded: pushing them produced over-long VODs (the post-stop tail
+	// got absorbed into the recording). The moment publishing stops we complete
+	// the current object so it's immediately finalize-able instead of lingering
+	// un-completed (which made finalize report "no recorded S3 segments").
+	if notif.Metadata.Published {
+		ss.s3Upload(ctx, notif)
+	} else {
+		ss.s3Cutover(ctx)
+	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
 	ss.Go(ctx, func() error {
@@ -298,6 +313,12 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if livestreamModel == nil {
 				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
 				return nil
+			}
+			// Refresh the S3 uploader's livestream tag now that this stream's
+			// own record is indexed (it may not have been when the uploader
+			// started), so all objects are attributed to the right stream.
+			if ss.s3Uploader != nil {
+				ss.s3Uploader.SetLivestreamURI(livestreamModel.URI)
 			}
 			lsv, err := livestreamModel.ToLivestreamView()
 			if err != nil {

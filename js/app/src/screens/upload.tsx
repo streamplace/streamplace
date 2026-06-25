@@ -470,6 +470,13 @@ export default function UploadScreen() {
   const [finalizing, setFinalizing] = useState<
     Record<string, "finalizing" | "publishing" | "error">
   >({});
+  // Livestream URI -> freshly-published VOD URI, recorded optimistically the
+  // moment publishVideo returns. getVideoList (the AppView index) lags behind
+  // the write, so without this the row would briefly fall back to "Finalize"
+  // until a reload; this flips it to "View VOD" immediately.
+  const [finalizedVods, setFinalizedVods] = useState<Record<string, string>>(
+    {},
+  );
   const [editingVideoUri, setEditingVideoUri] = useState<string | undefined>(
     undefined,
   );
@@ -606,6 +613,10 @@ export default function UploadScreen() {
           record,
         });
         if (!pub.success) throw new Error("publishVideo failed");
+
+        // Flip the row to "View VOD" right away — getVideoList won't have
+        // indexed the new record yet, so we can't rely on fetchVideos below.
+        setFinalizedVods((m) => ({ ...m, [ls.uri]: pub.data.uri }));
 
         setFinalizing((m) => {
           const next = { ...m };
@@ -970,7 +981,8 @@ export default function UploadScreen() {
             {livestreams.map((ls: any) => {
               const rec = ls.value || {};
               const ended = !!rec.endedAt;
-              const vodUri = livestreamToVideo.get(ls.uri);
+              const vodUri =
+                livestreamToVideo.get(ls.uri) ?? finalizedVods[ls.uri];
               const status = finalizing[ls.uri];
               return (
                 <View

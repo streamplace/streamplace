@@ -51,6 +51,18 @@ export default function BlueskyProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(handle);
   }, [isReady, loadOAuthClient]);
 
+  // If the profile fetch failed on the first attempt, retry periodically
+  // rather than looping loadOAuthClient (which re-creates the OAuth client
+  // unnecessarily). Once it succeeds, profileError clears and this stops.
+  const profileError = useStore((state) => state.profileError);
+  useEffect(() => {
+    if (!oauthSession || !profileError) return;
+    const handle = setInterval(() => {
+      void getProfile(oauthSession.did);
+    }, 5000);
+    return () => clearInterval(handle);
+  }, [oauthSession, profileError, getProfile]);
+
   useEffect(() => {
     if (oauthSession && !userProfile) {
       void getProfile(oauthSession.did);

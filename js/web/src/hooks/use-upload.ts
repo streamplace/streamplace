@@ -34,6 +34,7 @@ export interface UploadMetadata {
 }
 
 const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 100; // ~5 minutes at 3s intervals
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,16 @@ export function useUpload() {
   const pollStatus = useCallback(
     (uploadId: string) => {
       if (!agent) return;
+      let attempts = 0;
       const check = async () => {
+        attempts += 1;
+        if (attempts > MAX_POLL_ATTEMPTS) {
+          setPhase({
+            kind: "error",
+            message: "Processing timed out — please try again later",
+          });
+          return;
+        }
         try {
           const res = await agent.place.stream.media.getUploadStatus({
             uploadId,

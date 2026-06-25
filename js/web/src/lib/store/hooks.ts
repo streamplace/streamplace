@@ -24,6 +24,7 @@ export const useIsReady = () => {
   const authStatus = useStore((state) => state.authStatus);
   const oauthSession = useOAuthSession();
   const profile = useUserProfile();
+  const profileError = useStore((state) => state.profileError);
 
   if (authStatus === "start") {
     return false;
@@ -32,6 +33,12 @@ export const useIsReady = () => {
   }
   if (!oauthSession) {
     return false;
+  }
+  // Profile fetch failed — session is valid, just the profile didn't
+  // load. Don't block the app on a retry loop; the user can see the
+  // app and try again.
+  if (profileError) {
+    return true;
   }
   if (!profile) {
     return false;

@@ -36,6 +36,27 @@ const STATS_POLL_MS = 1000;
 const MAX_RECONNECT_ATTEMPTS = 15;
 
 /**
+ * The RTCStatsReport inbound-rtp entry carries fields that the TS DOM
+ * types don't expose (they're part of the WebRTC stats spec but not
+ * included in lib.dom.d.ts). This interface covers just the fields we
+ * read, so the stats polling code doesn't need `as any` casts inline.
+ */
+interface InboundRtpStats extends RTCStats {
+  mediaType?: string;
+  kind?: string;
+  framesReceived?: number;
+  frameWidth?: number;
+  frameHeight?: number;
+  bytesReceived?: number;
+  codecId?: string;
+  lastPacketReceivedTimestamp?: number;
+}
+
+interface CodecStats extends RTCStats {
+  mimeType?: string;
+}
+
+/**
  * Extracts the streamer handle/DID from a Streamplace playlist URL.
  * Falls back to the full URL origin + pathname if no `streamer` param exists.
  */
@@ -117,76 +138,12 @@ export function WebRTCPlayer({
       return agentRef.current;
     }
 
-    async function connect() {
-      if (cancelled) return;
-
-      const peerConnection = new RTCPeerConnection({
-        bundlePolicy: "max-bundle",
-      });
-      pcRef.current = peerConnection;
-
-      // Receive both video and audio.
-      peerConnection.addTransceiver("video", { direction: "recvonly" });
-      peerConnection.addTransceiver("audio", { direction: "recvonly" });
-
-      // When tracks arrive, attach the first stream to the video element.
-      peerConnection.addEventListener("track", (event) => {
-        if (cancelled) return;
-        // First media arriving means the connection actually works. If
-        // we later stall and have to reconnect, start the failure count
-        // from scratch — this isn't a string of broken attempts.
-        reconnectAttemptsRef.current = 0;
-        if (event.streams && event.streams[0]) {
-          const v = videoRef.current;
-          if (v) {
-            v.srcObject = event.streams[0];
-            v.play().catch((err) =>
-              console.warn("[webrtc-player] play() rejected", err),
-            );
-          }
-        }
-      });
-
-      // Detect disconnection and schedule a reconnect.
-      peerConnection.addEventListener("connectionstatechange", () => {
-        if (cancelled) return;
-        const state = peerConnection.connectionState;
-        if (
-          state === "failed" ||
-          state === "closed" ||
-          state === "disconnected"
-        ) {
-          onErrorRef.current?.("Connection lost — reconnecting");
-          scheduleReconnect();
-        }
-      });
-
-      // Trigger negotiation when transceivers are added.
-      peerConnection.addEventListener("negotiationneeded", () => {
-        if (cancelled) return;
-        negotiate(peerConnection, streamer);
-      });
-
-      // Start stats polling.
-      startStatsPolling(peerConnection);
-
-      // Clean up on unmount or when active goes false.
-      const cleanup = () => {
-        cancelled = true;
-        stopStatsPolling();
-        if (reconnectTimerRef.current) {
-          clearTimeout(reconnectTimerRef.current);
-          reconnectTimerRef.current = null;
-        }
-        peerConnection.close();
-        pcRef.current = null;
-      };
-
-      // Store cleanup so the outer effect can call it.
-      pendingCleanup.current = cleanup;
+    function stopStatsPolling() {
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
     }
-
-    const pendingCleanup = { current: null as (() => void) | null };
 
     function scheduleReconnect() {
       if (cancelled || gaveUpRef.current) return;
@@ -278,27 +235,28 @@ export function WebRTCPlayer({
           let bytesReceived = 0;
 
           stats.forEach((report) => {
-            if (report.type === "inbound-rtp") {
-              const kind =
-                (report as any).mediaType ?? (report as any).kind ?? "";
-              if (kind === "video") {
-                framesReceived = (report as any).framesReceived ?? 0;
-                width = (report as any).frameWidth ?? 0;
-                height = (report as any).frameHeight ?? 0;
-                bytesReceived = (report as any).bytesReceived ?? 0;
-                if ((report as any).codecId) {
-                  const codecReport = (stats as Map<string, any>).get(
-                    (report as any).codecId,
-                  );
-                  if (codecReport) {
-                    codec = codecReport.mimeType ?? "";
-                  }
+            if (report.type !== "inbound-rtp") return;
+            const r = report as InboundRtpStats;
+            const kind = r.mediaType ?? r.kind ?? "";
+            if (kind === "video") {
+              framesReceived = r.framesReceived ?? 0;
+              width = r.frameWidth ?? 0;
+              height = r.frameHeight ?? 0;
+              bytesReceived = r.bytesReceived ?? 0;
+              if (r.codecId) {
+                // RTCStatsReport has a get() method at runtime but the
+                // TS DOM types don't always expose it. Cast through
+                // unknown to access it.
+                const codecReport = (
+                  stats as unknown as Map<string, RTCStats>
+                ).get(r.codecId) as CodecStats | undefined;
+                if (codecReport) {
+                  codec = codecReport.mimeType ?? "";
                 }
               }
-              if (kind === "audio") {
-                audioReceived =
-                  (report as any).lastPacketReceivedTimestamp ?? 0;
-              }
+            }
+            if (kind === "audio") {
+              audioReceived = r.lastPacketReceivedTimestamp ?? 0;
             }
           });
 
@@ -378,17 +336,75 @@ export function WebRTCPlayer({
       }, STATS_POLL_MS);
     }
 
-    function stopStatsPolling() {
-      if (statsIntervalRef.current) {
-        clearInterval(statsIntervalRef.current);
-        statsIntervalRef.current = null;
-      }
+    async function connect() {
+      if (cancelled) return;
+
+      const peerConnection = new RTCPeerConnection({
+        bundlePolicy: "max-bundle",
+      });
+      pcRef.current = peerConnection;
+
+      // Receive both video and audio.
+      peerConnection.addTransceiver("video", { direction: "recvonly" });
+      peerConnection.addTransceiver("audio", { direction: "recvonly" });
+
+      // When tracks arrive, attach the first stream to the video element.
+      peerConnection.addEventListener("track", (event) => {
+        if (cancelled) return;
+        // First media arriving means the connection actually works. If
+        // we later stall and have to reconnect, start the failure count
+        // from scratch — this isn't a string of broken attempts.
+        reconnectAttemptsRef.current = 0;
+        if (event.streams && event.streams[0]) {
+          const v = videoRef.current;
+          if (v) {
+            v.srcObject = event.streams[0];
+            v.play().catch((err) =>
+              console.warn("[webrtc-player] play() rejected", err),
+            );
+          }
+        }
+      });
+
+      // Detect disconnection and schedule a reconnect.
+      peerConnection.addEventListener("connectionstatechange", () => {
+        if (cancelled) return;
+        const state = peerConnection.connectionState;
+        if (
+          state === "failed" ||
+          state === "closed" ||
+          state === "disconnected"
+        ) {
+          onErrorRef.current?.("Connection lost — reconnecting");
+          scheduleReconnect();
+        }
+      });
+
+      // Trigger negotiation when transceivers are added.
+      peerConnection.addEventListener("negotiationneeded", () => {
+        if (cancelled) return;
+        negotiate(peerConnection, streamer);
+      });
+
+      // Start stats polling.
+      startStatsPolling(peerConnection);
     }
 
     connect();
 
+    // Cleanup runs on unmount or when deps change. Directly closes the
+    // peer connection via the ref — works even if connect() hasn't
+    // finished its async negotiate() round-trip yet, because pcRef is
+    // set synchronously at the top of connect().
     return () => {
-      pendingCleanup.current?.();
+      cancelled = true;
+      stopStatsPolling();
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      pcRef.current?.close();
+      pcRef.current = null;
     };
   }, [src, active, videoRef]);
 

@@ -53,6 +53,7 @@ export interface BlueskySlice {
   anonPDSAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };
   profileCache: { [key: string]: ProfileViewDetailed };
+  profileError: string | null;
   client: null | Awaited<ReturnType<typeof createOAuthClient>>;
   loginState: {
     loading: boolean;
@@ -167,6 +168,7 @@ export const createBlueskySlice: StateCreator<
   anonPDSAgent: null,
   profiles: {},
   profileCache: {},
+  profileError: null,
   client: null,
   loginState: {
     loading: false,
@@ -384,6 +386,7 @@ export const createBlueskySlice: StateCreator<
       clearQueryParams();
       set((s) => ({
         authStatus: "loggedIn",
+        profileError: null,
         profiles: {
           ...(s as BlueskySlice).profiles,
           [actor]: result.data,
@@ -391,7 +394,15 @@ export const createBlueskySlice: StateCreator<
       }));
     } catch (error) {
       clearQueryParams();
-      set({ authStatus: "loggedOut" });
+      // Don't log the user out on a transient profile fetch failure.
+      // The session is still valid — the profile fetch can fail due
+      // to network blips, rate limiting, or PDS hiccups. Storing
+      // the error lets the provider stop retrying without clobbering
+      // the auth state.
+      set({
+        profileError:
+          error instanceof Error ? error.message : "Failed to fetch profile",
+      });
     }
   },
 
@@ -427,7 +438,7 @@ export const createBlueskySlice: StateCreator<
       if (!(params.has("code") && params.has("state") && params.has("iss"))) {
         if (params.has("error")) {
           const blueskySlice = get() as BlueskySlice;
-          console.log("OAuth error params", {
+          console.warn("OAuth error params", {
             error: params.get("error"),
             error_description: params.get("error_description"),
           });
@@ -775,7 +786,7 @@ export const createBlueskySlice: StateCreator<
           },
         });
       } else {
-        console.log("not a record", res.data.value);
+        console.warn("not a record", res.data.value);
       }
     } catch (error: any) {
       set({
@@ -918,7 +929,7 @@ export const createBlueskySlice: StateCreator<
         serverSettings: res.data.value as PlaceStreamServerSettings.Record,
       });
     } else {
-      console.log("not a record", res.data.value);
+      console.warn("not a record", res.data.value);
     }
   },
 

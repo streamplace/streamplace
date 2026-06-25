@@ -6,18 +6,7 @@
 import Hls, { type Level } from "hls.js";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
 import type { PlayerBackendHandle, PlayerStats, QualityOption } from "./player";
-
-const QUALITY_KEY = "player-quality";
-
-function readQualityPreference(): number | null {
-  try {
-    const v = localStorage.getItem(QUALITY_KEY);
-    if (v !== null) return parseInt(v, 10);
-  } catch {
-    // localStorage unavailable
-  }
-  return null;
-}
+import { readQualityPreference } from "./player";
 
 export type HLSPlayerProps = {
   /** The video element managed by the parent <Player>. */

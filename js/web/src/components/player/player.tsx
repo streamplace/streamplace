@@ -119,7 +119,7 @@ function writeTransportPreference(useWebRTC: boolean) {
 
 const QUALITY_KEY = "player-quality";
 
-function readQualityPreference(): number | null {
+export function readQualityPreference(): number | null {
   try {
     const v = localStorage.getItem(QUALITY_KEY);
     if (v !== null) return parseInt(v, 10);
@@ -427,19 +427,6 @@ function PlayerBackend({
       onStatsChange={onStatsChange}
     />
   );
-}
-
-function BackendUnsupported({
-  scheme,
-  onError,
-}: {
-  scheme: string;
-  onError: (msg: string) => void;
-}) {
-  useEffect(() => {
-    onError(`Unsupported player for ${scheme}://`);
-  }, [scheme, onError]);
-  return null;
 }
 
 /**

@@ -61,6 +61,7 @@ func main() {
 		streamplace.VodComment_ReplyRef{},
 		streamplace.Like{},
 		streamplace.VodGate{},
+		streamplace.VodDraftVideo{},
 	); err != nil {
 		panic(err)
 	}

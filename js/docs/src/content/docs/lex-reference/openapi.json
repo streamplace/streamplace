@@ -82,6 +82,59 @@
         ]
       }
     },
+    "/xrpc/place.stream.vod.deleteDraft": {
+      "post": {
+        "summary": "Discard a draft VOD. The processed content blob is not deleted (it may be referenced elsewhere). Only the draft record is removed.",
+        "operationId": "place.stream.vod.deleteDraft",
+        "tags": ["place.stream.vod"],
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "The ats:// URI of the draft to discard."
+                  }
+                },
+                "required": ["uri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.vod.getComments": {
       "get": {
         "summary": "Get comments for a place.stream.video record.",
@@ -147,6 +200,308 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.vod.getDraft": {
+      "get": {
+        "summary": "Get a single draft VOD by its ats:// URI. Only accessible by the draft's author.",
+        "operationId": "place.stream.vod.getDraft",
+        "tags": ["place.stream.vod"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "draft": {
+                      "$ref": "#/components/schemas/place.stream.vod.draftDefs_draftView"
+                    }
+                  },
+                  "required": ["draft"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "uri",
+            "in": "query",
+            "required": true,
+            "description": "The ats:// URI of the draft record.",
+            "schema": {
+              "type": "string",
+              "description": "The ats:// URI of the draft record."
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.vod.listDrafts": {
+      "get": {
+        "summary": "List the authenticated user's draft VODs, newest first.",
+        "operationId": "place.stream.vod.listDrafts",
+        "tags": ["place.stream.vod"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "drafts": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.vod.draftDefs_draftView"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "description": "Pagination cursor for the next page, if more results exist."
+                    }
+                  },
+                  "required": ["drafts"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Number of drafts to return.",
+            "schema": {
+              "type": "integer",
+              "description": "Number of drafts to return.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Pagination cursor from a previous response.",
+            "schema": {
+              "type": "string",
+              "description": "Pagination cursor from a previous response."
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/place.stream.vod.publishDraft": {
+      "post": {
+        "summary": "Promote a ready draft VOD to a public place.stream.video record. The server carries over source and durationMs from the draft, backfills a generated thumbnail if the draft has none, writes the video record via putRecord, then deletes the draft.",
+        "operationId": "place.stream.vod.publishDraft",
+        "tags": ["place.stream.vod"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "videoUri": {
+                      "type": "string",
+                      "description": "AT-URI of the created place.stream.video record.",
+                      "format": "uri"
+                    },
+                    "videoCid": {
+                      "type": "string",
+                      "description": "CID of the created place.stream.video record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["videoUri", "videoCid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        },
+                        {
+                          "const": "NotReady"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "The ats:// URI of the draft to publish. Must have status 'ready'."
+                  }
+                },
+                "required": ["uri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.vod.updateDraft": {
+      "post": {
+        "summary": "Update a draft VOD's editable metadata. Server-authoritative fields (source, durationMs, status) are preserved. Editing is allowed in any status, so the user can pre-fill metadata while processing. All fields except uri are optional (partial update).",
+        "operationId": "place.stream.vod.updateDraft",
+        "tags": ["place.stream.vod"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "draft": {
+                      "$ref": "#/components/schemas/place.stream.vod.draftDefs_draftView"
+                    }
+                  },
+                  "required": ["draft"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "NotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "uri": {
+                    "type": "string",
+                    "description": "The ats:// URI of the draft to update."
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 1400
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 50000
+                  },
+                  "descriptionFacets": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/place.stream.richtext.videoFacet"
+                    }
+                  },
+                  "thumb": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "activity": {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/place.stream.defs_activityGame"
+                      },
+                      {
+                        "$ref": "#/components/schemas/place.stream.defs_activityLabel"
+                      }
+                    ]
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 640
+                    },
+                    "maxItems": 10
+                  },
+                  "contentWarnings": {
+                    "$ref": "#/components/schemas/place.stream.metadata.contentWarnings"
+                  },
+                  "contentRights": {
+                    "$ref": "#/components/schemas/place.stream.metadata.contentRights"
+                  }
+                },
+                "required": ["uri"]
+              }
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.server.createWebhook": {
@@ -2288,7 +2643,7 @@
     },
     "/xrpc/place.stream.media.finalizeLivestream": {
       "post": {
-        "summary": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records — the same end state as a finished upload. Returns an uploadId the client polls with place.stream.media.getUploadStatus and then publishes with place.stream.media.publishVideo, exactly as for a resumable upload.",
+        "summary": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.",
         "operationId": "place.stream.media.finalizeLivestream",
         "tags": ["place.stream.media"],
         "responses": {
@@ -2301,10 +2656,14 @@
                   "properties": {
                     "uploadId": {
                       "type": "string",
-                      "description": "Identifier for the finalize job. Poll place.stream.media.getUploadStatus with it; once status is 'done', create the video with place.stream.media.publishVideo."
+                      "description": "Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus."
+                    },
+                    "draftUri": {
+                      "type": "string",
+                      "description": "The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft."
                     }
                   },
-                  "required": ["uploadId"]
+                  "required": ["uploadId", "draftUri"]
                 }
               }
             }
@@ -5423,6 +5782,150 @@
           }
         },
         "required": ["uri", "cid", "author", "record", "indexedAt", "likeCount"]
+      },
+      "place.stream.vod.draftDefs_draftView": {
+        "type": "object",
+        "description": "A draft VOD with its ats:// URI and CID, for list/get responses.",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "The ats:// URI of the draft record."
+          },
+          "cid": {
+            "type": "string",
+            "description": "CID (sha256 of CBOR record bytes, base32) of the draft record."
+          },
+          "record": {
+            "$ref": "#/components/schemas/place.stream.vod.draftVideo"
+          }
+        },
+        "required": ["uri", "cid", "record"]
+      },
+      "place.stream.vod.draftVideo": {
+        "description": "Unknown type"
+      },
+      "place.stream.richtext.videoFacet": {
+        "type": "object",
+        "description": "Annotation of a sub-string within rich text in a VOD description or comment.",
+        "properties": {
+          "index": {
+            "$ref": "#/components/schemas/app.bsky.richtext.facet_byteSlice"
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/app.bsky.richtext.facet_mention"
+                },
+                {
+                  "$ref": "#/components/schemas/app.bsky.richtext.facet_link"
+                }
+              ]
+            }
+          }
+        },
+        "required": ["index", "features"]
+      },
+      "app.bsky.richtext.facet_byteSlice": {
+        "type": "object",
+        "description": "Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.",
+        "properties": {
+          "byteStart": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "byteEnd": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["byteStart", "byteEnd"]
+      },
+      "app.bsky.richtext.facet_mention": {
+        "type": "object",
+        "description": "Facet feature for mention of another account. The text is usually a handle, including a '@' prefix, but the facet reference is a DID.",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          }
+        },
+        "required": ["did"]
+      },
+      "app.bsky.richtext.facet_link": {
+        "type": "object",
+        "description": "Facet feature for a URL. The text URL may have been simplified or truncated, but the facet reference should be a complete URL.",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["uri"]
+      },
+      "place.stream.defs_activityGame": {
+        "type": "object",
+        "description": "A game from the gamesgamesgamesgames catalog, identified by its AT URI.",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string",
+            "description": "Cached display name of the game."
+          }
+        },
+        "required": ["uri"]
+      },
+      "place.stream.defs_activityLabel": {
+        "type": "object",
+        "description": "A non-game activity with a well-known label.",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": ["label"]
+      },
+      "place.stream.metadata.contentWarnings": {
+        "type": "object",
+        "description": "Content warnings for a stream.",
+        "properties": {
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "place.stream.metadata.contentRights": {
+        "type": "object",
+        "description": "Content rights and attribution information.",
+        "properties": {
+          "creator": {
+            "type": "string",
+            "description": "Name of the creator of the work."
+          },
+          "copyrightNotice": {
+            "type": "string",
+            "description": "Copyright notice for the work."
+          },
+          "copyrightYear": {
+            "type": "integer",
+            "description": "Year of creation or publication."
+          },
+          "license": {
+            "type": "string",
+            "description": "License URL or identifier."
+          },
+          "creditLine": {
+            "type": "string",
+            "description": "Credit line for the work."
+          }
+        }
       },
       "place.stream.server.defs_rewriteRule": {
         "type": "object",

@@ -18,7 +18,9 @@ type MediaFinalizeLivestream_Input struct {
 
 // MediaFinalizeLivestream_Output is the output of a place.stream.media.finalizeLivestream call.
 type MediaFinalizeLivestream_Output struct {
-	// uploadId: Identifier for the finalize job. Poll place.stream.media.getUploadStatus with it; once status is 'done', create the video with place.stream.media.publishVideo.
+	// draftUri: The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft.
+	DraftUri string `json:"draftUri" cborgen:"draftUri"`
+	// uploadId: Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.
 	UploadId string `json:"uploadId" cborgen:"uploadId"`
 }
 

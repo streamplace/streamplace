@@ -257,8 +257,8 @@ func (state *StatefulDB) DeleteDraft(ctx context.Context, uri string) (bool, err
 	return res.RowsAffected > 0, nil
 }
 
-// toDraftView converts a stored row + its CBOR record into the lexicon view.
-func (dv *DraftVideo) toDraftView() (*streamplace.VodDraftDefs_DraftView, error) {
+// ToDraftView converts a stored row + its CBOR record into the lexicon view.
+func (dv *DraftVideo) ToDraftView() (*streamplace.VodDraftDefs_DraftView, error) {
 	rec, err := unmarshalDraft(dv.Data)
 	if err != nil {
 		return nil, err

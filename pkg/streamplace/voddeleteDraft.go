@@ -16,11 +16,16 @@ type VodDeleteDraft_Input struct {
 	Uri string `json:"uri" cborgen:"uri"`
 }
 
+// VodDeleteDraft_Output is the output of a place.stream.vod.deleteDraft call.
+type VodDeleteDraft_Output struct {
+}
+
 // VodDeleteDraft calls the XRPC method "place.stream.vod.deleteDraft".
-func VodDeleteDraft(ctx context.Context, c lexutil.LexClient, input *VodDeleteDraft_Input) error {
-	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "place.stream.vod.deleteDraft", nil, input, nil); err != nil {
-		return err
+func VodDeleteDraft(ctx context.Context, c lexutil.LexClient, input *VodDeleteDraft_Input) (*VodDeleteDraft_Output, error) {
+	var out VodDeleteDraft_Output
+	if err := c.LexDo(ctx, lexutil.Procedure, "application/json", "place.stream.vod.deleteDraft", nil, input, &out); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return &out, nil
 }

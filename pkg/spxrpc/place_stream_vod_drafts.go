@@ -139,26 +139,26 @@ func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *plac
 	return &placestream.VodUpdateDraft_Output{Draft: view}, nil
 }
 
-func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *placestream.VodDeleteDraft_Input) error {
+func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context, body *placestream.VodDeleteDraft_Input) (*placestream.VodDeleteDraft_Output, error) {
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
-		return echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
+		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
 	if body.Uri == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "uri is required")
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}
 	// Verify ownership before deleting.
 	if _, err := s.loadOwnedDraft(ctx, body.Uri, session.DID); err != nil {
-		return err
+		return nil, err
 	}
 	deleted, err := s.statefulDB.DeleteDraft(ctx, body.Uri)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	if !deleted {
-		return draftNotFound()
+		return nil, draftNotFound()
 	}
-	return nil
+	return &placestream.VodDeleteDraft_Output{}, nil
 }
 
 func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *placestream.VodPublishDraft_Input) (*placestream.VodPublishDraft_Output, error) {

@@ -1364,13 +1364,14 @@ func (s *Server) HandlePlaceStreamVodDeleteDraft(c echo.Context) error {
 	if err := c.Bind(&body); err != nil {
 		return err
 	}
+	var out *placestream.VodDeleteDraft_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context,body *placestream.VodDeleteDraft_Input) error
-	handleErr = s.handlePlaceStreamVodDeleteDraft(ctx, &body)
+	// func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context,body *placestream.VodDeleteDraft_Input) (*placestream.VodDeleteDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodDeleteDraft(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
-	return nil
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {

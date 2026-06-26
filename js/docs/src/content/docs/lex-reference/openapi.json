@@ -89,7 +89,15 @@
         "tags": ["place.stream.vod"],
         "responses": {
           "200": {
-            "description": "Success"
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",

@@ -28,6 +28,14 @@ Discard a draft VOD. The processed content blob is not deleted (it may be refere
 | ----- | -------- | ----- | --------------------------------------- | ----------- |
 | `uri` | `string` | ✅    | The ats:// URI of the draft to discard. |             |
 
+**Output:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+_(No properties defined)_
 **Possible Errors:**
 
 - `NotFound`: No draft exists with the given URI for the authenticated user.
@@ -55,6 +63,13 @@ Discard a draft VOD. The processed content blob is not deleted (it may be refere
               "description": "The ats:// URI of the draft to discard."
             }
           }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {}
         }
       },
       "errors": [

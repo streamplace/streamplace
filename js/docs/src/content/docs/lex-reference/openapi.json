@@ -5804,13 +5804,10 @@
             "description": "CID (sha256 of CBOR record bytes, base32) of the draft record."
           },
           "record": {
-            "$ref": "#/components/schemas/place.stream.vod.draftVideo"
+            "description": "The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon."
           }
         },
         "required": ["uri", "cid", "record"]
-      },
-      "place.stream.vod.draftVideo": {
-        "description": "Unknown type"
       },
       "place.stream.richtext.videoFacet": {
         "type": "object",

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/spid"
@@ -319,14 +320,21 @@ func (state *StatefulDB) DeleteDraft(ctx context.Context, uri string) (bool, err
 }
 
 // ToDraftView converts a stored row + its CBOR record into the lexicon view.
+// The record field is typed as `unknown` in the lexicon (the @atproto/api
+// client validator can't validate a ref to a record-type lexicon), which
+// generates a *lexutil.LexiconTypeDecoder in Go — so we wrap the decoded
+// record the same way commentView/livestreamView do.
 func (dv *DraftVideo) ToDraftView() (*streamplace.VodDraftDefs_DraftView, error) {
 	rec, err := unmarshalDraft(dv.Data)
 	if err != nil {
 		return nil, err
 	}
+	if rec.LexiconTypeID == "" {
+		rec.LexiconTypeID = "place.stream.vod.draftVideo"
+	}
 	return &streamplace.VodDraftDefs_DraftView{
 		Uri:    dv.URI,
 		Cid:    dv.CID,
-		Record: rec,
+		Record: &lexutil.LexiconTypeDecoder{Val: rec},
 	}, nil
 }

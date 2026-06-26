@@ -17,11 +17,11 @@ A draft VOD with its ats:// URI and CID, for list/get responses.
 
 **Properties:**
 
-| Name     | Type                                                                        | Req'd | Description                                                    | Constraints |
-| -------- | --------------------------------------------------------------------------- | ----- | -------------------------------------------------------------- | ----------- |
-| `uri`    | `string`                                                                    | ✅    | The ats:// URI of the draft record.                            |             |
-| `cid`    | `string`                                                                    | ✅    | CID (sha256 of CBOR record bytes, base32) of the draft record. |             |
-| `record` | [`place.stream.vod.draftVideo`](/lex-reference/place-stream-vod-draftvideo) | ✅    |                                                                |             |
+| Name     | Type      | Req'd | Description                                                                                                                                                                                             | Constraints |
+| -------- | --------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `uri`    | `string`  | ✅    | The ats:// URI of the draft record.                                                                                                                                                                     |             |
+| `cid`    | `string`  | ✅    | CID (sha256 of CBOR record bytes, base32) of the draft record.                                                                                                                                          |             |
+| `record` | `unknown` | ✅    | The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon. |             |
 
 ---
 
@@ -46,8 +46,8 @@ A draft VOD with its ats:// URI and CID, for list/get responses.
           "description": "CID (sha256 of CBOR record bytes, base32) of the draft record."
         },
         "record": {
-          "type": "ref",
-          "ref": "place.stream.vod.draftVideo"
+          "type": "unknown",
+          "description": "The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon."
         }
       }
     }

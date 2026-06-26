@@ -47,6 +47,7 @@ import { useIsReady, useUserProfile } from "store/hooks";
 import type {
   PlaceStreamLivestream,
   PlaceStreamVodDraftDefs,
+  PlaceStreamVodDraftVideo,
 } from "streamplace";
 import * as tus from "tus-js-client";
 
@@ -1096,7 +1097,7 @@ export default function UploadScreen() {
               </View>
             )}
             {drafts.map((draft) => {
-              const rec = draft.record;
+              const rec = draft.record as PlaceStreamVodDraftVideo.Main;
               const status = rec.status;
               const action = draftAction[draft.uri];
               const publishedUri = publishedFromDrafts[draft.uri];

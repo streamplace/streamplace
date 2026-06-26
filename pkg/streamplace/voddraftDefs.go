@@ -4,13 +4,18 @@
 
 package streamplace
 
+import (
+	lexutil "github.com/bluesky-social/indigo/lex/util"
+)
+
 // VodDraftDefs_DraftView is a "draftView" in the place.stream.vod.draftDefs schema.
 //
 // A draft VOD with its ats:// URI and CID, for list/get responses.
 type VodDraftDefs_DraftView struct {
 	// cid: CID (sha256 of CBOR record bytes, base32) of the draft record.
-	Cid    string         `json:"cid" cborgen:"cid"`
-	Record *VodDraftVideo `json:"record" cborgen:"record"`
+	Cid string `json:"cid" cborgen:"cid"`
+	// record: The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon.
+	Record *lexutil.LexiconTypeDecoder `json:"record" cborgen:"record"`
 	// uri: The ats:// URI of the draft record.
 	Uri string `json:"uri" cborgen:"uri"`
 }

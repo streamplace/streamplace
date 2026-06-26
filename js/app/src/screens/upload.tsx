@@ -44,7 +44,10 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
-import type { PlaceStreamLivestream, PlaceStreamVideo } from "streamplace";
+import type {
+  PlaceStreamLivestream,
+  PlaceStreamVodDraftDefs,
+} from "streamplace";
 import * as tus from "tus-js-client";
 
 // ── types ────────────────────────────────────────────────────────────────────
@@ -61,9 +64,13 @@ type UploadPhase =
       serverStatus?: "pending" | "processing";
       progress?: number;
     }
+  // With draft VODs the upload flow no longer polls or publishes: once the
+  // bytes are uploaded the server creates a draft automatically, and the user
+  // finishes from the Drafts tab. `ready`/`publishing` are retained for type
+  // compatibility but are no longer reached by the upload state machine.
   | { kind: "ready"; uploadId: string; tracks: TrackRef[]; durationMs: number }
   | { kind: "publishing" }
-  | { kind: "done"; videoUri: string }
+  | { kind: "done" }
   | { kind: "error"; message: string };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -101,8 +108,6 @@ async function validateVideoFile(file: File): Promise<string | null> {
 
   return "File doesn't appear to be a supported video format (MP4, WebM, MKV, MOV, AVI, OGG, FLV, MPEG-TS).";
 }
-
-const POLL_INTERVAL_MS = 3000;
 
 // ── screen ───────────────────────────────────────────────────────────────────
 
@@ -239,50 +244,6 @@ export default function UploadScreen() {
 
   const [chunkSize, setChunkSize] = useState<number | undefined>(undefined);
 
-  // ── polling ──────────────────────────────────────────────────────────────
-
-  const pollStatus = useCallback(
-    (uploadId: string) => {
-      if (!agent) return;
-      const check = async () => {
-        try {
-          const res = await agent.place.stream.media.getUploadStatus({
-            uploadId,
-          });
-          const data = res.data;
-
-          if (data.status === "done" && data.tracks) {
-            setPhase({
-              kind: "ready",
-              uploadId,
-              tracks: data.tracks,
-              durationMs: data.durationMs ?? 0,
-            });
-            return;
-          }
-          if (data.status === "error") {
-            setPhase({
-              kind: "error",
-              message: data.error ?? "Processing failed",
-            });
-            return;
-          }
-          setPhase({
-            kind: "processing",
-            uploadId,
-            serverStatus: data.status as "pending" | "processing",
-            progress: data.progress,
-          });
-          pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
-        } catch {
-          pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
-        }
-      };
-      check();
-    },
-    [agent],
-  );
-
   // ── upload ───────────────────────────────────────────────────────────────
 
   const startUpload = useCallback(async () => {
@@ -305,7 +266,7 @@ export default function UploadScreen() {
         filename: file.name,
       });
       if (!res.success) throw new Error("createUpload failed");
-      const { uploadUrl, uploadToken, uploadId } = res.data;
+      const { uploadUrl, uploadToken } = res.data;
 
       await new Promise<void>((resolve, reject) => {
         let retried = false;
@@ -344,8 +305,10 @@ export default function UploadScreen() {
       });
 
       uploadRef.current = null;
-      setPhase({ kind: "processing", uploadId });
-      pollStatus(uploadId);
+      // The server creates a draft VOD automatically once the TUS upload
+      // finishes processing. The client no longer polls getUploadStatus or
+      // calls publishVideo — the user publishes from the Drafts tab instead.
+      setPhase({ kind: "done" });
     } catch (err) {
       uploadRef.current = null;
       setPhase({
@@ -353,7 +316,7 @@ export default function UploadScreen() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [agent, file, pollStatus, chunkSize]);
+  }, [agent, file, chunkSize]);
 
   const cancelUpload = useCallback(() => {
     if (pollRef.current) clearTimeout(pollRef.current);
@@ -362,126 +325,56 @@ export default function UploadScreen() {
     setPhase({ kind: "idle" });
   }, []);
 
-  // ── publish ──────────────────────────────────────────────────────────────
-
-  const publish = useCallback(async () => {
-    if (phase.kind !== "ready" || !agent || !agent.did) return;
-    setPhase({ kind: "publishing" });
-    try {
-      const { tracks, durationMs } = phase;
-
-      const record: PlaceStreamVideo.Record = {
-        $type: "place.stream.video",
-        title: title.trim() || file?.name || "Untitled",
-        // Like source + durationMs, createdAt is server-authoritative: the
-        // server overrides this with the publish time. We still send a value
-        // to satisfy the (required) record type.
-        createdAt: new Date().toISOString(),
-        durationMs,
-        source: {
-          $type: "place.stream.media.defs#sourceTracks",
-          tracks: tracks.map((t) => ({
-            $type: "com.atproto.repo.strongRef",
-            uri: t.uri,
-            cid: t.cid,
-          })),
-        },
-      };
-
-      if (description.trim()) record.description = description.trim();
-      if (activity) record.activity = activity;
-      if (tags.length > 0) record.tags = tags;
-
-      if (warnings.size > 0) {
-        record.contentWarnings = {
-          $type: "place.stream.metadata.contentWarnings",
-          warnings: [...warnings],
-        };
-      }
-
-      if (
-        license &&
-        license !== "place.stream.metadata.contentRights#all-rights-reserved"
-      ) {
-        record.contentRights = {
-          $type: "place.stream.metadata.contentRights",
-          license: license,
-        };
-      }
-
-      if (thumbnail) {
-        try {
-          const blobRes = await agent.uploadBlob(thumbnail, {
-            encoding: thumbnail.type || "image/jpeg",
-          });
-          if (blobRes.success) record.thumb = blobRes.data.blob as any;
-        } catch {
-          // thumbnail failure is non-fatal
-        }
-      }
-
-      // Publish server-side: the server owns the authoritative source
-      // tracks + durationMs (overriding whatever we sent) and backfills a
-      // generated thumbnail when we didn't supply one.
-      const res = await agent.place.stream.media.publishVideo({
-        uploadId: phase.uploadId,
-        record,
-      });
-
-      if (!res.success) throw new Error("publishVideo failed");
-      setPhase({ kind: "done", videoUri: res.data.uri });
-    } catch (err) {
-      setPhase({
-        kind: "error",
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }, [
-    phase,
-    agent,
-    title,
-    description,
-    activity,
-    tags,
-    thumbnail,
-    warnings,
-    license,
-    file,
-  ]);
-
   // ── derived state ─────────────────────────────────────────────────────────
 
   const isUploading =
     phase.kind === "creating" ||
     phase.kind === "uploading" ||
     phase.kind === "processing";
-  const isPublishing = phase.kind === "publishing";
   const canUpload = !!file && (phase.kind === "idle" || phase.kind === "error");
-  const canPublish = phase.kind === "ready" && !!title.trim();
 
   // ── VOD manager ────────────────────────────────────────────────────────────
 
   const [managerMode, setManagerMode] = useState<
-    "upload" | "videos" | "livestreams"
+    "upload" | "videos" | "livestreams" | "drafts"
   >("upload");
   const [userVideos, setUserVideos] = useState<any[]>([]);
   const [livestreams, setLivestreams] = useState<any[]>([]);
   const [livestreamsLoading, setLivestreamsLoading] = useState(false);
+  // Per-livestream finalize state. With draft VODs, finalize no longer polls
+  // or publishes: it just kicks off the server task and flips the row to
+  // "done" so the user knows to find the draft in the Drafts tab.
   const [finalizing, setFinalizing] = useState<
-    Record<string, "finalizing" | "publishing" | "error">
+    Record<string, "finalizing" | "done" | "error">
   >({});
-  // Livestream URI -> freshly-published VOD URI, recorded optimistically the
-  // moment publishVideo returns. getVideoList (the AppView index) lags behind
-  // the write, so without this the row would briefly fall back to "Finalize"
-  // until a reload; this flips it to "View VOD" immediately.
-  const [finalizedVods, setFinalizedVods] = useState<Record<string, string>>(
-    {},
-  );
+  // Livestream URI -> draft ats:// URI, recorded when finalizeLivestream
+  // returns so the row can offer a deep-link to the Drafts tab.
+  const [finalizedDraftUris, setFinalizedDraftUris] = useState<
+    Record<string, string>
+  >({});
   const [editingVideoUri, setEditingVideoUri] = useState<string | undefined>(
     undefined,
   );
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // ── drafts ──────────────────────────────────────────────────────────────────
+  const [drafts, setDrafts] = useState<PlaceStreamVodDraftDefs.DraftView[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  // When editing a draft, holds the draft's ats:// URI so the save handler
+  // knows to call updateDraft instead of putRecord.
+  const [editingDraftUri, setEditingDraftUri] = useState<string | undefined>(
+    undefined,
+  );
+  const [draftAction, setDraftAction] = useState<
+    Record<string, "publishing" | "deleting" | "error">
+  >({});
+  // Optimistically-recorded published video URIs: publishDraft returns the new
+  // place.stream.video URI, which we surface as a "View VOD" link before the
+  // drafts list refresh removes the row server-side.
+  const [publishedFromDrafts, setPublishedFromDrafts] = useState<
+    Record<string, string>
+  >({});
 
   const fetchVideos = useCallback(async () => {
     if (!agent || !agent.did) return;
@@ -517,6 +410,19 @@ export default function UploadScreen() {
     }
   }, [agent]);
 
+  const fetchDrafts = useCallback(async () => {
+    if (!agent || !agent.did) return;
+    setDraftsLoading(true);
+    try {
+      const res = await agent.place.stream.vod.listDrafts({ limit: 100 });
+      setDrafts(res.data.drafts || []);
+    } catch (err) {
+      console.error("Failed to fetch drafts", err);
+    } finally {
+      setDraftsLoading(false);
+    }
+  }, [agent]);
+
   // Cross-reference the user's published videos against their livestreams via
   // the video record's `connections` array: a finalized livestream is one some
   // VOD links back to. media.publishVideo preserves client-supplied
@@ -547,12 +453,17 @@ export default function UploadScreen() {
     if (managerMode === "livestreams") {
       fetchLivestreams();
     }
-  }, [managerMode, fetchVideos, fetchLivestreams]);
+    if (managerMode === "drafts") {
+      fetchDrafts();
+    }
+  }, [managerMode, fetchVideos, fetchLivestreams, fetchDrafts]);
 
-  // Finalize a single livestream into a VOD: kick off the server-side finalize
-  // task, poll until processing completes, then auto-publish a video record
-  // that inherits the livestream's metadata and links back to it via
-  // `connections`. First pass is fire-and-forget (no draft step).
+  // Finalize a single livestream into a draft VOD. With draft VODs the
+  // client no longer polls getUploadStatus or calls publishVideo: the server
+  // kicks off the remux/processing task and creates a draft record (status
+  // "processing" → "ready") that the user publishes later from the Drafts tab.
+  // We just call finalizeLivestream and flip the row to a "done" state that
+  // points the user at the Drafts tab.
   const finalizeLivestreamRow = useCallback(
     async (ls: { uri: string; cid: string; value: any }) => {
       if (!agent || !agent.did) return;
@@ -562,75 +473,21 @@ export default function UploadScreen() {
           livestream: ls.uri,
         });
         if (!res.success) throw new Error("finalizeLivestream failed");
-        const { uploadId } = res.data;
-
-        // Wait for the finalize task to remux + process the recording.
-        await new Promise<void>((resolve, reject) => {
-          const check = async () => {
-            try {
-              const st = await agent.place.stream.media.getUploadStatus({
-                uploadId,
-              });
-              const d = st.data;
-              if (d.status === "done") return resolve();
-              if (d.status === "error")
-                return reject(new Error(d.error ?? "Processing failed"));
-              setTimeout(check, POLL_INTERVAL_MS);
-            } catch {
-              setTimeout(check, POLL_INTERVAL_MS);
-            }
-          };
-          check();
-        });
-
-        setFinalizing((m) => ({ ...m, [ls.uri]: "publishing" }));
-
-        const lsRec = (ls.value ?? {}) as any;
-        const record: PlaceStreamVideo.Record = {
-          $type: "place.stream.video",
-          title: (lsRec.title || "Livestream").trim(),
-          // source + durationMs + createdAt are server-authoritative: the
-          // server overrides them from the processed upload at publish time.
-          createdAt: new Date().toISOString(),
-          durationMs: 0,
-          source: {
-            $type: "place.stream.media.defs#sourceTracks",
-            tracks: [],
-          },
-          connections: [
-            {
-              $type: "place.stream.video#connection",
-              ref: { uri: ls.uri, cid: ls.cid },
-            },
-          ],
-        };
-        if (lsRec.activity) record.activity = lsRec.activity;
-        if (Array.isArray(lsRec.tags) && lsRec.tags.length > 0)
-          record.tags = lsRec.tags;
-
-        const pub = await agent.place.stream.media.publishVideo({
-          uploadId,
-          record,
-        });
-        if (!pub.success) throw new Error("publishVideo failed");
-
-        // Flip the row to "View VOD" right away — getVideoList won't have
-        // indexed the new record yet, so we can't rely on fetchVideos below.
-        setFinalizedVods((m) => ({ ...m, [ls.uri]: pub.data.uri }));
-
-        setFinalizing((m) => {
-          const next = { ...m };
-          delete next[ls.uri];
-          return next;
-        });
-        // Refresh videos so the row flips to its finalized state.
-        await fetchVideos();
+        // Record the draft URI so the row can offer a deep-link to the
+        // Drafts tab (optional affordance).
+        if (res.data.draftUri) {
+          setFinalizedDraftUris((m) => ({
+            ...m,
+            [ls.uri]: res.data.draftUri as string,
+          }));
+        }
+        setFinalizing((m) => ({ ...m, [ls.uri]: "done" }));
       } catch (err) {
         console.error("Failed to finalize livestream", err);
         setFinalizing((m) => ({ ...m, [ls.uri]: "error" }));
       }
     },
-    [agent, fetchVideos],
+    [agent],
   );
 
   const handleSelectVideo = useCallback((video: any) => {
@@ -750,6 +607,132 @@ export default function UploadScreen() {
     }
   }, [agent, editingVideoUri]);
 
+  // ── draft handlers ──────────────────────────────────────────────────────────
+
+  // Load a draft's metadata into the editor form and switch to the upload tab,
+  // mirroring handleSelectVideo. editingDraftUri tells the save handler to
+  // call updateDraft instead of putRecord.
+  const handleSelectDraft = useCallback(
+    (draft: PlaceStreamVodDraftDefs.DraftView) => {
+      const rec = draft.record as any;
+      setEditingDraftUri(draft.uri);
+      setEditingVideoUri(undefined);
+      setTitle(rec.title || "");
+      setDescription(rec.description || "");
+      setActivity(rec.activity || undefined);
+      setTags(rec.tags || []);
+      setThumbnail(undefined);
+      setThumbnailUrl(
+        rec.thumb
+          ? `https://cdn.stream.place/thumb/${rec.thumb.ref?.$link || rec.thumb.cid || ""}`
+          : undefined,
+      );
+      const cw = rec.contentWarnings?.warnings || [];
+      setWarnings(new Set(cw));
+      const rights = rec.contentRights || {};
+      setLicense(
+        rights.license?.$type ||
+          rights.license ||
+          "place.stream.metadata.contentRights#all-rights-reserved",
+      );
+      setManagerMode("upload");
+    },
+    [],
+  );
+
+  // Save edits to a draft via updateDraft (not putRecord). The server owns
+  // source/duration/status; we only send the editable fields.
+  const handleUpdateDraft = useCallback(async () => {
+    if (!agent || !editingDraftUri) return;
+    setUpdating(true);
+    try {
+      const params: Record<string, any> = {
+        uri: editingDraftUri,
+        title: title.trim() || "Untitled",
+      };
+      if (description.trim()) params.description = description.trim();
+      if (activity) params.activity = activity;
+      if (tags.length > 0) params.tags = tags;
+      if (warnings.size > 0) {
+        params.contentWarnings = {
+          $type: "place.stream.metadata.contentWarnings",
+          warnings: [...warnings],
+        };
+      }
+      if (
+        license &&
+        license !== "place.stream.metadata.contentRights#all-rights-reserved"
+      ) {
+        params.contentRights = {
+          $type: "place.stream.metadata.contentRights",
+          license: license,
+        };
+      }
+      if (thumbnail) {
+        try {
+          const blobRes = await agent.uploadBlob(thumbnail, {
+            encoding: thumbnail.type || "image/jpeg",
+          });
+          if (blobRes.success) params.thumb = blobRes.data.blob;
+        } catch {
+          // thumbnail failure is non-fatal
+        }
+      }
+      await agent.place.stream.vod.updateDraft(params as any);
+      setEditingDraftUri(undefined);
+      setFile(null);
+      setPhase({ kind: "idle" });
+      setManagerMode("drafts");
+    } catch (err) {
+      console.error("Failed to update draft", err);
+    } finally {
+      setUpdating(false);
+    }
+  }, [
+    agent,
+    editingDraftUri,
+    title,
+    description,
+    activity,
+    tags,
+    thumbnail,
+    warnings,
+    license,
+  ]);
+
+  // Publish a ready draft. On success the draft is deleted server-side; we
+  // record the new video URI optimistically and refresh the list.
+  const handlePublishDraft = useCallback(
+    async (uri: string) => {
+      if (!agent) return;
+      setDraftAction((m) => ({ ...m, [uri]: "publishing" }));
+      try {
+        const res = await agent.place.stream.vod.publishDraft({ uri });
+        setPublishedFromDrafts((m) => ({ ...m, [uri]: res.data.videoUri }));
+        setDrafts((prev) => prev.filter((d) => d.uri !== uri));
+      } catch (err) {
+        console.error("Failed to publish draft", err);
+        setDraftAction((m) => ({ ...m, [uri]: "error" }));
+      }
+    },
+    [agent],
+  );
+
+  const handleDeleteDraft = useCallback(
+    async (uri: string) => {
+      if (!agent) return;
+      setDraftAction((m) => ({ ...m, [uri]: "deleting" }));
+      try {
+        await agent.place.stream.vod.deleteDraft({ uri });
+        setDrafts((prev) => prev.filter((d) => d.uri !== uri));
+      } catch (err) {
+        console.error("Failed to delete draft", err);
+        setDraftAction((m) => ({ ...m, [uri]: "error" }));
+      }
+    },
+    [agent],
+  );
+
   // ── render ────────────────────────────────────────────────────────────────
 
   // Login gate: uploading needs an account. Wait for auth to resolve, then
@@ -813,7 +796,7 @@ export default function UploadScreen() {
   }
 
   const renderTab = (
-    mode: "upload" | "videos" | "livestreams",
+    mode: "upload" | "videos" | "livestreams" | "drafts",
     label: string,
     position: "left" | "middle" | "right",
   ) => {
@@ -870,7 +853,8 @@ export default function UploadScreen() {
         >
           {renderTab("upload", "Upload", "left")}
           {renderTab("videos", "My Videos", "middle")}
-          {renderTab("livestreams", "Livestreams", "right")}
+          {renderTab("livestreams", "Livestreams", "middle")}
+          {renderTab("drafts", "Drafts", "right")}
         </View>
 
         {/* Video list mode */}
@@ -981,8 +965,7 @@ export default function UploadScreen() {
             {livestreams.map((ls: any) => {
               const rec = ls.value || {};
               const ended = !!rec.endedAt;
-              const vodUri =
-                livestreamToVideo.get(ls.uri) ?? finalizedVods[ls.uri];
+              const vodUri = livestreamToVideo.get(ls.uri);
               const status = finalizing[ls.uri];
               return (
                 <View
@@ -1037,7 +1020,7 @@ export default function UploadScreen() {
                         </Text>
                       </View>
                     </AQLink>
-                  ) : status === "finalizing" || status === "publishing" ? (
+                  ) : status === "finalizing" ? (
                     <View
                       style={{
                         flexDirection: "row",
@@ -1050,11 +1033,23 @@ export default function UploadScreen() {
                         color={theme.colors.mutedForeground}
                       />
                       <Text size="xs" color="muted">
-                        {status === "publishing"
-                          ? "Publishing…"
-                          : "Finalizing…"}
+                        Finalizing…
                       </Text>
                     </View>
+                  ) : status === "done" ? (
+                    <Pressable
+                      onPress={() => setManagerMode("drafts")}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <CheckCircle2 size={16} color={theme.colors.success} />
+                      <Text size="sm" style={{ color: theme.colors.success }}>
+                        Find in Drafts →
+                      </Text>
+                    </Pressable>
                   ) : !ended ? (
                     <Tooltip content="This stream is still live. Finalize once it has ended.">
                       <Button size="sm" disabled onPress={() => {}}>
@@ -1078,10 +1073,157 @@ export default function UploadScreen() {
           </View>
         )}
 
+        {/* Drafts list mode */}
+        {managerMode === "drafts" && (
+          <View style={{ maxWidth: 960, width: "100%", gap: 12 }}>
+            {draftsLoading && drafts.length === 0 && (
+              <View style={[zero.p[6], { alignItems: "center" }]}>
+                <LoaderCircle size={32} color={theme.colors.mutedForeground} />
+              </View>
+            )}
+            {!draftsLoading && drafts.length === 0 && (
+              <View style={[zero.p[6], { alignItems: "center" }]}>
+                <Video size={48} color={theme.colors.mutedForeground} />
+                <Text
+                  color="muted"
+                  size="sm"
+                  style={{ marginTop: 12, textAlign: "center" }}
+                >
+                  No drafts. Uploads and finalized livestreams appear here as
+                  drafts while they process — come back to add details and
+                  publish.
+                </Text>
+              </View>
+            )}
+            {drafts.map((draft) => {
+              const rec = draft.record;
+              const status = rec.status;
+              const action = draftAction[draft.uri];
+              const publishedUri = publishedFromDrafts[draft.uri];
+              return (
+                <View
+                  key={draft.uri}
+                  style={[
+                    zero.p[3],
+                    zero.r.md,
+                    {
+                      flexDirection: "row",
+                      gap: 12,
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.background,
+                      alignItems: "center",
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text
+                      numberOfLines={1}
+                      style={{ fontWeight: "600", fontSize: 14 }}
+                    >
+                      {rec.title || "Untitled"}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {rec.createdAt
+                        ? new Date(rec.createdAt).toLocaleString()
+                        : ""}
+                      {" · "}
+                      {status === "processing"
+                        ? "Processing"
+                        : status === "error"
+                          ? `Error: ${rec.error || "unknown"}`
+                          : "Ready"}
+                    </Text>
+                  </View>
+                  {publishedUri ? (
+                    <AQLink
+                      to={{
+                        screen: "Video",
+                        params: {
+                          user: agent?.did ?? "",
+                          tid: publishedUri.split("/").pop() ?? "",
+                        },
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <CheckCircle2 size={16} color={theme.colors.primary} />
+                        <Text size="sm" style={{ color: theme.colors.primary }}>
+                          View VOD
+                        </Text>
+                      </View>
+                    </AQLink>
+                  ) : action === "publishing" || action === "deleting" ? (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <LoaderCircle
+                        size={16}
+                        color={theme.colors.mutedForeground}
+                      />
+                      <Text size="xs" color="muted">
+                        {action === "publishing" ? "Publishing…" : "Deleting…"}
+                      </Text>
+                    </View>
+                  ) : status === "ready" ? (
+                    <View style={{ flexDirection: "row", gap: 8 }}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onPress={() => handleSelectDraft(draft)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        onPress={() => handlePublishDraft(draft.uri)}
+                      >
+                        Publish
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onPress={() => handleDeleteDraft(draft.uri)}
+                      >
+                        <X size={14} color="#fff" />
+                      </Button>
+                    </View>
+                  ) : status === "error" ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onPress={() => handleDeleteDraft(draft.uri)}
+                    >
+                      Discard
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onPress={() => handleDeleteDraft(draft.uri)}
+                    >
+                      <X size={14} color="#fff" />
+                    </Button>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Upload/Edit mode */}
         {managerMode === "upload" && (
           <>
-            {editingVideoUri && (
+            {(editingVideoUri || editingDraftUri) && (
               <View
                 style={{
                   maxWidth: 960,
@@ -1093,22 +1235,25 @@ export default function UploadScreen() {
                 }}
               >
                 <Text size="sm" color="muted">
-                  Editing video
+                  {editingDraftUri ? "Editing draft" : "Editing video"}
                 </Text>
                 <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onPress={handleDeleteVideo}
-                    disabled={deleting}
-                  >
-                    <Text style={{ color: theme.colors.destructive }}>
-                      {deleting ? "Deleting…" : "Delete"}
-                    </Text>
-                  </Button>
+                  {editingVideoUri && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onPress={handleDeleteVideo}
+                      disabled={deleting}
+                    >
+                      <Text style={{ color: theme.colors.destructive }}>
+                        {deleting ? "Deleting…" : "Delete"}
+                      </Text>
+                    </Button>
+                  )}
                   <Pressable
                     onPress={() => {
                       setEditingVideoUri(undefined);
+                      setEditingDraftUri(undefined);
                       setPhase({ kind: "idle" });
                       setFile(null);
                       setTitle("");
@@ -1315,7 +1460,7 @@ export default function UploadScreen() {
               </View>
 
               {/* ── right column: file + status + actions ────────────────────── */}
-              {!editingVideoUri && (
+              {!editingVideoUri && !editingDraftUri && (
                 <View
                   style={{
                     flex: isWide ? 2 : undefined,
@@ -1624,23 +1769,41 @@ export default function UploadScreen() {
                               </View>
                             )}
                             {phase.kind === "done" && (
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  gap: 10,
-                                }}
-                              >
-                                <CheckCircle2
-                                  size={18}
-                                  color={theme.colors.success}
-                                />
-                                <Text
-                                  size="sm"
-                                  style={{ color: theme.colors.success }}
+                              <View style={{ gap: 8 }}>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 10,
+                                  }}
                                 >
-                                  Published
-                                </Text>
+                                  <CheckCircle2
+                                    size={18}
+                                    color={theme.colors.success}
+                                  />
+                                  <Text
+                                    size="sm"
+                                    style={{ color: theme.colors.success }}
+                                  >
+                                    Upload complete
+                                  </Text>
+                                </View>
+                                <Pressable
+                                  onPress={() => setManagerMode("drafts")}
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 6,
+                                  }}
+                                >
+                                  <Text
+                                    size="sm"
+                                    style={{ color: theme.colors.primary }}
+                                  >
+                                    Find your draft in the Drafts tab to add
+                                    details and publish →
+                                  </Text>
+                                </Pressable>
                               </View>
                             )}
                             {phase.kind === "error" && (
@@ -1667,15 +1830,20 @@ export default function UploadScreen() {
                       {/* actions */}
                       <MenuGroup>
                         <View style={[zero.px[3], zero.py[2], { gap: 8 }]}>
-                          {editingVideoUri ? (
-                            <>
-                              <Button
-                                onPress={handleUpdateVideo}
-                                disabled={!title.trim() || updating}
-                              >
-                                {updating ? "Updating…" : "Update Video"}
-                              </Button>
-                            </>
+                          {editingDraftUri ? (
+                            <Button
+                              onPress={handleUpdateDraft}
+                              disabled={!title.trim() || updating}
+                            >
+                              {updating ? "Saving…" : "Save Draft"}
+                            </Button>
+                          ) : editingVideoUri ? (
+                            <Button
+                              onPress={handleUpdateVideo}
+                              disabled={!title.trim() || updating}
+                            >
+                              {updating ? "Updating…" : "Update Video"}
+                            </Button>
                           ) : (
                             <>
                               {canUpload && (
@@ -1694,12 +1862,26 @@ export default function UploadScreen() {
                                   Cancel
                                 </Button>
                               )}
-                              {(phase.kind === "ready" || isPublishing) && (
+                              {phase.kind === "done" && (
                                 <Button
-                                  onPress={publish}
-                                  disabled={!canPublish || isPublishing}
+                                  onPress={() => {
+                                    setFile(null);
+                                    setPhase({ kind: "idle" });
+                                    setTitle("");
+                                    setDescription("");
+                                    setActivity(undefined);
+                                    setTags([]);
+                                    setTagInput("");
+                                    setThumbnail(undefined);
+                                    setThumbnailUrl(undefined);
+                                    setWarnings(new Set());
+                                    setLicense(
+                                      "place.stream.metadata.contentRights#all-rights-reserved",
+                                    );
+                                  }}
+                                  variant="secondary"
                                 >
-                                  {isPublishing ? "Publishing…" : "Publish"}
+                                  Upload another
                                 </Button>
                               )}
                             </>

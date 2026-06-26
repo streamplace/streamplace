@@ -10,10 +10,6 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
-// TEMPORARY: track atmoq-go's eli/replay branch (SubscribeFrom group-resume)
-// until it's released; swap back to a versioned require once tagged.
-replace github.com/streamplace/atmoq-go => /home/iameli/code/atmoq-go
-
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 require (
@@ -69,7 +65,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/slok/go-http-metrics v0.13.0
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
-	github.com/streamplace/atmoq-go v0.0.1
+	github.com/streamplace/atmoq-go v0.0.2
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
 	github.com/streamplace/muxl/go v0.3.2
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44

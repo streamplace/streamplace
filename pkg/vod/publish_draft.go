@@ -76,9 +76,6 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		DurationMs:    derefInt64(rec.DurationMs),
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 	}
-	if rec.Description != nil {
-		video.Description = rec.Description
-	}
 	video.DescriptionFacets = rec.DescriptionFacets
 	video.Tags = rec.Tags
 	video.Connections = draftConnectionsToVideo(rec.Connections)

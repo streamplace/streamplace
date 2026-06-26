@@ -10,6 +10,7 @@ import (
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -164,7 +165,13 @@ func (state *StatefulDB) ListDrafts(ctx context.Context, did string, limit int, 
 func (state *StatefulDB) UpdateDraftMetadata(ctx context.Context, uri string, apply func(rec *streamplace.VodDraftVideo)) (*DraftVideo, error) {
 	var dv DraftVideo
 	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("uri = ?", uri).First(&dv).Error; err != nil {
+		// FOR UPDATE (Postgres) so a concurrent SetDraftReady/SetDraftError
+		// transaction blocks until this one commits — preventing a lost update
+		// where the user's metadata edit clobbers the server's ready/error
+		// transition (or vice versa). SQLite serializes writes, so the clause
+		// is a no-op there.
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("uri = ?", uri).First(&dv).Error; err != nil {
 			return err
 		}
 		rec, err := unmarshalDraft(dv.Data)
@@ -268,8 +275,12 @@ func (state *StatefulDB) SetDraftError(ctx context.Context, originUploadID, errM
 // denormalized SQL columns (via applyRow) for the draft tied to originUploadID.
 func (state *StatefulDB) updateDraftByUpload(ctx context.Context, originUploadID string, apply func(rec *streamplace.VodDraftVideo), applyRow func(dv *DraftVideo)) error {
 	return state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// FOR UPDATE (Postgres) — see UpdateDraftMetadata. A concurrent user
+		// metadata edit blocks until this ready/error transition commits, so it
+		// re-reads the new status rather than clobbering it.
 		var dv DraftVideo
-		if err := tx.Where("origin_upload_id = ?", originUploadID).First(&dv).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("origin_upload_id = ?", originUploadID).First(&dv).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// No draft for this upload (e.g. a pre-drafts-era upload, or a
 				// draft that was deleted). Nothing to update; not an error.

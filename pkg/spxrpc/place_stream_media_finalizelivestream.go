@@ -14,9 +14,11 @@ import (
 // handlePlaceStreamMediaFinalizeLivestream turns a finished livestream into a
 // VOD. It creates a synthetic Upload row and enqueues a background finalize
 // task that concatenates the livestream's recorded MUXL objects into a content
-// blob and publishes the track records — landing in the same place a finished
-// resumable upload does, so the client polls getUploadStatus and then
-// publishVideo with the returned uploadId, unchanged.
+// blob and publishes the track records. It also creates a draft VOD in the
+// 'processing' state (inheriting the livestream's metadata) that the user
+// publishes later from the Drafts tab via place.stream.vod.publishDraft — the
+// client no longer polls getUploadStatus or calls publishVideo. Returns the
+// draft's ats:// URI so the client can navigate to it.
 func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, body *placestream.MediaFinalizeLivestream_Input) (*placestream.MediaFinalizeLivestream_Output, error) {
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {

@@ -67,5 +67,14 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return &placestream.MediaFinalizeLivestream_Output{UploadId: uploadID}, nil
+	// Create a draft VOD in the 'processing' state, inheriting the livestream's
+	// metadata and linking back to it via connections. The client no longer polls
+	// or publishes — the draft reaches 'ready' server-side and the user
+	// publishes it later from the Drafts tab.
+	draft, err := s.createLivestreamDraft(ctx, session.DID, uploadID, ls)
+	if err != nil {
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return &placestream.MediaFinalizeLivestream_Output{UploadId: uploadID, DraftUri: draft.URI}, nil
 }

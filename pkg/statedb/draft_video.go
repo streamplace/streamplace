@@ -3,10 +3,12 @@ package statedb
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/streamplace"
@@ -204,6 +206,54 @@ func (state *StatefulDB) SetDraftReady(ctx context.Context, originUploadID strin
 	}, func(dv *DraftVideo) {
 		dv.ContentCID = contentCID
 	})
+}
+
+// markDraftReadyFromUpload re-reads a (now-finished) Upload row and flips its
+// tied draft to 'ready', filling source/durationMs from the row and content_cid
+// for later thumbnail generation. Called by the queue processors after the VOD
+// processor / livestream finalizer returns, since those call SetUploadProcessed
+// internally and return only a cid — the processor's results land on the Upload
+// row, which we re-read here. A missing draft is a no-op.
+func (state *StatefulDB) markDraftReadyFromUpload(ctx context.Context, uploadID string) error {
+	upload, err := state.GetUpload(ctx, uploadID)
+	if err != nil {
+		return fmt.Errorf("get upload: %w", err)
+	}
+	if upload == nil {
+		return nil
+	}
+	source, err := draftSourceFromTrackURIs(upload.TrackURIs)
+	if err != nil {
+		return err
+	}
+	return state.SetDraftReady(ctx, uploadID, source, upload.DurationMS, upload.ContentCID)
+}
+
+// draftSourceFromTrackURIs builds the draft's source union (sourceTracks) from
+// the {uri,cid} JSON array the Upload row stores — the same conversion
+// vod.sourceTracksFromUpload performs for the publishVideo path, replicated
+// here because pkg/statedb can't import pkg/vod (cycle).
+func draftSourceFromTrackURIs(trackURIsJSON string) (*streamplace.VodDraftVideo_Source, error) {
+	if trackURIsJSON == "" {
+		return nil, nil
+	}
+	var refs []struct {
+		URI string `json:"uri"`
+		CID string `json:"cid"`
+	}
+	if err := json.Unmarshal([]byte(trackURIsJSON), &refs); err != nil {
+		return nil, fmt.Errorf("decode track refs: %w", err)
+	}
+	tracks := make([]*comatproto.RepoStrongRef, 0, len(refs))
+	for _, r := range refs {
+		tracks = append(tracks, &comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
+	}
+	return &streamplace.VodDraftVideo_Source{
+		MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+			LexiconTypeID: "place.stream.media.defs#sourceTracks",
+			Tracks:        tracks,
+		},
+	}, nil
 }
 
 // SetDraftError flips a draft to status "error" with an error message.

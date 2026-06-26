@@ -43,9 +43,9 @@ func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
 	// Alice owns the draft; Bob tries to publish it.
 	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", &streamplace.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
-		Title:          "Alice's draft",
-		Status:         "ready",
-		CreatedAt:      "2026-01-01T00:00:00Z",
+		Title:         "Alice's draft",
+		Status:        "ready",
+		CreatedAt:     "2026-01-01T00:00:00Z",
 	})
 	require.NoError(t, err)
 

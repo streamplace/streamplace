@@ -194,6 +194,11 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
 			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
 		}
+		// Flip any tied draft to 'error' too, so the user sees the failure in
+		// the Drafts tab instead of an indefinite 'processing' state.
+		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
+			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
+		}
 		// Complete the task so it doesn't retry — most VOD failures are
 		// permanent (unsupported codec, corrupted file, etc.).
 		_ = state.CompleteTask(ctx, task.ID)
@@ -202,6 +207,14 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		// carry the per-task "uploadId" log value, so without it the failure
 		// (e.g. a publish-records track error) can't be tied to an upload.
 		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
+	}
+	// The processor (vod.ProcessVOD) calls SetUploadProcessed deep inside its
+	// own publish path, so by the time it returns the Upload row carries the
+	// finished TrackURIs / DurationMS / ContentCID. Re-read them and flip the
+	// tied draft to 'ready'. A missing draft (pre-drafts-era upload, or one
+	// whose create failed) is a no-op, not an error.
+	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
 	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
 	return state.CompleteTask(ctx, task.ID)
@@ -237,10 +250,19 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
 			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
 		}
+		// Flip the tied draft to 'error' so the user sees the failure.
+		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
+			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
+		}
 		// Complete so it doesn't retry: most finalize failures are permanent
 		// (missing objects, unreadable bytes, no OAuth session).
 		_ = state.CompleteTask(ctx, task.ID)
 		return fmt.Errorf("finalize livestream VOD upload %s: %w", t.UploadID, err)
+	}
+	// As with VODProcess, the finalizer calls SetUploadProcessed internally, so
+	// re-read the finished Upload row and flip the tied draft to 'ready'.
+	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
 	}
 	log.Log(ctx, "livestream VOD finalized", "uploadId", t.UploadID, "cid", cid)
 	return state.CompleteTask(ctx, task.ID)

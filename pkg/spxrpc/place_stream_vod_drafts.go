@@ -6,8 +6,11 @@ import (
 	"net/http"
 	"time"
 
+	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/statedb"
 	placestream "stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
@@ -187,4 +190,65 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 		}
 	}
 	return &placestream.VodPublishDraft_Output{VideoUri: videoURI, VideoCid: videoCID}, nil
+}
+
+// createLivestreamDraft builds a 'processing'-state draft that inherits the
+// livestream's title/activity/tags and links back to the livestream record via
+// connections. Called by the finalizeLivestream handler at kickoff so the user
+// can navigate straight to the draft while processing runs server-side.
+func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *model.Livestream) (*statedb.DraftVideo, error) {
+	view, err := ls.ToLivestreamView()
+	if err != nil {
+		return nil, err
+	}
+	rec, ok := view.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return nil, errors.New("livestream record is not a place.stream.livestream")
+	}
+
+	title := rec.Title
+	if title == "" {
+		title = "Livestream"
+	}
+	draftRec := &placestream.VodDraftVideo{
+		LexiconTypeID: "place.stream.vod.draftVideo",
+		Title:         title,
+		Status:        "processing",
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}
+	if rec.Activity != nil {
+		draftRec.Activity = livestreamActivityToDraft(rec.Activity)
+	}
+	if len(rec.Tags) > 0 {
+		draftRec.Tags = rec.Tags
+	}
+	// Link back to the source livestream so a published VOD carries the
+	// connection (the existing UI uses this to flip a finalized row to
+	// "View VOD").
+	draftRec.Connections = []*placestream.VodDraftVideo_Connections_Elem{{
+		Video_Connection: &placestream.Video_Connection{
+			LexiconTypeID: "place.stream.video#connection",
+			Ref: &comatproto.RepoStrongRef{
+				Uri: ls.URI,
+				Cid: ls.CID,
+			},
+		},
+	}}
+
+	return s.statefulDB.CreateDraft(ctx, did, uploadID, draftRec)
+}
+
+// livestreamActivityToDraft maps a livestream's activity union onto the draft's
+// (they reference the same defs).
+func livestreamActivityToDraft(a *placestream.Livestream_Activity) *placestream.VodDraftVideo_Activity {
+	if a == nil {
+		return nil
+	}
+	if a.Defs_ActivityGame != nil {
+		return &placestream.VodDraftVideo_Activity{Defs_ActivityGame: a.Defs_ActivityGame}
+	}
+	if a.Defs_ActivityLabel != nil {
+		return &placestream.VodDraftVideo_Activity{Defs_ActivityLabel: a.Defs_ActivityLabel}
+	}
+	return nil
 }

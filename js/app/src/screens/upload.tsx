@@ -727,14 +727,30 @@ export default function UploadScreen() {
     const mimeType = file.type.startsWith("video/") ? file.type : "video/mp4";
     setPhase({ kind: "creating" });
     try {
+      // Create the empty draft first — it's the durable anchor for this
+      // upload. The user lands on the draft editor immediately and can edit
+      // metadata while the upload runs; a failed upload leaves the draft
+      // intact so they can re-upload against the same draft.
+      const draftRes = await agent.place.stream.vod.createDraft({});
+      if (!draftRes.success) throw new Error("createDraft failed");
+      const draftUri = draftRes.data.uri;
+      const tid = tidFromUri(draftUri);
+
       const res = await agent.place.stream.media.createUpload({
         size: file.size,
         mimeType,
         filename: file.name,
+        draftUri,
       });
       if (!res.success) throw new Error("createUpload failed");
       const { uploadUrl, uploadToken } = res.data;
 
+      // Navigate to the draft editor now — the upload continues in the
+      // background and fills this draft when it finishes processing.
+      navigation.navigate("UploadVideo" as any, { tid });
+
+      // The TUS upload runs to completion here; the draft (already navigated
+      // to) will flip to 'ready' server-side when processing finishes.
       await new Promise<void>((resolve, reject) => {
         let retried = false;
         const params: tus.UploadOptions = {
@@ -754,12 +770,9 @@ export default function UploadScreen() {
             }
           },
           onProgress(bytesSent, bytesTotal) {
-            setPhase({
-              kind: "uploading",
-              pct: bytesTotal > 0 ? (bytesSent / bytesTotal) * 100 : 0,
-              bytesSent,
-              bytesTotal,
-            });
+            // Progress isn't shown on the bare upload screen anymore (we've
+            // navigated away to the editor); the editor surfaces the draft's
+            // processing status instead.
           },
           onSuccess: () => resolve(),
         };
@@ -772,10 +785,9 @@ export default function UploadScreen() {
       });
 
       uploadRef.current = null;
-      // The server creates a draft VOD automatically once the TUS upload
-      // finishes processing. The client no longer polls getUploadStatus or
-      // calls publishVideo — the user publishes from the Drafts tab instead.
-      setPhase({ kind: "done" });
+      // No phase change here: we've already navigated to the draft editor,
+      // which polls/reloads the draft and reflects the 'ready' state when
+      // processing completes.
     } catch (err) {
       uploadRef.current = null;
       setPhase({
@@ -783,7 +795,7 @@ export default function UploadScreen() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [agent, file]);
+  }, [agent, file, navigation]);
 
   const cancelUpload = useCallback(() => {
     if (pollRef.current) clearTimeout(pollRef.current);
@@ -1236,6 +1248,39 @@ export function UploadVideoScreen({ route }: { route: any }) {
       cancelled = true;
     };
   }, [agent, tid]);
+
+  // While the draft is still processing, poll so the editor reflects the
+  // processing → ready (or error) transition without a manual reload. Only
+  // refreshes the status (and source/durationMs once ready), never the
+  // editable metadata the user may be mid-edit on.
+  useEffect(() => {
+    if (
+      mode !== "draft" ||
+      draftStatus !== "processing" ||
+      !agent ||
+      !agent.did
+    ) {
+      return;
+    }
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await agent.place.stream.vod.getDraft({
+          uri: draftUri(agent.did!, tid),
+        });
+        if (cancelled) return;
+        const rec = res.data.draft.record as PlaceStreamVodDraftVideo.Main;
+        setDraftStatus(rec.status);
+      } catch {
+        // Transient fetch failures are fine; the next tick retries.
+      }
+    };
+    const interval = setInterval(poll, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [mode, draftStatus, agent, tid]);
 
   const handleSave = useCallback(async () => {
     if (!agent || !agent.did) return;

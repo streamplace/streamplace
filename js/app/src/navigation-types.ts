@@ -29,6 +29,10 @@ export type HomeStackParamList = {
   Multi: { config: string };
   Support: undefined;
   Upload: undefined;
+  UploadVideo: { tid: string };
+  UploadDrafts: undefined;
+  UploadLivestreams: undefined;
+  UploadVideos: undefined;
 };
 
 // Videos tab navigator

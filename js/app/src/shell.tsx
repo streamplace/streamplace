@@ -66,7 +66,12 @@ import PopoutLivestream from "src/screens/popout-livestream";
 import PopoutMultistream from "src/screens/popout-multistream";
 import PopoutStreamMonitor from "src/screens/popout-stream-monitor";
 import SupportScreen from "src/screens/support";
-import UploadScreen from "src/screens/upload";
+import UploadScreen, {
+  UploadDraftsScreen,
+  UploadLivestreamsScreen,
+  UploadVideoScreen,
+  UploadVideosScreen,
+} from "src/screens/upload";
 import VideoScreen from "src/screens/video";
 import VideoListScreen from "src/screens/video-list";
 import VodScreen from "src/screens/vod";
@@ -217,6 +222,34 @@ function HomeNavigator() {
           name="Upload"
           component={UploadScreen}
           options={{ title: "Upload Video", ...headerScreenOptions }}
+        />
+      )}
+      {!isNative && (
+        <HomeStack.Screen
+          name="UploadVideo"
+          component={UploadVideoScreen}
+          options={{ title: "Edit Video", ...headerScreenOptions }}
+        />
+      )}
+      {!isNative && (
+        <HomeStack.Screen
+          name="UploadDrafts"
+          component={UploadDraftsScreen}
+          options={{ title: "Drafts", ...headerScreenOptions }}
+        />
+      )}
+      {!isNative && (
+        <HomeStack.Screen
+          name="UploadLivestreams"
+          component={UploadLivestreamsScreen}
+          options={{ title: "Livestreams", ...headerScreenOptions }}
+        />
+      )}
+      {!isNative && (
+        <HomeStack.Screen
+          name="UploadVideos"
+          component={UploadVideosScreen}
+          options={{ title: "My Videos", ...headerScreenOptions }}
         />
       )}
     </HomeStack.Navigator>

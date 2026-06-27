@@ -28,6 +28,11 @@ const HOME_TAB_SCREENS = [
   "Login",
   "Multi",
   "Support",
+  "Upload",
+  "UploadVideo",
+  "UploadDrafts",
+  "UploadLivestreams",
+  "UploadVideos",
 ];
 
 // Screens that live in the VideosTab stack

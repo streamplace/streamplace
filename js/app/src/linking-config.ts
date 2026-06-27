@@ -106,6 +106,10 @@ export const SCREEN_PATHS = {
   Multi: "multi/:config",
   Support: "support",
   Upload: "upload",
+  UploadVideo: "upload/video/:tid",
+  UploadDrafts: "upload/drafts",
+  UploadLivestreams: "upload/livestreams",
+  UploadVideos: "upload/videos",
   VideoList: "video",
   UserVideoList: ":did/video",
   // Settings screens
@@ -206,6 +210,10 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 Multi: SCREEN_PATHS.Multi,
                 Support: SCREEN_PATHS.Support,
                 Upload: SCREEN_PATHS.Upload,
+                UploadVideo: SCREEN_PATHS.UploadVideo,
+                UploadDrafts: SCREEN_PATHS.UploadDrafts,
+                UploadLivestreams: SCREEN_PATHS.UploadLivestreams,
+                UploadVideos: SCREEN_PATHS.UploadVideos,
               },
             },
             VideosTab: {

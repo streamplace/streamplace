@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/log"
 	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -50,6 +51,19 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	res, err := s.uploadManager.Create(ctx, session.DID, body.MimeType, filename, body.Size, baseURL)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// If the client created a draft up front (place.stream.vod.createDraft),
+	// associate this upload with it so processing fills that draft rather than
+	// creating a new one. This lets the user edit metadata while the upload
+	// runs and supports re-upload (a new createUpload with the same draftUri
+	// re-points the draft at the new upload).
+	if body.DraftUri != nil && *body.DraftUri != "" {
+		if err := s.statefulDB.SetDraftOriginUpload(ctx, *body.DraftUri, session.DID, res.UploadID); err != nil {
+			// A missing/stale draft isn't fatal: the upload proceeds and the
+			// TUS-completion path will create a fresh draft as before.
+			log.Warn(ctx, "createUpload: failed to associate draft with upload", "draftUri", *body.DraftUri, "uploadId", res.UploadID, "error", err)
+		}
 	}
 
 	return &placestream.MediaCreateUpload_Output{

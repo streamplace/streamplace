@@ -22,6 +22,10 @@
             "filename": {
               "type": "string",
               "description": "Optional filename hint to attach as upload metadata."
+            },
+            "draftUri": {
+              "type": "string",
+              "description": "Optional ats:// URI of a draft VOD created via place.stream.vod.createDraft. When supplied, the upload's processing fills that draft (rather than creating a new one), so the user can edit metadata while the upload runs and re-upload if it fails. The draft's origin_upload_id is set to this upload."
             }
           }
         }

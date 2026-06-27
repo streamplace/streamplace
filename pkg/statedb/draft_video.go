@@ -111,6 +111,25 @@ func (state *StatefulDB) CreateDraft(ctx context.Context, did, originUploadID st
 	return dv, nil
 }
 
+// SetDraftOriginUpload re-points a draft at a (new) upload ID, so the upload's
+// processing fills this draft. Used by createUpload when the client supplies a
+// draftUri: the draft was created up front (place.stream.vod.createDraft), and
+// this associates it with the upload that will populate it. Re-upload just
+// calls this again with a new uploadID. Returns an error if the draft doesn't
+// exist or doesn't belong to did.
+func (state *StatefulDB) SetDraftOriginUpload(ctx context.Context, uri, did, uploadID string) error {
+	res := state.DB.WithContext(ctx).Model(&DraftVideo{}).
+		Where("uri = ? AND user_did = ?", uri, did).
+		Update("origin_upload_id", uploadID)
+	if res.Error != nil {
+		return fmt.Errorf("set draft origin upload: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 // GetDraft fetches a draft by its ats:// URI. Returns (nil, nil) if not found.
 func (state *StatefulDB) GetDraft(ctx context.Context, uri string) (*DraftVideo, error) {
 	var dv DraftVideo

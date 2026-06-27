@@ -12,6 +12,8 @@ import (
 
 // MediaCreateUpload_Input is the input argument to a place.stream.media.createUpload call.
 type MediaCreateUpload_Input struct {
+	// draftUri: Optional ats:// URI of a draft VOD created via place.stream.vod.createDraft. When supplied, the upload's processing fills that draft (rather than creating a new one), so the user can edit metadata while the upload runs and re-upload if it fails. The draft's origin_upload_id is set to this upload.
+	DraftUri *string `json:"draftUri,omitempty" cborgen:"draftUri,omitempty"`
 	// filename: Optional filename hint to attach as upload metadata.
 	Filename *string `json:"filename,omitempty" cborgen:"filename,omitempty"`
 	// mimeType: MIME type of the content being uploaded (e.g. video/mp4).

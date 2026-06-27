@@ -338,6 +338,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
+	e.POST("/xrpc/place.stream.vod.createDraft", s.HandlePlaceStreamVodCreateDraft)
 	e.POST("/xrpc/place.stream.vod.deleteDraft", s.HandlePlaceStreamVodDeleteDraft)
 	e.GET("/xrpc/place.stream.vod.getComments", s.HandlePlaceStreamVodGetComments)
 	e.GET("/xrpc/place.stream.vod.getDraft", s.HandlePlaceStreamVodGetDraft)
@@ -1350,6 +1351,24 @@ func (s *Server) HandlePlaceStreamServerUpsertStorage(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context,body *placestream.ServerUpsertStorage_Input) (*placestream.ServerUpsertStorage_Output, error)
 	out, handleErr = s.handlePlaceStreamServerUpsertStorage(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodCreateDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodCreateDraft")
+	defer span.End()
+
+	var body placestream.VodCreateDraft_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.VodCreateDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context,body *placestream.VodCreateDraft_Input) (*placestream.VodCreateDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodCreateDraft(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

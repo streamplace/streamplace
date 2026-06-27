@@ -327,18 +327,23 @@ func (m *Manager) onComplete(ctx context.Context, ev tushandler.HookEvent) {
 		log.Error(ctx, "failed to enqueue vod-process task", "error", err)
 	}
 
-	// Create a draft VOD in the 'processing' state. Unlike finalize (which
-	// inherits livestream metadata), a plain upload starts with placeholder
-	// metadata the user fills in from the Drafts tab once processing completes.
-	// A failed create here is non-fatal: the upload still processes, it just
-	// won't surface as a draft (the user re-publishes via publishVideo).
-	if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &streamplace.VodDraftVideo{
-		LexiconTypeID: "place.stream.vod.draftVideo",
-		Title:         filenameOrDefault(row.Filename),
-		Status:        "processing",
-		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-	}); err != nil {
-		log.Error(ctx, "failed to create draft for upload", "error", err)
+	// Create a draft VOD in the 'processing' state, but only if the upload
+	// isn't already associated with a pre-created draft. The modern client
+	// flow creates the draft up front (place.stream.vod.createDraft) and passes
+	// its URI to createUpload, which re-points the draft's origin_upload_id at
+	// this upload — so a draft already exists for this row. Only fall back to
+	// creating one here for legacy clients / external callers that didn't
+	// supply a draftUri. A failed create is non-fatal: the upload still
+	// processes.
+	if existing, _ := m.state.GetDraftByUpload(ctx, row.ID); existing == nil {
+		if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &streamplace.VodDraftVideo{
+			LexiconTypeID: "place.stream.vod.draftVideo",
+			Title:         filenameOrDefault(row.Filename),
+			Status:        "processing",
+			CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		}); err != nil {
+			log.Error(ctx, "failed to create draft for upload", "error", err)
+		}
 	}
 }
 

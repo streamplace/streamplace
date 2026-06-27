@@ -29,24 +29,20 @@ type relayCursor struct {
 	host  string
 	model model.Model
 
-	latest  atomic.Int64 // highest seq seen; 0 = nothing yet (tail from live)
-	flushed int64        // last persisted value; only the flush loop touches it
-
-	// group is the highest MoQ group sequence seen on a moqt:// relay, used to
-	// resume replay (see connectRelayMoq). -1 = none yet, tail from the live
-	// edge. Persisted alongside the seq cursor, so a Streamplace restart resumes
-	// from the last group too — the relay assigns durable group ids across its
-	// own restarts, so a stored group stays valid (it just ages out of the
-	// relay's replay window if we are down too long, which is the gap PDS
-	// re-sync covers).
-	group        atomic.Int64
-	flushedGroup int64 // last persisted group; only the flush loop touches it
+	// latest is the high-water cursor: the upstream at-sequence for a WebSocket
+	// relay, or the high-water MoQ group sequence for a moqt:// relay (used to
+	// resume replay via SubscribeFrom — see connectRelayMoq). A host is one
+	// transport or the other, so a single value covers both. 0 = nothing seen
+	// yet (tail from live). Persisted periodically so a Streamplace restart
+	// resumes from here — the relay assigns durable ids across its own restarts,
+	// so a stored cursor stays valid (it just ages out of the relay's replay
+	// window if we are down too long, which is the gap PDS re-sync covers).
+	latest  atomic.Int64
+	flushed int64 // last persisted value; only the flush loop touches it
 }
 
 func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host string) *relayCursor {
 	rc := &relayCursor{host: host, model: atsync.Model}
-	rc.group.Store(-1) // -1 = no MoQ group seen yet (tail from live edge)
-	rc.flushedGroup = -1
 	stored, err := atsync.Model.GetRelayCursor(host)
 	if err != nil {
 		log.Error(ctx, "failed to load relay cursor; tailing from live", "err", err)
@@ -55,11 +51,7 @@ func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host stri
 	if stored != nil {
 		rc.latest.Store(stored.Cursor)
 		rc.flushed = stored.Cursor
-		if stored.GroupSeq != nil {
-			rc.group.Store(*stored.GroupSeq)
-			rc.flushedGroup = *stored.GroupSeq
-		}
-		log.Log(ctx, "resuming relay from stored cursor", "cursor", stored.Cursor, "group", rc.group.Load())
+		log.Log(ctx, "resuming relay from stored cursor", "cursor", stored.Cursor)
 	}
 	return rc
 }
@@ -89,28 +81,23 @@ func (rc *relayCursor) param() (int64, bool) {
 // highSeq returns the high-water upstream sequence number observed so far.
 func (rc *relayCursor) highSeq() int64 { return rc.latest.Load() }
 
-// observeGroup advances the high-water MoQ group sequence. Called on every
-// frame received from a moqt:// relay (concurrency-safe).
+// observeGroup advances the high-water cursor from a MoQ group sequence (the
+// moqt:// transport's flavour of a cursor). Called on every frame received from
+// a moqt:// relay (concurrency-safe).
 func (rc *relayCursor) observeGroup(seq uint64) {
-	s := int64(seq)
-	for {
-		cur := rc.group.Load()
-		if s <= cur {
-			return
-		}
-		if rc.group.CompareAndSwap(cur, s) {
-			return
-		}
-	}
+	rc.observe(int64(seq))
 }
 
 // groupStart returns the MoQ group to resume replay from and whether to request
 // replay at all. Before any frame is seen we tail the live edge; after a
 // reconnect we resume from the last group seen so the relay replays from there
-// (already-seen frames in that group are deduped downstream).
+// (already-seen frames in that group are deduped downstream). Group 0 (a
+// brand-new relay's very first group) reads as "none" and tails live — harmless
+// and self-healing, and in practice relay group ids are large (seeded for
+// durability across restarts).
 func (rc *relayCursor) groupStart() (uint64, bool) {
-	v := rc.group.Load()
-	if v < 0 {
+	v := rc.latest.Load()
+	if v <= 0 {
 		return 0, false
 	}
 	return uint64(v), true
@@ -120,18 +107,12 @@ func (rc *relayCursor) groupStart() (uint64, bool) {
 // Only ever called from the single flush goroutine, so flushed is unsynchronized.
 func (rc *relayCursor) flush(ctx context.Context) {
 	v := rc.latest.Load()
-	g := rc.group.Load()
-	if v == rc.flushed && g == rc.flushedGroup {
+	if v == rc.flushed {
 		return
 	}
-	var groupPtr *int64
-	if g >= 0 {
-		groupPtr = &g
-	}
-	if err := rc.model.UpsertRelayCursor(rc.host, v, groupPtr); err != nil {
-		log.Error(ctx, "failed to persist relay cursor", "err", err, "cursor", v, "group", g)
+	if err := rc.model.UpsertRelayCursor(rc.host, v); err != nil {
+		log.Error(ctx, "failed to persist relay cursor", "err", err, "cursor", v)
 		return
 	}
 	rc.flushed = v
-	rc.flushedGroup = g
 }

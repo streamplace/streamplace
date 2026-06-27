@@ -20,10 +20,11 @@ import (
 // WebSocket messages, so each frame decodes through the same indigo event types
 // and feeds the same scheduler + callbacks as connectRelay's WebSocket path.
 //
-// MoQ has no cursor/replay (subscriptions always start at the publisher's latest
-// group), so the stored cursor is observed for liveness but never used to
-// resume. Gaps across a reconnect are covered by cross-relay redelivery and the
-// idempotent handlers, exactly as for the best-effort WebSocket cursor.
+// On a reconnect or restart it resumes replay from the last MoQ group it saw
+// (via SubscribeFrom, served from the relay's replay window); on the first
+// connect it tails the live edge. Gaps past the relay's retained window are
+// covered by cross-relay redelivery and the idempotent handlers, exactly as for
+// the best-effort WebSocket cursor.
 func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay string, cursor *relayCursor) error {
 	streamCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

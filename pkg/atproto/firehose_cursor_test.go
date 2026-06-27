@@ -81,15 +81,12 @@ func TestRelayCursorGroupResume(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, uint64(640), g)
 
-	// MoQ frames also carry the at-seq, so both advance; flush persists both.
-	rc.observe(9000)
+	// flush persists the high-water group as the relay's cursor.
 	rc.flush(ctx)
 	stored, err := mod.GetRelayCursor(host)
 	require.NoError(t, err)
 	require.NotNil(t, stored)
-	require.Equal(t, int64(9000), stored.Cursor)
-	require.NotNil(t, stored.GroupSeq)
-	require.Equal(t, int64(640), *stored.GroupSeq)
+	require.Equal(t, int64(640), stored.Cursor)
 
 	// As if the process restarted: a new cursor resumes replay from the stored
 	// group (connectRelayMoq calls SubscribeFrom with it).
@@ -97,15 +94,4 @@ func TestRelayCursorGroupResume(t *testing.T) {
 	g, ok = resumed.groupStart()
 	require.True(t, ok)
 	require.Equal(t, uint64(640), g)
-
-	// A WebSocket relay never sets a group, so its stored group stays NULL (it
-	// resumes by sequence number instead).
-	const wsHost = "wss://relay.example"
-	ws := atsync.newRelayCursor(ctx, wsHost)
-	ws.observe(123)
-	ws.flush(ctx)
-	wsStored, err := mod.GetRelayCursor(wsHost)
-	require.NoError(t, err)
-	require.NotNil(t, wsStored)
-	require.Nil(t, wsStored.GroupSeq)
 }

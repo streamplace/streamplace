@@ -36,9 +36,11 @@ func TestDraftLifecycleThroughVODProcessor(t *testing.T) {
 
 		// Fake processor: simulates vod.ProcessVOD's internal SetUploadProcessed
 		// (writes the finished fields onto the Upload row) then returns a cid.
-		trackURIs := `[{"uri":"at://did:plc:trackhost/place.stream.media.track/t1","cid":"bafytrack1"}]`
+		// Tracks are deferred to publishDraft time now, so SetUploadProcessed
+		// stores the probe + signingKey (not track refs).
+		probeJSON := `{"durationMs":98765,"video":{"codec":"h264","width":1280,"height":720,"fpsNum":30,"fpsDen":1}}`
 		state.SetVODProcessor(func(ctx context.Context, task VODProcessTask) (string, error) {
-			require.NoError(t, state.SetUploadProcessed(ctx, task.UploadID, trackURIs, 98765, "muxlcid-lifecycle"))
+			require.NoError(t, state.SetUploadProcessed(ctx, task.UploadID, 98765, "muxlcid-lifecycle", "did:key:signing", probeJSON, 123456))
 			return "muxlcid-lifecycle", nil
 		})
 
@@ -50,7 +52,9 @@ func TestDraftLifecycleThroughVODProcessor(t *testing.T) {
 		})}
 		_ = state.processVODProcessTask(ctx, task)
 
-		// The draft must now be 'ready' and carry the upload's values.
+		// The draft must now be 'ready'. durationMs + content_cid are filled
+		// from the upload row; source is nil (tracks are published at
+		// publishDraft time, not at ready time).
 		dv, err := state.GetDraftByUpload(ctx, "up-lifecycle")
 		require.NoError(t, err)
 		require.NotNil(t, dv)
@@ -60,10 +64,12 @@ func TestDraftLifecycleThroughVODProcessor(t *testing.T) {
 		require.Equal(t, "ready", rec.Status)
 		require.NotNil(t, rec.DurationMs)
 		require.Equal(t, int64(98765), *rec.DurationMs)
-		require.NotNil(t, rec.Source)
-		require.NotNil(t, rec.Source.MediaDefs_SourceTracks)
-		require.Len(t, rec.Source.MediaDefs_SourceTracks.Tracks, 1)
-		require.Equal(t, "at://did:plc:trackhost/place.stream.media.track/t1", rec.Source.MediaDefs_SourceTracks.Tracks[0].Uri)
+		require.Nil(t, rec.Source, "source must be nil at ready time (tracks deferred to publish)")
+		// The Upload row carries the deferred track-publishing inputs.
+		up, err := state.GetUpload(ctx, "up-lifecycle")
+		require.NoError(t, err)
+		require.Equal(t, "did:key:signing", up.SigningKey)
+		require.Contains(t, up.ProbeJSON, "h264")
 	})
 }
 

@@ -84,8 +84,32 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	video.ContentRights = rec.ContentRights
 	video.Thumb = rec.Thumb
 
-	// Carry over the source union (the published track refs).
-	if rec.Source != nil && rec.Source.MediaDefs_SourceTracks != nil {
+	// Publish the place.stream.media.track records now (deferred from
+	// processing time so they don't leak before the video record). Read the
+	// probe + signing key from the tied Upload row, publish one track per
+	// A/V stream, and build the video's source from the fresh strongRefs.
+	// If there's no Upload row (e.g. a draft whose upload predates this
+	// change, or a draft created outside the upload flow), fall back to
+	// carrying over any source the draft already carries.
+	client, err := getUserXRPCClient(ctx, state, did)
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "get_client")
+		return "", "", fmt.Errorf("get user xrpc client: %w", err)
+	}
+	sourceTracks, terr := publishTracksFromUpload(ctx, state, client, did, dv)
+	if terr != nil {
+		span.RecordError(terr)
+		span.SetStatus(codes.Error, "publish_tracks")
+		return "", "", fmt.Errorf("publish tracks: %w", terr)
+	}
+	if sourceTracks != nil {
+		video.Source = &streamplace.Video_Source{
+			MediaDefs_SourceTracks: sourceTracks,
+		}
+	} else if rec.Source != nil && rec.Source.MediaDefs_SourceTracks != nil {
+		// Legacy fallback: a draft that already carries source (e.g. published
+		// via the old at-ready-time path). Carry it over.
 		video.Source = &streamplace.Video_Source{
 			MediaDefs_SourceTracks: rec.Source.MediaDefs_SourceTracks,
 		}
@@ -93,12 +117,6 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		video.Source = &streamplace.Video_Source{
 			MediaDefs_SourceClip: rec.Source.MediaDefs_SourceClip,
 		}
-	}
-
-	client, err := getUserXRPCClient(ctx, state, did)
-	if err != nil {
-		span.RecordError(err)
-		return "", "", fmt.Errorf("get user xrpc client: %w", err)
 	}
 
 	// Reuse the draft's tid as the published video's rkey. The draft is
@@ -170,6 +188,56 @@ func draftTID(atsURI string) (string, error) {
 		return "", fmt.Errorf("draft URI has no rkey: %s", atsURI)
 	}
 	return atsURI[idx+1:], nil
+}
+
+// publishTracksFromUpload publishes the place.stream.media.track records for a
+// draft's tied upload, deferred from processing time to publish time. It reads
+// the probe metadata + signing key + blob size + CID from the Upload row and
+// calls publishTrack for each A/V stream, returning the fresh strongRefs to use
+// as the video record's source. Returns (nil, nil) if the draft has no tied
+// upload (so the caller can fall back to a carried-over source).
+func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, client XRPCClient, did string, dv *statedb.DraftVideo) (*streamplace.MediaDefs_SourceTracks, error) {
+	if dv.OriginUploadID == "" {
+		return nil, nil
+	}
+	upload, err := state.GetUpload(ctx, dv.OriginUploadID)
+	if err != nil {
+		return nil, fmt.Errorf("get upload: %w", err)
+	}
+	if upload == nil {
+		return nil, nil
+	}
+	probe, err := unmarshalProbe(upload.ProbeJSON)
+	if err != nil {
+		return nil, err
+	}
+	if upload.ContentCID == "" {
+		return nil, fmt.Errorf("upload %s has no content_cid", upload.ID)
+	}
+	var tracks []*comatproto.RepoStrongRef
+	if probe.Video != nil {
+		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil)
+		if err != nil {
+			return nil, fmt.Errorf("publish video track: %w", err)
+		}
+		tracks = append(tracks, ref)
+	}
+	if probe.Audio != nil {
+		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio)
+		if err != nil {
+			return nil, fmt.Errorf("publish audio track: %w", err)
+		}
+		tracks = append(tracks, ref)
+	}
+	if len(tracks) == 0 {
+		return nil, nil
+	}
+	log.Log(ctx, "published media.track records (deferred to publish)",
+		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
+	return &streamplace.MediaDefs_SourceTracks{
+		LexiconTypeID: "place.stream.media.defs#sourceTracks",
+		Tracks:        tracks,
+	}, nil
 }
 
 func derefInt64(p *int64) int64 {

@@ -236,11 +236,13 @@ func (state *StatefulDB) SetDraftReady(ctx context.Context, originUploadID strin
 }
 
 // markDraftReadyFromUpload re-reads a (now-finished) Upload row and flips its
-// tied draft to 'ready', filling source/durationMs from the row and content_cid
-// for later thumbnail generation. Called by the queue processors after the VOD
-// processor / livestream finalizer returns, since those call SetUploadProcessed
-// internally and return only a cid — the processor's results land on the Upload
-// row, which we re-read here. A missing draft is a no-op.
+// tied draft to 'ready', filling durationMs + content_cid. The draft's source
+// is left empty: track records are deferred to publishDraft time, so there
+// are no track refs to populate it with at ready time. Called by the queue
+// processors after the VOD processor / livestream finalizer returns, since
+// those call SetUploadProcessed internally and return only a cid — the
+// processor's results land on the Upload row, which we re-read here. A missing
+// draft is a no-op.
 func (state *StatefulDB) markDraftReadyFromUpload(ctx context.Context, uploadID string) error {
 	upload, err := state.GetUpload(ctx, uploadID)
 	if err != nil {
@@ -249,6 +251,9 @@ func (state *StatefulDB) markDraftReadyFromUpload(ctx context.Context, uploadID 
 	if upload == nil {
 		return nil
 	}
+	// source stays nil until PublishDraft publishes the tracks; durationMs is
+	// known at processing time. (draftSourceFromTrackURIs returns nil for the
+	// now-empty TrackURIs, so the legacy path is unchanged.)
 	source, err := draftSourceFromTrackURIs(upload.TrackURIs)
 	if err != nil {
 		return err

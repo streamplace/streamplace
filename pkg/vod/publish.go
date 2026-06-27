@@ -48,18 +48,19 @@ type publishParams struct {
 	signingKey string
 }
 
-// publishRecords does the post-processing record publish:
+// publishRecords does the post-processing record publish. With tracks
+// deferred to publishDraft time, this now:
 //
-//  1. place.stream.media.origin in the SERVER's repo (we attest that
-//     this blob is fetchable from us). Idempotent: rkey is the CID.
-//  2. place.stream.media.track in the USER's repo, one per A/V track,
-//     via the user's stored OAuth session.
-//  3. Stores the resulting track URIs + duration on the Upload row so
-//     the client can poll getUploadStatus and create the
-//     place.stream.video record itself (with full metadata) via Publish.
+//  1. place.stream.media.origin in the SERVER's repo (we attest that this
+//     blob is fetchable from us). Idempotent: rkey is the CID.
+//  2. Stores the probe metadata + signing key + duration + CID on the Upload
+//     row so publishDraft can publish the place.stream.media.track records
+//     (and build the video's source) at publish time.
 //
-// The video record is intentionally NOT created here — the client
-// controls when it becomes visible and supplies the metadata.
+// Track records are intentionally NOT published here: with drafts, the video
+// record isn't visible until the user publishes, so publishing tracks at
+// processing time would leak half-published content. publishDraft publishes
+// them when the video record is created.
 func publishRecords(ctx context.Context, p publishParams) error {
 	ctx, span := vodTracer.Start(ctx, "vod.publishRecords", trace.WithAttributes(
 		attribute.String("cid", p.cid),
@@ -73,48 +74,92 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		return fmt.Errorf("publish origin: %w", err)
 	}
 
-	client, err := getUserXRPCClient(ctx, p.state, p.in.RepoDID)
+	// Serialize the probe so publishDraft can publish the track records later
+	// without re-probing the blob.
+	probeJSON, err := marshalProbe(p.probe)
 	if err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "get_client")
-		return fmt.Errorf("get user xrpc client: %w", err)
+		span.SetStatus(codes.Error, "marshal_probe")
+		return fmt.Errorf("marshal probe: %w", err)
 	}
 
-	var trackRefs []trackRefJSON
-	if p.probe.Video != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "1", "video", p.signingKey, p.probe.Video, nil)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "video_track")
-			return fmt.Errorf("publish video track: %w", err)
-		}
-		trackRefs = append(trackRefs, trackRefJSON{URI: ref.Uri, CID: ref.Cid})
-	}
-	if p.probe.Audio != nil {
-		ref, err := publishTrack(ctx, client, p.in.RepoDID, p.cid, p.size, p.probe.DurationMS, "2", "audio", p.signingKey, nil, p.probe.Audio)
-		if err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "audio_track")
-			return fmt.Errorf("publish audio track: %w", err)
-		}
-		trackRefs = append(trackRefs, trackRefJSON{URI: ref.Uri, CID: ref.Cid})
-	}
-
-	trackURIsJSON, err := json.Marshal(trackRefs)
-	if err != nil {
+	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, p.probe.DurationMS, p.cid, p.signingKey, probeJSON, p.size); err != nil {
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "marshal_tracks")
-		return fmt.Errorf("marshal track refs: %w", err)
-	}
-	if err := p.state.SetUploadProcessed(ctx, p.in.UploadID, string(trackURIsJSON), p.probe.DurationMS, p.cid); err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "store_tracks")
-		return fmt.Errorf("store track refs: %w", err)
+		span.SetStatus(codes.Error, "store_results")
+		return fmt.Errorf("store processing results: %w", err)
 	}
 
-	span.SetAttributes(attribute.Int("track_count", len(trackRefs)))
 	span.SetStatus(codes.Ok, "")
+	log.Log(ctx, "stored processing results (tracks deferred to publish)",
+		"uploadId", p.in.UploadID, "cid", p.cid, "duration_ms", p.probe.DurationMS)
 	return nil
+}
+
+// probeJSONShape mirrors media.VODResult's track fields, for serialization to
+// the Upload row's probe_json column. Only the fields publishTrack consumes.
+type probeJSONShape struct {
+	DurationMS int64           `json:"durationMs"`
+	Video      *videoProbeJSON `json:"video,omitempty"`
+	Audio      *audioProbeJSON `json:"audio,omitempty"`
+}
+type videoProbeJSON struct {
+	Codec  string `json:"codec"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
+	FPSNum int    `json:"fpsNum"`
+	FPSDen int    `json:"fpsDen"`
+}
+type audioProbeJSON struct {
+	Codec       string `json:"codec"`
+	Rate        int    `json:"rate"`
+	Channels    int    `json:"channels"`
+	MPEGVersion int    `json:"mpegVersion"`
+}
+
+func marshalProbe(p media.VODResult) (string, error) {
+	out := probeJSONShape{DurationMS: p.DurationMS}
+	if p.Video != nil {
+		out.Video = &videoProbeJSON{
+			Codec: p.Video.Codec, Width: p.Video.Width, Height: p.Video.Height,
+			FPSNum: p.Video.FPSNum, FPSDen: p.Video.FPSDen,
+		}
+	}
+	if p.Audio != nil {
+		out.Audio = &audioProbeJSON{
+			Codec: p.Audio.Codec, Rate: p.Audio.Rate, Channels: p.Audio.Channels,
+			MPEGVersion: p.Audio.MPEGVersion,
+		}
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// unmarshalProbe reverses marshalProbe.
+func unmarshalProbe(s string) (media.VODResult, error) {
+	if s == "" {
+		return media.VODResult{}, nil
+	}
+	var pjs probeJSONShape
+	if err := json.Unmarshal([]byte(s), &pjs); err != nil {
+		return media.VODResult{}, fmt.Errorf("unmarshal probe: %w", err)
+	}
+	res := media.VODResult{DurationMS: pjs.DurationMS}
+	if pjs.Video != nil {
+		res.Video = &media.VODVideoTrack{
+			Codec: pjs.Video.Codec, Width: pjs.Video.Width, Height: pjs.Video.Height,
+			FPSNum: pjs.Video.FPSNum, FPSDen: pjs.Video.FPSDen,
+		}
+	}
+	if pjs.Audio != nil {
+		res.Audio = &media.VODAudioTrack{
+			Codec: pjs.Audio.Codec, Rate: pjs.Audio.Rate, Channels: pjs.Audio.Channels,
+			MPEGVersion: pjs.Audio.MPEGVersion,
+		}
+	}
+	return res, nil
 }
 
 // publishOrigin attests that this server has the blob with the given

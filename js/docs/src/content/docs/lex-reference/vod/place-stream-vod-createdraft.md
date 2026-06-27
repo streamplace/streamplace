@@ -2,11 +2,13 @@
 title: place.stream.vod.createDraft
 description: Reference for the place.stream.vod.createDraft lexicon
 ---
+
 **Lexicon Version:** 1
 
 ## Definitions
 
 <a name="main"></a>
+
 ### `main`
 
 **Type:** `procedure`
@@ -30,13 +32,14 @@ _(No properties defined)_
 
 **Schema Type:** `object`
 
-| Name | Type | Req'd  | Description | Constraints |
-|------|------|----------|-------------|-------------|
-| `uri` | `string` | ✅  | The ats:// URI of the newly created draft record. |  |
+| Name  | Type     | Req'd | Description                                       | Constraints |
+| ----- | -------- | ----- | ------------------------------------------------- | ----------- |
+| `uri` | `string` | ✅    | The ats:// URI of the newly created draft record. |             |
 
 ---
 
 ## Lexicon Source
+
 ```json
 {
   "lexicon": 1,
@@ -56,9 +59,7 @@ _(No properties defined)_
         "encoding": "application/json",
         "schema": {
           "type": "object",
-          "required": [
-            "uri"
-          ],
+          "required": ["uri"],
           "properties": {
             "uri": {
               "type": "string",

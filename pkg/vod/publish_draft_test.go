@@ -107,3 +107,18 @@ func TestDraftConnectionAndActivityMapping(t *testing.T) {
 	require.NotNil(t, act)
 	require.Equal(t, game, act.Defs_ActivityGame)
 }
+
+func TestDraftTID(t *testing.T) {
+	did := "did:web:example.com"
+	uri := "ats://" + did + "/place.stream.vod.drafts/self/" + did + "/place.stream.vod.draftVideo/3mpa4yiq4bncy"
+	tid, err := draftTID(uri)
+	require.NoError(t, err)
+	require.Equal(t, "3mpa4yiq4bncy", tid)
+
+	// No rkey segment.
+	_, err = draftTID("ats://" + did + "/place.stream.vod.drafts/self/" + did + "/place.stream.vod.draftVideo/")
+	require.Error(t, err)
+	// No slash at all.
+	_, err = draftTID("garbage")
+	require.Error(t, err)
+}

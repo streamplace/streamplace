@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -17,7 +18,6 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/streamplace"
 )
@@ -101,6 +101,16 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", fmt.Errorf("get user xrpc client: %w", err)
 	}
 
+	// Reuse the draft's tid as the published video's rkey. The draft is
+	// deleted after a successful publish, so there's no collision, and sharing
+	// the tid lets a single /upload/video/<tid> route render either a draft
+	// (ats://) or its published VOD (at://) by the same key.
+	rkey, err := draftTID(draftURI)
+	if err != nil {
+		span.RecordError(err)
+		return "", "", err
+	}
+
 	// Backfill a thumbnail when the draft didn't carry one, using the content
 	// blob (MUXL CID on the draft row). Non-fatal: publish without it on any
 	// failure, matching PublishVideo's behavior.
@@ -114,7 +124,6 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	}
 	span.SetAttributes(attribute.Bool("thumb_present", video.Thumb != nil))
 
-	rkey := spid.TIDClock.Next().String()
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_VIDEO,
 		Record:     &lexutil.LexiconTypeDecoder{Val: video},
@@ -149,6 +158,18 @@ func unmarshalDraftRecord(data []byte) (*streamplace.VodDraftVideo, error) {
 		return nil, fmt.Errorf("unmarshal draft CBOR: %w", err)
 	}
 	return &rec, nil
+}
+
+// draftTID extracts the record key (tid) from a draft's ats:// URI. The URI is
+// ats://{did}/place.stream.vod.drafts/self/{did}/place.stream.vod.draftVideo/{tid},
+// so the tid is the final path segment. Used to reuse the draft's tid as the
+// published video's rkey.
+func draftTID(atsURI string) (string, error) {
+	idx := strings.LastIndex(atsURI, "/")
+	if idx < 0 || idx == len(atsURI)-1 {
+		return "", fmt.Errorf("draft URI has no rkey: %s", atsURI)
+	}
+	return atsURI[idx+1:], nil
 }
 
 func derefInt64(p *int64) int64 {

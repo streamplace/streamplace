@@ -1746,6 +1746,7 @@ export function UploadDraftsScreen() {
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     <Button
                       size="sm"
+                      style={[{ width: "auto" }]}
                       variant="secondary"
                       onPress={() =>
                         navigation.navigate("UploadVideo" as any, {
@@ -1757,12 +1758,14 @@ export function UploadDraftsScreen() {
                     </Button>
                     <Button
                       size="sm"
+                      style={[{ width: "auto" }]}
                       onPress={() => handlePublishDraft(draft.uri)}
                     >
                       Publish
                     </Button>
                     <Button
                       size="sm"
+                      style={[{ width: "auto" }]}
                       variant="destructive"
                       onPress={() => handleDeleteDraft(draft.uri)}
                     >

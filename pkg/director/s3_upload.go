@@ -25,9 +25,9 @@ const vodInviteFeature = "vod"
 //     upload gate (spxrpc.betaFeatureGranted): when no issuer is configured
 //     (self-hosted / dev) we fall back to cli.StreamIsAllowed, the same
 //     allowlist livestreaming itself uses.
-//   - The user has opted in via the livestreamRecording server setting. Not
-//     everyone in the beta wants their streams recorded, so it's off until
-//     explicitly enabled.
+//   - The user has not turned recording off via the livestreamRecording server
+//     setting. This defaults ON for beta users (most want their streams kept) —
+//     the opposite of debugRecording — so only an explicit `false` opts out.
 //
 // Evaluated once at stream start (like debugRecording in media.shouldRecord); a
 // mid-stream settings change takes effect on the streamer's next session. On
@@ -54,14 +54,16 @@ func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID str
 		return false
 	}
 	if settings == nil {
-		return false
+		// No settings record at all: default on for beta users.
+		return true
 	}
 	spsettings, err := settings.ToStreamplaceServerSettings()
 	if err != nil {
 		log.Error(ctx, "live recording: failed to decode server settings", "error", err, "repoDID", repoDID)
 		return false
 	}
-	return spsettings.LivestreamRecording != nil && *spsettings.LivestreamRecording
+	// Default on: record unless the streamer explicitly set the flag to false.
+	return spsettings.LivestreamRecording == nil || *spsettings.LivestreamRecording
 }
 
 func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string) {

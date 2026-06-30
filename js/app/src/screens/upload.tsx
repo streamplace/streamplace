@@ -1776,6 +1776,7 @@ export function UploadDraftsScreen() {
                   <Button
                     size="sm"
                     variant="destructive"
+                    style={[{ width: "auto" }]}
                     onPress={() => handleDeleteDraft(draft.uri)}
                   >
                     Discard

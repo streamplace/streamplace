@@ -24,7 +24,8 @@ export function PrivacyCategorySettings() {
     (state) => state.createServerSettingsRecord,
   );
   const debugRecordingOn = serverSettings?.debugRecording === true;
-  const livestreamRecordingOn = serverSettings?.livestreamRecording === true;
+  // Defaults on (unlike debugRecording): only an explicit `false` turns it off.
+  const livestreamRecordingOn = serverSettings?.livestreamRecording !== false;
   // The livestream-recording toggle is only meaningful for accounts in the VOD
   // beta — the node won't record anyone else regardless of this flag — so we
   // only surface it to them.

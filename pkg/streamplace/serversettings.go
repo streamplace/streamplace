@@ -16,4 +16,6 @@ type ServerSettings struct {
 	LexiconTypeID string `json:"$type" cborgen:"$type,const=place.stream.server.settings"`
 	// debugRecording: Whether this node may archive your livestream for improving the service
 	DebugRecording *bool `json:"debugRecording,omitempty" cborgen:"debugRecording,omitempty"`
+	// livestreamRecording: Whether this node should record your livestreams into VODs that you can publish
+	LivestreamRecording *bool `json:"livestreamRecording,omitempty" cborgen:"livestreamRecording,omitempty"`
 }

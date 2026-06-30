@@ -4119,9 +4119,13 @@ func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 	}
 
 	cw := cbg.NewCborWriter(w)
-	fieldCount := 2
+	fieldCount := 3
 
 	if t.DebugRecording == nil {
+		fieldCount--
+	}
+
+	if t.LivestreamRecording == nil {
 		fieldCount--
 	}
 
@@ -4172,6 +4176,31 @@ func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 			}
 		}
 	}
+
+	// t.LivestreamRecording (bool) (bool)
+	if t.LivestreamRecording != nil {
+
+		if len("livestreamRecording") > 1000000 {
+			return xerrors.Errorf("Value in field \"livestreamRecording\" was too long")
+		}
+
+		if err := cw.WriteMajorTypeHeader(cbg.MajTextString, uint64(len("livestreamRecording"))); err != nil {
+			return err
+		}
+		if _, err := cw.WriteString(string("livestreamRecording")); err != nil {
+			return err
+		}
+
+		if t.LivestreamRecording == nil {
+			if _, err := cw.Write(cbg.CborNull); err != nil {
+				return err
+			}
+		} else {
+			if err := cbg.WriteBool(w, *t.LivestreamRecording); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -4200,7 +4229,7 @@ func (t *ServerSettings) UnmarshalCBOR(r io.Reader) (err error) {
 
 	n := extra
 
-	nameBuf := make([]byte, 14)
+	nameBuf := make([]byte, 19)
 	for i := uint64(0); i < n; i++ {
 		nameLen, ok, err := cbg.ReadFullStringIntoBuf(cr, nameBuf, 1000000)
 		if err != nil {
@@ -4258,6 +4287,39 @@ func (t *ServerSettings) UnmarshalCBOR(r io.Reader) (err error) {
 						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
 					}
 					t.DebugRecording = &val
+				}
+			}
+			// t.LivestreamRecording (bool) (bool)
+		case "livestreamRecording":
+
+			{
+				b, err := cr.ReadByte()
+				if err != nil {
+					return err
+				}
+				if b != cbg.CborNull[0] {
+					if err := cr.UnreadByte(); err != nil {
+						return err
+					}
+
+					maj, extra, err = cr.ReadHeader()
+					if err != nil {
+						return err
+					}
+					if maj != cbg.MajOther {
+						return fmt.Errorf("booleans must be major type 7")
+					}
+
+					var val bool
+					switch extra {
+					case 20:
+						val = false
+					case 21:
+						val = true
+					default:
+						return fmt.Errorf("booleans are either major type 7, value 20 or 21 (got %d)", extra)
+					}
+					t.LivestreamRecording = &val
 				}
 			}
 

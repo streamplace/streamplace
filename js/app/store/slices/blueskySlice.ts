@@ -121,7 +121,9 @@ export interface BlueskySlice {
   followUser: (subjectDID: string) => Promise<void>;
   unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
-  createServerSettingsRecord: (debugRecording: boolean) => Promise<void>;
+  createServerSettingsRecord: (
+    patch: Partial<Omit<PlaceStreamServerSettings.Record, "$type">>,
+  ) => Promise<void>;
 }
 
 const uploadThumbnail = async (
@@ -1172,7 +1174,9 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  createServerSettingsRecord: async (debugRecording: boolean) => {
+  createServerSettingsRecord: async (
+    patch: Partial<Omit<PlaceStreamServerSettings.Record, "$type">>,
+  ) => {
     try {
       const state = get() as BlueskySlice;
       if (!state.pdsAgent) {
@@ -1188,9 +1192,12 @@ export const createBlueskySlice: StateCreator<
       }
       const streamplaceUrl = get().url;
       const u = new URL(streamplaceUrl);
+      // Merge the patch onto the current record so toggling one flag doesn't
+      // clobber the others (the record holds several independent settings).
       const serverSettings: PlaceStreamServerSettings.Record = {
+        ...(state.serverSettings ?? {}),
         $type: "place.stream.server.settings",
-        debugRecording: debugRecording,
+        ...patch,
       };
 
       const res = await state.pdsAgent.com.atproto.repo.putRecord({

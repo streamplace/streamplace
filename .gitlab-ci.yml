@@ -170,6 +170,7 @@ test:
   timeout: 2 hours
   variables:
     STREAMPLACE_TEST_COUNT: "1"
+    STREAMPLACE_TEST_POSTGRES_COMMAND: "install -d -o postgres -g postgres -m 2775 /var/run/postgresql && install -d -o postgres -g postgres -m 3775 /var/run/postgresql/14-main.pg_stat_tmp && sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev && make dev-test && make ci-lexicons

@@ -58,6 +58,7 @@ require (
 	github.com/pion/webrtc/v4 v4.0.11
 	github.com/piprate/json-gold v0.5.0
 	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_model v0.6.2
 	github.com/rivo/uniseg v0.4.7
 	github.com/rs/cors v1.11.1
 	github.com/samber/slog-http v1.4.0
@@ -66,7 +67,7 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq-go v0.0.2
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac
-	github.com/streamplace/muxl/go v0.3.2
+	github.com/streamplace/muxl/go v0.3.4
 	github.com/streamplace/oatproxy v0.0.0-20260508220721-f8852e8dbf44
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -448,7 +449,6 @@ require (
 	github.com/polydawn/refmt v0.89.1-0.20221221234430-40501e09de1f // indirect
 	github.com/polyfloyd/go-errorlint v1.8.0 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/prometheus/statsd_exporter v0.27.1 // indirect

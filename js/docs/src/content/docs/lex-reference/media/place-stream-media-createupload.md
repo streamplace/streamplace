@@ -24,11 +24,12 @@ Start a resumable upload of arbitrary media content. Returns a TUS upload URL an
 
 **Schema Type:** `object`
 
-| Name       | Type      | Req'd | Description                                               | Constraints |
-| ---------- | --------- | ----- | --------------------------------------------------------- | ----------- |
-| `size`     | `integer` | ✅    | Total size of the upload in bytes.                        |             |
-| `mimeType` | `string`  | ✅    | MIME type of the content being uploaded (e.g. video/mp4). |             |
-| `filename` | `string`  | ❌    | Optional filename hint to attach as upload metadata.      |             |
+| Name       | Type      | Req'd | Description                                                                                                                                                                                                                                                                                               | Constraints |
+| ---------- | --------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `size`     | `integer` | ✅    | Total size of the upload in bytes.                                                                                                                                                                                                                                                                        |             |
+| `mimeType` | `string`  | ✅    | MIME type of the content being uploaded (e.g. video/mp4).                                                                                                                                                                                                                                                 |             |
+| `filename` | `string`  | ❌    | Optional filename hint to attach as upload metadata.                                                                                                                                                                                                                                                      |             |
+| `draftUri` | `string`  | ❌    | Optional ats:// URI of a draft VOD created via place.stream.vod.createDraft. When supplied, the upload's processing fills that draft (rather than creating a new one), so the user can edit metadata while the upload runs and re-upload if it fails. The draft's origin_upload_id is set to this upload. |             |
 
 **Output:**
 
@@ -78,6 +79,10 @@ Start a resumable upload of arbitrary media content. Returns a TUS upload URL an
             "filename": {
               "type": "string",
               "description": "Optional filename hint to attach as upload metadata."
+            },
+            "draftUri": {
+              "type": "string",
+              "description": "Optional ats:// URI of a draft VOD created via place.stream.vod.createDraft. When supplied, the upload's processing fills that draft (rather than creating a new one), so the user can edit metadata while the upload runs and re-upload if it fails. The draft's origin_upload_id is set to this upload."
             }
           }
         }

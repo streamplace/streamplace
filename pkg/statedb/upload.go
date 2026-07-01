@@ -31,9 +31,11 @@ type Upload struct {
 	ProcessingStatus   string `gorm:"column:processing_status"`
 	ProcessingError    string `gorm:"column:processing_error"`
 	ProcessingProgress int    `gorm:"column:processing_progress;default:0"`
-	// TrackURIs is a JSON array of {"uri":"at://...","cid":"..."} objects
-	// populated once the track records are published and the video is ready
-	// for the client to create a place.stream.video record.
+	// TrackURIs is a JSON array of {"uri":"at://...","cid":"..."} objects.
+	// Vestigial since track publication was deferred to publishDraft time:
+	// new uploads leave this empty and PublishDraft publishes the tracks on
+	// demand. Retained so existing rows / the legacy publishVideo path still
+	// read it.
 	TrackURIs  string `gorm:"column:track_uris"`
 	DurationMS int64  `gorm:"column:duration_ms"`
 	// ContentCID is the BDASL CID of the processed fMP4 blob. Stored so the
@@ -41,6 +43,20 @@ type Upload struct {
 	// publishVideo's thumbnail generation) without re-deriving it from the
 	// published track records.
 	ContentCID string `gorm:"column:content_cid"`
+	// SigningKey is the did:key whose ephemeral private half C2PA-signed the
+	// segments. Stored at processing time so PublishDraft can publish the
+	// place.stream.media.track records (which carry it) at publish time.
+	SigningKey string `gorm:"column:signing_key"`
+	// ProbeJSON is the gstreamer probe metadata (video/audio codec, dims,
+	// fps, rate, channels) serialized as JSON. Stored at processing time so
+	// PublishDraft can publish the track records (deferred from processing)
+	// without re-probing the blob.
+	ProbeJSON string `gorm:"column:probe_json"`
+	// BlobSize is the byte size of the processed MUXL content blob (distinct
+	// from Size, the raw upload size). Stored at processing time so
+	// PublishDraft can populate the track records' size field without
+	// re-statting the blob.
+	BlobSize int64 `gorm:"column:blob_size"`
 }
 
 func (Upload) TableName() string {
@@ -88,15 +104,23 @@ func (state *StatefulDB) SetUploadProgress(ctx context.Context, id string, progr
 		Update("processing_progress", progress).Error
 }
 
-func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, trackURIsJSON string, durationMS int64, contentCID string) error {
+// SetUploadProcessed marks an upload done and stores the processing results
+// the publishDraft path needs: duration, the content blob's CID, the C2PA
+// signing key, and the gstreamer probe metadata (JSON). Track records are
+// NOT published here — they're deferred to publishDraft time so half-
+// published tracks don't go live before the video record. trackURIs is left
+// empty (vestigial; the legacy publishVideo path may still set it).
+func (state *StatefulDB) SetUploadProcessed(ctx context.Context, id string, durationMS int64, contentCID, signingKey, probeJSON string, blobSize int64) error {
 	return state.DB.WithContext(ctx).Model(&Upload{}).
 		Where("id = ?", id).
 		Updates(map[string]any{
 			"processing_status":   "done",
 			"processing_progress": 100,
-			"track_uris":          trackURIsJSON,
 			"duration_ms":         durationMS,
 			"content_cid":         contentCID,
+			"signing_key":         signingKey,
+			"probe_json":          probeJSON,
+			"blob_size":           blobSize,
 		}).Error
 }
 

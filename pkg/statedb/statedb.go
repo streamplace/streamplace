@@ -47,6 +47,10 @@ type StatefulDB struct {
 	// SetViewCountAggregator at bootstrap so pkg/statedb doesn't have
 	// to depend on the blob.Store-heavy pkg/viewlog.
 	viewCountAggregator ViewCountAggregator
+	// livestreamVODFinalizer concatenates a finished livestream's recorded
+	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
+	// bootstrap, same indirection as vodProcessor.
+	livestreamVODFinalizer LivestreamVODFinalizer
 }
 
 // list tables here so we can migrate them
@@ -66,6 +70,7 @@ var StatefulDBModels = []any{
 	BroadcastOrigin{},
 	S3Segment{},
 	Upload{},
+	DraftVideo{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

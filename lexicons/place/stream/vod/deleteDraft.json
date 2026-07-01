@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.deleteDraft",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Discard a draft VOD. The processed content blob is not deleted (it may be referenced elsewhere). Only the draft record is removed.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "description": "The ats:// URI of the draft to discard."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound",
+          "description": "No draft exists with the given URI for the authenticated user."
+        }
+      ]
+    }
+  }
+}

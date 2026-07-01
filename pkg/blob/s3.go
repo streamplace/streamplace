@@ -40,6 +40,12 @@ func (s *S3Store) URL(key string) string { return "s3://" + s.bucket + "/" + key
 
 func (s *S3Store) Bucket() string { return s.bucket }
 
+// Client exposes the underlying S3 client so callers needing operations beyond
+// the blob.Store interface (e.g. the server-side multi-object concat in
+// pkg/s3.ConcatWithHeader for live-to-VOD finalize) can reuse the same
+// configured client + bucket.
+func (s *S3Store) Client() *awss3.Client { return s.client }
+
 func (s *S3Store) Open(ctx context.Context, key string) (Reader, error) {
 	ra, err := s3pkg.NewReaderAt(ctx, s.client, s.bucket, key)
 	if err != nil {

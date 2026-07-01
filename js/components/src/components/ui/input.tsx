@@ -25,7 +25,8 @@ const inputVariants = cva("", {
 });
 
 export interface InputProps
-  extends Omit<InputPrimitiveProps, "style" | "error">,
+  extends
+    Omit<InputPrimitiveProps, "style" | "error">,
     VariantProps<typeof inputVariants> {
   label?: string;
   description?: string;

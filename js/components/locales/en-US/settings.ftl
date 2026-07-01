@@ -36,6 +36,8 @@ currently-translating-description = Some parts of the app may look incomplete. T
 ## Debug Recording
 debug-recording-title = Allow { $host } to record your livestream for debugging and improving the service
 debug-recording-description = Optional
+livestream-recording-title = Record my livestreams into VODs on { $host }
+livestream-recording-description = When enabled, your livestreams are saved so you can finalize and publish them as videos
 
 ## Key Management
 manage-keys = Manage Keys

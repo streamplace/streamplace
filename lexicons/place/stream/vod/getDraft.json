@@ -1,0 +1,39 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.getDraft",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get a single draft VOD by its ats:// URI. Only accessible by the draft's author.",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "The ats:// URI of the draft record."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["draft"],
+          "properties": {
+            "draft": {
+              "type": "ref",
+              "ref": "place.stream.vod.draftDefs#draftView"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound",
+          "description": "No draft exists with the given URI for the authenticated user."
+        }
+      ]
+    }
+  }
+}

@@ -24,6 +24,7 @@ import (
 var TaskNotification = "notification"
 var TaskChat = "chat"
 var TaskFinalizeLivestream = "finalize_livestream"
+var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
 var TaskViewCountAggregate = "view_count_aggregate"
 
@@ -69,6 +70,16 @@ type VODProcessTask struct {
 	Location string `json:"location"`
 }
 
+// FinalizeLivestreamVODTask is enqueued by the place.stream.media.finalizeLivestream
+// procedure to turn a finished livestream's recorded MUXL objects into a VOD.
+// UploadID is the synthetic Upload row the client polls (getUploadStatus) and
+// then publishes (publishVideo), exactly as for a resumable upload.
+type FinalizeLivestreamVODTask struct {
+	UploadID      string `json:"uploadId"`
+	RepoDID       string `json:"repoDID"`
+	LivestreamURI string `json:"livestreamURI"`
+}
+
 // ViewCountAggregateTask is the payload for one aggregation window.
 // Enqueued by every streamplace node at the configured interval; the
 // unique task key (built from WindowStart/End) ensures only one node's
@@ -97,11 +108,13 @@ func (state *StatefulDB) ProcessQueue(ctx context.Context, vodConcurrency int) e
 		return state.runQueueWorker(ctx, "queue_processor", nonVODTaskTypes)
 	})
 
-	// Dedicated VOD pool.
+	// Dedicated VOD pool. Live-to-VOD finalize also runs here: it's heavy
+	// I/O (a full read of the recorded stream to hash + index it) that would
+	// otherwise hog the single general worker and stall light tasks.
 	for i := 0; i < vodConcurrency; i++ {
 		workerID := fmt.Sprintf("vod_worker_%d", i)
 		group.Go(func() error {
-			return state.runQueueWorker(ctx, workerID, []string{TaskVODProcess})
+			return state.runQueueWorker(ctx, workerID, []string{TaskVODProcess, TaskFinalizeLivestreamVOD})
 		})
 	}
 
@@ -144,6 +157,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processFinalizeLivestreamTask(ctx, task)
 	case TaskVODProcess:
 		return state.processVODProcessTask(ctx, task)
+	case TaskFinalizeLivestreamVOD:
+		return state.processFinalizeLivestreamVODTask(ctx, task)
 	case TaskViewCountAggregate:
 		return state.processViewCountAggregateTask(ctx, task)
 	default:
@@ -179,6 +194,11 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
 			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
 		}
+		// Flip any tied draft to 'error' too, so the user sees the failure in
+		// the Drafts tab instead of an indefinite 'processing' state.
+		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
+			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
+		}
 		// Complete the task so it doesn't retry — most VOD failures are
 		// permanent (unsupported codec, corrupted file, etc.).
 		_ = state.CompleteTask(ctx, task.ID)
@@ -188,7 +208,63 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		// (e.g. a publish-records track error) can't be tied to an upload.
 		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
+	// The processor (vod.ProcessVOD) calls SetUploadProcessed deep inside its
+	// own publish path, so by the time it returns the Upload row carries the
+	// finished TrackURIs / DurationMS / ContentCID. Re-read them and flip the
+	// tied draft to 'ready'. A missing draft (pre-drafts-era upload, or one
+	// whose create failed) is a no-op, not an error.
+	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
+	}
 	log.Log(ctx, "vod processed", "uploadId", t.UploadID, "cid", cid)
+	return state.CompleteTask(ctx, task.ID)
+}
+
+// LivestreamVODFinalizer concatenates a finished livestream's recorded MUXL
+// objects into a content-addressed VOD blob, derives its sidecars, and
+// publishes the origin + track records. Returns the resulting BDASL CID. Same
+// function-pointer indirection as VODProcessor so pkg/statedb doesn't import
+// the blob.Store/muxl-heavy pkg/vod.
+type LivestreamVODFinalizer func(ctx context.Context, t FinalizeLivestreamVODTask) (cid string, err error)
+
+func (state *StatefulDB) SetLivestreamVODFinalizer(f LivestreamVODFinalizer) {
+	state.livestreamVODFinalizer = f
+}
+
+func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "func", "processFinalizeLivestreamVODTask")
+	var t FinalizeLivestreamVODTask
+	if err := json.Unmarshal(task.Payload, &t); err != nil {
+		return err
+	}
+	if state.livestreamVODFinalizer == nil {
+		log.Warn(ctx, "no livestream VOD finalizer configured; dropping task",
+			"uploadId", t.UploadID, "did", t.RepoDID)
+		return state.CompleteTask(ctx, task.ID)
+	}
+	if err := state.SetUploadProcessing(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark upload as processing", "uploadId", t.UploadID, "error", err)
+	}
+	cid, err := state.livestreamVODFinalizer(ctx, t)
+	if err != nil {
+		if ferr := state.SetUploadFailed(ctx, t.UploadID, err.Error()); ferr != nil {
+			log.Warn(ctx, "failed to mark upload as failed", "uploadId", t.UploadID, "error", ferr)
+		}
+		// Flip the tied draft to 'error' so the user sees the failure.
+		if derr := state.SetDraftError(ctx, t.UploadID, err.Error()); derr != nil {
+			log.Warn(ctx, "failed to mark draft as failed", "uploadId", t.UploadID, "error", derr)
+		}
+		// Complete so it doesn't retry: most finalize failures are permanent
+		// (missing objects, unreadable bytes, no OAuth session).
+		_ = state.CompleteTask(ctx, task.ID)
+		return fmt.Errorf("finalize livestream VOD upload %s: %w", t.UploadID, err)
+	}
+	// As with VODProcess, the finalizer calls SetUploadProcessed internally, so
+	// re-read the finished Upload row and flip the tied draft to 'ready'.
+	if err := state.markDraftReadyFromUpload(ctx, t.UploadID); err != nil {
+		log.Warn(ctx, "failed to mark draft ready", "uploadId", t.UploadID, "error", err)
+	}
+	log.Log(ctx, "livestream VOD finalized", "uploadId", t.UploadID, "cid", cid)
 	return state.CompleteTask(ctx, task.ID)
 }
 

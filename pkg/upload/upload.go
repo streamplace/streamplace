@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/statedb"
+	"stream.place/streamplace/pkg/streamplace"
 )
 
 // Backend identifies which TUS data store backs an upload.
@@ -325,6 +326,35 @@ func (m *Manager) onComplete(ctx context.Context, ev tushandler.HookEvent) {
 	if _, err := m.state.EnqueueTask(ctx, statedb.TaskVODProcess, payload, statedb.WithTaskKey("vod-process:"+row.ID)); err != nil {
 		log.Error(ctx, "failed to enqueue vod-process task", "error", err)
 	}
+
+	// Create a draft VOD in the 'processing' state, but only if the upload
+	// isn't already associated with a pre-created draft. The modern client
+	// flow creates the draft up front (place.stream.vod.createDraft) and passes
+	// its URI to createUpload, which re-points the draft's origin_upload_id at
+	// this upload — so a draft already exists for this row. Only fall back to
+	// creating one here for legacy clients / external callers that didn't
+	// supply a draftUri. A failed create is non-fatal: the upload still
+	// processes.
+	if existing, _ := m.state.GetDraftByUpload(ctx, row.ID); existing == nil {
+		if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &streamplace.VodDraftVideo{
+			LexiconTypeID: "place.stream.vod.draftVideo",
+			Title:         filenameOrDefault(row.Filename),
+			Status:        "processing",
+			CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+		}); err != nil {
+			log.Error(ctx, "failed to create draft for upload", "error", err)
+		}
+	}
+}
+
+// filenameOrDefault returns a human placeholder title for a freshly-uploaded
+// draft: the original filename if present, else a generic "Uploaded video".
+// The user edits this before publishing.
+func filenameOrDefault(filename string) string {
+	if filename != "" {
+		return filename
+	}
+	return "Uploaded video"
 }
 
 func (m *Manager) mintToken(did, uploadID string, expiresAt time.Time) (string, error) {

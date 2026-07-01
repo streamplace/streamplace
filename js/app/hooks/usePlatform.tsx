@@ -7,7 +7,7 @@ function supportsHLS() {
   var video = document.createElement("video");
   return Boolean(
     video.canPlayType("application/vnd.apple.mpegURL") ||
-      video.canPlayType("audio/mpegurl"),
+    video.canPlayType("audio/mpegurl"),
   );
 }
 

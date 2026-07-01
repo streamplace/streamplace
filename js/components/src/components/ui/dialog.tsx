@@ -50,7 +50,8 @@ const dialogVariants = cva("", {
 });
 
 export interface DialogProps
-  extends Omit<ModalPrimitiveProps, "children">,
+  extends
+    Omit<ModalPrimitiveProps, "children">,
     VariantProps<typeof dialogVariants> {
   children?: React.ReactNode;
   title?: string;

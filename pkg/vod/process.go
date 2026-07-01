@@ -180,7 +180,11 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	}
 	span.SetAttributes(attribute.String("signing_did", signer.DIDKey))
 
-	metaBuilder := newMetafileBuilder(ctx, store)
+	// Fragment metafile builder: dst (the staging blob) is the bare canonical
+	// fragments alone — no leading init — so its hash is the MUXL CID and the
+	// metafile offsets are fragment-relative. The init is re-synthesized as a
+	// flat-MP4 faststart header below and prepended at assembly.
+	metaBuilder := newFragmentMetafileBuilder(ctx, store)
 	probe, err := streamThroughMuxl(ctx, src, size, final, metaBuilder, signer.SignerInput)
 	if err != nil {
 		recordErr(span, stagePipeline, err)
@@ -221,25 +225,48 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	}
 	_ = state.SetUploadProgress(ctx, in.UploadID, 90)
 
-	finalCID := hasher.CID()
-	contentKey := BlobsPrefix + finalCID + ".mp4"
+	// The staging blob is the bare canonical fragments; its BDASL hash is the
+	// MUXL CID — the stable, header-independent VOD id. Keying the content blob
+	// off it means a better flat header can later be re-synthesized and
+	// rewritten in place without changing the VOD's id or any published record.
+	muxlCID := hasher.CID()
+	fragSize := counter.load()
+	contentKey := BlobsPrefix + muxlCID + ".mp4"
+
+	// Synthesize the flat-MP4 faststart header from the fragments' metafile,
+	// then assemble [flat-header][fragments] at the content key and drop the
+	// staging blob. muxl owns all co64 offsets over the [header][fragments]
+	// layout, so the result is a real flat MP4 served whole, with HLS reading
+	// byte-ranges at flatHeaderSize+offset into the same blob.
+	flatHeader, err := synthFlatHeaderForObjects(ctx, store, []string{stagingKey})
+	if err != nil {
+		recordErr(span, stageContentAddressCopy, err)
+		return "", fmt.Errorf("synthesize flat header: %w", err)
+	}
+	blobSize := int64(len(flatHeader)) + fragSize
 	span.SetAttributes(
-		attribute.String("cid", finalCID),
+		attribute.String("cid", muxlCID),
 		attribute.String("content_key", contentKey),
 		attribute.String("content_url", store.URL(contentKey)),
+		attribute.Int("flat_header_bytes", len(flatHeader)),
+		attribute.Int64("blob_size", blobSize),
 	)
 
 	if err := runVODStage(ctx, stageContentAddressCopy, func(ctx context.Context) error {
-		return finalizeMove(ctx, store, stagingKey, contentKey)
+		if err := assembleContentBlob(ctx, store, flatHeader, []string{stagingKey}, contentKey); err != nil {
+			return err
+		}
+		return store.Delete(ctx, stagingKey)
 	}); err != nil {
 		recordErr(span, stageContentAddressCopy, err)
 		return "", fmt.Errorf("finalize: %w", err)
 	}
 	_ = state.SetUploadProgress(ctx, in.UploadID, 95)
 
-	metafile := metaBuilder.Finalize(finalCID, counter.load())
+	metafile := metaBuilder.Finalize(muxlCID, fragSize)
+	metafile.FlatHeaderSize = int64(len(flatHeader))
 	if err := runVODStage(ctx, stageMetafile, func(ctx context.Context) error {
-		return writeMetafile(ctx, store, finalCID, metafile)
+		return writeMetafile(ctx, store, muxlCID, metafile)
 	}); err != nil {
 		recordErr(span, stageMetafile, err)
 		return "", fmt.Errorf("write metafile: %w", err)
@@ -254,8 +281,8 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 			cli:        cli,
 			state:      state,
 			in:         in,
-			cid:        finalCID,
-			size:       counter.load(),
+			cid:        muxlCID,
+			size:       blobSize,
 			mimeType:   "video/mp4",
 			probe:      probe,
 			signingKey: signer.DIDKey,
@@ -268,13 +295,14 @@ func ProcessVOD(ctx context.Context, cli *config.CLI, state *statedb.StatefulDB,
 	spmetrics.VODProcessSuccessesTotal.WithLabelValues(in.Backend).Inc()
 	span.SetStatus(codes.Ok, "")
 	log.Log(ctx, "VOD processed",
-		"cid", finalCID,
+		"cid", muxlCID,
 		"url", store.URL(contentKey),
 		"input_size", size,
-		"output_size", counter.load(),
+		"frag_size", fragSize,
+		"output_size", blobSize,
 		"duration_ms", time.Since(startTime).Milliseconds(),
 	)
-	return finalCID, nil
+	return muxlCID, nil
 }
 
 // runVODStage runs a post-pipeline stage with the default stage timeout.
@@ -331,28 +359,6 @@ func completeStaging(ctx context.Context, staging blob.Writer, stagingKey string
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
-	return nil
-}
-
-// finalizeMove atomically promotes the staged blob at stagingKey to the
-// content-addressed contentKey. For S3Store this is a CopyObject +
-// DeleteObject; for FileStore it's an os.Rename.
-func finalizeMove(ctx context.Context, store blob.Store, stagingKey, contentKey string) error {
-	ctx, span := vodTracer.Start(ctx, "vod.finalizeMove", trace.WithAttributes(
-		attribute.String("staging_key", stagingKey),
-		attribute.String("content_key", contentKey),
-	))
-	defer span.End()
-	moveStart := time.Now()
-	if err := store.Move(ctx, stagingKey, contentKey); err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "move")
-		return err
-	}
-	span.SetAttributes(attribute.Int64("move_duration_ms", time.Since(moveStart).Milliseconds()))
-	log.Debug(ctx, "moved staging to content-addressed key",
-		"duration_ms", time.Since(moveStart).Milliseconds(),
-	)
 	return nil
 }
 
@@ -540,10 +546,15 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 		}
 	}()
 
-	// Consumer: muxl concatenator output channels -> dst.
+	// Consumer: muxl concatenator output channels -> dst. The metafile
+	// builder's offset model dictates the blob layout: leadingInitInBlob
+	// means dst is [init][segments] (the legacy/transfer shape), otherwise
+	// dst is the bare fragments alone (the flat-MP4 shape, init synthesized
+	// separately). A nil builder keeps the legacy behavior.
+	writeInit := metaBuilder == nil || metaBuilder.leadingInitInBlob
 	consumeDone := make(chan error, 1)
 	go func() {
-		consumeDone <- consumeConcatTraced(ctx, concat, dst, &initBytes, &segBytes, &initEmits, &segEmits)
+		consumeDone <- consumeConcatTraced(ctx, concat, dst, writeInit, &initBytes, &segBytes, &initEmits, &segEmits)
 	}()
 
 	// Optional metafile builder: parallel consumer on the event channel.
@@ -616,7 +627,13 @@ func streamThroughMuxl(ctx context.Context, src io.ReaderAt, size int64, dst io.
 // report them. If the init segment changes mid-stream (multi-input
 // concatenation), the new init is written too — for VOD with a single
 // input that doesn't happen, but the loop handles it for free.
-func consumeConcatTraced(ctx context.Context, c *muxl.Concatenator, dst io.Writer, initBytes, segBytes, initEmits, segEmits *int64) error {
+//
+// writeInit controls whether the init segment(s) land in dst. The flat-MP4
+// model wants dst to be the bare canonical fragments alone (the init is
+// re-synthesized as a faststart header at finalize time and prepended
+// separately); writeInit=false drains and counts the init for tracing but
+// keeps it out of the blob — so dst hashes to the MUXL CID of the fragments.
+func consumeConcatTraced(ctx context.Context, c *muxl.Concatenator, dst io.Writer, writeInit bool, initBytes, segBytes, initEmits, segEmits *int64) error {
 	initCh, segCh := c.InitCh, c.SegCh
 	start := time.Now()
 	ticker := time.NewTicker(vodProgressLogInterval)
@@ -634,9 +651,11 @@ func consumeConcatTraced(ctx context.Context, c *muxl.Concatenator, dst io.Write
 			}
 			*initEmits++
 			*initBytes += int64(len(init))
-			log.Debug(ctx, "muxl init segment", "size", len(init), "emit_n", *initEmits)
-			if _, err := dst.Write(init); err != nil {
-				return err
+			log.Debug(ctx, "muxl init segment", "size", len(init), "emit_n", *initEmits, "in_blob", writeInit)
+			if writeInit {
+				if _, err := dst.Write(init); err != nil {
+					return err
+				}
 			}
 		case seg, ok := <-segCh:
 			if !ok {

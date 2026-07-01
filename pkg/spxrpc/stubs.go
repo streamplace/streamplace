@@ -305,6 +305,7 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.POST("/xrpc/place.stream.live.startLivestream", s.HandlePlaceStreamLiveStartLivestream)
 	e.POST("/xrpc/place.stream.live.stopLivestream", s.HandlePlaceStreamLiveStopLivestream)
 	e.POST("/xrpc/place.stream.media.createUpload", s.HandlePlaceStreamMediaCreateUpload)
+	e.POST("/xrpc/place.stream.media.finalizeLivestream", s.HandlePlaceStreamMediaFinalizeLivestream)
 	e.GET("/xrpc/place.stream.media.getUploadStatus", s.HandlePlaceStreamMediaGetUploadStatus)
 	e.GET("/xrpc/place.stream.media.getVideo", s.HandlePlaceStreamMediaGetVideo)
 	e.GET("/xrpc/place.stream.media.getVideoList", s.HandlePlaceStreamMediaGetVideoList)
@@ -337,7 +338,13 @@ func (s *Server) RegisterHandlersPlaceStream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.server.listWebhooks", s.HandlePlaceStreamServerListWebhooks)
 	e.POST("/xrpc/place.stream.server.updateWebhook", s.HandlePlaceStreamServerUpdateWebhook)
 	e.POST("/xrpc/place.stream.server.upsertStorage", s.HandlePlaceStreamServerUpsertStorage)
+	e.POST("/xrpc/place.stream.vod.createDraft", s.HandlePlaceStreamVodCreateDraft)
+	e.POST("/xrpc/place.stream.vod.deleteDraft", s.HandlePlaceStreamVodDeleteDraft)
 	e.GET("/xrpc/place.stream.vod.getComments", s.HandlePlaceStreamVodGetComments)
+	e.GET("/xrpc/place.stream.vod.getDraft", s.HandlePlaceStreamVodGetDraft)
+	e.GET("/xrpc/place.stream.vod.listDrafts", s.HandlePlaceStreamVodListDrafts)
+	e.POST("/xrpc/place.stream.vod.publishDraft", s.HandlePlaceStreamVodPublishDraft)
+	e.POST("/xrpc/place.stream.vod.updateDraft", s.HandlePlaceStreamVodUpdateDraft)
 	return nil
 }
 
@@ -739,6 +746,24 @@ func (s *Server) HandlePlaceStreamMediaCreateUpload(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context,body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error)
 	out, handleErr = s.handlePlaceStreamMediaCreateUpload(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamMediaFinalizeLivestream(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaFinalizeLivestream")
+	defer span.End()
+
+	var body placestream.MediaFinalizeLivestream_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.MediaFinalizeLivestream_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context,body *placestream.MediaFinalizeLivestream_Input) (*placestream.MediaFinalizeLivestream_Output, error)
+	out, handleErr = s.handlePlaceStreamMediaFinalizeLivestream(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1332,6 +1357,42 @@ func (s *Server) HandlePlaceStreamServerUpsertStorage(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamVodCreateDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodCreateDraft")
+	defer span.End()
+
+	var body placestream.VodCreateDraft_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.VodCreateDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context,body *placestream.VodCreateDraft_Input) (*placestream.VodCreateDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodCreateDraft(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodDeleteDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodDeleteDraft")
+	defer span.End()
+
+	var body placestream.VodDeleteDraft_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.VodDeleteDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodDeleteDraft(ctx context.Context,body *placestream.VodDeleteDraft_Input) (*placestream.VodDeleteDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodDeleteDraft(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetComments")
 	defer span.End()
@@ -1352,6 +1413,81 @@ func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit int,video string) (*placestream.VodGetComments_Output, error)
 	out, handleErr = s.handlePlaceStreamVodGetComments(ctx, cursor, limit, video)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodGetDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetDraft")
+	defer span.End()
+	uri := c.QueryParam("uri")
+	var out *placestream.VodGetDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context,uri string) (*placestream.VodGetDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodGetDraft(ctx, uri)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodListDrafts(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodListDrafts")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+
+	var limit int
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	} else {
+		limit = 50
+	}
+	var out *placestream.VodListDrafts_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context,cursor string,limit int) (*placestream.VodListDrafts_Output, error)
+	out, handleErr = s.handlePlaceStreamVodListDrafts(ctx, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodPublishDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodPublishDraft")
+	defer span.End()
+
+	var body placestream.VodPublishDraft_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.VodPublishDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context,body *placestream.VodPublishDraft_Input) (*placestream.VodPublishDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodPublishDraft(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamVodUpdateDraft(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodUpdateDraft")
+	defer span.End()
+
+	var body placestream.VodUpdateDraft_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.VodUpdateDraft_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context,body *placestream.VodUpdateDraft_Input) (*placestream.VodUpdateDraft_Output, error)
+	out, handleErr = s.handlePlaceStreamVodUpdateDraft(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

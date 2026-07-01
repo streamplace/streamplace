@@ -181,6 +181,16 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: setup pnpm
+        run: npm install -g corepack@latest && corepack enable
+
+      - name: install dependencies
+        run: pnpm install
+
       - name: download streamplace binary
         uses: actions/download-artifact@v4
         with:
@@ -198,11 +208,16 @@ jobs:
 
       - name: start e2e environment
         run: |
-          ./streamplace e2e > /tmp/e2e-env.sh &
+          ./streamplace e2e > /tmp/e2e-env.sh 2> /tmp/e2e-server.log &
           for i in $(seq 1 120); do
             if [ -s /tmp/e2e-env.sh ]; then break; fi
             sleep 1
           done
+          if [ ! -s /tmp/e2e-env.sh ]; then
+            echo "e2e environment failed to start; server log:"
+            cat /tmp/e2e-server.log
+            exit 1
+          fi
           cat /tmp/e2e-env.sh
 
       - name: install maestro
@@ -265,7 +280,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-android-${{ github.run_id }}
-          path: ~/.maestro/tests/
+          path: |
+            ~/.maestro/tests/
+            /tmp/e2e-server.log
           retention-days: 7
           if-no-files-found: warn
 
@@ -342,11 +359,16 @@ jobs:
 
       - name: start e2e environment
         run: |
-          ./streamplace e2e > /tmp/e2e-env.sh &
+          ./streamplace e2e > /tmp/e2e-env.sh 2> /tmp/e2e-server.log &
           for i in $(seq 1 120); do
             if [ -s /tmp/e2e-env.sh ]; then break; fi
             sleep 1
           done
+          if [ ! -s /tmp/e2e-env.sh ]; then
+            echo "e2e environment failed to start; server log:"
+            cat /tmp/e2e-server.log
+            exit 1
+          fi
           cat /tmp/e2e-env.sh
 
       - name: run maestro tests
@@ -359,6 +381,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: maestro-ios-${{ github.run_id }}
-          path: ~/.maestro/tests/
+          path: |
+            ~/.maestro/tests/
+            /tmp/e2e-server.log
           retention-days: 7
           if-no-files-found: warn

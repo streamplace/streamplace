@@ -208,6 +208,25 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	}); err != nil {
 		return fmt.Errorf("register stream key: %w", err)
 	}
+	// Create a livestream record so the stream shows up in feeds; normally the
+	// app does this via place.stream.live.startLivestream when a user goes
+	// live. The node keeps lastSeenAt fresh on our behalf via
+	// SP_DEV_ACCOUNT_CREDS while segments are ingesting.
+	now := time.Now().UTC().Format(util.ISO8601)
+	livestream := streamplace.Livestream{
+		LexiconTypeID: "place.stream.livestream",
+		CreatedAt:     now,
+		LastSeenAt:    &now,
+		Title:         "e2e test stream",
+	}
+	if _, err := comatproto.RepoCreateRecord(ctx, xrpcc, &comatproto.RepoCreateRecord_Input{
+		Collection: "place.stream.livestream",
+		Repo:       out.Did,
+		Record:     &lexutil.LexiconTypeDecoder{Val: &livestream},
+	}); err != nil {
+		return fmt.Errorf("create livestream record: %w", err)
+	}
+
 	// Give the node a moment to index the key before we start streaming.
 	time.Sleep(1 * time.Second)
 

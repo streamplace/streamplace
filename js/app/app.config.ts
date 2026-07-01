@@ -1,9 +1,12 @@
 import {
   ConfigPlugin,
   withAndroidManifest,
+  withDangerousMod,
   withEntitlementsPlist,
   withXcodeProject,
 } from "expo/config-plugins";
+import fs from "fs";
+import path from "path";
 import streamplaceReactNativeWebRTC from "../config-react-native-webrtc";
 export const withNotificationsIOS: ConfigPlugin = (config) => {
   config = withEntitlementsPlist(config, (config) => {
@@ -43,6 +46,52 @@ const withAndroidProfileable = (config) => {
 
     return config;
   });
+};
+
+// Allow plain-http connections to loopback/emulator hosts so e2e tests (and
+// local development) can point the app at a dev node. Everything else keeps
+// the platform default of HTTPS-only.
+const NETWORK_SECURITY_CONFIG = `<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false" />
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">10.0.2.2</domain>
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">127.0.0.1</domain>
+  </domain-config>
+</network-security-config>
+`;
+
+const withLocalCleartextTraffic: ConfigPlugin = (config) => {
+  config = withDangerousMod(config, [
+    "android",
+    async (config) => {
+      const resXmlDir = path.join(
+        config.modRequest.platformProjectRoot,
+        "app",
+        "src",
+        "main",
+        "res",
+        "xml",
+      );
+      fs.mkdirSync(resXmlDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(resXmlDir, "network_security_config.xml"),
+        NETWORK_SECURITY_CONFIG,
+      );
+      return config;
+    },
+  ]);
+  config = withAndroidManifest(config, (config) => {
+    const application = config.modResults.manifest.application?.[0];
+    if (!application) {
+      throw new Error("No application found in AndroidManifest.xml");
+    }
+    application.$["android:networkSecurityConfig"] =
+      "@xml/network_security_config";
+    return config;
+  });
+  return config;
 };
 
 const withConsistentVersionNumber = (
@@ -255,6 +304,7 @@ export default function () {
           },
         ],
         [withConsistentVersionNumber, { version: pkg.version }],
+        withLocalCleartextTraffic,
         [
           "react-native-edge-to-edge",
           {

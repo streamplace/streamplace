@@ -146,7 +146,14 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 	defer os.RemoveAll(dataDir) //nolint:errcheck
 
 	nodeCmd := exec.CommandContext(ctx, self)
-	nodeCmd.Env = []string{
+	// Inherit the parent environment (dev builds need LD_LIBRARY_PATH etc.)
+	// but strip any SP_ vars so the node only gets our config.
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "SP_") {
+			nodeCmd.Env = append(nodeCmd.Env, kv)
+		}
+	}
+	nodeCmd.Env = append(nodeCmd.Env,
 		fmt.Sprintf("SP_HTTP_ADDR=%s", httpAddr),
 		fmt.Sprintf("SP_HTTP_INTERNAL_ADDR=127.0.0.1:%d", internalPort),
 		fmt.Sprintf("SP_RTMP_ADDR=127.0.0.1:%d", rtmpPort),
@@ -157,7 +164,8 @@ func runE2E(ctx context.Context, devEnvPath string) error {
 		fmt.Sprintf("SP_BROADCASTER_HOST=127.0.0.1:%d", httpPort),
 		fmt.Sprintf("SP_WEBSOCKET_URL=ws://%s", httpAddr),
 		"SP_STREAM_SESSION_TIMEOUT=30s",
-	}
+		"SP_TRUST_PRIVATE_NETWORK=true",
+	)
 	nodeCmd.Stdout = os.Stderr
 	nodeCmd.Stderr = os.Stderr
 	if err := nodeCmd.Start(); err != nil {

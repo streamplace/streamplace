@@ -1,18 +1,19 @@
-appId: tv.aquareum
+appId: ${APP_ID}
 ---
 - launchApp
 - takeScreenshot: 04-01-launched
-# tap on video to show controls
+# open the e2e test account's live stream from the home feed
+- extendedWaitUntil:
+    visible:
+      text: "e2e test stream"
+    timeout: 30000
 - tapOn:
-    point: 16%,31%
-- takeScreenshot: 04-02-tapped-video
+    text: "e2e test stream"
 - waitForAnimationToEnd
-# tap on random part of video
+- takeScreenshot: 04-02-stream-open
+- assertVisible:
+    text: ".*e2e test stream.*"
+# tap on the video to show the player controls
 - tapOn:
-    point: 25%,25%
-- takeScreenshot: 04-03-after-second-tap
-# seems to be slow enough for the chrome to fade out (weird!!!)
-# # tap on settings icon
-# - assertVisible:
-#     point: 90%,9%
-# - assertVisible: "Bottom Sheet"
+    point: 50%,20%
+- takeScreenshot: 04-03-player-tapped

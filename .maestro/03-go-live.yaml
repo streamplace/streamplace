@@ -1,4 +1,4 @@
-appId: tv.aquareum
+appId: ${APP_ID}
 ---
 - launchApp
 - tapOn:

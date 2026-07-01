@@ -1,4 +1,4 @@
-appId: tv.aquareum
+appId: ${APP_ID}
 ---
 - launchApp:
     clearState: true
@@ -24,4 +24,10 @@ appId: tv.aquareum
 - takeScreenshot: 00-06-saved
 - tapOn:
     text: "Home"
+# The e2e server's test stream showing up in the feed proves the app is
+# actually talking to the custom node and not production.
+- extendedWaitUntil:
+    visible:
+      text: "e2e test stream"
+    timeout: 30000
 - takeScreenshot: 00-07-home

@@ -1,4 +1,4 @@
-appId: tv.aquareum
+appId: ${APP_ID}
 ---
 - launchApp
 - takeScreenshot: 01-01-home

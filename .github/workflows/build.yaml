@@ -333,8 +333,10 @@ jobs:
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
           # applesimutils lets us pre-grant notification permission so the
-          # first-launch permission dialog never appears
+          # first-launch permission dialog never appears. Homebrew 5.x
+          # refuses untrusted third-party taps, so trust it explicitly.
           brew tap wix/brew
+          brew trust wix/brew
           brew install applesimutils
 
       - name: build for simulator

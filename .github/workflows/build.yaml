@@ -332,6 +332,10 @@ jobs:
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
           brew tap facebook/fb
           brew install facebook/fb/idb-companion
+          # applesimutils lets us pre-grant notification permission so the
+          # first-launch permission dialog never appears
+          brew tap wix/brew
+          brew install applesimutils
 
       - name: build for simulator
         run: |
@@ -364,6 +368,10 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" js/app/ios/build/Build/Products/Release-iphonesimulator/Streamplace.app
+          # Pre-grant notifications so the first-launch "would like to send
+          # you notifications" dialog (which dims the whole screen and blocks
+          # every subsequent tap) never appears.
+          applesimutils --byId "$UDID" --bundle tv.aquareum --setPermissions notifications=YES
 
       - name: download streamplace binary
         uses: actions/download-artifact@v4

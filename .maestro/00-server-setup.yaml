@@ -1,7 +1,10 @@
 appId: ${APP_ID}
 ---
-- launchApp:
-    clearState: true
+# No clearState: the app is freshly installed on a fresh device in CI, so
+# there's nothing to clear, and clearState reinstalls the app — which
+# resets the notification permission we pre-granted, re-showing the
+# first-launch permission dialog that dims the screen and blocks taps.
+- launchApp
 - takeScreenshot: 00-01-launched
 # first launch on a cold CI emulator can take a while to render
 - extendedWaitUntil:

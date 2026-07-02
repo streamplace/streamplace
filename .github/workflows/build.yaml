@@ -262,6 +262,11 @@ jobs:
           arch: x86_64
           profile: pixel_6
           force-avd-creation: false
+          # more cores/RAM so the software-rendered emulator doesn't thrash
+          # and ANR the launcher out from under the app mid-test
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
           emulator-options:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none

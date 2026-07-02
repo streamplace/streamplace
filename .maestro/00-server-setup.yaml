@@ -3,11 +3,19 @@ appId: ${APP_ID}
 - launchApp:
     clearState: true
 - takeScreenshot: 00-01-launched
+# Slow CI emulators sometimes throw a "Pixel Launcher isn't responding"
+# ANR dialog over the app; tap Wait to dismiss it if present.
+- tapOn:
+    text: "Wait"
+    optional: true
 # first launch on a cold CI emulator can take a while to render
 - extendedWaitUntil:
     visible:
       text: "Settings"
     timeout: 60000
+- tapOn:
+    text: "Wait"
+    optional: true
 - tapOn:
     text: "Settings"
 - takeScreenshot: 00-02-settings

@@ -335,21 +335,33 @@ jobs:
 
       - name: build for simulator
         run: |
+          # generic destination: build for the simulator SDK without needing
+          # a concrete device to exist. Runner images vary in which
+          # simulators are pre-created, and pinning a named device (iPhone 17)
+          # intermittently fails with "Unable to find a device matching the
+          # provided destination specifier".
           xcodebuild \
             -workspace js/app/ios/Streamplace.xcworkspace \
             -scheme Streamplace \
             -configuration Release \
             -sdk iphonesimulator \
             -derivedDataPath js/app/ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -destination 'generic/platform=iOS Simulator' \
             build
 
       - name: boot simulator and install app
         run: |
-          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | grep -Eo "[0-9A-F]{8}-[0-9A-F-]{27}" | head -1)
-          echo "booting simulator $UDID"
-          xcrun simctl boot "$UDID" || true
-          xcrun simctl install booted js/app/ios/build/Build/Products/Release-iphonesimulator/Streamplace.app
+          # Create a fresh iPhone simulator rather than assuming one is
+          # pre-created (runner images vary). Pick the newest available
+          # iPhone device type and iOS runtime.
+          DEVTYPE=$(xcrun simctl list devicetypes | grep -Eo 'com.apple.CoreSimulator.SimDeviceType.iPhone-[0-9A-Za-z-]+' | tail -1)
+          RUNTIME=$(xcrun simctl list runtimes | grep -Eo 'com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]+' | tail -1)
+          echo "creating simulator: devtype=$DEVTYPE runtime=$RUNTIME"
+          UDID=$(xcrun simctl create e2e-iphone "$DEVTYPE" "$RUNTIME")
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" js/app/ios/build/Build/Products/Release-iphonesimulator/Streamplace.app
 
       - name: download streamplace binary
         uses: actions/download-artifact@v4
@@ -376,18 +388,18 @@ jobs:
 
       - name: smoke launch app with console
         run: |
-          xcrun simctl launch --console-pty booted tv.aquareum > /tmp/app-console.log 2>&1 &
+          xcrun simctl launch --console-pty "$SIM_UDID" tv.aquareum > /tmp/app-console.log 2>&1 &
           LAUNCH_PID=$!
           sleep 25
           kill $LAUNCH_PID 2>/dev/null || true
-          xcrun simctl terminate booted tv.aquareum 2>/dev/null || true
+          xcrun simctl terminate "$SIM_UDID" tv.aquareum 2>/dev/null || true
           echo "=== app console (first 25s) ==="
           cat /tmp/app-console.log
 
       - name: run maestro tests
         run: |
           source /tmp/e2e-env.sh
-          maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+          maestro --device "$SIM_UDID" test -e APP_ID=tv.aquareum -e SERVER_URL="$SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
 
       - name: collect ios diagnostics
         if: always()
@@ -395,7 +407,7 @@ jobs:
           mkdir -p ./ios-diag
           cp /tmp/app-console.log ./ios-diag/ 2>/dev/null || true
           cp ~/Library/Logs/DiagnosticReports/*.ips ./ios-diag/ 2>/dev/null || true
-          xcrun simctl spawn booted log show --last 30m --predicate 'process == "Streamplace"' > ./ios-diag/sim-app-log.txt 2>/dev/null || true
+          xcrun simctl spawn "$SIM_UDID" log show --last 30m --predicate 'process == "Streamplace"' > ./ios-diag/sim-app-log.txt 2>/dev/null || true
 
       - name: upload maestro recordings
         if: always()

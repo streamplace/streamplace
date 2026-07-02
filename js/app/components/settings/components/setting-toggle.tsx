@@ -7,6 +7,7 @@ export interface SettingToggleProps {
   value: boolean;
   onValueChange: (value: boolean) => void;
   style?: ViewStyle;
+  testID?: string;
 }
 
 export function SettingToggle({
@@ -15,6 +16,7 @@ export function SettingToggle({
   value,
   onValueChange,
   style,
+  testID,
 }: SettingToggleProps) {
   return (
     <MenuItem style={style}>
@@ -22,7 +24,13 @@ export function SettingToggle({
         style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
         onPress={() => onValueChange(!value)}
         accessibilityRole="switch"
+        // accessibilityRole="switch" collapses the subtree into one element
+        // on iOS, hiding the title from Maestro's text matcher. Expose the
+        // title as the element's label and a stable testID so e2e can find
+        // it by id on both platforms.
+        accessibilityLabel={title}
         accessibilityState={{ checked: value }}
+        testID={testID}
       >
         <View style={{ flex: 1, paddingRight: 12 }}>
           <Text size="base">{title}</Text>

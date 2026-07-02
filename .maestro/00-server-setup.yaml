@@ -3,19 +3,11 @@ appId: ${APP_ID}
 - launchApp:
     clearState: true
 - takeScreenshot: 00-01-launched
-# Slow CI emulators sometimes throw a "Pixel Launcher isn't responding"
-# ANR dialog over the app; tap Wait to dismiss it if present.
-- tapOn:
-    text: "Wait"
-    optional: true
 # first launch on a cold CI emulator can take a while to render
 - extendedWaitUntil:
     visible:
       text: "Settings"
     timeout: 60000
-- tapOn:
-    text: "Wait"
-    optional: true
 - tapOn:
     text: "Settings"
 - takeScreenshot: 00-02-settings
@@ -25,15 +17,19 @@ appId: ${APP_ID}
 - tapOn:
     text: "Advanced"
 - takeScreenshot: 00-03-advanced
+# These three are custom RN components matched by testID: on iOS the
+# accessibilityRole="switch" toggle collapses its subtree and hides the
+# label from text matching, and the wrapped Input/Button aren't reliably
+# findable by placeholder/label text either.
 - tapOn:
-    text: "Use Custom Node"
+    id: "settings-use-custom-node"
 - takeScreenshot: 00-04-custom-node-toggled
 - tapOn:
-    text: "Enter custom node URL"
+    id: "settings-custom-node-url"
 - inputText: "${SERVER_URL}"
 - takeScreenshot: 00-05-url-entered
 - tapOn:
-    text: "Save"
+    id: "settings-save-node"
 - takeScreenshot: 00-06-saved
 - tapOn:
     text: "Home"

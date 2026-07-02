@@ -266,16 +266,9 @@ jobs:
             -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
             -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            . /tmp/e2e-env.sh
-            ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
-            adb install -r ./apk/*.apk
-            # keep the stylus handwriting tutorial from hijacking text input
-            adb shell settings put secure stylus_handwriting_enabled 0 || true
-            adb shell input keyevent 82
-            sleep 5
-            adb shell input keyevent 4
-            maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$ANDROID_SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+          # must be a single line: the action runs each script line in its
+          # own shell, so env vars don't survive between lines
+          script: bash ./hack/ci-android-e2e.sh
 
       - name: upload maestro recordings
         if: always()
@@ -285,6 +278,7 @@ jobs:
           path: |
             ~/.maestro/tests/
             /tmp/e2e-server.log
+            ./*.png
           retention-days: 7
           if-no-files-found: warn
 
@@ -342,12 +336,14 @@ jobs:
             -configuration Release \
             -sdk iphonesimulator \
             -derivedDataPath js/app/ios/build \
-            -destination 'platform=iOS Simulator,name=iPhone Air,OS=26.1' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             build
 
       - name: boot simulator and install app
         run: |
-          xcrun simctl boot "iPhone Air" || true
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 \(" | grep -Eo "[0-9A-F]{8}-[0-9A-F-]{27}" | head -1)
+          echo "booting simulator $UDID"
+          xcrun simctl boot "$UDID" || true
           xcrun simctl install booted js/app/ios/build/Build/Products/Release-iphonesimulator/Streamplace.app
 
       - name: download streamplace binary
@@ -386,5 +382,6 @@ jobs:
           path: |
             ~/.maestro/tests/
             /tmp/e2e-server.log
+            ./*.png
           retention-days: 7
           if-no-files-found: warn

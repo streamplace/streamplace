@@ -11,6 +11,8 @@ appId: ${APP_ID}
 - tapOn:
     text: "Start streaming"
 - takeScreenshot: 03-02-after-start-streaming
+# match the modal's plain-text title ("Log in"); the "Log In" button text
+# is inside a Pressable that collapses on iOS and isn't findable
 - assertVisible:
-    text: "Log In"
+    text: "Log [Ii]n"
 - takeScreenshot: 03-03-log-in

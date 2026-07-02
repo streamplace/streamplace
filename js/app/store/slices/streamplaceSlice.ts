@@ -3,7 +3,13 @@ import { Platform } from "react-native";
 import type { PlaceStreamSegment } from "streamplace";
 import { StateCreator } from "zustand";
 
-let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
+// Fall back to the public production node when no build-time URL was
+// injected. Without this, a build where EXPO_PUBLIC_STREAMPLACE_URL is
+// unset (e.g. an iOS bundle built without NODE_ENV=production) leaves
+// DEFAULT_URL undefined, and constructing an agent with it crashes the
+// app at startup.
+let DEFAULT_URL =
+  (process.env.EXPO_PUBLIC_STREAMPLACE_URL as string) || "https://stream.place";
 if (Platform.OS === "web" && process.env.EXPO_PUBLIC_WEB_TRY_LOCAL === "true") {
   try {
     DEFAULT_URL = `${window.location.protocol}//${window.location.host}`;

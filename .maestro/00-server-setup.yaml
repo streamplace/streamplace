@@ -36,10 +36,12 @@ appId: ${APP_ID}
 - takeScreenshot: 00-06-saved
 - tapOn:
     text: "Home"
-# The e2e server's test stream showing up in the feed proves the app is
-# actually talking to the custom node and not production.
+# A stream card showing up in the feed proves the app is talking to the
+# custom node (its isolated firehose only has our test stream). Matched
+# by testID because the card's link wrapper collapses its subtree on iOS,
+# hiding the title text from Maestro.
 - extendedWaitUntil:
     visible:
-      text: "e2e test stream"
+      id: "home-stream-card"
     timeout: 30000
 - takeScreenshot: 00-07-home

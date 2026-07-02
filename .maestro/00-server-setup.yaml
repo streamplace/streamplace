@@ -27,6 +27,9 @@ appId: ${APP_ID}
 - tapOn:
     id: "settings-custom-node-url"
 - inputText: "${SERVER_URL}"
+# dismiss the keyboard, which otherwise covers the bottom Home tab on iOS
+# and blocks navigation back to the feed
+- hideKeyboard
 - takeScreenshot: 00-05-url-entered
 - tapOn:
     id: "settings-save-node"

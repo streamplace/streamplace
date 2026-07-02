@@ -13,6 +13,11 @@ fi
 # the emulator reaches the host's loopback via 10.0.2.2
 ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
 
+# Each build job signs the APK with a freshly generated keystore, so a
+# copy left in the cached AVD snapshot has an incompatible signature and
+# `install -r` fails with INSTALL_FAILED_UPDATE_INCOMPATIBLE. Uninstall
+# any prior copy first.
+adb uninstall tv.aquareum || true
 adb install -r ./apk/*.apk
 # keep the stylus handwriting tutorial from hijacking text input
 adb shell settings put secure stylus_handwriting_enabled 0 || true

@@ -16,9 +16,9 @@ ANDROID_SERVER_URL="$(echo "$SERVER_URL" | sed 's/127\.0\.0\.1/10.0.2.2/')"
 adb install -r ./apk/*.apk
 # keep the stylus handwriting tutorial from hijacking text input
 adb shell settings put secure stylus_handwriting_enabled 0 || true
-adb shell input keyevent 82
-sleep 5
-adb shell input keyevent 4
+# suppress ANR/crash dialogs ("Pixel Launcher isn't responding") that
+# otherwise float over the app and eat maestro's taps
+adb shell settings put global hide_error_dialogs 1 || true
 
 maestro test \
   -e APP_ID=tv.aquareum \

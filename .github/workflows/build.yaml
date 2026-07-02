@@ -369,10 +369,28 @@ jobs:
           fi
           cat /tmp/e2e-env.sh
 
+      - name: smoke launch app with console
+        run: |
+          xcrun simctl launch --console-pty booted tv.aquareum > /tmp/app-console.log 2>&1 &
+          LAUNCH_PID=$!
+          sleep 25
+          kill $LAUNCH_PID 2>/dev/null || true
+          xcrun simctl terminate booted tv.aquareum 2>/dev/null || true
+          echo "=== app console (first 25s) ==="
+          cat /tmp/app-console.log
+
       - name: run maestro tests
         run: |
           source /tmp/e2e-env.sh
           maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+
+      - name: collect ios diagnostics
+        if: always()
+        run: |
+          mkdir -p ./ios-diag
+          cp /tmp/app-console.log ./ios-diag/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/*.ips ./ios-diag/ 2>/dev/null || true
+          xcrun simctl spawn booted log show --last 30m --predicate 'process == "Streamplace"' > ./ios-diag/sim-app-log.txt 2>/dev/null || true
 
       - name: upload maestro recordings
         if: always()
@@ -383,5 +401,6 @@ jobs:
             ~/.maestro/tests/
             /tmp/e2e-server.log
             ./*.png
+            ./ios-diag/
           retention-days: 7
           if-no-files-found: warn

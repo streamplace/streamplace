@@ -3,6 +3,11 @@ appId: ${APP_ID}
 - launchApp:
     clearState: true
 - takeScreenshot: 00-01-launched
+# first launch on a cold CI emulator can take a while to render
+- extendedWaitUntil:
+    visible:
+      text: "Settings"
+    timeout: 60000
 - tapOn:
     text: "Settings"
 - takeScreenshot: 00-02-settings

@@ -138,7 +138,7 @@ export default function LoginForm({
         <Pressable
           onPress={() => {
             const u = new URL(
-              "https://atproto.academy/docs/Authentication/why",
+              "https://atmosphereaccount.com/",
             );
             Linking.openURL(u.toString());
           }}

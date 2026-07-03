@@ -434,3 +434,71 @@ jobs:
             ./ios-diag/
           retention-days: 7
           if-no-files-found: warn
+
+  web-e2e:
+    name: web-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [linux]
+    steps:
+      - uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: setup pnpm
+        run: npm install -g corepack@latest && corepack enable
+
+      - name: install dependencies
+        run: pnpm install
+
+      - name: download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: .
+
+      - name: make streamplace executable
+        run: chmod +x ./streamplace
+
+      - name: install playwright browser
+        run:
+          pnpm --filter @streamplace/e2e-web exec playwright install --with-deps
+          chromium
+
+      - name: start e2e environment
+        run: |
+          ./streamplace e2e > /tmp/e2e-env.sh 2> /tmp/e2e-server.log &
+          for i in $(seq 1 120); do
+            if [ -s /tmp/e2e-env.sh ]; then break; fi
+            sleep 1
+          done
+          if [ ! -s /tmp/e2e-env.sh ]; then
+            echo "e2e environment failed to start; server log:"
+            cat /tmp/e2e-server.log
+            exit 1
+          fi
+          cat /tmp/e2e-env.sh
+
+      - name: run web e2e flows
+        run: |
+          set -a
+          source /tmp/e2e-env.sh
+          set +a
+          pnpm --filter @streamplace/e2e-web exec playwright test
+
+      - name: upload playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-e2e-${{ github.run_id }}
+          path: |
+            js/e2e-web/playwright-report/
+            js/e2e-web/test-results/
+            /tmp/e2e-server.log
+          retention-days: 7
+          if-no-files-found: warn

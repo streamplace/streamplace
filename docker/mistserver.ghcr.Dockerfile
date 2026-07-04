@@ -6,7 +6,14 @@ FROM --platform=linux/amd64 ubuntu:24.04
 RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY build-linux-amd64/streamplace /usr/local/bin/streamplace
 RUN chmod +x /usr/local/bin/streamplace
-RUN cd /usr/bin && curl -L -o - https://r.mistserver.org/dl/mistserver_64V3.7.tar.gz | tar xzv
+# Download to a file with retries, then extract. Piping curl straight into tar
+# corrupts the extraction when the transfer is truncated, and r.mistserver.org
+# hiccups intermittently (flaked CI repeatedly), so retry transient failures and
+# only untar a complete download.
+RUN cd /usr/bin && \
+    curl -fL --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 240 -o /tmp/mistserver.tar.gz https://r.mistserver.org/dl/mistserver_64V3.7.tar.gz && \
+    tar xzvf /tmp/mistserver.tar.gz && \
+    rm /tmp/mistserver.tar.gz
 RUN mkdir -p /config
 ADD mistserver.json /config/mistserver.json
 CMD ["MistController", "-c", "/config/mistserver.json"]

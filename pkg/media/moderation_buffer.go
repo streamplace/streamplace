@@ -46,6 +46,13 @@ func (mm *MediaManager) feedModerationBuffer(did string, startTime time.Time, se
 	now := time.Now()
 	mm.modBuffersMut.Lock()
 	defer mm.modBuffersMut.Unlock()
+	// Lazily initialize: distributeSegment runs under MediaManager values built by
+	// several constructors besides MakeMediaManager (isolated ingest/whip/rtmp
+	// workers, tests), not all of which seed the map. Reads/deletes on a nil map
+	// are safe, but the assignment below is not.
+	if mm.modBuffers == nil {
+		mm.modBuffers = map[string]*modBuffer{}
+	}
 	b := mm.modBuffers[did]
 	if b == nil {
 		b = &modBuffer{}

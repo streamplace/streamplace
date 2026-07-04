@@ -13,6 +13,18 @@ func newTestMM() *MediaManager {
 	return &MediaManager{modBuffers: map[string]*modBuffer{}}
 }
 
+// TestModerationBufferNilMap guards the crash CI caught: distributeSegment runs
+// under MediaManager values from constructors that don't seed modBuffers (ingest
+// workers, tests), so feedModerationBuffer must lazily initialize the map rather
+// than panic assigning into a nil one.
+func TestModerationBufferNilMap(t *testing.T) {
+	mm := &MediaManager{} // modBuffers deliberately nil
+	require.NotPanics(t, func() {
+		mm.feedModerationBuffer("did:x", time.Unix(0, 0), []byte("seg"))
+	})
+	require.Len(t, mm.moderationSegments("did:x", nil, nil), 1)
+}
+
 // TestModerationBufferWindow verifies fed segments come back oldest-first and
 // that the [after, before] filter selects the right slice by media start time.
 func TestModerationBufferWindow(t *testing.T) {

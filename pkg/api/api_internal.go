@@ -524,7 +524,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 		after := time.Now().Add(-time.Duration(secs) * time.Second)
 		w.Header().Set("Content-Type", "video/mp4")
-		err = media.ClipUser(ctx, a.LocalDB, a.CLI, user, w, nil, &after)
+		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return

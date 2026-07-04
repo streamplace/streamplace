@@ -835,8 +835,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "segment-archive-retention",
-				Usage:       "for users who don't specify a distribution policy, how long to keep segments around?",
-				Value:       24 * time.Hour,
+				Usage:       "how long to keep on-disk segment files before cleaning them up (durable copies live in S3/VOD). 0 disables cleanup.",
+				Value:       1 * time.Hour,
 				Destination: &cli.SegmentArchiveRetention,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
 			},

@@ -235,18 +235,24 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// Only published segments are actually folded in (see feedLiveWindow).
 	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
 
+	// The on-disk segment is transient now: durable copies live in S3/VOD, and
+	// disk archival is only a short-lived scratch for moderation clips + the
+	// no-S3 fallback. Every segment gets an expiry capped at SegmentArchiveRetention
+	// (default 1h) so nothing lingers — a -1 ("indefinite archival") distribution
+	// policy no longer pins segments to disk forever. An explicit *shorter* policy
+	// expiry still wins. SegmentArchiveRetention <= 0 is the operator opt-out that
+	// keeps segments until manually cleaned.
 	var deleteAfter *time.Time
-	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
-		secs := *meta.DistributionPolicy.DeleteAfterSeconds
-		if secs == -1 {
-			deleteAfter = nil
-		} else {
-			expiryTime := meta.StartTime.Time().Add(time.Duration(secs) * time.Second)
-			deleteAfter = &expiryTime
+	if mm.cli.SegmentArchiveRetention > 0 {
+		expiry := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
+		if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
+			if secs := *meta.DistributionPolicy.DeleteAfterSeconds; secs >= 0 {
+				if policyExpiry := meta.StartTime.Time().Add(time.Duration(secs) * time.Second); policyExpiry.Before(expiry) {
+					expiry = policyExpiry
+				}
+			}
 		}
-	} else if mm.cli.SegmentArchiveRetention.Seconds() != 0 {
-		tomorrow := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
-		deleteAfter = &tomorrow
+		deleteAfter = &expiry
 	}
 	dbSeg := &localdb.Segment{
 		ID:                 vs.label,

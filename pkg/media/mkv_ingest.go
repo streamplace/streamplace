@@ -109,14 +109,18 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {
 	now := aqtime.FromTime(time.Now())
 	filename := fmt.Sprintf("%s%s", now.FileSafeString(), filesuffix)
-	f, err := mm.cli.DataFileCreate([]string{"debug-recordings", user, filename}, false)
+	// Streams to S3 when configured (production), else a local file under DataDir
+	// (dev). Close finalizes either target — for S3 it commits the upload.
+	f, err := mm.cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, filename}, "video/x-matroska", false)
 	if err != nil {
-		return fmt.Errorf("failed to create data file: %w", err)
+		return fmt.Errorf("failed to create debug recording: %w", err)
 	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	if err != nil {
-		return fmt.Errorf("failed to copy to file: %w", err)
+	if _, err = io.Copy(f, r); err != nil {
+		f.Close()
+		return fmt.Errorf("failed to copy to debug recording: %w", err)
+	}
+	if err = f.Close(); err != nil {
+		return fmt.Errorf("failed to finalize debug recording: %w", err)
 	}
 	return nil
 }

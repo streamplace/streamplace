@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
@@ -113,6 +114,10 @@ type TrackSSRC struct {
 }
 
 type RecorderStream struct {
+	// mu serializes Event: RecordingPeerConnection.Do fires each event on its own
+	// goroutine, so without this the concurrent Encode calls would race the CBOR
+	// encoder and (for the S3 upload target) corrupt the multipart writer's buffer.
+	mu      sync.Mutex
 	encoder *cbor.Encoder
 }
 
@@ -131,6 +136,8 @@ func MakeWebRTCEncoder(w io.Writer) (*RecorderStream, error) {
 }
 
 func (s *RecorderStream) Event(event WebRTCEvent) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	err := s.encoder.Encode(event)
 	if err != nil {
 		log.Log(context.Background(), "error encoding event", "error", err)

@@ -74,13 +74,7 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 		log.Debug(ctx, "live recording disabled for streamer (not in VOD beta or recording not enabled)", "repoDID", repoDID)
 		return
 	}
-	cfg := s3.Config{
-		Endpoint:        ss.cli.S3Endpoint,
-		Bucket:          ss.cli.S3Bucket,
-		AccessKeyID:     ss.cli.S3AccessKeyID,
-		SecretAccessKey: ss.cli.S3SecretAccessKey,
-		Region:          ss.cli.S3Region,
-	}
+	cfg := ss.cli.S3Config()
 	// live-rec/ namespaces the in-progress livestream recordings away from the
 	// finalized VOD blobs (blobs/) and anything else in the bucket.
 	keyPrefix := liveRecPrefix + repoDID + "/"

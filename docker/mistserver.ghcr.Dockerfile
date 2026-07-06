@@ -11,7 +11,7 @@ RUN chmod +x /usr/local/bin/streamplace
 # hiccups intermittently (flaked CI repeatedly), so retry transient failures and
 # only untar a complete download.
 RUN cd /usr/bin && \
-    curl -fL --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 240 -o /tmp/mistserver.tar.gz https://r.mistserver.org/dl/mistserver_64V3.7.tar.gz && \
+    curl -fL --retry 12 --retry-all-errors --retry-delay 10 --retry-max-time 240 -o /tmp/mistserver.tar.gz https://storage.googleapis.com/streamplace-crap/6619b22c-7744-4be4-9de8-cdbf22ce5906/MistServer.tar.gz && \
     tar xzvf /tmp/mistserver.tar.gz && \
     rm /tmp/mistserver.tar.gz
 RUN mkdir -p /config

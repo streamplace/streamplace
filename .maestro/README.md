@@ -16,7 +16,7 @@ hack/e2e-local.sh ios       # on macOS
 
 The script starts a `streamplace e2e` harness (local PDS/PLC + a looping test
 stream), installs the app, prepares the device, runs the flows, and tears the
-harness down. It only *runs* — build the app first:
+harness down. It only _runs_ — build the app first:
 
 - **harness binary:** `make dev`
 - **android APK:** `make android-release` (needs JDK 17 + `ANDROID_HOME`)

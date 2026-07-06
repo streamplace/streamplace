@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"path/filepath"
 	"regexp"
 	"runtime"
 	rtpprof "runtime/pprof"
@@ -108,77 +107,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 
 	router.Handler("GET", "/metrics", promhttp.Handler())
 
-	router.GET("/playback/:user/:rendition/concat", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		w.Header().Set("content-type", "text/plain")
-		fmt.Fprintf(w, "ffconcat version 1.0\n")
-		// intermittent reports that you need two here to make things work properly? shouldn't matter.
-		for i := 0; i < 2; i += 1 {
-			fmt.Fprintf(w, "file '%s/playback/%s/%s/latest.mp4'\n", a.CLI.OwnInternalURL(), user, rendition)
-		}
-	})
-
-	router.GET("/playback/:user/:rendition/latest.mp4", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		segChan := a.Bus.SubscribeSegment(ctx, user, rendition)
-		defer a.Bus.UnsubscribeSegment(ctx, user, rendition, segChan)
-		seg := <-segChan.C
-		base := filepath.Base(seg.Filepath)
-		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, rendition, base))
-		w.WriteHeader(301)
-	})
-
-	router.GET("/playback/:user/:rendition/segment/:file", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		file := p.ByName("file")
-		if file == "" {
-			errors.WriteHTTPBadRequest(w, "file required", nil)
-			return
-		}
-		fullpath, err := a.CLI.SegmentFilePath(user, file)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "badly formatted request", err)
-			return
-		}
-		http.ServeFile(w, r, fullpath)
-	})
+	// Legacy disk-served HLS (ffconcat -> latest.mp4 -> segment/:file, all reading
+	// .m4s off disk) has been removed — live playback is all MUXL HLS now, served
+	// from the in-memory window in pkg/livehls / place_stream_playback_getlive.
 
 	router.HEAD("/playback/:user/:rendition/stream.mkv", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
@@ -593,7 +524,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 		after := time.Now().Add(-time.Duration(secs) * time.Second)
 		w.Header().Set("Content-Type", "video/mp4")
-		err = media.ClipUser(ctx, a.LocalDB, a.CLI, user, w, nil, &after)
+		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return

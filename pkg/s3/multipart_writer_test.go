@@ -123,3 +123,35 @@ func TestMultipartWriterConcurrent(t *testing.T) {
 	}
 	require.Equal(t, want, got)
 }
+
+// TestUploadWriterCommitsOnClose verifies UploadWriter.Close finalizes the
+// object (CompleteMultipartUpload) rather than aborting it, and that the
+// written bytes reassemble into a single object. This is the property that
+// makes UploadWriter safe as a fire-and-forget io.WriteCloser for debug
+// recordings, where the raw MultipartWriter.Close() would silently abort.
+func TestUploadWriterCommitsOnClose(t *testing.T) {
+	fake := newFakeMultipartClient(0)
+	w, err := newUploadWriter(context.Background(), fake, "bucket", "debug-recordings/did/x.rtcrec.cbor", "application/cbor")
+	require.NoError(t, err)
+	require.Equal(t, "debug-recordings/did/x.rtcrec.cbor", w.Name())
+
+	want := make([]byte, MultipartPartSize+4096)
+	for i := range want {
+		want[i] = byte(i * 3 % 251)
+	}
+	n, err := w.Write(want)
+	require.NoError(t, err)
+	require.Equal(t, len(want), n)
+
+	require.NoError(t, w.Close())
+
+	// Close must have completed (not aborted) the upload.
+	require.NotEmpty(t, fake.completed, "Close should CompleteMultipartUpload")
+
+	// Reassemble parts in order and compare to what we wrote.
+	got := make([]byte, 0, len(want))
+	for i := int32(1); i <= int32(len(fake.parts)); i++ {
+		got = append(got, fake.parts[i]...)
+	}
+	require.Equal(t, want, got)
+}

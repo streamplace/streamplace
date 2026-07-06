@@ -32,6 +32,7 @@ import (
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/moderation"
+	"stream.place/streamplace/pkg/s3"
 	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
@@ -834,8 +835,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "segment-archive-retention",
-				Usage:       "for users who don't specify a distribution policy, how long to keep segments around?",
-				Value:       24 * time.Hour,
+				Usage:       "how long to keep on-disk segment files before cleaning them up (durable copies live in S3/VOD). 0 disables cleanup.",
+				Value:       1 * time.Hour,
 				Destination: &cli.SegmentArchiveRetention,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
 			},
@@ -1426,6 +1427,40 @@ func (cli *CLI) DumpDebugSegment(ctx context.Context, name string, r io.Reader) 
 
 func (cli *CLI) S3Configured() bool {
 	return cli.S3Endpoint != "" && cli.S3Bucket != "" && cli.S3AccessKeyID != "" && cli.S3SecretAccessKey != ""
+}
+
+// S3Config assembles an s3.Config from the CLI's S3 flags.
+func (cli *CLI) S3Config() s3.Config {
+	return s3.Config{
+		Endpoint:        cli.S3Endpoint,
+		Bucket:          cli.S3Bucket,
+		AccessKeyID:     cli.S3AccessKeyID,
+		SecretAccessKey: cli.S3SecretAccessKey,
+		Region:          cli.S3Region,
+	}
+}
+
+// DebugRecordingFile is the write target returned by DebugRecordingCreate: an
+// *os.File on local disk, or an S3 upload that commits on Close. Name() reports
+// the destination (path or object key) for logging.
+type DebugRecordingFile interface {
+	io.WriteCloser
+	Name() string
+}
+
+// DebugRecordingCreate opens a write target for a debug recording (RTMP/MKV
+// dumps, WHIP rtcrec sessions). When S3 is configured the recording streams to
+// an S3 object at the key formed by joining fpath with "/" (so the bucket
+// mirrors the on-disk debug-recordings/<did>/<file> layout); otherwise it falls
+// back to a local file under DataDir — the dev default. The returned value must
+// be Closed to finalize (Close commits the S3 upload). overwrite only affects
+// the local-disk path (S3 puts always overwrite).
+func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, contentType string, overwrite bool) (DebugRecordingFile, error) {
+	if cli.S3Configured() {
+		key := strings.Join(fpath, "/")
+		return s3.NewUploadWriter(ctx, s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
+	}
+	return cli.DataFileCreate(fpath, overwrite)
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {

@@ -40,9 +40,15 @@ const SegmentsDir = "segments"
 const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
-	cli                 *config.CLI
-	liveWindows         map[string]*livehls.Writer
-	liveWindowsMut      sync.Mutex
+	cli            *config.CLI
+	liveWindows    map[string]*livehls.Writer
+	liveWindowsMut sync.Mutex
+	// modBuffers holds a short in-memory ring of each live user's most recent
+	// canonical segments, the source for moderation/report clips now that
+	// segments are no longer archived to disk. Keyed by repoDID. See
+	// moderation_buffer.go.
+	modBuffers          map[string]*modBuffer
+	modBuffersMut       sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
@@ -120,6 +126,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	mm := &MediaManager{
 		cli:          cli,
 		liveWindows:  map[string]*livehls.Writer{},
+		modBuffers:   map[string]*modBuffer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,
 		bus:          bus,

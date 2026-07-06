@@ -111,7 +111,14 @@ var DefaultCutoverEvery = 10 * time.Minute
 // nil to disable persistence. Starts the muxl Concatenator and a background
 // goroutine that reads processed segments and uploads them.
 func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
-	client := s3.New(s3.Options{
+	return newS3Uploader(NewClient(cfg), cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
+}
+
+// NewClient builds an *s3.Client for an S3-compatible endpoint from cfg. Uses
+// static credentials, an explicit BaseEndpoint, and path-style addressing (so it
+// works against MinIO / R2 / plain-IP endpoints, not just AWS virtual-host style).
+func NewClient(cfg Config) *s3.Client {
+	return s3.New(s3.Options{
 		Region: cfg.Region,
 		Credentials: credentials.NewStaticCredentialsProvider(
 			cfg.AccessKeyID,
@@ -121,7 +128,6 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 		BaseEndpoint: aws.String(cfg.Endpoint),
 		UsePathStyle: true,
 	})
-	return newS3Uploader(client, cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
 }
 
 // newS3Uploader is the client-injectable constructor behind NewS3Uploader; the

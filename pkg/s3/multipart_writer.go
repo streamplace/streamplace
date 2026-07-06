@@ -325,3 +325,43 @@ func (w *MultipartWriter) Abort() error {
 func (w *MultipartWriter) Close() error { return w.Abort() }
 
 var _ io.WriteCloser = (*MultipartWriter)(nil)
+
+// UploadWriter streams a single object to S3 and finalizes it on Close. It is a
+// thin adapter over MultipartWriter for callers that just want a plain
+// io.WriteCloser whose Close() *commits* the object (MultipartWriter.Close()
+// aborts, which is the wrong default for a fire-and-forget upload). If any Write
+// failed, Close surfaces that error. Like MultipartWriter, Write must be called
+// from a single goroutine.
+type UploadWriter struct {
+	mw  *MultipartWriter
+	key string
+}
+
+// NewUploadWriter starts a multipart upload at key and returns a writer that
+// commits it when closed.
+func NewUploadWriter(ctx context.Context, client *s3.Client, bucket, key, contentType string) (*UploadWriter, error) {
+	return newUploadWriter(ctx, client, bucket, key, contentType)
+}
+
+// newUploadWriter is the client-injectable constructor behind NewUploadWriter;
+// the fake-client tests use it directly.
+func newUploadWriter(ctx context.Context, client multipartAPI, bucket, key, contentType string) (*UploadWriter, error) {
+	mw, err := newMultipartWriter(ctx, client, bucket, key, contentType)
+	if err != nil {
+		return nil, err
+	}
+	return &UploadWriter{mw: mw, key: key}, nil
+}
+
+func (w *UploadWriter) Write(p []byte) (int, error) { return w.mw.Write(p) }
+
+// Close completes the multipart upload, flushing any buffered bytes. Idempotent
+// on the underlying writer (a second Complete returns an error, so callers
+// should Close exactly once).
+func (w *UploadWriter) Close() error { return w.mw.Complete() }
+
+// Name reports the object key, mirroring *os.File.Name() so callers can log a
+// destination uniformly whether they got a file or an S3 upload.
+func (w *UploadWriter) Name() string { return w.key }
+
+var _ io.WriteCloser = (*UploadWriter)(nil)

@@ -3,7 +3,6 @@ package rtcrec
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -16,7 +15,7 @@ import (
 type RecordingPeerConnection struct {
 	enabled bool
 	pionpc  *webrtc.PeerConnection
-	file    *os.File
+	file    config.DebugRecordingFile
 	stream  *RecorderStream
 }
 
@@ -28,9 +27,11 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		}, nil
 	}
 	aqt := aqtime.FromTime(time.Now())
-	f, err := cli.DataFileCreate([]string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, true)
+	// Streams to S3 when configured (production), else a local file under DataDir
+	// (dev). Close (after the drain delay below) finalizes either target.
+	f, err := cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, "application/cbor", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create data file: %w", err)
+		return nil, fmt.Errorf("failed to create debug recording: %w", err)
 	}
 	log.Log(ctx, "logging webrtc session to file", "file", f.Name())
 	stream, err := MakeWebRTCEncoder(f)

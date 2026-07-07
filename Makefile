@@ -382,32 +382,30 @@ lexicons:
 	&& $(MAKE) md-lexicons \
 	&& make fix
 
+# Pinned revision of the Streamplace cobalt fork that provides the go-dasl
+# (DRISL) Go lexicon codegen (glot codegen --streamplace). Run in an isolated
+# module context so it builds against cobalt's own deps, independent of this
+# module's graph.
+GO_LEXICON_GEN := github.com/streamplace/cobalt/cmd/glot@30d7d5aef61f078bfc2ea4ae9ae0e53fca61db9c
+
 .PHONY: go-lexicons
 go-lexicons:
-	rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \
+	rm -rf .build/golexmerge .build/goout \
+	&& mkdir -p .build/golexmerge \
+	&& go mod download github.com/bluesky-social/indigo \
+	&& cp -r "$$(go list -m -f '{{.Dir}}' github.com/bluesky-social/indigo)/lexicons/." .build/golexmerge/ \
+	&& chmod -R u+w .build/golexmerge \
+	&& cp -r lexicons/. .build/golexmerge/ \
+	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) codegen --streamplace \
+		--lexicons-dir .build/golexmerge \
+		--output-dir .build/goout \
+		.build/golexmerge/place/stream \
+		.build/golexmerge/games \
+	&& rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \
 	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& $(MAKE) lexgen-types \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& echo 'package streamplace' > pkg/streamplace/cbor_gen.go \
-    && echo 'import "io"' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *Video_Connection) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *Video_Connection) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
-	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& go run ./pkg/gen/gen_stubs.go \
-	&& go run ./pkg/gen/gen.go \
-	&& rm -f ./pkg/streamplace/cbor_stubs.go \
-	&& $(MAKE) lexgen \
-	&& find . | grep bak$$ | xargs rm \
-	&& rm -rf api
+	&& cp .build/goout/streamplace/*.go ./pkg/streamplace/ \
+	&& cp .build/goout/gamesgamesgamesgames/*.go ./pkg/gamesgamesgamesgames/ \
+	&& rm -rf .build/golexmerge .build/goout
 
 .PHONY: js-lexicons
 js-lexicons:

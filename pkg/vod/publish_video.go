@@ -17,6 +17,7 @@ import (
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
@@ -138,7 +139,7 @@ func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef
 // generateAndUploadThumbnail renders a thumbnail from the processed video
 // blob (via the same path as vod-test) and uploads it to the user's PDS,
 // returning the resulting blob ref.
-func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store blob.Store, contentCID string) (*lexutil.LexBlob, error) {
+func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store blob.Store, contentCID string) (*lex.Blob, error) {
 	metafile, err := readMetafile(ctx, store, contentCID)
 	if err != nil {
 		return nil, fmt.Errorf("read metafile: %w", err)
@@ -151,5 +152,5 @@ func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store bl
 	if err := client.Do(ctx, xrpc.Procedure, thumbnailMimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumb), &uploadOut); err != nil {
 		return nil, fmt.Errorf("upload thumb blob: %w", err)
 	}
-	return uploadOut.Blob, nil
+	return lex.BlobFromLexUtil(uploadOut.Blob), nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/streamplace"
 )
 
@@ -86,8 +87,8 @@ func TestGenerateVideoCard(t *testing.T) {
 
 	video := &streamplace.Video{
 		Title: "My excellent VOD",
-		Thumb: &lexutil.LexBlob{
-			Ref:      lexutil.LexLink(c),
+		Thumb: &lex.Blob{
+			Ref:      lex.Link(c),
 			MimeType: "image/jpeg",
 		},
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -559,7 +560,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
-		var thumb *lexutil.LexBlob
+		var thumb *lex.Blob
 		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
 		if err != nil {
 			log.Error(ctx, "failed to read thumbnail file", "err", err)
@@ -569,7 +570,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 			if err != nil {
 				log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
 			} else {
-				thumb = uploadOut.Blob
+				thumb = lex.BlobFromLexUtil(uploadOut.Blob)
 			}
 		}
 		livestream.Thumb = thumb
@@ -631,7 +632,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
 						Uri:         canonicalUrl,
 						Description: livestream.Title,
-						Thumb:       livestream.Thumb,
+						Thumb:       livestream.Thumb.LexUtil(),
 					},
 				},
 			},

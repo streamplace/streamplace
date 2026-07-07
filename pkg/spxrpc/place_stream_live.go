@@ -632,7 +632,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
 						Uri:         canonicalUrl,
 						Description: livestream.Title,
-						Thumb:       livestream.Thumb.LexUtil(),
+						Thumb:       lex.BlobToLexUtil(livestream.Thumb),
 					},
 				},
 			},

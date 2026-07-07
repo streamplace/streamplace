@@ -6,10 +6,13 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )
 
-// This file bridges between pkg/lex's go-dasl-native value types and indigo's
-// lexutil equivalents, for the boundaries where Streamplace records interoperate
+// This file bridges between glex's go-dasl-native Blob type and indigo's
+// lexutil.LexBlob, for the boundaries where Streamplace records interoperate
 // with indigo's bundled bsky/atproto types (e.g. com.atproto.repo.uploadBlob
 // output, or app.bsky embed types) which still use lexutil.LexBlob.
+//
+// Since Blob is a type alias for glexrt.Blob (from another package), we cannot
+// define methods on it here — so the conversions are free functions.
 
 // BlobFromLexUtil converts an indigo *lexutil.LexBlob to a *Blob (nil-safe).
 func BlobFromLexUtil(b *lexutil.LexBlob) *Blob {
@@ -23,8 +26,8 @@ func BlobFromLexUtil(b *lexutil.LexBlob) *Blob {
 	}
 }
 
-// LexUtil converts a *Blob to an indigo *lexutil.LexBlob (nil-safe).
-func (b *Blob) LexUtil() *lexutil.LexBlob {
+// BlobToLexUtil converts a *Blob to an indigo *lexutil.LexBlob (nil-safe).
+func BlobToLexUtil(b *Blob) *lexutil.LexBlob {
 	if b == nil {
 		return nil
 	}

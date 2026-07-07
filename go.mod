@@ -10,6 +10,8 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
+replace github.com/streamplace/glex => /home/iameli/code/glex
+
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 require (
@@ -23,7 +25,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.1
 	github.com/bluenviron/gortmplib v0.1.2
 	github.com/bluenviron/gortsplib/v5 v5.2.1
-	github.com/bluesky-social/indigo v0.0.0-20251206005924-d49b45419635
+	github.com/bluesky-social/indigo v0.0.0-20260629160527-dfe5578fd537
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v5 v5.0.2
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.4
@@ -39,7 +41,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/hyphacoop/go-dasl v0.8.0
-	github.com/ipfs/go-cid v0.5.0
+	github.com/ipfs/go-cid v0.6.1
 	github.com/ipfs/go-ipld-cbor v0.2.0
 	github.com/ipld/go-car v0.6.1-0.20230509095817-92d28eb23ba4
 	github.com/johncgriffin/overflow v0.0.0-20211019200055-46fa312c352c
@@ -49,7 +51,7 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/livepeer/go-livepeer v0.8.7-0.20250811105915-31d2e1f89f81
 	github.com/lmittmann/tint v1.1.0
-	github.com/mr-tron/base58 v1.2.0
+	github.com/mr-tron/base58 v1.3.0
 	github.com/multiformats/go-multihash v0.2.3
 	github.com/orandin/slog-gorm v1.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -67,6 +69,7 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq-go v0.0.2
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
+	github.com/streamplace/glex v0.0.0-00010101000000-000000000000
 	github.com/streamplace/muxl/go v0.3.4
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
@@ -87,7 +90,6 @@ require (
 	golang.org/x/term v0.43.0
 	golang.org/x/time v0.14.0
 	golang.org/x/tools v0.44.0
-	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/api v0.228.0
 	gorm.io/datatypes v1.2.4
 	gorm.io/driver/postgres v1.5.7
@@ -410,8 +412,8 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
-	github.com/multiformats/go-multibase v0.2.0 // indirect
-	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/multiformats/go-multibase v0.3.0 // indirect
+	github.com/multiformats/go-varint v0.1.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
@@ -557,6 +559,7 @@ require (
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect
 	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gonum.org/v1/plot v0.16.0 // indirect
 	google.golang.org/appengine/v2 v2.0.2 // indirect
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect

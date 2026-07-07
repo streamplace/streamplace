@@ -501,7 +501,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 				Title:       lsr.Title,
 				Uri:         canonicalUrl,
 				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.BroadcasterHost),
-				Thumb:       thumb.LexUtil(),
+				Thumb:       lex.BlobToLexUtil(thumb),
 			},
 		},
 	}

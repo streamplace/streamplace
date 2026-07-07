@@ -17,6 +17,7 @@ import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 const {
@@ -628,19 +629,22 @@ export default function WebhookManager() {
 
     try {
       setLoading(true);
-      const response = await agent.place.stream.server.listWebhooks({
-        limit: 50,
-      });
+      const response = await agent.client.call(
+        place.stream.server.listWebhooks,
+        {
+          limit: 50,
+        },
+      );
       // if not type "livestream" | "chat" | "follow" | "mention"[] just return
       // todo: find a better way to check this
-      if (response.data.webhooks) {
-        for (const webhook of response.data.webhooks) {
+      if (response.webhooks) {
+        for (const webhook of response.webhooks) {
           webhook.events = (webhook.events as string[]).filter((event) =>
             ["livestream", "chat", "follow", "mention"].includes(event),
           ) as ("livestream" | "chat" | "follow" | "mention")[];
         }
       }
-      setWebhooks((response.data.webhooks as any) || []);
+      setWebhooks((response.webhooks as any) || []);
     } catch (error) {
       console.error("Failed to load webhooks:", error);
       Alert.alert("Error", "Failed to load webhooks. Please try again.");
@@ -660,9 +664,9 @@ export default function WebhookManager() {
         (r) => r.from.trim() && r.to.trim(),
       );
 
-      await agent.place.stream.server.createWebhook({
+      await agent.client.call(place.stream.server.createWebhook, {
         name: data.name || undefined,
-        url: data.url,
+        url: data.url as any,
         events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
         active: data.active,
         prefix: data.prefix || undefined,
@@ -696,10 +700,10 @@ export default function WebhookManager() {
         (r) => r.from.trim() && r.to.trim(),
       );
 
-      await agent.place.stream.server.updateWebhook({
+      await agent.client.call(place.stream.server.updateWebhook, {
         id: editingWebhook.id,
         name: data.name || undefined,
-        url: data.url,
+        url: data.url as any,
         events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
         active: data.active,
         prefix: data.prefix || undefined,
@@ -736,7 +740,7 @@ export default function WebhookManager() {
 
     try {
       setDeletingWebhooks((prev) => new Set(prev).add(id));
-      await agent.place.stream.server.deleteWebhook({ id });
+      await agent.client.call(place.stream.server.deleteWebhook, { id });
       await loadWebhooks();
       setDeleteDialog({ isVisible: false, webhook: null });
     } catch (error: any) {

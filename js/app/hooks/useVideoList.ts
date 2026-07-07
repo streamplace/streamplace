@@ -1,8 +1,8 @@
 import { usePossiblyUnauthedPDSAgent } from "@streamplace/components";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PlaceStreamMediaGetVideo } from "streamplace";
+import { place } from "streamplace";
 
-export type VideoView = PlaceStreamMediaGetVideo.VideoView;
+export type VideoView = place.stream.media.getVideo.VideoView;
 
 const PAGE_SIZE = 24;
 
@@ -35,15 +35,15 @@ export function useVideoList(repo?: string) {
       }
       setError(null);
       try {
-        const res = await agent.place.stream.media.getVideoList({
+        const res = await agent.client.call(place.stream.media.getVideoList, {
           ...(repo ? { repo } : {}),
           limit: PAGE_SIZE,
           ...(nextCursor ? { cursor: nextCursor } : {}),
         });
-        const page = (res.data.videos ?? []) as VideoView[];
+        const page = (res.videos ?? []) as VideoView[];
         setVideos((prev) => (replace ? page : [...prev, ...page]));
-        setCursor(res.data.cursor);
-        setHasMore(Boolean(res.data.cursor) && page.length > 0);
+        setCursor(res.cursor);
+        setHasMore(Boolean(res.cursor) && page.length > 0);
       } catch (e: any) {
         console.error("error fetching video list", e);
         setError(e?.message ?? "failed to load videos");

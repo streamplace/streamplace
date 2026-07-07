@@ -4,10 +4,18 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "jsx": "react-jsx",
-    "module": "commonjs",
+    // Consumes the ESM `streamplace` package + ESM-only `@atproto/lex`; bundler
+    // resolution (which requires an es2015+ module target) avoids CJS/ESM
+    // interop errors. This package is always consumed via a bundler (Metro/web),
+    // never node-required directly.
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "noEmit": false,
-    "declaration": true,
-    "declarationMap": true,
+    // Consumers type-check against this package's source (the `types` /
+    // `@streamplace/dev` export conditions point at ./src), so the emitted
+    // .d.ts are unused. Skipping declaration emit avoids TS2742 portability
+    // errors from hook return types that reference @atproto/lex-client internals.
+    "declaration": false,
     "sourceMap": true,
     "resolveJsonModule": true
   },

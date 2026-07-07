@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { VideoViewHydrated } from "streamplace";
+import { place, VideoViewHydrated } from "streamplace";
 import { usePossiblyUnauthedPDSAgent } from "../streamplace-store";
 import { getVideoStoreFromContext } from "../video-store";
 
@@ -28,11 +28,15 @@ export function useVideoFetch(aturi: string) {
     setLoading(true);
     setError(null);
 
-    agent.place.stream.media
-      .getVideo({ uri: aturi }, { signal: abort.signal })
+    agent.client
+      .call(
+        place.stream.media.getVideo,
+        { uri: aturi as any },
+        { signal: abort.signal },
+      )
       .then((res) => {
         if (abort.signal.aborted) return;
-        setVideo(res.data as unknown as VideoViewHydrated);
+        setVideo(res as unknown as VideoViewHydrated);
         setLoading(false);
       })
       .catch((e) => {

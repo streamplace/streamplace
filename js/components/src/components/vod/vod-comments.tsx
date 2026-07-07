@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { PlaceStreamVodDefs } from "streamplace";
+import type { place } from "streamplace";
 import {
   borders,
   flex,
@@ -27,7 +27,7 @@ import { Text } from "../ui/text";
 import { Textarea } from "../ui/textarea";
 
 export function VodComments({ videoUri }: { videoUri: string }) {
-  const [comments, setComments] = useState<PlaceStreamVodDefs.CommentView[]>(
+  const [comments, setComments] = useState<place.stream.vod.defs.CommentView[]>(
     [],
   );
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ export function VodComments({ videoUri }: { videoUri: string }) {
   }, [draft, videoUri, createComment, loadComments]);
 
   const renderComment = useCallback(
-    ({ item }: { item: PlaceStreamVodDefs.CommentView }) => {
+    ({ item }: { item: place.stream.vod.defs.CommentView }) => {
       const record = item.record as any;
       return (
         <View

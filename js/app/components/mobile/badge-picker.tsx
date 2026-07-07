@@ -28,7 +28,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, TouchableOpacity, View } from "react-native";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
-import type { PlaceStreamBadgeDefs } from "streamplace";
+import { place } from "streamplace";
 
 const { gap, layout } = zero;
 
@@ -69,10 +69,10 @@ export function BadgePicker() {
     if (!agent?.did || badgeSlots !== null) return;
     try {
       setLoading(true);
-      const res = await agent.place.stream.badge.getIssuedBadges({
-        streamer: streamerDid,
+      const res = await agent.client.call(place.stream.badge.getIssuedBadges, {
+        streamer: streamerDid as any,
       });
-      setBadgeSlots({ streamer: res.data.streamer, user: res.data.user });
+      setBadgeSlots({ streamer: res.streamer, user: res.user });
     } catch (e: any) {
       toast.show("Failed to load badges", e?.message, { variant: "error" });
     } finally {
@@ -86,7 +86,7 @@ export function BadgePicker() {
 
   const handleToggle = useCallback(
     async (
-      badge: PlaceStreamBadgeDefs.BadgeIssuanceView,
+      badge: place.stream.badge.defs.BadgeIssuanceView,
       slot: "streamer" | "global",
     ) => {
       if (!agent?.did || togglingRef.current) return;
@@ -100,13 +100,9 @@ export function BadgePicker() {
         let swapCid: string | undefined;
 
         try {
-          const getRes = await agent.com.atproto.repo.getRecord({
-            repo: agent.did,
-            collection: "place.stream.chat.profile",
-            rkey: "self",
-          });
-          currentRecord = getRes.data.value as Record<string, any>;
-          swapCid = getRes.data.cid;
+          const getRes = await agent.client.get(place.stream.chat.profile);
+          currentRecord = getRes.value as Record<string, any>;
+          swapCid = getRes.cid;
         } catch {
           // no profile yet, will create
         }
@@ -138,13 +134,12 @@ export function BadgePicker() {
           };
         }
 
-        await agent.com.atproto.repo.putRecord({
-          repo: agent.did,
-          collection: "place.stream.chat.profile",
-          rkey: "self",
-          record: { ...currentRecord, badges: newBadges },
-          swapRecord: swapCid,
-        });
+        const { $type: _omitType, ...currentRecordRest } = currentRecord;
+        await agent.client.put(
+          place.stream.chat.profile,
+          { ...currentRecordRest, badges: newBadges } as any,
+          { swapRecord: swapCid },
+        );
 
         if (slot === "streamer") {
           setBadgeSlots({
@@ -346,7 +341,7 @@ function BadgeTriggerButton({
   badge,
   loading,
 }: {
-  badge: PlaceStreamBadgeDefs.BadgeIssuanceView | null;
+  badge: place.stream.badge.defs.BadgeIssuanceView | null;
   loading: boolean;
 }) {
   const { theme } = zero.useTheme();
@@ -397,7 +392,7 @@ function BadgeCheckboxItem({
   toggling,
   onToggle,
 }: {
-  badge: PlaceStreamBadgeDefs.BadgeIssuanceView;
+  badge: place.stream.badge.defs.BadgeIssuanceView;
   toggling: boolean;
   onToggle: () => void;
 }) {

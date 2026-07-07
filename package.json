@@ -27,7 +27,7 @@
   "author": "Streamplace",
   "license": "MIT",
   "devDependencies": {
-    "@atproto/lex-cli": "^0.9.9",
+    "@atproto/lex": "^0.2.0",
     "@types/node": "^22.15.17",
     "husky": "^9.1.6",
     "knip": "^5.59.1",

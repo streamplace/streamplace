@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useKeyRecords } from "store/hooks";
-import { PlaceStreamKey } from "streamplace";
+import { place } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 
 import { Text, zero } from "@streamplace/components";
@@ -24,7 +24,7 @@ function KeyRow({
   deleteKeyRecord,
   isDeleting,
 }: {
-  keyRecord: PlaceStreamKey.Record;
+  keyRecord: place.stream.key.Main;
   rkey: string;
   deleteKeyRecord: (rkey: string) => void;
   isDeleting: boolean;

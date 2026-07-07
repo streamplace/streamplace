@@ -27,6 +27,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import Sortable from "react-native-sortables";
+import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 const { text, mt, mb, px, py, w, layout, gap, r, p } = zero;
@@ -75,29 +76,20 @@ export default function RecommendationsManager() {
       }
 
       // Get the record directly from the PDS for editing
-      const response = await agent.com.atproto.repo.getRecord({
-        repo: userDID,
-        collection: "place.stream.live.recommendations",
-        rkey: "self",
-      });
-
       // todo: type this right
-      let record = response.data.value as any;
-
-      if (!response.success) {
+      let record: any;
+      try {
+        const { value } = await agent.client.get(
+          place.stream.live.recommendations,
+        );
+        record = value;
+      } catch {
         // Create a new empty record if not found
-        const res = await agent.com.atproto.repo.createRecord({
-          repo: userDID,
-          collection: "place.stream.live.recommendations",
-          record: {
-            streamers: [],
-            createdAt: new Date().toISOString(),
-          },
-        });
-        if (!res.success) {
-          throw new Error("Failed to create recommendations record");
-        }
-        record = res.data;
+        await agent.client.create(place.stream.live.recommendations, {
+          streamers: [],
+          createdAt: new Date().toISOString(),
+        } as any);
+        record = { streamers: [] };
       }
       setStreamers(record.streamers || []);
     } catch (error: any) {
@@ -120,16 +112,11 @@ export default function RecommendationsManager() {
       }
       setSaving(true);
 
-      // Use putRecord to create or update the record
-      await agent.com.atproto.repo.putRecord({
-        repo: agent.did,
-        collection: "place.stream.live.recommendations",
-        rkey: "self",
-        record: {
-          streamers: newStreamers,
-          createdAt: new Date().toISOString(),
-        },
-      });
+      // Use put to create or update the record
+      await agent.client.put(place.stream.live.recommendations, {
+        streamers: newStreamers,
+        createdAt: new Date().toISOString(),
+      } as any);
 
       setStreamers(newStreamers);
     } catch (error: any) {
@@ -154,13 +141,16 @@ export default function RecommendationsManager() {
 
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
-          q: query,
-          limit: 10,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q: query,
+            limit: 10,
+          },
+        );
 
         setSearchResults(
-          response.data.actors.map((actor: any) => ({
+          response.actors.map((actor: any) => ({
             did: actor.did,
             handle: actor.handle,
           })),

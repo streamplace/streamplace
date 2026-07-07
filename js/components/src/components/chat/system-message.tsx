@@ -1,5 +1,5 @@
 import { Platform, View } from "react-native";
-import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
+import { place } from "streamplace";
 import { SystemMessageType } from "../../lib/system-messages";
 import { bg, colors, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
 import { Code, Text } from "../ui/text";
@@ -9,7 +9,7 @@ interface SystemMessageProps {
   variant: SystemMessageType;
   title: string;
   timestamp: Date;
-  facets?: Main[];
+  facets?: place.stream.richtext.facet.Main[];
 }
 
 export function SystemMessage({

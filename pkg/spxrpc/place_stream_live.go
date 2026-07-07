@@ -543,6 +543,19 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	livestream.CreatedAt = now
 	livestream.LastSeenAt = &now
 
+	// End any prior un-ended livestream for this repo before creating the new
+	// one. Creating a new place.stream.livestream record (a new rkey) does not
+	// touch the prior record, so its idle-timeout finalize task — enqueued at
+	// that record's sync time and keyed to its URI — keeps ticking against a
+	// lastSeenAt that stops being refreshed once this new record becomes
+	// "latest". Ending the prior record here sets endedAt, which makes the
+	// finalize task's rec.EndedAt != nil early-skip fire instead of writing a
+	// stale endedAt later. Best-effort: a failure only logs, it must not block
+	// the new stream from starting.
+	if err := s.endPriorLivestream(ctx, session.DID, client); err != nil {
+		log.Error(ctx, "failed to end prior livestream before starting new one", "error", err)
+	}
+
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
 		var thumb *lexutil.LexBlob
@@ -651,6 +664,77 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		Uri: lsOutput.Uri,
 		Cid: lsOutput.Cid,
 	}, nil
+}
+
+// endPriorLivestream ends the streamer's latest livestream if it has not yet
+// been ended. Called from startLivestream so that minting a new
+// place.stream.livestream record supersedes the prior one: without this, the
+// prior record's idle-timeout finalize task stays scheduled and keyed to its
+// own URI, and once the new record becomes "latest" the prior record's
+// lastSeenAt stops being refreshed — so the finalize task later writes a stale
+// endedAt onto a record that was effectively replaced. Ending it here makes that
+// task's rec.EndedAt != nil early-skip fire harmlessly.
+//
+// Mirrors the record-ending half of stopLivestream (getRecord for a fresh CID
+// to swap on, set endedAt, putRecord) but is best-effort and never returns an
+// error that blocks the new stream: callers log and continue.
+func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client *oatproxy.XrpcClient) error {
+	prior, err := s.model.GetLatestLivestreamForRepo(repoDID)
+	if err != nil {
+		return fmt.Errorf("get latest livestream: %w", err)
+	}
+	if prior == nil || prior.Livestream == nil {
+		return nil
+	}
+	priorView, err := prior.ToLivestreamView()
+	if err != nil {
+		return fmt.Errorf("convert prior livestream to view: %w", err)
+	}
+	priorRec, ok := priorView.Record.Val.(*placestream.Livestream)
+	if !ok {
+		return fmt.Errorf("prior livestream is not a streamplace livestream")
+	}
+	if priorRec.EndedAt != nil {
+		// Already ended (e.g. by stopLivestream or an earlier finalize). The
+		// finalize task will skip it; nothing to do.
+		return nil
+	}
+
+	aturi, err := syntax.ParseATURI(priorView.Uri)
+	if err != nil {
+		return fmt.Errorf("parse prior livestream URI: %w", err)
+	}
+
+	// Fetch the current CID to swap on, so we don't clobber a concurrent
+	// update (and so the putRecord is rejected if the record changed).
+	var swapRecord *string
+	getOutput := comatproto.RepoGetRecord_Output{}
+	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
+		"repo":       repoDID,
+		"collection": "place.stream.livestream",
+		"rkey":       aturi.RecordKey().String(),
+	}, nil, &getOutput)
+	if err != nil {
+		return fmt.Errorf("get prior livestream record: %w", err)
+	}
+	swapRecord = getOutput.Cid
+
+	now := time.Now().UTC().Format(util.ISO8601)
+	priorRec.EndedAt = &now
+
+	inp := comatproto.RepoPutRecord_Input{
+		Collection: "place.stream.livestream",
+		Record:     &lexutil.LexiconTypeDecoder{Val: priorRec},
+		Rkey:       aturi.RecordKey().String(),
+		Repo:       repoDID,
+		SwapRecord: swapRecord,
+	}
+	var out comatproto.RepoPutRecord_Output
+	if err := client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.putRecord", map[string]any{}, inp, &out); err != nil {
+		return fmt.Errorf("end prior livestream: %w", err)
+	}
+	log.Log(ctx, "ended prior livestream on startLivestream", "uri", priorView.Uri, "endedAt", now)
+	return nil
 }
 
 func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *placestream.LiveStopLivestream_Input) (*placestream.LiveStopLivestream_Output, error) {

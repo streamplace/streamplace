@@ -22,7 +22,7 @@ import ColorPicker, {
 } from "reanimated-color-picker";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
-import { PlaceStreamChatProfile } from "streamplace";
+import { place } from "streamplace";
 
 /**
  * Returns black or white depending on which contrasts better against the given color
@@ -55,7 +55,7 @@ function getContrastColor(color: string): string {
 /**
  * Parses an RGB color string and returns an object with red, green, and blue values
  */
-function parseRgbString(rgbString: string): PlaceStreamChatProfile.Color {
+function parseRgbString(rgbString: string): place.stream.chat.profile.Color {
   console.log(rgbString);
   if (
     !rgbString ||
@@ -78,7 +78,7 @@ function parseRgbString(rgbString: string): PlaceStreamChatProfile.Color {
   };
 }
 
-function rgbToHex(rgb: PlaceStreamChatProfile.Color) {
+function rgbToHex(rgb: place.stream.chat.profile.Color) {
   const hex = (
     (1 << 24) +
     (rgb.red << 16) +

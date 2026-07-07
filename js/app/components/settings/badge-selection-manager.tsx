@@ -24,7 +24,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import type { PlaceStreamBadgeDefs } from "streamplace";
+import { place } from "streamplace";
 
 const { gap, p, px, py, layout, w } = zero;
 
@@ -33,8 +33,8 @@ function BadgeIssuanceRow({
   onToggle,
   toggling,
 }: {
-  badge: PlaceStreamBadgeDefs.BadgeIssuanceView;
-  onToggle: (badge: PlaceStreamBadgeDefs.BadgeIssuanceView) => void;
+  badge: place.stream.badge.defs.BadgeIssuanceView;
+  onToggle: (badge: place.stream.badge.defs.BadgeIssuanceView) => void;
   toggling: boolean;
 }) {
   const { theme } = zero.useTheme();
@@ -130,9 +130,9 @@ export function BadgeSelectionManager() {
 
   const [loading, setLoading] = useState(true);
   const [streamerSlot, setStreamerSlot] =
-    useState<PlaceStreamBadgeDefs.BadgeSlot | null>(null);
+    useState<place.stream.badge.defs.BadgeSlot | null>(null);
   const [userSlot, setUserSlot] =
-    useState<PlaceStreamBadgeDefs.BadgeSlot | null>(null);
+    useState<place.stream.badge.defs.BadgeSlot | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const togglingRef = useRef<string | null>(null);
 
@@ -140,9 +140,12 @@ export function BadgeSelectionManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const res = await agent.place.stream.badge.getIssuedBadges({});
-      setStreamerSlot(res.data.streamer);
-      setUserSlot(res.data.user);
+      const res = await agent.client.call(
+        place.stream.badge.getIssuedBadges,
+        {},
+      );
+      setStreamerSlot(res.streamer);
+      setUserSlot(res.user);
     } catch (e: any) {
       toast.show(t("badges-failed-load"), e?.message, { variant: "error" });
     } finally {
@@ -156,7 +159,7 @@ export function BadgeSelectionManager() {
 
   const handleToggle = useCallback(
     async (
-      badge: PlaceStreamBadgeDefs.BadgeIssuanceView,
+      badge: place.stream.badge.defs.BadgeIssuanceView,
       slot: "streamer" | "global",
     ) => {
       if (!agent?.did || togglingRef.current) return;
@@ -170,13 +173,9 @@ export function BadgeSelectionManager() {
         let swapCid: string | undefined;
 
         try {
-          const getRes = await agent.com.atproto.repo.getRecord({
-            repo: agent.did,
-            collection: "place.stream.chat.profile",
-            rkey: "self",
-          });
-          currentRecord = getRes.data.value as Record<string, any>;
-          swapCid = getRes.data.cid;
+          const getRes = await agent.client.get(place.stream.chat.profile);
+          currentRecord = getRes.value as Record<string, any>;
+          swapCid = getRes.cid;
         } catch {
           // no profile yet, will create
         }
@@ -208,13 +207,12 @@ export function BadgeSelectionManager() {
           };
         }
 
-        await agent.com.atproto.repo.putRecord({
-          repo: agent.did,
-          collection: "place.stream.chat.profile",
-          rkey: "self",
-          record: { ...currentRecord, badges: newBadges },
-          swapRecord: swapCid,
-        });
+        const { $type: _omitType, ...currentRecordRest } = currentRecord;
+        await agent.client.put(
+          place.stream.chat.profile,
+          { ...currentRecordRest, badges: newBadges } as any,
+          { swapRecord: swapCid },
+        );
 
         // Optimistically update local state
         if (slot === "streamer") {

@@ -14,16 +14,13 @@ import Loading from "components/loading/loading";
 import { Plus, RefreshCw } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Switch, View } from "react-native";
-import {
-  PlaceStreamMultistreamDefs,
-  PlaceStreamMultistreamTarget,
-} from "streamplace";
+import { place } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 import { SettingsListItem } from "./settings-list-item";
 
 interface MultistreamTargetViewHydrated
-  extends PlaceStreamMultistreamDefs.TargetView {
-  record: PlaceStreamMultistreamTarget.Record;
+  extends place.stream.multistream.defs.TargetView {
+  record: place.stream.multistream.target.Main;
 }
 
 const redactMultistreamTargetURL = (url: string) => {
@@ -87,10 +84,11 @@ export default function MultistreamManager() {
 
     try {
       setLoading(true);
-      const targetViews = await agent.place.stream.multistream.listTargets({
-        limit: 50,
-      });
-      setTargets(targetViews.data.targets as MultistreamTargetViewHydrated[]);
+      const targetViews = await agent.client.call(
+        place.stream.multistream.listTargets,
+        { limit: 50 },
+      );
+      setTargets(targetViews.targets as MultistreamTargetViewHydrated[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
       Alert.alert("Error", t("failed-load-multistream-targets"));
@@ -100,16 +98,16 @@ export default function MultistreamManager() {
   };
 
   const createMultistreamTarget = async (
-    record: PlaceStreamMultistreamTarget.Record,
+    record: place.stream.multistream.target.Main,
   ) => {
     if (!agent) return;
     try {
       setFormError("");
       setFormLoading(true);
-      await agent.place.stream.multistream.createTarget({
+      await agent.client.call(place.stream.multistream.createTarget, {
         multistreamTarget: {
           ...record,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date().toISOString() as any,
         },
       });
       setShowForm(false);
@@ -124,13 +122,13 @@ export default function MultistreamManager() {
 
   const editMultistreamTarget = async (
     uri: string,
-    record: PlaceStreamMultistreamTarget.Record,
+    record: place.stream.multistream.target.Main,
   ) => {
     if (!agent) return;
     try {
       setFormError("");
       setFormLoading(true);
-      await agent.place.stream.multistream.putTarget({
+      await agent.client.call(place.stream.multistream.putTarget, {
         multistreamTarget: record,
         rkey: uri.split("/").pop() || "",
       });
@@ -152,7 +150,7 @@ export default function MultistreamManager() {
     if (!agent) return;
     try {
       setTogglingTargets((prev) => new Set(prev).add(target.uri));
-      await agent.place.stream.multistream.putTarget({
+      await agent.client.call(place.stream.multistream.putTarget, {
         multistreamTarget: {
           ...target.record,
           active: newActiveState,
@@ -177,7 +175,7 @@ export default function MultistreamManager() {
     try {
       setFormError("");
       setDeletingTargets((prev) => new Set(prev).add(uri));
-      await agent.place.stream.multistream.deleteTarget({
+      await agent.client.call(place.stream.multistream.deleteTarget, {
         rkey: uri.split("/").pop() || "",
       });
       setShowForm(false);
@@ -304,7 +302,7 @@ export default function MultistreamManager() {
         onClose={() => {
           setShowForm(false);
         }}
-        onSubmit={(record: PlaceStreamMultistreamTarget.Record) => {
+        onSubmit={(record: place.stream.multistream.target.Main) => {
           if (editingTarget) {
             editMultistreamTarget(editingTarget.uri, record);
           } else {
@@ -398,20 +396,19 @@ function MultistreamTargetForm({
   target?: MultistreamTargetViewHydrated;
   isVisible: boolean;
   onClose: () => void;
-  onSubmit: (record: PlaceStreamMultistreamTarget.Record) => void;
+  onSubmit: (record: place.stream.multistream.target.Main) => void;
   isLoading: boolean;
   formError: string;
 }) {
   const { t } = useTranslation("settings");
-  const [formData, setFormData] = useState<PlaceStreamMultistreamTarget.Record>(
-    {
+  const [formData, setFormData] =
+    useState<place.stream.multistream.target.Main>({
       $type: "place.stream.multistream.target",
       name: target?.record.name || "",
       url: target?.record.url || "",
       active: target?.record.active ?? true,
       createdAt: target?.record.createdAt || "",
-    },
-  );
+    } as any);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [changedTargetUrl, setChangedTargetUrl] = useState(false);
@@ -436,7 +433,7 @@ function MultistreamTargetForm({
         url: "",
         active: true,
         createdAt: "",
-      });
+      } as any);
     }
   }, [target, isVisible]);
 
@@ -459,7 +456,7 @@ function MultistreamTargetForm({
     }
   };
 
-  let displayUrl = formData.url;
+  let displayUrl: string = formData.url;
   if (target && !changedTargetUrl) {
     displayUrl = "";
   }
@@ -502,10 +499,13 @@ function MultistreamTargetForm({
             value={displayUrl}
             onChangeText={(text) => {
               setChangedTargetUrl(true);
-              setFormData((prev) => ({
-                ...prev,
-                url: text.trim().replaceAll(/\n/g, ""),
-              }));
+              setFormData(
+                (prev) =>
+                  ({
+                    ...prev,
+                    url: text.trim().replaceAll(/\n/g, ""),
+                  }) as any,
+              );
             }}
             placeholder={
               target

@@ -15,11 +15,7 @@ import { Image } from "expo-image";
 import { X } from "lucide-react-native";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import {
-  GamesGamesgamesgamesgamesDefs,
-  PlaceStreamDefs,
-  PlaceStreamLivestream,
-} from "streamplace";
+import { games as gamesLex, place } from "streamplace";
 import { getDidFromAtUri, getGameCoverUrl } from "../utils/game";
 
 const { p, px, r, layout, borders, gap, flex } = zero;
@@ -32,9 +28,9 @@ interface GameResult {
 }
 
 interface ActivityPickerProps {
-  value: PlaceStreamLivestream.Record["activity"] | undefined;
+  value: place.stream.livestream.Main["activity"] | undefined;
   onChange: (
-    activity: PlaceStreamLivestream.Record["activity"] | undefined,
+    activity: place.stream.livestream.Main["activity"] | undefined,
   ) => void;
 }
 
@@ -72,22 +68,22 @@ export default function ActivityPicker({
 
   const selectedGame =
     value?.$type === "place.stream.defs#activityGame"
-      ? (value as PlaceStreamDefs.ActivityGame)
+      ? (value as place.stream.defs.ActivityGame)
       : null;
   const selectedLabel =
     value?.$type === "place.stream.defs#activityLabel"
-      ? (value as PlaceStreamDefs.ActivityLabel)
+      ? (value as place.stream.defs.ActivityLabel)
       : null;
 
   const showResults = searching || results.length > 0;
 
   useEffect(() => {
     if (!selectedGame || !agent || selectedCoverUrl !== undefined) return;
-    agent.place.stream.game
-      .getGame({ uri: selectedGame.uri })
+    agent.client
+      .call(place.stream.game.getGame, { uri: selectedGame.uri })
       .then((res) => {
-        setSelectedCoverUrl(res.data.coverUrl);
-        setSelectedGenres(res.data.genres ?? []);
+        setSelectedCoverUrl(res.coverUrl);
+        setSelectedGenres(res.genres ?? []);
       })
       .catch(() => {});
   }, [selectedGame?.uri]);
@@ -116,13 +112,15 @@ export default function ActivityPicker({
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await agent.place.stream.game.search({
+        const res = await agent.client.call(place.stream.game.search, {
           q: query,
           limit: 8,
         });
         const games: GameResult[] = [];
-        for (const result of res.data.results) {
-          if (!GamesGamesgamesgamesgamesDefs.isGameSummaryView(result))
+        for (const result of res.results) {
+          if (
+            !gamesLex.gamesgamesgamesgames.defs.gameSummaryView.isTypeOf(result)
+          )
             continue;
           const did = getDidFromAtUri(result.uri);
           const cover = getGameCoverUrl(result.media, did);
@@ -150,7 +148,7 @@ export default function ActivityPicker({
   const selectGame = (game: GameResult) => {
     onChange({
       $type: "place.stream.defs#activityGame",
-      uri: game.uri,
+      uri: game.uri as any,
       name: game.name,
     });
     setSelectedCoverUrl(game.coverUrl);

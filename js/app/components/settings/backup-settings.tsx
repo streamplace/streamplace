@@ -16,6 +16,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
+import { place } from "streamplace";
 import { SettingToggle } from "./components/setting-toggle";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
@@ -118,11 +119,11 @@ export function BackupSettings() {
 
     try {
       setLoading(true);
-      const response = await agent.place.stream.server.getStorage();
-      if (response.data.storage) {
-        setOriginalUrl(response.data.storage.url);
-        setEnabled(response.data.storage.isActive);
-        const parsed = parseS3Url(response.data.storage.url);
+      const response = await agent.client.call(place.stream.server.getStorage);
+      if (response.storage) {
+        setOriginalUrl(response.storage.url);
+        setEnabled(response.storage.isActive);
+        const parsed = parseS3Url(response.storage.url);
         if (parsed) {
           setConfig(parsed);
           setFullUrl(buildS3Url(parsed, showPassword));
@@ -147,7 +148,9 @@ export function BackupSettings() {
     const previous = enabled;
     setEnabled(value);
     try {
-      await agent.place.stream.server.upsertStorage({ isActive: value });
+      await agent.client.call(place.stream.server.upsertStorage, {
+        isActive: value,
+      });
     } catch (err: any) {
       console.error("Failed to toggle backup:", err);
       setEnabled(previous);
@@ -222,7 +225,7 @@ export function BackupSettings() {
         }
       }
 
-      await agent.place.stream.server.upsertStorage(payload);
+      await agent.client.call(place.stream.server.upsertStorage, payload);
       await loadStorage();
     } catch (error: any) {
       console.error("Failed to save storage settings:", error);

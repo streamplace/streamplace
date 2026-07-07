@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
-import { StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import {
   PlayerStatus,
   useDID,
@@ -174,18 +174,14 @@ export async function negotiateConnectionWithClientOffer(
         isOwnStream,
         playbackWorkerUrl,
       );
-      let text = new TextDecoder().decode(response.data);
-      if (response.success) {
-        if ((peerConnection.connectionState as string) === "closed") {
-          return;
-        }
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ type: "answer", sdp: text }),
-        );
-        return "https://stream.place/example";
-      } else {
-        console.error(text);
+      let text = new TextDecoder().decode(response);
+      if ((peerConnection.connectionState as string) === "closed") {
+        return;
       }
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription({ type: "answer", sdp: text }),
+      );
+      return "https://stream.place/example";
     } catch (e) {
       console.error(`posting sdp offer failed: ${e}`);
     }
@@ -267,11 +263,12 @@ async function getPlaybackServerAgent(
 
   try {
     const lookupAgent = new StreamplaceAgent(playbackWorkerUrl);
-    const res = await lookupAgent.place.stream.playback.getPlaybackServer({
-      stream: streamer,
-    });
-    if (res.data.servers.length > 0) {
-      const serverUrl = res.data.servers[0];
+    const res = await lookupAgent.client.call(
+      place.stream.playback.getPlaybackServer,
+      { stream: streamer },
+    );
+    if (res.servers.length > 0) {
+      const serverUrl = res.servers[0];
       console.log(`Using playback server: ${serverUrl}`);
       return new StreamplaceAgent(serverUrl);
     }
@@ -298,12 +295,16 @@ async function postSDPOffer(
   const playbackAgent = isOwnStream
     ? agent
     : await getPlaybackServerAgent(agent, streamer, playbackWorkerUrl);
-  return await playbackAgent.place.stream.playback.whep(data, {
-    qp: {
-      rendition: "source",
-      streamer: streamer,
+  return await playbackAgent.client.call(
+    place.stream.playback.whep,
+    data as any,
+    {
+      params: {
+        rendition: "source",
+        streamer: streamer,
+      },
     },
-  });
+  );
 }
 
 async function postSDPIngestOffer(

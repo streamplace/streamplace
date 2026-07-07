@@ -2,7 +2,7 @@ import { Text, useTheme, zero } from "@streamplace/components";
 import { Image } from "expo-image";
 import { VideoView } from "hooks/useVideoList";
 import { View } from "react-native";
-import { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 import {
   formatDuration,
   getTidFromAtUri,
@@ -28,7 +28,7 @@ export default function VideoCard({
   avatarUrl?: string;
 }) {
   const { theme } = useTheme();
-  const record = video.record as PlaceStreamVideo.Record;
+  const record = video.record as place.stream.video.Main;
   const author = video.author;
   const user = author.handle || author.did;
   const tid = getTidFromAtUri(video.uri);

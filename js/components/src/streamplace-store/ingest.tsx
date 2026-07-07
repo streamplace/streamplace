@@ -1,4 +1,4 @@
-import { PlaceStreamIngestDefs } from "streamplace";
+import { place } from "streamplace";
 import { useDID, useStreamplaceStore } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
 
@@ -12,14 +12,13 @@ export default function useGetIngests() {
       throw new Error("No PDS agent or DID available");
     }
 
-    const result = await pdsAgent.place.stream.ingest.getIngestUrls();
-    if (!result.success) {
-      throw new Error("Failed to get ingests");
-    }
+    const result = await pdsAgent.client.call(
+      place.stream.ingest.getIngestUrls,
+    );
 
-    const ingests = result.data.ingests
+    const ingests = result.ingests
       .map((ingest) => {
-        if (PlaceStreamIngestDefs.isIngest(ingest)) {
+        if (place.stream.ingest.defs.ingest.isTypeOf(ingest)) {
           return ingest;
         }
         console.error("Invalid ingest", ingest);

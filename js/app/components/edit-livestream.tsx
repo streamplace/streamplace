@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useStore } from "store";
 import { useNewLivestream, useUserProfile } from "store/hooks";
-import type { PlaceStreamLivestream } from "streamplace";
+import type { place } from "streamplace";
 
 export default function UpdateLivestream() {
   const updateLivestreamRecord = useStore(
@@ -21,7 +21,7 @@ export default function UpdateLivestream() {
   const userIsLive = useLiveUser();
   const [title, setTitle] = useState("");
   const [activity, setActivity] = useState<
-    PlaceStreamLivestream.Record["activity"] | undefined
+    place.stream.livestream.Main["activity"] | undefined
   >(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -32,8 +32,8 @@ export default function UpdateLivestream() {
 
   useEffect(() => {
     if (livestream?.record) {
-      const rec = livestream.record as PlaceStreamLivestream.Record;
-      setActivity(rec.activity as PlaceStreamLivestream.Record["activity"]);
+      const rec = livestream.record as place.stream.livestream.Main;
+      setActivity(rec.activity as place.stream.livestream.Main["activity"]);
       setTags(rec.tags ?? []);
     }
   }, [livestream?.uri]);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { PlaceStreamBetaRequest } from "streamplace";
+import { place } from "streamplace";
 import { useDID } from "../streamplace-store/streamplace-store";
 import {
   usePDSAgent,
@@ -28,8 +28,11 @@ export function useBetaStatus(feature: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await agent.place.stream.beta.getStatus({ feature, did });
-      setStatus(res.data.status as BetaStatus);
+      const res = await agent.client.call(place.stream.beta.getStatus, {
+        feature,
+        did: did as any,
+      });
+      setStatus(res.status as BetaStatus);
     } catch (e: any) {
       console.error("error fetching beta status", e);
       setError(e?.message ?? "failed to load beta status");
@@ -59,15 +62,9 @@ export function useRequestBetaAccess(feature: string) {
     if (!agent || !did) {
       throw new Error("not logged in");
     }
-    const record: PlaceStreamBetaRequest.Record = {
-      $type: "place.stream.beta.request",
+    return await agent.client.create(place.stream.beta.request, {
       feature,
-      createdAt: new Date().toISOString(),
-    };
-    return await agent.com.atproto.repo.createRecord({
-      repo: did,
-      collection: "place.stream.beta.request",
-      record,
+      createdAt: new Date().toISOString() as any,
     });
   }, [agent, did, feature]);
 }

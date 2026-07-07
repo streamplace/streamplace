@@ -3,13 +3,7 @@ import {
   ChatMessageViewHydrated,
   LivestreamViewHydrated,
   PinnedRecordViewHydrated,
-  PlaceStreamChatDefs,
-  PlaceStreamChatGate,
-  PlaceStreamChatMessage,
-  PlaceStreamDefs,
-  PlaceStreamLivestream,
-  PlaceStreamLiveTeleport,
-  PlaceStreamSegment,
+  place,
 } from "streamplace";
 import { SystemMessages } from "../lib/system-messages";
 import { formatHandleWithAt } from "../utils/format-handle";
@@ -47,7 +41,7 @@ export const handleWebSocketMessages = (
         };
       }
 
-      if (PlaceStreamLivestream.isLivestreamView(message)) {
+      if (place.stream.livestream.livestreamView.isTypeOf(message)) {
         const newLivestream = message as LivestreamViewHydrated;
         const oldLivestream = state.livestream;
 
@@ -66,20 +60,20 @@ export const handleWebSocketMessages = (
           ...state,
           livestream: newLivestream,
         };
-      } else if (PlaceStreamLivestream.isViewerCount(message)) {
-        message = message as PlaceStreamLivestream.ViewerCount;
+      } else if (place.stream.livestream.viewerCount.isTypeOf(message)) {
+        message = message as place.stream.livestream.ViewerCount;
         state = {
           ...state,
           viewers: message.count,
         };
-      } else if (PlaceStreamChatDefs.isMessageView(message)) {
-        message = message as PlaceStreamChatDefs.MessageView;
+      } else if (place.stream.chat.defs.messageView.isTypeOf(message)) {
+        message = message as place.stream.chat.defs.MessageView;
         // Explicitly map MessageView to MessageViewHydrated
         const hydrated: ChatMessageViewHydrated = {
           uri: message.uri,
           cid: message.cid,
           author: message.author,
-          record: message.record as PlaceStreamChatMessage.Record,
+          record: message.record as place.stream.chat.message.Main,
           indexedAt: message.indexedAt,
           chatProfile: (message as any).chatProfile,
           replyTo: (message as any).replyTo,
@@ -87,7 +81,7 @@ export const handleWebSocketMessages = (
           badges: message.badges,
         };
         state = reduceChat(state, [hydrated], [], []);
-      } else if (PlaceStreamSegment.isRecord(message)) {
+      } else if (place.stream.segment.$isTypeOf(message)) {
         const newRecentSegments = [...state.recentSegments];
         newRecentSegments.unshift(message);
         if (newRecentSegments.length > MAX_RECENT_SEGMENTS) {
@@ -95,16 +89,16 @@ export const handleWebSocketMessages = (
         }
         state = {
           ...state,
-          segment: message as PlaceStreamSegment.Record,
+          segment: message as place.stream.segment.Main,
           recentSegments: newRecentSegments,
           problems: findProblems(newRecentSegments),
           hasReceivedSegment: true,
         };
-      } else if (PlaceStreamDefs.isBlockView(message)) {
-        const block = message as PlaceStreamDefs.BlockView;
+      } else if (place.stream.defs.blockView.isTypeOf(message)) {
+        const block = message as place.stream.defs.BlockView;
         state = reduceChat(state, [], [block], []);
-      } else if (PlaceStreamDefs.isRenditions(message)) {
-        message = message as PlaceStreamDefs.Renditions;
+      } else if (place.stream.defs.renditions.isTypeOf(message)) {
+        message = message as place.stream.defs.Renditions;
         state = {
           ...state,
           renditions: message.renditions,
@@ -114,8 +108,8 @@ export const handleWebSocketMessages = (
           ...state,
           profile: message,
         };
-      } else if (PlaceStreamChatGate.isRecord(message)) {
-        const hideRecord = message as PlaceStreamChatGate.Record;
+      } else if (place.stream.chat.gate.$isTypeOf(message)) {
+        const hideRecord = message as place.stream.chat.gate.Main;
         const hiddenMessageUri = hideRecord.hiddenMessage;
         const newPendingHides = [...state.pendingHides];
         if (!newPendingHides.includes(hiddenMessageUri)) {
@@ -127,7 +121,7 @@ export const handleWebSocketMessages = (
           pendingHides: newPendingHides,
         };
         state = reduceChat(state, [], [], [hiddenMessageUri]);
-      } else if (PlaceStreamChatDefs.isPinnedRecordView(message)) {
+      } else if (place.stream.chat.defs.pinnedRecordView.isTypeOf(message)) {
         const pinnedView = message as PinnedRecordViewHydrated;
         state = {
           ...state,
@@ -141,15 +135,15 @@ export const handleWebSocketMessages = (
           ...state,
           pinnedComment: null,
         };
-      } else if (PlaceStreamLiveTeleport.isRecord(message)) {
-        const teleportRecord = message as PlaceStreamLiveTeleport.Record;
+      } else if (place.stream.live.teleport.$isTypeOf(message)) {
+        const teleportRecord = message as place.stream.live.teleport.Main;
         state = {
           ...state,
           activeTeleport: teleportRecord,
         };
-      } else if (PlaceStreamLivestream.isTeleportArrival(message)) {
+      } else if (place.stream.livestream.teleportArrival.isTypeOf(message)) {
         // teleport has succeeded, we are now at the target stream
-        const arrival = message as PlaceStreamLivestream.TeleportArrival;
+        const arrival = message as place.stream.livestream.TeleportArrival;
 
         // add the teleporter's chat profile to the authors cache FIRST so mention rendering works
         if (arrival.chatProfile && arrival.source.did) {
@@ -173,7 +167,7 @@ export const handleWebSocketMessages = (
         systemMessage.record.createdAt = arrival.startsAt;
 
         state = reduceChat(state, [systemMessage], []);
-      } else if (PlaceStreamLivestream.isTeleportCanceled(message)) {
+      } else if (place.stream.livestream.teleportCanceled.isTypeOf(message)) {
         // teleport was canceled (deleted or denied)
         state = {
           ...state,

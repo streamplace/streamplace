@@ -37,7 +37,7 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
-import type { PlaceStreamLivestream } from "streamplace";
+import type { place } from "streamplace";
 import {
   SCOPE_BSKY_POST_CREATE,
   scopeGrants,
@@ -322,7 +322,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   );
 
   const [activity, setActivity] = useState<
-    PlaceStreamLivestream.Record["activity"] | undefined
+    place.stream.livestream.Main["activity"] | undefined
   >(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -352,7 +352,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       if (livestream.record.activity) {
         setActivity(
           livestream.record
-            .activity as PlaceStreamLivestream.Record["activity"],
+            .activity as place.stream.livestream.Main["activity"],
         );
       }
 
@@ -509,7 +509,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
     try {
       const did = livestream.uri.split("/")[2];
-      const cid = (livestream.record.thumb.ref as any).$link;
+      const cid = (livestream.record.thumb as any).ref.$link;
 
       const didDoc = await resolveDIDDocument(did);
       const blob = await getBlob(did, cid, didDoc);

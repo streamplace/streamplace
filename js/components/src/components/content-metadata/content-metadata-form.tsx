@@ -6,11 +6,7 @@ import {
 } from "../../lib/metadata-constants";
 
 import { ExternalLink } from "lucide-react-native";
-import {
-  PlaceStreamMetadataConfiguration,
-  PlaceStreamMetadataContentRights,
-  PlaceStreamMetadataDistributionPolicy,
-} from "streamplace";
+import { place } from "streamplace";
 import {
   useGetBroadcasterDID,
   useGetContentMetadata,
@@ -37,9 +33,9 @@ const { p, r, bg, borders, w, text, layout, gap, flex } = zero;
 export interface ContentMetadataFormProps {
   showUpdateButton?: boolean;
   onMetadataChange?: (
-    metadata: PlaceStreamMetadataConfiguration.Record,
+    metadata: place.stream.metadata.configuration.Main,
   ) => void;
-  initialMetadata?: PlaceStreamMetadataConfiguration.Record;
+  initialMetadata?: place.stream.metadata.configuration.Main;
   style?: any;
 }
 
@@ -98,9 +94,9 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     // Local state for metadata
     const [contentWarnings, setContentWarnings] = useState<string[]>([]);
     const [distributionPolicy, setDistributionPolicy] =
-      useState<PlaceStreamMetadataDistributionPolicy.Main>({});
+      useState<place.stream.metadata.distributionPolicy.Main>({});
     const [contentRights, setContentRights] =
-      useState<PlaceStreamMetadataContentRights.Main>({});
+      useState<place.stream.metadata.contentRights.Main>({});
     const [selectedLicense, setSelectedLicense] = useState<string>("");
     const [customLicenseText, setCustomLicenseText] = useState<string>("");
     const [loading, setLoading] = useState(false);
@@ -206,7 +202,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         deleteAfter?: string;
         allowedBroadcasters?: string;
       }) => {
-        let newDistributionPolicy: PlaceStreamMetadataDistributionPolicy.Main =
+        let newDistributionPolicy: place.stream.metadata.distributionPolicy.Main =
           {
             ...distributionPolicy,
           };
@@ -268,7 +264,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       setLoading(true);
       try {
         // Build the metadata object, only including non-empty fields
-        const metadata: PlaceStreamMetadataConfiguration.Record = {
+        const metadata: place.stream.metadata.configuration.Main = {
           $type: "place.stream.metadata.configuration",
         };
 

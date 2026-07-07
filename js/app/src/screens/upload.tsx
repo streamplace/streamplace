@@ -44,11 +44,7 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
-import type {
-  PlaceStreamLivestream,
-  PlaceStreamVodDraftDefs,
-  PlaceStreamVodDraftVideo,
-} from "streamplace";
+import { place } from "streamplace";
 import * as tus from "tus-js-client";
 
 // ── types ────────────────────────────────────────────────────────────────────
@@ -79,7 +75,7 @@ type UploadPhase =
 type MetadataState = {
   title: string;
   description: string;
-  activity: PlaceStreamLivestream.Record["activity"];
+  activity: place.stream.livestream.Main["activity"];
   tags: string[];
   tagInput: string;
   thumbnail: Blob | undefined;
@@ -731,19 +727,20 @@ export default function UploadScreen() {
       // upload. The user lands on the draft editor immediately and can edit
       // metadata while the upload runs; a failed upload leaves the draft
       // intact so they can re-upload against the same draft.
-      const draftRes = await agent.place.stream.vod.createDraft({});
-      if (!draftRes.success) throw new Error("createDraft failed");
-      const draftUri = draftRes.data.uri;
+      const draftRes = await agent.client.call(
+        place.stream.vod.createDraft,
+        {},
+      );
+      const draftUri = draftRes.uri;
       const tid = tidFromUri(draftUri);
 
-      const res = await agent.place.stream.media.createUpload({
+      const res = await agent.client.call(place.stream.media.createUpload, {
         size: file.size,
         mimeType,
         filename: file.name,
         draftUri,
       });
-      if (!res.success) throw new Error("createUpload failed");
-      const { uploadUrl, uploadToken } = res.data;
+      const { uploadUrl, uploadToken } = res;
 
       // Navigate to the draft editor now — the upload continues in the
       // background and fills this draft when it finishes processing.
@@ -1146,7 +1143,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
   const [draftUri_, setDraftUri] = useState<string | undefined>(undefined);
   const [videoUri_, setVideoUri] = useState<string | undefined>(undefined);
   const [draftStatus, setDraftStatus] = useState<
-    PlaceStreamVodDraftVideo.Main["status"] | undefined
+    place.stream.vod.draftVideo.Main["status"] | undefined
   >(undefined);
   const [meta, setMetaState] = useState<MetadataState>(DEFAULT_METADATA);
   const [updating, setUpdating] = useState(false);
@@ -1179,9 +1176,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
       const did = agent.did!;
       const duri = draftUri(did, tid);
       try {
-        const res = await agent.place.stream.vod.getDraft({ uri: duri });
+        const res = await agent.client.call(place.stream.vod.getDraft, {
+          uri: duri,
+        });
         if (cancelled) return;
-        const rec = res.data.draft.record as PlaceStreamVodDraftVideo.Main;
+        const rec = res.draft.record as place.stream.vod.draftVideo.Main;
         setMode("draft");
         setDraftUri(duri);
         setVideoUri(undefined);
@@ -1194,7 +1193,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
           tagInput: "",
           thumbnail: undefined,
           thumbnailUrl: rec.thumb
-            ? `https://cdn.stream.place/thumb/${(rec.thumb.ref as any)?.$link || (rec.thumb as any).cid || ""}`
+            ? `https://cdn.stream.place/thumb/${(rec.thumb as any).ref?.$link || (rec.thumb as any).cid || ""}`
             : undefined,
           warnings: new Set(rec.contentWarnings?.warnings || []),
           license:
@@ -1208,13 +1207,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
         // NotFound → fall back to published video
         const vuri = videoUri(did, tid);
         try {
-          const existing = await agent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: "place.stream.video",
-            rkey: tid,
+          const existing = await agent.client.get(place.stream.video, {
+            rkey: tid as any,
           });
           if (cancelled) return;
-          const rec = existing.data.value as any;
+          const rec = existing.value as any;
           setMode("video");
           setVideoUri(vuri);
           setDraftUri(undefined);
@@ -1227,7 +1224,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
             tagInput: "",
             thumbnail: undefined,
             thumbnailUrl: rec.thumb
-              ? `https://cdn.stream.place/thumb/${(rec.thumb.ref as any)?.$link || (rec.thumb as any).cid || ""}`
+              ? `https://cdn.stream.place/thumb/${(rec.thumb as any).ref?.$link || (rec.thumb as any).cid || ""}`
               : undefined,
             warnings: new Set(rec.contentWarnings?.warnings || []),
             license:
@@ -1265,11 +1262,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await agent.place.stream.vod.getDraft({
+        const res = await agent.client.call(place.stream.vod.getDraft, {
           uri: draftUri(agent.did!, tid),
         });
         if (cancelled) return;
-        const rec = res.data.draft.record as PlaceStreamVodDraftVideo.Main;
+        const rec = res.draft.record as place.stream.vod.draftVideo.Main;
         setDraftStatus(rec.status);
       } catch {
         // Transient fetch failures are fine; the next tick retries.
@@ -1314,23 +1311,21 @@ export function UploadVideoScreen({ route }: { route: any }) {
         }
         if (meta.thumbnail) {
           try {
-            const blobRes = await agent.uploadBlob(meta.thumbnail, {
-              encoding: meta.thumbnail.type || "image/jpeg",
+            const blobRes = await agent.client.uploadBlob(meta.thumbnail, {
+              encoding: (meta.thumbnail.type || "image/jpeg") as any,
             });
-            if (blobRes.success) params.thumb = blobRes.data.blob;
+            params.thumb = blobRes.body.blob;
           } catch {
             // thumbnail failure is non-fatal
           }
         }
-        await agent.place.stream.vod.updateDraft(params as any);
+        await agent.client.call(place.stream.vod.updateDraft, params as any);
       } else if (mode === "video") {
         // Published video: putRecord. Preserve source/duration/createdAt.
-        const existing = await agent.com.atproto.repo.getRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
+        const existing = await agent.client.get(place.stream.video, {
+          rkey: tid as any,
         });
-        const existingRec = existing.data.value as any;
+        const existingRec = existing.value as any;
         const record: Record<string, any> = {
           $type: "place.stream.video",
           title: meta.title.trim(),
@@ -1360,19 +1355,17 @@ export function UploadVideoScreen({ route }: { route: any }) {
         }
         if (meta.thumbnail) {
           try {
-            const blobRes = await agent.uploadBlob(meta.thumbnail, {
-              encoding: meta.thumbnail.type || "image/jpeg",
+            const blobRes = await agent.client.uploadBlob(meta.thumbnail, {
+              encoding: (meta.thumbnail.type || "image/jpeg") as any,
             });
-            if (blobRes.success) record.thumb = blobRes.data.blob;
+            record.thumb = blobRes.body.blob;
           } catch {
             // thumbnail is non-fatal
           }
         }
-        await agent.com.atproto.repo.putRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
-          record: record as any,
+        const { $type: _videoType, ...videoRecordInput } = record;
+        await agent.client.put(place.stream.video, videoRecordInput as any, {
+          rkey: tid as any,
         });
       }
     } catch (err) {
@@ -1388,11 +1381,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     setPublishing(true);
     setError(undefined);
     try {
-      const res = await agent.place.stream.vod.publishDraft({
+      const res = await agent.client.call(place.stream.vod.publishDraft, {
         uri: draftUri_,
       });
       // Navigate to the player route for the published video.
-      const publishedTid = tidFromUri(res.data.videoUri);
+      const publishedTid = tidFromUri(res.videoUri);
       navigation.navigate("Video" as any, {
         user: agent.did ?? "",
         tid: publishedTid,
@@ -1411,13 +1404,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     setError(undefined);
     try {
       if (mode === "draft" && draftUri_) {
-        await agent.place.stream.vod.deleteDraft({ uri: draftUri_ });
-      } else if (mode === "video") {
-        await agent.com.atproto.repo.deleteRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
+        await agent.client.call(place.stream.vod.deleteDraft, {
+          uri: draftUri_,
         });
+      } else if (mode === "video") {
+        await agent.client.delete(place.stream.video, { rkey: tid as any });
       }
       navigation.navigate("UploadVideos" as any);
     } catch (err) {
@@ -1572,7 +1563,9 @@ export function UploadDraftsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation();
 
-  const [drafts, setDrafts] = useState<PlaceStreamVodDraftDefs.DraftView[]>([]);
+  const [drafts, setDrafts] = useState<place.stream.vod.draftDefs.DraftView[]>(
+    [],
+  );
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftAction, setDraftAction] = useState<
     Record<string, "publishing" | "deleting" | "error">
@@ -1590,8 +1583,10 @@ export function UploadDraftsScreen() {
     if (!agent) return;
     setDraftsLoading(true);
     try {
-      const res = await agent.place.stream.vod.listDrafts({ limit: 100 });
-      setDrafts(res.data.drafts || []);
+      const res = await agent.client.call(place.stream.vod.listDrafts, {
+        limit: 100,
+      });
+      setDrafts(res.drafts || []);
     } catch (err) {
       console.error("Failed to fetch drafts", err);
     } finally {
@@ -1608,8 +1603,10 @@ export function UploadDraftsScreen() {
       if (!agent) return;
       setDraftAction((m) => ({ ...m, [uri]: "publishing" }));
       try {
-        const res = await agent.place.stream.vod.publishDraft({ uri });
-        setPublishedFromDrafts((m) => ({ ...m, [uri]: res.data.videoUri }));
+        const res = await agent.client.call(place.stream.vod.publishDraft, {
+          uri,
+        });
+        setPublishedFromDrafts((m) => ({ ...m, [uri]: res.videoUri }));
         setDrafts((prev) => prev.filter((d) => d.uri !== uri));
       } catch (err) {
         console.error("Failed to publish draft", err);
@@ -1624,7 +1621,7 @@ export function UploadDraftsScreen() {
       if (!agent) return;
       setDraftAction((m) => ({ ...m, [uri]: "deleting" }));
       try {
-        await agent.place.stream.vod.deleteDraft({ uri });
+        await agent.client.call(place.stream.vod.deleteDraft, { uri });
         setDrafts((prev) => prev.filter((d) => d.uri !== uri));
       } catch (err) {
         console.error("Failed to delete draft", err);
@@ -1664,7 +1661,7 @@ export function UploadDraftsScreen() {
             </View>
           )}
           {drafts.map((draft) => {
-            const rec = draft.record as PlaceStreamVodDraftVideo.Main;
+            const rec = draft.record as place.stream.vod.draftVideo.Main;
             const status = rec.status;
             const action = draftAction[draft.uri];
             const publishedUri = publishedFromDrafts[draft.uri];
@@ -1826,10 +1823,10 @@ export function UploadLivestreamsScreen() {
   const fetchVideos = useCallback(async () => {
     if (!agent || !agent.did) return;
     try {
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
-      setUserVideos(res.data.videos || []);
+      setUserVideos(res.videos || []);
     } catch (err) {
       console.error("Failed to fetch videos", err);
     }
@@ -1839,12 +1836,11 @@ export function UploadLivestreamsScreen() {
     if (!agent || !agent.did) return;
     setLivestreamsLoading(true);
     try {
-      const res = await agent.com.atproto.repo.listRecords({
-        repo: agent.did,
-        collection: "place.stream.livestream",
+      const res = await agent.client.list(place.stream.livestream, {
+        repo: agent.did as any,
         limit: 100,
       });
-      const records = (res.data.records ?? []).slice().sort((a, b) => {
+      const records = (res.records ?? []).slice().sort((a, b) => {
         const at = ((a.value as any)?.createdAt as string) ?? "";
         const bt = ((b.value as any)?.createdAt as string) ?? "";
         return bt.localeCompare(at); // newest first
@@ -1896,16 +1892,18 @@ export function UploadLivestreamsScreen() {
       if (!agent || !agent.did) return;
       setFinalizing((m) => ({ ...m, [ls.uri]: "finalizing" }));
       try {
-        const res = await agent.place.stream.media.finalizeLivestream({
-          livestream: ls.uri,
-        });
-        if (!res.success) throw new Error("finalizeLivestream failed");
+        const res = await agent.client.call(
+          place.stream.media.finalizeLivestream,
+          {
+            livestream: ls.uri as any,
+          },
+        );
         // Record the draft URI so the row can offer a deep-link to the
         // draft editor.
-        if (res.data.draftUri) {
+        if (res.draftUri) {
           setFinalizedDraftUris((m) => ({
             ...m,
-            [ls.uri]: res.data.draftUri as string,
+            [ls.uri]: res.draftUri as string,
           }));
         }
         setFinalizing((m) => ({ ...m, [ls.uri]: "done" }));
@@ -2082,10 +2080,10 @@ export function UploadVideosScreen() {
   const fetchVideos = useCallback(async () => {
     if (!agent || !agent.did) return;
     try {
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
-      setUserVideos(res.data.videos || []);
+      setUserVideos(res.videos || []);
     } catch (err) {
       console.error("Failed to fetch videos", err);
     }

@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
-import { PlaceStreamIngestDefs } from "streamplace";
+import { place } from "streamplace";
 
 const FormRow = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -45,7 +45,7 @@ const Content = ({ children }: { children: React.ReactNode }) => {
 };
 
 export function StreamKeyScreen() {
-  const [ingest, setIngest] = useState<PlaceStreamIngestDefs.Ingest | null>(
+  const [ingest, setIngest] = useState<place.stream.ingest.defs.Ingest | null>(
     null,
   );
   const isReady = useIsReady();

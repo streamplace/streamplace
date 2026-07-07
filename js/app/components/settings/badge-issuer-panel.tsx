@@ -1,4 +1,3 @@
-import { BlobRef } from "@atproto/lexicon";
 import {
   Button,
   hexToRgba,
@@ -26,7 +25,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from "react-native";
-import type { PlaceStreamBadgeDef } from "streamplace";
+import { place } from "streamplace";
 
 const { gap, p, px, py, layout } = zero;
 
@@ -44,7 +43,7 @@ type PanelView = "main" | "create" | "issue";
 interface BadgeDefItem {
   uri: string;
   cid: string;
-  value: PlaceStreamBadgeDef.Record;
+  value: place.stream.badge.def.Main;
 }
 
 function getDidFromAtUri(uri: string) {
@@ -75,7 +74,7 @@ function BadgeDefRow({
               "https://cdn.bsky.app/img/feed_fullsize/plain/" +
               getDidFromAtUri(def.uri) +
               "/" +
-              def.value.image.ref.toString(),
+              (def.value.image as any).ref.toString(),
           }}
           style={{ width: 28, height: 28, borderRadius: radiusTokens.sm }}
         />
@@ -195,8 +194,8 @@ export function BadgeIssuerPanel() {
     if (!agent?.did) return;
     setLoadingDefs(true);
     try {
-      const res = await agent.place.stream.badge.def.list({
-        repo: agent.did,
+      const res = await agent.client.list(place.stream.badge.def, {
+        repo: agent.did as any,
         limit: 100,
       });
       setDefs(
@@ -204,7 +203,7 @@ export function BadgeIssuerPanel() {
           res.records as {
             uri: string;
             cid: string;
-            value: PlaceStreamBadgeDef.Record;
+            value: place.stream.badge.def.Main;
           }[]
         ).map(({ uri, cid, value }) => ({ uri, cid: cid ?? "", value })),
       );
@@ -256,24 +255,21 @@ export function BadgeIssuerPanel() {
     if (!agent?.did || !createName.trim() || working) return;
     setWorking(true);
     try {
-      let imageBlob: BlobRef | undefined;
+      let imageBlob: place.stream.badge.def.Main["image"];
       if (createImageBlob) {
-        const uploaded = await agent.uploadBlob(createImageBlob, {
-          encoding: createImageBlob.type,
+        const uploaded = await agent.client.uploadBlob(createImageBlob, {
+          encoding: createImageBlob.type as any,
         });
-        imageBlob = uploaded.data.blob;
+        imageBlob = uploaded.body.blob;
       }
 
-      await agent.place.stream.badge.def.create(
-        { repo: agent.did },
-        {
-          name: createName.trim(),
-          description: createDescription.trim() || undefined,
-          badgeType: createBadgeType,
-          image: imageBlob,
-          createdAt: new Date().toISOString(),
-        },
-      );
+      await agent.client.create(place.stream.badge.def, {
+        name: createName.trim(),
+        description: createDescription.trim() || undefined,
+        badgeType: createBadgeType,
+        image: imageBlob,
+        createdAt: new Date().toISOString(),
+      } as any);
 
       setLastResult({
         label: t("issue-badges-definition-created"),
@@ -301,14 +297,11 @@ export function BadgeIssuerPanel() {
     if (!agent?.did || !selectedDef || !recipientDid.trim() || working) return;
     setWorking(true);
     try {
-      await agent.place.stream.badge.issuance.create(
-        { repo: agent.did },
-        {
-          did: recipientDid.trim(),
-          badge: { uri: selectedDef.uri, cid: selectedDef.cid },
-          createdAt: new Date().toISOString(),
-        },
-      );
+      await agent.client.create(place.stream.badge.issuance, {
+        did: recipientDid.trim(),
+        badge: { uri: selectedDef.uri, cid: selectedDef.cid },
+        createdAt: new Date().toISOString(),
+      } as any);
       setLastResult({
         label: t("issue-badges-issued-to", { did: recipientDid.trim() }),
         uri: recipientDid.trim(),

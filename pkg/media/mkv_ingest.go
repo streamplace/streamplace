@@ -10,6 +10,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 )
 
@@ -70,10 +71,21 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 // where signerElem routes its segments (ValidateMP4 vs. a frame writer to the
 // main process).
 func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element) (*gst.Pipeline, error) {
+	// Queue sizing: matroskademux feeds both branches from one thread, and the
+	// fMP4 muxer downstream is an aggregator — it consumes NOTHING until every
+	// pad has data. If the video track goes sparse (e.g. MistServer drops all
+	// delta frames when a push falls behind, leaving ~1s-apart keyframes), the
+	// audio branch must buffer a full video-frame gap while the demux walks the
+	// byte stream to the next video frame. gst's default queue caps at
+	// max-size-time=1s, so a ≥1s video gap fills the audio queue, blocks the
+	// demux, starves the muxer's video pad, and deadlocks the whole graph with
+	// no EOS — a live stream wedges until the watchdog kills it. Use the shared
+	// Queue2Big preset (no time/buffer cap, generous byte cap) like the other
+	// demux-fed pipelines (transcode, rtmp_push, packetize, media_data_parser).
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
-		"demux. ! queue ! h264parse name=parse",
-		"demux. ! queue ! fdkaacdec ! audioresample ! opusenc name=audioenc",
+		"demux. ! " + constants.Queue2Big + " ! h264parse name=parse",
+		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {

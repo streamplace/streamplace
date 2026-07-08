@@ -78,8 +78,15 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		return nil, nil, fmt.Errorf("failed to add audio ghost pad to bin")
 	}
 
+	// sync=false: this sink feeds the signer, not a display — render as fast as
+	// upstream produces. The default (sync=true) made the appsink wait on the
+	// pipeline clock per buffer, pacing the whole ingest graph at realtime:
+	// harmless for a live source arriving at 1x, but it throttled tests/replays
+	// and kept the graph's queues near-full for no benefit. Every other appsink
+	// in the tree already sets this.
 	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
 		"name": "muxl-appsink",
+		"sync": false,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create appsink element: %w", err)

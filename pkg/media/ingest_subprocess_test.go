@@ -153,9 +153,9 @@ func TestIngestWorkerSubprocess(t *testing.T) {
 	t.Logf("worker subprocess emitted %d valid signed segments + clean End", segs)
 }
 
-// TestMKVIngestIsolatedWedgeContained is the isolation guarantee: sample-stream.mkv
-// carries four audio tracks, so the single-audio ingest pipeline leaves three
-// matroskademux pads unlinked and wedges with no EOS — exactly the kind of native
+// TestMKVIngestIsolatedWedgeContained is the isolation guarantee: an audio-only
+// MKV starves the fMP4 muxer's video pad of both data and EOS, so the native
+// pipeline wedges with no frames and no EOS — exactly the kind of native
 // wedge that would hang (or, with a runaway buffer, OOM-kill) an in-process
 // ingest and take the node with it. Run in a worker, it must be contained: the
 // watchdog kills the worker and MKVIngestIsolated returns an error, bounded in
@@ -168,11 +168,10 @@ func TestMKVIngestIsolatedWedgeContained(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 
-	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
-	require.NoError(t, err)
+	wedge := makeAudioOnlyAACMKV(t, context.Background(), 5)
 
 	start := time.Now()
-	err = mm.MKVIngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
+	err := mm.MKVIngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
 	elapsed := time.Since(start)
 
 	require.Error(t, err, "a wedged worker must surface as an error, not a hang")

@@ -80,9 +80,9 @@ A non-game activity with a well-known label.
 
 **Properties:**
 
-| Name    | Type     | Req'd | Description | Constraints                                                                                                                              |
-| ------- | -------- | ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `label` | `string` | ✅    |             | Known Values: `events`, `just_chatting`, `music`, `art`, `software_dev`, `cooking`, `miniatures`, `makers_crafting`, `fitness`, `sports` |
+| Name    | Type     | Req'd | Description | Constraints                                                                                                                                            |
+| ------- | -------- | ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `label` | `string` | ✅    |             | Known Values: `events`, `just_chatting`, `podcasting`, `music`, `art`, `software_dev`, `cooking`, `miniatures`, `makers_crafting`, `fitness`, `sports` |
 
 ---
 
@@ -166,6 +166,7 @@ A non-game activity with a well-known label.
           "knownValues": [
             "events",
             "just_chatting",
+            "podcasting",
             "music",
             "art",
             "software_dev",

@@ -10,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -330,6 +331,33 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	}
 	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
 		log.Debug(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
+		return nil
+	}
+	// If this record is still the streamer's latest livestream, do NOT end it
+	// on a stale lastSeenAt alone. lastSeenAt only advances via the per-segment
+	// heartbeat (StreamSession.doUpdateLivestream), which is coupled to segment
+	// arrival and can lag behind actual ingestion — e.g. after an ingest gap
+	// long enough to tear down and restart the StreamSession, the new session's
+	// heartbeat may not land on this record before the idle timer fires. Ending
+	// here would set endedAt on the record the active stream is publishing
+	// under, taking the stream pre-live underneath a still-flowing ingest.
+	//
+	// Instead, reschedule the check for one more idle window: if the stream is
+	// truly abandoned the heartbeat stays frozen and we end it on the next
+	// pass; if it's a heartbeat-lag artifact, the heartbeat catches up and the
+	// rescheduled task hits the "active" early-return above.
+	latest, err := state.model.GetLatestLivestreamForRepo(livestream.RepoDID)
+	if err != nil {
+		return fmt.Errorf("failed to get latest livestream for repo: %w", err)
+	}
+	if latest != nil && latest.URI == livestream.URI {
+		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
+		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
+		_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, finalizeLivestreamTask, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
+		if err != nil {
+			return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
+		}
+		log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
 		return nil
 	}
 	session, err := state.GetSessionByDID(livestream.RepoDID)

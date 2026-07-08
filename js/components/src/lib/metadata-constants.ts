@@ -3,6 +3,7 @@ import { PlaceStreamDefs, schemas } from "streamplace";
 // "knownValues": [
 //   "events",
 //   "just_chatting",
+//   "podcasting",
 //   "music",
 //   "art",
 //   "software_dev",
@@ -17,6 +18,7 @@ export const ACTIVITY_LABELS: Array<{
   display: string;
 }> = [
   { value: "just_chatting", display: "Just Chatting" },
+  { value: "podcasting", display: "Podcasting" },
   { value: "music", display: "Music" },
   { value: "art", display: "Art" },
   { value: "software_dev", display: "Software and Game Development" },

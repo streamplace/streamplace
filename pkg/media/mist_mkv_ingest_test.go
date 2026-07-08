@@ -155,15 +155,11 @@ func TestMKVIngestMistMetadataTrack(t *testing.T) {
 // ~140s (MistServer behind-push frame-drop), which is what wedged production;
 // with Queue2Big on the ingest branches the whole capture must segment.
 func TestMKVIngestMistFullSample(t *testing.T) {
-	// KNOWN ISSUE (follow-up): with node keys, a full-speed feed of the whole
-	// capture progressively slows the transcode completion path (fine for 30
-	// GoPs — see TestMKVIngestMistTail with transcode — but the ~170-GoP run
-	// degrades until the watchdog fires) and the worker then hangs in the
-	// post-cancel drain: transcoder.Feed blocks on its jobs channel under a
-	// context.WithoutCancel ctx, so RunMKVIngestWorker never returns.
-	if os.Getenv("SP_SLOW_TESTS") == "" {
-		t.Skip("slow/known-hanging with transcode; set SP_SLOW_TESTS=1 to run")
-	}
+	// This once "progressively slowed until the watchdog fired, then hung in
+	// the post-cancel drain" and was skip-gated as known-hanging — that was
+	// the muxl-event-drain-vs-cancel deadlock (see muxlSignSegmentElem's
+	// drainCtx); with the drain non-cancellable the full capture transcodes
+	// at full speed (~13s).
 	mkv, err := os.ReadFile("../../tmp-debug/nyc-full.mkv")
 	if err != nil {
 		t.Skipf("production sample not present: %v", err)

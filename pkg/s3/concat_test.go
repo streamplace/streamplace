@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,10 +19,12 @@ import (
 
 // fakeConcatS3 is an in-memory stand-in for the subset of S3 ConcatWithHeader
 // uses. CompleteMultipartUpload reconstructs the destination object from the
-// recorded parts in part-number order and enforces S3's rule that every part
-// except the last is ≥5MB, so a ConcatWithHeader bug that emits a small middle
-// part fails loudly here rather than only against real S3.
+// recorded parts in part-number order and enforces the strictest real-backend
+// rules: every part except the last is ≥5MB (AWS), and all non-trailing parts
+// have the same length (R2), so a ConcatWithHeader bug that emits uneven parts
+// fails loudly here rather than only against real R2.
 type fakeConcatS3 struct {
+	mu        sync.Mutex
 	objects   map[string][]byte
 	parts     map[int32][]byte // partNumber -> bytes, for the single in-flight upload
 	assembled map[string][]byte
@@ -60,7 +63,9 @@ func (f *fakeConcatS3) CreateMultipartUpload(_ context.Context, _ *awss3.CreateM
 
 func (f *fakeConcatS3) UploadPart(_ context.Context, in *awss3.UploadPartInput, _ ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
 	body, _ := io.ReadAll(in.Body)
+	f.mu.Lock()
 	f.parts[aws.ToInt32(in.PartNumber)] = body
+	f.mu.Unlock()
 	return &awss3.UploadPartOutput{ETag: aws.String(fmt.Sprintf("etag-%d", aws.ToInt32(in.PartNumber)))}, nil
 }
 
@@ -73,13 +78,17 @@ func (f *fakeConcatS3) UploadPartCopy(_ context.Context, in *awss3.UploadPartCop
 		return nil, fmt.Errorf("copy from missing object %s", key)
 	}
 	start, end := parseRange(aws.ToString(in.CopySourceRange), len(b))
+	f.mu.Lock()
 	f.parts[aws.ToInt32(in.PartNumber)] = append([]byte(nil), b[start:end+1]...)
+	f.mu.Unlock()
 	return &awss3.UploadPartCopyOutput{
 		CopyPartResult: &types.CopyPartResult{ETag: aws.String(fmt.Sprintf("etag-%d", aws.ToInt32(in.PartNumber)))},
 	}, nil
 }
 
 func (f *fakeConcatS3) CompleteMultipartUpload(_ context.Context, in *awss3.CompleteMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	nums := make([]int32, 0, len(in.MultipartUpload.Parts))
 	for _, p := range in.MultipartUpload.Parts {
 		nums = append(nums, aws.ToInt32(p.PartNumber))
@@ -92,6 +101,9 @@ func (f *fakeConcatS3) CompleteMultipartUpload(_ context.Context, in *awss3.Comp
 		if !isLast && len(body) < minPartSize {
 			return nil, fmt.Errorf("EntityTooSmall: part %d is %d bytes (<5MB) and not last", n, len(body))
 		}
+		if !isLast && len(body) != len(f.parts[nums[0]]) {
+			return nil, fmt.Errorf("InvalidPart: all non-trailing parts must have the same length (part %d is %d bytes, part %d is %d bytes)", n, len(body), nums[0], len(f.parts[nums[0]]))
+		}
 		out = append(out, body...)
 	}
 	f.assembled[aws.ToString(in.Key)] = out
@@ -99,7 +111,9 @@ func (f *fakeConcatS3) CompleteMultipartUpload(_ context.Context, in *awss3.Comp
 }
 
 func (f *fakeConcatS3) AbortMultipartUpload(_ context.Context, _ *awss3.AbortMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.AbortMultipartUploadOutput, error) {
+	f.mu.Lock()
 	f.aborted = true
+	f.mu.Unlock()
 	return &awss3.AbortMultipartUploadOutput{}, nil
 }
 
@@ -137,19 +151,21 @@ func TestConcatWithHeader(t *testing.T) {
 		name    string
 		objects map[string][]byte
 		order   []string
-		wantErr error
 	}{
 		{
-			name: "large objects partial first part",
+			// Objects bigger than concatPartSize: interior windows are pure
+			// server-side copies, boundary windows are assembled in memory.
+			name: "objects spanning multiple copy windows",
 			objects: map[string][]byte{
-				"a": filled('a', 10*mb),
-				"b": filled('b', 8*mb),
+				"a": filled('a', 40*mb),
+				"b": filled('b', 33*mb),
 				"c": filled('c', 7*mb),
 			},
 			order: []string{"a", "b", "c"},
 		},
 		{
-			name: "medium objects absorb whole first object",
+			// Objects smaller than one window: every window is mixed.
+			name: "objects smaller than a window",
 			objects: map[string][]byte{
 				"a": filled('a', 6*mb),
 				"b": filled('b', 6*mb),
@@ -173,14 +189,15 @@ func TestConcatWithHeader(t *testing.T) {
 			order: []string{"a", "b"},
 		},
 		{
-			name: "small middle object falls back",
+			// A sub-5MB middle object used to be unrepresentable as its own
+			// copy part; with uniform windows it just rides in a mixed window.
+			name: "small middle object",
 			objects: map[string][]byte{
 				"a": filled('a', 6*mb),
 				"b": filled('b', 2*mb),
 				"c": filled('c', 6*mb),
 			},
-			order:   []string{"a", "b", "c"},
-			wantErr: ErrConcatPartTooSmall,
+			order: []string{"a", "b", "c"},
 		},
 	}
 
@@ -188,15 +205,6 @@ func TestConcatWithHeader(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := newFakeConcatS3(tc.objects)
 			err := concatWithHeader(context.Background(), fake, "bucket", header, tc.order, "dst", "video/mp4")
-			if tc.wantErr != nil {
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("want error %v, got %v", tc.wantErr, err)
-				}
-				if !fake.aborted {
-					t.Fatalf("expected multipart upload to be aborted on too-small part")
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("concatWithHeader: %v", err)
 			}

@@ -3,7 +3,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -13,15 +12,21 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/log"
 )
 
-// ErrConcatPartTooSmall is returned by ConcatWithHeader when a non-final source
-// object is smaller than S3's 5 MB minimum part size and therefore can't be a
-// server-side UploadPartCopy part. The caller is expected to fall back to a
-// download-and-rewrite assembly. In production (10-minute cutover objects) this
-// never triggers; it only guards against pathologically short streams.
-var ErrConcatPartTooSmall = errors.New("s3 concat: non-final source object below 5MB minimum part size")
+// concatPartSize is the uniform length of every non-final part the concat
+// emits. R2 — unlike AWS/minio — rejects CompleteMultipartUpload with "All
+// non-trailing parts must have the same length" unless parts are uniform, so
+// the destination byte stream is sliced into fixed windows rather than one
+// part per source object. 16MB (matching MultipartPartSize) keeps the
+// boundary-window downloads small while allowing a 10000-part object to
+// reach ~156GB.
+const concatPartSize = MultipartPartSize
+
+// s3MaxParts is the multipart part-count ceiling shared by AWS and R2.
+const s3MaxParts = 10000
 
 // concatAPI is the subset of *s3.Client that ConcatWithHeader uses. Pulled out
 // so tests can inject a fake; *s3.Client satisfies it.
@@ -37,15 +42,12 @@ type concatAPI interface {
 //
 // The layout exists to give live-to-VOD finalize a content blob shaped exactly
 // like an uploaded VOD ([init][segments…]) without re-uploading the (possibly
-// many-GB) stream: the synthesized init header rides in part 1, and the bulk of
-// the bytes are copied with UploadPartCopy and never pass through this process.
-//
-// Part 1 (uploaded) is header plus just enough leading source bytes to clear
-// S3's 5 MB minimum, so it costs ~5 MB of memory + one upload. Every remaining
-// source object becomes one server-side UploadPartCopy part. S3 requires every
-// part except the last to be ≥5 MB; a non-final source object below that bound
-// can't be copied as its own part, so ConcatWithHeader returns
-// ErrConcatPartTooSmall and the caller falls back to a full rewrite.
+// many-GB) stream: the destination byte stream is sliced into concatPartSize
+// windows (uniform non-trailing parts, which R2 requires); a window that falls
+// entirely inside one source object becomes a server-side UploadPartCopy, and
+// only the windows containing the header or an object boundary are downloaded
+// and re-uploaded. That bounds the through-process traffic to roughly one
+// window per source object regardless of stream length.
 func ConcatWithHeader(ctx context.Context, client *s3.Client, bucket string, header []byte, srcKeys []string, dstKey, contentType string) error {
 	return concatWithHeader(ctx, client, bucket, header, srcKeys, dstKey, contentType)
 }
@@ -78,6 +80,23 @@ func concatWithHeader(ctx context.Context, client concatAPI, bucket string, head
 		sizes[i] = aws.ToInt64(head.ContentLength)
 	}
 
+	// Destination layout: header at [0, headerLen), then each source object at
+	// offsets[i]. Every part is exactly concatPartSize except the trailing one.
+	headerLen := int64(len(header))
+	offsets := make([]int64, len(srcKeys))
+	total := headerLen
+	for i := range srcKeys {
+		offsets[i] = total
+		total += sizes[i]
+	}
+	if total == 0 {
+		return fmt.Errorf("s3 concat: nothing to assemble (empty header and sources)")
+	}
+	numParts := (total + concatPartSize - 1) / concatPartSize
+	if numParts > s3MaxParts {
+		return fmt.Errorf("s3 concat: %d bytes needs %d parts, exceeding the %d-part limit", total, numParts, s3MaxParts)
+	}
+
 	create := &s3.CreateMultipartUploadInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(dstKey),
@@ -101,101 +120,68 @@ func concatWithHeader(ctx context.Context, client concatAPI, bucket string, head
 		})
 	}
 
-	var parts []types.CompletedPart
-	var partNum int32
-
-	// --- Part 1: header + leading source bytes until >= minPartSize. ---
-	// We pull only enough source bytes to clear the 5 MB floor (bounding memory
-	// to ~minPartSize), tracking which object we stopped in so the copy phase
-	// resumes from exactly there.
-	buf := bytes.NewBuffer(make([]byte, 0, 2*minPartSize+len(header)))
-	buf.Write(header)
-	idx := 0                // index of the source object the copy phase resumes at
-	var consumedInIdx int64 // bytes of srcKeys[idx] already pulled into part 1
-	for idx < len(srcKeys) && int64(buf.Len()) < minPartSize {
-		remaining := int64(minPartSize) - int64(buf.Len())
-		avail := sizes[idx] - consumedInIdx
-		take := remaining
-		if take > avail {
-			take = avail
-		}
-		// Look-ahead: a partial take that leaves this (non-final) object with a
-		// sub-5MB remainder would make that remainder an illegal small middle
-		// copy part. Absorb the whole object into part 1 instead — costing a
-		// little extra upload but keeping every copy part legal.
-		if take < avail && (avail-take) < int64(minPartSize) && idx != len(srcKeys)-1 {
-			take = avail
-		}
-		if take > 0 {
-			body, err := getRange(ctx, client, bucket, srcKeys[idx], consumedInIdx, consumedInIdx+take-1)
-			if err != nil {
-				abort()
-				span.RecordError(err)
-				return err
+	// Parts land at fixed indices, so the completed list is already ordered.
+	// Downloaded (boundary) windows hold up to concatPartSize bytes each, but
+	// there's at most ~one per source object; copyConcurrency bounds how many
+	// are in memory at once.
+	parts := make([]types.CompletedPart, numParts)
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(copyConcurrency)
+	for p := int64(0); p < numParts; p++ {
+		partNum := int32(p + 1)
+		wStart := p * concatPartSize
+		wEnd := min(wStart+concatPartSize, total) // exclusive
+		g.Go(func() error {
+			// A window entirely inside one source object copies server-side.
+			for i := range srcKeys {
+				if offsets[i] <= wStart && wEnd <= offsets[i]+sizes[i] {
+					res, err := client.UploadPartCopy(gctx, &s3.UploadPartCopyInput{
+						Bucket:          aws.String(bucket),
+						Key:             aws.String(dstKey),
+						UploadId:        aws.String(uploadID),
+						PartNumber:      aws.Int32(partNum),
+						CopySource:      aws.String(bucket + "/" + srcKeys[i]),
+						CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", wStart-offsets[i], wEnd-1-offsets[i])),
+					})
+					if err != nil {
+						return fmt.Errorf("upload part copy %d s3://%s/%s: %w", partNum, bucket, srcKeys[i], err)
+					}
+					if res.CopyPartResult == nil {
+						return fmt.Errorf("upload part copy %d s3://%s/%s: missing CopyPartResult", partNum, bucket, srcKeys[i])
+					}
+					parts[p] = types.CompletedPart{
+						ETag:       res.CopyPartResult.ETag,
+						PartNumber: aws.Int32(partNum),
+					}
+					return nil
+				}
 			}
-			buf.Write(body)
-			consumedInIdx += take
-		}
-		if consumedInIdx >= sizes[idx] {
-			idx++
-			consumedInIdx = 0
-		}
+			// Mixed window (contains the header and/or spans object boundaries):
+			// assemble it in memory and upload it as a regular part.
+			buf := make([]byte, 0, wEnd-wStart)
+			if wStart < headerLen {
+				buf = append(buf, header[wStart:min(wEnd, headerLen)]...)
+			}
+			for i := range srcKeys {
+				s := max(wStart, offsets[i])
+				e := min(wEnd, offsets[i]+sizes[i])
+				if s >= e {
+					continue
+				}
+				body, err := getRange(gctx, client, bucket, srcKeys[i], s-offsets[i], e-1-offsets[i])
+				if err != nil {
+					return err
+				}
+				buf = append(buf, body...)
+			}
+			return uploadPartAt(gctx, client, bucket, dstKey, uploadID, partNum, buf, &parts[p])
+		})
 	}
-
-	partNum++
-	if err := uploadPart(ctx, client, bucket, dstKey, uploadID, partNum, buf.Bytes(), &parts); err != nil {
+	if err := g.Wait(); err != nil {
 		abort()
 		span.RecordError(err)
-		span.SetStatus(codes.Error, "upload_part_1")
+		span.SetStatus(codes.Error, "upload_parts")
 		return err
-	}
-
-	// --- Remaining objects: one server-side UploadPartCopy part each. ---
-	for i := idx; i < len(srcKeys); i++ {
-		start := int64(0)
-		if i == idx {
-			start = consumedInIdx // resume mid-object if part 1 stopped here
-		}
-		if start >= sizes[i] {
-			continue // wholly absorbed into part 1
-		}
-		partSize := sizes[i] - start
-		isLast := i == len(srcKeys)-1
-		if !isLast && partSize < minPartSize {
-			abort()
-			err := fmt.Errorf("%w (object %s contributes %d bytes)", ErrConcatPartTooSmall, srcKeys[i], partSize)
-			span.RecordError(err)
-			return err
-		}
-		if partSize > maxCopyObjectSize {
-			abort()
-			err := fmt.Errorf("s3 concat: object %s range %d bytes exceeds single-part copy limit", srcKeys[i], partSize)
-			span.RecordError(err)
-			return err
-		}
-		partNum++
-		res, err := client.UploadPartCopy(ctx, &s3.UploadPartCopyInput{
-			Bucket:          aws.String(bucket),
-			Key:             aws.String(dstKey),
-			UploadId:        aws.String(uploadID),
-			PartNumber:      aws.Int32(partNum),
-			CopySource:      aws.String(bucket + "/" + srcKeys[i]),
-			CopySourceRange: aws.String(fmt.Sprintf("bytes=%d-%d", start, sizes[i]-1)),
-		})
-		if err != nil {
-			abort()
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "upload_part_copy")
-			return fmt.Errorf("upload part copy %d s3://%s/%s: %w", partNum, bucket, srcKeys[i], err)
-		}
-		if res.CopyPartResult == nil {
-			abort()
-			return fmt.Errorf("upload part copy %d s3://%s/%s: missing CopyPartResult", partNum, bucket, srcKeys[i])
-		}
-		parts = append(parts, types.CompletedPart{
-			ETag:       res.CopyPartResult.ETag,
-			PartNumber: aws.Int32(partNum),
-		})
 	}
 
 	if _, err := client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
@@ -231,7 +217,7 @@ func getRange(ctx context.Context, client concatAPI, bucket, key string, start, 
 	return body, nil
 }
 
-func uploadPart(ctx context.Context, client concatAPI, bucket, dstKey, uploadID string, partNum int32, body []byte, parts *[]types.CompletedPart) error {
+func uploadPartAt(ctx context.Context, client concatAPI, bucket, dstKey, uploadID string, partNum int32, body []byte, out *types.CompletedPart) error {
 	res, err := client.UploadPart(ctx, &s3.UploadPartInput{
 		Bucket:     aws.String(bucket),
 		Key:        aws.String(dstKey),
@@ -242,9 +228,9 @@ func uploadPart(ctx context.Context, client concatAPI, bucket, dstKey, uploadID 
 	if err != nil {
 		return fmt.Errorf("upload part %d s3://%s/%s: %w", partNum, bucket, dstKey, err)
 	}
-	*parts = append(*parts, types.CompletedPart{
+	*out = types.CompletedPart{
 		ETag:       res.ETag,
 		PartNumber: aws.Int32(partNum),
-	})
+	}
 	return nil
 }

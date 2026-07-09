@@ -18,20 +18,21 @@ import (
 
 // liveConfig builds a Config from the S3_* env vars, tolerating the bucket
 // being embedded as the endpoint URL's path (the format of Eli's ~/r2.env /
-// ~/rustfs.env files). Returns false if the env vars aren't set.
+// ~/rustfs.env files). Returns false unless endpoint AND both credentials are
+// set — an environment (like CI) that defines S3_ENDPOINT for other purposes
+// must not un-skip these tests only to fail with empty static credentials.
 func liveConfig(t *testing.T) (Config, bool) {
-	endpoint := os.Getenv("S3_ENDPOINT")
-	if endpoint == "" {
-		return Config{}, false
-	}
 	cfg := Config{
-		Endpoint:        endpoint,
+		Endpoint:        os.Getenv("S3_ENDPOINT"),
 		Bucket:          os.Getenv("S3_BUCKET"),
 		AccessKeyID:     os.Getenv("S3_ACCESS_KEY_ID"),
 		SecretAccessKey: os.Getenv("S3_SECRET_ACCESS_KEY"),
 		Region:          os.Getenv("S3_REGION"),
 	}
-	u, err := url.Parse(endpoint)
+	if cfg.Endpoint == "" || cfg.AccessKeyID == "" || cfg.SecretAccessKey == "" {
+		return Config{}, false
+	}
+	u, err := url.Parse(cfg.Endpoint)
 	require.NoError(t, err)
 	if p := strings.Trim(u.Path, "/"); p != "" {
 		if cfg.Bucket == "" {

@@ -79,41 +79,49 @@ func TestLiveS3Uploader(t *testing.T) {
 	if !ok {
 		t.Skip("set S3_ENDPOINT etc. to run the live uploader test")
 	}
-	ctx := context.Background()
-	rec := &keyRecorder{}
-	up := NewS3Uploader(cfg, "did:test:live", "live-test/", time.Hour, rec)
+	for _, mode := range []string{"memory", "spool"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			rec := &keyRecorder{}
+			spoolDir, spoolMax := "", int64(0)
+			if mode == "spool" {
+				spoolDir, spoolMax = t.TempDir()+"/spool", int64(1<<30)
+			}
+			up := NewS3Uploader(cfg, "did:test:live", "live-test/", time.Hour, rec, spoolDir, spoolMax)
 
-	// Irregular segments: parts flush at >=5MB boundaries with different sizes.
-	var want []byte
-	for _, mb := range []int{2, 2, 2, 3, 3, 1, 2} { // parts: 6MB, 6MB(3+3), then 3MB tail
-		seg := bytes.Repeat([]byte("streamplace-live-s3-test"), mb*1024*1024/24)
-		seg = append(seg, bytes.Repeat([]byte{0xAB}, 137*mb)...) // knock sizes off round numbers
-		require.NoError(t, up.AddSegment(ctx, seg))
-		want = append(want, seg...)
+			// Irregular segments: parts flush at >=5MB boundaries with different sizes.
+			var want []byte
+			for _, mb := range []int{2, 2, 2, 3, 3, 1, 2} { // parts: 6MB, 6MB(3+3), then 3MB tail
+				seg := bytes.Repeat([]byte("streamplace-live-s3-test"), mb*1024*1024/24)
+				seg = append(seg, bytes.Repeat([]byte{0xAB}, 137*mb)...) // knock sizes off round numbers
+				require.NoError(t, up.AddSegment(ctx, seg))
+				want = append(want, seg...)
+			}
+			require.NoError(t, up.Close(ctx))
+
+			require.Len(t, rec.keys, 1)
+			key := rec.keys[0]
+			t.Logf("uploaded key %s", key)
+
+			client := NewClient(cfg)
+			out, err := client.GetObject(ctx, &awss3.GetObjectInput{
+				Bucket: aws.String(cfg.Bucket),
+				Key:    aws.String(key),
+			})
+			require.NoError(t, err)
+			got, err := io.ReadAll(out.Body)
+			require.NoError(t, err)
+			require.NoError(t, out.Body.Close())
+			require.Equal(t, len(want), len(got))
+			require.True(t, bytes.Equal(want, got))
+
+			_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{
+				Bucket: aws.String(cfg.Bucket),
+				Key:    aws.String(key),
+			})
+			require.NoError(t, err)
+		})
 	}
-	require.NoError(t, up.Close(ctx))
-
-	require.Len(t, rec.keys, 1)
-	key := rec.keys[0]
-	t.Logf("uploaded key %s", key)
-
-	client := NewClient(cfg)
-	out, err := client.GetObject(ctx, &awss3.GetObjectInput{
-		Bucket: aws.String(cfg.Bucket),
-		Key:    aws.String(key),
-	})
-	require.NoError(t, err)
-	got, err := io.ReadAll(out.Body)
-	require.NoError(t, err)
-	require.NoError(t, out.Body.Close())
-	require.Equal(t, len(want), len(got))
-	require.True(t, bytes.Equal(want, got))
-
-	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{
-		Bucket: aws.String(cfg.Bucket),
-		Key:    aws.String(key),
-	})
-	require.NoError(t, err)
 }
 
 // TestLiveCanary runs the canary probe against a real endpoint. Same env

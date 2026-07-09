@@ -274,6 +274,26 @@ var S3LiveRecSegmentsDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "live segments dropped because no live-rec object could be started for them",
 })
 
+var S3LiveRecUploadRetriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_upload_retries_total",
+	Help: "live-rec objects aborted and rewound for retry from the disk spool; no bytes lost, but sustained growth means the bucket is unhealthy",
+})
+
+var S3LiveRecSpoolBytes = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "streamplace_s3_liverec_spool_bytes",
+	Help: "bytes currently held in live-rec disk spools awaiting upload; sustained growth means uploads are failing or lagging",
+})
+
+var S3LiveRecSpoolEvictedBytesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_spool_evicted_bytes_total",
+	Help: "spooled bytes evicted because a spool exceeded its bound; these bytes are missing from recordings",
+})
+
+var S3LiveRecSpoolSalvagedBytesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_spool_salvaged_bytes_total",
+	Help: "spooled bytes from prior runs successfully uploaded by the startup salvage pass",
+})
+
 // S3 canary — a periodic end-to-end probe exercising the exact multipart call
 // patterns live-rec and finalize use (uniform parts, UploadPartCopy, short
 // trailing part) against the configured bucket, so provider incompatibilities

@@ -117,7 +117,7 @@ func waitForStarts(t *testing.T, rec *fakeRecorder, n int) {
 func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 	fc := &fakeUploadAPI{}
 	rec := &fakeRecorder{}
-	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec, nil)
 
 	ctx := context.Background()
 	seg := make([]byte, 1024) // well under minPartSize: buffered until the object completes
@@ -147,7 +147,7 @@ func TestS3UploaderCutoverOnLivestreamChange(t *testing.T) {
 func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	fc := &fakeUploadAPI{}
 	rec := &fakeRecorder{}
-	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec, nil)
 
 	ctx := context.Background()
 	seg := make([]byte, 1024) // under minPartSize: buffered until the object completes
@@ -177,7 +177,7 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 func TestS3UploaderUniformParts(t *testing.T) {
 	fc := &fakeUploadAPI{}
 	rec := &fakeRecorder{}
-	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec, nil)
 
 	ctx := context.Background()
 	total := 0
@@ -212,7 +212,7 @@ func TestS3UploaderUniformParts(t *testing.T) {
 func TestS3UploaderRecoversFromCompleteFailure(t *testing.T) {
 	fc := &fakeUploadAPI{failCompletes: 1}
 	rec := &fakeRecorder{}
-	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec, nil)
 
 	ctx := context.Background()
 	seg := make([]byte, 1024)
@@ -246,7 +246,7 @@ func TestS3UploaderCloseIdempotent(t *testing.T) {
 		Bucket:          "test",
 		AccessKeyID:     "k",
 		SecretAccessKey: "s",
-	}, "did:plc:test", "did:plc:test/", time.Minute, nil)
+	}, "did:plc:test", "did:plc:test/", time.Minute, nil, "", 0)
 
 	const n = 4
 	var wg sync.WaitGroup

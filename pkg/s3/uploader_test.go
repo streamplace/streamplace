@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -15,8 +16,9 @@ import (
 // fakeUploadAPI is an in-memory stand-in for the multipart subset of *s3.Client
 // the upload loop drives. It hands back dummy upload IDs / etags and never errs.
 type fakeUploadAPI struct {
-	mu      sync.Mutex
-	creates int
+	mu        sync.Mutex
+	creates   int
+	partSizes []int
 }
 
 func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.CreateMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
@@ -27,7 +29,14 @@ func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.Create
 	return &awss3.CreateMultipartUploadOutput{UploadId: aws.String(fmt.Sprintf("up-%d", n))}, nil
 }
 
-func (f *fakeUploadAPI) UploadPart(_ context.Context, _ *awss3.UploadPartInput, _ ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+func (f *fakeUploadAPI) UploadPart(_ context.Context, in *awss3.UploadPartInput, _ ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+	body, err := io.ReadAll(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	f.partSizes = append(f.partSizes, len(body))
+	f.mu.Unlock()
 	return &awss3.UploadPartOutput{ETag: aws.String("etag")}, nil
 }
 
@@ -143,6 +152,41 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	keys := rec.startKeys()
 	require.Len(t, keys, 2)
 	require.NotEqual(t, keys[0], keys[1], "post-cutover object must have a distinct key")
+}
+
+// TestS3UploaderUniformParts proves the uploader slices its buffer into
+// exactly liveUploadPartSize parts regardless of segment sizes, with only the
+// object's final part smaller. R2 rejects multipart completes whose
+// non-trailing parts differ in length, so "flush whatever accumulated past
+// 5MB" (the old behavior) breaks against R2 with real, variable-size
+// segments.
+func TestS3UploaderUniformParts(t *testing.T) {
+	fc := &fakeUploadAPI{}
+	rec := &fakeRecorder{}
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+
+	ctx := context.Background()
+	total := 0
+	for _, mb := range []int{2, 3, 4, 3} { // 12MB in irregular chunks
+		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024)))
+		total += mb * 1024 * 1024
+	}
+	require.NoError(t, u.Close(ctx))
+
+	fc.mu.Lock()
+	sizes := append([]int(nil), fc.partSizes...)
+	fc.mu.Unlock()
+	require.NotEmpty(t, sizes)
+	got := 0
+	for i, s := range sizes {
+		got += s
+		if i < len(sizes)-1 {
+			require.Equal(t, liveUploadPartSize, s, "non-trailing part %d must be exactly liveUploadPartSize", i+1)
+		} else {
+			require.LessOrEqual(t, s, liveUploadPartSize)
+		}
+	}
+	require.Equal(t, total, got, "flushed parts must cover every byte exactly once")
 }
 
 // TestS3UploaderCloseIdempotent exercises the lifecycle fix that re-enabled

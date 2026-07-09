@@ -168,19 +168,12 @@ func captureInitHeader(ctx context.Context, store blob.Store, key string) ([]byt
 }
 
 // assembleContentBlob writes header ++ objects to contentKey. For an S3 store
-// this is a near-entirely server-side concat (UploadPartCopy); a non-final
-// object below S3's 5 MB part floor (only short dev streams) falls back to a
-// full rewrite, as does any non-S3 store.
+// this is a near-entirely server-side concat (uniform UploadPartCopy windows;
+// only header/boundary windows pass through this process); any non-S3 store
+// falls back to a full rewrite.
 func assembleContentBlob(ctx context.Context, store blob.Store, header []byte, keys []string, contentKey string) error {
 	if s3store, ok := store.(*blob.S3Store); ok {
-		err := s3pkg.ConcatWithHeader(ctx, s3store.Client(), s3store.Bucket(), header, keys, contentKey, "video/mp4")
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, s3pkg.ErrConcatPartTooSmall) {
-			return err
-		}
-		log.Warn(ctx, "s3 concat fell back to rewrite (object below 5MB part floor)", "key", contentKey)
+		return s3pkg.ConcatWithHeader(ctx, s3store.Client(), s3store.Bucket(), header, keys, contentKey, "video/mp4")
 	}
 	return assembleViaWriter(ctx, store, header, keys, contentKey)
 }

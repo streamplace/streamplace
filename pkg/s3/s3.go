@@ -91,6 +91,15 @@ func (u *S3Uploader) getLivestreamURI() string {
 // S3 requires each part except the last to be at least 5MB.
 const minPartSize = 5 * 1024 * 1024
 
+// liveUploadPartSize is the exact size of every non-final part the live
+// uploader flushes. R2 — unlike AWS/minio — rejects CompleteMultipartUpload
+// with "All non-trailing parts must have the same length" unless parts are
+// uniform, so the buffer is sliced at fixed boundaries instead of flushing
+// whatever segments accumulated past the 5MB minimum. The S3 minimum keeps
+// flushes prompt for a live stream; at 5MB a 10000-part object still spans
+// ~48GB, far beyond one 10-minute cutover object.
+const liveUploadPartSize = minPartSize
+
 type activeUpload struct {
 	key           string
 	uploadID      string
@@ -254,8 +263,12 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	flushBuffer := func() error {
-		if current == nil || len(current.buf) == 0 {
+	// flushPart uploads exactly the first n buffered bytes as the next part,
+	// keeping the remainder buffered. Callers pass liveUploadPartSize for every
+	// part except the object's final flush (completeUpload passes whatever is
+	// left) — R2 requires all non-trailing parts to have the same length.
+	flushPart := func(n int) error {
+		if current == nil || n == 0 {
 			return nil
 		}
 		current.partNum++
@@ -266,18 +279,18 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			Key:        aws.String(current.key),
 			UploadId:   aws.String(current.uploadID),
 			PartNumber: aws.Int32(partNum),
-			Body:       bytes.NewReader(current.buf),
+			Body:       bytes.NewReader(current.buf[:n]),
 		})
 		if err != nil {
 			return fmt.Errorf("uploading part %d: %w", partNum, err)
 		}
-		log.Debug(ctx, "uploaded S3 part", "key", current.key, "part", partNum, "size", len(current.buf))
+		log.Debug(ctx, "uploaded S3 part", "key", current.key, "part", partNum, "size", n)
 		current.parts = append(current.parts, types.CompletedPart{
 			ETag:       resp.ETag,
 			PartNumber: aws.Int32(partNum),
 		})
-		current.totalSize += int64(len(current.buf))
-		current.buf = current.buf[:0]
+		current.totalSize += int64(n)
+		current.buf = append(current.buf[:0], current.buf[n:]...)
 		return nil
 	}
 
@@ -285,7 +298,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if current == nil {
 			return nil
 		}
-		if err := flushBuffer(); err != nil {
+		if err := flushPart(len(current.buf)); err != nil {
 			return fmt.Errorf("error flushing buffer: %w", err)
 		}
 		if len(current.parts) == 0 {
@@ -345,9 +358,10 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		// Append segment data to buffer
 		current.buf = append(current.buf, seg...)
 
-		// Flush if buffer is large enough for a part
-		if len(current.buf) >= minPartSize {
-			if err := flushBuffer(); err != nil {
+		// Flush full-size parts; a sub-part remainder stays buffered until the
+		// next segment or the object's completing flush.
+		for len(current.buf) >= liveUploadPartSize {
+			if err := flushPart(liveUploadPartSize); err != nil {
 				return err
 			}
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 // Config holds the configuration for an S3-compatible upload target.
@@ -262,6 +263,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			}
 			current.recordID = id
 		}
+		spmetrics.S3LiveRecObjectsStartedTotal.Inc()
 		log.Log(ctx, "started S3 multipart upload", "key", key)
 		return nil
 	}
@@ -292,6 +294,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			ETag:       resp.ETag,
 			PartNumber: aws.Int32(partNum),
 		})
+		spmetrics.S3LiveRecBytesUploadedTotal.Add(float64(n))
 		current.totalSize += int64(n)
 		current.buf = append(current.buf[:0], current.buf[n:]...)
 		return nil
@@ -327,6 +330,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if err != nil {
 			return fmt.Errorf("completing multipart upload %s: %w", current.key, err)
 		}
+		spmetrics.S3LiveRecObjectsCompletedTotal.Inc()
 		log.Log(ctx, "completed S3 multipart upload", "key", current.key, "parts", len(current.parts), "size", current.totalSize)
 		if u.recorder != nil && current.recordID != "" {
 			if recErr := u.recorder.RecordComplete(ctx, current.recordID, int32(len(current.parts)), current.totalSize); recErr != nil {
@@ -383,9 +387,12 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if current == nil {
 			// Nothing in flight (e.g. CreateMultipartUpload itself failed); the
 			// segment is still dropped, so say so.
+			spmetrics.S3LiveRecSegmentsDroppedTotal.Inc()
 			log.Error(ctx, "error in live-rec S3 upload; segment dropped", "error", reason)
 			return
 		}
+		spmetrics.S3LiveRecObjectsAbandonedTotal.Inc()
+		spmetrics.S3LiveRecBytesDroppedTotal.Add(float64(current.totalSize + int64(len(current.buf))))
 		log.Error(ctx, "abandoning live-rec S3 object; its bytes will be missing from the recording",
 			"key", current.key,
 			"uploadedBytes", current.totalSize,

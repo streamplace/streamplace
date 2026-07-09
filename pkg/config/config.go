@@ -157,6 +157,7 @@ type CLI struct {
 	S3AccessKeyID               string
 	S3SecretAccessKey           string
 	S3Region                    string
+	S3CanaryInterval            time.Duration
 	VODCDNURL                   string
 	DisableSyndication          bool
 	MuxlInitialMemoryMB         int
@@ -951,6 +952,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       "us-east-1",
 				Destination: &cli.S3Region,
 				Sources:     urfavecli.EnvVars("SP_S3_REGION"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "s3-canary-interval",
+				Usage:       "how often to probe the S3 bucket with a real multipart upload exercising the live-recording call patterns (uniform parts, UploadPartCopy). Failures log at error level and land in streamplace_s3_canary_* metrics. 0 disables.",
+				Value:       1 * time.Hour,
+				Destination: &cli.S3CanaryInterval,
+				Sources:     urfavecli.EnvVars("SP_S3_CANARY_INTERVAL"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "vod-cdn-url",

@@ -236,6 +236,59 @@ var S3MultipartBytesUploadedTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Help: "total bytes written via pkg/s3.MultipartWriter",
 })
 
+// Live-rec S3 upload (pkg/s3.S3Uploader) — the durable recording of user
+// livestreams, one object per ~10 minutes of stream. These exist because the
+// first production failure of this pipeline was invisible: the uploader hit
+// one error, stopped, and nothing counted the loss. Alert on abandoned/dropped
+// > 0 (recorded user bytes were lost) and on started outpacing completed for
+// longer than a cutover interval (objects starting but never finishing —
+// exactly how R2's InvalidPart rejection presented).
+
+var S3LiveRecObjectsStartedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_objects_started_total",
+	Help: "live-rec multipart objects started (CreateMultipartUpload succeeded)",
+})
+
+var S3LiveRecObjectsCompletedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_objects_completed_total",
+	Help: "live-rec multipart objects completed and recorded for finalize",
+})
+
+var S3LiveRecObjectsAbandonedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_objects_abandoned_total",
+	Help: "live-rec objects aborted after an upload error; their bytes are missing from the recording",
+})
+
+var S3LiveRecBytesUploadedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_bytes_uploaded_total",
+	Help: "bytes successfully uploaded as live-rec parts (counted at UploadPart success)",
+})
+
+var S3LiveRecBytesDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_bytes_dropped_total",
+	Help: "recorded bytes lost with abandoned live-rec objects (uploaded parts plus unflushed buffer)",
+})
+
+var S3LiveRecSegmentsDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "streamplace_s3_liverec_segments_dropped_total",
+	Help: "live segments dropped because no live-rec object could be started for them",
+})
+
+// S3 canary — a periodic end-to-end probe exercising the exact multipart call
+// patterns live-rec and finalize use (uniform parts, UploadPartCopy, short
+// trailing part) against the configured bucket, so provider incompatibilities
+// surface at deploy time instead of mid-livestream.
+
+var S3CanaryChecksTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_s3_canary_checks_total",
+	Help: "S3 canary probe results",
+}, []string{"result"}) // "ok" or "fail"
+
+var S3CanaryLastSuccessTimestamp = promauto.NewGauge(prometheus.GaugeOpts{
+	Name: "streamplace_s3_canary_last_success_timestamp_seconds",
+	Help: "unix time of the last successful S3 canary probe (0 = never this process)",
+})
+
 func ViewerInc(user string, protocol string) {
 	go func() {
 		viewersLock.Lock()

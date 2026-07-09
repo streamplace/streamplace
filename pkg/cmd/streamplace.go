@@ -43,6 +43,7 @@ import (
 	"stream.place/streamplace/pkg/replication/iroh_replicator"
 	"stream.place/streamplace/pkg/replication/websocketrep"
 	"stream.place/streamplace/pkg/rtmps"
+	sps3 "stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
@@ -561,6 +562,15 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	group.Go(func() error {
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
+
+	// Probe the live-recording bucket with the real multipart call patterns so
+	// a provider incompatibility (or credential rot) screams at startup instead
+	// of surfacing ten minutes into a user's livestream.
+	if cli.S3Configured() && cli.S3CanaryInterval > 0 {
+		group.Go(func() error {
+			return sps3.StartCanary(ctx, cli.S3Config(), cli.S3CanaryInterval)
+		})
+	}
 
 	if cli.LegacySegmentCleaner {
 		group.Go(func() error {

@@ -116,6 +116,16 @@ func TestLiveS3Uploader(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestLiveCanary runs the canary probe against a real endpoint. Same env
+// gating as TestLiveS3Uploader.
+func TestLiveCanary(t *testing.T) {
+	cfg, ok := liveConfig(t)
+	if !ok {
+		t.Skip("set S3_ENDPOINT etc. to run the live canary test")
+	}
+	require.NoError(t, RunCanary(context.Background(), NewClient(cfg), cfg.Bucket))
+}
+
 // TestLiveConcatWithHeader exercises the live-to-VOD finalize assembly
 // (header + UploadPartCopy concat) against a real endpoint. Same env gating
 // as TestLiveS3Uploader.

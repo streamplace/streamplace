@@ -399,6 +399,7 @@ go-lexicons:
 		--lexicons-dir .build/golexmerge \
 		--output-dir .build/goout \
 		--module-path stream.place/streamplace/pkg \
+		--gen-server spxrpc \
 		.build/golexmerge/place/stream \
 		.build/golexmerge/games \
 		.build/golexmerge/com/atproto \
@@ -409,6 +410,7 @@ go-lexicons:
 	&& cp .build/goout/gamesgamesgamesgamesgames/*.go ./pkg/gamesgamesgamesgamesgames/ \
 	&& cp .build/goout/comatproto/*.go ./pkg/comatproto/ \
 	&& cp .build/goout/appbsky/*.go ./pkg/appbsky/ \
+	&& cp .build/goout/spxrpc/stubs.go ./pkg/spxrpc/stubs.go \
 	&& rm -rf .build/golexmerge .build/goout
 
 .PHONY: js-lexicons

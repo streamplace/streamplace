@@ -271,6 +271,21 @@ type objectWriter struct {
 	u       *S3Uploader
 	current *activeUpload
 	objSeq  int // disambiguates keys when two objects roll over within one second
+
+	// keySuffix is appended to every object key before ".m4s". The salvage
+	// path sets it to the spool session name so salvaged keys can never
+	// collide with each other (objSeq resets per salvaged spool and mtimes
+	// have second granularity) or with keys the crashed run already wrote.
+	keySuffix string
+
+	// strictRecorder makes Recorder failures upload failures. The spool loop
+	// and salvage set this: their segments survive on disk, so failing and
+	// retrying beats completing an object that no s3_segments row points at —
+	// such an object is invisible to finalize, and once the spool is acked
+	// the bytes are unrecoverable. The memory loop stays lenient: without a
+	// spool the segments are gone either way, and an untracked object in the
+	// bucket at least preserves the bytes.
+	strictRecorder bool
 }
 
 // start opens a new multipart object. started is the moment the object's
@@ -280,7 +295,7 @@ type objectWriter struct {
 // still sort correctly in the assembled VOD.
 func (w *objectWriter) start(ctx context.Context, uri string, started time.Time) error {
 	w.objSeq++
-	key := fmt.Sprintf("%s%s-%d.m4s", w.u.keyPrefix, started.UTC().Format("2006-01-02T15-04-05"), w.objSeq)
+	key := fmt.Sprintf("%s%s-%d%s.m4s", w.u.keyPrefix, started.UTC().Format("2006-01-02T15-04-05"), w.objSeq, w.keySuffix)
 
 	resp, err := w.u.client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 		Bucket:      aws.String(w.u.bucket),
@@ -301,6 +316,14 @@ func (w *objectWriter) start(ctx context.Context, uri string, started time.Time)
 		id, recErr := w.u.recorder.RecordStart(ctx, w.u.userDID, w.u.bucket, key, uri, started)
 		if recErr != nil {
 			log.Error(ctx, "recording S3 upload start", "key", key, "error", recErr)
+			if w.strictRecorder {
+				// An object without a row is invisible to finalize; fail now
+				// (the segments are still spooled) rather than upload into a
+				// black hole.
+				w.abortMultipart(ctx)
+				w.current = nil
+				return fmt.Errorf("recording S3 upload start for %s: %w", key, recErr)
+			}
 		}
 		w.current.recordID = id
 	}
@@ -385,6 +408,14 @@ func (w *objectWriter) complete(ctx context.Context) error {
 	if w.u.recorder != nil && w.current.recordID != "" {
 		if recErr := w.u.recorder.RecordComplete(ctx, w.current.recordID, int32(len(w.current.parts)), w.current.totalSize); recErr != nil {
 			log.Error(ctx, "recording S3 upload completion", "key", w.current.key, "error", recErr)
+			if w.strictRecorder {
+				// The object completed in S3 but finalize will never see it
+				// (its row stays incomplete). Surface the failure so the spool
+				// segments are retried into a fresh, properly-recorded object;
+				// the completed-but-unrecorded one is orphaned storage, not
+				// lost footage.
+				return fmt.Errorf("recording S3 upload completion for %s: %w", w.current.key, recErr)
+			}
 		}
 	}
 	w.current = nil
@@ -533,7 +564,7 @@ var (
 // crashes, costing only lag.
 func (u *S3Uploader) uploadLoopSpool(ctx context.Context) {
 	ctx = log.WithLogValues(ctx, "func", "s3.uploadLoopSpool")
-	w := &objectWriter{u: u}
+	w := &objectWriter{u: u, strictRecorder: true}
 	var nextSeq int64 = 1     // next spool seq to consume
 	var objFirstSeq int64     // first seq of the in-flight object (rewind point)
 	var lastConsumed int64    // last seq appended into the in-flight object
@@ -576,8 +607,16 @@ func (u *S3Uploader) uploadLoopSpool(ctx context.Context) {
 	// times (spool mtimes), so objects assembled during catch-up still map to
 	// real stream time and sort honestly in finalize.
 	process := func() {
-		if !retryAt.IsZero() && time.Now().Before(retryAt) {
-			return
+		if !retryAt.IsZero() {
+			if time.Now().Before(retryAt) {
+				return
+			}
+			// The retry is due: clear it so the wake timer stops re-arming
+			// with an in-the-past deadline (a ~100ms busy-wake otherwise).
+			// backoff itself only resets when an object completes, so a
+			// still-failing bucket keeps escalating rather than restarting
+			// at spoolRetryMin every part success.
+			retryAt = time.Time{}
 		}
 		for {
 			seq, ok := u.spool.NextFrom(nextSeq)
@@ -651,11 +690,14 @@ func (u *S3Uploader) uploadLoopSpool(ctx context.Context) {
 			}
 			if cmd.cutover {
 				// Close out the current object so it's immediately finalize-able
-				// (e.g. the livestream just ended). During backoff there may be
-				// nothing in flight; the pending segments complete on retry (a
-				// late cutover can then merge across the cut — finalize orders by
-				// started-at, so the recording stays correct, just chunked
-				// differently).
+				// (e.g. the livestream just ended). A cutover overrides any
+				// backoff: the stream is ending, so make one immediate attempt
+				// at the backlog — if the bucket is still down it fails fast and
+				// re-arms the backoff, and the tail completes on a later retry
+				// or next-startup salvage (a late tail can merge across the cut;
+				// finalize orders by started-at, so the recording stays correct,
+				// just chunked differently).
+				retryAt = time.Time{}
 				process()
 				if err := completeAndAck(); err != nil {
 					fail(fmt.Errorf("error completing upload on cutover: %w", err))

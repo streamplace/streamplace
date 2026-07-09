@@ -73,6 +73,13 @@ func OpenSpool(dir string, maxBytes int64) (*Spool, error) {
 	}
 	for _, e := range entries {
 		name := e.Name()
+		if strings.HasSuffix(name, ".tmp") {
+			// A segment write torn by a crash; Append never acknowledged it,
+			// so it was never owed durability. Remove rather than salvage
+			// possibly-partial MUXL bytes into a recording.
+			_ = os.Remove(filepath.Join(dir, name))
+			continue
+		}
 		if !strings.HasSuffix(name, ".seg") {
 			continue
 		}
@@ -114,8 +121,29 @@ func (s *Spool) Append(ctx context.Context, data []byte, uri string) (int64, err
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	seq := s.nextSeq
-	if err := os.WriteFile(filepath.Join(s.dir, spoolSegFile(seq)), data, 0o644); err != nil {
+	// Write-tmp + fsync + rename: after a host crash (not just a process
+	// crash) the segment file is either complete or absent — never torn bytes
+	// that salvage would splice into a recording. OpenSpool sweeps orphaned
+	// .tmp files.
+	final := filepath.Join(s.dir, spoolSegFile(seq))
+	tmp := final + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+	if err != nil {
+		return 0, fmt.Errorf("creating spool segment %d: %w", seq, err)
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
 		return 0, fmt.Errorf("writing spool segment %d: %w", seq, err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return 0, fmt.Errorf("syncing spool segment %d: %w", seq, err)
+	}
+	if err := f.Close(); err != nil {
+		return 0, fmt.Errorf("closing spool segment %d: %w", seq, err)
+	}
+	if err := os.Rename(tmp, final); err != nil {
+		return 0, fmt.Errorf("renaming spool segment %d: %w", seq, err)
 	}
 	s.nextSeq++
 	s.seqs = append(s.seqs, seq)
@@ -129,6 +157,7 @@ func (s *Spool) Append(ctx context.Context, data []byte, uri string) (int64, err
 		f, err := os.OpenFile(filepath.Join(s.dir, spoolMetaFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		if err == nil {
 			_, _ = f.Write(append(line, '\n'))
+			_ = f.Sync() // URI changes are rare; losing one misattributes segments
 			_ = f.Close()
 		} else {
 			log.Error(ctx, "writing spool meta", "dir", s.dir, "error", err)

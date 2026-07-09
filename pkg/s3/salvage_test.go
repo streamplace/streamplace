@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,7 +38,7 @@ func TestSalvageSpools(t *testing.T) {
 	healthy := &fakeUploadAPI{}
 	rec2 := &fakeRecorder{}
 	require.NoError(t, salvageSpools(ctx, healthy, "bucket", rec2, root,
-		func(d string) string { return "live-rec/" + d + "/" }, time.Hour))
+		func(d string) string { return "live-rec/" + d + "/" }, time.Hour, time.Now()))
 
 	healthy.mu.Lock()
 	defer healthy.mu.Unlock()
@@ -54,6 +55,35 @@ func TestSalvageSpools(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "drained spool dir must be removed")
 	_, err = os.Stat(filepath.Join(root, did))
 	require.True(t, os.IsNotExist(err), "empty did dir must be removed")
+}
+
+// TestSalvageSpoolsSkipsLiveSessions proves the boot-time cutoff: a session
+// dir whose UnixNano name is at/after startedBefore belongs to a live session
+// of this process and must not be touched — that's what makes salvage safe to
+// run concurrently with new streams at startup.
+func TestSalvageSpoolsSkipsLiveSessions(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "live-rec-spool")
+	did := "did:plc:live"
+	cutoff := time.Now()
+	liveDir := filepath.Join(root, did, fmt.Sprintf("%d", time.Now().Add(time.Second).UnixNano()))
+
+	spool, err := OpenSpool(liveDir, 0)
+	require.NoError(t, err)
+	ctx := context.Background()
+	_, err = spool.Append(ctx, make([]byte, 1024), "at://A")
+	require.NoError(t, err)
+
+	healthy := &fakeUploadAPI{}
+	rec := &fakeRecorder{}
+	require.NoError(t, salvageSpools(ctx, healthy, "bucket", rec, root,
+		func(d string) string { return "live-rec/" + d + "/" }, time.Hour, cutoff))
+
+	healthy.mu.Lock()
+	defer healthy.mu.Unlock()
+	require.Equal(t, 0, healthy.creates, "a live session's spool must not be salvaged")
+	s2, err := OpenSpool(liveDir, 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, s2.Len(), "the live session's segments must be untouched")
 }
 
 // TestSalvageSpoolsPartialFailure proves a mid-salvage failure keeps the
@@ -76,7 +106,7 @@ func TestSalvageSpoolsPartialFailure(t *testing.T) {
 	flaky := &fakeUploadAPI{completesBeforeFail: 1, failCompletes: 1 << 30}
 	rec := &fakeRecorder{}
 	require.NoError(t, salvageSpools(ctx, flaky, "bucket", rec, root,
-		func(d string) string { return "live-rec/" + d + "/" }, time.Hour))
+		func(d string) string { return "live-rec/" + d + "/" }, time.Hour, time.Now()))
 
 	// Object A's segment was acked away; B's remains for the next run.
 	s2, err := OpenSpool(dir, 0)
@@ -88,7 +118,7 @@ func TestSalvageSpoolsPartialFailure(t *testing.T) {
 	healthy := &fakeUploadAPI{}
 	rec3 := &fakeRecorder{}
 	require.NoError(t, salvageSpools(ctx, healthy, "bucket", rec3, root,
-		func(d string) string { return "live-rec/" + d + "/" }, time.Hour))
+		func(d string) string { return "live-rec/" + d + "/" }, time.Hour, time.Now()))
 	healthy.mu.Lock()
 	defer healthy.mu.Unlock()
 	require.Equal(t, 1, healthy.completes)

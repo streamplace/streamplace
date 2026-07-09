@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"stream.place/streamplace/pkg/log"
@@ -21,20 +22,22 @@ import (
 // objects by started-at, so salvaged objects sort into the right place no
 // matter how late they upload. Drained spools are deleted.
 //
-// Run this once at startup, before stream sessions pile up. It's safe against
-// concurrent new sessions because every session creates a fresh uniquely-named
-// spool dir: anything present at startup is by construction orphaned. (A spool
+// Run this once at startup. startedBefore must be a timestamp from before any
+// of this process's listeners could accept a stream: only session dirs created
+// before it are touched (session dirs are named by their creation UnixNano),
+// so salvage can never open a spool a live uploader of this process owns —
+// even if a streamer reconnects while the scan is still running. (A spool
 // abandoned by a failing Close mid-run waits for the next restart; that needs
 // a failure at the exact end of a stream, and the data just sits on disk in
 // the meantime.)
 //
 // Failures leave the affected spool in place for the next attempt and move on
 // to the next one; the returned error is only ever a scan-level failure.
-func SalvageSpools(ctx context.Context, cfg Config, recorder Recorder, root string, keyPrefixFor func(did string) string, cutoverEvery time.Duration) error {
-	return salvageSpools(ctx, NewClient(cfg), cfg.Bucket, recorder, root, keyPrefixFor, cutoverEvery)
+func SalvageSpools(ctx context.Context, cfg Config, recorder Recorder, root string, keyPrefixFor func(did string) string, cutoverEvery time.Duration, startedBefore time.Time) error {
+	return salvageSpools(ctx, NewClient(cfg), cfg.Bucket, recorder, root, keyPrefixFor, cutoverEvery, startedBefore)
 }
 
-func salvageSpools(ctx context.Context, client uploadAPI, bucket string, recorder Recorder, root string, keyPrefixFor func(did string) string, cutoverEvery time.Duration) error {
+func salvageSpools(ctx context.Context, client uploadAPI, bucket string, recorder Recorder, root string, keyPrefixFor func(did string) string, cutoverEvery time.Duration, startedBefore time.Time) error {
 	ctx = log.WithLogValues(ctx, "func", "s3.SalvageSpools")
 	didDirs, err := os.ReadDir(root)
 	if os.IsNotExist(err) {
@@ -57,8 +60,12 @@ func salvageSpools(ctx context.Context, client uploadAPI, bucket string, recorde
 			if !sess.IsDir() {
 				continue
 			}
+			if !sessionStartedBefore(sess, startedBefore) {
+				// A live session of this process — never touch it.
+				continue
+			}
 			dir := filepath.Join(root, did, sess.Name())
-			if err := salvageOne(ctx, client, bucket, recorder, dir, did, keyPrefixFor(did), cutoverEvery); err != nil {
+			if err := salvageOne(ctx, client, bucket, recorder, dir, did, keyPrefixFor(did), sess.Name(), cutoverEvery); err != nil {
 				log.Error(ctx, "salvaging live-rec spool failed; leaving it for the next attempt", "dir", dir, "error", err)
 			}
 		}
@@ -68,11 +75,27 @@ func salvageSpools(ctx context.Context, client uploadAPI, bucket string, recorde
 	return nil
 }
 
-// salvageOne drains a single leftover spool into live-rec objects. Any error
+// sessionStartedBefore reports whether a spool session dir predates cutoff.
+// Session dirs are named by their creation UnixNano (see the director); a
+// non-numeric name (foreign layout) falls back to the dir mtime.
+func sessionStartedBefore(sess os.DirEntry, cutoff time.Time) bool {
+	if nanos, err := strconv.ParseInt(sess.Name(), 10, 64); err == nil {
+		return nanos < cutoff.UnixNano()
+	}
+	info, err := sess.Info()
+	if err != nil {
+		return false // can't tell: leave it alone
+	}
+	return info.ModTime().Before(cutoff)
+}
+
+// salvageOne drains a single leftover spool into live-rec objects. session
+// (the spool dir name) is baked into every object key so salvaged keys can't
+// collide across spools or with keys the crashed run already wrote. Any error
 // leaves the remaining segments on disk (already-completed objects stay
 // completed — their segments were acked, so a re-run picks up exactly where
 // this one failed).
-func salvageOne(ctx context.Context, client uploadAPI, bucket string, recorder Recorder, dir, did, keyPrefix string, cutoverEvery time.Duration) error {
+func salvageOne(ctx context.Context, client uploadAPI, bucket string, recorder Recorder, dir, did, keyPrefix, session string, cutoverEvery time.Duration) error {
 	spool, err := OpenSpool(dir, 0)
 	if err != nil {
 		return err
@@ -94,7 +117,7 @@ func salvageOne(ctx context.Context, client uploadAPI, bucket string, recorder R
 		recorder:     recorder,
 		spool:        spool,
 	}
-	w := &objectWriter{u: u}
+	w := &objectWriter{u: u, strictRecorder: true, keySuffix: "-salvaged-" + session}
 	var nextSeq, lastConsumed int64 = 1, 0
 	var salvaged int64
 	for {

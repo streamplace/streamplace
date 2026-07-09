@@ -8,7 +8,7 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // ServerSettings represents a user's settings for a particular Streamplace node

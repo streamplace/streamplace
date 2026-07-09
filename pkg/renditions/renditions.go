@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type FPS struct {

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamServerGetServerTime(ctx context.Context) (*placestreamtypes.ServerGetServerTime_Output, error) {

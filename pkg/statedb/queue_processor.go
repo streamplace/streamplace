@@ -17,7 +17,7 @@ import (
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 )

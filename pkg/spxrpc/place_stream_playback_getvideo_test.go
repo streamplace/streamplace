@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 

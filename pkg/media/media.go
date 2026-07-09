@@ -23,7 +23,7 @@ import (
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
 	"stream.place/streamplace/pkg/log"
 
@@ -31,7 +31,7 @@ import (
 
 	irohStreamplace "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 
-	_ "stream.place/streamplace/pkg/streamplacedeps"
+	_ "stream.place/streamplace/pkg/placestreamdeps"
 )
 
 const CertFile = "cert.pem"

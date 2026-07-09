@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func hostPort(host, port, defaultPort string) string {

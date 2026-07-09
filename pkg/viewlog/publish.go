@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 var aggregateTracer = otel.Tracer("viewlog")

@@ -11,7 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"go.opentelemetry.io/otel"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 var allowedSchemes = []string{"rtmp", "rtmps"}

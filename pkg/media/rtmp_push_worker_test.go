@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/ingestframe"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // runRTMPPushWorkerHelper is what the test binary becomes when re-exec'd with

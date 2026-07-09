@@ -21,7 +21,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // ErrUploadNotFound / ErrUploadNotReady let the publishVideo XRPC handler map

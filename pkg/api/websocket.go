@@ -18,7 +18,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // todo: does this mean a whole message has to fit within the buffer?

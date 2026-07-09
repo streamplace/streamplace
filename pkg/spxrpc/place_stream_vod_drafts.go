@@ -11,7 +11,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 

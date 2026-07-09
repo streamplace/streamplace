@@ -7,7 +7,7 @@ import (
 	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"go.opentelemetry.io/otel"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context, subjectDID string, userDID string) (*placestreamtypes.GraphGetFollowingUser_Output, error) {

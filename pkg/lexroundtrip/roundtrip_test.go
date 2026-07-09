@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
+	glexrt "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/lex"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // TestAdapterRegistryRoundtrip exercises the full go-dasl path: marshal a
@@ -16,13 +16,13 @@ import (
 // type + fields survive.
 func TestAdapterRegistryRoundtrip(t *testing.T) {
 	c := cid.MustParse("bafkreib2rxk3rybk3aobmv5cjuql3bm2twh4jo5uxyjfxzvjcamdmc76jm")
-	orig := &streamplace.Livestream{
+	orig := &placestream.Livestream{
 		CreatedAt: "2026-07-07T00:00:00Z",
 		Title:     "hello world",
 		Tags:      []string{"lang:en"},
 		Thumb:     &lex.Blob{Ref: lex.Link(c), MimeType: "image/jpeg", Size: 4096},
-		Activity: &streamplace.Livestream_Activity{
-			Defs_ActivityGame: &streamplace.Defs_ActivityGame{Uri: "at://did:plc:x/games.gamesgamesgamesgames.game/abc"},
+		Activity: &placestream.Livestream_Activity{
+			Defs_ActivityGame: &placestream.Defs_ActivityGame{Uri: "at://did:plc:x/games.gamesgamesgamesgames.game/abc"},
 		},
 	}
 
@@ -37,14 +37,14 @@ func TestAdapterRegistryRoundtrip(t *testing.T) {
 		t.Errorf("adapter did not stamp $type, got %q", orig.LexiconTypeID)
 	}
 
-	// Decode via the lexutil registry, exactly like pkg/atproto/sync.go.
-	decoded, err := lexutil.CborDecodeValue(enc)
+	// Decode via the glex runtime registry, exactly like the firehose does.
+	decoded, err := glexrt.CborDecodeValue(enc)
 	if err != nil {
 		t.Fatalf("CborDecodeValue: %v", err)
 	}
-	ls, ok := decoded.(*streamplace.Livestream)
+	ls, ok := decoded.(*placestream.Livestream)
 	if !ok {
-		t.Fatalf("decoded to %T, want *streamplace.Livestream", decoded)
+		t.Fatalf("decoded to %T, want *placestream.Livestream", decoded)
 	}
 	if ls.Title != orig.Title || ls.CreatedAt != orig.CreatedAt {
 		t.Errorf("scalar mismatch: got title=%q created=%q", ls.Title, ls.CreatedAt)

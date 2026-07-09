@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	streamplace "stream.place/streamplace/pkg/streamplace"
+	streamplace "stream.place/streamplace/pkg/placestream"
 )
 
 // Storage represents S3 storage configuration for a user

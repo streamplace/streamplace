@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 

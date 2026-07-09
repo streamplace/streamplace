@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Gate struct {

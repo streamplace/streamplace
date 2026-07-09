@@ -1,6 +1,6 @@
 package model
 
-import "stream.place/streamplace/pkg/streamplace"
+import "stream.place/streamplace/pkg/placestream"
 
 var DefaultColors = []*streamplace.ChatProfile_Color{
 	{Red: 244, Green: 67, Blue: 54},

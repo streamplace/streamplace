@@ -9,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestPermissionChecker_CheckPermission_StreamerSelfModeration(t *testing.T) {

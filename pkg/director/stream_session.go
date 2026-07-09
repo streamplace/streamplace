@@ -35,7 +35,7 @@ import (
 	"stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/thumbnail"
 )
 

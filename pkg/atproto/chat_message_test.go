@@ -18,7 +18,7 @@ import (
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestChatMessage(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // DraftVideo is a draft VOD: a permissioned-data-style record (CBOR-serialized,

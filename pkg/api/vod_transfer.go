@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 

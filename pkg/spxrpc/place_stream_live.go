@@ -27,7 +27,7 @@ import (
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestream.LiveDenyTeleport_Input) (*placestream.LiveDenyTeleport_Output, error) {

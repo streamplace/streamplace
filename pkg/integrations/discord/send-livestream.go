@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {

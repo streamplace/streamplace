@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string, limit int, q string) (*placestream.GameSearch_Output, error) {

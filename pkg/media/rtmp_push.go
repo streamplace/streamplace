@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // RTMPPush is the in-process multistream egress: it assembles the streamer's

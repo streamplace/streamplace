@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/badges"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamBadgeGetValidBadges(ctx context.Context, streamer string) (*placestream.BadgeGetValidBadges_Output, error) {

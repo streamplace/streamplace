@@ -7,7 +7,7 @@ import (
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type MetadataConfiguration struct {

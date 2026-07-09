@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type delegationGetter interface {

@@ -19,7 +19,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // trackRefJSON is the shape stored in Upload.TrackURIs.

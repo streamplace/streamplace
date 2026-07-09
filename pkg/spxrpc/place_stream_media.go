@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error) {

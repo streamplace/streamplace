@@ -9,7 +9,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // newDraftTestState builds an in-memory statedb for draft tests that don't need

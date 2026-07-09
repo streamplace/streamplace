@@ -8,7 +8,7 @@ import (
 	appbsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) RegisterHandlersAppBsky(e *echo.Echo) error {

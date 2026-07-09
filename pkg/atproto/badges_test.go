@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestAddModBadge(t *testing.T) {

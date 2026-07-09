@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/api/bsky"
 	"stream.place/streamplace/pkg/integrations/discord"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // SendChatWebhook sends chat message to a specific webhook

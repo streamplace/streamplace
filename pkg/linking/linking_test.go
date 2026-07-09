@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/lex"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func IndexHTML(t *testing.T) []byte {

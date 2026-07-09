@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamBroadcastGetBroadcaster(ctx context.Context) (*placestreamtypes.BroadcastGetBroadcaster_Output, error) {

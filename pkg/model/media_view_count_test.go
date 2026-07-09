@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func parseURI(t *testing.T, s string) syntax.ATURI {

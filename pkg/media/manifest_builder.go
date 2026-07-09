@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // ManifestBuilder is responsible for creating C2PA (Content Credentials) manifests

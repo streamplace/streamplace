@@ -15,7 +15,7 @@ import (
 	"gorm.io/plugin/prometheus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type DBModel struct {

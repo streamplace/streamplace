@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context, limit int, q string) (*placestreamtypes.LiveSearchActorsTypeahead_Output, error) {

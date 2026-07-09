@@ -8,7 +8,7 @@ import (
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/stretchr/testify/require"
 
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // putLike writes a place.stream.like by `liker` whose subject is the given URI.

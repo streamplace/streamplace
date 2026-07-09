@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Webhook struct {

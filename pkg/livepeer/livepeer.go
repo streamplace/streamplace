@@ -20,7 +20,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 const SegmentsInFlight = 2

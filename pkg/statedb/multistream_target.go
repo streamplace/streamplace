@@ -8,7 +8,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 const MAX_MULTISTREAM_TARGETS = 100

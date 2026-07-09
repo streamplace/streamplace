@@ -3,7 +3,7 @@ package spxrpc
 import (
 	"context"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestream.ConfigGetEnv_Output, error) {

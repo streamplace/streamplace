@@ -7,7 +7,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // GetValidBadges returns valid badges for a user in the context of a streamer's chat.

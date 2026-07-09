@@ -11,7 +11,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type VodComment struct {

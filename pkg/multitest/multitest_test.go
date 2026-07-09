@@ -24,7 +24,7 @@ import (
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/test/remote"
 )
 

@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Linker struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/statedb"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input *placestreamtypes.ServerUpsertStorage_Input) (*placestreamtypes.ServerUpsertStorage_Output, error) {

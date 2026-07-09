@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type WebsocketReplicator struct {

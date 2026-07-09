@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context, cursor string, limit int, video string) (*placestream.VodGetComments_Output, error) {

@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/log"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 )
 
 var defaultBrandingAssets = map[string]struct {

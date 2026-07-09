@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type PinnedRecord struct {

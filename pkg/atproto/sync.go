@@ -19,7 +19,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 )

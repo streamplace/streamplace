@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // RTMPPushWorkerConfig is the startup handshake main hands an rtmp-push worker

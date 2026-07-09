@@ -384,7 +384,7 @@ lexicons:
 
 # glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
 # It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
-# using the glex runtime (here: the pkg/lex shim) for the data model.
+# using the glex runtime (github.com/streamplace/glex/runtime) for the data model.
 GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
@@ -398,23 +398,17 @@ go-lexicons:
 	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) build \
 		--lexicons-dir .build/golexmerge \
 		--output-dir .build/goout \
-		--runtime-import stream.place/streamplace/pkg/lex \
-		--runtime-alias lex \
-		--legacy-mode \
-		--pkg-name-override placestream=streamplace \
-		--pkg-name-override gamesgamesgamesgamesgames=gamesgamesgamesgames \
-		--extra-import 'gamesgamesgamesgamesgames=gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgames"' \
-		--extra-import 'placestream=placestream "stream.place/streamplace/pkg/streamplace"' \
-		--external-type-mapping 'com.atproto.=comatproto "github.com/bluesky-social/indigo/api/atproto"' \
-		--external-type-mapping 'app.bsky.=appbsky "github.com/bluesky-social/indigo/api/bsky"' \
-		--external-type-mapping 'tools.ozone.=toolsozone "github.com/bluesky-social/indigo/api/ozone"' \
-		--external-type-mapping 'chat.bsky.=chatbsky "github.com/bluesky-social/indigo/api/chat"' \
+		--module-path stream.place/streamplace/pkg \
 		.build/golexmerge/place/stream \
 		.build/golexmerge/games \
-	&& rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& cp .build/goout/streamplace/*.go ./pkg/streamplace/ \
-	&& cp .build/goout/gamesgamesgamesgames/*.go ./pkg/gamesgamesgamesgames/ \
+		.build/golexmerge/com/atproto \
+		.build/golexmerge/app/bsky \
+	&& rm -rf ./pkg/placestream ./pkg/gamesgamesgamesgamesgames ./pkg/comatproto ./pkg/appbsky \
+	&& mkdir -p ./pkg/placestream ./pkg/gamesgamesgamesgamesgames ./pkg/comatproto ./pkg/appbsky \
+	&& cp .build/goout/placestream/*.go ./pkg/placestream/ \
+	&& cp .build/goout/gamesgamesgamesgamesgames/*.go ./pkg/gamesgamesgamesgamesgames/ \
+	&& cp .build/goout/comatproto/*.go ./pkg/comatproto/ \
+	&& cp .build/goout/appbsky/*.go ./pkg/appbsky/ \
 	&& rm -rf .build/golexmerge .build/goout
 
 .PHONY: js-lexicons

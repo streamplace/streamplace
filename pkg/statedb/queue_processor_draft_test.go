@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // TestDraftLifecycleThroughVODProcessor is the gating test for the draft

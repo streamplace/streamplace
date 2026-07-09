@@ -11,7 +11,7 @@ import (
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type BroadcastOrigin struct {

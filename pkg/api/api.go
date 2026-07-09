@@ -45,7 +45,7 @@ import (
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 

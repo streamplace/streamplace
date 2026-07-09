@@ -6,7 +6,7 @@ import (
 
 	"stream.place/streamplace/pkg/badges"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // AddModBadgeIfApplicable checks if a message author has mod permissions for the streamer

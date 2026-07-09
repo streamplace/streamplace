@@ -382,11 +382,10 @@ lexicons:
 	&& $(MAKE) md-lexicons \
 	&& make fix
 
-# Pinned revision of the Streamplace cobalt fork that provides the go-dasl
-# (DRISL) Go lexicon codegen (glot codegen --streamplace). Run in an isolated
-# module context so it builds against cobalt's own deps, independent of this
-# module's graph.
-GO_LEXICON_GEN := github.com/streamplace/cobalt/cmd/glot@30d7d5aef61f078bfc2ea4ae9ae0e53fca61db9c
+# glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
+# It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
+# using the glex runtime (here: the pkg/lex shim) for the data model.
+GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
@@ -396,9 +395,20 @@ go-lexicons:
 	&& cp -r "$$(go list -m -f '{{.Dir}}' github.com/bluesky-social/indigo)/lexicons/." .build/golexmerge/ \
 	&& chmod -R u+w .build/golexmerge \
 	&& cp -r lexicons/. .build/golexmerge/ \
-	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) codegen --streamplace \
+	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) build \
 		--lexicons-dir .build/golexmerge \
 		--output-dir .build/goout \
+		--runtime-import stream.place/streamplace/pkg/lex \
+		--runtime-alias lex \
+		--legacy-mode \
+		--pkg-name-override placestream=streamplace \
+		--pkg-name-override gamesgamesgamesgamesgames=gamesgamesgamesgames \
+		--extra-import 'gamesgamesgamesgamesgames=gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgames"' \
+		--extra-import 'placestream=placestream "stream.place/streamplace/pkg/streamplace"' \
+		--external-type-mapping 'com.atproto.=comatproto "github.com/bluesky-social/indigo/api/atproto"' \
+		--external-type-mapping 'app.bsky.=appbsky "github.com/bluesky-social/indigo/api/bsky"' \
+		--external-type-mapping 'tools.ozone.=toolsozone "github.com/bluesky-social/indigo/api/ozone"' \
+		--external-type-mapping 'chat.bsky.=chatbsky "github.com/bluesky-social/indigo/api/chat"' \
 		.build/golexmerge/place/stream \
 		.build/golexmerge/games \
 	&& rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \

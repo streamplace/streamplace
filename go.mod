@@ -10,8 +10,6 @@ replace github.com/AxisCommunications/go-dpop => github.com/streamplace/go-dpop 
 
 replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507
 
-replace github.com/streamplace/glex => /home/iameli/code/glex
-
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
 require (
@@ -69,7 +67,7 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq-go v0.0.2
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
-	github.com/streamplace/glex v0.0.0-00010101000000-000000000000
+	github.com/streamplace/glex v0.0.0-20260709192106-b16a1b201ee4
 	github.com/streamplace/muxl/go v0.3.4
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1

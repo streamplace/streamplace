@@ -71,7 +71,7 @@ func thumbnailFromMP4(ctx context.Context, flat []byte, w io.Writer, format stri
 	pipeline, err := gst.NewPipelineFromString(strings.Join([]string{
 		"appsrc name=src ! decodebin ! videoconvert ! videoscale ! videorate ! capsfilter caps=video/x-raw,width=[1,1280],height=[1,720],pixel-aspect-ratio=1/1,framerate=1/999999 ! ",
 		encoder,
-		" ! appsink name=appsink",
+		" ! appsink sync=false name=appsink",
 	}, "\n"))
 	if err != nil {
 		return fmt.Errorf("create thumbnail pipeline: %w", err)

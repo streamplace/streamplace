@@ -78,8 +78,15 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		return nil, nil, fmt.Errorf("failed to add audio ghost pad to bin")
 	}
 
+	// sync=false: this sink feeds the signer, not a display — render as fast as
+	// upstream produces. The default (sync=true) made the appsink wait on the
+	// pipeline clock per buffer, pacing the whole ingest graph at realtime:
+	// harmless for a live source arriving at 1x, but it throttled tests/replays
+	// and kept the graph's queues near-full for no benefit. Every other appsink
+	// in the tree already sets this.
 	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
 		"name": "muxl-appsink",
+		"sync": false,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create appsink element: %w", err)
@@ -97,11 +104,22 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		r.Close()
 	}()
 
+	// The signer and its event drain run on a non-cancellable ctx: cancelling
+	// ctx is the FLUSH signal, not an abort — it closes the input pipe above,
+	// the signer sees EOF, signs the final GoP, and exits cleanly. If the
+	// cancelled ctx reached muxl's event parser instead, the parser would
+	// abandon the stream mid-write and the signer wasm would deadlock against
+	// the unread stdout pipe — done would never close and the caller's drain
+	// (`cancel(); <-done`) would hang forever. That was rare while ingest was
+	// clock-paced (everything had drained by EOS); at full speed EOS+cancel
+	// land while GoPs are still in flight, and the abort path lost every time.
+	drainCtx := context.WithoutCancel(ctx)
+
 	// Stream the fMP4 through the per-segment signer; each event carries one
 	// GoP's per-track signed canonical segments.
 	eventCh := make(chan *muxl.MuxlEvent, 16)
 	go func() {
-		err := signStream(ctx, r, eventCh)
+		err := signStream(drainCtx, r, eventCh)
 		close(eventCh)
 		if err != nil && ctx.Err() == nil {
 			log.Error(ctx, "error running muxl sign-segment", "error", err)
@@ -115,9 +133,9 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 				continue
 			}
 			segment := concatTracksSorted(ev.Tracks)
-			cli.DumpDebugSegment(ctx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
-			if err := onSegment(ctx, segment); err != nil {
-				log.Error(ctx, "error handling signed segment", "error", err)
+			cli.DumpDebugSegment(drainCtx, "muxl_signed_segment.m4s", bytes.NewReader(segment))
+			if err := onSegment(drainCtx, segment); err != nil {
+				log.Error(drainCtx, "error handling signed segment", "error", err)
 			}
 		}
 	}()

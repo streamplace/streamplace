@@ -74,6 +74,37 @@ func makeH264AACMKV(t *testing.T, ctx context.Context, srcMP4 string) []byte {
 	return buf.Bytes()
 }
 
+// makeAudioOnlyAACMKV synthesizes an AAC-audio-only streamable MKV — the
+// canonical WEDGE input for watchdog/containment tests. The ingest pipeline
+// hardwires a video and an audio branch; with no video track, matroskademux
+// never creates a video pad, the fMP4 aggregator's video pad never sees data
+// OR EOS, and the pipeline hangs forever with no frames and no EOS — a true
+// native wedge that no queue sizing can fix. (The 4-audio sample-stream.mkv
+// previously used for this stopped wedging once the ingest branches moved to
+// Queue2Big: its wedge was really the 1s default-queue interleave deadlock.)
+func makeAudioOnlyAACMKV(t *testing.T, ctx context.Context, seconds int) []byte {
+	t.Helper()
+	gstinit.InitGST()
+	desc := fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! matroskamux streamable=true ! appsink name=sink", seconds*47)
+	pipeline, err := gst.NewPipelineFromString(desc)
+	require.NoError(t, err)
+
+	sinkEle, err := pipeline.GetElementByName("sink")
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &buf),
+	})
+
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NoError(t, <-busErr, "synthesize audio-only MKV")
+	require.NotEmpty(t, buf.Bytes())
+	return buf.Bytes()
+}
+
 // TestRunMKVIngestWorkerProducesValidSignedFrames drives the isolated ingest
 // worker's core directly (no subprocess): feed it an H264+AAC MKV, collect the
 // framed output, and verify every emitted segment is a valid signed canonical
@@ -191,11 +222,10 @@ func TestRunMKVIngestWorkerRecords(t *testing.T) {
 // TestRunMKVIngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a
 // wedge. This is the only wedge containment on the detached/WHIP paths, where
 // main can't kill a detached worker — so the worker has to notice it's stuck and
-// exit itself. The 4-audio sample-stream.mkv leaves matroskademux pads unlinked,
-// so it wedges with no EOS and emits no frames; the watchdog must tear the
-// pipeline down and return rather than hang forever. (The fd-4 path's
-// supervisor-side watchdog is covered separately by
-// TestMKVIngestIsolatedWedgeContained.)
+// exit itself. An audio-only MKV starves the muxer's video pad of both data and
+// EOS, so the pipeline wedges with no frames; the watchdog must tear it down
+// and return rather than hang forever. (The fd-4 path's supervisor-side
+// watchdog is covered separately by TestMKVIngestIsolatedWedgeContained.)
 func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 3 * time.Second
@@ -215,8 +245,7 @@ func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 		BroadcasterHost: "test.example.com",
 	}
 
-	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
-	require.NoError(t, err)
+	wedge := makeAudioOnlyAACMKV(t, ctx, 5)
 
 	start := time.Now()
 	done := make(chan error, 1)

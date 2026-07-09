@@ -160,7 +160,11 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 			return frames.Segment(segment) // no node signer → single-codec
 		}
 		if transcoder == nil {
-			target, need := mm.audioCompletionTarget(ctx, segment)
+			// WithoutCancel for the same reason as the transcoder below: this
+			// runs from the signer's post-cancel drain, and a muxl unwrap
+			// started with a cancelled ctx deadlocks its wasm mid-stream
+			// instead of returning.
+			target, need := mm.audioCompletionTarget(context.WithoutCancel(ctx), segment)
 			if !need {
 				return frames.Segment(segment) // already dual-codec / no audio track
 			}

@@ -68,6 +68,7 @@ func SelfTest(ctx context.Context) error {
 
 	sinkele, err := gst.NewElementWithProperties("appsink", map[string]interface{}{
 		"name": "self-test-sink",
+		"sync": false,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create appsink element: %w", err)

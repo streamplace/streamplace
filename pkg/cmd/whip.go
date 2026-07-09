@@ -74,8 +74,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		"filesrc name=filesrc ! qtdemux name=demux",
 		"demux.video_0 ! tee name=video_tee",
 		"demux.audio_0 ! tee name=audio_tee",
-		"video_tee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"audio_tee. ! queue ! opusparse ! appsink name=audioappsink",
+		// sync=true (the default) is load-bearing here, unlike every other
+		// appsink in the tree: these sinks are what pace the file at realtime
+		// so it plays as a live stream — WriteSample pushes to WebRTC
+		// immediately, so without clock sync the whole file would blast
+		// through in one burst.
+		"video_tee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! appsink sync=true name=videoappsink",
+		"audio_tee. ! queue ! opusparse ! appsink sync=true name=audioappsink",
 		// "matroskamux name=mux ! fakesink name=fakesink sync=true",
 		// "video_tee. ! mux.video_0",
 		// "audio_tee. ! mux.audio_0",

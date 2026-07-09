@@ -25,10 +25,10 @@ var (
 
 // Re-export the registry and decode functions.
 var (
-	RegisterType       = glexrt.RegisterType
-	CborDecodeValue    = glexrt.CborDecodeValue
-	JsonDecodeValue    = glexrt.JsonDecodeValue
-	NewFromType        = glexrt.NewFromType
+	RegisterType        = glexrt.RegisterType
+	CborDecodeValue     = glexrt.CborDecodeValue
+	JsonDecodeValue     = glexrt.JsonDecodeValue
+	NewFromType         = glexrt.NewFromType
 	ErrUnrecognizedType = glexrt.ErrUnrecognizedType
 )
 
@@ -36,9 +36,9 @@ var (
 type LexiconTypeDecoder = glexrt.LexiconTypeDecoder
 
 var (
-	TypeExtract            = glexrt.TypeExtract
-	CborTypeExtract        = glexrt.CborTypeExtract
-	CborTypeExtractReader  = glexrt.CborTypeExtractReader
+	TypeExtract           = glexrt.TypeExtract
+	CborTypeExtract       = glexrt.CborTypeExtract
+	CborTypeExtractReader = glexrt.CborTypeExtractReader
 )
 
 // Re-export the XRPC client interface and constants.

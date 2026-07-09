@@ -1374,14 +1374,6 @@ github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c h
 github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
 github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac h1:heVM4CGox3kfJclSmagsI3hvKk7W52EegnFqqs9CSYk=
 github.com/streamplace/atproto-oauth-golang v0.0.0-20250619231223-a9c04fb888ac/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
-github.com/streamplace/glex v0.0.0-20260707224104-364164c048b9 h1:WGkcuw70WWe0EMcCiOzx5z+nQX9I+ZqWZRmzSjn/Khg=
-github.com/streamplace/glex v0.0.0-20260707224104-364164c048b9/go.mod h1:33czt2ilG9oouO8fq1GzfwMr4QE278Of3ptNx6/28mw=
-github.com/streamplace/glex v0.0.0-20260709184614-c219396d8178 h1:WLtcvbQmFmXqpueK5LmGAjpbejBiOYV0h/hbDmCYPp4=
-github.com/streamplace/glex v0.0.0-20260709184614-c219396d8178/go.mod h1:33czt2ilG9oouO8fq1GzfwMr4QE278Of3ptNx6/28mw=
-github.com/streamplace/glex v0.0.0-20260709184930-b20a0a02272c h1:K5gf/LlVm3GEBY1zPjKVUzFqq2liDWm36sFBdSGxzao=
-github.com/streamplace/glex v0.0.0-20260709184930-b20a0a02272c/go.mod h1:33czt2ilG9oouO8fq1GzfwMr4QE278Of3ptNx6/28mw=
-github.com/streamplace/glex v0.0.0-20260709191746-ee0cc60578b9 h1:d6xftr9OOSMPHitlQ05E8/4v440w7rECvgbo9a27nzc=
-github.com/streamplace/glex v0.0.0-20260709191746-ee0cc60578b9/go.mod h1:33czt2ilG9oouO8fq1GzfwMr4QE278Of3ptNx6/28mw=
 github.com/streamplace/glex v0.0.0-20260709192106-b16a1b201ee4 h1:6SVXLgRwRX3nFQi+h8cyud8s98GeRoJ8jBVtm3Sxucc=
 github.com/streamplace/glex v0.0.0-20260709192106-b16a1b201ee4/go.mod h1:33czt2ilG9oouO8fq1GzfwMr4QE278Of3ptNx6/28mw=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=

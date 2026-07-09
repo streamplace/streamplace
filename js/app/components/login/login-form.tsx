@@ -1,5 +1,6 @@
 import {
   Button,
+  Checkbox,
   Input,
   Loader,
   Text,
@@ -37,6 +38,7 @@ export default function LoginForm({
   const loginState = useLogin();
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
+  const [blueskyPermissions, setBlueskyPermissions] = useState(true);
   const { actors } = useActorTypeahead(handle);
 
   const filteredActors = useMemo(
@@ -71,7 +73,7 @@ export default function LoginForm({
     }
     let clean = handle;
     if (handle.startsWith("@")) clean = handle.slice(1);
-    loginAction(clean, openLoginLink);
+    loginAction(clean, openLoginLink, { blueskyPermissions });
   };
 
   const acceptSuggestion = () => {
@@ -281,6 +283,79 @@ export default function LoginForm({
             }}
           />
         </View>
+      </View>
+
+      <View
+        style={[
+          zero.layout.flex.row,
+          zero.gap.all[3],
+          zero.mb[4],
+          { alignItems: "center", zIndex: -32 },
+        ]}
+      >
+        {/* preview of the Bluesky LIVE ring the user gets while streaming */}
+        <View style={{ alignItems: "center", width: 56 }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 999,
+              borderWidth: 2.5,
+              borderColor: blueskyPermissions ? "red" : theme.colors.border,
+              padding: 2,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={{ width: "100%", height: "100%", borderRadius: 999 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: 999,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: theme.colors.muted,
+                }}
+              >
+                <AtSign size={22} color="#eee" />
+              </View>
+            )}
+          </View>
+          <View
+            style={{
+              marginTop: -8,
+              backgroundColor: "red",
+              borderRadius: 4,
+              paddingHorizontal: 4,
+              paddingVertical: 1,
+              opacity: blueskyPermissions ? 1 : 0,
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                fontSize: 9,
+                fontWeight: "700",
+                letterSpacing: 0.5,
+              }}
+            >
+              LIVE
+            </Text>
+          </View>
+        </View>
+        <Checkbox
+          checked={blueskyPermissions}
+          onCheckedChange={setBlueskyPermissions}
+          label="Show when I'm live on Bluesky"
+          description="Gives your Bluesky avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your Bluesky account."
+          style={{ flex: 1 }}
+        />
       </View>
 
       <View

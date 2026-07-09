@@ -26,7 +26,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { Image } from "expo-image";
-import { ChevronsUpDown, ImagePlus, X } from "lucide-react-native";
+import { ChevronsUpDown, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -35,8 +35,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
 import type { PlaceStreamLivestream } from "streamplace";
+import {
+  SCOPE_BSKY_POST_CREATE,
+  scopeGrants,
+} from "../../features/bluesky/scopes";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import ActivityPicker from "../activity-picker";
@@ -322,6 +327,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
+  const sessionScope = useStore((s) => s.sessionScope);
+  const canPostToBluesky = scopeGrants(sessionScope, SCOPE_BSKY_POST_CREATE);
   const [createPost, setCreatePost] = useState(true);
   const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -404,7 +411,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         await createStreamRecord({
           title: title.trim(),
           customThumbnail: thumbnailToUse as Blob | undefined,
-          submitPost: createPost,
+          submitPost: createPost && canPostToBluesky,
           notificationSettings: {
             pushNotification: sendPushNotification,
           },
@@ -787,14 +794,30 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   ]}
                 >
                   <Tooltip
-                    content="Create a Bluesky post announcing you're live with a link to the stream."
+                    content={
+                      canPostToBluesky
+                        ? "Create a Bluesky post announcing you're live with a link to the stream."
+                        : "You signed in without granting Bluesky permissions, so Streamplace can't post to your account. Log out and back in to change this."
+                    }
                     position="top"
                   >
-                    <Checkbox
-                      checked={createPost}
-                      onCheckedChange={(checked) => setCreatePost(checked)}
-                      label="Create Bluesky post"
-                    />
+                    <View
+                      style={[
+                        layout.flex.row,
+                        { alignItems: "center" },
+                        gap.all[1],
+                      ]}
+                    >
+                      <Checkbox
+                        checked={createPost && canPostToBluesky}
+                        onCheckedChange={(checked) => setCreatePost(checked)}
+                        disabled={!canPostToBluesky}
+                        label="Create Bluesky post"
+                      />
+                      {!canPostToBluesky && (
+                        <Lock size={14} color={theme.colors.textMuted} />
+                      )}
+                    </View>
                   </Tooltip>
                   <Tooltip
                     content="Send a push notification to your followers on the Streamplace iOS/Android app."

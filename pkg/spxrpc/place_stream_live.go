@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -590,7 +591,12 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		canonicalUrl = *livestream.CanonicalUrl
 	}
 
-	if body.CreateBlueskyPost == nil || *body.CreateBlueskyPost {
+	createPost := body.CreateBlueskyPost == nil || *body.CreateBlueskyPost
+	if createPost && !session.HasScope(atproto.ScopeBskyPostCreate) {
+		log.Debug(ctx, "session was not granted Bluesky post permissions, skipping go-live post", "did", session.DID)
+		createPost = false
+	}
+	if createPost {
 		prefix := "🔴 LIVE "
 		suffix := " " + livestream.Title
 		postText := prefix + canonicalUrl + suffix

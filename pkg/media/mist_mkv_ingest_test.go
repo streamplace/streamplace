@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/test/remote"
 )
 
 // runMKVThroughIngestWorker feeds an MKV byte stream through the isolated
@@ -123,6 +124,12 @@ func TestMKVIngestSparseVideoNoWedge(t *testing.T) {
 	t.Logf("sparse-video stream: %d segments", segs)
 }
 
+// The nyc-* fixtures are cuts of a real 164s production MistServer MKV push
+// whose video degrades to keyframe-only at ~140s (behind-push frame-drop) —
+// the capture that wedged production ingest. head = first ~10s; head-nojson =
+// the same bytes with the 30-byte M_JSON TrackEntry stripped; tail135 = from
+// 135s (~5s before the keyframe-only transition); full = the whole capture.
+
 // TestMKVIngestMistMetadataTrack: MistServer's MKV push declares a
 // live-metadata track (CodecID M_JSON, TrackType 3) as track 1, ahead of the
 // AAC audio and H264 video tracks. It was the initial suspect for the
@@ -131,11 +138,9 @@ func TestMKVIngestSparseVideoNoWedge(t *testing.T) {
 // TrackEntry stripped (the control). Kept as a canary for the MistServer
 // track layout. (The real wedge: TestMKVIngestSparseVideoNoWedge.)
 func TestMKVIngestMistMetadataTrack(t *testing.T) {
-	control, err := os.ReadFile("../../tmp-debug/nyc-head-nojson.mkv")
-	if err != nil {
-		t.Skipf("production sample not present: %v", err)
-	}
-	mist, err := os.ReadFile("../../tmp-debug/nyc-head.mkv")
+	control, err := os.ReadFile(remote.RemoteFixture("3284ef5658e7864bce326c296a909e985c4167d0b9a445b2ce944c2f0171c71e/nyc-head-nojson.mkv"))
+	require.NoError(t, err)
+	mist, err := os.ReadFile(remote.RemoteFixture("c0989e044f3350c55f1e129b76252bfb2859914058bb17d2431a605db9693467/nyc-head.mkv"))
 	require.NoError(t, err)
 
 	segs, err := runMKVThroughIngestWorker(t, control, false)
@@ -160,10 +165,8 @@ func TestMKVIngestMistFullSample(t *testing.T) {
 	// the muxl-event-drain-vs-cancel deadlock (see muxlSignSegmentElem's
 	// drainCtx); with the drain non-cancellable the full capture transcodes
 	// at full speed (~13s).
-	mkv, err := os.ReadFile("../../tmp-debug/nyc-full.mkv")
-	if err != nil {
-		t.Skipf("production sample not present: %v", err)
-	}
+	mkv, err := os.ReadFile(remote.RemoteFixture("3e4e5d9758e67053908e523379a3e2ef2cf60679d0657a940daf96590e866015/nyc-full.mkv"))
+	require.NoError(t, err)
 	segs, err := runMKVThroughIngestWorker(t, mkv, true)
 	t.Logf("full sample: %d segments, err=%v", segs, err)
 	require.NoError(t, err, "full production sample ingests cleanly")
@@ -175,10 +178,8 @@ func TestMKVIngestMistFullSample(t *testing.T) {
 // starts at 135s, ~5s before the capture goes keyframe-only, so an unfixed
 // pipeline wedges within seconds (4 segments) instead of minutes.
 func TestMKVIngestMistTail(t *testing.T) {
-	mkv, err := os.ReadFile("../../tmp-debug/nyc-tail135.mkv")
-	if err != nil {
-		t.Skipf("production sample not present: %v", err)
-	}
+	mkv, err := os.ReadFile(remote.RemoteFixture("03df698a342f1ab89dccc20ce0a0283e1270104e6382703575686c9f4a88881e/nyc-tail135.mkv"))
+	require.NoError(t, err)
 	segs, err := runMKVThroughIngestWorker(t, mkv, false)
 	t.Logf("tail sample: %d segments, err=%v", segs, err)
 	require.NoError(t, err, "tail of production sample ingests cleanly")
@@ -191,10 +192,8 @@ func TestMKVIngestMistTail(t *testing.T) {
 // wedge was in the core ingest pipeline, not the dual-codec transcode stage —
 // both variants wedged at the same GoP.
 func TestMKVIngestMistFullSampleNoTranscode(t *testing.T) {
-	mkv, err := os.ReadFile("../../tmp-debug/nyc-full.mkv")
-	if err != nil {
-		t.Skipf("production sample not present: %v", err)
-	}
+	mkv, err := os.ReadFile(remote.RemoteFixture("3e4e5d9758e67053908e523379a3e2ef2cf60679d0657a940daf96590e866015/nyc-full.mkv"))
+	require.NoError(t, err)
 	segs, err := runMKVThroughIngestWorker(t, mkv, false)
 	t.Logf("full sample (no transcode): %d segments, err=%v", segs, err)
 	require.NoError(t, err, "full production sample ingests cleanly without transcode")

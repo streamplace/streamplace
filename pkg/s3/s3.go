@@ -206,10 +206,13 @@ func (u *S3Uploader) Cutover(ctx context.Context) error {
 }
 
 // Close signals that no more segments will be added, waits for all in-flight
-// uploads to complete, and returns any error. It is idempotent: repeated calls
-// return the same result without re-closing the channel. The supplied ctx is
-// unused for the wait (uploadLoop runs on its own context so it can flush the
-// final object even after the session context is cancelled) but kept for API
+// uploads to complete, and returns any error completing the final object.
+// Mid-stream upload failures don't surface here — the upload loop recovers
+// from those by abandoning the broken object (logged loudly at the time) and
+// continuing with a fresh one. It is idempotent: repeated calls return the
+// same result without re-closing the channel. The supplied ctx is unused for
+// the wait (uploadLoop runs on its own context so it can flush the final
+// object even after the session context is cancelled) but kept for API
 // symmetry.
 func (u *S3Uploader) Close(ctx context.Context) error {
 	u.closeOnce.Do(func() {
@@ -369,15 +372,47 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	var err error
-	for err == nil {
+	// abandonCurrent is the failure recovery: abort the broken object (so the
+	// backend doesn't hold its parts) and drop its un-completed bytes, loudly.
+	// The next segment starts a fresh object, so one bad object costs a gap in
+	// the recording instead of wedging the uploader for the rest of the stream
+	// (the abandoned object's recorder row never completes, so finalize skips
+	// it). Before this existed, the first error killed the loop: segments
+	// backed up silently and the stream never recorded another byte.
+	abandonCurrent := func(reason error) {
+		if current == nil {
+			// Nothing in flight (e.g. CreateMultipartUpload itself failed); the
+			// segment is still dropped, so say so.
+			log.Error(ctx, "error in live-rec S3 upload; segment dropped", "error", reason)
+			return
+		}
+		log.Error(ctx, "abandoning live-rec S3 object; its bytes will be missing from the recording",
+			"key", current.key,
+			"uploadedBytes", current.totalSize,
+			"droppedBufferedBytes", len(current.buf),
+			"error", reason,
+		)
+		if _, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(u.bucket),
+			Key:      aws.String(current.key),
+			UploadId: aws.String(current.uploadID),
+		}); err != nil {
+			log.Error(ctx, "aborting abandoned S3 upload", "key", current.key, "error", err)
+		}
+		current = nil
+	}
+
+	for {
 		select {
 		case cmd, ok := <-u.segCh:
 			if !ok {
-				// No more segments; complete any in-progress upload.
-				err = completeUpload()
+				// No more segments; complete any in-progress upload. This is the
+				// one error that still surfaces through done/Close — there are no
+				// more segments coming to recover with.
+				err := completeUpload()
 				if err != nil {
 					err = fmt.Errorf("error completing upload: %w", err)
+					abandonCurrent(err)
 				}
 				u.done <- err
 				return
@@ -385,26 +420,26 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			if cmd.cutover {
 				// Close out the current object so it's immediately finalize-able
 				// (e.g. the livestream just ended). No-op if nothing is in flight.
-				if err = completeUpload(); err != nil {
-					err = fmt.Errorf("error completing upload on cutover: %w", err)
-					log.Error(ctx, "error completing upload on cutover", "error", err)
+				if err := completeUpload(); err != nil {
+					abandonCurrent(fmt.Errorf("error completing upload on cutover: %w", err))
 				}
 				continue
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
-			if err = handleSegment(cmd.seg); err != nil {
-				log.Error(ctx, "error handling segment", "error", err)
+			if err := handleSegment(cmd.seg); err != nil {
+				// The triggering segment is dropped along with the object: it may
+				// already be partially flushed into it, so it can't be salvaged.
+				abandonCurrent(fmt.Errorf("error handling segment: %w", err))
 			}
 
 		case <-ctx.Done():
-			err = completeUpload()
+			err := completeUpload()
 			if err != nil {
 				err = fmt.Errorf("error completing upload: %w", err)
+				abandonCurrent(err)
 			}
 			u.done <- err
 			return
 		}
 	}
-
-	u.done <- err
 }

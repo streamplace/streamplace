@@ -572,6 +572,20 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
+	// Upload any live-rec spool data a prior run left behind (crash, or a
+	// stream that ended while its bucket was failing) — the recording
+	// completes late instead of being lost. Startup-only by design: spool
+	// dirs present now are orphans; new sessions create fresh ones.
+	if cli.S3Configured() && cli.LiveRecSpoolMaxMB > 0 {
+		group.Go(func() error {
+			if err := sps3.SalvageSpools(ctx, cli.S3Config(), state,
+				director.LiveRecSpoolRoot(cli.DataDir), director.LiveRecKeyPrefix, sps3.DefaultCutoverEvery); err != nil {
+				log.Error(ctx, "salvaging live-rec spools", "error", err)
+			}
+			return nil
+		})
+	}
+
 	if cli.LegacySegmentCleaner {
 		group.Go(func() error {
 			return ldb.StartSegmentCleaner(ctx)

@@ -15,14 +15,16 @@ import (
 
 // fakeUploadAPI is an in-memory stand-in for the multipart subset of *s3.Client
 // the upload loop drives. It hands back dummy upload IDs / etags; set
-// failCompletes to make the first N CompleteMultipartUpload calls fail.
+// failCompletes to make the first N CompleteMultipartUpload calls fail, after
+// letting completesBeforeFail calls through first.
 type fakeUploadAPI struct {
-	mu            sync.Mutex
-	creates       int
-	partSizes     []int
-	failCompletes int
-	completes     int
-	aborts        int
+	mu                  sync.Mutex
+	creates             int
+	partSizes           []int
+	completesBeforeFail int
+	failCompletes       int
+	completes           int
+	aborts              int
 }
 
 func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.CreateMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
@@ -47,7 +49,9 @@ func (f *fakeUploadAPI) UploadPart(_ context.Context, in *awss3.UploadPartInput,
 func (f *fakeUploadAPI) CompleteMultipartUpload(_ context.Context, _ *awss3.CompleteMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.failCompletes > 0 {
+	if f.completesBeforeFail > 0 {
+		f.completesBeforeFail--
+	} else if f.failCompletes > 0 {
 		f.failCompletes--
 		return nil, fmt.Errorf("InvalidPart: all non-trailing parts must have the same length")
 	}

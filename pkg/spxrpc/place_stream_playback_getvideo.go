@@ -446,7 +446,7 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 // loadVideoRecord pulls the place.stream.video record at uri out of
 // the local index. Returns a typed error suitable for surfacing back
 // to the client (404, 500).
-func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*streamplace.Video, error) {
+func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*placestream.Video, error) {
 	videoRec, err := s.model.GetVideoByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "playback: GetVideoByURI failed", "uri", uri, "error", err)
@@ -461,7 +461,7 @@ func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*streamplace.
 // firstTrackBlob returns the muxlTrack.blob CID of the first ref in a
 // sourceTracks bundle. The metafile at that CID describes every track
 // in the same container, so any track's blob is enough.
-func (s *Server) firstTrackBlob(ctx context.Context, src *streamplace.MediaDefs_SourceTracks) (string, error) {
+func (s *Server) firstTrackBlob(ctx context.Context, src *placestream.MediaDefs_SourceTracks) (string, error) {
 	if len(src.Tracks) == 0 {
 		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "video record has no tracks")
 	}

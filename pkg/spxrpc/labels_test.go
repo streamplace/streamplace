@@ -117,10 +117,10 @@ func setupBlobTest(t *testing.T) (*Server, model.Model) {
 	m := newTestModel(t)
 	aturi, err := syntax.ParseATURI("at://" + testOwner + "/place.stream.media.track/1")
 	require.NoError(t, err)
-	require.NoError(t, m.UpsertMediaTrack(context.Background(), &streamplace.MediaTrack{
+	require.NoError(t, m.UpsertMediaTrack(context.Background(), &placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
-		Track: &streamplace.MediaTrack_Track{
-			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
+		Track: &placestream.MediaTrack_Track{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          testContentCID,
 				TrackId:       "1",

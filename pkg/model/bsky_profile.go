@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/spid"
@@ -48,22 +48,22 @@ func (m *DBModel) UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, rec
 		Create(dbProfile).Error
 }
 
-func (m *DBModel) GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*bsky.ActorProfile, error) {
+func (m *DBModel) GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (appbsky.ActorProfile, error) {
 	var profile BskyProfile
-	err := m.DB.Where("uri = ? AND was_streamplace = ?", fmt.Sprintf("at://%s/app.bsky.actor.profile/self", did), wasStreamplace).First(&profile).Error
+	err := m.DB.Where("uri = ? AND was_streamplace = ?", fmt.Sprintf("at://%s/app.appbsky.actor.profile/self", did), wasStreamplace).First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return appbsky.ActorProfile{}, nil
 	}
 	if err != nil {
-		return nil, err
+		return appbsky.ActorProfile{}, err
 	}
-	rec, err := lexutil.CborDecodeValue(*profile.Record)
+	rec, err := glexrt.CborDecodeValue(*profile.Record)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode profile record: %w", err)
+		return appbsky.ActorProfile{}, fmt.Errorf("failed to decode profile record: %w", err)
 	}
-	bskyProfile, ok := rec.(*bsky.ActorProfile)
+	bskyProfile, ok := rec.(appbsky.ActorProfile)
 	if !ok {
-		return nil, fmt.Errorf("invalid profile record")
+		return appbsky.ActorProfile{}, fmt.Errorf("invalid profile record")
 	}
 	return bskyProfile, nil
 }

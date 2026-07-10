@@ -148,25 +148,25 @@ func (state *StatefulDB) ResetWebhookError(id string) error {
 	}).Error
 }
 
-// ToLexicon converts a database Webhook to a streamplace.ServerDefs_Webhook
-func (w *Webhook) ToLexicon() (*streamplace.ServerDefs_Webhook, error) {
+// ToLexicon converts a database Webhook to a placestream.ServerDefs_Webhook
+func (w *Webhook) ToLexicon() (placestream.ServerDefs_Webhook, error) {
 	var events []string
 	if len(w.Events) > 0 {
 		err := json.Unmarshal(w.Events, &events)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal events: %w", err)
+			return placestream.ServerDefs_Webhook{}, fmt.Errorf("failed to unmarshal events: %w", err)
 		}
 	}
 
-	var rewriteRules []*streamplace.ServerDefs_RewriteRule
+	var rewriteRules []placestream.ServerDefs_RewriteRule
 	if len(w.Rewrite) > 0 {
 		var dbRules []map[string]string
 		err := json.Unmarshal(w.Rewrite, &dbRules)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal rewrite rules: %w", err)
+			return placestream.ServerDefs_Webhook{}, fmt.Errorf("failed to unmarshal rewrite rules: %w", err)
 		}
 		for _, rule := range dbRules {
-			rewriteRules = append(rewriteRules, &streamplace.ServerDefs_RewriteRule{
+			rewriteRules = append(rewriteRules, placestream.ServerDefs_RewriteRule{
 				From: rule["from"],
 				To:   rule["to"],
 			})
@@ -177,13 +177,13 @@ func (w *Webhook) ToLexicon() (*streamplace.ServerDefs_Webhook, error) {
 	if len(w.MuteWords) > 0 {
 		err := json.Unmarshal(w.MuteWords, &muteWords)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal mute words: %w", err)
+			return placestream.ServerDefs_Webhook{}, fmt.Errorf("failed to unmarshal mute words: %w", err)
 		}
 	}
 
 	createdAt := w.CreatedAt.Format(time.RFC3339)
 
-	webhook := &streamplace.ServerDefs_Webhook{
+	webhook := placestream.ServerDefs_Webhook{
 		Id:        w.ID,
 		Url:       w.URL,
 		Events:    events,
@@ -223,8 +223,8 @@ func (w *Webhook) ToLexicon() (*streamplace.ServerDefs_Webhook, error) {
 	return webhook, nil
 }
 
-// FromLexiconInput converts a streamplace.ServerCreateWebhook_Input to a database Webhook
-func WebhookFromLexiconInput(input *streamplace.ServerCreateWebhook_Input, userDID, id string) (*Webhook, error) {
+// FromLexiconInput converts a placestream.ServerCreateWebhook_Input to a database Webhook
+func WebhookFromLexiconInput(input placestream.ServerCreateWebhook_Input, userDID, id string) (*Webhook, error) {
 	// Debug log the raw input
 	fmt.Printf("DEBUG: WebhookFromLexiconInput input.Events: %+v (type: %T)\n", input.Events, input.Events)
 	for i, event := range input.Events {

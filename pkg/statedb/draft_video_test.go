@@ -8,8 +8,8 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
-func newDraftRec(title, status string) *streamplace.VodDraftVideo {
-	return &streamplace.VodDraftVideo{
+func newDraftRec(title, status string) placestream.VodDraftVideo {
+	return placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         title,
 		Status:        status,
@@ -71,7 +71,7 @@ func TestDraftVideoUpdateMetadataRecomputesCID(t *testing.T) {
 		origCID := dv.CID
 
 		// Partial update of an editable field.
-		updated, err := state.UpdateDraftMetadata(ctx, dv.URI, func(rec *streamplace.VodDraftVideo) {
+		updated, err := state.UpdateDraftMetadata(ctx, dv.URI, func(rec placestream.VodDraftVideo) {
 			rec.Title = "Edited Title"
 		})
 		require.NoError(t, err)
@@ -125,8 +125,8 @@ func TestSetDraftReadyAndError(t *testing.T) {
 		dv, err := state.CreateDraft(ctx, did, "up-ready", newDraftRec("Ready me", "processing"))
 		require.NoError(t, err)
 
-		sourceTracks := &streamplace.VodDraftVideo_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+		sourceTracks := placestream.VodDraftVideo_Source{
+			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks:        nil,
 			},

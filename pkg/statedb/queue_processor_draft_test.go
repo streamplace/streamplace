@@ -26,7 +26,7 @@ func TestDraftLifecycleThroughVODProcessor(t *testing.T) {
 		require.NoError(t, state.CreateUpload(ctx, &Upload{
 			ID: "up-lifecycle", RepoDID: did, MimeType: "video/mp4", Backend: "file",
 		}))
-		_, err := state.CreateDraft(ctx, did, "up-lifecycle", &streamplace.VodDraftVideo{
+		_, err := state.CreateDraft(ctx, did, "up-lifecycle", placestream.VodDraftVideo{
 			LexiconTypeID: "place.stream.vod.draftVideo",
 			Title:         "from upload",
 			Status:        "processing",
@@ -84,7 +84,7 @@ func TestDraftLifecycleErrorFlipsDraft(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, state.CreateUpload(ctx, &Upload{ID: "up-fail", RepoDID: "did:plc:err", Backend: "file"}))
-	_, err = state.CreateDraft(ctx, "did:plc:err", "up-fail", &streamplace.VodDraftVideo{
+	_, err = state.CreateDraft(ctx, "did:plc:err", "up-fail", placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "will fail", Status: "processing", CreatedAt: "2026-01-01T00:00:00Z",
 	})

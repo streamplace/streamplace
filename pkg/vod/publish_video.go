@@ -9,7 +9,7 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -45,7 +45,7 @@ var (
 // letting the server write the record is what lets us backfill a thumbnail
 // (the client may not supply one) using the same generateThumbnail path
 // vod-test exercises.
-func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *streamplace.Video) (string, string, error) {
+func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *placestream.Video) (string, string, error) {
 	ctx, span := vodTracer.Start(ctx, "vod.PublishVideo", trace.WithAttributes(
 		attribute.String("did", did),
 		attribute.String("upload_id", uploadID),
@@ -75,8 +75,8 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.RecordError(err)
 		return "", "", err
 	}
-	video.Source = &streamplace.Video_Source{
-		MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+	video.Source = &placestream.Video_Source{
+		MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 			LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			Tracks:        tracks,
 		},
@@ -103,7 +103,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	rkey := spid.TIDClock.Next().String()
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_VIDEO,
-		Record:     &lexutil.LexiconTypeDecoder{Val: video},
+		Record:     &glexrt.LexiconTypeDecoder{Val: video},
 		Rkey:       rkey,
 		Repo:       did,
 	}

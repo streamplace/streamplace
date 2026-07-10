@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
@@ -31,24 +31,24 @@ type MediaOrigin struct {
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
-func (o *MediaOrigin) ToRecord() (*streamplace.MediaOrigin, error) {
-	rec, err := lexutil.CborDecodeValue(o.Record)
+func (o *MediaOrigin) ToRecord() (placestream.MediaOrigin, error) {
+	rec, err := glexrt.CborDecodeValue(o.Record)
 	if err != nil {
-		return nil, fmt.Errorf("decode media origin record: %w", err)
+		return placestream.MediaOrigin{}, fmt.Errorf("decode media origin record: %w", err)
 	}
-	origin, ok := rec.(*streamplace.MediaOrigin)
+	origin, ok := rec.(placestream.MediaOrigin)
 	if !ok {
-		return nil, fmt.Errorf("media origin record decoded as %T, expected *streamplace.MediaOrigin", rec)
+		return placestream.MediaOrigin{}, fmt.Errorf("media origin record decoded as %T, expected placestream.MediaOrigin", rec)
 	}
 	return origin, nil
 }
 
-func (m *DBModel) UpsertMediaOrigin(ctx context.Context, rec *streamplace.MediaOrigin, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error {
 	serverDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get media origin CID: %w", err)
 	}
@@ -71,14 +71,14 @@ func (m *DBModel) DeleteMediaOrigin(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&MediaOrigin{}).Error
 }
 
-func (m *DBModel) GetMediaOriginByURI(ctx context.Context, uri string) (*streamplace.MediaOrigin, error) {
+func (m *DBModel) GetMediaOriginByURI(ctx context.Context, uri string) (placestream.MediaOrigin, error) {
 	var o MediaOrigin
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&o).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return placestream.MediaOrigin{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get media origin by uri: %w", err)
+		return placestream.MediaOrigin{}, fmt.Errorf("get media origin by uri: %w", err)
 	}
 	return o.ToRecord()
 }

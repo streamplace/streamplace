@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/models"
 	atrepo "github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
@@ -354,13 +354,13 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 
 	ServerRepo = r
 
-	cidLink := lexutil.LexLink(recordCid)
+	cidLink := glexrt.Link(recordCid)
 	signed := r.SignedCommit()
 	commit := &comatproto.SyncSubscribeRepos_Commit{
 		Repo:   cli.ServerDID(),
 		Blocks: blocks,
 		Rev:    rev,
-		Commit: lexutil.LexLink(root),
+		Commit: glexrt.Link(root),
 		Time:   time.Now().Format(util.ISO8601),
 		Ops: []*comatproto.SyncSubscribeRepos_RepoOp{
 			{
@@ -586,14 +586,14 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: %w", err)
 		}
-		val, err := lexutil.CborDecodeValue(raw)
+		val, err := glexrt.CborDecodeValue(raw)
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", e.rkey, err)
 		}
 		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s%s", repo, prefix, e.rkey),
 			Cid:   e.c.String(),
-			Value: &lexutil.LexiconTypeDecoder{Val: val},
+			Value: &glexrt.LexiconTypeDecoder{Val: val},
 		})
 	}
 
@@ -623,7 +623,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: %w", err)
 	}
-	rec, err := lexutil.CborDecodeValue(raw)
+	rec, err := glexrt.CborDecodeValue(raw)
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to decode record: %w", err)
 	}
@@ -631,7 +631,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	return &comatproto.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &lexutil.LexiconTypeDecoder{Val: rec},
+		Value: &glexrt.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
 

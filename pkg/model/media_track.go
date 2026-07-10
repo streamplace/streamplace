@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
@@ -30,14 +30,14 @@ type MediaTrack struct {
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
-func (t *MediaTrack) ToRecord() (*streamplace.MediaTrack, error) {
-	rec, err := lexutil.CborDecodeValue(t.Record)
+func (t *MediaTrack) ToRecord() (placestream.MediaTrack, error) {
+	rec, err := glexrt.CborDecodeValue(t.Record)
 	if err != nil {
-		return nil, fmt.Errorf("decode media track record: %w", err)
+		return placestream.MediaTrack{}, fmt.Errorf("decode media track record: %w", err)
 	}
-	track, ok := rec.(*streamplace.MediaTrack)
+	track, ok := rec.(placestream.MediaTrack)
 	if !ok {
-		return nil, fmt.Errorf("media track record decoded as %T, expected *streamplace.MediaTrack", rec)
+		return placestream.MediaTrack{}, fmt.Errorf("media track record decoded as %T, expected placestream.MediaTrack", rec)
 	}
 	return track, nil
 }
@@ -46,19 +46,19 @@ func (t *MediaTrack) ToRecord() (*streamplace.MediaTrack, error) {
 // record. Tracks not backed by a muxlTrack (no other shape defined
 // yet) return an empty string, leaving it to the caller to decide
 // whether that's worth indexing.
-func trackBlob(rec *streamplace.MediaTrack) string {
-	if rec == nil || rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+func trackBlob(rec placestream.MediaTrack) string {
+	if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
 		return ""
 	}
 	return rec.Track.MediaDefs_MuxlTrack.Blob
 }
 
-func (m *DBModel) UpsertMediaTrack(ctx context.Context, rec *streamplace.MediaTrack, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get media track CID: %w", err)
 	}
@@ -81,14 +81,14 @@ func (m *DBModel) DeleteMediaTrack(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&MediaTrack{}).Error
 }
 
-func (m *DBModel) GetMediaTrackByURI(ctx context.Context, uri string) (*streamplace.MediaTrack, error) {
+func (m *DBModel) GetMediaTrackByURI(ctx context.Context, uri string) (placestream.MediaTrack, error) {
 	var t MediaTrack
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&t).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return placestream.MediaTrack{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get media track by uri: %w", err)
+		return placestream.MediaTrack{}, fmt.Errorf("get media track by uri: %w", err)
 	}
 	return t.ToRecord()
 }

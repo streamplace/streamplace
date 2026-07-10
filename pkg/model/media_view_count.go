@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
@@ -36,24 +36,24 @@ type MediaViewCount struct {
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
-func (v *MediaViewCount) ToRecord() (*streamplace.MediaViewCount, error) {
-	rec, err := lexutil.CborDecodeValue(v.Record)
+func (v *MediaViewCount) ToRecord() (placestream.MediaViewCount, error) {
+	rec, err := glexrt.CborDecodeValue(v.Record)
 	if err != nil {
-		return nil, fmt.Errorf("decode view-count record: %w", err)
+		return placestream.MediaViewCount{}, fmt.Errorf("decode view-count record: %w", err)
 	}
-	vc, ok := rec.(*streamplace.MediaViewCount)
+	vc, ok := rec.(placestream.MediaViewCount)
 	if !ok {
-		return nil, fmt.Errorf("view-count record decoded as %T, expected *streamplace.MediaViewCount", rec)
+		return placestream.MediaViewCount{}, fmt.Errorf("view-count record decoded as %T, expected placestream.MediaViewCount", rec)
 	}
 	return vc, nil
 }
 
-func (m *DBModel) UpsertMediaViewCount(ctx context.Context, rec *streamplace.MediaViewCount, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get view-count CID: %w", err)
 	}
@@ -76,14 +76,14 @@ func (m *DBModel) DeleteMediaViewCount(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&MediaViewCount{}).Error
 }
 
-func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (*streamplace.MediaViewCount, error) {
+func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (placestream.MediaViewCount, error) {
 	var row MediaViewCount
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return placestream.MediaViewCount{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get view count by uri: %w", err)
+		return placestream.MediaViewCount{}, fmt.Errorf("get view count by uri: %w", err)
 	}
 	return row.ToRecord()
 }
@@ -96,14 +96,14 @@ func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (*stre
 // unconditionally without a nil check. Internal to the model
 // package; consumers see only the hydrated VideoView from
 // GetVideoView.
-func (m *DBModel) viewCountSummary(ctx context.Context, videoURI string) (*streamplace.MediaGetVideo_ViewCountSummary, error) {
-	out := &streamplace.MediaGetVideo_ViewCountSummary{}
+func (m *DBModel) viewCountSummary(ctx context.Context, videoURI string) (placestream.MediaGetVideo_ViewCountSummary, error) {
+	out := placestream.MediaGetVideo_ViewCountSummary{}
 	var rows []*MediaViewCount
 	err := m.DB.WithContext(ctx).
 		Where("video_uri = ?", videoURI).
 		Find(&rows).Error
 	if err != nil {
-		return nil, fmt.Errorf("list view counts for video: %w", err)
+		return placestream.MediaGetVideo_ViewCountSummary{}, fmt.Errorf("list view counts for video: %w", err)
 	}
 	reporters := make(map[string]struct{})
 	for _, row := range rows {

@@ -142,9 +142,9 @@ var DesiredRenditions = []Rendition{
 }
 
 // GenerateRenditions generates renditions for a given spseg
-func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
+func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
 	vid := spseg.Video[0]
-	if vid == nil {
+	if vid.Codec == "" {
 		return nil, fmt.Errorf("no video stream found")
 	}
 	rs := []Rendition{}

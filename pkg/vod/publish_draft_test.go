@@ -41,7 +41,7 @@ func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
 	ctx := context.Background()
 
 	// Alice owns the draft; Bob tries to publish it.
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", &streamplace.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Alice's draft",
 		Status:        "ready",
@@ -59,7 +59,7 @@ func TestPublishDraftNotReadyWhileProcessing(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-2", &streamplace.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-2", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Still cooking",
 		Status:        "processing",
@@ -77,7 +77,7 @@ func TestPublishDraftNotReadyWhenErrored(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-3", &streamplace.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-3", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Failed",
 		Status:        "error",
@@ -95,15 +95,15 @@ func TestPublishDraftNotReadyWhenErrored(t *testing.T) {
 func TestDraftConnectionAndActivityMapping(t *testing.T) {
 	require.Nil(t, draftConnectionsToVideo(nil))
 
-	conn := &streamplace.Video_Connection{LexiconTypeID: "place.stream.video#connection"}
-	in := []*streamplace.VodDraftVideo_Connections_Elem{{Video_Connection: conn}, nil}
+	conn := &placestream.Video_Connection{LexiconTypeID: "place.stream.video#connection"}
+	in := []*placestream.VodDraftVideo_Connections_Elem{{Video_Connection: conn}, nil}
 	out := draftConnectionsToVideo(in)
 	require.Len(t, out, 1)
 	require.Equal(t, conn, out[0].Video_Connection)
 
 	require.Nil(t, draftActivityToVideo(nil))
-	game := &streamplace.Defs_ActivityGame{LexiconTypeID: "place.stream.defs#activityGame"}
-	act := draftActivityToVideo(&streamplace.VodDraftVideo_Activity{Defs_ActivityGame: game})
+	game := &placestream.Defs_ActivityGame{LexiconTypeID: "place.stream.defs#activityGame"}
+	act := draftActivityToVideo(&placestream.VodDraftVideo_Activity{Defs_ActivityGame: game})
 	require.NotNil(t, act)
 	require.Equal(t, game, act.Defs_ActivityGame)
 }

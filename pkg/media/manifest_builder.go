@@ -48,7 +48,7 @@ func toObj(record any) (obj, error) {
 	return o, nil
 }
 
-func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName string) (*streamplace.Livestream, error) {
+func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName string) (*placestream.Livestream, error) {
 	if mb.model == nil {
 		return nil, fmt.Errorf("model is nil")
 	}
@@ -63,7 +63,7 @@ func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert livestream to view: %w", err)
 	}
-	ls, ok := livestreamRecord.Record.Val.(*streamplace.Livestream)
+	ls, ok := livestreamRecord.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return nil, fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -210,7 +210,7 @@ func getWarningCodeMap() map[string]string {
 	}
 }
 
-func (mb *ManifestBuilder) enhanceManifestWithMetadata(mani obj, metadata *streamplace.MetadataConfiguration, startTimeMillis int64) obj {
+func (mb *ManifestBuilder) enhanceManifestWithMetadata(mani obj, metadata *placestream.MetadataConfiguration, startTimeMillis int64) obj {
 	if metadata.ContentRights != nil {
 		// TODO: We are currently validating the creator in the ValidateMP4 function to be the streamer DID
 		// if metadata.ContentRights.Creator != nil {

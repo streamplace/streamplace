@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	bsky "stream.place/streamplace/pkg/appbsky"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
@@ -143,7 +143,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					send(msg)
 				case <-ticker.C:
 					count := a.Bus.GetViewerCount(repoDID)
-					bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
 						continue
@@ -174,7 +174,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			}
 			if profile != nil {
 				p := map[string]any{
-					"$type":  "app.bsky.actor.defs#profileViewBasic",
+					"$type":  "app.appbsky.actor.defs#profileViewBasic",
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}
@@ -194,9 +194,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
-			outRs := streamplace.Defs_Renditions{
+			outRs := placestream.Defs_Renditions{
 				LexiconTypeID: "place.stream.defs#renditions",
-				Renditions:    []*streamplace.Defs_Rendition{},
+				Renditions:    []*placestream.Defs_Rendition{},
 			}
 			if a.CLI.LivepeerGatewayURL != "" {
 				videoRenditions, err := renditions.GenerateRenditions(spSeg)
@@ -205,13 +205,13 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				for _, r := range videoRenditions {
-					outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+					outRs.Renditions = append(outRs.Renditions, &placestream.Defs_Rendition{
 						LexiconTypeID: "place.stream.defs#rendition",
 						Name:          r.Name,
 					})
 				}
 			}
-			outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+			outRs.Renditions = append(outRs.Renditions, &placestream.Defs_Rendition{
 				LexiconTypeID: "place.stream.defs#rendition",
 				Name:          renditions.AudioRendition.Name,
 			})
@@ -238,7 +238,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 		go func() {
 			count := a.Bus.GetViewerCount(repoDID)
-			initialBurst <- streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+			initialBurst <- placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
 		}()
 
 		go func() {
@@ -332,10 +332,10 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
-				arrivalMsg := streamplace.Livestream_TeleportArrival{
+				arrivalMsg := placestream.Livestream_TeleportArrival{
 					LexiconTypeID: "place.stream.livestream#teleportArrival",
 					TeleportUri:   tp.URI,
-					Source: &bsky.ActorDefs_ProfileViewBasic{
+					Source: &appbsky.ActorDefs_ProfileViewBasic{
 						Did:    tp.RepoDID,
 						Handle: tp.Repo.Handle,
 					},

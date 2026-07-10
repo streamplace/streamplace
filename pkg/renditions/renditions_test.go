@@ -8,13 +8,13 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
-func seg(width int, height int, fpsNum int, fpsDen int) *streamplace.Segment {
-	return &streamplace.Segment{
-		Video: []*streamplace.Segment_Video{
+func seg(width int, height int, fpsNum int, fpsDen int) *placestream.Segment {
+	return &placestream.Segment{
+		Video: []*placestream.Segment_Video{
 			{
 				Width:  int64(width),
 				Height: int64(height),
-				Framerate: &streamplace.Segment_Framerate{
+				Framerate: &placestream.Segment_Framerate{
 					Num: int64(fpsNum),
 					Den: int64(fpsDen),
 				},
@@ -25,7 +25,7 @@ func seg(width int, height int, fpsNum int, fpsDen int) *streamplace.Segment {
 
 var cases = []struct {
 	name  string
-	spseg *streamplace.Segment
+	spseg *placestream.Segment
 	lp    string
 }{
 	{
@@ -249,7 +249,7 @@ func TestRenditions(t *testing.T) {
 
 var singleCases = []struct {
 	name       string
-	spseg      *streamplace.Segment
+	spseg      *placestream.Segment
 	lp         string
 	dimensions []int
 }{

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/appbsky"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -25,16 +25,16 @@ type Like struct {
 	CreatedAt time.Time  `json:"createdAt"      gorm:"column:created_at"`
 }
 
-func (l *Like) ToStreamplaceLikeView() (*streamplace.GetLikes_LikeView, error) {
-	rec, err := lexutil.CborDecodeValue([]byte{})
+func (l *Like) ToStreamplaceLikeView() (placestream.GetLikes_LikeView, error) {
+	rec, err := glexrt.CborDecodeValue([]byte{})
 	if err != nil {
-		rec = &streamplace.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
+		rec = placestream.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
 	}
-	return &streamplace.GetLikes_LikeView{
+	return placestream.GetLikes_LikeView{
 		Uri:    l.URI,
 		Cid:    l.CID,
-		Record: &lexutil.LexiconTypeDecoder{Val: rec},
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+		Record: &glexrt.LexiconTypeDecoder{Val: rec},
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: l.RepoDID,
 			Handle: func() string {
 				if l.Repo != nil {
@@ -83,7 +83,7 @@ func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, r
 	return &like, nil
 }
 
-func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.GetLikes_LikeView, int64, *time.Time, error) {
+func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error) {
 	count, err := m.GetLikeCount(ctx, subject)
 	if err != nil {
 		return nil, 0, nil, err
@@ -107,7 +107,7 @@ func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit 
 		nextCursor = &dblikes[limit-1].CreatedAt
 		dblikes = dblikes[:limit]
 	}
-	views := []*streamplace.GetLikes_LikeView{}
+	views := []placestream.GetLikes_LikeView{}
 	for _, l := range dblikes {
 		view, err := l.ToStreamplaceLikeView()
 		if err != nil {

@@ -12,8 +12,8 @@ import (
 
 // GetValidBadges returns valid badges for a user in the context of a streamer's chat.
 // Returns server-controlled badges (streamer, mod) based on permissions.
-func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]*streamplace.BadgeDefs_BadgeView, error) {
-	badges := []*streamplace.BadgeDefs_BadgeView{}
+func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]*placestream.BadgeDefs_BadgeView, error) {
+	badges := []*placestream.BadgeDefs_BadgeView{}
 
 	// If no streamer context, return empty badges
 	if streamerDID == "" {
@@ -22,7 +22,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 
 	// Check if user is the streamer
 	if userDID == streamerDID {
-		badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+		badges = append(badges, &placestream.BadgeDefs_BadgeView{
 			BadgeType: constants.BadgeTypeStreamer,
 			Issuer:    issuerDID,
 			Recipient: userDID,
@@ -38,7 +38,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		}
 
 		if len(delegations) > 0 {
-			badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+			badges = append(badges, &placestream.BadgeDefs_BadgeView{
 				BadgeType: constants.BadgeTypeMod,
 				Issuer:    issuerDID,
 				Recipient: userDID,
@@ -53,14 +53,14 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	}
 	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
 
-	if err != nil || spChatProfile == nil {
+	if err != nil || false {
 		return badges, nil
 	}
 
 	for _, label := range spChatProfile.SelfLabels {
-		if *label == constants.SelfLabelBot {
+		if label == constants.SelfLabelBot {
 			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
-			badges = append(badges, &streamplace.BadgeDefs_BadgeView{
+			badges = append(badges, &placestream.BadgeDefs_BadgeView{
 				BadgeType: constants.BadgeTypeBot,
 				Issuer:    issuerDID,
 				Recipient: userDID,
@@ -73,7 +73,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		// VIP badges: one per streamer channel, only shown in that streamer's chat.
 		if streamerDID != "" {
 			for _, sel := range spChatProfile.Badges.Streamer {
-				if sel == nil || sel.Badge == nil || sel.Streamer != streamerDID {
+				if sel.Badge.Uri == "" || sel.Streamer != streamerDID {
 					continue
 				}
 				view, err := resolveIssuanceBadgeView(ctx, sel.Badge.Uri, userDID, m)
@@ -115,7 +115,7 @@ func IsGlobalIssuer(did string) bool {
 
 // resolveIssuanceBadgeView fetches an issuance by URI, verifies the recipient, and returns a BadgeView.
 // Returns nil (with no error) if the issuance is revoked, not indexed, or the recipient doesn't match.
-func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m model.Model) (*streamplace.BadgeDefs_BadgeView, error) {
+func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m model.Model) (*placestream.BadgeDefs_BadgeView, error) {
 	issuance, err := m.GetBadgeIssuanceByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "failed to get badge issuance", "err", err, "uri", uri)
@@ -136,7 +136,7 @@ func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m
 	if def == nil {
 		return nil, nil // def was deleted
 	}
-	view := &streamplace.BadgeDefs_BadgeView{
+	view := &placestream.BadgeDefs_BadgeView{
 		BadgeType: def.BadgeType,
 		Issuer:    issuance.RepoDID,
 		Recipient: userDID,

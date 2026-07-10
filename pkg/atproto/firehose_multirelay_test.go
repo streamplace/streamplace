@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/comatproto"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -69,7 +69,7 @@ func TestMultiRelayDedup(t *testing.T) {
 	}()
 
 	user := dev.CreateAccount(t)
-	msg := &streamplace.ChatMessage{
+	msg := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello from two relays!",
 		CreatedAt:     time.Now().Add(-time.Second).Format(util.ISO8601),
@@ -78,7 +78,7 @@ func TestMultiRelayDedup(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: msg},
+		Record:     &glexrt.LexiconTypeDecoder{Val: msg},
 	})
 	require.NoError(t, err)
 

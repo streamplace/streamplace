@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/placestream"
@@ -30,24 +30,24 @@ func (bo *BroadcastOrigin) TableName() string {
 	return "broadcast_origins"
 }
 
-func (bo *BroadcastOrigin) ToBroadcastOriginView() (*streamplace.BroadcastDefs_BroadcastOriginView, error) {
-	rec, err := lexutil.CborDecodeValue(bo.Record)
+func (bo *BroadcastOrigin) ToBroadcastOriginView() (placestream.BroadcastDefs_BroadcastOriginView, error) {
+	rec, err := glexrt.CborDecodeValue(bo.Record)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding broadcast origin: %w", err)
+		return placestream.BroadcastDefs_BroadcastOriginView{}, fmt.Errorf("error decoding broadcast origin: %w", err)
 	}
-	return &streamplace.BroadcastDefs_BroadcastOriginView{
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+	return placestream.BroadcastDefs_BroadcastOriginView{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: bo.StreamerRepoDID,
 		},
 		Cid:    bo.CID,
-		Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		Record: &glexrt.LexiconTypeDecoder{Val: rec},
 		Uri:    bo.URI,
 	}, nil
 }
 
-func (m *DBModel) UpdateBroadcastOrigin(ctx context.Context, origin *streamplace.BroadcastOrigin, aturi syntax.ATURI) error {
+func (m *DBModel) UpdateBroadcastOrigin(ctx context.Context, origin placestream.BroadcastOrigin, aturi syntax.ATURI) error {
 	repoDID := aturi.Authority().String()
-	cid, err := spid.GetCID(origin)
+	cid, err := spid.GetCID(&origin)
 	if err != nil {
 		return fmt.Errorf("failed to get CID: %w", err)
 	}
@@ -73,7 +73,7 @@ func (m *DBModel) UpdateBroadcastOrigin(ctx context.Context, origin *streamplace
 	return m.DB.Save(bo).Error
 }
 
-func (m *DBModel) GetRecentBroadcastOrigins(ctx context.Context) ([]*streamplace.BroadcastDefs_BroadcastOriginView, error) {
+func (m *DBModel) GetRecentBroadcastOrigins(ctx context.Context) ([]placestream.BroadcastDefs_BroadcastOriginView, error) {
 	now := time.Now()
 	oneMinuteAgo := now.Add(-1 * time.Minute)
 
@@ -84,7 +84,7 @@ func (m *DBModel) GetRecentBroadcastOrigins(ctx context.Context) ([]*streamplace
 	if err != nil {
 		return nil, err
 	}
-	views := make([]*streamplace.BroadcastDefs_BroadcastOriginView, len(origins))
+	views := make([]placestream.BroadcastDefs_BroadcastOriginView, len(origins))
 	for i, o := range origins {
 		view, err := o.ToBroadcastOriginView()
 		if err != nil {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/spid"
@@ -19,7 +19,7 @@ import (
 // Video is the indexed view of a place.stream.video record. Every
 // non-identity field — title, duration, source, etc — lives inside
 // the CBOR Record blob; callers decode it via ToRecord (or rely on
-// the getters that return *streamplace.Video directly). Only
+// the getters that return placestream.Video directly). Only
 // indexed fields and the URI/CID identity earn their own column.
 type Video struct {
 	URI       string    `gorm:"primaryKey;column:uri"`
@@ -30,24 +30,24 @@ type Video struct {
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
-func (v *Video) ToRecord() (*streamplace.Video, error) {
-	rec, err := lexutil.CborDecodeValue(v.Record)
+func (v *Video) ToRecord() (placestream.Video, error) {
+	rec, err := glexrt.CborDecodeValue(v.Record)
 	if err != nil {
-		return nil, fmt.Errorf("decode video record: %w", err)
+		return placestream.Video{}, fmt.Errorf("decode video record: %w", err)
 	}
-	video, ok := rec.(*streamplace.Video)
+	video, ok := rec.(placestream.Video)
 	if !ok {
-		return nil, fmt.Errorf("video record decoded as %T, expected *streamplace.Video", rec)
+		return placestream.Video{}, fmt.Errorf("video record decoded as %T, expected placestream.Video", rec)
 	}
 	return video, nil
 }
 
-func (m *DBModel) UpsertVideo(ctx context.Context, rec *streamplace.Video, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get video CID: %w", err)
 	}
@@ -69,14 +69,14 @@ func (m *DBModel) DeleteVideo(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Video{}).Error
 }
 
-func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*streamplace.Video, error) {
+func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (placestream.Video, error) {
 	var v Video
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&v).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return placestream.Video{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get video by uri: %w", err)
+		return placestream.Video{}, fmt.Errorf("get video by uri: %w", err)
 	}
 	return v.ToRecord()
 }
@@ -86,24 +86,24 @@ func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*streamplace.V
 // indexed place.stream.media.viewCount record for the video. Returns
 // (nil, nil) when no video matches the URI so callers can surface a
 // 404 without inspecting any model types.
-func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.MediaGetVideo_VideoView, error) {
+func (m *DBModel) GetVideoView(ctx context.Context, uri string) (placestream.MediaGetVideo_VideoView, error) {
 	var row Video
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return placestream.MediaGetVideo_VideoView{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get video by uri: %w", err)
+		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get video by uri: %w", err)
 	}
 	rec, err := row.ToRecord()
 	if err != nil {
-		return nil, err
+		return placestream.MediaGetVideo_VideoView{}, err
 	}
 
-	author := &bsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
+	author := appbsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
 	repo, err := m.GetRepo(row.RepoDID)
 	if err != nil {
-		return nil, fmt.Errorf("hydrate author repo: %w", err)
+		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("hydrate author repo: %w", err)
 	}
 	if repo != nil {
 		author.Handle = repo.Handle
@@ -111,30 +111,30 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.Me
 
 	summary, err := m.viewCountSummary(ctx, uri)
 	if err != nil {
-		return nil, err
+		return placestream.MediaGetVideo_VideoView{}, err
 	}
 
 	likeCount, err := m.GetLikeCount(ctx, uri)
 	if err != nil {
-		return nil, fmt.Errorf("get like count: %w", err)
+		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get like count: %w", err)
 	}
 
-	tracks := []*streamplace.MediaTrack_TrackView{}
+	tracks := []placestream.MediaTrack_TrackView{}
 	if rec.Source.MediaDefs_SourceTracks != nil {
 		for _, track := range rec.Source.MediaDefs_SourceTracks.Tracks {
 			t, err := m.GetMediaTrackByURI(ctx, track.Uri)
 			if err != nil {
-				return nil, fmt.Errorf("get media track by uri: %w", err)
+				return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get media track by uri: %w", err)
 			}
-			if t == nil {
+			if false {
 				continue
 			}
-			cid, err := spid.GetCID(t)
+			cid, err := spid.GetCID(&t)
 			if err != nil {
-				return nil, fmt.Errorf("get cid: %w", err)
+				return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get cid: %w", err)
 			}
-			tracks = append(tracks, &streamplace.MediaTrack_TrackView{
-				Record: &lexutil.LexiconTypeDecoder{Val: t},
+			tracks = append(tracks, placestream.MediaTrack_TrackView{
+				Record: &glexrt.LexiconTypeDecoder{Val: t},
 				Uri:    track.Uri,
 				Cid:    cid.String(),
 				Author: author,
@@ -142,11 +142,11 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*streamplace.Me
 		}
 	}
 
-	return &streamplace.MediaGetVideo_VideoView{
+	return placestream.MediaGetVideo_VideoView{
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:     &glexrt.LexiconTypeDecoder{Val: rec},
 		ViewCounts: summary,
 		LikeCount:  likeCount,
 		Tracks:     tracks,

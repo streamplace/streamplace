@@ -13,9 +13,9 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
+	bsky "stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
@@ -200,7 +200,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}
-		ltd := &lexutil.LexiconTypeDecoder{Val: record}
+		ltd := &glexrt.LexiconTypeDecoder{Val: record}
 
 		output.Segments[i] = &placestream.Segment_SegmentView{
 			Record: ltd,
@@ -605,30 +605,30 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		linkStart := int64(len(prefix))
 		linkEnd := linkStart + int64(len(canonicalUrl))
 
-		postRecord := &bsky.FeedPost{
-			LexiconTypeID: "app.bsky.feed.post",
+		postRecord := appbsky.FeedPost{
+			LexiconTypeID: "app.appbsky.feed.post",
 			Text:          postText,
 			CreatedAt:     now,
 			Langs:         []string{"en"},
-			Facets: []*bsky.RichtextFacet{
+			Facets: []*appbsky.RichtextFacet{
 				{
-					Index: &bsky.RichtextFacet_ByteSlice{
+					Index: appbsky.RichtextFacet_ByteSlice{
 						ByteStart: linkStart,
 						ByteEnd:   linkEnd,
 					},
-					Features: []*bsky.RichtextFacet_Features_Elem{
+					Features: []*appbsky.RichtextFacet_Features_Elem{
 						{
-							RichtextFacet_Link: &bsky.RichtextFacet_Link{
-								LexiconTypeID: "app.bsky.richtext.facet#link",
+							RichtextFacet_Link: appbsky.RichtextFacet_Link{
+								LexiconTypeID: "app.appbsky.richtext.facet#link",
 								Uri:           canonicalUrl,
 							},
 						},
 					},
 				},
 			},
-			Embed: &bsky.FeedPost_Embed{
-				EmbedExternal: &bsky.EmbedExternal{
-					External: &bsky.EmbedExternal_External{
+			Embed: appbsky.FeedPost_Embed{
+				EmbedExternal: appbsky.EmbedExternal{
+					External: appbsky.EmbedExternal_External{
 						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
 						Uri:         canonicalUrl,
 						Description: livestream.Title,
@@ -639,8 +639,8 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		}
 
 		postInput := comatproto.RepoCreateRecord_Input{
-			Collection: "app.bsky.feed.post",
-			Record:     &lexutil.LexiconTypeDecoder{Val: postRecord},
+			Collection: "app.appbsky.feed.post",
+			Record:     &glexrt.LexiconTypeDecoder{Val: postRecord},
 			Repo:       session.DID,
 		}
 		var postOutput comatproto.RepoCreateRecord_Output
@@ -658,7 +658,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	// Step 4: create the place.stream.livestream record
 	lsInput := comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: livestream},
+		Record:     &glexrt.LexiconTypeDecoder{Val: livestream},
 		Repo:       session.DID,
 	}
 	var lsOutput comatproto.RepoCreateRecord_Output
@@ -796,7 +796,7 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 
 	lsInput := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: livestreamRecord},
+		Record:     &glexrt.LexiconTypeDecoder{Val: livestreamRecord},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       session.DID,
 		SwapRecord: swapRecord,

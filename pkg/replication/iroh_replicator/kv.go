@@ -121,7 +121,7 @@ func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte,
 	return &swarm, nil
 }
 
-func (swarm *IrohSwarm) BuildOriginRecord(origin *streamplace.BroadcastOrigin) error {
+func (swarm *IrohSwarm) BuildOriginRecord(origin *placestream.BroadcastOrigin) error {
 	origin.IrohTicket = &swarm.NodeTicket
 	return nil
 }
@@ -270,7 +270,7 @@ func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-busCh:
-			if view, ok := msg.(*streamplace.BroadcastDefs_BroadcastOriginView); ok {
+			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
 				log.Debug(ctx, "got broadcast origin view", "view", view)
 				err = swarm.handleOriginMessage(ctx, view)
 				if err != nil {
@@ -315,8 +315,8 @@ func (swarm *IrohSwarm) startViewerCountSubscribe(ctx context.Context) error {
 	}
 }
 
-func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *streamplace.BroadcastDefs_BroadcastOriginView) error {
-	origin, ok := view.Record.Val.(*streamplace.BroadcastOrigin)
+func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
+	origin, ok := view.Record.Val.(*placestream.BroadcastOrigin)
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}

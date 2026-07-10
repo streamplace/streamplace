@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -16,14 +16,14 @@ type MetadataConfiguration struct {
 	Record  *[]byte
 }
 
-func (m *MetadataConfiguration) ToStreamplaceMetadataConfiguration() (*streamplace.MetadataConfiguration, error) {
-	rec, err := lexutil.CborDecodeValue(*m.Record)
+func (m *MetadataConfiguration) ToStreamplaceMetadataConfiguration() (placestream.MetadataConfiguration, error) {
+	rec, err := glexrt.CborDecodeValue(*m.Record)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+		return placestream.MetadataConfiguration{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
-	sdm, ok := rec.(*streamplace.MetadataConfiguration)
+	sdm, ok := rec.(placestream.MetadataConfiguration)
 	if !ok {
-		return nil, fmt.Errorf("invalid metadata configuration")
+		return placestream.MetadataConfiguration{}, fmt.Errorf("invalid metadata configuration")
 	}
 	return sdm, nil
 }

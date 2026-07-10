@@ -27,12 +27,12 @@ type BetaRequest struct {
 	IndexedAt time.Time `gorm:"column:indexed_at"`
 }
 
-func (m *DBModel) UpsertBetaRequest(ctx context.Context, rec *streamplace.BetaRequest, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertBetaRequest(ctx context.Context, rec placestream.BetaRequest, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get beta request CID: %w", err)
 	}

@@ -22,9 +22,9 @@ func parseURI(t *testing.T, s string) syntax.ATURI {
 // the given reporter repo. Tracks slice is what shows up in the
 // summary's bytes / durationMs totals. rkey is a per-call discriminator
 // — same reporter + same rkey upserts in place.
-func putViewCount(t *testing.T, m Model, reporter, rkey, videoURI string, count int64, tracks []*streamplace.MediaViewCount_TrackUsage) {
+func putViewCount(t *testing.T, m Model, reporter, rkey, videoURI string, count int64, tracks []placestream.MediaViewCount_TrackUsage) {
 	t.Helper()
-	rec := &streamplace.MediaViewCount{
+	rec := placestream.MediaViewCount{
 		LexiconTypeID: "place.stream.media.viewCount",
 		Video:         videoURI,
 		Count:         count,
@@ -46,11 +46,11 @@ func TestGetVideoView_NoViewCounts(t *testing.T) {
 		owner    = "did:plc:alice"
 		videoURI = "at://did:plc:alice/place.stream.video/v1"
 	)
-	video := &streamplace.Video{
+	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         "hello",
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks:        []*comatproto.RepoStrongRef{},
 			},
@@ -76,11 +76,11 @@ func TestGetVideoView_SumsAcrossReporters(t *testing.T) {
 	ctx := context.Background()
 
 	const videoURI = "at://did:plc:alice/place.stream.video/v1"
-	video := &streamplace.Video{
+	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         "popular",
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			},
 		},
@@ -93,13 +93,13 @@ func TestGetVideoView_SumsAcrossReporters(t *testing.T) {
 		Cid:           "bafytrack",
 	}
 	// Three reporters, one record each.
-	putViewCount(t, m, "did:plc:node1", "w1", videoURI, 5, []*streamplace.MediaViewCount_TrackUsage{
+	putViewCount(t, m, "did:plc:node1", "w1", videoURI, 5, []placestream.MediaViewCount_TrackUsage{
 		{Track: trackRef, Bytes: 100, DurationMs: 1000},
 	})
-	putViewCount(t, m, "did:plc:node2", "w1", videoURI, 7, []*streamplace.MediaViewCount_TrackUsage{
+	putViewCount(t, m, "did:plc:node2", "w1", videoURI, 7, []placestream.MediaViewCount_TrackUsage{
 		{Track: trackRef, Bytes: 200, DurationMs: 2000},
 	})
-	putViewCount(t, m, "did:plc:node3", "w1", videoURI, 3, []*streamplace.MediaViewCount_TrackUsage{
+	putViewCount(t, m, "did:plc:node3", "w1", videoURI, 3, []placestream.MediaViewCount_TrackUsage{
 		{Track: trackRef, Bytes: 50, DurationMs: 500},
 		{Track: trackRef, Bytes: 25, DurationMs: 250},
 	})
@@ -132,7 +132,7 @@ func TestUpsertMediaViewCountIdempotent(t *testing.T) {
 		reporter = "did:plc:node1"
 		videoURI = "at://did:plc:alice/place.stream.video/v1"
 	)
-	rec := &streamplace.MediaViewCount{
+	rec := placestream.MediaViewCount{
 		LexiconTypeID: "place.stream.media.viewCount",
 		Video:         videoURI,
 		Count:         5,
@@ -159,7 +159,7 @@ func TestDeleteMediaViewCount(t *testing.T) {
 	ctx := context.Background()
 
 	const videoURI = "at://did:plc:alice/place.stream.video/v1"
-	rec := &streamplace.MediaViewCount{
+	rec := placestream.MediaViewCount{
 		LexiconTypeID: "place.stream.media.viewCount",
 		Video:         videoURI,
 		Count:         5,

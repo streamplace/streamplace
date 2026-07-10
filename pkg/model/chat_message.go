@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/appbsky"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -38,13 +38,13 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageView, error) {
-	rec, err := lexutil.CborDecodeValue(*m.ChatMessage)
+func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageView, error) {
+	rec, err := glexrt.CborDecodeValue(*m.ChatMessage)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+		return placestream.ChatDefs_MessageView{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
 	// Truncate message text if it is a ChatMessage
-	if msg, ok := rec.(*streamplace.ChatMessage); ok {
+	if msg, ok := rec.(placestream.ChatMessage); ok {
 		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
 		if graphemeCount > 300 {
 			gr := uniseg.NewGraphemes(msg.Text)
@@ -56,40 +56,40 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*streamplace.ChatDefs_MessageV
 		}
 	}
 
-	message := &streamplace.ChatDefs_MessageView{
+	message := placestream.ChatDefs_MessageView{
 		LexiconTypeID: "place.stream.chat.defs#messageView",
 	}
 	message.Uri = m.URI
 	message.Cid = m.CID
-	message.Author = &bsky.ActorDefs_ProfileViewBasic{
+	message.Author = appbsky.ActorDefs_ProfileViewBasic{
 		Did: m.RepoDID,
 	}
 	if m.Repo != nil {
 		message.Author.Handle = m.Repo.Handle
 	}
-	message.Record = &lexutil.LexiconTypeDecoder{Val: rec}
+	message.Record = &glexrt.LexiconTypeDecoder{Val: rec}
 	message.IndexedAt = m.IndexedAt.UTC().Format(time.RFC3339Nano)
 	if m.ChatProfile != nil {
 		scp, err := m.ChatProfile.ToStreamplaceChatProfile()
 		if err != nil {
-			return nil, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
+			return placestream.ChatDefs_MessageView{}, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
 		}
-		message.ChatProfile = scp
+		message.ChatProfile = &scp
 	} else {
 		// If no chat profile exists, create a default one with a color based on the user's DID
 		defaultColor := DefaultColors[hashString(m.RepoDID)%len(DefaultColors)]
-		message.ChatProfile = &streamplace.ChatProfile{
-			Color: defaultColor,
+		message.ChatProfile = &placestream.ChatProfile{
+			Color: &defaultColor,
 		}
 
 	}
 	if m.ReplyTo != nil {
 		replyTo, err := m.ReplyTo.ToStreamplaceMessageView()
 		if err != nil {
-			return nil, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
+			return placestream.ChatDefs_MessageView{}, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
 		}
-		message.ReplyTo = &streamplace.ChatDefs_MessageView_ReplyTo{
-			ChatDefs_MessageView: replyTo,
+		message.ReplyTo = &placestream.ChatDefs_MessageView_ReplyTo{
+			ChatDefs_MessageView: &replyTo,
 		}
 	}
 	return message, nil
@@ -131,7 +131,7 @@ func (m *DBModel) GetChatMessage(uri string) (*ChatMessage, error) {
 	return &message, nil
 }
 
-func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error) {
+func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error) {
 	dbmessages := []ChatMessage{}
 	err := m.DB.
 		Preload("Repo").
@@ -157,7 +157,7 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDef
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
-	spmessages := []*streamplace.ChatDefs_MessageView{}
+	spmessages := []placestream.ChatDefs_MessageView{}
 	for _, m := range dbmessages {
 		spmessage, err := m.ToStreamplaceMessageView()
 		if err != nil {

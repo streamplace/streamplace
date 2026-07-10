@@ -24,11 +24,11 @@ import (
 // pipeline over it, reporting status straight to the DB. The isolated
 // counterpart (RTMPPushIsolated) runs the same native pipeline in a worker
 // subprocess so a gst fault in the egress chain can't take the node down.
-func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *streamplace.MultistreamDefs_TargetView) error {
+func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPush")
-	rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+	rec, ok := targetView.Record.Val.(*placestream.MultistreamTarget)
 	if !ok {
 		return fmt.Errorf("failed to convert target view to multistream target")
 	}

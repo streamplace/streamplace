@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/appbsky"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/rivo/uniseg"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -31,12 +31,12 @@ type VodComment struct {
 
 // decodeRecord decodes the stored comment CBOR, truncating overly long text
 // to the same 300-grapheme cap the views enforce.
-func (c *VodComment) decodeRecord() (*lexutil.LexiconTypeDecoder, error) {
-	rec, err := lexutil.CborDecodeValue(*c.Comment)
+func (c *VodComment) decodeRecord() (*glexrt.LexiconTypeDecoder, error) {
+	rec, err := glexrt.CborDecodeValue(*c.Comment)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding comment: %w", err)
 	}
-	if msg, ok := rec.(*streamplace.VodComment); ok {
+	if msg, ok := rec.(placestream.VodComment); ok {
 		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
 		if graphemeCount > 300 {
 			gr := uniseg.NewGraphemes(msg.Text)
@@ -47,11 +47,11 @@ func (c *VodComment) decodeRecord() (*lexutil.LexiconTypeDecoder, error) {
 			msg.Text = result.String()
 		}
 	}
-	return &lexutil.LexiconTypeDecoder{Val: rec}, nil
+	return &glexrt.LexiconTypeDecoder{Val: rec}, nil
 }
 
-func (c *VodComment) author() *bsky.ActorDefs_ProfileViewBasic {
-	author := &bsky.ActorDefs_ProfileViewBasic{Did: c.RepoDID}
+func (c *VodComment) author() appbsky.ActorDefs_ProfileViewBasic {
+	author := appbsky.ActorDefs_ProfileViewBasic{Did: c.RepoDID}
 	if c.Repo != nil {
 		author.Handle = c.Repo.Handle
 	}
@@ -62,12 +62,12 @@ func (c *VodComment) author() *bsky.ActorDefs_ProfileViewBasic {
 // a comment's replyTo. It deliberately carries no replyTo of its own, which is
 // what keeps the thread flattened to a single hop (and keeps the lexicon — and
 // the OpenAPI schema generated from it — free of a self-referential cycle).
-func (c *VodComment) ToStreamplaceCommentViewBasic() (*streamplace.VodDefs_CommentViewBasic, error) {
+func (c *VodComment) ToStreamplaceCommentViewBasic() (placestream.VodDefs_CommentViewBasic, error) {
 	record, err := c.decodeRecord()
 	if err != nil {
-		return nil, err
+		return placestream.VodDefs_CommentViewBasic{}, err
 	}
-	return &streamplace.VodDefs_CommentViewBasic{
+	return placestream.VodDefs_CommentViewBasic{
 		LexiconTypeID: "place.stream.vod.defs#commentViewBasic",
 		Uri:           c.URI,
 		Cid:           c.CID,
@@ -78,12 +78,12 @@ func (c *VodComment) ToStreamplaceCommentViewBasic() (*streamplace.VodDefs_Comme
 	}, nil
 }
 
-func (c *VodComment) ToStreamplaceCommentView() (*streamplace.VodDefs_CommentView, error) {
+func (c *VodComment) ToStreamplaceCommentView() (placestream.VodDefs_CommentView, error) {
 	record, err := c.decodeRecord()
 	if err != nil {
-		return nil, err
+		return placestream.VodDefs_CommentView{}, err
 	}
-	commentView := &streamplace.VodDefs_CommentView{
+	commentView := placestream.VodDefs_CommentView{
 		Uri:       c.URI,
 		Cid:       c.CID,
 		Author:    c.author(),
@@ -94,10 +94,10 @@ func (c *VodComment) ToStreamplaceCommentView() (*streamplace.VodDefs_CommentVie
 	if c.ReplyTo != nil {
 		replyTo, err := c.ReplyTo.ToStreamplaceCommentViewBasic()
 		if err != nil {
-			return nil, fmt.Errorf("error converting reply to comment view: %w", err)
+			return placestream.VodDefs_CommentView{}, fmt.Errorf("error converting reply to comment view: %w", err)
 		}
-		commentView.ReplyTo = &streamplace.VodDefs_CommentView_ReplyTo{
-			VodDefs_CommentViewBasic: replyTo,
+		commentView.ReplyTo = &placestream.VodDefs_CommentView_ReplyTo{
+			VodDefs_CommentViewBasic: &replyTo,
 		}
 	}
 	return commentView, nil
@@ -136,7 +136,7 @@ func (m *DBModel) GetVodComment(uri string) (*VodComment, error) {
 	return &comment, nil
 }
 
-func (m *DBModel) GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]*streamplace.VodDefs_CommentView, *time.Time, error) {
+func (m *DBModel) GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error) {
 	dbcomments := []VodComment{}
 	query := m.DB.
 		Preload("Repo").
@@ -163,7 +163,7 @@ func (m *DBModel) GetCommentsForVideo(ctx context.Context, videoURI string, limi
 		nextCursor = &dbcomments[limit-1].CreatedAt
 		dbcomments = dbcomments[:limit]
 	}
-	spcomments := []*streamplace.VodDefs_CommentView{}
+	spcomments := []placestream.VodDefs_CommentView{}
 	for _, c := range dbcomments {
 		spcomment, err := c.ToStreamplaceCommentView()
 		if err != nil {

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/ingestframe"
@@ -114,10 +114,10 @@ func TestRTMPPushWorkerContainsFailure(t *testing.T) {
 	// A bus is needed so the source goroutine (writeRTMPSource) doesn't nil-panic;
 	// it just blocks on the empty bus until the worker fails and we cancel.
 	mm := &MediaManager{bus: bus.NewBus()}
-	targetView := &streamplace.MultistreamDefs_TargetView{
+	targetView := &placestream.MultistreamDefs_TargetView{
 		Uri: "at://did:plc:test/place.stream.multistream.target/abc",
-		Record: &lexutil.LexiconTypeDecoder{
-			Val: &streamplace.MultistreamTarget{Url: "http://127.0.0.1:1/nope"},
+		Record: &glexrt.LexiconTypeDecoder{
+			Val: &placestream.MultistreamTarget{Url: "http://127.0.0.1:1/nope"},
 		},
 	}
 

@@ -57,7 +57,7 @@ func NewLivepeerSession(ctx context.Context, cli *config.CLI, did string, gatewa
 	}, nil
 }
 
-func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *streamplace.Segment, rs renditions.Renditions) ([][]byte, error) {
+func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *placestream.Segment, rs renditions.Renditions) ([][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostSegmentToGateway")
 	lpProfiles := rs.ToLivepeerProfiles()
 	sessionIDRen := fmt.Sprintf("%s-%dren", ls.SessionID, len(rs))

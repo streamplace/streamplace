@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/appbsky"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/moderation"
@@ -26,29 +26,29 @@ type Livestream struct {
 	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
 }
 
-func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView, error) {
+func (ls *Livestream) ToLivestreamView() (placestream.Livestream_LivestreamView, error) {
 	if ls == nil || ls.Livestream == nil {
-		return nil, fmt.Errorf("livestream record is nil")
+		return placestream.Livestream_LivestreamView{}, fmt.Errorf("livestream record is nil")
 	}
-	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
+	rec, err := glexrt.CborDecodeValue(*ls.Livestream)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+		return placestream.Livestream_LivestreamView{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
-	if typedRec, ok := rec.(*streamplace.Livestream); ok {
+	if typedRec, ok := rec.(placestream.Livestream); ok {
 		typedRec.Tags = moderation.FilterTags(typedRec.Tags)
 	}
-	postView := streamplace.Livestream_LivestreamView{
+	postView := placestream.Livestream_LivestreamView{
 		LexiconTypeID: "place.stream.livestream#livestreamView",
 		Cid:           ls.CID,
 		Uri:           ls.URI,
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did:    ls.RepoDID,
 			Handle: ls.Repo.Handle,
 		},
-		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:    &glexrt.LexiconTypeDecoder{Val: rec},
 		IndexedAt: time.Now().Format(time.RFC3339),
 	}
-	return &postView, nil
+	return postView, nil
 }
 
 func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {

@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/appbsky"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/js/app"
@@ -45,23 +45,23 @@ func TestGenerateLinkCard(t *testing.T) {
 	u, err := url.Parse("https://stream.place/iame.li")
 	require.NoError(t, err)
 	sp := "https://stream.place"
-	ls := &streamplace.Livestream{
+	ls := &placestream.Livestream{
 		CreatedAt: "2025-03-25T00:39:49.121Z",
 		Post: &atproto.RepoStrongRef{
 			Cid: "bafyreiczmyne5jd4lpax5ttyb5p2fbcageyt6fsthdpyymecokcsmyh4a4",
-			Uri: "at://did:plc:2zmxikig2sj7gqaezl5gntae/app.bsky.feed.post/3ll5zuomua22x",
+			Uri: "at://did:plc:2zmxikig2sj7gqaezl5gntae/app.appbsky.feed.post/3ll5zuomua22x",
 		},
 		Title: "Back up! Once again water in the firehose. Link cards if this stays stable",
 		Url:   &sp,
 	}
-	lsv := &streamplace.Livestream_LivestreamView{
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+	lsv := &placestream.Livestream_LivestreamView{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Handle: "iame.li",
 			Did:    "did:plc:2zmxikig2sj7gqaezl5gntae",
 		},
 		Cid:       "bafyreib2ohz45jileumnuwa3wdoo3o7caikfyq467eanleqcscouh5wery",
 		IndexedAt: "2025-03-25T01:16:14Z",
-		Record:    &lexutil.LexiconTypeDecoder{Val: ls},
+		Record:    &glexrt.LexiconTypeDecoder{Val: ls},
 		Uri:       "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.livestream/3ll5zuop2k22x",
 	}
 	linkCard, err := linker.GenerateStreamerCard(context.Background(), u, lsv, "")
@@ -85,20 +85,20 @@ func TestGenerateVideoCard(t *testing.T) {
 	c, err := cid.Decode(thumbCID)
 	require.NoError(t, err)
 
-	video := &streamplace.Video{
+	video := &placestream.Video{
 		Title: "My excellent VOD",
 		Thumb: &lex.Blob{
 			Ref:      lex.Link(c),
 			MimeType: "image/jpeg",
 		},
 	}
-	vv := &streamplace.MediaGetVideo_VideoView{
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+	vv := &placestream.MediaGetVideo_VideoView{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Handle: "iame.li",
 			Did:    "did:plc:2zmxikig2sj7gqaezl5gntae",
 		},
 		Cid:    "bafyreib2ohz45jileumnuwa3wdoo3o7caikfyq467eanleqcscouh5wery",
-		Record: &lexutil.LexiconTypeDecoder{Val: video},
+		Record: &glexrt.LexiconTypeDecoder{Val: video},
 		Uri:    "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.video/3mms3tfkcxstu",
 	}
 
@@ -111,7 +111,7 @@ func TestGenerateVideoCard(t *testing.T) {
 	require.True(t, strings.Contains(linkStr, `content="`+video.Title+`"`),
 		"og:title/twitter:title should be the video's own title")
 	require.True(t, strings.Contains(linkStr,
-		"https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:2zmxikig2sj7gqaezl5gntae/"+thumbCID+"@jpeg"),
+		"https://cdn.appbsky.app/img/feed_thumbnail/plain/did:plc:2zmxikig2sj7gqaezl5gntae/"+thumbCID+"@jpeg"),
 		"og:image should be the video thumbnail served via the bsky CDN")
 	require.True(t, strings.Count(linkStr, "<title>") == 1, "should have exactly one title tag")
 }

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	iroh "stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
-	_ "stream.place/streamplace/pkg/placestreamdeps"
+	_ "stream.place/streamplace/pkg/streamplacedeps"
 )
 
 func panicIfErr(err error) {

@@ -53,7 +53,7 @@ func TestVideoLikeCount(t *testing.T) {
 
 	list, err := m.GetVideoList(ctx, "", 25, "", "")
 	require.NoError(t, err)
-	var found *streamplace.MediaGetVideo_VideoView
+	var found placestream.MediaGetVideo_VideoView
 	for _, v := range list.Videos {
 		if v.Uri == videoURI {
 			found = v
@@ -96,10 +96,10 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 	t.Helper()
 	ctx := context.Background()
 
-	track := &streamplace.MediaTrack{
+	track := placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
-		Track: &streamplace.MediaTrack_Track{
-			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
+		Track: placestream.MediaTrack_Track{
+			MediaDefs_MuxlTrack: placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          blobCID,
 				TrackId:       "1",
@@ -109,11 +109,11 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 	}
 	require.NoError(t, m.UpsertMediaTrack(ctx, track, parseURI(t, trackURI)))
 
-	video := &streamplace.Video{
+	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         videoURI,
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks: []*comatproto.RepoStrongRef{
 					{LexiconTypeID: "com.atproto.repo.strongRef", Uri: trackURI, Cid: "bafytrackcid"},
@@ -127,11 +127,11 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 // putClipVideo writes a sourceClip video referencing parentURI.
 func putClipVideo(t *testing.T, m Model, clipURI, parentURI string) {
 	t.Helper()
-	video := &streamplace.Video{
+	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         clipURI,
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceClip: &streamplace.MediaDefs_SourceClip{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceClip: placestream.MediaDefs_SourceClip{
 				LexiconTypeID: "place.stream.media.defs#sourceClip",
 				Video:         parentURI,
 				Start:         1000,
@@ -145,7 +145,7 @@ func putClipVideo(t *testing.T, m Model, clipURI, parentURI string) {
 // putOrigin attests that serverDID hosts blobCID.
 func putOrigin(t *testing.T, m Model, serverDID, blobCID string) {
 	t.Helper()
-	rec := &streamplace.MediaOrigin{
+	rec := placestream.MediaOrigin{
 		LexiconTypeID: "place.stream.media.origin",
 		Blob:          blobCID,
 		Size:          123,
@@ -155,7 +155,7 @@ func putOrigin(t *testing.T, m Model, serverDID, blobCID string) {
 	require.NoError(t, m.UpsertMediaOrigin(context.Background(), rec, aturi))
 }
 
-func uriSet(out *streamplace.MediaGetVideoList_Output) map[string]bool {
+func uriSet(out placestream.MediaGetVideoList_Output) map[string]bool {
 	s := map[string]bool{}
 	for _, v := range out.Videos {
 		s[v.Uri] = true

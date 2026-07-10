@@ -164,7 +164,7 @@ func TestWebhookConversionFunctions(t *testing.T) {
 		name := "test-name"
 		description := "test description"
 
-		input := &streamplace.ServerCreateWebhook_Input{
+		input := placestream.ServerCreateWebhook_Input{
 			Url:         "https://example.com/webhook",
 			Events:      []string{"chat", "livestream"},
 			Active:      &active,
@@ -172,7 +172,7 @@ func TestWebhookConversionFunctions(t *testing.T) {
 			Suffix:      &suffix,
 			Name:        &name,
 			Description: &description,
-			Rewrite: []*streamplace.ServerDefs_RewriteRule{
+			Rewrite: []placestream.ServerDefs_RewriteRule{
 				{From: "old", To: "new"},
 				{From: "hello", To: "hi"},
 			},

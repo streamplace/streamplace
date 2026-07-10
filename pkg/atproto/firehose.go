@@ -12,12 +12,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -445,7 +445,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				log.Error(ctx, "reading record from event blocks (CAR)", "err", err)
 				break
 			}
-			if op.Cid == nil || lexutil.LexLink(rc) != *op.Cid {
+			if !op.Cid.Defined() || glexrt.Link(rc) != op.Cid {
 				log.Error(ctx, "mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/models"
 	"github.com/bluesky-social/indigo/mst"
 	atrepo "github.com/bluesky-social/indigo/repo"
@@ -266,7 +266,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		if err != nil {
 			return nil, err
 		}
-		cidLink := lexutil.LexLink(*newCid)
+		cidLink := glexrt.Link(*newCid)
 
 		oldCid, _, err := LexiconRepo.GetRecord(ctx, rpath)
 		if errors.Is(err, mst.ErrNotFound) {
@@ -292,7 +292,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 				if err != nil {
 					return nil, err
 				}
-				oldLink := lexutil.LexLink(oldCid)
+				oldLink := glexrt.Link(oldCid)
 				ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
 					Action: ActionUpdate,
 					Path:   rpath,
@@ -319,7 +319,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 			Repo:   cli.BroadcasterDID(),
 			Blocks: blocks,
 			Rev:    currentRev,
-			Commit: lexutil.LexLink(currentRoot),
+			Commit: glexrt.Link(currentRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    ops,
 			TooBig: false,
@@ -376,7 +376,7 @@ func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, c
 			SchemaFile: sf,
 		}
 	} else {
-		val, err = lexutil.CborDecodeValue(b.RawData())
+		val, err = glexrt.CborDecodeValue(b.RawData())
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode record: %w", err)
 		}

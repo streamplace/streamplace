@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"stream.place/streamplace/pkg/comatproto"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	"gorm.io/gorm"
@@ -52,9 +52,9 @@ func (state *StatefulDB) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos
 		if err != nil {
 			return err
 		}
-		ll := lexutil.LexLink(c)
+		ll := glexrt.Link(c)
 		commit.PrevData = &ll
-		commit.Since = &prevCommit.Rev
+		commit.Since = prevCommit.Rev
 	} else {
 		commit.Seq = 1
 	}

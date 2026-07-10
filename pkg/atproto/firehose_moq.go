@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	atmoq "github.com/streamplace/atmoq-go"

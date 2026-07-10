@@ -8,9 +8,9 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/constants"
@@ -20,7 +20,7 @@ import (
 )
 
 // handlePlaceStreamModerationCreateBlock creates a block (ban) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, input *streamplace.ModerationCreateBlock_Input) (*streamplace.ModerationCreateBlock_Output, error) {
+func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, input *placestream.ModerationCreateBlock_Input) (*placestream.ModerationCreateBlock_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -36,14 +36,14 @@ func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, inp
 	}
 
 	// Create block record in streamer's repo
-	block := &bsky.GraphBlock{
+	block := appbsky.GraphBlock{
 		Subject:   input.Subject,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
-		Record:     &lexutil.LexiconTypeDecoder{Val: block},
+		Record:     &glexrt.LexiconTypeDecoder{Val: block},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -62,14 +62,14 @@ func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, inp
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationCreateBlock_Output{
+	return &placestream.ModerationCreateBlock_Output{
 		Uri: createOutput.Uri,
 		Cid: createOutput.Cid,
 	}, nil
 }
 
 // handlePlaceStreamModerationDeleteBlock deletes a block (unban) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context, input *streamplace.ModerationDeleteBlock_Input) (*streamplace.ModerationDeleteBlock_Output, error) {
+func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context, input *placestream.ModerationDeleteBlock_Input) (*placestream.ModerationDeleteBlock_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -114,11 +114,11 @@ func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context, inp
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationDeleteBlock_Output{}, nil
+	return &placestream.ModerationDeleteBlock_Output{}, nil
 }
 
 // handlePlaceStreamModerationCreateGate creates a gate (hide message) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, input *streamplace.ModerationCreateGate_Input) (*streamplace.ModerationCreateGate_Output, error) {
+func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, input *placestream.ModerationCreateGate_Input) (*placestream.ModerationCreateGate_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -134,13 +134,13 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 	}
 
 	// Create gate record in streamer's repo
-	gate := &streamplace.ChatGate{
+	gate := &placestream.ChatGate{
 		HiddenMessage: input.MessageUri,
 	}
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
-		Record:     &lexutil.LexiconTypeDecoder{Val: gate},
+		Record:     &glexrt.LexiconTypeDecoder{Val: gate},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -159,14 +159,14 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationCreateGate_Output{
+	return &placestream.ModerationCreateGate_Output{
 		Uri: createOutput.Uri,
 		Cid: createOutput.Cid,
 	}, nil
 }
 
 // handlePlaceStreamModerationDeleteGate deletes a gate (unhide message) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context, input *streamplace.ModerationDeleteGate_Input) (*streamplace.ModerationDeleteGate_Output, error) {
+func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context, input *placestream.ModerationDeleteGate_Input) (*placestream.ModerationDeleteGate_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -210,11 +210,11 @@ func (s *Server) handlePlaceStreamModerationDeleteGate(ctx context.Context, inpu
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationDeleteGate_Output{}, nil
+	return &placestream.ModerationDeleteGate_Output{}, nil
 }
 
 // handlePlaceStreamModerationUpdateLivestream updates livestream metadata on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context, input *streamplace.ModerationUpdateLivestream_Input) (*streamplace.ModerationUpdateLivestream_Output, error) {
+func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context, input *placestream.ModerationUpdateLivestream_Input) (*placestream.ModerationUpdateLivestream_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -259,7 +259,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 	}
 
 	// Convert the decoded value to our struct
-	livestream := &streamplace.Livestream{}
+	livestream := &placestream.Livestream{}
 	recordBytes, err := json.Marshal(getOutput.Value.Val)
 	if err != nil {
 		log.Error(ctx, "failed to marshal livestream record", "err", err)
@@ -279,7 +279,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 
 	// Ensure notificationSettings.pushNotification is false for mods
 	if livestream.NotificationSettings == nil {
-		livestream.NotificationSettings = &streamplace.Livestream_NotificationSettings{}
+		livestream.NotificationSettings = &placestream.Livestream_NotificationSettings{}
 	}
 	pushNotificationFalse := false
 	livestream.NotificationSettings.PushNotification = &pushNotificationFalse
@@ -290,7 +290,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 	// Create new record instead of updating existing
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_LIVESTREAM,
-		Record:     &lexutil.LexiconTypeDecoder{Val: livestream},
+		Record:     &glexrt.LexiconTypeDecoder{Val: livestream},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -309,7 +309,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationUpdateLivestream_Output{
+	return &placestream.ModerationUpdateLivestream_Output{
 		Uri: createOutput.Uri,
 		Cid: createOutput.Cid,
 	}, nil
@@ -361,7 +361,7 @@ func (s *Server) logAudit(ctx context.Context, streamerDID, moderatorDID, action
 	return s.statefulDB.CreateAuditLog(ctx, auditLog)
 }
 
-func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input *streamplace.ModerationCreatePin_Input) (*streamplace.ModerationCreatePin_Output, error) {
+func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input *placestream.ModerationCreatePin_Input) (*placestream.ModerationCreatePin_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -377,7 +377,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 	}
 
 	// Create the pinned record (old pins persist as history)
-	pinnedRecord := &streamplace.ChatPinnedRecord{
+	pinnedRecord := &placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: input.MessageUri,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -386,7 +386,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-		Record:     &lexutil.LexiconTypeDecoder{Val: pinnedRecord},
+		Record:     &glexrt.LexiconTypeDecoder{Val: pinnedRecord},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -405,13 +405,13 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationCreatePin_Output{
+	return &placestream.ModerationCreatePin_Output{
 		Uri: createOutput.Uri,
 		Cid: createOutput.Cid,
 	}, nil
 }
 
-func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context, input *streamplace.ModerationDeletePin_Input) (*streamplace.ModerationDeletePin_Output, error) {
+func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context, input *placestream.ModerationDeletePin_Input) (*placestream.ModerationDeletePin_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -455,11 +455,11 @@ func (s *Server) handlePlaceStreamModerationDeletePin(ctx context.Context, input
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationDeletePin_Output{}, nil
+	return &placestream.ModerationDeletePin_Output{}, nil
 }
 
 // handlePlaceStreamModerationCreateVodGate creates a gate (hide VOD comment) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, input *streamplace.ModerationCreateVodGate_Input) (*streamplace.ModerationCreateVodGate_Output, error) {
+func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, input *placestream.ModerationCreateVodGate_Input) (*placestream.ModerationCreateVodGate_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -475,13 +475,13 @@ func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, i
 	}
 
 	// Create gate record in streamer's repo
-	gate := &streamplace.VodGate{
+	gate := &placestream.VodGate{
 		HiddenComment: input.CommentUri,
 	}
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_VOD_GATE,
-		Record:     &lexutil.LexiconTypeDecoder{Val: gate},
+		Record:     &glexrt.LexiconTypeDecoder{Val: gate},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -500,14 +500,14 @@ func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, i
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationCreateVodGate_Output{
+	return &placestream.ModerationCreateVodGate_Output{
 		Uri: createOutput.Uri,
 		Cid: createOutput.Cid,
 	}, nil
 }
 
 // handlePlaceStreamModerationDeleteVodGate deletes a gate (unhide VOD comment) on behalf of a streamer
-func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context, input *streamplace.ModerationDeleteVodGate_Input) (*streamplace.ModerationDeleteVodGate_Output, error) {
+func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context, input *placestream.ModerationDeleteVodGate_Input) (*placestream.ModerationDeleteVodGate_Output, error) {
 	// Validate input
 	if err := validateDID(input.Streamer); err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
@@ -551,5 +551,5 @@ func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context, i
 		log.Error(ctx, "failed to create audit log", "error", err)
 	}
 
-	return &streamplace.ModerationDeleteVodGate_Output{}, nil
+	return &placestream.ModerationDeleteVodGate_Output{}, nil
 }

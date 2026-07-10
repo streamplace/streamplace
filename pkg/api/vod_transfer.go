@@ -123,7 +123,7 @@ func (a *StreamplaceAPI) indexOwnMediaOrigin(ctx context.Context, contentCID str
 	if err != nil {
 		return fmt.Errorf("build origin uri: %w", err)
 	}
-	rec := &streamplace.MediaOrigin{
+	rec := &placestream.MediaOrigin{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          contentCID,
 		Size:          size,

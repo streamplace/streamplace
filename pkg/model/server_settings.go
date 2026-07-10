@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -26,17 +26,17 @@ func (ServerSettings) TableName() string {
 }
 
 // ToStreamplaceServerSettings converts the model to a streamplace ServerSettings
-func (m *ServerSettings) ToStreamplaceServerSettings() (*streamplace.ServerSettings, error) {
+func (m *ServerSettings) ToStreamplaceServerSettings() (placestream.ServerSettings, error) {
 	if m.Record == nil {
-		return nil, fmt.Errorf("no record data")
+		return placestream.ServerSettings{}, fmt.Errorf("no record data")
 	}
-	rec, err := lexutil.CborDecodeValue(*m.Record)
+	rec, err := glexrt.CborDecodeValue(*m.Record)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding server settings: %w", err)
+		return placestream.ServerSettings{}, fmt.Errorf("error decoding server settings: %w", err)
 	}
-	ss, ok := rec.(*streamplace.ServerSettings)
+	ss, ok := rec.(placestream.ServerSettings)
 	if !ok {
-		return nil, fmt.Errorf("invalid server settings")
+		return placestream.ServerSettings{}, fmt.Errorf("invalid server settings")
 	}
 	return ss, nil
 }

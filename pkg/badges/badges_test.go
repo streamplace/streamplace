@@ -49,7 +49,7 @@ func TestGetValidBadges(t *testing.T) {
 
 	t.Run("returns mod badge for moderator", func(t *testing.T) {
 		// Grant moderation permissions
-		perm := &streamplace.ModerationPermission{
+		perm := &placestream.ModerationPermission{
 			LexiconTypeID: "place.stream.moderation.permission",
 			Moderator:     moderatorDID,
 			Permissions:   []string{"ban", "hide"},
@@ -261,10 +261,10 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref *comatproto.RepoStrongRef) []byte {
 	t.Helper()
-	profile := &streamplace.ChatProfile{
+	profile := &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
-		Badges: &streamplace.ChatProfile_BadgeSelections{
-			Streamer: []*streamplace.ChatProfile_StreamerBadgeSelection{
+		Badges: &placestream.ChatProfile_BadgeSelections{
+			Streamer: []*placestream.ChatProfile_StreamerBadgeSelection{
 				{Streamer: streamerDID, Badge: ref},
 			},
 		},
@@ -277,9 +277,9 @@ func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref *comatp
 
 func buildProfileWithGlobalBadge(t *testing.T, ref *comatproto.RepoStrongRef) []byte {
 	t.Helper()
-	profile := &streamplace.ChatProfile{
+	profile := &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
-		Badges: &streamplace.ChatProfile_BadgeSelections{
+		Badges: &placestream.ChatProfile_BadgeSelections{
 			Global: ref,
 		},
 	}

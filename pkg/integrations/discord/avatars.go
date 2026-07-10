@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/xrpc"
 	"stream.place/streamplace/pkg/aqhttp"
 )
@@ -24,11 +24,11 @@ func GetAvatarURL(ctx context.Context, did string) (string, error) {
 	}
 
 	xrpc := &xrpc.Client{
-		Host:   "https://public.api.bsky.app",
+		Host:   "https://public.api.appbsky.app",
 		Client: &aqhttp.Client,
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, xrpc, did)
+	profile, err := appbsky.ActorGetProfile(ctx, xrpc, did)
 	if err != nil {
 		return "", err
 	}

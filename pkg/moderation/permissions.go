@@ -9,7 +9,7 @@ import (
 )
 
 type delegationGetter interface {
-	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*placestream.ModerationDefs_PermissionView, error)
 }
 
 // Permission scope constants
@@ -92,7 +92,7 @@ func (pc *PermissionChecker) HasPermission(ctx context.Context, moderatorDID, st
 	// Check all delegation records and merge their permissions
 	for _, delegationView := range delegations {
 		// Extract the actual permission record from the view
-		permRecord, ok := delegationView.Record.Val.(*streamplace.ModerationPermission)
+		permRecord, ok := delegationView.Record.Val.(*placestream.ModerationPermission)
 		if !ok {
 			return false, fmt.Errorf("failed to cast record to ModerationPermission")
 		}

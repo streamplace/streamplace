@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
-var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.bsky.feed.generator/([a-z0-9\.\-]+)$`)
+var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.appbsky.feed.generator/([a-z0-9\.\-]+)$`)
 
 func parseFeedSkeleton(did string) (string, string, error) {
 	matches := FeedSkeletonRE.FindStringSubmatch(did)
@@ -27,7 +27,7 @@ func parseFeedSkeleton(did string) (string, string, error) {
 const FeedLiveStreams = "live-streams"
 const FeedAllStreams = "all-streams"
 
-func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor string, feed string, limit int) (*bsky.FeedGetFeedSkeleton_Output, error) {
+func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor string, feed string, limit int) (*appbsky.FeedGetFeedSkeleton_Output, error) {
 	_, name, err := parseFeedSkeleton(feed)
 	if err != nil {
 		return nil, err
@@ -79,14 +79,14 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 	} else {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid feed name: %s", name))
 	}
-	res := bsky.FeedGetFeedSkeleton_Output{
-		Feed: []*bsky.FeedDefs_SkeletonFeedPost{},
+	res := appbsky.FeedGetFeedSkeleton_Output{
+		Feed: []*appbsky.FeedDefs_SkeletonFeedPost{},
 	}
 	if outCursor != "" {
 		res.Cursor = &outCursor
 	}
 	for _, post := range posts {
-		res.Feed = append(res.Feed, &bsky.FeedDefs_SkeletonFeedPost{
+		res.Feed = append(res.Feed, appbsky.FeedDefs_SkeletonFeedPost{
 			Post: post.URI,
 		})
 	}

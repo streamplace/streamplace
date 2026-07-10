@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/xrpc"
 )
 
 var ErrUserNotFound = errors.New("user not found")
 
-func (atsync *ATProtoSynchronizer) FetchUserProfile(ctx context.Context, username string) (*bsky.ActorDefs_ProfileViewDetailed, error) {
+func (atsync *ATProtoSynchronizer) FetchUserProfile(ctx context.Context, username string) (*appbsky.ActorDefs_ProfileViewDetailed, error) {
 	// Use ATSync to resolve username to DID, then fetch full profile from Bluesky
 	var actor string
 
@@ -28,10 +28,10 @@ func (atsync *ATProtoSynchronizer) FetchUserProfile(ctx context.Context, usernam
 
 	// Fetch full profile from Bluesky public API
 	client := &xrpc.Client{
-		Host: "https://public.api.bsky.app",
+		Host: "https://public.api.appbsky.app",
 	}
 
-	profile, err := bsky.ActorGetProfile(ctx, client, actor)
+	profile, err := appbsky.ActorGetProfile(ctx, client, actor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch profile from Bluesky for '%s': %w", actor, err)
 	}

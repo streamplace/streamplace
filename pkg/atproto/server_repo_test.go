@@ -45,7 +45,7 @@ func TestServerRepo(t *testing.T) {
 
 	// Put a LiveViewCount record
 	updatedAt := "2026-03-21T00:00:00Z"
-	vc := &streamplace.LiveViewerCount{
+	vc := placestream.LiveViewerCount{
 		LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 		Count:         42,
 		Server:        "did:web:server1.example.com",
@@ -100,7 +100,7 @@ func TestServerRepo(t *testing.T) {
 
 	// After writing a record in a second collection, ListCollections
 	// should pick both up in sorted order.
-	origin := &streamplace.MediaOrigin{
+	origin := placestream.MediaOrigin{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          "babczxv...",
 		Size:          1234,
@@ -159,7 +159,7 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 	streamers := []string{"did:plc:a", "did:plc:b", "did:plc:c", "did:plc:d", "did:plc:e"}
 	updatedAt := "2026-03-21T00:00:00Z"
 	for _, s := range streamers {
-		vc := &streamplace.LiveViewerCount{
+		vc := placestream.LiveViewerCount{
 			LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 			Count:         1,
 			Server:        "did:web:server2.example.com",

@@ -731,7 +731,7 @@ func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client 
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: priorRec},
+		Record:     &glexrt.LexiconTypeDecoder{Val: priorRec},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       repoDID,
 		SwapRecord: swapRecord,

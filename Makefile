@@ -292,6 +292,13 @@ test-vod:
 .PHONY: dev-setup
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
+	$(MAKE) dev-go-env
+
+# Point Go's cgo at our pkg-config wrapper (persisted in `go env`, no shell
+# env vars needed) so plain `go test ./pkg/...` finds the meson-built deps.
+.PHONY: dev-go-env
+dev-go-env:
+	go env -w PKG_CONFIG=$(shell pwd)/hack/pkg-config.sh
 
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)

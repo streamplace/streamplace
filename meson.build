@@ -239,9 +239,20 @@ if host_machine.system() == 'windows'
 endif
 
 pkg = import('pkgconfig')
+streamplacedeps_extra_link_args = []
+if host_machine.system() == 'linux' and get_option('default_library') == 'shared'
+  # bake an rpath into everything that links streamplacedeps, so dev binaries
+  # (including `go test` binaries) find the build-dir shared libraries at
+  # runtime without LD_LIBRARY_PATH. macOS doesn't need this: dylibs carry
+  # absolute install names. --disable-new-dtags makes it an old-style DT_RPATH
+  # rather than DT_RUNPATH: unlike RUNPATH, the executable's RPATH also covers
+  # transitive loads (e.g. libgobject -> libffi, libavcodec -> libswresample),
+  # whose meson-built .so files carry no rpath of their own.
+  streamplacedeps_extra_link_args += ['-Wl,-rpath,${libdir}', '-Wl,--disable-new-dtags']
+endif
 pkg.generate(
   name: 'streamplacedeps',
-  libraries: [streamplace_deps, iroh_streamplace_dep],
+  libraries: [streamplace_deps, iroh_streamplace_dep, streamplacedeps_extra_link_args],
   description: 'all streamplace dependencies bundled for easy inclusion',
 )
 

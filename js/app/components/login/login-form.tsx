@@ -4,7 +4,9 @@ import {
   Input,
   Loader,
   Text,
+  Tooltip,
   useTheme,
+  useTranslation,
   zero,
 } from "@streamplace/components";
 import { Image } from "expo-image";
@@ -32,6 +34,7 @@ export default function LoginForm({
   onOpenPdsModal,
 }: LoginFormProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
@@ -290,7 +293,7 @@ export default function LoginForm({
           zero.layout.flex.row,
           zero.gap.all[3],
           zero.mb[4],
-          { alignItems: "center", zIndex: -32 },
+          { alignItems: "center" },
         ]}
       >
         {/* preview of the Bluesky LIVE ring the user gets while streaming */}
@@ -349,13 +352,17 @@ export default function LoginForm({
             </Text>
           </View>
         </View>
-        <Checkbox
-          checked={blueskyPermissions}
-          onCheckedChange={setBlueskyPermissions}
-          label="Show when I'm live on Bluesky"
-          description="Gives your Bluesky avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your Bluesky account."
+        <Tooltip
+          content={t("login-show-live-on-bluesky-description")}
+          position="top"
           style={{ flex: 1 }}
-        />
+        >
+          <Checkbox
+            checked={blueskyPermissions}
+            onCheckedChange={setBlueskyPermissions}
+            label={t("login-show-live-on-bluesky")}
+          />
+        </Tooltip>
       </View>
 
       <View

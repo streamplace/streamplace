@@ -236,7 +236,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		return nil, fmt.Errorf("failed to walk lexicon files: %w", err)
 	}
 
-	ops := []*comatproto.SyncSubscribeRepos_RepoOp{}
+	ops := []comatproto.SyncSubscribeRepos_RepoOp{}
 
 	lexSchemas := []*lexicon.SchemaFile{}
 
@@ -275,10 +275,10 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 				return nil, err
 			}
 			log.Debug(ctx, "created new lexicon record", "rpath", rpath, "cid", newCid.String())
-			ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
+			ops = append(ops, comatproto.SyncSubscribeRepos_RepoOp{
 				Action: ActionCreate,
 				Path:   rpath,
-				Cid:    &cidLink,
+				Cid:    cidLink,
 			})
 		} else if err != nil {
 			return nil, err
@@ -293,11 +293,11 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 					return nil, err
 				}
 				oldLink := glexrt.Link(oldCid)
-				ops = append(ops, &comatproto.SyncSubscribeRepos_RepoOp{
+				ops = append(ops, comatproto.SyncSubscribeRepos_RepoOp{
 					Action: ActionUpdate,
 					Path:   rpath,
 					Prev:   &oldLink,
-					Cid:    &cidLink,
+					Cid:    cidLink,
 				})
 			}
 		}
@@ -376,7 +376,15 @@ func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, c
 			SchemaFile: sf,
 		}
 	} else {
-		val, err = glexrt.CborDecodeValue(b.RawData())
+		decoded, err := glexrt.CborDecodeValue(b.RawData())
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode record: %w", err)
+		}
+		var ok bool
+		val, ok = decoded.(cbg.CBORMarshaler)
+		if !ok {
+			return nil, fmt.Errorf("decoded record does not implement CBORMarshaler: %T", decoded)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode record: %w", err)
 		}

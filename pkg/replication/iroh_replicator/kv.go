@@ -259,7 +259,7 @@ func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
 	}
 	for _, view := range originViews {
-		err = swarm.handleOriginMessage(ctx, view)
+		err = swarm.handleOriginMessage(ctx, &view)
 		if err != nil {
 			log.Error(ctx, "could not check origin", "error", err)
 		}

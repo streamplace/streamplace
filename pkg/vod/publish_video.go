@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"go.opentelemetry.io/otel/attribute"
@@ -75,7 +75,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.RecordError(err)
 		return "", "", err
 	}
-	video.Source = &placestream.Video_Source{
+	video.Source = placestream.Video_Source{
 		MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 			LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			Tracks:        tracks,
@@ -121,7 +121,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 
 // sourceTracksFromUpload turns the {uri,cid} track refs stored on the Upload
 // row (by publishRecords) into the strongRefs for the video record's source.
-func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef, error) {
+func sourceTracksFromUpload(upload *statedb.Upload) ([]comatproto.RepoStrongRef, error) {
 	if upload.TrackURIs == "" {
 		return nil, nil
 	}
@@ -129,9 +129,9 @@ func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef
 	if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err != nil {
 		return nil, fmt.Errorf("decode track refs: %w", err)
 	}
-	tracks := make([]*comatproto.RepoStrongRef, 0, len(refs))
+	tracks := make([]comatproto.RepoStrongRef, 0, len(refs))
 	for _, r := range refs {
-		tracks = append(tracks, &comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
+		tracks = append(tracks, comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
 	}
 	return tracks, nil
 }
@@ -152,5 +152,5 @@ func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store bl
 	if err := client.Do(ctx, xrpc.Procedure, thumbnailMimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumb), &uploadOut); err != nil {
 		return nil, fmt.Errorf("upload thumb blob: %w", err)
 	}
-	return lex.BlobFromLexUtil(uploadOut.Blob), nil
+	return &uploadOut.Blob, nil
 }

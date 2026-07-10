@@ -145,7 +145,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 				log.Warn(ctx, "ManifestBuilder: failed to convert metadata, using defaults", "error", err, "did", streamerName)
 			} else {
 				log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", streamplaceMetadata.ContentWarnings, "contentRights", streamplaceMetadata.ContentRights)
-				mani = mb.enhanceManifestWithMetadata(mani, streamplaceMetadata, start)
+				mani = mb.enhanceManifestWithMetadata(mani, &streamplaceMetadata, start)
 				metadataObj, err := toObj(streamplaceMetadata)
 				if err != nil {
 					return nil, fmt.Errorf("failed to marshal metadata: %w", err)

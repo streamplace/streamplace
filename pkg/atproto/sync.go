@@ -54,7 +54,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating follow", "userDID", userDID, "subjectDID", rec.Subject)
-		err := atsync.Model.CreateFollow(ctx, userDID, rkey.String(), rec)
+		err := atsync.Model.CreateFollow(ctx, userDID, rkey.String(), *rec)
 		if err != nil {
 			log.Debug(ctx, "failed to create follow", "err", err)
 		}
@@ -129,7 +129,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			StreamerRepoDID: rec.Streamer,
 			IndexedAt:       &now,
 		}
-		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
 			mcm.ReplyToCID = &rec.Reply.Parent.Cid
 		}
 
@@ -167,7 +167,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		// Add mod badge if the author is a moderator
 		issuerDID := fmt.Sprintf("did:web:%s", atsync.CLI.BroadcasterHost)
-		err = AddModBadgeIfApplicable(ctx, scm, rec.Streamer, issuerDID, atsync.Model)
+		err = AddModBadgeIfApplicable(ctx, &scm, rec.Streamer, issuerDID, atsync.Model)
 		if err != nil {
 			log.Error(ctx, "failed to add mod badge", "err", err)
 		}
@@ -293,14 +293,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}
-			pinnedView.Message = msgView
+			pinnedView.Message = &msgView
 		}
 		if profile != nil {
 			profileView, err := profile.ToStreamplaceChatProfile()
 			if err != nil {
 				return fmt.Errorf("failed to convert chat profile: %w", err)
 			}
-			pinnedView.PinnedBy = profileView
+			pinnedView.PinnedBy = &profileView
 		}
 		go atsync.Bus.Publish(userDID, pinnedView)
 
@@ -374,7 +374,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("failed to create bluesky post: %w", err)
 			}
 		} else {
-			if rec.Reply == nil || rec.Reply.Root == nil {
+			if rec.Reply == nil || rec.Reply.Root.Uri == "" {
 				return nil
 			}
 			livestream, err := atsync.Model.GetLivestreamByPostURI(rec.Reply.Root.Uri)
@@ -556,7 +556,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err == nil && chatProfile != nil {
 				spcp, err := chatProfile.ToStreamplaceChatProfile()
 				if err == nil {
-					arrivalMsg.ChatProfile = spcp
+					arrivalMsg.ChatProfile = &spcp
 				}
 			}
 
@@ -589,7 +589,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin streamer bluesky repo: %w", err)
 		}
-		err = atsync.Model.UpdateBroadcastOrigin(ctx, rec, aturi)
+		err = atsync.Model.UpdateBroadcastOrigin(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
@@ -628,7 +628,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
-		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
+		err = atsync.Model.CreateModerationDelegation(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
@@ -740,7 +740,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
@@ -749,11 +749,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Tracks not backed by a muxlTrack (we don't define any other
 		// shape yet) are skipped with a warning — there'd be no blob
 		// to key the row off of.
-		if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+		if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
 			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
 			return nil
 		}
-		if err := atsync.Model.UpsertMediaTrack(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaTrack(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media track: %w", err)
 		}
 		mt := rec.Track.MediaDefs_MuxlTrack
@@ -763,7 +763,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Origin records are published by streamplace nodes (not users)
 		// against their own server-repo DID. The aturi's authority is
 		// the publishing server.
-		if err := atsync.Model.UpsertMediaOrigin(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaOrigin(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media origin: %w", err)
 		}
 		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
@@ -774,7 +774,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// callers filter by RepoDID to a single operator-configured
 		// issuer (the `--beta-invite-did` flag), so anyone else
 		// minting these records is harmless noise.
-		if err := atsync.Model.UpsertBetaInvite(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaInvite(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert beta invite: %w", err)
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
@@ -792,7 +792,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Access requests are published by users in their own repos. We
 		// index them so operators can see who's waiting and so
 		// place.stream.beta.getStatus can report "requested".
-		if err := atsync.Model.UpsertBetaRequest(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaRequest(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert beta request: %w", err)
 		}
 		log.Debug(ctx, "indexed beta request", "uri", aturi.String(), "did", userDID, "feature", rec.Feature)
@@ -802,7 +802,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// their server repos) reporting on traffic they observed.
 		// Multiple reporters publish records for the same video; the
 		// query layer (place.stream.media.getVideo) sums across them.
-		if err := atsync.Model.UpsertMediaViewCount(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaViewCount(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media view count: %w", err)
 		}
 		log.Debug(ctx, "indexed media view count",
@@ -843,7 +843,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			VideoAuthorDID: videoAuthor,
 			IndexedAt:      &now,
 		}
-		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
 			vc.ReplyToCID = &rec.Reply.Parent.Cid
 		}
 

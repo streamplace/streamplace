@@ -90,7 +90,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 		return nil, echo.NewHTTPError(http.StatusNotFound, "upload not found")
 	}
 
-	out := &placestream.MediaGetUploadStatus_Output{}
+	out := placestream.MediaGetUploadStatus_Output{}
 
 	switch upload.ProcessingStatus {
 	case "done":
@@ -106,7 +106,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 			}
 			if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err == nil {
 				for _, r := range refs {
-					out.Tracks = append(out.Tracks, &placestream.MediaGetUploadStatus_TrackRef{
+					out.Tracks = append(out.Tracks, placestream.MediaGetUploadStatus_TrackRef{
 						Uri: r.URI,
 						Cid: r.CID,
 					})
@@ -128,7 +128,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 		out.Status = "pending"
 	}
 
-	return out, nil
+	return &out, nil
 }
 
 // requestBaseURL returns the scheme+host of the inbound HTTP request, used

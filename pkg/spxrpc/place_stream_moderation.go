@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glexrt "github.com/streamplace/glex/runtime"
@@ -134,7 +134,7 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 	}
 
 	// Create gate record in streamer's repo
-	gate := &placestream.ChatGate{
+	gate := placestream.ChatGate{
 		HiddenMessage: input.MessageUri,
 	}
 
@@ -259,7 +259,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 	}
 
 	// Convert the decoded value to our struct
-	livestream := &placestream.Livestream{}
+	livestream := placestream.Livestream{}
 	recordBytes, err := json.Marshal(getOutput.Value.Val)
 	if err != nil {
 		log.Error(ctx, "failed to marshal livestream record", "err", err)
@@ -377,7 +377,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 	}
 
 	// Create the pinned record (old pins persist as history)
-	pinnedRecord := &placestream.ChatPinnedRecord{
+	pinnedRecord := placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: input.MessageUri,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
@@ -475,7 +475,7 @@ func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, i
 	}
 
 	// Create gate record in streamer's repo
-	gate := &placestream.VodGate{
+	gate := placestream.VodGate{
 		HiddenComment: input.CommentUri,
 	}
 

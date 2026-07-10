@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glexrt "github.com/streamplace/glex/runtime"
@@ -342,7 +342,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 			}
-			if !shouldNotify(lsv) {
+			if !shouldNotify(&lsv) {
 				log.Debug(ctx, "is not set to notify", "repoDID", spseg.Creator)
 				return nil
 			}
@@ -496,12 +496,12 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	}
 
 	actorStatusEmbed := appbsky.ActorStatus_Embed{
-		EmbedExternal: appbsky.EmbedExternal{
+		EmbedExternal: &appbsky.EmbedExternal{
 			External: appbsky.EmbedExternal_External{
 				Title:       lsr.Title,
 				Uri:         canonicalUrl,
 				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.BroadcasterHost),
-				Thumb:       lex.BlobToLexUtil(thumb),
+				Thumb:       thumb,
 			},
 		},
 	}
@@ -1023,7 +1023,7 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 					if err != nil {
 						log.Error(ctx, "failed to create multistream event", "error", err)
 					}
-					return ss.StartMultistreamTarget(childCtx, targetView)
+					return ss.StartMultistreamTarget(childCtx, &targetView)
 				})
 				running[key] = &runningMultistream{
 					cancel: childCancel,

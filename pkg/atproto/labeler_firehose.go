@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/labeling"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
@@ -113,7 +113,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Inc()
 	defer spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Dec()
 	rsc := &events.RepoStreamCallbacks{
-		LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
+		LabelLabels: func(evt *indigoatproto.LabelSubscribeLabels_Labels) error {
 			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
 			if err != nil {
 				log.Error(ctx, "failed to update labeler cursor", "err", err)
@@ -219,7 +219,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 			}
 			return nil
 		},
-		LabelInfo: func(evt *comatproto.LabelSubscribeLabels_Info) error {
+		LabelInfo: func(evt *indigoatproto.LabelSubscribeLabels_Info) error {
 			log.Log(ctx, "labeler info", "name", evt.Name, "message", evt.Message)
 			return nil
 		},

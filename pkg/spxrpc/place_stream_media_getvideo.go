@@ -27,8 +27,8 @@ func (s *Server) handlePlaceStreamMediaGetVideo(ctx context.Context, uri string)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if view == nil {
+	if false {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "VideoNotFound")
 	}
-	return view, nil
+	return &view, nil
 }

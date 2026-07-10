@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"go.opentelemetry.io/otel/attribute"
@@ -242,7 +242,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 
 	rec := &placestream.MediaTrack{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_TRACK,
-		Track: &placestream.MediaTrack_Track{
+		Track: placestream.MediaTrack_Track{
 			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          cid,

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
@@ -17,7 +17,7 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {
+func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *indigoatproto.ModerationCreateReport_Input) (*indigoatproto.ModerationCreateReport_Output, error) {
 	c, ok := ctx.Value(echoContextKey).(echo.Context)
 	if !ok {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "echo context not found")
@@ -89,7 +89,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		"Atproto-Proxy": atprotoProxy,
 	})
 
-	var output comatprototypes.ModerationCreateReport_Output
+	var output indigoatproto.ModerationCreateReport_Output
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, body, &output)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())

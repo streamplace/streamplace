@@ -12,7 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/ipfs/go-cid"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
@@ -315,7 +316,7 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 		spmetrics.FirehoseRelayHighSeq.WithLabelValues(relay, protocol).Set(float64(cursor.highSeq()))
 	}
 	return &events.RepoStreamCallbacks{
-		RepoCommit: func(evt *comatproto.SyncSubscribeRepos_Commit) error {
+		RepoCommit: func(evt *indigoatproto.SyncSubscribeRepos_Commit) error {
 			atsync.markSeen()
 			observeSeq(evt.Seq)
 			spmetrics.FirehoseEventsReceivedTotal.WithLabelValues(relay, protocol, "commit").Inc()
@@ -326,7 +327,7 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 			go atsync.handleCommitEventOps(ctx, evt)
 			return nil
 		},
-		RepoIdentity: func(evt *comatproto.SyncSubscribeRepos_Identity) error {
+		RepoIdentity: func(evt *indigoatproto.SyncSubscribeRepos_Identity) error {
 			atsync.markSeen()
 			observeSeq(evt.Seq)
 			spmetrics.FirehoseEventsReceivedTotal.WithLabelValues(relay, protocol, "identity").Inc()
@@ -350,7 +351,7 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 // preserved as the event is relayed, so (did, time, handle) is stable for one
 // broadcast yet distinct across real changes. seq is deliberately excluded — it
 // is assigned per-relay and so differs for the very duplicates we want to fold.
-func identityDedupKey(evt *comatproto.SyncSubscribeRepos_Identity) string {
+func identityDedupKey(evt *indigoatproto.SyncSubscribeRepos_Identity) string {
 	handle := ""
 	if evt.Handle != nil {
 		handle = *evt.Handle
@@ -388,7 +389,7 @@ var CollectionFilter = []string{
 	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
 }
 
-func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Commit) {
+func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Commit) {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
 
 	if evt.TooBig {
@@ -445,7 +446,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				log.Error(ctx, "reading record from event blocks (CAR)", "err", err)
 				break
 			}
-			if !op.Cid.Defined() || glexrt.Link(rc) != op.Cid {
+			if !op.Cid.Defined() || glexrt.Link(rc) != glexrt.Link(cid.Cid(*op.Cid)) {
 				log.Error(ctx, "mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}
@@ -658,7 +659,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 	}
 }
 
-func (atsync *ATProtoSynchronizer) handleIdentityEventOps(ctx context.Context, evt *comatproto.SyncSubscribeRepos_Identity) {
+func (atsync *ATProtoSynchronizer) handleIdentityEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Identity) {
 	handle := ""
 	if evt.Handle != nil {
 		handle = *evt.Handle

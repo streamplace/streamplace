@@ -143,13 +143,13 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 	var coverUrl *string
 	for _, m := range record.Value.Media {
 		if (m.MediaType == "cover" || m.MediaType == "coverSquare") && m.Blob.Ref.Link != "" {
-			u := "https://cdn.bsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
+			u := "https://cdn.appbsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
 			coverUrl = &u
 			break
 		}
 	}
 
-	out := &placestream.GameGetGame_Output{
+	out := placestream.GameGetGame_Output{
 		Uri:      uri,
 		Name:     record.Value.Name,
 		Summary:  &record.Value.Summary,
@@ -158,5 +158,5 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 	}
 
 	s.GameSearchCache.SetDefault(cacheKey, out)
-	return out, nil
+	return &out, nil
 }

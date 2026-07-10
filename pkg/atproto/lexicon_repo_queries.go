@@ -81,7 +81,7 @@ func LexiconRepoListRecords(ctx context.Context, collection string, cursor strin
 		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
 	}
 	out := &comatproto.RepoListRecords_Output{
-		Records: []*comatproto.RepoListRecords_Record{},
+		Records: []comatproto.RepoListRecords_Record{},
 	}
 	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
 		val, err := GetRecordCBOR(ctx, ses, c, collection, rkey)
@@ -89,7 +89,7 @@ func LexiconRepoListRecords(ctx context.Context, collection string, cursor strin
 			return fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
 		}
 		log.Warn(ctx, "got record", "rkey", rkey, "cid", c.String())
-		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
+		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s", repo, rkey),
 			Cid:   c.String(),
 			Value: &glexrt.LexiconTypeDecoder{Val: val},

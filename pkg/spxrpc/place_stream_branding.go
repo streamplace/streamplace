@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	placestream "stream.place/streamplace/pkg/placestream"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -92,7 +93,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	}
 
 	// build output
-	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
+	assets := make([]placestream.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
 		data, mimeType, width, height, err := s.GetBrandingBlob(ctx, broadcasterID, key)
 		if err != nil {
@@ -123,7 +124,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 			asset.Url = &url
 		}
 
-		assets = append(assets, asset)
+		assets = append(assets, *asset)
 	}
 
 	return &placestreamtypes.BrandingGetBranding_Output{

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"go.opentelemetry.io/otel/attribute"
@@ -104,17 +104,17 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", fmt.Errorf("publish tracks: %w", terr)
 	}
 	if sourceTracks != nil {
-		video.Source = &placestream.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceTracks: sourceTracks,
 		}
 	} else if rec.Source != nil && rec.Source.MediaDefs_SourceTracks != nil {
 		// Legacy fallback: a draft that already carries source (e.g. published
 		// via the old at-ready-time path). Carry it over.
-		video.Source = &placestream.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceTracks: rec.Source.MediaDefs_SourceTracks,
 		}
 	} else if rec.Source != nil && rec.Source.MediaDefs_SourceClip != nil {
-		video.Source = &placestream.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceClip: rec.Source.MediaDefs_SourceClip,
 		}
 	}
@@ -214,20 +214,20 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	if upload.ContentCID == "" {
 		return nil, fmt.Errorf("upload %s has no content_cid", upload.ID)
 	}
-	var tracks []*comatproto.RepoStrongRef
+	var tracks []comatproto.RepoStrongRef
 	if probe.Video != nil {
 		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil)
 		if err != nil {
 			return nil, fmt.Errorf("publish video track: %w", err)
 		}
-		tracks = append(tracks, ref)
+		tracks = append(tracks, *ref)
 	}
 	if probe.Audio != nil {
 		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio)
 		if err != nil {
 			return nil, fmt.Errorf("publish audio track: %w", err)
 		}
-		tracks = append(tracks, ref)
+		tracks = append(tracks, *ref)
 	}
 	if len(tracks) == 0 {
 		return nil, nil
@@ -249,16 +249,16 @@ func derefInt64(p *int64) int64 {
 
 // draftConnectionsToVideo maps the draft's connections union slice to the video
 // record's connections slice (both wrap place.stream.video#connection).
-func draftConnectionsToVideo(in []*placestream.VodDraftVideo_Connections_Elem) []*placestream.Video_Connections_Elem {
+func draftConnectionsToVideo(in []placestream.VodDraftVideo_Connections_Elem) []placestream.Video_Connections_Elem {
 	if len(in) == 0 {
 		return nil
 	}
-	out := make([]*placestream.Video_Connections_Elem, 0, len(in))
+	out := make([]placestream.Video_Connections_Elem, 0, len(in))
 	for _, c := range in {
-		if c == nil || c.Video_Connection == nil {
+		if false || c.Video_Connection == nil {
 			continue
 		}
-		out = append(out, &placestream.Video_Connections_Elem{
+		out = append(out, placestream.Video_Connections_Elem{
 			Video_Connection: c.Video_Connection,
 		})
 	}

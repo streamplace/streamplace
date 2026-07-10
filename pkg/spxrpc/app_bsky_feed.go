@@ -80,7 +80,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid feed name: %s", name))
 	}
 	res := appbsky.FeedGetFeedSkeleton_Output{
-		Feed: []*appbsky.FeedDefs_SkeletonFeedPost{},
+		Feed: []appbsky.FeedDefs_SkeletonFeedPost{},
 	}
 	if outCursor != "" {
 		res.Cursor = &outCursor

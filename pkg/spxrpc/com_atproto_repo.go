@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	glexrt "github.com/streamplace/glex/runtime"
 	"strings"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
@@ -98,7 +99,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		return &comatproto.RepoDescribeRepo_Output{
 			Handle:          s.cli.ServerDID(),
 			Did:             s.cli.ServerDID(),
-			DidDoc:          atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase),
+			DidDoc:          &glexrt.LexiconTypeDecoder{Val: atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase)},
 			Collections:     collections,
 			HandleIsCorrect: true,
 		}, nil
@@ -107,7 +108,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 	return &comatproto.RepoDescribeRepo_Output{
 		Handle: s.cli.BroadcasterDID(),
 		Did:    s.cli.BroadcasterDID(),
-		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase),
+		DidDoc: &glexrt.LexiconTypeDecoder{Val: atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase)},
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},

@@ -36,7 +36,7 @@ func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string)
 	}
 
 	// user valid but we couldn't find their bsky profile, return a minimum thing
-	if profile == nil {
+	if false {
 		return &appbskytypes.ActorDefs_ProfileViewDetailed{
 			Did:    repo.DID,
 			Handle: repo.Handle,

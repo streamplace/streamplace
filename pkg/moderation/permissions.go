@@ -9,7 +9,7 @@ import (
 )
 
 type delegationGetter interface {
-	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*placestream.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
 }
 
 // Permission scope constants

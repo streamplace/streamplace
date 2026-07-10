@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"gorm.io/gorm/clause"
 )
 

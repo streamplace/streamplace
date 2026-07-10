@@ -7,8 +7,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"stream.place/streamplace/pkg/comatproto"
+	glexrt "github.com/streamplace/glex/runtime"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -16,13 +18,13 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*comatprototypes.SyncListRepos_Output, error) {
+func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor string, limit int) (*indigoatproto.SyncListRepos_Output, error) {
 	active := true
 
 	if s.isServerPDS(ctx) {
 		// Server PDS: only the server repo
-		return &comatprototypes.SyncListRepos_Output{
-			Repos: []*comatprototypes.SyncListRepos_Repo{
+		return &indigoatproto.SyncListRepos_Output{
+			Repos: []*indigoatproto.SyncListRepos_Repo{
 				{
 					Did:    atproto.ServerRepo.RepoDid(),
 					Head:   atproto.ServerRepo.SignedCommit().Data.String(),
@@ -34,8 +36,8 @@ func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context, cursor strin
 	}
 
 	// Broadcaster PDS: only the lexicon repo
-	return &comatprototypes.SyncListRepos_Output{
-		Repos: []*comatprototypes.SyncListRepos_Repo{
+	return &indigoatproto.SyncListRepos_Output{
+		Repos: []*indigoatproto.SyncListRepos_Repo{
 			{
 				Did:    atproto.LexiconRepo.RepoDid(),
 				Head:   atproto.LexiconRepo.SignedCommit().Data.String(),
@@ -92,7 +94,7 @@ func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context, did string, si
 }
 
 // writeCommitToWS writes a single commit event to a websocket connection.
-func writeCommitToWS(conn *websocket.Conn, header *events.EventHeader, commit *comatprototypes.SyncSubscribeRepos_Commit) error {
+func writeCommitToWS(conn *websocket.Conn, header *events.EventHeader, commit *comatproto.SyncSubscribeRepos_Commit) error {
 	wc, err := conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return err

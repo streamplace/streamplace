@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/model"

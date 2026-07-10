@@ -71,9 +71,9 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 
 	indexedAt := aqtime.FromTime(time.Now().UTC()).String()
 	for _, vc := range result.VideoCounts {
-		tracks := make([]*placestream.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
+		tracks := make([]placestream.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
 		for _, t := range vc.Tracks {
-			tracks = append(tracks, &placestream.MediaViewCount_TrackUsage{
+			tracks = append(tracks, placestream.MediaViewCount_TrackUsage{
 				Track:      t.Track,
 				Bytes:      t.Bytes,
 				DurationMs: t.DurationMS,

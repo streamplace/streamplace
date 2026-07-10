@@ -81,15 +81,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
-	err := s.RegisterHandlersPlaceStream(e)
-	if err != nil {
-		return nil, err
-	}
-	err = s.RegisterHandlersAppBsky(e)
-	if err != nil {
-		return nil, err
-	}
-	err = s.RegisterHandlersComAtproto(e)
+	err := s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +94,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// stubs.go hard-codes status 200 + content-type, but we need
 	// 206 Partial Content for HTTP Range on getVideoBlob and the
 	// `application/vnd.apple.mpegurl` MIME for getVideoPlaylist.
-	// Registering AFTER RegisterHandlersPlaceStream wins because
+	// Registering AFTER RegisterHandlersPlacestream wins because
 	// echo's last-write-wins for exact-match routes.
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandleGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandleGetVideoPlaylist)

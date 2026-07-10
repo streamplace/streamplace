@@ -38,5 +38,5 @@ func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context, cursor 
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return out, nil
+	return &out, nil
 }

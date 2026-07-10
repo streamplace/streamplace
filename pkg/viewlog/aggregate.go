@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
@@ -83,7 +83,7 @@ type VideoCount struct {
 // place.stream.media.track record inside the window. The strongRef
 // points at the track record whose bytes were transferred.
 type TrackUsage struct {
-	Track      *comatproto.RepoStrongRef
+	Track      comatproto.RepoStrongRef
 	Bytes      int64
 	DurationMS int64
 }
@@ -275,7 +275,7 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 					k := trackKey{video: video, trackURI: ref.Uri}
 					tu, ok := trackTotals[k]
 					if !ok {
-						tu = &TrackUsage{Track: ref}
+						tu = &TrackUsage{Track: *ref}
 						trackTotals[k] = tu
 					}
 					tu.Bytes += bytes

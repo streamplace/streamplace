@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/driver/sqlite"

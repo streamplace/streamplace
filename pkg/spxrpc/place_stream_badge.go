@@ -46,7 +46,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		// Take the first server badge (streamer, mod, or bot). These are always first in the list.
 		for _, b := range computed {
 			if b.BadgeType == constants.BadgeTypeStreamer || b.BadgeType == constants.BadgeTypeMod || b.BadgeType == constants.BadgeTypeBot {
-				serverBadge = b
+				serverBadge = &b
 				break
 			}
 		}
@@ -60,9 +60,9 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 	}
 	if chatProfile != nil {
 		spcp, err := chatProfile.ToStreamplaceChatProfile()
-		if err == nil && spcp != nil && spcp.Badges != nil {
+		if err == nil && true && spcp.Badges != nil {
 			for _, sel := range spcp.Badges.Streamer {
-				if sel != nil && sel.Badge != nil {
+				if sel.Badge.Uri != "" && sel.Badge.Uri != "" {
 					selectedURIs[sel.Badge.Uri] = true
 				}
 			}
@@ -78,11 +78,11 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to fetch badge issuances")
 	}
 
-	streamerSlot := &placestream.BadgeDefs_BadgeSlot{
-		Available: []*placestream.BadgeDefs_BadgeIssuanceView{},
+	streamerSlot := placestream.BadgeDefs_BadgeSlot{
+		Available: []placestream.BadgeDefs_BadgeIssuanceView{},
 	}
-	userSlot := &placestream.BadgeDefs_BadgeSlot{
-		Available: []*placestream.BadgeDefs_BadgeIssuanceView{},
+	userSlot := placestream.BadgeDefs_BadgeSlot{
+		Available: []placestream.BadgeDefs_BadgeIssuanceView{},
 	}
 
 	for _, issuance := range issuances {
@@ -95,7 +95,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 			continue // def was deleted
 		}
 
-		view := &placestream.BadgeDefs_BadgeIssuanceView{
+		view := placestream.BadgeDefs_BadgeIssuanceView{
 			IssuanceUri: issuance.URI,
 			IssuanceCid: &issuance.CID,
 			BadgeType:   def.BadgeType,
@@ -108,7 +108,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 			view.Description = &def.Description
 		}
 		if def.ImageCID != "" {
-			imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
+			imageUrl := fmt.Sprintf("https://cdn.appbsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
 			view.ImageUrl = &imageUrl
 		}
 		isSelected := selectedURIs[issuance.URI]
@@ -117,12 +117,12 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		if badges.IsGlobalIssuer(issuance.RepoDID) {
 			userSlot.Available = append(userSlot.Available, view)
 			if isSelected && userSlot.Selected == nil {
-				userSlot.Selected = view
+				userSlot.Selected = &view
 			}
 		} else {
 			streamerSlot.Available = append(streamerSlot.Available, view)
 			if isSelected && streamerSlot.Selected == nil {
-				streamerSlot.Selected = view
+				streamerSlot.Selected = &view
 			}
 		}
 	}

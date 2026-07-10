@@ -121,7 +121,7 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 	}
 
 	// Convert to API format
-	apiWebhooks := make([]*placestreamtypes.ServerDefs_Webhook, len(webhooks))
+	apiWebhooks := make([]placestream.ServerDefs_Webhook, len(webhooks))
 	for i, webhook := range webhooks {
 		apiWebhook, err := webhook.ToLexicon()
 		if err != nil {

@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
@@ -60,7 +60,7 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
 	}
 
-	cancelMsg := &placestream.Livestream_TeleportCanceled{
+	cancelMsg := placestream.Livestream_TeleportCanceled{
 		LexiconTypeID: "place.stream.livestream#teleportCanceled",
 		TeleportUri:   input.Uri,
 		Reason:        "denied",
@@ -187,8 +187,8 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	// Convert segments to the expected output format
-	output := &placestream.LiveGetSegments_Output{
-		Segments: make([]*placestream.Segment_SegmentView, len(segments)),
+	output := placestream.LiveGetSegments_Output{
+		Segments: make([]placestream.Segment_SegmentView, len(segments)),
 	}
 
 	for i, segment := range segments {
@@ -202,13 +202,13 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		}
 		ltd := &glexrt.LexiconTypeDecoder{Val: record}
 
-		output.Segments[i] = &placestream.Segment_SegmentView{
+		output.Segments[i] = placestream.Segment_SegmentView{
 			Record: ltd,
 			Cid:    c.String(),
 		}
 	}
 
-	return output, nil
+	return &output, nil
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestream.LiveGetLiveUsers_Output, error) {
@@ -271,7 +271,7 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
+	streams := make([]placestream.Livestream_LivestreamView, len(ls))
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
@@ -284,9 +284,9 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 		streams[i] = stream
 	}
 
-	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
+	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
 	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
-	return liveUsers, nil
+	return &liveUsers, nil
 }
 
 // getLiveUsersLatest returns live streams ordered by start time (newest first).
@@ -313,7 +313,7 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
+	streams := make([]placestream.Livestream_LivestreamView, len(ls))
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
@@ -326,9 +326,9 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 		streams[i] = stream
 	}
 
-	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
+	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
 	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
-	return liveUsers, nil
+	return &liveUsers, nil
 }
 
 func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
@@ -411,9 +411,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveStreamers) > 0 {
-			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveStreamers {
-				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+				recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "streamer",
@@ -444,9 +444,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveFollows) > 0 {
-			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveFollows {
-				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+				recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "follows",
@@ -467,9 +467,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter default streamers")
 		}
-		var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+		var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 		for _, did := range liveDefaults {
-			recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+			recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 				LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 					Did:    did,
 					Source: "host",
@@ -484,7 +484,7 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 
 	// No recommendations available
 	return &placestream.LiveGetRecommendations_Output{
-		Recommendations: []*placestream.LiveGetRecommendations_Output_Recommendations_Elem{},
+		Recommendations: []placestream.LiveGetRecommendations_Output_Recommendations_Elem{},
 		UserDID:         &userDID,
 	}, nil
 }
@@ -570,7 +570,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 			if err != nil {
 				log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
 			} else {
-				thumb = lex.BlobFromLexUtil(uploadOut.Blob)
+				thumb = &uploadOut.Blob
 			}
 		}
 		livestream.Thumb = thumb
@@ -606,19 +606,19 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		linkEnd := linkStart + int64(len(canonicalUrl))
 
 		postRecord := appbsky.FeedPost{
-			LexiconTypeID: "app.appbsky.feed.post",
+			LexiconTypeID: "app.bsky.feed.post",
 			Text:          postText,
 			CreatedAt:     now,
 			Langs:         []string{"en"},
-			Facets: []*appbsky.RichtextFacet{
+			Facets: []appbsky.RichtextFacet{
 				{
 					Index: appbsky.RichtextFacet_ByteSlice{
 						ByteStart: linkStart,
 						ByteEnd:   linkEnd,
 					},
-					Features: []*appbsky.RichtextFacet_Features_Elem{
+					Features: []appbsky.RichtextFacet_Features_Elem{
 						{
-							RichtextFacet_Link: appbsky.RichtextFacet_Link{
+							RichtextFacet_Link: &appbsky.RichtextFacet_Link{
 								LexiconTypeID: "app.appbsky.richtext.facet#link",
 								Uri:           canonicalUrl,
 							},
@@ -626,20 +626,20 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 					},
 				},
 			},
-			Embed: appbsky.FeedPost_Embed{
-				EmbedExternal: appbsky.EmbedExternal{
+			Embed: &appbsky.FeedPost_Embed{
+				EmbedExternal: &appbsky.EmbedExternal{
 					External: appbsky.EmbedExternal_External{
 						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
 						Uri:         canonicalUrl,
 						Description: livestream.Title,
-						Thumb:       lex.BlobToLexUtil(livestream.Thumb),
+						Thumb:       livestream.Thumb,
 					},
 				},
 			},
 		}
 
 		postInput := comatproto.RepoCreateRecord_Input{
-			Collection: "app.appbsky.feed.post",
+			Collection: "app.bsky.feed.post",
 			Record:     &glexrt.LexiconTypeDecoder{Val: postRecord},
 			Repo:       session.DID,
 		}

@@ -278,7 +278,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 			streamplaceChatProfile, err := chatProfile.ToStreamplaceChatProfile()
 			if err != nil {
 				log.Warn(ctx, "failed to decode chat profile", "did", userDID, "error", err)
-			} else if streamplaceChatProfile != nil && streamplaceChatProfile.Color != nil {
+			} else if true && streamplaceChatProfile.Color != nil {
 				userColor = color.RGBA{
 					R: uint8(streamplaceChatProfile.Color.Red),
 					G: uint8(streamplaceChatProfile.Color.Green),

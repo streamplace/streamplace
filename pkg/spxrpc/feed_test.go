@@ -14,19 +14,19 @@ func TestFeedSkeletonRE(t *testing.T) {
 		want bool
 	}{
 		{
-			feed: "at://did:plc:oio4hkxaop4ao4wz2pp3f4cr/app.bsky.feed.generator/atproto",
+			feed: "at://did:plc:oio4hkxaop4ao4wz2pp3f4cr/app.appbsky.feed.generator/atproto",
 			did:  "did:plc:oio4hkxaop4ao4wz2pp3f4cr",
 			name: "atproto",
 			want: true,
 		},
 		{
-			feed: "at://did:web:iame.li/app.bsky.feed.generator/feedwithnumbers123",
+			feed: "at://did:web:iame.li/app.appbsky.feed.generator/feedwithnumbers123",
 			did:  "did:web:iame.li",
 			name: "feedwithnumbers123",
 			want: true,
 		},
 		{
-			feed: "at://did:web:iame.li/app.bsky.feed.generator/feed-with-dashes",
+			feed: "at://did:web:iame.li/app.appbsky.feed.generator/feed-with-dashes",
 			did:  "did:web:iame.li",
 			name: "feed-with-dashes",
 			want: true,
@@ -36,15 +36,15 @@ func TestFeedSkeletonRE(t *testing.T) {
 			want: false,
 		},
 		{
-			feed: "at:///app.bsky.feed.generator/feedwithnumbers123",
+			feed: "at:///app.appbsky.feed.generator/feedwithnumbers123",
 			want: false,
 		},
 		{
-			feed: "at://did:web:iame.li/app.bsky.feed.generator/",
+			feed: "at://did:web:iame.li/app.appbsky.feed.generator/",
 			want: false,
 		},
 		{
-			feed: "at://did:web:iame.li/app.bsky.feed.generator/feedwithnumbers123/errantsuffix",
+			feed: "at://did:web:iame.li/app.appbsky.feed.generator/feedwithnumbers123/errantsuffix",
 			want: false,
 		},
 	}

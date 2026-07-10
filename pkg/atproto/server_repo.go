@@ -362,11 +362,11 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 		Rev:    rev,
 		Commit: glexrt.Link(root),
 		Time:   time.Now().Format(util.ISO8601),
-		Ops: []*comatproto.SyncSubscribeRepos_RepoOp{
+		Ops: []comatproto.SyncSubscribeRepos_RepoOp{
 			{
 				Action: action,
 				Path:   rpath,
-				Cid:    &cidLink,
+				Cid:    cidLink,
 			},
 		},
 		TooBig: false,
@@ -579,7 +579,7 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 
 	// 4. Fetch + decode bodies only for the page.
 	out := &comatproto.RepoListRecords_Output{
-		Records: make([]*comatproto.RepoListRecords_Record, 0, len(page)),
+		Records: make([]comatproto.RepoListRecords_Record, 0, len(page)),
 	}
 	for _, e := range page {
 		raw, err := getBlock(ctx, ses, e.c)
@@ -590,7 +590,7 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", e.rkey, err)
 		}
-		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
+		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s%s", repo, prefix, e.rkey),
 			Cid:   e.c.String(),
 			Value: &glexrt.LexiconTypeDecoder{Val: val},

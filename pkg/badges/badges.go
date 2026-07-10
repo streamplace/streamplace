@@ -12,8 +12,8 @@ import (
 
 // GetValidBadges returns valid badges for a user in the context of a streamer's chat.
 // Returns server-controlled badges (streamer, mod) based on permissions.
-func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]*placestream.BadgeDefs_BadgeView, error) {
-	badges := []*placestream.BadgeDefs_BadgeView{}
+func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]placestream.BadgeDefs_BadgeView, error) {
+	badges := []placestream.BadgeDefs_BadgeView{}
 
 	// If no streamer context, return empty badges
 	if streamerDID == "" {
@@ -22,7 +22,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 
 	// Check if user is the streamer
 	if userDID == streamerDID {
-		badges = append(badges, &placestream.BadgeDefs_BadgeView{
+		badges = append(badges, placestream.BadgeDefs_BadgeView{
 			BadgeType: constants.BadgeTypeStreamer,
 			Issuer:    issuerDID,
 			Recipient: userDID,
@@ -38,7 +38,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		}
 
 		if len(delegations) > 0 {
-			badges = append(badges, &placestream.BadgeDefs_BadgeView{
+			badges = append(badges, placestream.BadgeDefs_BadgeView{
 				BadgeType: constants.BadgeTypeMod,
 				Issuer:    issuerDID,
 				Recipient: userDID,
@@ -60,7 +60,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	for _, label := range spChatProfile.SelfLabels {
 		if label == constants.SelfLabelBot {
 			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
-			badges = append(badges, &placestream.BadgeDefs_BadgeView{
+			badges = append(badges, placestream.BadgeDefs_BadgeView{
 				BadgeType: constants.BadgeTypeBot,
 				Issuer:    issuerDID,
 				Recipient: userDID,
@@ -84,7 +84,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 					log.Warn(ctx, "streamer slot contains non-VIP badge", "badgeType", view.BadgeType)
 					continue
 				}
-				badges = append(badges, view)
+				badges = append(badges, *view)
 			}
 		}
 
@@ -96,7 +96,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 			} else if !IsGlobalIssuer(view.Issuer) {
 				log.Warn(ctx, "global slot badge not from authorized issuer", "issuer", view.Issuer)
 			} else {
-				badges = append(badges, view)
+				badges = append(badges, *view)
 			}
 		}
 	}
@@ -136,7 +136,7 @@ func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m
 	if def == nil {
 		return nil, nil // def was deleted
 	}
-	view := &placestream.BadgeDefs_BadgeView{
+	view := placestream.BadgeDefs_BadgeView{
 		BadgeType: def.BadgeType,
 		Issuer:    issuance.RepoDID,
 		Recipient: userDID,
@@ -151,5 +151,5 @@ func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m
 		imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
 		view.ImageUrl = &imageUrl
 	}
-	return view, nil
+	return &view, nil
 }

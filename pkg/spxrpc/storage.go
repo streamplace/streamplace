@@ -49,7 +49,7 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 		url = existing.URL
 	}
 
-	storage := statedb.StorageFromLexiconInput(input, session.DID)
+	storage := statedb.StorageFromLexiconInput(*input, session.DID)
 	storage.URL = url
 	if input.IsActive == nil && existing != nil {
 		storage.IsActive = existing.IsActive
@@ -86,7 +86,7 @@ func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*places
 	}
 
 	return &placestreamtypes.ServerGetStorage_Output{
-		Storage: storage.ToLexicon(),
+		Storage: &storage.ToLexicon(),
 	}, nil
 }
 

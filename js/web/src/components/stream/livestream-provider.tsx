@@ -4,7 +4,7 @@ import {
   makeLivestreamStore,
   type LivestreamStore,
 } from "@streamplace/core";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 interface LivestreamProviderProps {
   /** The DID or handle of the user to connect to. */
@@ -22,19 +22,10 @@ export function LivestreamProvider({
   user,
   children,
 }: LivestreamProviderProps) {
-  const store = useRef<LivestreamStore | null>(null);
-  const [initialized, setInitialized] = useState(false);
-
-  // Initialize store once
-  useEffect(() => {
-    store.current = makeLivestreamStore();
-    setInitialized(true);
-  }, []);
+  const store = useMemo(() => makeLivestreamStore(), [user]);
 
   // WebSocket connection
   useEffect(() => {
-    if (!store.current) return;
-
     const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
 
     let ws: WebSocket | null = null;
@@ -65,7 +56,7 @@ export function LivestreamProvider({
         flushTimer = null;
         const batch = messageBuffer;
         messageBuffer = [];
-        store.current?.setState((s) => handleWebSocketMessages(s, batch));
+        store.setState((s) => handleWebSocketMessages(s, batch));
       };
 
       ws.onmessage = (event) => {
@@ -82,13 +73,13 @@ export function LivestreamProvider({
 
       ws.onclose = () => {
         if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
+        store.setState((s) => ({ ...s, websocketConnected: false }));
         scheduleReconnect();
       };
 
       ws.onerror = () => {
         if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
+        store.setState((s) => ({ ...s, websocketConnected: false }));
         ws?.close();
         scheduleReconnect();
       };
@@ -102,15 +93,7 @@ export function LivestreamProvider({
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       ws?.close();
     };
-  }, [user]);
+  }, [store, user]);
 
-  if (!initialized || !store.current) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
-      </div>
-    );
-  }
-
-  return <>{children(store.current)}</>;
+  return <>{children(store)}</>;
 }

@@ -362,7 +362,7 @@ export const createBlueskySlice: StateCreator<
   },
 
   logout: async () => {
-    await storage.removeItem("did");
+    await storage.removeItem(DID_KEY);
     await storage.removeItem(STORED_KEY_KEY);
     const state = get() as BlueskySlice;
     if (!state.oauthSession) {

@@ -292,6 +292,13 @@ test-vod:
 .PHONY: dev-setup
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
+	$(MAKE) dev-cgo
+
+# Generate explicit cgo flags (plus a go.work pointing at patched copies of
+# the cgo-using deps) so plain `go test ./pkg/...` works with no env vars.
+.PHONY: dev-cgo
+dev-cgo:
+	BUILDDIR=$(BUILDDIR) ./hack/gen-cgo-flags.sh
 
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)

@@ -85,8 +85,9 @@ func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*places
 		}, nil
 	}
 
+	storageLex := storage.ToLexicon()
 	return &placestreamtypes.ServerGetStorage_Output{
-		Storage: &storage.ToLexicon(),
+		Storage: &storageLex,
 	}, nil
 }
 

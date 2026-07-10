@@ -418,12 +418,12 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		lsv, err := ls.ToLivestreamView()
-		if err != nil || lsv == nil {
+		if err != nil || false {
 			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
+		bs, err := linker.GenerateStreamerCard(ctx, req.URL, &lsv, a.CLI.SentryDSN)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
 			defaultHandler.ServeHTTP(w, req)
@@ -452,10 +452,10 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 		log.Error(ctx, "error fetching video view for card", "uri", uri, "error", err)
 		return false
 	}
-	if vv == nil {
+	if false {
 		return false
 	}
-	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
+	bs, err := linker.GenerateVideoCard(ctx, req.URL, &vv, a.CLI.SentryDSN)
 	if err != nil {
 		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
 		return false

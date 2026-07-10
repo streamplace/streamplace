@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
@@ -440,12 +440,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		// aggregator to attribute bytes/duration to the right track
 		// record (the streamer's original track records or, later,
 		// user-contributed transcript/transcode tracks).
-		fetchTrackRefs := func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+		fetchTrackRefs := func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 			rows, err := mod.GetMediaTracksByBlob(ctx, cid)
 			if err != nil {
 				return nil, err
 			}
-			out := make(map[string]*comatproto.RepoStrongRef, len(rows))
+			out := make(map[string]comatproto.RepoStrongRef, len(rows))
 			for _, row := range rows {
 				rec, err := row.ToRecord()
 				if err != nil {
@@ -453,14 +453,14 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 						"uri", row.URI, "error", err)
 					continue
 				}
-				if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+				if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
 					continue
 				}
 				tid := rec.Track.MediaDefs_MuxlTrack.TrackId
 				if tid == "" {
 					continue
 				}
-				out[tid] = &comatproto.RepoStrongRef{
+				out[tid] = comatproto.RepoStrongRef{
 					LexiconTypeID: "com.atproto.repo.strongRef",
 					Uri:           row.URI,
 					Cid:           row.CID,

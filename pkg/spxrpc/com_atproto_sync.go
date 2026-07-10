@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strconv"
 	"stream.place/streamplace/pkg/comatproto"
-	glexrt "github.com/streamplace/glex/runtime"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"

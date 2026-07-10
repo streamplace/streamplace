@@ -44,7 +44,11 @@ func (s *Server) handlePlaceStreamMultistreamCreateTarget(ctx context.Context, b
 		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
-	return &s.statefulDB.CreateMultistreamTarget(*body, session.DID)
+	out, err := s.statefulDB.CreateMultistreamTarget(*body, session.DID)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context, cursor string, limit int) (*placestreamtypes.MultistreamListTargets_Output, error) {
@@ -113,7 +117,11 @@ func (s *Server) handlePlaceStreamMultistreamPutTarget(ctx context.Context, body
 	}
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", session.DID, rkey)
 
-	return &s.statefulDB.UpdateMultistreamTarget(uri, *body)
+	out, err := s.statefulDB.UpdateMultistreamTarget(uri, *body)
+	if err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 func (s *Server) handlePlaceStreamMultistreamDeleteTarget(ctx context.Context, body *placestreamtypes.MultistreamDeleteTarget_Input) (*placestreamtypes.MultistreamDeleteTarget_Output, error) {
 	ctx, span := otel.Tracer("server").Start(ctx, "handlePlaceStreamMultistreamDeleteTarget")

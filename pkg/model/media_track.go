@@ -47,7 +47,7 @@ func (t *MediaTrack) ToRecord() (placestream.MediaTrack, error) {
 // yet) return an empty string, leaving it to the caller to decide
 // whether that's worth indexing.
 func trackBlob(rec placestream.MediaTrack) string {
-	if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+	if rec.Track.MediaDefs_MuxlTrack == nil {
 		return ""
 	}
 	return rec.Track.MediaDefs_MuxlTrack.Blob

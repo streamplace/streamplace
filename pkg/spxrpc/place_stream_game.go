@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -159,4 +160,10 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 
 	s.GameSearchCache.SetDefault(cacheKey, out)
 	return &out, nil
+}
+
+func (s *Server) handleGamesGamesgamesgamesgamesSearch(ctx context.Context, ageRatings []string, applicationTypes []string, cursor string, genres []string, includeCancelled bool, includeUnrated bool, limit int, modes []string, playerPerspectives []string, q string, sort string, themes []string, types []string) (*gamesgamesgamesgamesgames.Search_Output, error) {
+	// TODO: implement full games search with all filter params
+	// TODO: convert GameSearch_Output to gamesgamesgamesgamesgames.Search_Output
+	return nil, fmt.Errorf("games search not yet implemented")
 }

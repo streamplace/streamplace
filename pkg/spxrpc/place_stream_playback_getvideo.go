@@ -64,7 +64,7 @@ func (s *Server) handlePlaceStreamPlaybackGetVideoBlob(ctx context.Context, cid 
 	return nil, stubMisrouted("getVideoBlob")
 }
 
-func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end *int, sid string, start *int, track string, uri string) (io.Reader, error) {
+func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context, end int, sid string, start int, track string, uri string) (io.Reader, error) {
 	return nil, stubMisrouted("getVideoPlaylist")
 }
 

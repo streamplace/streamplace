@@ -22,29 +22,29 @@ func (s *Server) HandleGamesGamesgamesgamesgamesSearch(c echo.Context) error {
 	applicationTypes := c.QueryParams()["applicationTypes"]
 	cursor := c.QueryParam("cursor")
 	genres := c.QueryParams()["genres"]
-	var includeCancelled *bool
+	includeCancelled := false
 	if p := c.QueryParam("includeCancelled"); p != "" {
-		includeCancelled_val, err := strconv.ParseBool(p)
+		var err error
+		includeCancelled, err = strconv.ParseBool(p)
 		if err != nil {
 			return err
 		}
-		includeCancelled = &includeCancelled_val
 	}
-	var includeUnrated *bool
+	includeUnrated := false
 	if p := c.QueryParam("includeUnrated"); p != "" {
-		includeUnrated_val, err := strconv.ParseBool(p)
+		var err error
+		includeUnrated, err = strconv.ParseBool(p)
 		if err != nil {
 			return err
 		}
-		includeUnrated = &includeUnrated_val
 	}
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	modes := c.QueryParams()["modes"]
 	playerPerspectives := c.QueryParams()["playerPerspectives"]
@@ -54,7 +54,7 @@ func (s *Server) HandleGamesGamesgamesgamesgamesSearch(c echo.Context) error {
 	types := c.QueryParams()["types"]
 	var out *gamesgamesgamesgamesgames.Search_Output
 	var handleErr error
-	// func (s *Server) handleGamesGamesgamesgamesgamesSearch(ctx context.Context,ageRatings []string,applicationTypes []string,cursor string,genres []string,includeCancelled *bool,includeUnrated *bool,limit *int,modes []string,playerPerspectives []string,q string,sort string,themes []string,types []string) (*gamesgamesgamesgamesgames.Search_Output, error)
+	// func (s *Server) handleGamesGamesgamesgamesgamesSearch(ctx context.Context,ageRatings []string,applicationTypes []string,cursor string,genres []string,includeCancelled bool,includeUnrated bool,limit int,modes []string,playerPerspectives []string,q string,sort string,themes []string,types []string) (*gamesgamesgamesgamesgames.Search_Output, error)
 	out, handleErr = s.handleGamesGamesgamesgamesgamesSearch(ctx, ageRatings, applicationTypes, cursor, genres, includeCancelled, includeUnrated, limit, modes, playerPerspectives, q, sort, themes, types)
 	if handleErr != nil {
 		return handleErr
@@ -279,18 +279,18 @@ func (s *Server) HandlePlaceStreamGameSearch(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGameSearch")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	q := c.QueryParam("q")
 	var out *placestream.GameSearch_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit *int,q string) (*placestream.GameSearch_Output, error)
+	// func (s *Server) handlePlaceStreamGameSearch(ctx context.Context,cursor string,limit int,q string) (*placestream.GameSearch_Output, error)
 	out, handleErr = s.handlePlaceStreamGameSearch(ctx, cursor, limit, q)
 	if handleErr != nil {
 		return handleErr
@@ -302,18 +302,18 @@ func (s *Server) HandlePlaceStreamGetLikes(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamGetLikes")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	subject := c.QueryParam("subject")
 	var out *placestream.GetLikes_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamGetLikes(ctx context.Context,cursor string,limit *int,subject string) (*placestream.GetLikes_Output, error)
+	// func (s *Server) handlePlaceStreamGetLikes(ctx context.Context,cursor string,limit int,subject string) (*placestream.GetLikes_Output, error)
 	out, handleErr = s.handlePlaceStreamGetLikes(ctx, cursor, limit, subject)
 	if handleErr != nil {
 		return handleErr
@@ -370,17 +370,17 @@ func (s *Server) HandlePlaceStreamLiveGetLiveUsers(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetLiveUsers")
 	defer span.End()
 	before := c.QueryParam("before")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	var out *placestream.LiveGetLiveUsers_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context,before string,limit *int) (*placestream.LiveGetLiveUsers_Output, error)
+	// func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context,before string,limit int) (*placestream.LiveGetLiveUsers_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveGetLiveUsers(ctx, before, limit)
 	if handleErr != nil {
 		return handleErr
@@ -420,18 +420,18 @@ func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveGetSegments")
 	defer span.End()
 	before := c.QueryParam("before")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	userDID := c.QueryParam("userDID")
 	var out *placestream.LiveGetSegments_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit *int,userDID string) (*placestream.LiveGetSegments_Output, error)
+	// func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context,before string,limit int,userDID string) (*placestream.LiveGetSegments_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveGetSegments(ctx, before, limit, userDID)
 	if handleErr != nil {
 		return handleErr
@@ -442,18 +442,18 @@ func (s *Server) HandlePlaceStreamLiveGetSegments(c echo.Context) error {
 func (s *Server) HandlePlaceStreamLiveSearchActorsTypeahead(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamLiveSearchActorsTypeahead")
 	defer span.End()
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	q := c.QueryParam("q")
 	var out *placestream.LiveSearchActorsTypeahead_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context,limit *int,q string) (*placestream.LiveSearchActorsTypeahead_Output, error)
+	// func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context,limit int,q string) (*placestream.LiveSearchActorsTypeahead_Output, error)
 	out, handleErr = s.handlePlaceStreamLiveSearchActorsTypeahead(ctx, limit, q)
 	if handleErr != nil {
 		return handleErr
@@ -561,18 +561,18 @@ func (s *Server) HandlePlaceStreamMediaGetVideoList(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMediaGetVideoList")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	repo := c.QueryParam("repo")
 	var out *placestream.MediaGetVideoList_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,cursor string,limit *int,repo string) (*placestream.MediaGetVideoList_Output, error)
+	// func (s *Server) handlePlaceStreamMediaGetVideoList(ctx context.Context,cursor string,limit int,repo string) (*placestream.MediaGetVideoList_Output, error)
 	out, handleErr = s.handlePlaceStreamMediaGetVideoList(ctx, cursor, limit, repo)
 	if handleErr != nil {
 		return handleErr
@@ -788,17 +788,17 @@ func (s *Server) HandlePlaceStreamMultistreamListTargets(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamMultistreamListTargets")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	var out *placestream.MultistreamListTargets_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context,cursor string,limit *int) (*placestream.MultistreamListTargets_Output, error)
+	// func (s *Server) handlePlaceStreamMultistreamListTargets(ctx context.Context,cursor string,limit int) (*placestream.MultistreamListTargets_Output, error)
 	out, handleErr = s.handlePlaceStreamMultistreamListTargets(ctx, cursor, limit)
 	if handleErr != nil {
 		return handleErr
@@ -889,28 +889,28 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackGetVideoPlaylist")
 	defer span.End()
-	var end *int
+	end := 0
 	if p := c.QueryParam("end"); p != "" {
-		end_val, err := strconv.Atoi(p)
+		var err error
+		end, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		end = &end_val
 	}
 	sid := c.QueryParam("sid")
-	var start *int
+	start := 0
 	if p := c.QueryParam("start"); p != "" {
-		start_val, err := strconv.Atoi(p)
+		var err error
+		start, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		start = &start_val
 	}
 	track := c.QueryParam("track")
 	uri := c.QueryParam("uri")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end *int,sid string,start *int,track string,uri string) (io.Reader, error)
+	// func (s *Server) handlePlaceStreamPlaybackGetVideoPlaylist(ctx context.Context,end int,sid string,start int,track string,uri string) (io.Reader, error)
 	out, handleErr = s.handlePlaceStreamPlaybackGetVideoPlaylist(ctx, end, sid, start, track, uri)
 	if handleErr != nil {
 		return handleErr
@@ -921,11 +921,14 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error
 func (s *Server) HandlePlaceStreamPlaybackWhep(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamPlaybackWhep")
 	defer span.End()
+	rendition := c.QueryParam("rendition")
+	streamer := c.QueryParam("streamer")
 	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
 	var out io.Reader
 	var handleErr error
-	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,r io.Reader) (io.Reader, error)
-	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, body)
+	// func (s *Server) handlePlaceStreamPlaybackWhep(ctx context.Context,rendition string,streamer string,r io.Reader,contentType string) (io.Reader, error)
+	out, handleErr = s.handlePlaceStreamPlaybackWhep(ctx, rendition, streamer, body, contentType)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -1022,27 +1025,27 @@ func (s *Server) HandlePlaceStreamServerGetWebhook(c echo.Context) error {
 func (s *Server) HandlePlaceStreamServerListWebhooks(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamServerListWebhooks")
 	defer span.End()
-	var active *bool
+	active := false
 	if p := c.QueryParam("active"); p != "" {
-		active_val, err := strconv.ParseBool(p)
+		var err error
+		active, err = strconv.ParseBool(p)
 		if err != nil {
 			return err
 		}
-		active = &active_val
 	}
 	cursor := c.QueryParam("cursor")
 	event := c.QueryParam("event")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	var out *placestream.ServerListWebhooks_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context,active *bool,cursor string,event string,limit *int) (*placestream.ServerListWebhooks_Output, error)
+	// func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context,active bool,cursor string,event string,limit int) (*placestream.ServerListWebhooks_Output, error)
 	out, handleErr = s.handlePlaceStreamServerListWebhooks(ctx, active, cursor, event, limit)
 	if handleErr != nil {
 		return handleErr
@@ -1122,18 +1125,18 @@ func (s *Server) HandlePlaceStreamVodGetComments(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodGetComments")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	video := c.QueryParam("video")
 	var out *placestream.VodGetComments_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit *int,video string) (*placestream.VodGetComments_Output, error)
+	// func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context,cursor string,limit int,video string) (*placestream.VodGetComments_Output, error)
 	out, handleErr = s.handlePlaceStreamVodGetComments(ctx, cursor, limit, video)
 	if handleErr != nil {
 		return handleErr
@@ -1159,17 +1162,17 @@ func (s *Server) HandlePlaceStreamVodListDrafts(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamVodListDrafts")
 	defer span.End()
 	cursor := c.QueryParam("cursor")
-	var limit *int
+	limit := 0
 	if p := c.QueryParam("limit"); p != "" {
-		limit_val, err := strconv.Atoi(p)
+		var err error
+		limit, err = strconv.Atoi(p)
 		if err != nil {
 			return err
 		}
-		limit = &limit_val
 	}
 	var out *placestream.VodListDrafts_Output
 	var handleErr error
-	// func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context,cursor string,limit *int) (*placestream.VodListDrafts_Output, error)
+	// func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context,cursor string,limit int) (*placestream.VodListDrafts_Output, error)
 	out, handleErr = s.handlePlaceStreamVodListDrafts(ctx, cursor, limit)
 	if handleErr != nil {
 		return handleErr

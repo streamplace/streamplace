@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 
@@ -50,9 +50,9 @@ func TestGetVideoView_NoViewCounts(t *testing.T) {
 		LexiconTypeID: "place.stream.video",
 		Title:         "hello",
 		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks:        []*comatproto.RepoStrongRef{},
+				Tracks:        []comatproto.RepoStrongRef{},
 			},
 		},
 	}
@@ -80,14 +80,14 @@ func TestGetVideoView_SumsAcrossReporters(t *testing.T) {
 		LexiconTypeID: "place.stream.video",
 		Title:         "popular",
 		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			},
 		},
 	}
 	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
 
-	trackRef := &comatproto.RepoStrongRef{
+	trackRef := comatproto.RepoStrongRef{
 		LexiconTypeID: "com.atproto.repo.strongRef",
 		Uri:           "at://did:plc:alice/place.stream.media.track/t1",
 		Cid:           "bafytrack",

@@ -31,7 +31,7 @@ func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context, body *p
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}
 
-	uri, cid, err := vod.PublishVideo(ctx, s.statefulDB, s.playbackStore, session.DID, body.UploadId, body.Record)
+	uri, cid, err := vod.PublishVideo(ctx, s.statefulDB, s.playbackStore, session.DID, body.UploadId, &body.Record)
 	if err != nil {
 		switch {
 		case errors.Is(err, vod.ErrUploadNotFound):

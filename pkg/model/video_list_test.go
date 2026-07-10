@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/placestream"
@@ -99,7 +99,7 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 	track := placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
 		Track: placestream.MediaTrack_Track{
-			MediaDefs_MuxlTrack: placestream.MediaDefs_MuxlTrack{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          blobCID,
 				TrackId:       "1",
@@ -113,9 +113,9 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 		LexiconTypeID: "place.stream.video",
 		Title:         videoURI,
 		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks: []*comatproto.RepoStrongRef{
+				Tracks: []comatproto.RepoStrongRef{
 					{LexiconTypeID: "com.atproto.repo.strongRef", Uri: trackURI, Cid: "bafytrackcid"},
 				},
 			},
@@ -131,7 +131,7 @@ func putClipVideo(t *testing.T, m Model, clipURI, parentURI string) {
 		LexiconTypeID: "place.stream.video",
 		Title:         clipURI,
 		Source: placestream.Video_Source{
-			MediaDefs_SourceClip: placestream.MediaDefs_SourceClip{
+			MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
 				LexiconTypeID: "place.stream.media.defs#sourceClip",
 				Video:         parentURI,
 				Start:         1000,

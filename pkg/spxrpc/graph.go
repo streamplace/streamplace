@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/comatproto"

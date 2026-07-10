@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	bsky "stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
@@ -196,7 +196,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			initialBurst <- spSeg
 			outRs := placestream.Defs_Renditions{
 				LexiconTypeID: "place.stream.defs#renditions",
-				Renditions:    []*placestream.Defs_Rendition{},
+				Renditions:    []placestream.Defs_Rendition{},
 			}
 			if a.CLI.LivepeerGatewayURL != "" {
 				videoRenditions, err := renditions.GenerateRenditions(spSeg)
@@ -205,13 +205,13 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				for _, r := range videoRenditions {
-					outRs.Renditions = append(outRs.Renditions, &placestream.Defs_Rendition{
+					outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
 						LexiconTypeID: "place.stream.defs#rendition",
 						Name:          r.Name,
 					})
 				}
 			}
-			outRs.Renditions = append(outRs.Renditions, &placestream.Defs_Rendition{
+			outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
 				LexiconTypeID: "place.stream.defs#rendition",
 				Name:          renditions.AudioRendition.Name,
 			})
@@ -251,7 +251,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			// Add mod badges to messages
 			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
-				err := atproto.AddModBadgeIfApplicable(ctx, message, repoDID, issuerDID, a.Model)
+				err := atproto.AddModBadgeIfApplicable(ctx, &message, repoDID, issuerDID, a.Model)
 				if err != nil {
 					log.Error(ctx, "failed to add mod badge to message", "error", err)
 				}
@@ -304,7 +304,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					if msgView.Author.Handle == "" || msgView.Author.Handle == "handle.invalid" {
 						msgView.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, msgView.Author.Did)
 					}
-					prv.Message = msgView
+					prv.Message = &msgView
 				}
 				if profile != nil {
 					profileView, err := profile.ToStreamplaceChatProfile()
@@ -312,7 +312,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 						log.Error(ctx, "failed to convert chat profile: %w", err)
 						return
 					}
-					prv.PinnedBy = profileView
+					prv.PinnedBy = &profileView
 				}
 				initialBurst <- prv
 			}
@@ -335,7 +335,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				arrivalMsg := placestream.Livestream_TeleportArrival{
 					LexiconTypeID: "place.stream.livestream#teleportArrival",
 					TeleportUri:   tp.URI,
-					Source: &appbsky.ActorDefs_ProfileViewBasic{
+					Source: appbsky.ActorDefs_ProfileViewBasic{
 						Did:    tp.RepoDID,
 						Handle: tp.Repo.Handle,
 					},
@@ -348,7 +348,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				if err == nil && chatProfile != nil {
 					spcp, err := chatProfile.ToStreamplaceChatProfile()
 					if err == nil {
-						arrivalMsg.ChatProfile = spcp
+						arrivalMsg.ChatProfile = &spcp
 					}
 				}
 

@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -51,12 +52,12 @@ export default function Header() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q,
           limit: 8,
         });
         setResults(
-          response.data.actors.map((a: any) => ({
+          response.actors.map((a: any) => ({
             did: a.did,
             handle: a.handle,
             displayName: a.displayName,
@@ -148,7 +149,7 @@ export default function Header() {
       <header className="bg-sidebar flex h-12 items-center gap-4 py-2 pt-4 pb-4">
         {/* logo */}
         <div className="fixed top-2.5 left-4 z-50 flex items-center gap-2">
-          <StreamplaceSvg className="h-6 w-6 invert-100" />
+          <StreamplaceSvg className="h-6 w-6" />
           <h1 className="hidden text-lg md:block">Streamplace</h1>
           <SidebarTrigger />
         </div>

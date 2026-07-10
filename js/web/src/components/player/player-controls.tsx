@@ -63,6 +63,10 @@ export type PlayerControlsProps = {
   onShowDanmuChange: (showDanmu: boolean) => void;
 };
 
+export function shouldShowUnmutePrompt(playing: boolean, muted: boolean) {
+  return playing && muted;
+}
+
 export function PlayerControls({
   videoRef,
   containerRef,
@@ -248,7 +252,8 @@ export function PlayerControls({
     return () => window.removeEventListener("keydown", onKey);
   }, [togglePlay, toggleMute, toggleFullscreen, theatre, setTheatre]);
 
-  const visible = forceVisible || showControls || bigPlay;
+  const showUnmutePrompt = shouldShowUnmutePrompt(playing, muted);
+  const visible = forceVisible || showControls || bigPlay || showUnmutePrompt;
 
   return (
     <div
@@ -262,19 +267,49 @@ export function PlayerControls({
           gives the play button overlay a darker canvas. */}
       <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
 
-      {bigPlay && (
-        <button
-          type="button"
-          onClick={togglePlay}
-          className="pointer-events-auto absolute inset-0 flex items-center justify-center"
-          aria-label="Play"
-        >
-          <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
-            <Play className="h-6 w-6 fill-white text-white" />
-            <span className="font-medium text-white">Play</span>
+      <button
+        type="button"
+        onClick={togglePlay}
+        className={cn(
+          "absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out",
+          bigPlay
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
+        )}
+        aria-label="Play"
+        aria-hidden={!bigPlay}
+        tabIndex={bigPlay ? 0 : -1}
+      >
+        <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
+          <Play className="h-6 w-6 fill-white text-white" />
+          <span className="font-medium text-white">Play</span>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleMute();
+        }}
+        className={cn(
+          "focus-visible:ring-ring/50 absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full transition-opacity duration-200 ease-out focus-visible:ring-3 focus-visible:outline-none",
+          showUnmutePrompt
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0",
+        )}
+        aria-label="Unmute"
+        aria-hidden={!showUnmutePrompt}
+        tabIndex={showUnmutePrompt ? 0 : -1}
+      >
+        <div className="group border-destructive/40 bg-destructive/20 hover:bg-destructive/40 flex items-center gap-3 rounded-full border px-5 py-3 backdrop-blur transition-colors">
+          <div>
+            <VolumeX className="h-6 w-6 text-white" />
+            <Volume2 className="text-success h-6 w-6" />
           </div>
-        </button>
-      )}
+          <span className="font-medium text-white">Unmute</span>
+        </div>
+      </button>
 
       <div
         className="pointer-events-auto relative space-y-2 bg-linear-to-t from-black/80 to-black/0 px-3 py-2 sm:gap-3"

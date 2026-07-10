@@ -38,18 +38,19 @@ import (
 )
 
 type StreamSession struct {
-	mm             *media.MediaManager
-	mod            model.Model
-	cli            *config.CLI
-	bus            *bus.Bus
-	op             *oatproxy.OATProxy
-	lp             *livepeer.LivepeerSession
-	repoDID        string
-	segmentChan    chan struct{}
-	lastStatus     time.Time
-	lastStatusCID  *string
-	lastOriginTime time.Time
-	localDB        localdb.LocalDB
+	mm                     *media.MediaManager
+	mod                    model.Model
+	cli                    *config.CLI
+	bus                    *bus.Bus
+	op                     *oatproxy.OATProxy
+	lp                     *livepeer.LivepeerSession
+	repoDID                string
+	segmentChan            chan struct{}
+	lastStatus             time.Time
+	lastStatusCID          *string
+	lastOriginTime         time.Time
+	localDB                localdb.LocalDB
+	streamReceivedNotified bool
 
 	// Channels for background workers
 	statusUpdateChan     chan struct{} // Signal to update status
@@ -240,6 +241,21 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	spseg, err := notif.Segment.ToStreamplaceSegment()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
+	}
+
+	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.
+	if notif.Local && !ss.streamReceivedNotified {
+		ss.streamReceivedNotified = true
+		ss.Go(ctx, func() error {
+			task := &statedb.StreamReceivedTask{
+				StreamerDID: spseg.Creator,
+			}
+			_, err := ss.statefulDB.EnqueueTask(ctx, statedb.TaskStreamReceived, task, statedb.WithTaskKey(fmt.Sprintf("stream-received::%s::%s", spseg.Creator, notif.Segment.ID)))
+			if err != nil {
+				log.Error(ctx, "failed to enqueue stream.received task", "err", err)
+			}
+			return nil
+		})
 	}
 
 	// Record to S3 for live-to-VOD only while the stream is live (an un-ended

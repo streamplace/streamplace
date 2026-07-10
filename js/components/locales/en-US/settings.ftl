@@ -145,6 +145,7 @@ activates-on = Activates on:
 events = Events
 events-livestream = Livestream Events
 events-chat = Chat Events
+events-stream-received = Stream Received Events
 untitled-webhook = Untitled Webhook
 inactive = Inactive
 active = Active

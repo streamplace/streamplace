@@ -25,6 +25,24 @@ func TestWebhookCreation(t *testing.T) {
 	})
 }
 
+func TestWebhookStreamReceivedEventLookup(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		webhook := &Webhook{
+			UserDID: "did:web:example.com",
+			URL:     "https://example.com",
+			Events:  []byte(`["stream.received"]`),
+			Active:  true,
+		}
+		err := state.CreateWebhook(webhook)
+		require.NoError(t, err)
+
+		activeWebhooks, err := state.GetActiveWebhooksForUser("did:web:example.com", "stream.received")
+		require.NoError(t, err)
+		require.Len(t, activeWebhooks, 1)
+		require.Equal(t, webhook.URL, activeWebhooks[0].URL)
+	})
+}
+
 func TestWebhookUpdatePartially(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		webhook := &Webhook{

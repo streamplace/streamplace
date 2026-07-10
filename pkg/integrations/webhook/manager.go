@@ -44,6 +44,16 @@ func SendLivestreamWebhook(ctx context.Context, webhook *streamplace.ServerDefs_
 	return discord.SendLivestream(ctx, discordWebhook, pdsURL, lsv, postView, spcp)
 }
 
+// SendStreamReceivedWebhook sends a stream.received event to a specific webhook.
+func SendStreamReceivedWebhook(ctx context.Context, webhook *streamplace.ServerDefs_Webhook, streamerDID string) error {
+	discordWebhook, err := webhookToDiscordWebhook(webhook)
+	if err != nil {
+		return fmt.Errorf("failed to convert webhook: %w", err)
+	}
+
+	return discord.SendStreamReceived(ctx, discordWebhook, streamerDID)
+}
+
 // webhookToDiscordWebhook converts streamplace.ServerDefs_Webhook to discordtypes.Webhook
 func webhookToDiscordWebhook(webhook *streamplace.ServerDefs_Webhook) (*discordtypes.Webhook, error) {
 	var rewriteRules []*discordtypes.WebhookRewrite

@@ -619,7 +619,13 @@
                     "description": "The types of events this webhook should receive.",
                     "items": {
                       "type": "string",
-                      "enum": ["chat", "livestream", "follow", "mention"]
+                      "enum": [
+                        "chat",
+                        "livestream",
+                        "follow",
+                        "mention",
+                        "stream.received"
+                      ]
                     }
                   },
                   "active": {
@@ -976,7 +982,13 @@
             "schema": {
               "type": "string",
               "description": "Filter webhooks that handle this event type.",
-              "enum": ["chat", "livestream", "follow", "mention"]
+              "enum": [
+                "chat",
+                "livestream",
+                "follow",
+                "mention",
+                "stream.received"
+              ]
             }
           }
         ]
@@ -1059,7 +1071,13 @@
                     "description": "The types of events this webhook should receive.",
                     "items": {
                       "type": "string",
-                      "enum": ["chat", "livestream", "follow", "mention"]
+                      "enum": [
+                        "chat",
+                        "livestream",
+                        "follow",
+                        "mention",
+                        "stream.received"
+                      ]
                     }
                   },
                   "active": {
@@ -6008,7 +6026,13 @@
             "description": "The types of events this webhook should receive.",
             "items": {
               "type": "string",
-              "enum": ["chat", "livestream", "follow", "mention"]
+              "enum": [
+                "chat",
+                "livestream",
+                "follow",
+                "mention",
+                "stream.received"
+              ]
             }
           },
           "active": {

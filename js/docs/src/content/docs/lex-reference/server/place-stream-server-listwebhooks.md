@@ -17,12 +17,12 @@ List webhooks for the authenticated user.
 
 **Parameters:**
 
-| Name     | Type      | Req'd | Description                                  | Constraints                                     |
-| -------- | --------- | ----- | -------------------------------------------- | ----------------------------------------------- |
-| `limit`  | `integer` | ❌    | The number of webhooks to return.            | Min: 1<br/>Max: 100<br/>Default: `50`           |
-| `cursor` | `string`  | ❌    | An optional cursor for pagination.           |                                                 |
-| `active` | `boolean` | ❌    | Filter webhooks by active status.            |                                                 |
-| `event`  | `string`  | ❌    | Filter webhooks that handle this event type. | Enum: `chat`, `livestream`, `follow`, `mention` |
+| Name     | Type      | Req'd | Description                                  | Constraints                                                        |
+| -------- | --------- | ----- | -------------------------------------------- | ------------------------------------------------------------------ |
+| `limit`  | `integer` | ❌    | The number of webhooks to return.            | Min: 1<br/>Max: 100<br/>Default: `50`                              |
+| `cursor` | `string`  | ❌    | An optional cursor for pagination.           |                                                                    |
+| `active` | `boolean` | ❌    | Filter webhooks by active status.            |                                                                    |
+| `event`  | `string`  | ❌    | Filter webhooks that handle this event type. | Enum: `chat`, `livestream`, `follow`, `mention`, `stream.received` |
 
 **Output:**
 
@@ -72,7 +72,13 @@ List webhooks for the authenticated user.
           },
           "event": {
             "type": "string",
-            "enum": ["chat", "livestream", "follow", "mention"],
+            "enum": [
+              "chat",
+              "livestream",
+              "follow",
+              "mention",
+              "stream.received"
+            ],
             "description": "Filter webhooks that handle this event type."
           }
         }

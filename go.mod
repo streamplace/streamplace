@@ -1,6 +1,6 @@
 module stream.place/streamplace
 
-go 1.25.1
+go 1.26.5
 
 replace github.com/ThalesGroup/crypto11 => github.com/aquareum-tv/crypto11 v0.0.0-20240821184406-43336abc768f
 

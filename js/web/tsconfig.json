@@ -6,7 +6,7 @@
     "outDir": "./dist",
     "jsx": "react-jsx",
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
@@ -15,5 +15,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["./src", "./src/routeTree.gen.ts"]
+  "include": ["./src", "./src/routeTree.gen.ts"],
+  "exclude": ["./src/**/*.stories.tsx", "./src/**/*.mdx"]
 }

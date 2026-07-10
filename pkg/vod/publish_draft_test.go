@@ -8,8 +8,8 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 // newDraftTestState builds an in-memory statedb for draft tests that don't need

@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	bsky "stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
+	bsky "stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"

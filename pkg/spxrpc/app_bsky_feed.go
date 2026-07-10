@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/labstack/echo/v4"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )

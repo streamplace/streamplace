@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 
 	glexrt "github.com/streamplace/glex/runtime"
 )

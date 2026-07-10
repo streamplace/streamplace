@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/xrpc"
+	"stream.place/streamplace/pkg/appbsky"
 )
 
 var ErrUserNotFound = errors.New("user not found")

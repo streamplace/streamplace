@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/placestream"
 )

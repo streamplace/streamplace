@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/ipfs/go-cid"
 	atmoq "github.com/streamplace/atmoq-go"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
 )
 

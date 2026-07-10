@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
+	glexrt "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 // handlePlaceStreamModerationCreateBlock creates a block (ban) on behalf of a streamer

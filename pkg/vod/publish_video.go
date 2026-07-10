@@ -8,20 +8,20 @@ import (
 	"fmt"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/xrpc"
+	glexrt "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/placestream"
 )
 
 // ErrUploadNotFound / ErrUploadNotReady let the publishVideo XRPC handler map

@@ -19,8 +19,8 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spmetrics"
 )
 
 type IrohSwarm struct {

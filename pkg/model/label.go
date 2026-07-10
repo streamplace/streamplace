@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 type Label struct {

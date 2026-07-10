@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/vod"
 )
 

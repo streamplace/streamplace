@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/prometheus/client_golang/prometheus"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 // TestMultiRelayDedup subscribes to the same dev PDS firehose twice (via two

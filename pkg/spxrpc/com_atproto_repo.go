@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	glexrt "github.com/streamplace/glex/runtime"
 	"io"
 	"net/http"
-	glexrt "github.com/streamplace/glex/runtime"
 	"strings"
 
 	"stream.place/streamplace/pkg/comatproto"

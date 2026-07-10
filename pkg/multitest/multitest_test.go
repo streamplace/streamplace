@@ -14,9 +14,9 @@ import (
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	scraper "github.com/starttoaster/prometheus-exporter-scraper"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/cmd"

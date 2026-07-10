@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/spid"
 )
 

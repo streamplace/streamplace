@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
 )
 

@@ -7,12 +7,12 @@ import (
 	"sync"
 
 	"github.com/bluesky-social/indigo/carstore"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
+	glexrt "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/log"
 
 	"stream.place/streamplace/pkg/comatproto"

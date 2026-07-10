@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"stream.place/streamplace/pkg/appbsky"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/rivo/uniseg"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
 )
 

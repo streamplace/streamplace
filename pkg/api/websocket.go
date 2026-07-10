@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"time"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
+	"stream.place/streamplace/pkg/appbsky"
 
 	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/placestream"
 )
 
 // todo: does this mean a whole message has to fit within the buffer?

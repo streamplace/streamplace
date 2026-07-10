@@ -11,8 +11,8 @@ import (
 	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 // MediaViewCount is the indexed view of a place.stream.media.viewCount

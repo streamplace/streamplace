@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/julienschmidt/httprouter"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"

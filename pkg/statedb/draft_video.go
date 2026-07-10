@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"stream.place/streamplace/pkg/spid"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 // DraftVideo is a draft VOD: a permissioned-data-style record (CBOR-serialized,

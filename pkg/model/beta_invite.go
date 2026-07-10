@@ -8,8 +8,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
-	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 // BetaInvite is the indexed view of a place.stream.beta.invite

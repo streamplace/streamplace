@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	appbskytypes "stream.place/streamplace/pkg/appbsky"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	appbskytypes "stream.place/streamplace/pkg/appbsky"
 )
 
 func bskyCDNURL(kind, did, cid string) *string {

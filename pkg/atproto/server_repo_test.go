@@ -9,8 +9,8 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 func TestServerRepo(t *testing.T) {

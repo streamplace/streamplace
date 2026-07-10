@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/bluesky-social/indigo/xrpc"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
 )
 

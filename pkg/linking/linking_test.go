@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/bluesky-social/indigo/api/atproto"
-	"stream.place/streamplace/pkg/appbsky"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/ipfs/go-cid"
+	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/placestream"
 )

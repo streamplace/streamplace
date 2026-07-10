@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
-	"stream.place/streamplace/pkg/spid"
+	glexrt "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 const MAX_MULTISTREAM_TARGETS = 100

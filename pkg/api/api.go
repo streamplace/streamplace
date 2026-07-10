@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
-	"stream.place/streamplace/pkg/appbsky"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
+	"stream.place/streamplace/pkg/appbsky"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
@@ -43,9 +43,9 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 
@@ -679,8 +679,8 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 
 type ChatResponse struct {
 	Post *appbsky.FeedPost `json:"post"`
-	Repo *model.Repo    `json:"repo"`
-	CID  string         `json:"cid"`
+	Repo *model.Repo       `json:"repo"`
+	CID  string            `json:"cid"`
 }
 
 func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {

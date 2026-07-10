@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/statedb"
 	placestream "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
 )
 

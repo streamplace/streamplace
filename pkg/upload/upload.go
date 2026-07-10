@@ -32,8 +32,8 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 // Backend identifies which TUS data store backs an upload.

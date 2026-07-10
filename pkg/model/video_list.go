@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/appbsky"
 	glexrt "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/placestream"
 )
 

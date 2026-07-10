@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"stream.place/streamplace/pkg/comatproto"
-	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
+	glexrt "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 type XrpcStreamEvent struct {

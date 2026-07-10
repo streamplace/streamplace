@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"stream.place/streamplace/pkg/appbsky"
 	glexrt "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
 )
 

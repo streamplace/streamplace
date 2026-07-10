@@ -9,7 +9,6 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -17,6 +16,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )

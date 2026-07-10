@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"stream.place/streamplace/pkg/comatproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/placestream"
 )

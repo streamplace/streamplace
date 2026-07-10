@@ -18,9 +18,9 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/placestream"
 )
 
 const SegmentsInFlight = 2

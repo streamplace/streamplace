@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/statedb"
 	placestreamtypes "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/statedb"
 )
 
 func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input *placestreamtypes.ServerUpsertStorage_Input) (*placestreamtypes.ServerUpsertStorage_Output, error) {

@@ -24,6 +24,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../features/bluesky/oauthClient";
 import { OAuthClient } from "../../features/bluesky/oauthClientImport";
+import { withoutBlueskyScopes } from "../../features/bluesky/scopes";
 import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 
 type NewLivestream = {
@@ -36,6 +37,9 @@ export interface BlueskySlice {
   authStatus: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
   oauthSession?: null | OAuthSession;
+  // granted OAuth scope of the current session (from /oauth/introspect);
+  // null means unknown, which is treated as a full grant
+  sessionScope: null | string;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };
@@ -77,7 +81,9 @@ export interface BlueskySlice {
   login: (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
+    options?: { blueskyPermissions?: boolean },
   ) => Promise<void>;
+  refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
   getProfiles: (actors: string[]) => Promise<void>;
@@ -175,6 +181,7 @@ export const createBlueskySlice: StateCreator<
   authStatus: "start",
   oauthState: null,
   oauthSession: undefined,
+  sessionScope: null,
   pdsAgent: null,
   anonPDSAgent: null,
   profiles: {},
@@ -289,6 +296,7 @@ export const createBlueskySlice: StateCreator<
           pdsAgent: new StreamplaceAgent(session),
           anonPDSAgent,
         });
+        void (get() as BlueskySlice).refreshSessionScope();
       } else {
         set({
           oauthSession: session,
@@ -317,9 +325,35 @@ export const createBlueskySlice: StateCreator<
     });
   },
 
+  refreshSessionScope: async () => {
+    const session = (get() as BlueskySlice).oauthSession;
+    if (!session) {
+      set({ sessionScope: null });
+      return;
+    }
+    try {
+      const res = await session.fetchHandler("/oauth/introspect", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error(`introspection failed with status ${res.status}`);
+      }
+      const data = await res.json();
+      set({
+        sessionScope:
+          data?.active && typeof data.scope === "string" ? data.scope : null,
+      });
+    } catch (error) {
+      // older servers don't serve /oauth/introspect; treat scope as unknown
+      console.error("failed to introspect oauth session", error);
+      set({ sessionScope: null });
+    }
+  },
+
   login: async (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
+    options?: { blueskyPermissions?: boolean },
   ) => {
     console.log("Logging in");
     set({
@@ -336,7 +370,14 @@ export const createBlueskySlice: StateCreator<
         throw new Error("No client");
       }
       console.log("Authorizing");
-      const u = await updatedState.client.authorize(handle, {});
+      const authorizeOptions: { scope?: string } = {};
+      if (options?.blueskyPermissions === false) {
+        const fullScope = updatedState.client.clientMetadata.scope;
+        if (fullScope) {
+          authorizeOptions.scope = withoutBlueskyScopes(fullScope);
+        }
+      }
+      const u = await updatedState.client.authorize(handle, authorizeOptions);
       if (
         typeof document !== "undefined" &&
         document.location.href.startsWith("http://127.0.0.1")
@@ -381,6 +422,7 @@ export const createBlueskySlice: StateCreator<
     set({
       oauthSession: null,
       pdsAgent: null,
+      sessionScope: null,
       authStatus: "loggedOut",
     });
   },
@@ -462,6 +504,7 @@ export const createBlueskySlice: StateCreator<
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",
         });
+        void (get() as BlueskySlice).refreshSessionScope();
       } catch (e) {
         let message = e.message;
         while (e.cause) {

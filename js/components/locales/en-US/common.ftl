@@ -72,3 +72,7 @@ pds-selector-learn-more = Learn more about self-hosting
 pds-selector-info = Each host has their own policies and reliability standards. Your ATProto data lives on the host you choose and you can migrate later. Note: Streamplace has its own moderation rules - you can be banned from Streamplace regardless of which host you choose.
 pds-selector-read-policies = Read { $label }'s <tosLink>Terms of Service</tosLink> and <privacyLink>Privacy Policy</privacyLink> before continuing.
 pds-selector-handle-policy-checkbox = I have read and agree to the <policyLink>handle policy</policyLink>
+
+## Login
+login-show-live-on-bluesky = Show when I'm live on Bluesky
+login-show-live-on-bluesky-description = Gives your Bluesky avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your Bluesky account.

@@ -3,9 +3,11 @@ package director
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
 	comatproto "github.com/bluesky-social/indigo/api/atproto"
@@ -427,7 +429,12 @@ func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) e
 func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) error {
 	ctx = log.WithLogValues(ctx, "func", "doUpdateStatus")
 
-	client, err := ss.GetClientByDID(repoDID)
+	client, err := ss.GetClientByDID(repoDID, atproto.ScopeBskyActorStatus)
+	if errors.Is(err, statedb.ErrNoSessionWithScope) {
+		log.Debug(ctx, "user declined Bluesky permissions, skipping live status update", "repoDID", repoDID)
+		ss.lastStatus = time.Now()
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
@@ -649,7 +656,7 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 	inp.SwapRecord = ss.lastStatusCID
 	out := comatproto.RepoDeleteRecord_Output{}
 
-	client, err := ss.GetClientByDID(repoDID)
+	client, err := ss.GetClientByDID(repoDID, atproto.ScopeBskyActorStatus)
 	if err != nil {
 		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
@@ -884,7 +891,11 @@ type XRPCClient interface {
 	Do(ctx context.Context, method string, contentType string, path string, queryParams map[string]any, body any, out any) error
 }
 
-func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
+// GetClientByDID returns an XRPC client acting as the given user. If
+// requiredScope values are passed, the user's sessions are scanned for one
+// that was granted all of them; statedb.ErrNoSessionWithScope means the user
+// declined those permissions everywhere they're logged in.
+func (ss *StreamSession) GetClientByDID(did string, requiredScope ...string) (XRPCClient, error) {
 	password, ok := ss.cli.DevAccountCreds[did]
 	if ok {
 		repo, err := ss.mod.GetRepoByHandleOrDID(did)
@@ -919,7 +930,13 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 			},
 		}, nil
 	}
-	session, err := ss.statefulDB.GetSessionByDID(ss.repoDID)
+	var session *oatproxy.OAuthSession
+	var err error
+	if len(requiredScope) > 0 {
+		session, err = ss.statefulDB.GetSessionByDIDWithScope(ss.repoDID, strings.Join(requiredScope, " "))
+	} else {
+		session, err = ss.statefulDB.GetSessionByDID(ss.repoDID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not get OAuth session for repoDID: %w", err)
 	}

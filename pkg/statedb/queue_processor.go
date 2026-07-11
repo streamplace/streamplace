@@ -24,6 +24,7 @@ import (
 
 var TaskNotification = "notification"
 var TaskChat = "chat"
+var TaskStreamReceived = "stream_received"
 var TaskFinalizeLivestream = "finalize_livestream"
 var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
@@ -38,6 +39,7 @@ var TaskViewCountAggregate = "view_count_aggregate"
 var nonVODTaskTypes = []string{
 	TaskNotification,
 	TaskChat,
+	TaskStreamReceived,
 	TaskFinalizeLivestream,
 	TaskViewCountAggregate,
 }
@@ -51,6 +53,10 @@ type NotificationTask struct {
 
 type ChatTask struct {
 	MessageView *streamplace.ChatDefs_MessageView
+}
+
+type StreamReceivedTask struct {
+	StreamerDID string `json:"streamerDID"`
 }
 
 type FinalizeLivestreamTask struct {
@@ -154,6 +160,8 @@ func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
 		return state.processNotificationTask(ctx, task)
 	case TaskChat:
 		return state.processChatMessageTask(ctx, task)
+	case TaskStreamReceived:
+		return state.processStreamReceivedTask(ctx, task)
 	case TaskFinalizeLivestream:
 		return state.processFinalizeLivestreamTask(ctx, task)
 	case TaskVODProcess:
@@ -479,6 +487,42 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				}
 			}(lexiconWebhook, w.ID)
 		}
+	}
+	return nil
+}
+
+func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *AppTask) error {
+	var streamReceivedTask StreamReceivedTask
+	if err := json.Unmarshal(task.Payload, &streamReceivedTask); err != nil {
+		return err
+	}
+
+	webhooks, err := state.GetActiveWebhooksForUser(streamReceivedTask.StreamerDID, "stream.received")
+	if err != nil {
+		return fmt.Errorf("failed to get stream.received webhooks: %w", err)
+	}
+	for _, w := range webhooks {
+		lexiconWebhook, err := w.ToLexicon()
+		if err != nil {
+			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
+			continue
+		}
+		go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
+			err := webhook.SendStreamReceivedWebhook(ctx, lexiconWebhook, streamReceivedTask.StreamerDID)
+			if err != nil {
+				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
+				err = state.IncrementWebhookError(wid)
+				if err != nil {
+					log.Error(ctx, "failed to increment webhook error count", "err", err, "webhook_id", wid)
+				}
+			} else {
+				log.Log(ctx, "sent stream.received webhook", "webhook_id", wid)
+				err = state.ResetWebhookError(wid)
+				if err != nil {
+					log.Error(ctx, "failed to reset webhook error count", "err", err, "webhook_id", wid)
+				}
+			}
+		}(lexiconWebhook, w.ID)
 	}
 	return nil
 }

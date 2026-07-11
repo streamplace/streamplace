@@ -75,9 +75,25 @@ interface WebhookFormData {
   description: string;
 }
 
+type WebhookEvent =
+  | "livestream"
+  | "chat"
+  | "follow"
+  | "mention"
+  | "stream.received";
+
+const VALID_WEBHOOK_EVENTS: WebhookEvent[] = [
+  "livestream",
+  "chat",
+  "follow",
+  "mention",
+  "stream.received",
+];
+
 const EVENT_OPTIONS = [
   { value: "livestream", labelKey: "events-livestream" },
   { value: "chat", labelKey: "events-chat" },
+  { value: "stream.received", labelKey: "events-stream-received" },
 ];
 
 function WebhookRow({
@@ -631,13 +647,13 @@ export default function WebhookManager() {
       const response = await agent.place.stream.server.listWebhooks({
         limit: 50,
       });
-      // if not type "livestream" | "chat" | "follow" | "mention"[] just return
+      // Filter out unknown event types returned by the server.
       // todo: find a better way to check this
       if (response.data.webhooks) {
         for (const webhook of response.data.webhooks) {
           webhook.events = (webhook.events as string[]).filter((event) =>
-            ["livestream", "chat", "follow", "mention"].includes(event),
-          ) as ("livestream" | "chat" | "follow" | "mention")[];
+            VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent),
+          ) as WebhookEvent[];
         }
       }
       setWebhooks((response.data.webhooks as any) || []);
@@ -663,7 +679,7 @@ export default function WebhookManager() {
       await agent.place.stream.server.createWebhook({
         name: data.name || undefined,
         url: data.url,
-        events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
+        events: data.events as WebhookEvent[],
         active: data.active,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,
@@ -700,7 +716,7 @@ export default function WebhookManager() {
         id: editingWebhook.id,
         name: data.name || undefined,
         url: data.url,
-        events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
+        events: data.events as WebhookEvent[],
         active: data.active,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,

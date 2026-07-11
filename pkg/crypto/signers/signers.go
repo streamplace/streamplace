@@ -32,8 +32,9 @@ func MarshalES256KPrivateKeyPEM(signer gocrypto.Signer) ([]byte, error) {
 		return nil, fmt.Errorf("expected *ecdsa.PrivateKey, got %T", signer)
 	}
 
-	// 32-byte big-endian scalar, left-padded.
-	privBytes := priv.D.FillBytes(make([]byte, 32))
+	// 32-byte big-endian scalar, left-padded. ecdsa.PrivateKey.Bytes would be
+	// the stdlib way, but it rejects non-NIST curves like secp256k1.
+	privBytes := crypto.FromECDSA(priv)
 
 	pubBytes := elliptic.Marshal(crypto.S256(), priv.PublicKey.X, priv.PublicKey.Y) //nolint:all
 

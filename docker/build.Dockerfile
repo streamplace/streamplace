@@ -7,7 +7,9 @@ ENV TARGETARCH $TARGETARCH
 ARG DOCKERFILE_HASH
 ENV DOCKERFILE_HASH $DOCKERFILE_HASH
 
+# You'll probably need to bump golangci-lint if you bump go
 ENV GO_VERSION 1.26.5
+ENV GOLANGCI_LINT_VERSION 2.12.2
 ENV NODE_VERSION 22.15.0
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -91,10 +93,10 @@ RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 #   && cd .. \
 #   && rm -rf streamplace
 
-RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.5.0/golangci-lint-2.5.0-linux-amd64.tar.gz -o golangci-lint.tar.gz \
+RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -o golangci-lint.tar.gz \
   && tar -xf golangci-lint.tar.gz \
-  && mv golangci-lint-2.5.0-linux-amd64/golangci-lint /usr/local/bin/ \
-  && rm -rf golangci-lint.tar.gz golangci-lint-2.5.0-linux-amd64
+  && mv golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /usr/local/bin/ \
+  && rm -rf golangci-lint.tar.gz golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64
 
 RUN gem install fpm
 ENV APTLY_VERSION 1.6.2

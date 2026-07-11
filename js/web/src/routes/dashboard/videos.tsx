@@ -1,5 +1,6 @@
 import { UploadForm } from "@/components/dashboard/upload-form";
 import { useUpload } from "@/hooks/use-upload";
+import { useVideoList } from "@/hooks/use-video-list";
 import { useSession } from "@/lib/session";
 import { useIsReady, usePDSAgent, useUserProfile } from "@/lib/store/hooks";
 import { getTidFromAtUri } from "@/lib/video";
@@ -11,7 +12,7 @@ import {
   Pencil,
   Video,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export const Route = createFileRoute("/dashboard/videos")({
   component: DashboardVideosPage,
@@ -24,33 +25,21 @@ function DashboardVideosPage() {
   const { state: session, did } = useSession();
   const upload = useUpload();
 
-  const [userVideos, setUserVideos] = useState<any[]>([]);
-  const [videosLoading, setVideosLoading] = useState(false);
+  // Cursor-aware infinite list scoped to the logged-in user's repo.
+  const {
+    videos: userVideos,
+    loading: videosLoading,
+    hasMore,
+    loadMore,
+    refresh,
+  } = useVideoList(agent?.did);
+
   const [editingVideoUri, setEditingVideoUri] = useState<string | undefined>(
     undefined,
   );
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [existingThumb, setExistingThumb] = useState<any>(null);
-
-  const fetchVideos = useCallback(async () => {
-    if (!agent?.did) return;
-    setVideosLoading(true);
-    try {
-      const res = await agent.place.stream.media.getVideoList({
-        repo: agent.did,
-      });
-      setUserVideos(res.data.videos || []);
-    } catch (err) {
-      console.error("Failed to fetch videos", err);
-    } finally {
-      setVideosLoading(false);
-    }
-  }, [agent]);
-
-  useEffect(() => {
-    fetchVideos();
-  }, [fetchVideos]);
 
   const handleSelectVideo = useCallback(
     (video: any) => {
@@ -138,14 +127,14 @@ function DashboardVideosPage() {
         setEditingVideoUri(undefined);
         setExistingThumb(null);
         u.reset();
-        fetchVideos();
+        refresh();
       } catch (err) {
         console.error("Failed to update video", err);
       } finally {
         setUpdating(false);
       }
     },
-    [agent, editingVideoUri, fetchVideos, existingThumb],
+    [agent, editingVideoUri, refresh, existingThumb],
   );
 
   const handleDelete = useCallback(async () => {
@@ -160,13 +149,13 @@ function DashboardVideosPage() {
       setEditingVideoUri(undefined);
       setExistingThumb(null);
       upload.reset();
-      fetchVideos();
+      refresh();
     } catch (err) {
       console.error("Failed to delete video", err);
     } finally {
       setDeleting(false);
     }
-  }, [agent, editingVideoUri, upload, fetchVideos]);
+  }, [agent, editingVideoUri, upload, refresh]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingVideoUri(undefined);
@@ -293,6 +282,17 @@ function DashboardVideosPage() {
             </div>
           );
         })}
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <button
+              type="button"
+              onClick={() => loadMore()}
+              className="rounded-md border border-(--color-border) px-4 py-2 text-sm text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-elevated)"
+            >
+              Load more
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 // Upload state machine for VOD uploads.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 import * as tus from "tus-js-client";
 import { usePDSAgent } from "../lib/store/hooks";
 
@@ -76,6 +76,11 @@ export function useUpload() {
   const agent = usePDSAgent();
   const uploadRef = useRef<tus.Upload | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Generation token: each polling run gets a unique ID. After every
+  // await, the poller checks whether its generation is still current.
+  // Cancellation bumps the generation so stale pollers stop touching
+  // state and don't reschedule.
+  const pollGenRef = useRef(0);
 
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
   const [file, setFile] = useState<File | null>(null);
@@ -97,6 +102,7 @@ export function useUpload() {
   // cleanup on unmount
   useEffect(() => {
     return () => {
+      pollGenRef.current++;
       if (pollRef.current) clearTimeout(pollRef.current);
       uploadRef.current?.abort();
     };
@@ -164,10 +170,13 @@ export function useUpload() {
   const pollStatus = useCallback(
     (uploadId: string) => {
       if (!agent) return;
+      const gen = ++pollGenRef.current;
       let attempts = 0;
       const check = async () => {
+        if (gen !== pollGenRef.current) return;
         attempts += 1;
         if (attempts > MAX_POLL_ATTEMPTS) {
+          if (gen !== pollGenRef.current) return;
           setPhase({
             kind: "error",
             message: "Processing timed out. Please try again later.",
@@ -175,10 +184,11 @@ export function useUpload() {
           return;
         }
         try {
-          const res = await agent.place.stream.media.getUploadStatus({
+          const res = await agent.client.call(place.stream.media.getUploadStatus, {
             uploadId,
           });
-          const data = res.data;
+          if (gen !== pollGenRef.current) return;
+          const data = res;
 
           if (data.status === "done" && data.tracks) {
             setPhase({
@@ -204,6 +214,7 @@ export function useUpload() {
           });
           pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
         } catch {
+          if (gen !== pollGenRef.current) return;
           pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
         }
       };
@@ -228,13 +239,12 @@ export function useUpload() {
     const mimeType = file.type.startsWith("video/") ? file.type : "video/mp4";
     setPhase({ kind: "creating" });
     try {
-      const res = await agent.place.stream.media.createUpload({
+      const res = await agent.client.call(place.stream.media.createUpload, {
         size: file.size,
         mimeType,
         filename: file.name,
       });
-      if (!res.success) throw new Error("createUpload failed");
-      const { uploadUrl, uploadToken, uploadId } = res.data;
+      const { uploadUrl, uploadToken, uploadId } = res;
 
       await new Promise<void>((resolve, reject) => {
         const upload = new tus.Upload(file, {
@@ -270,6 +280,7 @@ export function useUpload() {
   }, [agent, file, pollStatus]);
 
   const cancelUpload = useCallback(() => {
+    pollGenRef.current++;
     if (pollRef.current) clearTimeout(pollRef.current);
     uploadRef.current?.abort();
     uploadRef.current = null;
@@ -284,10 +295,10 @@ export function useUpload() {
     try {
       const { tracks, durationMs } = phase;
 
-      const record: PlaceStreamVideo.Record = {
+      const record = {
         $type: "place.stream.video",
         title: title.trim() || file?.name || "Untitled",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString() as any,
         durationMs,
         source: {
           $type: "place.stream.media.defs#sourceTracks",
@@ -295,9 +306,9 @@ export function useUpload() {
             $type: "com.atproto.repo.strongRef",
             uri: t.uri,
             cid: t.cid,
-          })),
+          })) as any,
         },
-      };
+      } as any;
 
       if (description.trim()) record.description = description.trim();
       if (tags.length > 0) record.tags = tags;
@@ -337,13 +348,12 @@ export function useUpload() {
         }
       }
 
-      const res = await agent.place.stream.media.publishVideo({
+      const res = await agent.client.call(place.stream.media.publishVideo, {
         uploadId: phase.uploadId,
         record,
       });
 
-      if (!res.success) throw new Error("publishVideo failed");
-      setPhase({ kind: "done", videoUri: res.data.uri });
+      setPhase({ kind: "done", videoUri: res.uri });
     } catch (err) {
       setPhase({
         kind: "error",

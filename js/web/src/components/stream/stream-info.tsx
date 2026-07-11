@@ -1,10 +1,12 @@
+import { useStore } from "@/lib/store";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { PlaceStreamDefs } from "streamplace";
-import { useStore } from "zustand";
+import { place } from "streamplace";
+import { useStore as useLivestreamStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { formatViewers } from "../../lib/format";
@@ -34,8 +36,8 @@ const ACTIVITY_I18N_KEYS: Record<string, string> = {
 
 export function activityLabel(
   activity:
-    | PlaceStreamDefs.ActivityGame
-    | PlaceStreamDefs.ActivityLabel
+    | place.stream.defs.ActivityGame
+    | place.stream.defs.ActivityLabel
     | { $type: string }
     | undefined,
   t: (key: string) => string,
@@ -61,7 +63,7 @@ export function StreamInfo({
   onToggleChat: () => void;
 }) {
   const { t } = useTranslation("common");
-  const state = useStore(
+  const state = useLivestreamStore(
     store,
     useShallow((s) => ({
       livestream: s.livestream,
@@ -70,6 +72,8 @@ export function StreamInfo({
   );
 
   const { state: sessionState } = useSession();
+  const followUser = useStore((s) => s.followUser);
+  const [following, setFollowing] = useState(false);
   const record = state.livestream?.record;
   const author = state.livestream?.author;
   const title = record?.title || user;
@@ -79,6 +83,18 @@ export function StreamInfo({
   const isLive = liveness === "live";
 
   const node = useStreamplaceUrl();
+
+  const handleFollow = async () => {
+    if (!author?.did) return;
+    setFollowing(true);
+    try {
+      await followUser(author.did);
+    } catch (e) {
+      console.error("Failed to follow:", e);
+    } finally {
+      setFollowing(false);
+    }
+  };
 
   return (
     <div className="mx-3 mt-3 space-y-3">
@@ -128,7 +144,7 @@ export function StreamInfo({
         <div className="flex shrink-0 items-center gap-2">
           {sessionState.status === "authenticated" &&
             sessionState.session.did !== author?.did && (
-              <Button type="button">
+              <Button type="button" onClick={handleFollow} disabled={following}>
                 <Plus className="size-4" /> {t("follow")}
               </Button>
             )}

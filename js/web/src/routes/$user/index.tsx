@@ -10,15 +10,11 @@ import {
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useLivenessState } from "@/hooks/use-liveness-state";
-import { getStreamplaceUrl } from "@/lib/streamplace-url";
-import {
-  handleWebSocketMessages,
-  makeLivestreamStore,
-  type LivestreamStore,
-} from "@streamplace/core";
+import { useLivestreamStore } from "@/hooks/use-livestream-store";
+import type { LivestreamStore } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronUp, ExternalLink } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -29,88 +25,9 @@ export const Route = createFileRoute("/$user/")({
 
 function StreamPage() {
   const { user } = Route.useParams();
-  const store = useRef<LivestreamStore | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const { store, ready } = useLivestreamStore(user);
 
-  useEffect(() => {
-    const s = makeLivestreamStore();
-    store.current = s;
-    setInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (!store.current) return;
-
-    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
-
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    let currentConnectId = 0;
-    let mounted = true;
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleReconnect = () => {
-      if (!mounted || reconnectTimeout) return;
-      reconnectTimeout = setTimeout(connect, 3000);
-    };
-
-    const connect = () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = null;
-      }
-
-      const connectId = ++currentConnectId;
-
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {};
-
-      let messageBuffer: any[] = [];
-      const flush = () => {
-        flushTimer = null;
-        const batch = messageBuffer;
-        messageBuffer = [];
-        store.current?.setState((s) => handleWebSocketMessages(s, batch));
-      };
-
-      ws.onmessage = (event) => {
-        if (connectId !== currentConnectId) return;
-        try {
-          const messages = JSON.parse(event.data);
-          const list = Array.isArray(messages) ? messages : [messages];
-          messageBuffer.push(...list);
-          if (!flushTimer) {
-            flushTimer = setTimeout(flush, 0);
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        ws?.close();
-        scheduleReconnect();
-      };
-    };
-
-    connect();
-
-    return () => {
-      mounted = false;
-      if (flushTimer) clearTimeout(flushTimer);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      ws?.close();
-    };
-  }, [user]);
-
-  if (!initialized || !store.current) {
+  if (!ready || !store) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="animate-pulse">
@@ -121,7 +38,7 @@ function StreamPage() {
     );
   }
 
-  return <StreamBody store={store.current} user={user} />;
+  return <StreamBody store={store} user={user} />;
 }
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
@@ -286,9 +203,9 @@ function MobileStreamBar({
                 <ExternalLink className="h-4 w-4" />
               </a>
             </div>
-            {record?.description ? (
+            {(record as any)?.description ? (
               <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
-                {record.description as string}
+                {(record as any).description as string}
               </p>
             ) : null}
           </div>

@@ -6,7 +6,6 @@ import {
   ContentMetadataSlice,
   createContentMetadataSlice,
 } from "./slices/contentMetadataSlice";
-import { createPlatformSlice, PlatformSlice } from "./slices/platformSlice";
 import { createSidebarSlice, SidebarSlice } from "./slices/sidebarSlice";
 import {
   createStreamplaceSlice,
@@ -17,8 +16,7 @@ export type AppStore = BaseSlice &
   SidebarSlice &
   StreamplaceSlice &
   BlueskySlice &
-  ContentMetadataSlice &
-  PlatformSlice;
+  ContentMetadataSlice;
 
 export const useStore = create<AppStore>()((...a) => ({
   ...createBaseSlice(...a),
@@ -26,12 +24,10 @@ export const useStore = create<AppStore>()((...a) => ({
   ...createStreamplaceSlice(...a),
   ...createBlueskySlice(...a),
   ...createContentMetadataSlice(...a),
-  ...createPlatformSlice(...a),
 }));
 
 export * from "./slices/baseSlice";
 export * from "./slices/blueskySlice";
 export * from "./slices/contentMetadataSlice";
-export * from "./slices/platformSlice";
 export * from "./slices/sidebarSlice";
 export * from "./slices/streamplaceSlice";

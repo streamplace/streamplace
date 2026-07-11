@@ -1,7 +1,8 @@
+import { place } from "streamplace";
 // Search page. Searches actors via searchActorsTypeahead and shows
 // results as profile cards linking to their streams.
 import useAvatars from "@/hooks/use-avatars";
-import { usePDSAgent } from "@/lib/store/hooks";
+import { useStore } from "@/lib/store";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,7 +27,9 @@ function SearchPage() {
   const { t } = useTranslation("common");
   const { q: initialQ } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const agent = usePDSAgent();
+  const pdsAgent = useStore((s) => s.pdsAgent);
+  const anonPDSAgent = useStore((s) => s.anonPDSAgent);
+  const agent = pdsAgent ?? anonPDSAgent;
   const [query, setQuery] = useState(initialQ ?? "");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -44,12 +47,12 @@ function SearchPage() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q,
           limit: 20,
         });
         setResults(
-          response.data.actors.map((a: any) => ({
+          response.actors.map((a: any) => ({
             did: a.did,
             handle: a.handle,
             displayName: a.displayName,

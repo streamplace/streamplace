@@ -28,10 +28,8 @@ import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/li
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
 import {
-  PlaceStreamChatProfile,
-  PlaceStreamLivestream,
-  PlaceStreamServerSettings,
   StreamplaceAgent,
+  place,
 } from "streamplace";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../oauth";
@@ -42,7 +40,7 @@ import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 type NewLivestream = {
   loading: boolean;
   error: string | null;
-  record: PlaceStreamLivestream.Record | null;
+  record: place.stream.livestream.Main | null;
 };
 
 export interface BlueskySlice {
@@ -76,9 +74,9 @@ export interface BlueskySlice {
   chatProfile: {
     loading: boolean;
     error: null | string;
-    profile: null | PlaceStreamChatProfile.Record;
+    profile: null | place.stream.chat.profile.Main;
   };
-  serverSettings: null | PlaceStreamServerSettings.Record;
+  serverSettings: null | place.stream.server.settings.Main;
   returnRoute: null | { name: string; params?: any };
   notification: {
     message: string;
@@ -103,12 +101,6 @@ export interface BlueskySlice {
   closePdsModal: () => void;
   // TODO: stream-key + go-live + block actions. See comment
   // at the top of this file.
-  golivePost: (
-    text: string,
-    now: Date,
-    thumbnail?: any,
-  ) => Promise<{ uri: string; cid: string }>;
-  createBlockRecord: (subjectDID: string) => Promise<void>;
   createStreamKeyRecord: (store: boolean) => Promise<void>;
   clearStreamKeyRecord: () => void;
   getStreamKeyRecords: () => Promise<void>;
@@ -117,18 +109,6 @@ export interface BlueskySlice {
     batchRkeys?: string[],
   ) => Promise<void>;
   setPDS: (pds: string) => Promise<void>;
-  createLivestreamRecord: (
-    title: string,
-    customThumbnail?: Blob,
-    activity?: PlaceStreamLivestream.Record["activity"],
-    tags?: string[],
-  ) => Promise<void>;
-  updateLivestreamRecord: (
-    title: string,
-    livestream: any,
-    activity?: PlaceStreamLivestream.Record["activity"],
-    tags?: string[],
-  ) => Promise<void>;
   getChatProfileRecordFromPDS: () => Promise<void>;
   createChatProfileRecord: (
     red: number,
@@ -358,22 +338,31 @@ export const createBlueskySlice: StateCreator<
           type: "error",
         },
       });
+      throw error;
     }
   },
 
   logout: async () => {
+    const state = get() as BlueskySlice;
+    const session = state.oauthSession;
+    // Clear local credentials and in-memory auth unconditionally so
+    // the UI reflects logout even if remote revocation fails.
     await storage.removeItem(DID_KEY);
     await storage.removeItem(STORED_KEY_KEY);
-    const state = get() as BlueskySlice;
-    if (!state.oauthSession) {
-      throw new Error("No oauth session");
-    }
-    await state.oauthSession.signOut();
     set({
       oauthSession: null,
       pdsAgent: null,
       authStatus: "loggedOut",
     });
+    if (session) {
+      try {
+        await session.signOut();
+      } catch (e) {
+        // Remote revocation failed (network, server error, etc.).
+        // The user is already logged out locally; log and move on.
+        console.error("Remote session revocation failed", e);
+      }
+    }
   },
 
   getProfile: async (actor: string) => {
@@ -407,22 +396,25 @@ export const createBlueskySlice: StateCreator<
   },
 
   getProfiles: async (actors: string[]) => {
-    if (actors.length > 25) {
-      throw Error("Requested too many actors! (max 25 actors)");
-    }
+    // Deduplicate before batching.
+    const unique = [...new Set(actors)];
+    const BATCH_SIZE = 25;
     try {
       const bskyAgent = new Agent("https://public.api.bsky.app");
-      const payload = await bskyAgent.getProfiles({ actors });
-      let parsedProfiles = {};
-      payload.data.profiles.forEach((p) => {
-        parsedProfiles[p.did] = p;
-      });
-      set((s) => ({
-        profileCache: {
-          ...(s as BlueskySlice).profileCache,
-          ...parsedProfiles,
-        },
-      }));
+      for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+        const batch = unique.slice(i, i + BATCH_SIZE);
+        const payload = await bskyAgent.getProfiles({ actors: batch });
+        let parsedProfiles = {};
+        payload.data.profiles.forEach((p) => {
+          parsedProfiles[p.did] = p;
+        });
+        set((s) => ({
+          profileCache: {
+            ...(s as BlueskySlice).profileCache,
+            ...parsedProfiles,
+          },
+        }));
+      }
     } catch (error) {
       console.error("getProfiles error", error);
     }
@@ -524,21 +516,10 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO: golivePost needs RichText from @atproto/api and is
-  // called from createLivestreamRecord. Both port together.
-  golivePost: async (_text: string, _now: Date, _thumbnail?: any) => {
-    throw new Error("golivePost not yet ported (Phase 4)");
-  },
-
-  // TODO: revisit if/when block UI is added in web.
-  createBlockRecord: async (_subjectDID: string) => {
-    throw new Error("createBlockRecord not ported");
-  },
-
   // TODO: stream-key actions need @atproto/crypto + viem.
   // Generate-keypair code is also used by createLivestreamRecord for
   // blob uploads, so adding the deps unblocks both at once.
-  createStreamKeyRecord: async (_store: boolean) => {
+  createStreamKeyRecord: async (store: boolean) => {
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) throw new Error("No agent");
     const did = state.oauthSession?.did;
@@ -585,6 +566,12 @@ export const createBlueskySlice: StateCreator<
     };
 
     set({ newKey });
+
+    if (store) {
+      await storage.setItem(STORED_KEY_KEY, JSON.stringify(newKey));
+      set({ storedKey: newKey });
+    }
+
     // Refresh the list
     await get().getStreamKeyRecords();
   },
@@ -742,15 +729,6 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO: go-live. Needs golivePost (RichText) + blob upload
-  // helper. Both are pure @atproto/api code, no extra deps.
-  createLivestreamRecord: async () => {
-    throw new Error("createLivestreamRecord not yet ported (Phase 4)");
-  },
-  updateLivestreamRecord: async () => {
-    throw new Error("updateLivestreamRecord not yet ported (Phase 4)");
-  },
-
   getChatProfileRecordFromPDS: async () => {
     set({
       chatProfile: {
@@ -777,12 +755,12 @@ export const createBlueskySlice: StateCreator<
         throw new Error("Failed to get chat profile record");
       }
 
-      if (PlaceStreamChatProfile.isRecord(res.data.value)) {
+      if (place.stream.chat.profile.$isTypeOf(res.data.value)) {
         set({
           chatProfile: {
             loading: false,
             error: null,
-            profile: res.data.value,
+            profile: res.data.value as any,
           },
         });
       } else {
@@ -823,7 +801,7 @@ export const createBlueskySlice: StateCreator<
       }
 
       const existingProfile = (get() as BlueskySlice).chatProfile?.profile;
-      const chatProfile: PlaceStreamChatProfile.Record = {
+      const chatProfile: place.stream.chat.profile.Main = {
         ...existingProfile,
         $type: "place.stream.chat.profile",
         color: {
@@ -924,9 +902,9 @@ export const createBlueskySlice: StateCreator<
       throw new Error("Failed to get server settings record");
     }
 
-    if (PlaceStreamServerSettings.isRecord(res.data.value)) {
+    if (place.stream.server.settings.$isTypeOf(res.data.value)) {
       set({
-        serverSettings: res.data.value as PlaceStreamServerSettings.Record,
+        serverSettings: res.data.value as place.stream.server.settings.Main,
       });
     } else {
       console.warn("not a record", res.data.value);
@@ -944,7 +922,7 @@ export const createBlueskySlice: StateCreator<
     }
     const streamplaceUrl = get().url;
     const u = new URL(streamplaceUrl);
-    const serverSettings: PlaceStreamServerSettings.Record = {
+    const serverSettings: place.stream.server.settings.Main = {
       $type: "place.stream.server.settings",
       debugRecording: debugRecording,
     };

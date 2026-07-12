@@ -6,9 +6,245 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"go.opentelemetry.io/otel"
+	appbsky "stream.place/streamplace/pkg/appbsky"
+	comatproto "stream.place/streamplace/pkg/comatproto"
 	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
 	placestream "stream.place/streamplace/pkg/placestream"
 )
+
+func (s *Server) RegisterHandlersAppbsky(e *echo.Echo) error {
+	e.GET("/xrpc/app.bsky.actor.getProfile", s.HandleAppBskyActorGetProfile)
+	e.GET("/xrpc/app.bsky.feed.getFeedSkeleton", s.HandleAppBskyFeedGetFeedSkeleton)
+	return nil
+}
+
+func (s *Server) HandleAppBskyActorGetProfile(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyActorGetProfile")
+	defer span.End()
+	actor := c.QueryParam("actor")
+	var out *appbsky.ActorDefs_ProfileViewDetailed
+	var handleErr error
+	// func (s *Server) handleAppBskyActorGetProfile(ctx context.Context,actor string) (*appbsky.ActorDefs_ProfileViewDetailed, error)
+	out, handleErr = s.handleAppBskyActorGetProfile(ctx, actor)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleAppBskyFeedGetFeedSkeleton(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleAppBskyFeedGetFeedSkeleton")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+	feed := c.QueryParam("feed")
+	limit := 0
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	var out *appbsky.FeedGetFeedSkeleton_Output
+	var handleErr error
+	// func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context,cursor string,feed string,limit int) (*appbsky.FeedGetFeedSkeleton_Output, error)
+	out, handleErr = s.handleAppBskyFeedGetFeedSkeleton(ctx, cursor, feed, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
+	e.POST("/xrpc/com.atproto.identity.updateHandle", s.HandleComAtprotoIdentityUpdateHandle)
+	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
+	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
+	e.GET("/xrpc/com.atproto.repo.describeRepo", s.HandleComAtprotoRepoDescribeRepo)
+	e.GET("/xrpc/com.atproto.repo.getRecord", s.HandleComAtprotoRepoGetRecord)
+	e.GET("/xrpc/com.atproto.repo.listRecords", s.HandleComAtprotoRepoListRecords)
+	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
+	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
+	e.POST("/xrpc/com.atproto.server.createSession", s.HandleComAtprotoServerCreateSession)
+	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
+	return nil
+}
+
+func (s *Server) HandleComAtprotoIdentityUpdateHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityUpdateHandle")
+	defer span.End()
+	var body comatproto.IdentityUpdateHandle_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context,body *comatproto.IdentityUpdateHandle_Input) error
+	handleErr = s.handleComAtprotoIdentityUpdateHandle(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return nil
+}
+
+func (s *Server) HandleComAtprotoRepoCreateRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoCreateRecord")
+	defer span.End()
+	var body comatproto.RepoCreateRecord_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatproto.RepoCreateRecord_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context,body *comatproto.RepoCreateRecord_Input) (*comatproto.RepoCreateRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoCreateRecord(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoDeleteRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDeleteRecord")
+	defer span.End()
+	var body comatproto.RepoDeleteRecord_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatproto.RepoDeleteRecord_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context,body *comatproto.RepoDeleteRecord_Input) (*comatproto.RepoDeleteRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoDeleteRecord(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoDescribeRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoDescribeRepo")
+	defer span.End()
+	repo := c.QueryParam("repo")
+	var out *comatproto.RepoDescribeRepo_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context,repo string) (*comatproto.RepoDescribeRepo_Output, error)
+	out, handleErr = s.handleComAtprotoRepoDescribeRepo(ctx, repo)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoGetRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoGetRecord")
+	defer span.End()
+	cid := c.QueryParam("cid")
+	collection := c.QueryParam("collection")
+	repo := c.QueryParam("repo")
+	rkey := c.QueryParam("rkey")
+	var out *comatproto.RepoGetRecord_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context,cid string,collection string,repo string,rkey string) (*comatproto.RepoGetRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoGetRecord(ctx, cid, collection, repo, rkey)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoListRecords(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoListRecords")
+	defer span.End()
+	collection := c.QueryParam("collection")
+	cursor := c.QueryParam("cursor")
+	limit := 0
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	repo := c.QueryParam("repo")
+	reverse := false
+	if p := c.QueryParam("reverse"); p != "" {
+		var err error
+		reverse, err = strconv.ParseBool(p)
+		if err != nil {
+			return err
+		}
+	}
+	var out *comatproto.RepoListRecords_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context,collection string,cursor string,limit int,repo string,reverse bool) (*comatproto.RepoListRecords_Output, error)
+	out, handleErr = s.handleComAtprotoRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoPutRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoPutRecord")
+	defer span.End()
+	var body comatproto.RepoPutRecord_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatproto.RepoPutRecord_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context,body *comatproto.RepoPutRecord_Input) (*comatproto.RepoPutRecord_Output, error)
+	out, handleErr = s.handleComAtprotoRepoPutRecord(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoRepoUploadBlob(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoRepoUploadBlob")
+	defer span.End()
+	body := c.Request().Body
+	contentType := c.Request().Header.Get("Content-Type")
+	var out *comatproto.RepoUploadBlob_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoRepoUploadBlob(ctx context.Context,r io.Reader,contentType string) (*comatproto.RepoUploadBlob_Output, error)
+	out, handleErr = s.handleComAtprotoRepoUploadBlob(ctx, body, contentType)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoServerCreateSession(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerCreateSession")
+	defer span.End()
+	var body comatproto.ServerCreateSession_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatproto.ServerCreateSession_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context,body *comatproto.ServerCreateSession_Input) (*comatproto.ServerCreateSession_Output, error)
+	out, handleErr = s.handleComAtprotoServerCreateSession(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
+	defer span.End()
+	did := c.QueryParam("did")
+	since := c.QueryParam("since")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetRepo(ctx context.Context,did string,since string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRepo(ctx, did, since)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
 
 func (s *Server) RegisterHandlersGamesgamesgamesgamesgames(e *echo.Echo) error {
 	e.GET("/xrpc/games.gamesgamesgamesgames.search", s.HandleGamesGamesgamesgamesgamesSearch)
@@ -1212,4 +1448,8 @@ func (s *Server) HandlePlaceStreamVodUpdateDraft(c echo.Context) error {
 		return handleErr
 	}
 	return c.JSON(200, out)
+}
+
+func (s *Server) RegisterHandlersToolsozone(e *echo.Echo) error {
+	return nil
 }

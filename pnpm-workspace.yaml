@@ -1,7 +1,7 @@
 packages:
   - js/*
 onlyBuiltDependencies:
-  - '@swc/core'
+  - "@swc/core"
   - better-sqlite3
   - bufferutil
   - cbor-extract

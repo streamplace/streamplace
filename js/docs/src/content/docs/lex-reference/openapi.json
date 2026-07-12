@@ -4278,6 +4278,1184 @@
           }
         ]
       }
+    },
+    "/xrpc/games.gamesgamesgamesgames.search": {
+      "get": {
+        "summary": "Search across all entity types (games, profiles, platforms, collections, engines).",
+        "operationId": "games.gamesgamesgamesgames.search",
+        "tags": ["games.gamesgamesgamesgames"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_gameSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_profileSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_platformSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_collectionSummaryView"
+                          },
+                          {
+                            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_engineSummaryView"
+                          }
+                        ]
+                      }
+                    },
+                    "totalResults": {
+                      "type": "integer",
+                      "description": "Total number of results matching the query above the relevance threshold."
+                    }
+                  },
+                  "required": ["results"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "modes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genres",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "themes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "ageRatings",
+            "in": "query",
+            "required": false,
+            "description": "Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen).",
+            "schema": {
+              "type": "array",
+              "description": "Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen).",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "includeUnrated",
+            "in": "query",
+            "required": false,
+            "description": "When age rating filters are active, also include games with no age ratings.",
+            "schema": {
+              "type": "boolean",
+              "description": "When age rating filters are active, also include games with no age ratings.",
+              "default": false
+            }
+          },
+          {
+            "name": "applicationTypes",
+            "in": "query",
+            "required": false,
+            "description": "Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game.",
+            "schema": {
+              "type": "array",
+              "description": "Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game.",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "includeCancelled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "playerPerspectives",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.sync.getRepo": {
+      "get": {
+        "summary": "Download a repository export as CAR file. Optionally only a 'diff' since a previous revision. Does not require auth; implemented by PDS.",
+        "operationId": "com.atproto.sync.getRepo",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/vnd.ipld.car": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "description": "The revision ('rev') of the repo to create a diff from.",
+            "schema": {
+              "type": "string",
+              "description": "The revision ('rev') of the repo to create a diff from.",
+              "format": "tid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.sync.subscribeRepos": {
+      "get": {
+        "summary": "Repository event stream, aka Firehose endpoint. Outputs repo commits with diff data, and identity update events, for all repositories on the current server. See the atproto specifications for details around stream sequencing, repo versioning, CAR diff format, and more. Public and does not require auth; implemented by PDS and Relay.",
+        "operationId": "com.atproto.sync.subscribeRepos",
+        "tags": ["com.atproto.sync"],
+        "x-websocket": true,
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "FutureCursor"
+                        },
+                        {
+                          "const": "ConsumerTooSlow"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "The last known event seq number to backfill from.",
+            "schema": {
+              "type": "integer",
+              "description": "The last known event seq number to backfill from."
+            }
+          }
+        ],
+        "x-websocket-message": {
+          "schema": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_commit"
+              },
+              {
+                "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_sync"
+              },
+              {
+                "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_identity"
+              },
+              {
+                "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_account"
+              },
+              {
+                "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_info"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.server.createSession": {
+      "post": {
+        "summary": "Create an authentication session.",
+        "operationId": "com.atproto.server.createSession",
+        "tags": ["com.atproto.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "didDoc": {},
+                    "handle": {
+                      "type": "string",
+                      "format": "handle"
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted."
+                    },
+                    "accessJwt": {
+                      "type": "string"
+                    },
+                    "refreshJwt": {
+                      "type": "string"
+                    },
+                    "emailConfirmed": {
+                      "type": "boolean"
+                    },
+                    "emailAuthFactor": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["accessJwt", "refreshJwt", "handle", "did"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "AccountTakedown"
+                        },
+                        {
+                          "const": "AuthFactorTokenRequired"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  },
+                  "identifier": {
+                    "type": "string",
+                    "description": "Handle or other identifier supported by the server for the authenticating user."
+                  },
+                  "allowTakendown": {
+                    "type": "boolean",
+                    "description": "When true, instead of throwing error for takendown accounts, a valid response with a narrow scoped token will be returned"
+                  },
+                  "authFactorToken": {
+                    "type": "string"
+                  }
+                },
+                "required": ["identifier", "password"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.repo.createRecord": {
+      "post": {
+        "summary": "Create a single new repository record. Requires auth, implemented by PDS.",
+        "operationId": "com.atproto.repo.createRecord",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    },
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "commit": {
+                      "$ref": "#/components/schemas/com.atproto.repo.defs_commitMeta"
+                    },
+                    "validationStatus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidSwap"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "description": "The handle or DID of the repo (aka, current account).",
+                    "format": "at-identifier"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key.",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  },
+                  "record": {
+                    "description": "The record itself. Must contain a $type field."
+                  },
+                  "validate": {
+                    "type": "boolean",
+                    "description": "Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons."
+                  },
+                  "collection": {
+                    "type": "string",
+                    "description": "The NSID of the record collection.",
+                    "format": "nsid"
+                  },
+                  "swapCommit": {
+                    "type": "string",
+                    "description": "Compare and swap with the previous commit by CID.",
+                    "format": "cid"
+                  }
+                },
+                "required": ["repo", "collection", "record"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.repo.deleteRecord": {
+      "post": {
+        "summary": "Delete a repository record, or ensure it doesn't exist. Requires auth, implemented by PDS.",
+        "operationId": "com.atproto.repo.deleteRecord",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "commit": {
+                      "$ref": "#/components/schemas/com.atproto.repo.defs_commitMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidSwap"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "description": "The handle or DID of the repo (aka, current account).",
+                    "format": "at-identifier"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key.",
+                    "format": "record-key"
+                  },
+                  "collection": {
+                    "type": "string",
+                    "description": "The NSID of the record collection.",
+                    "format": "nsid"
+                  },
+                  "swapCommit": {
+                    "type": "string",
+                    "description": "Compare and swap with the previous commit by CID.",
+                    "format": "cid"
+                  },
+                  "swapRecord": {
+                    "type": "string",
+                    "description": "Compare and swap with the previous record by CID.",
+                    "format": "cid"
+                  }
+                },
+                "required": ["repo", "collection", "rkey"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.repo.describeRepo": {
+      "get": {
+        "summary": "Get information about an account and repository, including the list of collections. Does not require auth.",
+        "operationId": "com.atproto.repo.describeRepo",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "didDoc": {
+                      "description": "The complete DID document for this account."
+                    },
+                    "handle": {
+                      "type": "string",
+                      "format": "handle"
+                    },
+                    "collections": {
+                      "type": "array",
+                      "description": "List of all the collections (NSIDs) for which this repo contains at least one record.",
+                      "items": {
+                        "type": "string",
+                        "format": "nsid"
+                      }
+                    },
+                    "handleIsCorrect": {
+                      "type": "boolean",
+                      "description": "Indicates if handle is currently valid (resolves bi-directionally)"
+                    }
+                  },
+                  "required": [
+                    "handle",
+                    "did",
+                    "didDoc",
+                    "collections",
+                    "handleIsCorrect"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.repo.getRecord": {
+      "get": {
+        "summary": "Get a single record from a repository. Does not require auth.",
+        "operationId": "com.atproto.repo.getRecord",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    },
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "value": {}
+                  },
+                  "required": ["uri", "value"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RecordNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "cid",
+            "in": "query",
+            "required": false,
+            "description": "The CID of the version of the record. If not specified, then return the most recent version.",
+            "schema": {
+              "type": "string",
+              "description": "The CID of the version of the record. If not specified, then return the most recent version.",
+              "format": "cid"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "The Record Key.",
+            "schema": {
+              "type": "string",
+              "description": "The Record Key.",
+              "format": "record-key"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "description": "The NSID of the record collection.",
+            "schema": {
+              "type": "string",
+              "description": "The NSID of the record collection.",
+              "format": "nsid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.repo.listRecords": {
+      "get": {
+        "summary": "List a range of records in a repository, matching a specific collection. Does not require auth.",
+        "operationId": "com.atproto.repo.listRecords",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "records": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/com.atproto.repo.listRecords_record"
+                      }
+                    }
+                  },
+                  "required": ["records"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "repo",
+            "in": "query",
+            "required": true,
+            "description": "The handle or DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The handle or DID of the repo.",
+              "format": "at-identifier"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The number of records to return.",
+            "schema": {
+              "type": "integer",
+              "description": "The number of records to return.",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reverse",
+            "in": "query",
+            "required": false,
+            "description": "Flag to reverse the order of the returned records.",
+            "schema": {
+              "type": "boolean",
+              "description": "Flag to reverse the order of the returned records."
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "description": "The NSID of the record type.",
+            "schema": {
+              "type": "string",
+              "description": "The NSID of the record type.",
+              "format": "nsid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.repo.putRecord": {
+      "post": {
+        "summary": "Write a repository record, creating or updating it as needed. Requires auth, implemented by PDS.",
+        "operationId": "com.atproto.repo.putRecord",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    },
+                    "uri": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "commit": {
+                      "$ref": "#/components/schemas/com.atproto.repo.defs_commitMeta"
+                    },
+                    "validationStatus": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "InvalidSwap"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repo": {
+                    "type": "string",
+                    "description": "The handle or DID of the repo (aka, current account).",
+                    "format": "at-identifier"
+                  },
+                  "rkey": {
+                    "type": "string",
+                    "description": "The Record Key.",
+                    "maxLength": 512,
+                    "format": "record-key"
+                  },
+                  "record": {
+                    "description": "The record to write."
+                  },
+                  "validate": {
+                    "type": "boolean",
+                    "description": "Can be set to 'false' to skip Lexicon schema validation of record data, 'true' to require it, or leave unset to validate only for known Lexicons."
+                  },
+                  "collection": {
+                    "type": "string",
+                    "description": "The NSID of the record collection.",
+                    "format": "nsid"
+                  },
+                  "swapCommit": {
+                    "type": "string",
+                    "description": "Compare and swap with the previous commit by CID.",
+                    "format": "cid"
+                  },
+                  "swapRecord": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "description": "Compare and swap with the previous record by CID. WARNING: nullable and optional field; may cause problems with golang implementation",
+                        "format": "cid"
+                      }
+                    ]
+                  }
+                },
+                "required": ["repo", "collection", "rkey", "record"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.repo.uploadBlob": {
+      "post": {
+        "summary": "Upload a new blob, to be referenced from a repository record. The blob will be deleted if it is not referenced within a time window (eg, minutes). Blob restrictions (mimetype, size, etc) are enforced when the reference is created. Requires auth, implemented by PDS.",
+        "operationId": "com.atproto.repo.uploadBlob",
+        "tags": ["com.atproto.repo"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "blob": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  },
+                  "required": ["blob"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "*/*": {
+              "schema": {}
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.identity.updateHandle": {
+      "post": {
+        "summary": "Updates the current account's handle. Verifies handle validity, and updates did:plc document if necessary. Implemented by PDS, and requires auth.",
+        "operationId": "com.atproto.identity.updateHandle",
+        "tags": ["com.atproto.identity"],
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "handle": {
+                    "type": "string",
+                    "description": "The new handle.",
+                    "format": "handle"
+                  }
+                },
+                "required": ["handle"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/app.bsky.feed.getFeedSkeleton": {
+      "get": {
+        "summary": "Get a skeleton of a feed provided by a feed generator. Auth is optional, depending on provider requirements, and provides the DID of the requester. Implemented by Feed Generator Service.",
+        "operationId": "app.bsky.feed.getFeedSkeleton",
+        "tags": ["app.bsky.feed"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "feed": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/app.bsky.feed.defs_skeletonFeedPost"
+                      }
+                    },
+                    "reqId": {
+                      "type": "string",
+                      "description": "Unique identifier per request that may be passed back alongside interactions.",
+                      "maxLength": 100
+                    },
+                    "cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["feed"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "UnknownFeed"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "feed",
+            "in": "query",
+            "required": true,
+            "description": "Reference to feed generator record describing the specific feed being requested.",
+            "schema": {
+              "type": "string",
+              "description": "Reference to feed generator record describing the specific feed being requested.",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/app.bsky.actor.getProfile": {
+      "get": {
+        "summary": "Get detailed profile view of an actor. Does not require auth, but contains relevant metadata with auth.",
+        "operationId": "app.bsky.actor.getProfile",
+        "tags": ["app.bsky.actor"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewDetailed"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "actor",
+            "in": "query",
+            "required": true,
+            "description": "Handle or DID of account to fetch profile of.",
+            "schema": {
+              "type": "string",
+              "description": "Handle or DID of account to fetch profile of.",
+              "format": "at-identifier"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -4311,182 +5489,57 @@
             "type": "string",
             "format": "did"
           },
-          "handle": {
-            "type": "string",
-            "format": "handle"
-          },
-          "displayName": {
-            "type": "string",
-            "maxLength": 640
+          "debug": {
+            "description": "Debug information for internal development"
           },
           "avatar": {
             "type": "string",
             "format": "uri"
           },
-          "associated": {
-            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociated"
-          },
-          "viewer": {
-            "$ref": "#/components/schemas/app.bsky.actor.defs_viewerState"
+          "handle": {
+            "type": "string",
+            "format": "handle"
           },
           "labels": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/com.atproto.label.defs_label"
             }
+          },
+          "status": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_statusView"
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_viewerState"
+          },
+          "pronouns": {
+            "type": "string"
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
           },
+          "associated": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociated"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 640
+          },
           "verification": {
             "$ref": "#/components/schemas/app.bsky.actor.defs_verificationState"
-          },
-          "status": {
-            "$ref": "#/components/schemas/app.bsky.actor.defs_statusView"
           }
         },
         "required": ["did", "handle"]
-      },
-      "app.bsky.actor.defs_profileAssociated": {
-        "type": "object",
-        "properties": {
-          "lists": {
-            "type": "integer"
-          },
-          "feedgens": {
-            "type": "integer"
-          },
-          "starterPacks": {
-            "type": "integer"
-          },
-          "labeler": {
-            "type": "boolean"
-          },
-          "chat": {
-            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociatedChat"
-          }
-        }
-      },
-      "app.bsky.actor.defs_profileAssociatedChat": {
-        "type": "object",
-        "properties": {
-          "allowIncoming": {
-            "type": "string"
-          }
-        },
-        "required": ["allowIncoming"]
-      },
-      "app.bsky.actor.defs_viewerState": {
-        "type": "object",
-        "description": "Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.",
-        "properties": {
-          "muted": {
-            "type": "boolean"
-          },
-          "mutedByList": {
-            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewBasic"
-          },
-          "blockedBy": {
-            "type": "boolean"
-          },
-          "blocking": {
-            "type": "string",
-            "format": "uri"
-          },
-          "blockingByList": {
-            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewBasic"
-          },
-          "following": {
-            "type": "string",
-            "format": "uri"
-          },
-          "followedBy": {
-            "type": "string",
-            "format": "uri"
-          },
-          "knownFollowers": {
-            "$ref": "#/components/schemas/app.bsky.actor.defs_knownFollowers"
-          }
-        }
-      },
-      "app.bsky.graph.defs_listViewBasic": {
-        "type": "object",
-        "properties": {
-          "uri": {
-            "type": "string",
-            "format": "uri"
-          },
-          "cid": {
-            "type": "string",
-            "format": "cid"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64
-          },
-          "purpose": {
-            "$ref": "#/components/schemas/app.bsky.graph.defs_listPurpose"
-          },
-          "avatar": {
-            "type": "string",
-            "format": "uri"
-          },
-          "listItemCount": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "labels": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/com.atproto.label.defs_label"
-            }
-          },
-          "viewer": {
-            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewerState"
-          },
-          "indexedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": ["uri", "cid", "name", "purpose"]
-      },
-      "app.bsky.graph.defs_listPurpose": {
-        "type": "string"
       },
       "com.atproto.label.defs_label": {
         "type": "object",
         "description": "Metadata tag on an atproto resource (eg, repo or record).",
         "properties": {
-          "ver": {
-            "type": "integer",
-            "description": "The AT Protocol version of the label object."
-          },
-          "src": {
-            "type": "string",
-            "description": "DID of the actor who created this label.",
-            "format": "did"
-          },
-          "uri": {
-            "type": "string",
-            "description": "AT URI of the record, repository (account), or other resource that this label applies to.",
-            "format": "uri"
-          },
           "cid": {
             "type": "string",
             "description": "Optionally, CID specifying the specific version of 'uri' resource this label applies to.",
             "format": "cid"
-          },
-          "val": {
-            "type": "string",
-            "description": "The short string name of the value or type of this label.",
-            "maxLength": 128
-          },
-          "neg": {
-            "type": "boolean",
-            "description": "If true, this is a negation label, overwriting a previous label."
           },
           "cts": {
             "type": "string",
@@ -4498,13 +5551,192 @@
             "description": "Timestamp at which this label expires (no longer applies).",
             "format": "date-time"
           },
+          "neg": {
+            "type": "boolean",
+            "description": "If true, this is a negation label, overwriting a previous label."
+          },
           "sig": {
             "type": "string",
             "format": "byte",
             "description": "Signature of dag-cbor encoded label."
+          },
+          "src": {
+            "type": "string",
+            "description": "DID of the actor who created this label.",
+            "format": "did"
+          },
+          "uri": {
+            "type": "string",
+            "description": "AT URI of the record, repository (account), or other resource that this label applies to.",
+            "format": "uri"
+          },
+          "val": {
+            "type": "string",
+            "description": "The short string name of the value or type of this label.",
+            "maxLength": 128
+          },
+          "ver": {
+            "type": "integer",
+            "description": "The AT Protocol version of the label object."
           }
         },
         "required": ["src", "uri", "val", "cts"]
+      },
+      "app.bsky.actor.defs_statusView": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "embed": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/app.bsky.embed.external_view"
+              }
+            ],
+            "description": "An optional embed associated with the status."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "record": {},
+          "status": {
+            "type": "string",
+            "description": "The status for the account."
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "True if the status is not expired, false if it is expired. Only present if expiration was set."
+          },
+          "expiresAt": {
+            "type": "string",
+            "description": "The date when this status will expire. The application might choose to no longer return the status after expiration.",
+            "format": "date-time"
+          },
+          "isDisabled": {
+            "type": "boolean",
+            "description": "True if the user's go-live access has been disabled by a moderator, false otherwise."
+          }
+        },
+        "required": ["status", "record"]
+      },
+      "app.bsky.embed.external_view": {
+        "type": "object",
+        "properties": {
+          "external": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_viewExternal"
+          }
+        },
+        "required": ["external"]
+      },
+      "app.bsky.embed.external_viewExternal": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "thumb": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "title", "description"]
+      },
+      "app.bsky.actor.defs_viewerState": {
+        "type": "object",
+        "description": "Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.",
+        "properties": {
+          "muted": {
+            "type": "boolean"
+          },
+          "blocking": {
+            "type": "string",
+            "format": "uri"
+          },
+          "blockedBy": {
+            "type": "boolean"
+          },
+          "following": {
+            "type": "string",
+            "format": "uri"
+          },
+          "followedBy": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mutedByList": {
+            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewBasic"
+          },
+          "blockingByList": {
+            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewBasic"
+          },
+          "knownFollowers": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_knownFollowers",
+            "description": "This property is present only in selected cases, as an optimization."
+          },
+          "activitySubscription": {
+            "$ref": "#/components/schemas/app.bsky.notification.defs_activitySubscription",
+            "description": "This property is present only in selected cases, as an optimization."
+          }
+        }
+      },
+      "app.bsky.graph.defs_listViewBasic": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "avatar": {
+            "type": "string",
+            "format": "uri"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/app.bsky.graph.defs_listViewerState"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/app.bsky.graph.defs_listPurpose"
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "listItemCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["uri", "cid", "name", "purpose"]
       },
       "app.bsky.graph.defs_listViewerState": {
         "type": "object",
@@ -4517,6 +5749,9 @@
             "format": "uri"
           }
         }
+      },
+      "app.bsky.graph.defs_listPurpose": {
+        "type": "string"
       },
       "app.bsky.actor.defs_knownFollowers": {
         "type": "object",
@@ -4535,6 +5770,75 @@
           }
         },
         "required": ["count", "followers"]
+      },
+      "app.bsky.notification.defs_activitySubscription": {
+        "type": "object",
+        "properties": {
+          "post": {
+            "type": "boolean"
+          },
+          "reply": {
+            "type": "boolean"
+          }
+        },
+        "required": ["post", "reply"]
+      },
+      "app.bsky.actor.defs_profileAssociated": {
+        "type": "object",
+        "properties": {
+          "chat": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociatedChat"
+          },
+          "germ": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociatedGerm"
+          },
+          "lists": {
+            "type": "integer"
+          },
+          "labeler": {
+            "type": "boolean"
+          },
+          "feedgens": {
+            "type": "integer"
+          },
+          "starterPacks": {
+            "type": "integer"
+          },
+          "activitySubscription": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociatedActivitySubscription"
+          }
+        }
+      },
+      "app.bsky.actor.defs_profileAssociatedChat": {
+        "type": "object",
+        "properties": {
+          "allowIncoming": {
+            "type": "string"
+          }
+        },
+        "required": ["allowIncoming"]
+      },
+      "app.bsky.actor.defs_profileAssociatedGerm": {
+        "type": "object",
+        "properties": {
+          "messageMeUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "showButtonTo": {
+            "type": "string"
+          }
+        },
+        "required": ["showButtonTo", "messageMeUrl"]
+      },
+      "app.bsky.actor.defs_profileAssociatedActivitySubscription": {
+        "type": "object",
+        "properties": {
+          "allowSubscriptions": {
+            "type": "string"
+          }
+        },
+        "required": ["allowSubscriptions"]
       },
       "app.bsky.actor.defs_verificationState": {
         "type": "object",
@@ -4562,15 +5866,15 @@
         "type": "object",
         "description": "An individual verification for an associated subject.",
         "properties": {
-          "issuer": {
-            "type": "string",
-            "description": "The user who issued this verification.",
-            "format": "did"
-          },
           "uri": {
             "type": "string",
             "description": "The AT-URI of the verification record.",
             "format": "uri"
+          },
+          "issuer": {
+            "type": "string",
+            "description": "The user who issued this verification.",
+            "format": "did"
           },
           "isValid": {
             "type": "boolean",
@@ -4583,63 +5887,6 @@
           }
         },
         "required": ["issuer", "uri", "isValid", "createdAt"]
-      },
-      "app.bsky.actor.defs_statusView": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "string",
-            "description": "The status for the account."
-          },
-          "record": {},
-          "embed": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/app.bsky.embed.external_view"
-              }
-            ],
-            "description": "An optional embed associated with the status."
-          },
-          "expiresAt": {
-            "type": "string",
-            "description": "The date when this status will expire. The application might choose to no longer return the status after expiration.",
-            "format": "date-time"
-          },
-          "isActive": {
-            "type": "boolean",
-            "description": "True if the status is not expired, false if it is expired. Only present if expiration was set."
-          }
-        },
-        "required": ["status", "record"]
-      },
-      "app.bsky.embed.external_view": {
-        "type": "object",
-        "properties": {
-          "external": {
-            "$ref": "#/components/schemas/app.bsky.embed.external_viewExternal"
-          }
-        },
-        "required": ["external"]
-      },
-      "app.bsky.embed.external_viewExternal": {
-        "type": "object",
-        "properties": {
-          "uri": {
-            "type": "string",
-            "format": "uri"
-          },
-          "title": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "thumb": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": ["uri", "title", "description"]
       },
       "place.stream.vod.defs_commentView": {
         "type": "object",
@@ -4749,11 +5996,11 @@
         "type": "object",
         "description": "Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.",
         "properties": {
-          "byteStart": {
+          "byteEnd": {
             "type": "integer",
             "minimum": 0
           },
-          "byteEnd": {
+          "byteStart": {
             "type": "integer",
             "minimum": 0
           }
@@ -5209,16 +6456,208 @@
       "com.atproto.repo.strongRef": {
         "type": "object",
         "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["uri", "cid"]
+      },
+      "games.gamesgamesgamesgames.defs_gameSummaryView": {
+        "type": "object",
+        "properties": {
           "uri": {
             "type": "string",
             "format": "uri"
           },
-          "cid": {
-            "type": "string",
-            "format": "cid"
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_mediaItem"
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "applicationType": {
+            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_applicationType"
+          },
+          "firstReleaseDate": {
+            "type": "integer",
+            "description": "Earliest release date as YYYYMMDD integer."
           }
         },
-        "required": ["uri", "cid"]
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_mediaItem": {
+        "type": "object",
+        "properties": {
+          "blob": {
+            "type": "string",
+            "format": "binary"
+          },
+          "title": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string",
+            "enum": [
+              "accoladesTrailer",
+              "announcementTrailer",
+              "artwork",
+              "cinematicTrailer",
+              "conceptArt",
+              "cover",
+              "coverAlt",
+              "coverHistorical",
+              "coverSquare",
+              "cutscene",
+              "devDiary",
+              "gameplayImage",
+              "gameplayTrailer",
+              "icon",
+              "infographic",
+              "intro",
+              "keyArt",
+              "keyArtLogo",
+              "launchTrailer",
+              "logoBlack",
+              "logoColor",
+              "logoWhite",
+              "releaseDateTrailer",
+              "screenshot",
+              "teaser",
+              "trailer"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "games.gamesgamesgamesgames.defs_applicationType": {
+        "type": "string",
+        "enum": [
+          "addon",
+          "bundle",
+          "dlc",
+          "episode",
+          "expandedGame",
+          "expansion",
+          "fork",
+          "game",
+          "mod",
+          "port",
+          "remake",
+          "remaster",
+          "season",
+          "standaloneExpansion",
+          "update"
+        ]
+      },
+      "games.gamesgamesgamesgames.defs_profileSummaryView": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "avatar": {
+            "type": "string",
+            "format": "binary"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 640
+          },
+          "profileType": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "did", "profileType"]
+      },
+      "games.gamesgamesgamesgames.defs_platformSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/games.gamesgamesgamesgames.defs_platformCategory"
+          },
+          "abbreviation": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_platformCategory": {
+        "type": "string"
+      },
+      "games.gamesgamesgamesgames.defs_collectionSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
+      },
+      "games.gamesgamesgamesgames.defs_engineSummaryView": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": ["uri", "name"]
       },
       "place.stream.branding.getBranding_brandingAsset": {
         "type": "object",
@@ -5345,6 +6784,396 @@
           }
         },
         "required": ["issuanceUri", "badgeType", "issuer"]
+      },
+      "com.atproto.sync.subscribeRepos_commit": {
+        "type": "object",
+        "description": "Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.sync.subscribeRepos_repoOp",
+              "description": "List of repo mutation operations in this commit (eg, records created, updated, or deleted)."
+            },
+            "maxItems": 200
+          },
+          "rev": {
+            "type": "string",
+            "description": "The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event.",
+            "format": "tid"
+          },
+          "seq": {
+            "type": "integer",
+            "description": "The stream sequence number of this message."
+          },
+          "repo": {
+            "type": "string",
+            "description": "The repo this event comes from. Note that all other message types name this field 'did'.",
+            "format": "did"
+          },
+          "time": {
+            "type": "string",
+            "description": "Timestamp of when this message was originally broadcast.",
+            "format": "date-time"
+          },
+          "blobs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "DEPRECATED -- will soon always be empty. List of new blobs (by CID) referenced by records in this commit."
+            }
+          },
+          "since": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "The rev of the last emitted commit from this repo (if any).",
+                "format": "tid"
+              }
+            ]
+          },
+          "blocks": {
+            "type": "string",
+            "format": "byte",
+            "description": "CAR file containing relevant blocks, as a diff since the previous repo state. The commit must be included as a block, and the commit block CID must be the first entry in the CAR header 'roots' list.",
+            "maxLength": 2000000
+          },
+          "commit": {
+            "type": "string",
+            "description": "Repo commit object CID."
+          },
+          "rebase": {
+            "type": "boolean",
+            "description": "DEPRECATED -- unused"
+          },
+          "tooBig": {
+            "type": "boolean",
+            "description": "DEPRECATED -- replaced by #sync event and data limits. Indicates that this commit contained too many ops, or data size was too large. Consumers will need to make a separate request to get missing data."
+          },
+          "prevData": {
+            "type": "string",
+            "description": "The root CID of the MST tree for the previous commit from this repo (indicated by the 'since' revision field in this message). Corresponds to the 'data' field in the repo commit object. NOTE: this field is effectively required for the 'inductive' version of firehose."
+          }
+        },
+        "required": [
+          "seq",
+          "rebase",
+          "tooBig",
+          "repo",
+          "commit",
+          "rev",
+          "since",
+          "blocks",
+          "ops",
+          "blobs",
+          "time"
+        ]
+      },
+      "com.atproto.sync.subscribeRepos_repoOp": {
+        "type": "object",
+        "description": "A repo operation, ie a mutation of a single record.",
+        "properties": {
+          "cid": {
+            "oneOf": [
+              {
+                "type": "string",
+                "description": "For creates and updates, the new record CID. For deletions, null."
+              }
+            ]
+          },
+          "path": {
+            "type": "string"
+          },
+          "prev": {
+            "type": "string",
+            "description": "For updates and deletes, the previous record CID (required for inductive firehose). For creations, field should not be defined."
+          },
+          "action": {
+            "type": "string"
+          }
+        },
+        "required": ["action", "path", "cid"]
+      },
+      "com.atproto.sync.subscribeRepos_sync": {
+        "type": "object",
+        "description": "Updates the repo to a new state, without necessarily including that state on the firehose. Used to recover from broken commit streams, data loss incidents, or in situations where upstream host does not know recent state of the repository.",
+        "properties": {
+          "did": {
+            "type": "string",
+            "description": "The account this repo event corresponds to. Must match that in the commit object.",
+            "format": "did"
+          },
+          "rev": {
+            "type": "string",
+            "description": "The rev of the commit. This value must match that in the commit object."
+          },
+          "seq": {
+            "type": "integer",
+            "description": "The stream sequence number of this message."
+          },
+          "time": {
+            "type": "string",
+            "description": "Timestamp of when this message was originally broadcast.",
+            "format": "date-time"
+          },
+          "blocks": {
+            "type": "string",
+            "format": "byte",
+            "description": "CAR file containing the commit, as a block. The CAR header must include the commit block CID as the first 'root'.",
+            "maxLength": 10000
+          }
+        },
+        "required": ["seq", "did", "blocks", "rev", "time"]
+      },
+      "com.atproto.sync.subscribeRepos_identity": {
+        "type": "object",
+        "description": "Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "handle": {
+            "type": "string",
+            "description": "The current handle for the account, or 'handle.invalid' if validation fails. This field is optional, might have been validated or passed-through from an upstream source. Semantics and behaviors for PDS vs Relay may evolve in the future; see atproto specs for more details.",
+            "format": "handle"
+          }
+        },
+        "required": ["seq", "did", "time"]
+      },
+      "com.atproto.sync.subscribeRepos_account": {
+        "type": "object",
+        "description": "Represents a change to an account's status on a host (eg, PDS or Relay). The semantics of this event are that the status is at the host which emitted the event, not necessarily that at the currently active PDS. Eg, a Relay takedown would emit a takedown with active=false, even if the PDS is still active.",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "time": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Indicates that the account has a repository which can be fetched from the host that emitted this event."
+          },
+          "status": {
+            "type": "string",
+            "description": "If active=false, this optional field indicates a reason for why the account is not active."
+          }
+        },
+        "required": ["seq", "did", "time", "active"]
+      },
+      "com.atproto.sync.subscribeRepos_info": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["name"]
+      },
+      "com.atproto.repo.defs_commitMeta": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "rev": {
+            "type": "string",
+            "format": "tid"
+          }
+        },
+        "required": ["cid", "rev"]
+      },
+      "com.atproto.repo.listRecords_record": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "value": {}
+        },
+        "required": ["uri", "cid", "value"]
+      },
+      "app.bsky.feed.defs_skeletonFeedPost": {
+        "type": "object",
+        "properties": {
+          "post": {
+            "type": "string",
+            "format": "uri"
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/app.bsky.feed.defs_skeletonReasonRepost"
+              },
+              {
+                "$ref": "#/components/schemas/app.bsky.feed.defs_skeletonReasonPin"
+              }
+            ]
+          },
+          "feedContext": {
+            "type": "string",
+            "description": "Context that will be passed through to client and may be passed to feed generator back alongside interactions.",
+            "maxLength": 2000
+          }
+        },
+        "required": ["post"]
+      },
+      "app.bsky.feed.defs_skeletonReasonRepost": {
+        "type": "object",
+        "properties": {
+          "repost": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["repost"]
+      },
+      "app.bsky.feed.defs_skeletonReasonPin": {
+        "type": "object",
+        "properties": {}
+      },
+      "app.bsky.actor.defs_profileViewDetailed": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "debug": {
+            "description": "Debug information for internal development"
+          },
+          "avatar": {
+            "type": "string",
+            "format": "uri"
+          },
+          "banner": {
+            "type": "string",
+            "format": "uri"
+          },
+          "handle": {
+            "type": "string",
+            "format": "handle"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_statusView"
+          },
+          "viewer": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_viewerState"
+          },
+          "website": {
+            "type": "string",
+            "format": "uri"
+          },
+          "pronouns": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "associated": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileAssociated"
+          },
+          "pinnedPost": {
+            "$ref": "#/components/schemas/com.atproto.repo.strongRef"
+          },
+          "postsCount": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2560
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 640
+          },
+          "followsCount": {
+            "type": "integer"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_verificationState"
+          },
+          "followersCount": {
+            "type": "integer"
+          },
+          "joinedViaStarterPack": {
+            "$ref": "#/components/schemas/app.bsky.graph.defs_starterPackViewBasic"
+          }
+        },
+        "required": ["did", "handle"]
+      },
+      "app.bsky.graph.defs_starterPackViewBasic": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "record": {},
+          "creator": {
+            "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "listItemCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "joinedWeekCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "joinedAllTimeCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": ["uri", "cid", "record", "creator", "indexedAt"]
       }
     }
   }

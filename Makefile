@@ -379,8 +379,7 @@ golangci-lint:
 lexicons:
 	$(MAKE) go-lexicons \
 	&& $(MAKE) js-lexicons \
-	&& $(MAKE) md-lexicons \
-	&& make fix
+	&& $(MAKE) md-lexicons
 
 # glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
 # It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
@@ -393,23 +392,18 @@ go-lexicons:
 		--lexicons-dir lexicons \
 		--output-dir pkg \
 		--module-path stream.place/streamplace/pkg \
+		--gen-server spxrpc \
 		lexicons
 
 .PHONY: js-lexicons
 js-lexicons:
-	rm -rf .build/lexmerge \
-		&& mkdir -p .build/lexmerge \
-		&& node js/streamplace/scripts/dump-external-lexicons.mjs .build/lexmerge \
-		&& cp -r lexicons/. .build/lexmerge/ \
-		&& node_modules/.bin/lex build \
-			--lexicons .build/lexmerge \
-			--out js/streamplace/src/lexicons \
-			--clear --index-file --no-pretty \
-			--exclude place.stream.live.subscribeSegments \
-		&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
-		&& rm -rf .build/lexmerge \
-		&& npx prettier --ignore-unknown --write \
-			./js/streamplace/src/lexicons ./js/streamplace/src/raw-lexicons.ts
+	pnpm exec lex install \
+	&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
+	&& pnpm exec lex build \
+		--lexicons lexicons \
+		--out js/streamplace/src/lexicons \
+		--clear --index-file --no-pretty \
+		--exclude place.stream.live.subscribeSegments
 
 .PHONY: md-lexicons
 md-lexicons:
@@ -417,47 +411,12 @@ md-lexicons:
 	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
-		subprojects/atproto/lexicons \
+		./lexicons \
 		js/docs/src/content/docs/lex-reference/openapi.json \
 	&& ls -R .build/temp \
 	&& cp -rf .build/temp/place/stream/* js/docs/src/content/docs/lex-reference/ \
 	&& rm -rf .build/temp \
-	&& $(MAKE) fix
-
-.PHONY: lexgen
-lexgen:
-	$(MAKE) lexgen-types
-	$(MAKE) lexgen-server
-
-.PHONY: lexgen-types
-lexgen-types:
-	go tool github.com/bluesky-social/indigo/cmd/lexgen \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		lexicons/place/stream \
-		lexicons/games/gamesgamesgamesgames \
-		./subprojects/atproto/lexicons
-
-.PHONY: lexgen-server
-lexgen-server:
-	mkdir -p ./pkg/spxrpc \
-	&& go tool github.com/bluesky-social/indigo/cmd/lexgen \
-		--gen-server \
-		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
-		--types-import games.gamesgamesgamesgames:stream.place/streamplace/pkg/gamesgamesgamesgames \
-		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \
-		--types-import com.atproto:github.com/bluesky-social/indigo/api/atproto \
-		--types-import chat.bsky:github.com/bluesky-social/indigo/api/chat \
-		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		--external-lexicons lexicons/games/gamesgamesgamesgames \
-		--package spxrpc \
-		lexicons/place/stream \
-		lexicons/app/bsky \
-		lexicons/com/atproto
+	&& find js/docs/src/content/docs/lex-reference -type f  | xargs prettier --write --ignore-unknown
 
 .PHONY: ci-lexicons
 ci-lexicons:

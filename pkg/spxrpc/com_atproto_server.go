@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/labstack/echo/v4"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*indigoatproto.ServerDescribeServer_Output, error) {
@@ -17,4 +19,8 @@ func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*ind
 			fmt.Sprintf(".%s", s.cli.BroadcasterHost),
 		},
 	}, nil
+}
+
+func (s *Server) handleComAtprotoServerCreateSession(ctx context.Context, body *comatproto.ServerCreateSession_Input) (*comatproto.ServerCreateSession_Output, error) {
+	return nil, echo.NewHTTPError(501, "not implemented")
 }

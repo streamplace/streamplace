@@ -4,8 +4,10 @@ import (
 	"context"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
+	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context, handle string) (*indigoatproto.IdentityResolveHandle_Output, error) {
@@ -26,4 +28,8 @@ func (s *Server) handleComAtprotoIdentityRefreshIdentity(ctx context.Context, bo
 		Handle: ident.Handle.String(),
 		DidDoc: ident.DIDDocument(),
 	}, nil
+}
+
+func (s *Server) handleComAtprotoIdentityUpdateHandle(ctx context.Context, body *comatproto.IdentityUpdateHandle_Input) error {
+	return echo.NewHTTPError(501, "not implemented")
 }

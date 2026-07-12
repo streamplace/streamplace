@@ -12,6 +12,8 @@ replace github.com/bluesky-social/indigo => github.com/streamplace/indigo v0.0.0
 
 tool github.com/bluesky-social/indigo/cmd/lexgen
 
+tool github.com/streamplace/glex/cmd/glex
+
 require (
 	firebase.google.com/go/v4 v4.14.1
 	github.com/99designs/gqlgen v0.17.64
@@ -67,7 +69,7 @@ require (
 	github.com/starttoaster/prometheus-exporter-scraper v0.0.1
 	github.com/streamplace/atmoq-go v0.0.2
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
-	github.com/streamplace/glex v0.0.0-20260710214555-331335123ed9
+	github.com/streamplace/glex v0.0.0-20260712172208-84746cabd547
 	github.com/streamplace/muxl/go v0.3.4
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1

@@ -322,7 +322,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err != nil {
 		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 	}
-	rec, ok := lastLivestreamView.Record.Val.(placestream.Livestream)
+	rec, ok := lastLivestreamView.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}

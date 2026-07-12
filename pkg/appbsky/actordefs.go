@@ -102,6 +102,32 @@ func (t *ActorDefs_ContentLabelPref) UnmarshalCBOR(r io.Reader) error {
 	return glexrt.UnmarshalCBOR(r, t)
 }
 
+// ActorDefs_DeclaredAgePref is a "declaredAgePref" in the app.bsky.actor.defs schema.
+//
+// Read-only preference containing value(s) inferred from the user's declared birthdate. Absence of this preference object in the response indicates that the user has not made a declaration.
+type ActorDefs_DeclaredAgePref struct {
+	LexiconTypeID string `json:"$type"`
+	// isOverAge13: Indicates if the user has declared that they are over 13 years of age.
+	IsOverAge13 *bool `json:"isOverAge13,omitempty"`
+	// isOverAge16: Indicates if the user has declared that they are over 16 years of age.
+	IsOverAge16 *bool `json:"isOverAge16,omitempty"`
+	// isOverAge18: Indicates if the user has declared that they are over 18 years of age.
+	IsOverAge18 *bool `json:"isOverAge18,omitempty"`
+}
+
+func (t *ActorDefs_DeclaredAgePref) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.actor.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *ActorDefs_DeclaredAgePref) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
 // ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_FeedViewPref struct {
 	LexiconTypeID string `json:"$type"`
@@ -229,6 +255,30 @@ func (t *ActorDefs_LabelersPref) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorDefs_LabelersPref) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// ActorDefs_LiveEventPreferences is a "liveEventPreferences" in the app.bsky.actor.defs schema.
+//
+// Preferences for live events.
+type ActorDefs_LiveEventPreferences struct {
+	LexiconTypeID string `json:"$type"`
+	// hiddenFeedIds: A list of feed IDs that the user has hidden from live events.
+	HiddenFeedIds []string `json:"hiddenFeedIds,omitempty"`
+	// hideAllFeeds: Whether to hide all feeds from live events.
+	HideAllFeeds *bool `json:"hideAllFeeds,omitempty"`
+}
+
+func (t *ActorDefs_LiveEventPreferences) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.actor.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *ActorDefs_LiveEventPreferences) UnmarshalCBOR(r io.Reader) error {
 	return glexrt.UnmarshalCBOR(r, t)
 }
 
@@ -505,10 +555,12 @@ type ActorDefs_Preferences struct {
 	ActorDefs_AdultContentPref            *ActorDefs_AdultContentPref
 	ActorDefs_BskyAppStatePref            *ActorDefs_BskyAppStatePref
 	ActorDefs_ContentLabelPref            *ActorDefs_ContentLabelPref
+	ActorDefs_DeclaredAgePref             *ActorDefs_DeclaredAgePref
 	ActorDefs_FeedViewPref                *ActorDefs_FeedViewPref
 	ActorDefs_HiddenPostsPref             *ActorDefs_HiddenPostsPref
 	ActorDefs_InterestsPref               *ActorDefs_InterestsPref
 	ActorDefs_LabelersPref                *ActorDefs_LabelersPref
+	ActorDefs_LiveEventPreferences        *ActorDefs_LiveEventPreferences
 	ActorDefs_MutedWordsPref              *ActorDefs_MutedWordsPref
 	ActorDefs_PersonalDetailsPref         *ActorDefs_PersonalDetailsPref
 	ActorDefs_PostInteractionSettingsPref *ActorDefs_PostInteractionSettingsPref
@@ -531,6 +583,10 @@ func (t *ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
 		t.ActorDefs_ContentLabelPref.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
 		return json.Marshal(t.ActorDefs_ContentLabelPref)
 	}
+	if t.ActorDefs_DeclaredAgePref != nil {
+		t.ActorDefs_DeclaredAgePref.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+		return json.Marshal(t.ActorDefs_DeclaredAgePref)
+	}
 	if t.ActorDefs_FeedViewPref != nil {
 		t.ActorDefs_FeedViewPref.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
 		return json.Marshal(t.ActorDefs_FeedViewPref)
@@ -546,6 +602,10 @@ func (t *ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_LabelersPref != nil {
 		t.ActorDefs_LabelersPref.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
 		return json.Marshal(t.ActorDefs_LabelersPref)
+	}
+	if t.ActorDefs_LiveEventPreferences != nil {
+		t.ActorDefs_LiveEventPreferences.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+		return json.Marshal(t.ActorDefs_LiveEventPreferences)
 	}
 	if t.ActorDefs_MutedWordsPref != nil {
 		t.ActorDefs_MutedWordsPref.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
@@ -594,6 +654,9 @@ func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#contentLabelPref":
 		t.ActorDefs_ContentLabelPref = new(ActorDefs_ContentLabelPref)
 		return json.Unmarshal(b, t.ActorDefs_ContentLabelPref)
+	case "app.bsky.actor.defs#declaredAgePref":
+		t.ActorDefs_DeclaredAgePref = new(ActorDefs_DeclaredAgePref)
+		return json.Unmarshal(b, t.ActorDefs_DeclaredAgePref)
 	case "app.bsky.actor.defs#feedViewPref":
 		t.ActorDefs_FeedViewPref = new(ActorDefs_FeedViewPref)
 		return json.Unmarshal(b, t.ActorDefs_FeedViewPref)
@@ -606,6 +669,9 @@ func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
 	case "app.bsky.actor.defs#labelersPref":
 		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
 		return json.Unmarshal(b, t.ActorDefs_LabelersPref)
+	case "app.bsky.actor.defs#liveEventPreferences":
+		t.ActorDefs_LiveEventPreferences = new(ActorDefs_LiveEventPreferences)
+		return json.Unmarshal(b, t.ActorDefs_LiveEventPreferences)
 	case "app.bsky.actor.defs#mutedWordsPref":
 		t.ActorDefs_MutedWordsPref = new(ActorDefs_MutedWordsPref)
 		return json.Unmarshal(b, t.ActorDefs_MutedWordsPref)
@@ -647,6 +713,9 @@ func (t *ActorDefs_Preferences) MarshalCBOR(w io.Writer) error {
 	if t.ActorDefs_ContentLabelPref != nil {
 		return t.ActorDefs_ContentLabelPref.MarshalCBOR(w)
 	}
+	if t.ActorDefs_DeclaredAgePref != nil {
+		return t.ActorDefs_DeclaredAgePref.MarshalCBOR(w)
+	}
 	if t.ActorDefs_FeedViewPref != nil {
 		return t.ActorDefs_FeedViewPref.MarshalCBOR(w)
 	}
@@ -658,6 +727,9 @@ func (t *ActorDefs_Preferences) MarshalCBOR(w io.Writer) error {
 	}
 	if t.ActorDefs_LabelersPref != nil {
 		return t.ActorDefs_LabelersPref.MarshalCBOR(w)
+	}
+	if t.ActorDefs_LiveEventPreferences != nil {
+		return t.ActorDefs_LiveEventPreferences.MarshalCBOR(w)
 	}
 	if t.ActorDefs_MutedWordsPref != nil {
 		return t.ActorDefs_MutedWordsPref.MarshalCBOR(w)
@@ -699,6 +771,9 @@ func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.actor.defs#contentLabelPref":
 		t.ActorDefs_ContentLabelPref = new(ActorDefs_ContentLabelPref)
 		return t.ActorDefs_ContentLabelPref.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.actor.defs#declaredAgePref":
+		t.ActorDefs_DeclaredAgePref = new(ActorDefs_DeclaredAgePref)
+		return t.ActorDefs_DeclaredAgePref.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.actor.defs#feedViewPref":
 		t.ActorDefs_FeedViewPref = new(ActorDefs_FeedViewPref)
 		return t.ActorDefs_FeedViewPref.UnmarshalCBOR(bytes.NewReader(b))
@@ -711,6 +786,9 @@ func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.actor.defs#labelersPref":
 		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
 		return t.ActorDefs_LabelersPref.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.actor.defs#liveEventPreferences":
+		t.ActorDefs_LiveEventPreferences = new(ActorDefs_LiveEventPreferences)
+		return t.ActorDefs_LiveEventPreferences.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.actor.defs#mutedWordsPref":
 		t.ActorDefs_MutedWordsPref = new(ActorDefs_MutedWordsPref)
 		return t.ActorDefs_MutedWordsPref.UnmarshalCBOR(bytes.NewReader(b))
@@ -743,6 +821,7 @@ type ActorDefs_ProfileAssociated struct {
 	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty"`
 	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty"`
 	Feedgens             *int64                                           `json:"feedgens,omitempty"`
+	Germ                 *ActorDefs_ProfileAssociatedGerm                 `json:"germ,omitempty"`
 	Labeler              *bool                                            `json:"labeler,omitempty"`
 	Lists                *int64                                           `json:"lists,omitempty"`
 	StarterPacks         *int64                                           `json:"starterPacks,omitempty"`
@@ -796,6 +875,26 @@ func (t *ActorDefs_ProfileAssociatedChat) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorDefs_ProfileAssociatedChat) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// ActorDefs_ProfileAssociatedGerm is a "profileAssociatedGerm" in the app.bsky.actor.defs schema.
+type ActorDefs_ProfileAssociatedGerm struct {
+	LexiconTypeID string `json:"$type"`
+	MessageMeUrl  string `json:"messageMeUrl"`
+	ShowButtonTo  string `json:"showButtonTo"`
+}
+
+func (t *ActorDefs_ProfileAssociatedGerm) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.actor.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *ActorDefs_ProfileAssociatedGerm) UnmarshalCBOR(r io.Reader) error {
 	return glexrt.UnmarshalCBOR(r, t)
 }
 
@@ -967,16 +1066,21 @@ func (t *ActorDefs_SavedFeedsPrefV2) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
 type ActorDefs_StatusView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string  `json:"$type"`
+	Cid           *string `json:"cid,omitempty"`
 	// embed: An optional embed associated with the status.
 	Embed *ActorDefs_StatusView_Embed `json:"embed,omitempty"`
 	// expiresAt: The date when this status will expire. The application might choose to no longer return the status after expiration.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// isActive: True if the status is not expired, false if it is expired. Only present if expiration was set.
-	IsActive *bool                      `json:"isActive,omitempty"`
-	Record   *glexrt.LexiconTypeDecoder `json:"record"`
+	IsActive *bool `json:"isActive,omitempty"`
+	// isDisabled: True if the user's go-live access has been disabled by a moderator, false otherwise.
+	IsDisabled *bool                        `json:"isDisabled,omitempty"`
+	Labels     []comatproto.LabelDefs_Label `json:"labels,omitempty"`
+	Record     *glexrt.LexiconTypeDecoder   `json:"record"`
 	// status: The status for the account.
-	Status string `json:"status"`
+	Status string  `json:"status"`
+	Uri    *string `json:"uri,omitempty"`
 }
 
 func (t *ActorDefs_StatusView) MarshalCBOR(w io.Writer) error {

@@ -1,7 +1,13 @@
 {
   "version": 1,
   "lexicons": [
-    "app.bsky.actor.defs"
+    "app.bsky.actor.defs",
+    "app.bsky.graph.block",
+    "app.bsky.richtext.facet",
+    "com.atproto.label.defs",
+    "com.atproto.moderation.defs",
+    "com.atproto.repo.strongRef",
+    "games.gamesgamesgamesgames.defs"
   ],
   "resolutions": {
     "app.bsky.actor.defs": {
@@ -48,6 +54,10 @@
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.feed.threadgate",
       "cid": "bafyreiht77wd6duduz4yqp62m6dwma5dy7gdihps4g2nd73acfzqlglvdi"
     },
+    "app.bsky.graph.block": {
+      "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.graph.block",
+      "cid": "bafyreifalnveckyi2375ek5b5uyg4ef23mktcdktmgiwwsb3rygdls7owm"
+    },
     "app.bsky.graph.defs": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.graph.defs",
       "cid": "bafyreifcipomli7yggtl46xufgxlnrw7se6xmsdxmzgfcz2tiu76ljatxm"
@@ -75,6 +85,10 @@
     "com.atproto.repo.strongRef": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.repo.strongRef",
       "cid": "bafyreifrkdbnkvfjujntdaeigolnrjj3srrs53tfixjhmacclps72qlov4"
+    },
+    "games.gamesgamesgamesgames.defs": {
+      "uri": "at://did:web:gamesgamesgamesgames.games/com.atproto.lexicon.schema/games.gamesgamesgamesgames.defs",
+      "cid": "bafyreigvy76eudxageywwu6rqweupl6xzd6ofja6tfvi4c5zxa54z5iraa"
     },
     "tools.ozone.report.defs": {
       "uri": "at://did:plc:33dt5kftu3jq2h5h4jjlqezt/com.atproto.lexicon.schema/tools.ozone.report.defs",

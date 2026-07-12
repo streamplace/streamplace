@@ -12,6 +12,80 @@ import (
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
 
+// Defs_ActivityFeedItem is a "activityFeedItem" in the games.gamesgamesgamesgames.defs schema.
+type Defs_ActivityFeedItem struct {
+	LexiconTypeID string `json:"$type"`
+	// createdAt: When the activity occurred.
+	CreatedAt string `json:"createdAt"`
+	// game: The game associated with this activity.
+	Game *Defs_GameView `json:"game,omitempty"`
+	// list: List data, present when type is 'listCreate' or 'listAddGame'.
+	List *Defs_ActivityListView `json:"list,omitempty"`
+	// review: Review data, present when type is 'review'.
+	Review *Defs_ActivityReviewView `json:"review,omitempty"`
+	// type: The type of activity.
+	Type string `json:"type"`
+}
+
+func (t *Defs_ActivityFeedItem) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *Defs_ActivityFeedItem) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// Defs_ActivityListView is a "activityListView" in the games.gamesgamesgamesgames.defs schema.
+type Defs_ActivityListView struct {
+	LexiconTypeID string `json:"$type"`
+	CreatedAt     string `json:"createdAt"`
+	Name          string `json:"name"`
+	Uri           string `json:"uri"`
+}
+
+func (t *Defs_ActivityListView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *Defs_ActivityListView) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// Defs_ActivityReviewView is a "activityReviewView" in the games.gamesgamesgamesgames.defs schema.
+type Defs_ActivityReviewView struct {
+	LexiconTypeID    string   `json:"$type"`
+	ContainsSpoilers *bool    `json:"containsSpoilers,omitempty"`
+	CreatedAt        string   `json:"createdAt"`
+	Rating           int64    `json:"rating"`
+	Tags             []string `json:"tags,omitempty"`
+	Text             *string  `json:"text,omitempty"`
+	Title            *string  `json:"title,omitempty"`
+	Uri              string   `json:"uri"`
+}
+
+func (t *Defs_ActivityReviewView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *Defs_ActivityReviewView) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
 // Defs_ActorCreditView is a "actorCreditView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorCreditView struct {
 	LexiconTypeID string             `json:"$type"`
@@ -144,6 +218,61 @@ func (t *Defs_CollectionSummaryView) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Defs_CollectionSummaryView) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// Defs_CommunityFeedActorView is a "communityFeedActorView" in the games.gamesgamesgamesgames.defs schema.
+//
+// Lightweight actor view for community feed items.
+type Defs_CommunityFeedActorView struct {
+	LexiconTypeID string  `json:"$type"`
+	Did           string  `json:"did"`
+	DisplayName   *string `json:"displayName,omitempty"`
+	Handle        *string `json:"handle,omitempty"`
+}
+
+func (t *Defs_CommunityFeedActorView) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *Defs_CommunityFeedActorView) UnmarshalCBOR(r io.Reader) error {
+	return glexrt.UnmarshalCBOR(r, t)
+}
+
+// Defs_CommunityFeedItem is a "communityFeedItem" in the games.gamesgamesgamesgames.defs schema.
+//
+// A community activity item with actor information.
+type Defs_CommunityFeedItem struct {
+	LexiconTypeID string `json:"$type"`
+	// actor: The user who performed this activity.
+	Actor Defs_CommunityFeedActorView `json:"actor"`
+	// createdAt: When the activity occurred.
+	CreatedAt string `json:"createdAt"`
+	// game: The game associated with this activity.
+	Game *Defs_GameView `json:"game,omitempty"`
+	// list: List data, present when type is 'listCreate' or 'listAddGame'.
+	List *Defs_ActivityListView `json:"list,omitempty"`
+	// review: Review data, present when type is 'review'.
+	Review *Defs_ActivityReviewView `json:"review,omitempty"`
+	// type: The type of activity.
+	Type string `json:"type"`
+}
+
+func (t *Defs_CommunityFeedItem) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
+	return glexrt.MarshalCBOR(w, t)
+}
+
+func (t *Defs_CommunityFeedItem) UnmarshalCBOR(r io.Reader) error {
 	return glexrt.UnmarshalCBOR(r, t)
 }
 
@@ -311,7 +440,6 @@ type Defs_GameSummaryView struct {
 	ApplicationType *string `json:"applicationType,omitempty"`
 	// firstReleaseDate: Earliest release date as YYYYMMDD integer.
 	FirstReleaseDate *int64           `json:"firstReleaseDate,omitempty"`
-	Genres           []string         `json:"genres,omitempty"`
 	Media            []Defs_MediaItem `json:"media,omitempty"`
 	Name             string           `json:"name"`
 	Slug             *string          `json:"slug,omitempty"`

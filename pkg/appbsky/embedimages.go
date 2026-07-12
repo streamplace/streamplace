@@ -39,7 +39,8 @@ type EmbedImages_Image struct {
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`
-	Image       glexrt.Blob            `json:"image"`
+	// image: The raw image file. May be up to 2 MB, formerly limited to 1 MB.
+	Image glexrt.Blob `json:"image"`
 }
 
 func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {

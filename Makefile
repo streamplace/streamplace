@@ -389,35 +389,11 @@ GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
-	rm -rf .build/golexmerge .build/goout \
-	&& mkdir -p .build/golexmerge \
-	&& go mod download github.com/bluesky-social/indigo \
-	&& cp -r "$$(go list -m -f '{{.Dir}}' github.com/bluesky-social/indigo)/lexicons/." .build/golexmerge/ \
-	&& chmod -R u+w .build/golexmerge \
-	&& cp -r lexicons/. .build/golexmerge/ \
-	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) build \
-		--lexicons-dir .build/golexmerge \
-		--output-dir .build/goout \
+	go tool github.com/streamplace/glex/cmd/glex build \
+		--lexicons-dir lexicons \
+		--output-dir pkg \
 		--module-path stream.place/streamplace/pkg \
-		.build/golexmerge/place/stream \
-		.build/golexmerge/games \
-		.build/golexmerge/com/atproto \
-		.build/golexmerge/app/bsky \
-	&& GOTOOLCHAIN=auto go run $(GO_LEXICON_GEN) build \
-		--lexicons-dir .build/golexmerge \
-		--output-dir .build/goout \
-		--module-path stream.place/streamplace/pkg \
-		--gen-server spxrpc \
-		.build/golexmerge/place/stream \
-		.build/golexmerge/games \
-	&& rm -rf ./pkg/placestream ./pkg/gamesgamesgamesgamesgames ./pkg/comatproto ./pkg/appbsky \
-	&& mkdir -p ./pkg/placestream ./pkg/gamesgamesgamesgamesgames ./pkg/comatproto ./pkg/appbsky \
-	&& cp .build/goout/placestream/*.go ./pkg/placestream/ \
-	&& cp .build/goout/gamesgamesgamesgamesgames/*.go ./pkg/gamesgamesgamesgamesgames/ \
-	&& cp .build/goout/comatproto/*.go ./pkg/comatproto/ \
-	&& cp .build/goout/appbsky/*.go ./pkg/appbsky/ \
-	&& cp .build/goout/spxrpc/stubs.go ./pkg/spxrpc/stubs.go \
-	&& rm -rf .build/golexmerge .build/goout
+		lexicons
 
 .PHONY: js-lexicons
 js-lexicons:

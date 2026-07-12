@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
-// marshalLivestream encodes a streamplace.Livestream record to the CBOR blob
+// marshalLivestream encodes a placestream.Livestream record to the CBOR blob
 // shape the model stores (the same bytes atproto sync decodes via
 // lexutil.CborDecodeValue).
-func marshalLivestream(t *testing.T, rec *streamplace.Livestream) []byte {
+func marshalLivestream(t *testing.T, rec *placestream.Livestream) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	require.NoError(t, rec.MarshalCBOR(&buf))
@@ -26,7 +26,7 @@ func marshalLivestream(t *testing.T, rec *streamplace.Livestream) []byte {
 // lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI. createdAgo sets the
 // row's created_at (the column GetLatestLivestreamForRepo orders by) so callers
 // can control which record is "latest".
-func seedLivestream(t *testing.T, mod model.Model, did, rkey string, createdAgo time.Duration, rec *streamplace.Livestream) string {
+func seedLivestream(t *testing.T, mod model.Model, did, rkey string, createdAgo time.Duration, rec *placestream.Livestream) string {
 	t.Helper()
 	// ToLivestreamView dereferences ls.Repo.Handle, so the streamer needs a
 	// repo row. UpdateRepo upserts on PK (did), creating it if absent.
@@ -63,7 +63,7 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &streamplace.Livestream{
+		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -93,7 +93,7 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 		require.NoError(t, err)
 		view, err := ls.ToLivestreamView()
 		require.NoError(t, err)
-		rec, ok := view.Record.Val.(*streamplace.Livestream)
+		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)
 		require.Nil(t, rec.EndedAt, "endedAt must not be set on a stale-but-latest record")
 	})
@@ -111,14 +111,14 @@ func TestFinalizeLivestreamEndsSupersededRecord(t *testing.T) {
 		did := "did:plc:superseded"
 
 		// Older record: stale lastSeenAt, but a newer record will exist.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &streamplace.Livestream{
+		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &streamplace.Livestream{
+		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),

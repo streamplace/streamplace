@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,54 +22,60 @@ type ServerCreateSession_Input struct {
 	Password   string `json:"password"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerCreateSession_Input) RecordTypeID() string { return "com.atproto.server.createSession" }
+
 func (t *ServerCreateSession_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.createSession#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.server.createSession"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerCreateSession_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ServerCreateSession_Output struct {
-	LexiconTypeID   string                     `json:"$type"`
-	AccessJwt       string                     `json:"accessJwt"`
-	Active          *bool                      `json:"active,omitempty"`
-	Did             string                     `json:"did"`
-	DidDoc          *glexrt.LexiconTypeDecoder `json:"didDoc,omitempty"`
-	Email           *string                    `json:"email,omitempty"`
-	EmailAuthFactor *bool                      `json:"emailAuthFactor,omitempty"`
-	EmailConfirmed  *bool                      `json:"emailConfirmed,omitempty"`
-	Handle          string                     `json:"handle"`
-	RefreshJwt      string                     `json:"refreshJwt"`
+	LexiconTypeID   string                   `json:"$type"`
+	AccessJwt       string                   `json:"accessJwt"`
+	Active          *bool                    `json:"active,omitempty"`
+	Did             string                   `json:"did"`
+	DidDoc          *glex.LexiconTypeDecoder `json:"didDoc,omitempty"`
+	Email           *string                  `json:"email,omitempty"`
+	EmailAuthFactor *bool                    `json:"emailAuthFactor,omitempty"`
+	EmailConfirmed  *bool                    `json:"emailConfirmed,omitempty"`
+	Handle          string                   `json:"handle"`
+	RefreshJwt      string                   `json:"refreshJwt"`
 	// status: If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted.
 	Status *string `json:"status,omitempty"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *ServerCreateSession_Output) RecordTypeID() string { return "com.atproto.server.createSession" }
 
 func (t *ServerCreateSession_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.createSession#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.server.createSession"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerCreateSession_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerCreateSession calls the XRPC method "com.atproto.server.createSession".
 //
 // Create an authentication session.
-func ServerCreateSession(ctx context.Context, c glexrt.LexClient, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {
+func ServerCreateSession(ctx context.Context, c glex.LexClient, input *ServerCreateSession_Input) (*ServerCreateSession_Output, error) {
 	var out ServerCreateSession_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "com.atproto.server.createSession", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "com.atproto.server.createSession", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

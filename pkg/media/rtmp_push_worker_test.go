@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/ingestframe"
@@ -116,7 +116,7 @@ func TestRTMPPushWorkerContainsFailure(t *testing.T) {
 	mm := &MediaManager{bus: bus.NewBus()}
 	targetView := &placestream.MultistreamDefs_TargetView{
 		Uri: "at://did:plc:test/place.stream.multistream.target/abc",
-		Record: &glexrt.LexiconTypeDecoder{
+		Record: &glex.LexiconTypeDecoder{
 			Val: &placestream.MultistreamTarget{Url: "http://127.0.0.1:1/nope"},
 		},
 	}

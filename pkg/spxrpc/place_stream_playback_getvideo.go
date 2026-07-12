@@ -402,14 +402,14 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 	}
 
 	switch {
-	case videoRec.Source.MediaDefs_SourceTracks != nil && videoRec.Source.MediaDefs_SourceTracks != nil:
+	case videoRec.Source.MediaDefs_SourceTracks != nil:
 		blobCID, err := s.firstTrackBlob(ctx, videoRec.Source.MediaDefs_SourceTracks)
 		if err != nil {
 			return nil, err
 		}
 		return &resolvedVideo{blobCID: blobCID}, nil
 
-	case videoRec.Source.MediaDefs_SourceTracks != nil && videoRec.Source.MediaDefs_SourceClip != nil:
+	case videoRec.Source.MediaDefs_SourceClip != nil:
 		clip := videoRec.Source.MediaDefs_SourceClip
 		if clip.Video == "" {
 			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity, "sourceClip missing parent video URI")
@@ -423,7 +423,7 @@ func (s *Server) resolveVideoBlob(ctx context.Context, uri string) (*resolvedVid
 		}
 		// One level only — clip-of-clip is rejected to keep playback
 		// resolution bounded and predictable.
-		if parentRec.Source.MediaDefs_SourceTracks == nil && parentRec.Source.MediaDefs_SourceClip == nil || parentRec.Source.MediaDefs_SourceTracks == nil {
+		if parentRec.Source.MediaDefs_SourceTracks == nil {
 			return nil, echo.NewHTTPError(http.StatusUnprocessableEntity,
 				"sourceClip's parent video must use sourceTracks (clip-of-clip is not supported)")
 		}
@@ -452,10 +452,10 @@ func (s *Server) loadVideoRecord(ctx context.Context, uri string) (*placestream.
 		log.Error(ctx, "playback: GetVideoByURI failed", "uri", uri, "error", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if false {
+	if videoRec == nil {
 		return nil, echo.NewHTTPError(http.StatusNotFound, "VideoNotFound")
 	}
-	return &videoRec, nil
+	return videoRec, nil
 }
 
 // firstTrackBlob returns the muxlTrack.blob CID of the first ref in a
@@ -466,7 +466,7 @@ func (s *Server) firstTrackBlob(ctx context.Context, src *placestream.MediaDefs_
 		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "video record has no tracks")
 	}
 	firstRef := src.Tracks[0]
-	if firstRef.Uri == "" || firstRef.Uri == "" {
+	if firstRef.Uri == "" {
 		return "", echo.NewHTTPError(http.StatusUnprocessableEntity, "video record's first track ref is empty")
 	}
 	track, err := s.model.GetMediaTrackByURI(ctx, firstRef.Uri)
@@ -474,7 +474,7 @@ func (s *Server) firstTrackBlob(ctx context.Context, src *placestream.MediaDefs_
 		log.Error(ctx, "playback: GetMediaTrackByURI failed", "uri", firstRef.Uri, "error", err)
 		return "", echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if track.Track.MediaDefs_MuxlTrack == nil || track.Track.MediaDefs_MuxlTrack == nil {
+	if track == nil || track.Track.MediaDefs_MuxlTrack == nil {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
 	blob := track.Track.MediaDefs_MuxlTrack.Blob

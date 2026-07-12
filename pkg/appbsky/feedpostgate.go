@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.feed.postgate", &FeedPostgate{})
+	glex.RegisterType("app.bsky.feed.postgate", &FeedPostgate{})
 }
 
 // Record defining interaction rules for a post. The record key (rkey) of the postgate record must match the record key of the post, and that record must be in the same repository.
@@ -30,17 +30,20 @@ type FeedPostgate struct {
 	Post string `json:"post"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPostgate) RecordTypeID() string { return "app.bsky.feed.postgate" }
+
 func (t *FeedPostgate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.feed.postgate"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPostgate) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedPostgate_EmbeddingRules_Elem struct {
@@ -56,7 +59,7 @@ func (t *FeedPostgate_EmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -83,7 +86,7 @@ func (t *FeedPostgate_EmbeddingRules_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -104,15 +107,18 @@ type FeedPostgate_DisableRule struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPostgate_DisableRule) RecordTypeID() string { return "app.bsky.feed.postgate#disableRule" }
+
 func (t *FeedPostgate_DisableRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.postgate"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPostgate_DisableRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

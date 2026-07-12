@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.richtext.facet#main", &RichtextFacet{})
+	glex.RegisterType("place.stream.richtext.facet#main", &RichtextFacet{})
 }
 
 // Annotation of a sub-string within rich text in a livestream chat message.
@@ -26,17 +26,20 @@ type RichtextFacet struct {
 	Index         appbsky.RichtextFacet_ByteSlice `json:"index"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet) RecordTypeID() string { return "place.stream.richtext.facet" }
+
 func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type RichtextFacet_Features_Elem struct {
@@ -57,7 +60,7 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -90,7 +93,7 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}

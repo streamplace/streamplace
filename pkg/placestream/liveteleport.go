@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.live.teleport", &LiveTeleport{})
+	glex.RegisterType("place.stream.live.teleport", &LiveTeleport{})
 }
 
 // Record defining a 'teleport', that is active during a certain time.
@@ -26,15 +26,18 @@ type LiveTeleport struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveTeleport) RecordTypeID() string { return "place.stream.live.teleport" }
+
 func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.live.teleport"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

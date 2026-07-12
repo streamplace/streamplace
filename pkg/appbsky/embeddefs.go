@@ -7,7 +7,7 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,15 +20,18 @@ type EmbedDefs_AspectRatio struct {
 	Width         int64  `json:"width"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedDefs_AspectRatio) RecordTypeID() string { return "app.bsky.embed.defs#aspectRatio" }
+
 func (t *EmbedDefs_AspectRatio) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.defs#aspectRatio"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedDefs_AspectRatio) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

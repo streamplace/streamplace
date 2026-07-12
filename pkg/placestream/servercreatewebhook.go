@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -34,17 +34,20 @@ type ServerCreateWebhook_Input struct {
 	Url string `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerCreateWebhook_Input) RecordTypeID() string { return "place.stream.server.createWebhook" }
+
 func (t *ServerCreateWebhook_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.createWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.createWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerCreateWebhook_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ServerCreateWebhook_Output struct {
@@ -52,26 +55,31 @@ type ServerCreateWebhook_Output struct {
 	Webhook       ServerDefs_Webhook `json:"webhook"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerCreateWebhook_Output) RecordTypeID() string {
+	return "place.stream.server.createWebhook"
+}
+
 func (t *ServerCreateWebhook_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.createWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.createWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerCreateWebhook_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerCreateWebhook calls the XRPC method "place.stream.server.createWebhook".
 //
 // Create a new webhook for receiving Streamplace events.
-func ServerCreateWebhook(ctx context.Context, c glexrt.LexClient, input *ServerCreateWebhook_Input) (*ServerCreateWebhook_Output, error) {
+func ServerCreateWebhook(ctx context.Context, c glex.LexClient, input *ServerCreateWebhook_Input) (*ServerCreateWebhook_Output, error) {
 	var out ServerCreateWebhook_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.server.createWebhook", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.server.createWebhook", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

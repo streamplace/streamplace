@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // BrandingGetBlob calls the XRPC method "place.stream.branding.getBlob".
@@ -17,7 +17,7 @@ import (
 //
 // broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
 // key: Branding asset key (mainLogo, favicon, siteTitle, etc.)
-func BrandingGetBlob(ctx context.Context, c glexrt.LexClient, broadcaster string, key string) ([]byte, error) {
+func BrandingGetBlob(ctx context.Context, c glex.LexClient, broadcaster string, key string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -26,7 +26,7 @@ func BrandingGetBlob(ctx context.Context, c glexrt.LexClient, broadcaster string
 	}
 	params["key"] = key
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.branding.getBlob", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.branding.getBlob", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

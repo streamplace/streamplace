@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,25 +18,30 @@ type IdentityUpdateHandle_Input struct {
 	Handle string `json:"handle"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *IdentityUpdateHandle_Input) RecordTypeID() string {
+	return "com.atproto.identity.updateHandle"
+}
+
 func (t *IdentityUpdateHandle_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.identity.updateHandle#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.identity.updateHandle"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *IdentityUpdateHandle_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // IdentityUpdateHandle calls the XRPC method "com.atproto.identity.updateHandle".
 //
 // Updates the current account's handle. Verifies handle validity, and updates did:plc document if necessary. Implemented by PDS, and requires auth.
-func IdentityUpdateHandle(ctx context.Context, c glexrt.LexClient, input *IdentityUpdateHandle_Input) error {
+func IdentityUpdateHandle(ctx context.Context, c glex.LexClient, input *IdentityUpdateHandle_Input) error {
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "com.atproto.identity.updateHandle", nil, input, nil); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "com.atproto.identity.updateHandle", nil, input, nil); err != nil {
 		return err
 	}
 	return nil

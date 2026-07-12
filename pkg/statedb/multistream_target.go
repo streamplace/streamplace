@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 )
@@ -78,7 +78,7 @@ func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCr
 	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &glexrt.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 
@@ -130,7 +130,7 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 		targetView := placestream.MultistreamDefs_TargetView{
 			Uri:    target.URI,
 			Cid:    cid.String(),
-			Record: &glexrt.LexiconTypeDecoder{Val: &multistreamTarget},
+			Record: &glex.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
 
 		// Add the latest event if it exists
@@ -150,10 +150,6 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 }
 
 func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.MultistreamPutTarget_Input) (placestream.MultistreamDefs_TargetView, error) {
-	if false {
-		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("multistream target is required")
-	}
-
 	// Get the current target to check repo ownership and current active status
 	var currentTarget MultistreamTarget
 	err := state.DB.Where("uri = ?", uri).First(&currentTarget).Error
@@ -204,7 +200,7 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.M
 	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &glexrt.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 

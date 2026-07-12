@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.beta.invite", &BetaInvite{})
+	glex.RegisterType("place.stream.beta.invite", &BetaInvite{})
 }
 
 // Grants a single account access to a named beta feature on this network. Records live in a project-operated repo (the streamplace node's `--beta-invite-did`); operators trust invites only from that one account, by configuration. Each (did, feature) pair gets its own record so individual features can be revoked independently by deleting the corresponding record.
@@ -26,15 +26,18 @@ type BetaInvite struct {
 	Feature string `json:"feature"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BetaInvite) RecordTypeID() string { return "place.stream.beta.invite" }
+
 func (t *BetaInvite) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.beta.invite"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BetaInvite) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

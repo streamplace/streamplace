@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -26,17 +26,20 @@ type RepoDeleteRecord_Input struct {
 	SwapRecord *string `json:"swapRecord,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoDeleteRecord_Input) RecordTypeID() string { return "com.atproto.repo.deleteRecord" }
+
 func (t *RepoDeleteRecord_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.deleteRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.deleteRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoDeleteRecord_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type RepoDeleteRecord_Output struct {
@@ -44,26 +47,29 @@ type RepoDeleteRecord_Output struct {
 	Commit        *RepoDefs_CommitMeta `json:"commit,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoDeleteRecord_Output) RecordTypeID() string { return "com.atproto.repo.deleteRecord" }
+
 func (t *RepoDeleteRecord_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.deleteRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.deleteRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoDeleteRecord_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoDeleteRecord calls the XRPC method "com.atproto.repo.deleteRecord".
 //
 // Delete a repository record, or ensure it doesn't exist. Requires auth, implemented by PDS.
-func RepoDeleteRecord(ctx context.Context, c glexrt.LexClient, input *RepoDeleteRecord_Input) (*RepoDeleteRecord_Output, error) {
+func RepoDeleteRecord(ctx context.Context, c glex.LexClient, input *RepoDeleteRecord_Input) (*RepoDeleteRecord_Output, error) {
 	var out RepoDeleteRecord_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "com.atproto.repo.deleteRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

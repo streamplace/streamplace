@@ -151,19 +151,19 @@ func (a *StreamplaceAPI) resolveVideoContentBlob(ctx context.Context, rawURI str
 	if err != nil {
 		return "", "", fmt.Errorf("get video: %w", err)
 	}
-	if false {
+	if rec == nil {
 		return "", "", fmt.Errorf("video not indexed locally (pass cid + did instead)")
 	}
 
 	switch {
-	case rec.Source.MediaDefs_SourceTracks != nil && rec.Source.MediaDefs_SourceClip != nil && rec.Source.MediaDefs_SourceTracks != nil:
+	case rec.Source.MediaDefs_SourceTracks != nil:
 		cid, err = a.firstTrackBlobCID(ctx, rec.Source.MediaDefs_SourceTracks.Tracks)
 		if err != nil {
 			return "", "", err
 		}
 		return cid, aturi.Authority().String(), nil
 
-	case rec.Source.MediaDefs_SourceTracks != nil && rec.Source.MediaDefs_SourceClip != nil && rec.Source.MediaDefs_SourceClip != nil:
+	case rec.Source.MediaDefs_SourceClip != nil:
 		clip := rec.Source.MediaDefs_SourceClip
 		if clip.Video == "" {
 			return "", "", fmt.Errorf("sourceClip missing parent video URI")
@@ -176,10 +176,10 @@ func (a *StreamplaceAPI) resolveVideoContentBlob(ctx context.Context, rawURI str
 		if err != nil {
 			return "", "", fmt.Errorf("get parent video: %w", err)
 		}
-		if false {
+		if parent == nil {
 			return "", "", fmt.Errorf("parent video %s not indexed locally", parentURI.String())
 		}
-		if parent.Source.MediaDefs_SourceTracks == nil && parent.Source.MediaDefs_SourceClip == nil || parent.Source.MediaDefs_SourceTracks == nil {
+		if parent.Source.MediaDefs_SourceTracks == nil {
 			return "", "", fmt.Errorf("sourceClip parent must be a sourceTracks video (clip-of-clip unsupported)")
 		}
 		cid, err = a.firstTrackBlobCID(ctx, parent.Source.MediaDefs_SourceTracks.Tracks)
@@ -202,14 +202,14 @@ func (a *StreamplaceAPI) firstTrackBlobCID(ctx context.Context, tracks []comatpr
 		return "", fmt.Errorf("video record has no tracks")
 	}
 	first := tracks[0]
-	if first.Uri == "" || first.Uri == "" {
+	if first.Uri == "" {
 		return "", fmt.Errorf("first track ref is empty")
 	}
 	track, err := a.Model.GetMediaTrackByURI(ctx, first.Uri)
 	if err != nil {
 		return "", fmt.Errorf("get track %s: %w", first.Uri, err)
 	}
-	if track.Track.MediaDefs_MuxlTrack == nil || track.Track.MediaDefs_MuxlTrack == nil {
+	if track == nil || track.Track.MediaDefs_MuxlTrack == nil {
 		return "", fmt.Errorf("track %s not indexed or not a muxlTrack", first.Uri)
 	}
 	blob := track.Track.MediaDefs_MuxlTrack.Blob

@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.richtext.facet#main", &RichtextFacet{})
+	glex.RegisterType("app.bsky.richtext.facet#main", &RichtextFacet{})
 }
 
 // Annotation of a sub-string within rich text.
@@ -25,17 +25,20 @@ type RichtextFacet struct {
 	Index         RichtextFacet_ByteSlice       `json:"index"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet) RecordTypeID() string { return "app.bsky.richtext.facet" }
+
 func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type RichtextFacet_Features_Elem struct {
@@ -61,7 +64,7 @@ func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -100,7 +103,7 @@ func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -129,17 +132,20 @@ type RichtextFacet_ByteSlice struct {
 	ByteStart     int64  `json:"byteStart"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet_ByteSlice) RecordTypeID() string { return "app.bsky.richtext.facet#byteSlice" }
+
 func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.richtext.facet#byteSlice"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RichtextFacet_Link is a "link" in the app.bsky.richtext.facet schema.
@@ -150,17 +156,20 @@ type RichtextFacet_Link struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet_Link) RecordTypeID() string { return "app.bsky.richtext.facet#link" }
+
 func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.richtext.facet#link"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RichtextFacet_Mention is a "mention" in the app.bsky.richtext.facet schema.
@@ -171,17 +180,20 @@ type RichtextFacet_Mention struct {
 	Did           string `json:"did"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet_Mention) RecordTypeID() string { return "app.bsky.richtext.facet#mention" }
+
 func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.richtext.facet#mention"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RichtextFacet_Tag is a "tag" in the app.bsky.richtext.facet schema.
@@ -192,15 +204,18 @@ type RichtextFacet_Tag struct {
 	Tag           string `json:"tag"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RichtextFacet_Tag) RecordTypeID() string { return "app.bsky.richtext.facet#tag" }
+
 func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.richtext.facet#tag"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

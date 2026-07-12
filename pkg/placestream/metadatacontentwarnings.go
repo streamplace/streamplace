@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.metadata.contentWarnings#main", &MetadataContentWarnings{})
+	glex.RegisterType("place.stream.metadata.contentWarnings#main", &MetadataContentWarnings{})
 }
 
 // Content warnings for a stream.
@@ -21,15 +21,20 @@ type MetadataContentWarnings struct {
 	Warnings      []string `json:"warnings,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MetadataContentWarnings) RecordTypeID() string {
+	return "place.stream.metadata.contentWarnings"
+}
+
 func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.metadata.contentWarnings"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MetadataContentWarnings) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

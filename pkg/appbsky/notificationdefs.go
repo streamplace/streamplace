@@ -7,7 +7,7 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,22 @@ type NotificationDefs_ActivitySubscription struct {
 	Reply         bool   `json:"reply"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_ActivitySubscription) RecordTypeID() string {
+	return "app.bsky.notification.defs#activitySubscription"
+}
+
 func (t *NotificationDefs_ActivitySubscription) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#activitySubscription"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_ActivitySubscription) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
@@ -38,17 +43,22 @@ type NotificationDefs_ChatPreference struct {
 	Push          bool   `json:"push"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_ChatPreference) RecordTypeID() string {
+	return "app.bsky.notification.defs#chatPreference"
+}
+
 func (t *NotificationDefs_ChatPreference) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#chatPreference"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_ChatPreference) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_FilterablePreference is a "filterablePreference" in the app.bsky.notification.defs schema.
@@ -59,17 +69,22 @@ type NotificationDefs_FilterablePreference struct {
 	Push          bool   `json:"push"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_FilterablePreference) RecordTypeID() string {
+	return "app.bsky.notification.defs#filterablePreference"
+}
+
 func (t *NotificationDefs_FilterablePreference) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#filterablePreference"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_FilterablePreference) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_Preference is a "preference" in the app.bsky.notification.defs schema.
@@ -79,17 +94,22 @@ type NotificationDefs_Preference struct {
 	Push          bool   `json:"push"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_Preference) RecordTypeID() string {
+	return "app.bsky.notification.defs#preference"
+}
+
 func (t *NotificationDefs_Preference) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#preference"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_Preference) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
@@ -110,17 +130,22 @@ type NotificationDefs_Preferences struct {
 	Verified          NotificationDefs_Preference           `json:"verified"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_Preferences) RecordTypeID() string {
+	return "app.bsky.notification.defs#preferences"
+}
+
 func (t *NotificationDefs_Preferences) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#preferences"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_RecordDeleted is a "recordDeleted" in the app.bsky.notification.defs schema.
@@ -128,17 +153,22 @@ type NotificationDefs_RecordDeleted struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_RecordDeleted) RecordTypeID() string {
+	return "app.bsky.notification.defs#recordDeleted"
+}
+
 func (t *NotificationDefs_RecordDeleted) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#recordDeleted"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_RecordDeleted) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // NotificationDefs_SubjectActivitySubscription is a "subjectActivitySubscription" in the app.bsky.notification.defs schema.
@@ -150,15 +180,20 @@ type NotificationDefs_SubjectActivitySubscription struct {
 	Subject              string                                `json:"subject"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *NotificationDefs_SubjectActivitySubscription) RecordTypeID() string {
+	return "app.bsky.notification.defs#subjectActivitySubscription"
+}
+
 func (t *NotificationDefs_SubjectActivitySubscription) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.notification.defs#subjectActivitySubscription"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *NotificationDefs_SubjectActivitySubscription) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

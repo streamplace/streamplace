@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -21,17 +21,20 @@ type LiveStartLivestream_Input struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveStartLivestream_Input) RecordTypeID() string { return "place.stream.live.startLivestream" }
+
 func (t *LiveStartLivestream_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.startLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.startLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveStartLivestream_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type LiveStartLivestream_Output struct {
@@ -42,26 +45,31 @@ type LiveStartLivestream_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveStartLivestream_Output) RecordTypeID() string {
+	return "place.stream.live.startLivestream"
+}
+
 func (t *LiveStartLivestream_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.startLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.startLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveStartLivestream_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LiveStartLivestream calls the XRPC method "place.stream.live.startLivestream".
 //
 // Create a new place.stream.livestream record, automatically populating a thumbnail and creating a Bluesky post and whatnot. You can do this manually by creating a record but this method can work better for mobile livestreaming and such.
-func LiveStartLivestream(ctx context.Context, c glexrt.LexClient, input *LiveStartLivestream_Input) (*LiveStartLivestream_Output, error) {
+func LiveStartLivestream(ctx context.Context, c glex.LexClient, input *LiveStartLivestream_Input) (*LiveStartLivestream_Output, error) {
 	var out LiveStartLivestream_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.live.startLivestream", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.live.startLivestream", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

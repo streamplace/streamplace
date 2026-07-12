@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,22 @@ type IngestGetIngestUrls_Output struct {
 	Ingests       []IngestGetIngestUrls_Output_Ingests_Elem `json:"ingests"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *IngestGetIngestUrls_Output) RecordTypeID() string {
+	return "place.stream.ingest.getIngestUrls"
+}
+
 func (t *IngestGetIngestUrls_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.ingest.getIngestUrls#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.ingest.getIngestUrls"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *IngestGetIngestUrls_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type IngestGetIngestUrls_Output_Ingests_Elem struct {
@@ -46,7 +51,7 @@ func (t *IngestGetIngestUrls_Output_Ingests_Elem) MarshalJSON() ([]byte, error) 
 }
 
 func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -73,7 +78,7 @@ func (t *IngestGetIngestUrls_Output_Ingests_Elem) MarshalCBOR(w io.Writer) error
 }
 
 func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -90,10 +95,10 @@ func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalCBOR(r io.Reader) err
 // IngestGetIngestUrls calls the XRPC method "place.stream.ingest.getIngestUrls".
 //
 // Get ingest URLs for a Streamplace station.
-func IngestGetIngestUrls(ctx context.Context, c glexrt.LexClient) (*IngestGetIngestUrls_Output, error) {
+func IngestGetIngestUrls(ctx context.Context, c glex.LexClient) (*IngestGetIngestUrls_Output, error) {
 	var out IngestGetIngestUrls_Output
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.ingest.getIngestUrls", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.ingest.getIngestUrls", nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

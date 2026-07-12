@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,20 @@ type LiveDenyTeleport_Input struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveDenyTeleport_Input) RecordTypeID() string { return "place.stream.live.denyTeleport" }
+
 func (t *LiveDenyTeleport_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.denyTeleport#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.denyTeleport"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveDenyTeleport_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type LiveDenyTeleport_Output struct {
@@ -37,26 +40,29 @@ type LiveDenyTeleport_Output struct {
 	Success bool `json:"success"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveDenyTeleport_Output) RecordTypeID() string { return "place.stream.live.denyTeleport" }
+
 func (t *LiveDenyTeleport_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.denyTeleport#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.denyTeleport"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveDenyTeleport_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LiveDenyTeleport calls the XRPC method "place.stream.live.denyTeleport".
 //
 // Deny an incoming teleport request.
-func LiveDenyTeleport(ctx context.Context, c glexrt.LexClient, input *LiveDenyTeleport_Input) (*LiveDenyTeleport_Output, error) {
+func LiveDenyTeleport(ctx context.Context, c glex.LexClient, input *LiveDenyTeleport_Input) (*LiveDenyTeleport_Output, error) {
 	var out LiveDenyTeleport_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.live.denyTeleport", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.live.denyTeleport", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,22 @@ type MultistreamListTargets_Output struct {
 	Targets       []MultistreamDefs_TargetView `json:"targets"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MultistreamListTargets_Output) RecordTypeID() string {
+	return "place.stream.multistream.listTargets"
+}
+
 func (t *MultistreamListTargets_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.listTargets#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.multistream.listTargets"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamListTargets_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MultistreamListTargets calls the XRPC method "place.stream.multistream.listTargets".
@@ -36,7 +41,7 @@ func (t *MultistreamListTargets_Output) UnmarshalCBOR(r io.Reader) error {
 // List a range of targets for rebroadcasting a Streamplace stream.
 //
 // limit: The number of targets to return.
-func MultistreamListTargets(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64) (*MultistreamListTargets_Output, error) {
+func MultistreamListTargets(ctx context.Context, c glex.LexClient, cursor string, limit *int64) (*MultistreamListTargets_Output, error) {
 	var out MultistreamListTargets_Output
 
 	params := map[string]interface{}{}
@@ -47,7 +52,7 @@ func MultistreamListTargets(ctx context.Context, c glexrt.LexClient, cursor stri
 		params["limit"] = *limit
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.multistream.listTargets", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.multistream.listTargets", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -55,10 +60,15 @@ func MultistreamListTargets(ctx context.Context, c glexrt.LexClient, cursor stri
 
 // MultistreamListTargets_Record is a "record" in the place.stream.multistream.listTargets schema.
 type MultistreamListTargets_Record struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           string                     `json:"cid"`
-	Uri           string                     `json:"uri"`
-	Value         *glexrt.LexiconTypeDecoder `json:"value"`
+	LexiconTypeID string                   `json:"$type"`
+	Cid           string                   `json:"cid"`
+	Uri           string                   `json:"uri"`
+	Value         *glex.LexiconTypeDecoder `json:"value"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *MultistreamListTargets_Record) RecordTypeID() string {
+	return "place.stream.multistream.listTargets#record"
 }
 
 func (t *MultistreamListTargets_Record) MarshalCBOR(w io.Writer) error {
@@ -66,10 +76,10 @@ func (t *MultistreamListTargets_Record) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.listTargets"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.multistream.listTargets#record"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamListTargets_Record) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

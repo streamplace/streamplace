@@ -120,7 +120,7 @@ func setupBlobTest(t *testing.T) (*Server, model.Model) {
 	require.NoError(t, m.UpsertMediaTrack(context.Background(), placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
 		Track: placestream.MediaTrack_Track{
-			MediaDefs_MuxlTrack: placestream.MediaDefs_MuxlTrack{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          testContentCID,
 				TrackId:       "1",

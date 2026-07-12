@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -19,17 +19,20 @@ type VodListDrafts_Output struct {
 	Drafts []VodDraftDefs_DraftView `json:"drafts"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodListDrafts_Output) RecordTypeID() string { return "place.stream.vod.listDrafts" }
+
 func (t *VodListDrafts_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.listDrafts#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.listDrafts"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodListDrafts_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodListDrafts calls the XRPC method "place.stream.vod.listDrafts".
@@ -38,7 +41,7 @@ func (t *VodListDrafts_Output) UnmarshalCBOR(r io.Reader) error {
 //
 // cursor: Pagination cursor from a previous response.
 // limit: Number of drafts to return.
-func VodListDrafts(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64) (*VodListDrafts_Output, error) {
+func VodListDrafts(ctx context.Context, c glex.LexClient, cursor string, limit *int64) (*VodListDrafts_Output, error) {
 	var out VodListDrafts_Output
 
 	params := map[string]interface{}{}
@@ -49,7 +52,7 @@ func VodListDrafts(ctx context.Context, c glexrt.LexClient, cursor string, limit
 		params["limit"] = *limit
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.vod.listDrafts", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.vod.listDrafts", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -52,7 +52,7 @@ func TestServerRepo(t *testing.T) {
 		Streamer:      "did:plc:abc123",
 		UpdatedAt:     &updatedAt,
 	}
-	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123", vc)
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123", &vc)
 	require.NoError(t, err)
 
 	// Read it back
@@ -106,7 +106,7 @@ func TestServerRepo(t *testing.T) {
 		Size:          1234,
 		MimeType:      "video/mp4",
 	}
-	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv1", origin)
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv1", &origin)
 	require.NoError(t, err)
 	cols, err = ServerRepoListCollections(context.Background())
 	require.NoError(t, err)
@@ -166,7 +166,7 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 			Streamer:      s,
 			UpdatedAt:     &updatedAt,
 		}
-		require.NoError(t, CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, s, vc))
+		require.NoError(t, CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, s, &vc))
 	}
 
 	// Default order is reverse-lexical (newest TID first). limit=2:

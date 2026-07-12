@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -26,14 +26,13 @@ type Like struct {
 }
 
 func (l *Like) ToStreamplaceLikeView() (placestream.GetLikes_LikeView, error) {
-	rec, err := glexrt.CborDecodeValue([]byte{})
-	if err != nil {
-		rec = placestream.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
-	}
+	// The likes table doesn't store record bytes; synthesize the record from
+	// the indexed columns.
+	rec := &placestream.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
 	return placestream.GetLikes_LikeView{
 		Uri:    l.URI,
 		Cid:    l.CID,
-		Record: &glexrt.LexiconTypeDecoder{Val: rec},
+		Record: &glex.LexiconTypeDecoder{Val: rec},
 		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: l.RepoDID,
 			Handle: func() string {

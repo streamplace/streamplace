@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -23,17 +23,22 @@ type LiveGetRecommendations_Output struct {
 	UserDID *string `json:"userDID,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveGetRecommendations_Output) RecordTypeID() string {
+	return "place.stream.live.getRecommendations"
+}
+
 func (t *LiveGetRecommendations_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.getRecommendations#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.getRecommendations"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveGetRecommendations_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type LiveGetRecommendations_Output_Recommendations_Elem struct {
@@ -49,7 +54,7 @@ func (t *LiveGetRecommendations_Output_Recommendations_Elem) MarshalJSON() ([]by
 }
 
 func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -76,7 +81,7 @@ func (t *LiveGetRecommendations_Output_Recommendations_Elem) MarshalCBOR(w io.Wr
 }
 
 func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -95,13 +100,13 @@ func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalCBOR(r io.
 // # Get the list of streamers recommended by a user
 //
 // userDID: The DID of the user whose recommendations to fetch
-func LiveGetRecommendations(ctx context.Context, c glexrt.LexClient, userDID string) (*LiveGetRecommendations_Output, error) {
+func LiveGetRecommendations(ctx context.Context, c glex.LexClient, userDID string) (*LiveGetRecommendations_Output, error) {
 	var out LiveGetRecommendations_Output
 
 	params := map[string]interface{}{}
 	params["userDID"] = userDID
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.live.getRecommendations", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.live.getRecommendations", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -116,15 +121,20 @@ type LiveGetRecommendations_LivestreamRecommendation struct {
 	Source string `json:"source"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveGetRecommendations_LivestreamRecommendation) RecordTypeID() string {
+	return "place.stream.live.getRecommendations#livestreamRecommendation"
+}
+
 func (t *LiveGetRecommendations_LivestreamRecommendation) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.getRecommendations"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveGetRecommendations_LivestreamRecommendation) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

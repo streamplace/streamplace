@@ -7,7 +7,7 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -21,17 +21,22 @@ type LabelerDefs_LabelerPolicies struct {
 	LabelValues []string `json:"labelValues"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelerDefs_LabelerPolicies) RecordTypeID() string {
+	return "app.bsky.labeler.defs#labelerPolicies"
+}
+
 func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.labeler.defs#labelerPolicies"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelerDefs_LabelerView is a "labelerView" in the app.bsky.labeler.defs schema.
@@ -46,17 +51,20 @@ type LabelerDefs_LabelerView struct {
 	Viewer        *LabelerDefs_LabelerViewerState `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelerDefs_LabelerView) RecordTypeID() string { return "app.bsky.labeler.defs#labelerView" }
+
 func (t *LabelerDefs_LabelerView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelerDefs_LabelerView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelerDefs_LabelerViewDetailed is a "labelerViewDetailed" in the app.bsky.labeler.defs schema.
@@ -78,17 +86,22 @@ type LabelerDefs_LabelerViewDetailed struct {
 	Viewer       *LabelerDefs_LabelerViewerState `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelerDefs_LabelerViewDetailed) RecordTypeID() string {
+	return "app.bsky.labeler.defs#labelerViewDetailed"
+}
+
 func (t *LabelerDefs_LabelerViewDetailed) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.labeler.defs#labelerViewDetailed"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelerDefs_LabelerViewDetailed) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelerDefs_LabelerViewerState is a "labelerViewerState" in the app.bsky.labeler.defs schema.
@@ -97,15 +110,20 @@ type LabelerDefs_LabelerViewerState struct {
 	Like          *string `json:"like,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelerDefs_LabelerViewerState) RecordTypeID() string {
+	return "app.bsky.labeler.defs#labelerViewerState"
+}
+
 func (t *LabelerDefs_LabelerViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.labeler.defs#labelerViewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelerDefs_LabelerViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -9,7 +9,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // PlaybackWhep calls the XRPC method "place.stream.playback.whep".
@@ -18,14 +18,14 @@ import (
 //
 // rendition: The rendition of the stream to play.
 // streamer: The DID of the streamer to play.
-func PlaybackWhep(ctx context.Context, c glexrt.LexClient, rendition string, streamer string, input io.Reader) ([]byte, error) {
+func PlaybackWhep(ctx context.Context, c glex.LexClient, rendition string, streamer string, input io.Reader) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	params["rendition"] = rendition
 	params["streamer"] = streamer
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "*/*", "place.stream.playback.whep", params, input, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "*/*", "place.stream.playback.whep", params, input, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

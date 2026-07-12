@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.metadata.configuration", &MetadataConfiguration{})
+	glex.RegisterType("place.stream.metadata.configuration", &MetadataConfiguration{})
 }
 
 // Default metadata record for livestream including content warnings, rights, and distribution policy
@@ -23,15 +23,18 @@ type MetadataConfiguration struct {
 	DistributionPolicy *MetadataDistributionPolicy `json:"distributionPolicy,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MetadataConfiguration) RecordTypeID() string { return "place.stream.metadata.configuration" }
+
 func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.metadata.configuration"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MetadataConfiguration) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

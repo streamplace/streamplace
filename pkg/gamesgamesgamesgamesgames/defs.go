@@ -7,7 +7,7 @@ package gamesgamesgamesgamesgames
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -27,17 +27,22 @@ type Defs_ActivityFeedItem struct {
 	Type string `json:"type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActivityFeedItem) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#activityFeedItem"
+}
+
 func (t *Defs_ActivityFeedItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityFeedItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActivityFeedItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActivityListView is a "activityListView" in the games.gamesgamesgamesgames.defs schema.
@@ -48,17 +53,22 @@ type Defs_ActivityListView struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActivityListView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#activityListView"
+}
+
 func (t *Defs_ActivityListView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityListView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActivityListView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActivityReviewView is a "activityReviewView" in the games.gamesgamesgamesgames.defs schema.
@@ -73,17 +83,22 @@ type Defs_ActivityReviewView struct {
 	Uri              string   `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActivityReviewView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#activityReviewView"
+}
+
 func (t *Defs_ActivityReviewView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityReviewView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActivityReviewView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActorCreditView is a "actorCreditView" in the games.gamesgamesgamesgames.defs schema.
@@ -95,23 +110,28 @@ type Defs_ActorCreditView struct {
 	Uri           string             `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActorCreditView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#actorCreditView"
+}
+
 func (t *Defs_ActorCreditView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorCreditView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActorCreditView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActorProfileDetailView is a "actorProfileDetailView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorProfileDetailView struct {
 	LexiconTypeID     string                  `json:"$type"`
-	Avatar            *glexrt.Blob            `json:"avatar,omitempty"`
+	Avatar            *glex.Blob              `json:"avatar,omitempty"`
 	CreatedAt         *string                 `json:"createdAt,omitempty"`
 	Description       *string                 `json:"description,omitempty"`
 	DescriptionFacets []appbsky.RichtextFacet `json:"descriptionFacets,omitempty"`
@@ -122,26 +142,36 @@ type Defs_ActorProfileDetailView struct {
 	Websites          []Defs_Website          `json:"websites,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActorProfileDetailView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#actorProfileDetailView"
+}
+
 func (t *Defs_ActorProfileDetailView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileDetailView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActorProfileDetailView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActorProfileSummaryView is a "actorProfileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorProfileSummaryView struct {
-	LexiconTypeID string       `json:"$type"`
-	Avatar        *glexrt.Blob `json:"avatar,omitempty"`
-	Did           string       `json:"did"`
-	DisplayName   *string      `json:"displayName,omitempty"`
-	Uri           string       `json:"uri"`
+	LexiconTypeID string     `json:"$type"`
+	Avatar        *glex.Blob `json:"avatar,omitempty"`
+	Did           string     `json:"did"`
+	DisplayName   *string    `json:"displayName,omitempty"`
+	Uri           string     `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActorProfileSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#actorProfileSummaryView"
 }
 
 func (t *Defs_ActorProfileSummaryView) MarshalCBOR(w io.Writer) error {
@@ -149,12 +179,12 @@ func (t *Defs_ActorProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActorProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_AgeRating is a "ageRating" in the games.gamesgamesgamesgames.defs schema.
@@ -165,17 +195,20 @@ type Defs_AgeRating struct {
 	Rating             string   `json:"rating"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_AgeRating) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#ageRating" }
+
 func (t *Defs_AgeRating) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#ageRating"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_AgeRating) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_AlternativeName is a "alternativeName" in the games.gamesgamesgamesgames.defs schema.
@@ -186,17 +219,22 @@ type Defs_AlternativeName struct {
 	Name          string  `json:"name"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_AlternativeName) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#alternativeName"
+}
+
 func (t *Defs_AlternativeName) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#alternativeName"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_AlternativeName) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_CollectionSummaryView is a "collectionSummaryView" in the games.gamesgamesgamesgames.defs schema.
@@ -208,17 +246,22 @@ type Defs_CollectionSummaryView struct {
 	Uri           string  `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_CollectionSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#collectionSummaryView"
+}
+
 func (t *Defs_CollectionSummaryView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_CollectionSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_CommunityFeedActorView is a "communityFeedActorView" in the games.gamesgamesgamesgames.defs schema.
@@ -231,17 +274,22 @@ type Defs_CommunityFeedActorView struct {
 	Handle        *string `json:"handle,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_CommunityFeedActorView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#communityFeedActorView"
+}
+
 func (t *Defs_CommunityFeedActorView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedActorView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_CommunityFeedActorView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_CommunityFeedItem is a "communityFeedItem" in the games.gamesgamesgamesgames.defs schema.
@@ -263,17 +311,22 @@ type Defs_CommunityFeedItem struct {
 	Type string `json:"type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_CommunityFeedItem) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#communityFeedItem"
+}
+
 func (t *Defs_CommunityFeedItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_CommunityFeedItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_CreditEntry is a "creditEntry" in the games.gamesgamesgamesgames.defs schema.
@@ -283,17 +336,22 @@ type Defs_CreditEntry struct {
 	Role          string  `json:"role"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_CreditEntry) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#creditEntry"
+}
+
 func (t *Defs_CreditEntry) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#creditEntry"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_CreditEntry) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_EngineSummaryView is a "engineSummaryView" in the games.gamesgamesgamesgames.defs schema.
@@ -304,17 +362,22 @@ type Defs_EngineSummaryView struct {
 	Uri           string  `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_EngineSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#engineSummaryView"
+}
+
 func (t *Defs_EngineSummaryView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_EngineSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ExternalIds is a "externalIds" in the games.gamesgamesgamesgames.defs schema.
@@ -334,17 +397,22 @@ type Defs_ExternalIds struct {
 	Xbox          *string        `json:"xbox,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ExternalIds) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#externalIds"
+}
+
 func (t *Defs_ExternalIds) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalIds"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ExternalIds) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ExternalVideo is a "externalVideo" in the games.gamesgamesgamesgames.defs schema.
@@ -355,17 +423,22 @@ type Defs_ExternalVideo struct {
 	VideoId       string  `json:"videoId"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ExternalVideo) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#externalVideo"
+}
+
 func (t *Defs_ExternalVideo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalVideo"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ExternalVideo) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_GameDetailView is a "gameDetailView" in the games.gamesgamesgamesgames.defs schema.
@@ -401,17 +474,22 @@ type Defs_GameDetailView struct {
 	Websites           []Defs_Website         `json:"websites,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_GameDetailView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#gameDetailView"
+}
+
 func (t *Defs_GameDetailView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameDetailView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_GameDetailView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_GameFeedViewItem is a "gameFeedViewItem" in the games.gamesgamesgamesgames.defs schema.
@@ -421,17 +499,22 @@ type Defs_GameFeedViewItem struct {
 	Game          Defs_GameView `json:"game"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_GameFeedViewItem) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#gameFeedViewItem"
+}
+
 func (t *Defs_GameFeedViewItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameFeedViewItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_GameFeedViewItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_GameSummaryView is a "gameSummaryView" in the games.gamesgamesgamesgames.defs schema.
@@ -447,17 +530,22 @@ type Defs_GameSummaryView struct {
 	Uri              string           `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_GameSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#gameSummaryView"
+}
+
 func (t *Defs_GameSummaryView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_GameSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_GameView is a "gameView" in the games.gamesgamesgamesgames.defs schema.
@@ -476,17 +564,20 @@ type Defs_GameView struct {
 	Viewer          *Defs_ViewerState `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_GameView) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#gameView" }
+
 func (t *Defs_GameView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_GameView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ItchIoId is a "itchIoId" in the games.gamesgamesgamesgames.defs schema.
@@ -496,17 +587,20 @@ type Defs_ItchIoId struct {
 	Game          string `json:"game"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ItchIoId) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#itchIoId" }
+
 func (t *Defs_ItchIoId) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#itchIoId"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ItchIoId) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_LanguageSupport is a "languageSupport" in the games.gamesgamesgamesgames.defs schema.
@@ -518,42 +612,50 @@ type Defs_LanguageSupport struct {
 	Subtitles     *bool  `json:"subtitles,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_LanguageSupport) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#languageSupport"
+}
+
 func (t *Defs_LanguageSupport) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#languageSupport"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_LanguageSupport) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_MediaItem is a "mediaItem" in the games.gamesgamesgamesgames.defs schema.
 type Defs_MediaItem struct {
-	LexiconTypeID string       `json:"$type"`
-	Blob          *glexrt.Blob `json:"blob,omitempty"`
-	Description   *string      `json:"description,omitempty"`
-	Height        *int64       `json:"height,omitempty"`
-	Locale        *string      `json:"locale,omitempty"`
-	MediaType     *string      `json:"mediaType,omitempty"`
-	Title         *string      `json:"title,omitempty"`
-	Width         *int64       `json:"width,omitempty"`
+	LexiconTypeID string     `json:"$type"`
+	Blob          *glex.Blob `json:"blob,omitempty"`
+	Description   *string    `json:"description,omitempty"`
+	Height        *int64     `json:"height,omitempty"`
+	Locale        *string    `json:"locale,omitempty"`
+	MediaType     *string    `json:"mediaType,omitempty"`
+	Title         *string    `json:"title,omitempty"`
+	Width         *int64     `json:"width,omitempty"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *Defs_MediaItem) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#mediaItem" }
 
 func (t *Defs_MediaItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#mediaItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_MediaItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_MultiplayerMode is a "multiplayerMode" in the games.gamesgamesgamesgames.defs schema.
@@ -571,17 +673,22 @@ type Defs_MultiplayerMode struct {
 	Platform             *string `json:"platform,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_MultiplayerMode) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#multiplayerMode"
+}
+
 func (t *Defs_MultiplayerMode) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#multiplayerMode"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_MultiplayerMode) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_OrgCreditView is a "orgCreditView" in the games.gamesgamesgamesgames.defs schema.
@@ -593,23 +700,28 @@ type Defs_OrgCreditView struct {
 	Uri           string   `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_OrgCreditView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#orgCreditView"
+}
+
 func (t *Defs_OrgCreditView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgCreditView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_OrgCreditView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_OrgProfileDetailView is a "orgProfileDetailView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_OrgProfileDetailView struct {
 	LexiconTypeID     string                  `json:"$type"`
-	Avatar            *glexrt.Blob            `json:"avatar,omitempty"`
+	Avatar            *glex.Blob              `json:"avatar,omitempty"`
 	Country           *string                 `json:"country,omitempty"`
 	CreatedAt         *string                 `json:"createdAt,omitempty"`
 	Description       *string                 `json:"description,omitempty"`
@@ -624,26 +736,36 @@ type Defs_OrgProfileDetailView struct {
 	Websites          []Defs_Website          `json:"websites,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_OrgProfileDetailView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#orgProfileDetailView"
+}
+
 func (t *Defs_OrgProfileDetailView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileDetailView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_OrgProfileDetailView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_OrgProfileSummaryView is a "orgProfileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_OrgProfileSummaryView struct {
-	LexiconTypeID string       `json:"$type"`
-	Avatar        *glexrt.Blob `json:"avatar,omitempty"`
-	Did           string       `json:"did"`
-	DisplayName   *string      `json:"displayName,omitempty"`
-	Uri           string       `json:"uri"`
+	LexiconTypeID string     `json:"$type"`
+	Avatar        *glex.Blob `json:"avatar,omitempty"`
+	Did           string     `json:"did"`
+	DisplayName   *string    `json:"displayName,omitempty"`
+	Uri           string     `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *Defs_OrgProfileSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#orgProfileSummaryView"
 }
 
 func (t *Defs_OrgProfileSummaryView) MarshalCBOR(w io.Writer) error {
@@ -651,12 +773,12 @@ func (t *Defs_OrgProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_OrgProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_PlatformFeatures is a "platformFeatures" in the games.gamesgamesgamesgames.defs schema.
@@ -668,17 +790,22 @@ type Defs_PlatformFeatures struct {
 	Platform      string   `json:"platform"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_PlatformFeatures) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#platformFeatures"
+}
+
 func (t *Defs_PlatformFeatures) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformFeatures"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_PlatformFeatures) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_PlatformSummaryView is a "platformSummaryView" in the games.gamesgamesgamesgames.defs schema.
@@ -691,17 +818,22 @@ type Defs_PlatformSummaryView struct {
 	Uri           string  `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_PlatformSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#platformSummaryView"
+}
+
 func (t *Defs_PlatformSummaryView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_PlatformSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_PlatformVersion is a "platformVersion" in the games.gamesgamesgamesgames.defs schema.
@@ -720,27 +852,37 @@ type Defs_PlatformVersion struct {
 	Summary       *string          `json:"summary,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_PlatformVersion) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#platformVersion"
+}
+
 func (t *Defs_PlatformVersion) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformVersion"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_PlatformVersion) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ProfileSummaryView is a "profileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ProfileSummaryView struct {
-	LexiconTypeID string       `json:"$type"`
-	Avatar        *glexrt.Blob `json:"avatar,omitempty"`
-	Did           string       `json:"did"`
-	DisplayName   *string      `json:"displayName,omitempty"`
-	ProfileType   string       `json:"profileType"`
-	Uri           string       `json:"uri"`
+	LexiconTypeID string     `json:"$type"`
+	Avatar        *glex.Blob `json:"avatar,omitempty"`
+	Did           string     `json:"did"`
+	DisplayName   *string    `json:"displayName,omitempty"`
+	ProfileType   string     `json:"profileType"`
+	Uri           string     `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *Defs_ProfileSummaryView) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#profileSummaryView"
 }
 
 func (t *Defs_ProfileSummaryView) MarshalCBOR(w io.Writer) error {
@@ -748,12 +890,12 @@ func (t *Defs_ProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_Release is a "release" in the games.gamesgamesgamesgames.defs schema.
@@ -766,17 +908,20 @@ type Defs_Release struct {
 	ReleaseDates []Defs_ReleaseDate `json:"releaseDates,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_Release) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#release" }
+
 func (t *Defs_Release) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#release"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_Release) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ReleaseDate is a "releaseDate" in the games.gamesgamesgamesgames.defs schema.
@@ -788,17 +933,22 @@ type Defs_ReleaseDate struct {
 	Status           *string `json:"status,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ReleaseDate) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#releaseDate"
+}
+
 func (t *Defs_ReleaseDate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#releaseDate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ReleaseDate) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_Signature is a "signature" in the games.gamesgamesgamesgames.defs schema.
@@ -809,20 +959,23 @@ type Defs_Signature struct {
 	// key: DID key reference (e.g., did:web:example.com#signing1).
 	Key string `json:"key"`
 	// signature: The signature bytes.
-	Signature glexrt.Bytes `json:"signature"`
+	Signature glex.Bytes `json:"signature"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *Defs_Signature) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#signature" }
 
 func (t *Defs_Signature) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#signature"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_Signature) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_SkeletonGameFeedItem is a "skeletonGameFeedItem" in the games.gamesgamesgamesgames.defs schema.
@@ -832,17 +985,22 @@ type Defs_SkeletonGameFeedItem struct {
 	Game          string  `json:"game"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_SkeletonGameFeedItem) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#skeletonGameFeedItem"
+}
+
 func (t *Defs_SkeletonGameFeedItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#skeletonGameFeedItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_SkeletonGameFeedItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_SystemRequirements is a "systemRequirements" in the games.gamesgamesgamesgames.defs schema.
@@ -855,17 +1013,22 @@ type Defs_SystemRequirements struct {
 	Recommended   *Defs_SystemSpec `json:"recommended,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_SystemRequirements) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#systemRequirements"
+}
+
 func (t *Defs_SystemRequirements) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemRequirements"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_SystemRequirements) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_SystemSpec is a "systemSpec" in the games.gamesgamesgamesgames.defs schema.
@@ -883,17 +1046,20 @@ type Defs_SystemSpec struct {
 	Storage         *string `json:"storage,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_SystemSpec) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#systemSpec" }
+
 func (t *Defs_SystemSpec) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemSpec"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_SystemSpec) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_TimeToBeat is a "timeToBeat" in the games.gamesgamesgamesgames.defs schema.
@@ -904,17 +1070,20 @@ type Defs_TimeToBeat struct {
 	Normally      *int64 `json:"normally,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_TimeToBeat) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#timeToBeat" }
+
 func (t *Defs_TimeToBeat) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#timeToBeat"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_TimeToBeat) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ViewerState is a "viewerState" in the games.gamesgamesgamesgames.defs schema.
@@ -923,17 +1092,22 @@ type Defs_ViewerState struct {
 	Like          *string `json:"like,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ViewerState) RecordTypeID() string {
+	return "games.gamesgamesgamesgames.defs#viewerState"
+}
+
 func (t *Defs_ViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#viewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_Website is a "website" in the games.gamesgamesgamesgames.defs schema.
@@ -943,15 +1117,18 @@ type Defs_Website struct {
 	Url           string  `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_Website) RecordTypeID() string { return "games.gamesgamesgamesgames.defs#website" }
+
 func (t *Defs_Website) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#website"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_Website) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

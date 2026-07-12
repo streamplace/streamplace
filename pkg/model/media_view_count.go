@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
@@ -37,13 +37,9 @@ type MediaViewCount struct {
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
 func (v *MediaViewCount) ToRecord() (placestream.MediaViewCount, error) {
-	rec, err := glexrt.CborDecodeValue(v.Record)
-	if err != nil {
+	var vc placestream.MediaViewCount
+	if err := glex.DecodeCBOR(v.Record, &vc); err != nil {
 		return placestream.MediaViewCount{}, fmt.Errorf("decode view-count record: %w", err)
-	}
-	vc, ok := rec.(placestream.MediaViewCount)
-	if !ok {
-		return placestream.MediaViewCount{}, fmt.Errorf("view-count record decoded as %T, expected placestream.MediaViewCount", rec)
 	}
 	return vc, nil
 }

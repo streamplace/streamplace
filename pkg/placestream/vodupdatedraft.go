@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -23,23 +23,26 @@ type VodUpdateDraft_Input struct {
 	Description       *string                        `json:"description,omitempty"`
 	DescriptionFacets []RichtextVideoFacet           `json:"descriptionFacets,omitempty"`
 	Tags              []string                       `json:"tags,omitempty"`
-	Thumb             *glexrt.Blob                   `json:"thumb,omitempty"`
+	Thumb             *glex.Blob                     `json:"thumb,omitempty"`
 	Title             *string                        `json:"title,omitempty"`
 	// uri: The ats:// URI of the draft to update.
 	Uri string `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *VodUpdateDraft_Input) RecordTypeID() string { return "place.stream.vod.updateDraft" }
 
 func (t *VodUpdateDraft_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.updateDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.updateDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodUpdateDraft_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type VodUpdateDraft_Input_Activity struct {
@@ -60,7 +63,7 @@ func (t *VodUpdateDraft_Input_Activity) MarshalJSON() ([]byte, error) {
 }
 
 func (t *VodUpdateDraft_Input_Activity) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -93,7 +96,7 @@ func (t *VodUpdateDraft_Input_Activity) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *VodUpdateDraft_Input_Activity) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -115,26 +118,29 @@ type VodUpdateDraft_Output struct {
 	Draft         VodDraftDefs_DraftView `json:"draft"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodUpdateDraft_Output) RecordTypeID() string { return "place.stream.vod.updateDraft" }
+
 func (t *VodUpdateDraft_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.updateDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.updateDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodUpdateDraft_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodUpdateDraft calls the XRPC method "place.stream.vod.updateDraft".
 //
 // Update a draft VOD's editable metadata. Server-authoritative fields (source, durationMs, status) are preserved. Editing is allowed in any status, so the user can pre-fill metadata while processing. All fields except uri are optional (partial update).
-func VodUpdateDraft(ctx context.Context, c glexrt.LexClient, input *VodUpdateDraft_Input) (*VodUpdateDraft_Output, error) {
+func VodUpdateDraft(ctx context.Context, c glex.LexClient, input *VodUpdateDraft_Input) (*VodUpdateDraft_Output, error) {
 	var out VodUpdateDraft_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.vod.updateDraft", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.vod.updateDraft", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

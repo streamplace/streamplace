@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // PlaybackGetLivePlaylist calls the XRPC method "place.stream.playback.getLivePlaylist".
@@ -18,7 +18,7 @@ import (
 // sid: Opaque playback session identifier. Omit on the master playlist request; the server generates one and threads it through the sub-playlist + segment URLs it returns, for view-count correlation.
 // streamer: The streamer to play back: a DID (did:plc/did:web/did:key) or a Bluesky handle, which is resolved to its DID.
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
-func PlaybackGetLivePlaylist(ctx context.Context, c glexrt.LexClient, sid string, streamer string, track string) ([]byte, error) {
+func PlaybackGetLivePlaylist(ctx context.Context, c glex.LexClient, sid string, streamer string, track string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -30,7 +30,7 @@ func PlaybackGetLivePlaylist(ctx context.Context, c glexrt.LexClient, sid string
 	}
 	params["streamer"] = streamer
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.playback.getLivePlaylist", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.playback.getLivePlaylist", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

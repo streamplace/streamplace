@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -26,17 +26,22 @@ type MediaGetUploadStatus_Output struct {
 	Tracks []MediaGetUploadStatus_TrackRef `json:"tracks,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaGetUploadStatus_Output) RecordTypeID() string {
+	return "place.stream.media.getUploadStatus"
+}
+
 func (t *MediaGetUploadStatus_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getUploadStatus#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.getUploadStatus"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaGetUploadStatus_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaGetUploadStatus calls the XRPC method "place.stream.media.getUploadStatus".
@@ -44,13 +49,13 @@ func (t *MediaGetUploadStatus_Output) UnmarshalCBOR(r io.Reader) error {
 // Get the processing status of a previously created upload. Only accessible by the DID that created the upload.
 //
 // uploadId: The upload ID returned by place.stream.media.createUpload.
-func MediaGetUploadStatus(ctx context.Context, c glexrt.LexClient, uploadId string) (*MediaGetUploadStatus_Output, error) {
+func MediaGetUploadStatus(ctx context.Context, c glex.LexClient, uploadId string) (*MediaGetUploadStatus_Output, error) {
 	var out MediaGetUploadStatus_Output
 
 	params := map[string]interface{}{}
 	params["uploadId"] = uploadId
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.media.getUploadStatus", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.media.getUploadStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -63,15 +68,20 @@ type MediaGetUploadStatus_TrackRef struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaGetUploadStatus_TrackRef) RecordTypeID() string {
+	return "place.stream.media.getUploadStatus#trackRef"
+}
+
 func (t *MediaGetUploadStatus_TrackRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getUploadStatus"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.getUploadStatus#trackRef"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaGetUploadStatus_TrackRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

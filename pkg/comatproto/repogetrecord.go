@@ -8,28 +8,31 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type RepoGetRecord_Output struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           *string                    `json:"cid,omitempty"`
-	Uri           string                     `json:"uri"`
-	Value         *glexrt.LexiconTypeDecoder `json:"value"`
+	LexiconTypeID string                   `json:"$type"`
+	Cid           *string                  `json:"cid,omitempty"`
+	Uri           string                   `json:"uri"`
+	Value         *glex.LexiconTypeDecoder `json:"value"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *RepoGetRecord_Output) RecordTypeID() string { return "com.atproto.repo.getRecord" }
 
 func (t *RepoGetRecord_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.getRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.getRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoGetRecord_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoGetRecord calls the XRPC method "com.atproto.repo.getRecord".
@@ -40,7 +43,7 @@ func (t *RepoGetRecord_Output) UnmarshalCBOR(r io.Reader) error {
 // collection: The NSID of the record collection.
 // repo: The handle or DID of the repo.
 // rkey: The Record Key.
-func RepoGetRecord(ctx context.Context, c glexrt.LexClient, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
+func RepoGetRecord(ctx context.Context, c glex.LexClient, cid string, collection string, repo string, rkey string) (*RepoGetRecord_Output, error) {
 	var out RepoGetRecord_Output
 
 	params := map[string]interface{}{}
@@ -51,7 +54,7 @@ func RepoGetRecord(ctx context.Context, c glexrt.LexClient, cid string, collecti
 	params["repo"] = repo
 	params["rkey"] = rkey
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "com.atproto.repo.getRecord", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -32,13 +32,9 @@ func (b *Block) ToStreamplaceBlock() (placestream.Defs_BlockView, error) {
 	if b.Record == nil {
 		return placestream.Defs_BlockView{}, fmt.Errorf("block record is nil")
 	}
-	rec, err := glexrt.CborDecodeValue(b.Record)
-	if err != nil {
-		return placestream.Defs_BlockView{}, fmt.Errorf("error decoding feed post: %w", err)
-	}
-	block, ok := rec.(appbsky.GraphBlock)
-	if !ok {
-		return placestream.Defs_BlockView{}, fmt.Errorf("record is not a GraphBlock")
+	var block appbsky.GraphBlock
+	if err := glex.DecodeCBOR(b.Record, &block); err != nil {
+		return placestream.Defs_BlockView{}, fmt.Errorf("error decoding block record: %w", err)
 	}
 	return placestream.Defs_BlockView{
 		LexiconTypeID: "place.stream.defs#blockView",

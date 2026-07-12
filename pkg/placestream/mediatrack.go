@@ -10,14 +10,14 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.media.track", &MediaTrack{})
+	glex.RegisterType("place.stream.media.track", &MediaTrack{})
 }
 
 // A track for a video stream, either part of the source or a custom additional track. One of: video, audio, subtitles.
@@ -31,17 +31,20 @@ type MediaTrack struct {
 	Video *string `json:"video,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaTrack) RecordTypeID() string { return "place.stream.media.track" }
+
 func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.media.track"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaTrack) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type MediaTrack_Metadata struct {
@@ -57,7 +60,7 @@ func (t *MediaTrack_Metadata) MarshalJSON() ([]byte, error) {
 }
 
 func (t *MediaTrack_Metadata) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func (t *MediaTrack_Metadata) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *MediaTrack_Metadata) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -111,7 +114,7 @@ func (t *MediaTrack_Track) MarshalJSON() ([]byte, error) {
 }
 
 func (t *MediaTrack_Track) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -138,7 +141,7 @@ func (t *MediaTrack_Track) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *MediaTrack_Track) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -165,17 +168,22 @@ type MediaTrack_CommonMetadata struct {
 	Video    *Segment_Video `json:"video,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaTrack_CommonMetadata) RecordTypeID() string {
+	return "place.stream.media.track#commonMetadata"
+}
+
 func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.track"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.track#commonMetadata"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaTrack_TrackView is a "trackView" in the place.stream.media.track schema.
@@ -183,19 +191,22 @@ type MediaTrack_TrackView struct {
 	LexiconTypeID string                             `json:"$type"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
-	Record        *glexrt.LexiconTypeDecoder         `json:"record"`
+	Record        *glex.LexiconTypeDecoder           `json:"record"`
 	Uri           string                             `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *MediaTrack_TrackView) RecordTypeID() string { return "place.stream.media.track#trackView" }
 
 func (t *MediaTrack_TrackView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.track"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.track#trackView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaTrack_TrackView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
@@ -73,7 +73,7 @@ func TestDelegatedModeration(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_MODERATION_PERMISSION,
 		Repo:       streamer.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: delegationRecord},
+		Record:     &glex.LexiconTypeDecoder{Val: &delegationRecord},
 	})
 	require.NoError(t, err)
 
@@ -117,7 +117,7 @@ func TestDelegatedModeration(t *testing.T) {
 	blockRec, err := comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
 		Repo:       streamer.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: block},
+		Record:     &glex.LexiconTypeDecoder{Val: &block},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Block record created: %s", blockRec.Uri)
@@ -149,7 +149,7 @@ func TestDelegatedModeration(t *testing.T) {
 	msgRec, err := comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_MESSAGE,
 		Repo:       user.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Chat message created: %s", msgRec.Uri)
@@ -163,7 +163,7 @@ func TestDelegatedModeration(t *testing.T) {
 	gateRec, err := comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
 		Repo:       streamer.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: gate},
+		Record:     &glex.LexiconTypeDecoder{Val: &gate},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Gate record created: %s", gateRec.Uri)

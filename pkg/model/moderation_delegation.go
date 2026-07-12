@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
@@ -28,8 +28,8 @@ type ModerationDelegation struct {
 }
 
 func (md *ModerationDelegation) ToPermissionView() (placestream.ModerationDefs_PermissionView, error) {
-	rec, err := glexrt.CborDecodeValue(md.Record)
-	if err != nil {
+	var rec placestream.ModerationPermission
+	if err := glex.DecodeCBOR(md.Record, &rec); err != nil {
 		return placestream.ModerationDefs_PermissionView{}, fmt.Errorf("error decoding moderation permission: %w", err)
 	}
 
@@ -40,7 +40,7 @@ func (md *ModerationDelegation) ToPermissionView() (placestream.ModerationDefs_P
 			Did: md.RepoDID,
 		},
 		Cid:    md.CID,
-		Record: &glexrt.LexiconTypeDecoder{Val: rec},
+		Record: &glex.LexiconTypeDecoder{Val: &rec},
 		Uri:    uri,
 	}
 
@@ -87,19 +87,23 @@ func (m *DBModel) DeleteModerationDelegation(ctx context.Context, rkey string) e
 	return m.DB.WithContext(ctx).Where("rkey = ?", rkey).Delete(&ModerationDelegation{}).Error
 }
 
-func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (placestream.ModerationDefs_PermissionView, error) {
+func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error) {
 	var delegation ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").
 		Where("repo_did = ? AND moderator_did = ?", streamerDID, moderatorDID).
 		Order("created_at DESC").
 		First(&delegation).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return placestream.ModerationDefs_PermissionView{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return placestream.ModerationDefs_PermissionView{}, err
+		return nil, err
 	}
-	return delegation.ToPermissionView()
+	view, err := delegation.ToPermissionView()
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }
 
 // GetModerationDelegations returns ALL delegation records for a moderator from a specific streamer.

@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,15 +22,18 @@ type IngestDefs_Ingest struct {
 	Url string `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *IngestDefs_Ingest) RecordTypeID() string { return "place.stream.ingest.defs#ingest" }
+
 func (t *IngestDefs_Ingest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.ingest.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.ingest.defs#ingest"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *IngestDefs_Ingest) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

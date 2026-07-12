@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,21 +20,29 @@ type ModerationDeletePin_Input struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationDeletePin_Input) RecordTypeID() string { return "place.stream.moderation.deletePin" }
+
 func (t *ModerationDeletePin_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.deletePin#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.deletePin"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationDeletePin_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ModerationDeletePin_Output struct {
 	LexiconTypeID string `json:"$type"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ModerationDeletePin_Output) RecordTypeID() string {
+	return "place.stream.moderation.deletePin"
 }
 
 func (t *ModerationDeletePin_Output) MarshalCBOR(w io.Writer) error {
@@ -42,21 +50,21 @@ func (t *ModerationDeletePin_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.deletePin#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.deletePin"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationDeletePin_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ModerationDeletePin calls the XRPC method "place.stream.moderation.deletePin".
 //
 // Unpin a pinned chat message on behalf of a streamer. Requires 'message.pin' permission. Deletes the place.stream.chat.pinnedRecord from the streamer's repo.
-func ModerationDeletePin(ctx context.Context, c glexrt.LexClient, input *ModerationDeletePin_Input) (*ModerationDeletePin_Output, error) {
+func ModerationDeletePin(ctx context.Context, c glex.LexClient, input *ModerationDeletePin_Input) (*ModerationDeletePin_Output, error) {
 	var out ModerationDeletePin_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.moderation.deletePin", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.moderation.deletePin", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

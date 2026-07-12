@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/rivo/uniseg"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -39,21 +39,18 @@ func hashString(s string) int {
 }
 
 func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageView, error) {
-	rec, err := glexrt.CborDecodeValue(*m.ChatMessage)
-	if err != nil {
-		return placestream.ChatDefs_MessageView{}, fmt.Errorf("error decoding feed post: %w", err)
+	var msg placestream.ChatMessage
+	if err := glex.DecodeCBOR(*m.ChatMessage, &msg); err != nil {
+		return placestream.ChatDefs_MessageView{}, fmt.Errorf("error decoding chat message: %w", err)
 	}
-	// Truncate message text if it is a ChatMessage
-	if msg, ok := rec.(placestream.ChatMessage); ok {
-		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
-		if graphemeCount > 300 {
-			gr := uniseg.NewGraphemes(msg.Text)
-			var result strings.Builder
-			for count := 0; count < 300 && gr.Next(); count++ {
-				result.WriteString(gr.Str())
-			}
-			msg.Text = result.String()
+	// Truncate overlong message text
+	if uniseg.GraphemeClusterCount(msg.Text) > 300 {
+		gr := uniseg.NewGraphemes(msg.Text)
+		var result strings.Builder
+		for count := 0; count < 300 && gr.Next(); count++ {
+			result.WriteString(gr.Str())
 		}
+		msg.Text = result.String()
 	}
 
 	message := placestream.ChatDefs_MessageView{
@@ -67,7 +64,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageVi
 	if m.Repo != nil {
 		message.Author.Handle = m.Repo.Handle
 	}
-	message.Record = &glexrt.LexiconTypeDecoder{Val: rec}
+	message.Record = &glex.LexiconTypeDecoder{Val: &msg}
 	message.IndexedAt = m.IndexedAt.UTC().Format(time.RFC3339Nano)
 	if m.ChatProfile != nil {
 		scp, err := m.ChatProfile.ToStreamplaceChatProfile()

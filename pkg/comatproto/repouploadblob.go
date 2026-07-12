@@ -8,35 +8,38 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 type RepoUploadBlob_Output struct {
-	LexiconTypeID string      `json:"$type"`
-	Blob          glexrt.Blob `json:"blob"`
+	LexiconTypeID string    `json:"$type"`
+	Blob          glex.Blob `json:"blob"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *RepoUploadBlob_Output) RecordTypeID() string { return "com.atproto.repo.uploadBlob" }
 
 func (t *RepoUploadBlob_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.uploadBlob#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.uploadBlob"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoUploadBlob_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoUploadBlob calls the XRPC method "com.atproto.repo.uploadBlob".
 //
 // Upload a new blob, to be referenced from a repository record. The blob will be deleted if it is not referenced within a time window (eg, minutes). Blob restrictions (mimetype, size, etc) are enforced when the reference is created. Requires auth, implemented by PDS.
-func RepoUploadBlob(ctx context.Context, c glexrt.LexClient, input io.Reader) (*RepoUploadBlob_Output, error) {
+func RepoUploadBlob(ctx context.Context, c glex.LexClient, input io.Reader) (*RepoUploadBlob_Output, error) {
 	var out RepoUploadBlob_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "*/*", "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "*/*", "com.atproto.repo.uploadBlob", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

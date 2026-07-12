@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -49,7 +49,7 @@ func TestGetValidBadges(t *testing.T) {
 
 	t.Run("returns mod badge for moderator", func(t *testing.T) {
 		// Grant moderation permissions
-		perm := &placestream.ModerationPermission{
+		perm := placestream.ModerationPermission{
 			LexiconTypeID: "place.stream.moderation.permission",
 			Moderator:     moderatorDID,
 			Permissions:   []string{"ban", "hide"},
@@ -120,7 +120,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	t.Run("vip badge appears when issuance and selection match", func(t *testing.T) {
 		setupVIPIssuance(t, vipUserDID)
 
-		profile := buildProfileWithStreamerBadge(t, streamerDID, &comatproto.RepoStrongRef{Uri: issuanceURI, Cid: "bafyiss"})
+		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: issuanceURI, Cid: "bafyiss"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: vipUserDID,
 			Record:  &profile,
@@ -163,7 +163,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		require.NoError(t, err)
 
 		theftUserDID := "did:plc:theftuser"
-		profile := buildProfileWithStreamerBadge(t, streamerDID, &comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
+		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: theftUserDID,
 			Record:  &profile,
@@ -238,7 +238,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		profile := buildProfileWithGlobalBadge(t, &comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
+		profile := buildProfileWithGlobalBadge(t, comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
 		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
 			RepoDID: eventUserDID,
 			Record:  &profile,
@@ -259,12 +259,12 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	})
 }
 
-func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref *comatproto.RepoStrongRef) []byte {
+func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref comatproto.RepoStrongRef) []byte {
 	t.Helper()
 	profile := &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
 		Badges: &placestream.ChatProfile_BadgeSelections{
-			Streamer: []*placestream.ChatProfile_StreamerBadgeSelection{
+			Streamer: []placestream.ChatProfile_StreamerBadgeSelection{
 				{Streamer: streamerDID, Badge: ref},
 			},
 		},
@@ -275,12 +275,12 @@ func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref *comatp
 	return buf.Bytes()
 }
 
-func buildProfileWithGlobalBadge(t *testing.T, ref *comatproto.RepoStrongRef) []byte {
+func buildProfileWithGlobalBadge(t *testing.T, ref comatproto.RepoStrongRef) []byte {
 	t.Helper()
 	profile := &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
 		Badges: &placestream.ChatProfile_BadgeSelections{
-			Global: ref,
+			Global: &ref,
 		},
 	}
 	var buf bytes.Buffer

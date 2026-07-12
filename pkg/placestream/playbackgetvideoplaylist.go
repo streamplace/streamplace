@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // PlaybackGetVideoPlaylist calls the XRPC method "place.stream.playback.getVideoPlaylist".
@@ -20,7 +20,7 @@ import (
 // start: Start time in milliseconds from the beginning of the video. Defaults to 0. For a place.stream.video record whose source is a place.stream.media.defs#sourceClip, this is in the clip's local timeline (0 == the clip's start).
 // track: Track ID (stringified u32 matching the MUXL container) for a single-track media playlist. Omit for the master playlist.
 // uri: AT-URI of the record to play back (e.g. at://did:plc:.../place.stream.video/<rkey>).
-func PlaybackGetVideoPlaylist(ctx context.Context, c glexrt.LexClient, end *int64, sid string, start *int64, track string, uri string) ([]byte, error) {
+func PlaybackGetVideoPlaylist(ctx context.Context, c glex.LexClient, end *int64, sid string, start *int64, track string, uri string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -38,7 +38,7 @@ func PlaybackGetVideoPlaylist(ctx context.Context, c glexrt.LexClient, end *int6
 	}
 	params["uri"] = uri
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.playback.getVideoPlaylist", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.playback.getVideoPlaylist", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

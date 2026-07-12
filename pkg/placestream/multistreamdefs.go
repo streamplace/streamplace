@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -19,26 +19,34 @@ type MultistreamDefs_Event struct {
 	Status        string `json:"status"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MultistreamDefs_Event) RecordTypeID() string { return "place.stream.multistream.defs#event" }
+
 func (t *MultistreamDefs_Event) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.multistream.defs#event"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamDefs_Event) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MultistreamDefs_TargetView is a "targetView" in the place.stream.multistream.defs schema.
 type MultistreamDefs_TargetView struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           string                     `json:"cid"`
-	LatestEvent   *MultistreamDefs_Event     `json:"latestEvent,omitempty"`
-	Record        *glexrt.LexiconTypeDecoder `json:"record"`
-	Uri           string                     `json:"uri"`
+	LexiconTypeID string                   `json:"$type"`
+	Cid           string                   `json:"cid"`
+	LatestEvent   *MultistreamDefs_Event   `json:"latestEvent,omitempty"`
+	Record        *glex.LexiconTypeDecoder `json:"record"`
+	Uri           string                   `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *MultistreamDefs_TargetView) RecordTypeID() string {
+	return "place.stream.multistream.defs#targetView"
 }
 
 func (t *MultistreamDefs_TargetView) MarshalCBOR(w io.Writer) error {
@@ -46,10 +54,10 @@ func (t *MultistreamDefs_TargetView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.multistream.defs#targetView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamDefs_TargetView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

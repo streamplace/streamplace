@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,20 @@ type VodGetComments_Output struct {
 	Cursor        *string               `json:"cursor,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodGetComments_Output) RecordTypeID() string { return "place.stream.vod.getComments" }
+
 func (t *VodGetComments_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.getComments#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.getComments"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodGetComments_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodGetComments calls the XRPC method "place.stream.vod.getComments".
@@ -38,7 +41,7 @@ func (t *VodGetComments_Output) UnmarshalCBOR(r io.Reader) error {
 // cursor: Optional pagination cursor.
 // limit: Maximum number of comments to return.
 // video: AT-URI of the place.stream.video record.
-func VodGetComments(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64, video string) (*VodGetComments_Output, error) {
+func VodGetComments(ctx context.Context, c glex.LexClient, cursor string, limit *int64, video string) (*VodGetComments_Output, error) {
 	var out VodGetComments_Output
 
 	params := map[string]interface{}{}
@@ -50,7 +53,7 @@ func VodGetComments(ctx context.Context, c glexrt.LexClient, cursor string, limi
 	}
 	params["video"] = video
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.vod.getComments", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.vod.getComments", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

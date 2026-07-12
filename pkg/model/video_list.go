@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/placestream"
@@ -210,7 +210,7 @@ func (m *DBModel) videoContentBlob(ctx context.Context, row *Video) (string, err
 		if err != nil {
 			return "", err
 		}
-		if parent.Source.MediaDefs_SourceTracks == nil {
+		if parent == nil || parent.Source.MediaDefs_SourceTracks == nil {
 			return "", nil
 		}
 		return m.firstTrackBlobCID(ctx, parent.Source.MediaDefs_SourceTracks.Tracks)
@@ -230,7 +230,7 @@ func (m *DBModel) firstTrackBlobCID(ctx context.Context, tracks []comatproto.Rep
 	if err != nil {
 		return "", err
 	}
-	if track.Track.MediaDefs_MuxlTrack == nil {
+	if track == nil || track.Track.MediaDefs_MuxlTrack == nil {
 		return "", nil
 	}
 	return track.Track.MediaDefs_MuxlTrack.Blob, nil
@@ -289,7 +289,7 @@ func (m *DBModel) hydrateVideoView(ctx context.Context, row *Video) (placestream
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
-		Record:     &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: &rec},
 		ViewCounts: summary,
 		LikeCount:  likeCount,
 	}, nil

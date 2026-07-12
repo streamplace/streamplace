@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.key", &Key{})
+	glex.RegisterType("place.stream.key", &Key{})
 }
 
 // Record linking an atproto identity with a stream signing key
@@ -26,15 +26,18 @@ type Key struct {
 	SigningKey string `json:"signingKey"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Key) RecordTypeID() string { return "place.stream.key" }
+
 func (t *Key) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.key"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Key) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -143,10 +143,10 @@ var DesiredRenditions = []Rendition{
 
 // GenerateRenditions generates renditions for a given spseg
 func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
-	vid := spseg.Video[0]
-	if vid.Codec == "" {
+	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
 	}
+	vid := spseg.Video[0]
 	rs := []Rendition{}
 	for _, r := range DesiredRenditions {
 		vidWidth := int64(vid.Width)

@@ -7,7 +7,7 @@ package comatproto
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -25,7 +25,7 @@ type LabelDefs_Label struct {
 	// neg: If true, this is a negation label, overwriting a previous label.
 	Neg *bool `json:"neg,omitempty"`
 	// sig: Signature of dag-cbor encoded label.
-	Sig glexrt.Bytes `json:"sig,omitempty"`
+	Sig glex.Bytes `json:"sig,omitempty"`
 	// src: DID of the actor who created this label.
 	Src string `json:"src"`
 	// uri: AT URI of the record, repository (account), or other resource that this label applies to.
@@ -36,17 +36,20 @@ type LabelDefs_Label struct {
 	Ver *int64 `json:"ver,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelDefs_Label) RecordTypeID() string { return "com.atproto.label.defs#label" }
+
 func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.label.defs#label"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelDefs_Label) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelDefs_LabelValueDefinition is a "labelValueDefinition" in the com.atproto.label.defs schema.
@@ -67,17 +70,22 @@ type LabelDefs_LabelValueDefinition struct {
 	Severity string `json:"severity"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelDefs_LabelValueDefinition) RecordTypeID() string {
+	return "com.atproto.label.defs#labelValueDefinition"
+}
+
 func (t *LabelDefs_LabelValueDefinition) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.label.defs#labelValueDefinition"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelDefs_LabelValueDefinition) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelDefs_LabelValueDefinitionStrings is a "labelValueDefinitionStrings" in the com.atproto.label.defs schema.
@@ -93,17 +101,22 @@ type LabelDefs_LabelValueDefinitionStrings struct {
 	Name string `json:"name"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelDefs_LabelValueDefinitionStrings) RecordTypeID() string {
+	return "com.atproto.label.defs#labelValueDefinitionStrings"
+}
+
 func (t *LabelDefs_LabelValueDefinitionStrings) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.label.defs#labelValueDefinitionStrings"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelDefs_SelfLabel is a "selfLabel" in the com.atproto.label.defs schema.
@@ -115,17 +128,20 @@ type LabelDefs_SelfLabel struct {
 	Val string `json:"val"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelDefs_SelfLabel) RecordTypeID() string { return "com.atproto.label.defs#selfLabel" }
+
 func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.label.defs#selfLabel"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelDefs_SelfLabel) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LabelDefs_SelfLabels is a "selfLabels" in the com.atproto.label.defs schema.
@@ -136,15 +152,18 @@ type LabelDefs_SelfLabels struct {
 	Values        []LabelDefs_SelfLabel `json:"values"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LabelDefs_SelfLabels) RecordTypeID() string { return "com.atproto.label.defs#selfLabels" }
+
 func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LabelDefs_SelfLabels) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

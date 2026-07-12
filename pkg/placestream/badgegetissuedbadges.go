@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,17 +22,22 @@ type BadgeGetIssuedBadges_Output struct {
 	User BadgeDefs_BadgeSlot `json:"user"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BadgeGetIssuedBadges_Output) RecordTypeID() string {
+	return "place.stream.badge.getIssuedBadges"
+}
+
 func (t *BadgeGetIssuedBadges_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.getIssuedBadges#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.badge.getIssuedBadges"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeGetIssuedBadges_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BadgeGetIssuedBadges calls the XRPC method "place.stream.badge.getIssuedBadges".
@@ -40,7 +45,7 @@ func (t *BadgeGetIssuedBadges_Output) UnmarshalCBOR(r io.Reader) error {
 // Returns badges issued to the authenticated user, organized by display slot. Also indicates which badges are currently selected in the user's chat profile.
 //
 // streamer: DID of the streamer channel to compute the server badge against.
-func BadgeGetIssuedBadges(ctx context.Context, c glexrt.LexClient, streamer string) (*BadgeGetIssuedBadges_Output, error) {
+func BadgeGetIssuedBadges(ctx context.Context, c glex.LexClient, streamer string) (*BadgeGetIssuedBadges_Output, error) {
 	var out BadgeGetIssuedBadges_Output
 
 	params := map[string]interface{}{}
@@ -48,7 +53,7 @@ func BadgeGetIssuedBadges(ctx context.Context, c glexrt.LexClient, streamer stri
 		params["streamer"] = streamer
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.badge.getIssuedBadges", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.badge.getIssuedBadges", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

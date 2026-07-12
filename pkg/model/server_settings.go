@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -30,13 +30,9 @@ func (m *ServerSettings) ToStreamplaceServerSettings() (placestream.ServerSettin
 	if m.Record == nil {
 		return placestream.ServerSettings{}, fmt.Errorf("no record data")
 	}
-	rec, err := glexrt.CborDecodeValue(*m.Record)
-	if err != nil {
+	var ss placestream.ServerSettings
+	if err := glex.DecodeCBOR(*m.Record, &ss); err != nil {
 		return placestream.ServerSettings{}, fmt.Errorf("error decoding server settings: %w", err)
-	}
-	ss, ok := rec.(placestream.ServerSettings)
-	if !ok {
-		return placestream.ServerSettings{}, fmt.Errorf("invalid server settings")
 	}
 	return ss, nil
 }

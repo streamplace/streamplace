@@ -21,7 +21,7 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
@@ -40,8 +40,8 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	if err != nil {
 		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
 	}
-	cb, err := glexrt.CborDecodeValue(*recCBOR)
-	if errors.Is(err, glexrt.ErrUnrecognizedType) {
+	cb, err := glex.CborDecodeValue(*recCBOR)
+	if errors.Is(err, glex.ErrUnrecognizedType) {
 		log.Debug(ctx, "unrecognized record type", "key", rkey.String(), "type", err)
 		return nil
 	} else if err != nil {
@@ -600,7 +600,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				Did:    userDID,
 				Handle: repo.Handle,
 			},
-			Record: &glexrt.LexiconTypeDecoder{Val: rec},
+			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
 		// publishes with an empty string because we're discovering the stream
 		go atsync.Bus.Publish("", view)
@@ -640,7 +640,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				Did:    userDID,
 				Handle: repo.Handle,
 			},
-			Record: &glexrt.LexiconTypeDecoder{Val: rec},
+			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
@@ -749,7 +749,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Tracks not backed by a muxlTrack (we don't define any other
 		// shape yet) are skipped with a warning — there'd be no blob
 		// to key the row off of.
-		if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+		if rec.Track.MediaDefs_MuxlTrack == nil {
 			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
 			return nil
 		}

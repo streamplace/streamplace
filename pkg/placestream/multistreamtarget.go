@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.multistream.target", &MultistreamTarget{})
+	glex.RegisterType("place.stream.multistream.target", &MultistreamTarget{})
 }
 
 // An external server for rebroadcasting a Streamplace stream
@@ -28,15 +28,18 @@ type MultistreamTarget struct {
 	Url string `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MultistreamTarget) RecordTypeID() string { return "place.stream.multistream.target" }
+
 func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.multistream.target"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

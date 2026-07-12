@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/comatproto"
@@ -346,7 +346,7 @@ func (state *StatefulDB) DeleteDraft(ctx context.Context, uri string) (bool, err
 // ToDraftView converts a stored row + its CBOR record into the lexicon view.
 // The record field is typed as `unknown` in the lexicon (the @atproto/api
 // client validator can't validate a ref to a record-type lexicon), which
-// generates a *glexrt.LexiconTypeDecoder in Go — so we wrap the decoded
+// generates a *glex.LexiconTypeDecoder in Go — so we wrap the decoded
 // record the same way commentView/livestreamView do.
 func (dv *DraftVideo) ToDraftView() (placestream.VodDraftDefs_DraftView, error) {
 	rec, err := unmarshalDraft(dv.Data)
@@ -359,6 +359,6 @@ func (dv *DraftVideo) ToDraftView() (placestream.VodDraftDefs_DraftView, error) 
 	return placestream.VodDraftDefs_DraftView{
 		Uri:    dv.URI,
 		Cid:    dv.CID,
-		Record: &glexrt.LexiconTypeDecoder{Val: rec},
+		Record: &glex.LexiconTypeDecoder{Val: &rec},
 	}, nil
 }

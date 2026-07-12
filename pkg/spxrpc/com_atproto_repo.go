@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"io"
 	"net/http"
 	"strings"
@@ -96,19 +96,27 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 		if err != nil {
 			return nil, fmt.Errorf("list server repo collections: %w", err)
 		}
+		didDoc, err := glex.RawJSON(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase))
+		if err != nil {
+			return nil, fmt.Errorf("marshal did doc: %w", err)
+		}
 		return &comatproto.RepoDescribeRepo_Output{
 			Handle:          s.cli.ServerDID(),
 			Did:             s.cli.ServerDID(),
-			DidDoc:          &glexrt.LexiconTypeDecoder{Val: atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase)},
+			DidDoc:          &glex.LexiconTypeDecoder{Val: didDoc},
 			Collections:     collections,
 			HandleIsCorrect: true,
 		}, nil
 	}
 
+	didDoc, err := glex.RawJSON(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase))
+	if err != nil {
+		return nil, fmt.Errorf("marshal did doc: %w", err)
+	}
 	return &comatproto.RepoDescribeRepo_Output{
 		Handle: s.cli.BroadcasterDID(),
 		Did:    s.cli.BroadcasterDID(),
-		DidDoc: &glexrt.LexiconTypeDecoder{Val: atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase)},
+		DidDoc: &glex.LexiconTypeDecoder{Val: didDoc},
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},

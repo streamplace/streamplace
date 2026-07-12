@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -16,17 +16,20 @@ type VodCreateDraft_Input struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodCreateDraft_Input) RecordTypeID() string { return "place.stream.vod.createDraft" }
+
 func (t *VodCreateDraft_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.createDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.createDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodCreateDraft_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type VodCreateDraft_Output struct {
@@ -35,26 +38,29 @@ type VodCreateDraft_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodCreateDraft_Output) RecordTypeID() string { return "place.stream.vod.createDraft" }
+
 func (t *VodCreateDraft_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.createDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.createDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodCreateDraft_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodCreateDraft calls the XRPC method "place.stream.vod.createDraft".
 //
 // Create an empty draft VOD in the 'processing' state. The draft is the durable anchor for an upload: the client creates it first, then passes its URI to place.stream.media.createUpload so the upload's processing fills this draft. Lets the user start editing metadata while the upload runs, and supports re-upload (a failed upload leaves the draft intact; a new createUpload with the same draftUri re-points it).
-func VodCreateDraft(ctx context.Context, c glexrt.LexClient, input *VodCreateDraft_Input) (*VodCreateDraft_Output, error) {
+func VodCreateDraft(ctx context.Context, c glex.LexClient, input *VodCreateDraft_Input) (*VodCreateDraft_Output, error) {
 	var out VodCreateDraft_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.vod.createDraft", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.vod.createDraft", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

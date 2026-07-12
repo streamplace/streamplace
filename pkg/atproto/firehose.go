@@ -20,7 +20,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/repomgr"
 	"github.com/ipfs/go-cid"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
@@ -446,7 +446,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 				log.Error(ctx, "reading record from event blocks (CAR)", "err", err)
 				break
 			}
-			if !op.Cid.Defined() || glexrt.Link(rc) != glexrt.Link(cid.Cid(*op.Cid)) {
+			if !op.Cid.Defined() || glex.Link(rc) != glex.Link(cid.Cid(*op.Cid)) {
 				log.Error(ctx, "mismatch between commit op CID and record block", "recordCID", rc, "opCID", op.Cid)
 				break
 			}

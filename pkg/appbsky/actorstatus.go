@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.actor.status", &ActorStatus{})
+	glex.RegisterType("app.bsky.actor.status", &ActorStatus{})
 }
 
 // A declaration of a Bluesky account status.
@@ -30,17 +30,20 @@ type ActorStatus struct {
 	Status string `json:"status"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorStatus) RecordTypeID() string { return "app.bsky.actor.status" }
+
 func (t *ActorStatus) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.actor.status"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorStatus) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // An optional embed associated with the status.
@@ -57,7 +60,7 @@ func (t *ActorStatus_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorStatus_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func (t *ActorStatus_Embed) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorStatus_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}

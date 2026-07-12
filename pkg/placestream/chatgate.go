@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.chat.gate", &ChatGate{})
+	glex.RegisterType("place.stream.chat.gate", &ChatGate{})
 }
 
 // Record defining a single gated chat message.
@@ -22,15 +22,18 @@ type ChatGate struct {
 	HiddenMessage string `json:"hiddenMessage"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatGate) RecordTypeID() string { return "place.stream.chat.gate" }
+
 func (t *ChatGate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.chat.gate"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatGate) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

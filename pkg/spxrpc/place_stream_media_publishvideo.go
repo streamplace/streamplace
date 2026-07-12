@@ -24,9 +24,6 @@ func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context, body *p
 	if body.UploadId == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uploadId is required")
 	}
-	if false {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "record is required")
-	}
 	if s.playbackStore == nil {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}

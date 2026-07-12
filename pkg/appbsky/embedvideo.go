@@ -7,12 +7,12 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.embed.video#main", &EmbedVideo{})
+	glex.RegisterType("app.bsky.embed.video#main", &EmbedVideo{})
 }
 
 type EmbedVideo struct {
@@ -24,8 +24,11 @@ type EmbedVideo struct {
 	// presentation: A hint to the client about how to present the video.
 	Presentation *string `json:"presentation,omitempty"`
 	// video: The mp4 video file. May be up to 100mb, formerly limited to 50mb.
-	Video glexrt.Blob `json:"video"`
+	Video glex.Blob `json:"video"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedVideo) RecordTypeID() string { return "app.bsky.embed.video" }
 
 func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -33,31 +36,34 @@ func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.embed.video"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedVideo) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.
 type EmbedVideo_Caption struct {
-	LexiconTypeID string      `json:"$type"`
-	File          glexrt.Blob `json:"file"`
-	Lang          string      `json:"lang"`
+	LexiconTypeID string    `json:"$type"`
+	File          glex.Blob `json:"file"`
+	Lang          string    `json:"lang"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedVideo_Caption) RecordTypeID() string { return "app.bsky.embed.video#caption" }
 
 func (t *EmbedVideo_Caption) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.video"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.video#caption"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedVideo_Caption) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedVideo_View is a "view" in the app.bsky.embed.video schema.
@@ -72,15 +78,18 @@ type EmbedVideo_View struct {
 	Thumbnail    *string `json:"thumbnail,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedVideo_View) RecordTypeID() string { return "app.bsky.embed.video#view" }
+
 func (t *EmbedVideo_View) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.video"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.video#view"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedVideo_View) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

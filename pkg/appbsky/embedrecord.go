@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
+	glex.RegisterType("app.bsky.embed.record#main", &EmbedRecord{})
 }
 
 type EmbedRecord struct {
@@ -24,17 +24,20 @@ type EmbedRecord struct {
 	Record        comatproto.RepoStrongRef `json:"record"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord) RecordTypeID() string { return "app.bsky.embed.record" }
+
 func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedRecord_View is a "view" in the app.bsky.embed.record schema.
@@ -43,17 +46,20 @@ type EmbedRecord_View struct {
 	Record        EmbedRecord_View_Record `json:"record"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord_View) RecordTypeID() string { return "app.bsky.embed.record#view" }
+
 func (t *EmbedRecord_View) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.record#view"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord_View) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type EmbedRecord_View_Record struct {
@@ -104,7 +110,7 @@ func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -173,7 +179,7 @@ func (t *EmbedRecord_View_Record) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *EmbedRecord_View_Record) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -216,17 +222,20 @@ type EmbedRecord_ViewBlocked struct {
 	Uri           string                 `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord_ViewBlocked) RecordTypeID() string { return "app.bsky.embed.record#viewBlocked" }
+
 func (t *EmbedRecord_ViewBlocked) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord_ViewBlocked) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedRecord_ViewDetached is a "viewDetached" in the app.bsky.embed.record schema.
@@ -236,17 +245,20 @@ type EmbedRecord_ViewDetached struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord_ViewDetached) RecordTypeID() string { return "app.bsky.embed.record#viewDetached" }
+
 func (t *EmbedRecord_ViewDetached) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord_ViewDetached) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.
@@ -256,17 +268,20 @@ type EmbedRecord_ViewNotFound struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord_ViewNotFound) RecordTypeID() string { return "app.bsky.embed.record#viewNotFound" }
+
 func (t *EmbedRecord_ViewNotFound) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord_ViewNotFound) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedRecord_ViewRecord is a "viewRecord" in the app.bsky.embed.record schema.
@@ -283,20 +298,23 @@ type EmbedRecord_ViewRecord struct {
 	RepostCount   *int64                               `json:"repostCount,omitempty"`
 	Uri           string                               `json:"uri"`
 	// value: The record data itself.
-	Value *glexrt.LexiconTypeDecoder `json:"value"`
+	Value *glex.LexiconTypeDecoder `json:"value"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecord_ViewRecord) RecordTypeID() string { return "app.bsky.embed.record#viewRecord" }
 
 func (t *EmbedRecord_ViewRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.record#viewRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecord_ViewRecord) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {
@@ -332,7 +350,7 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -383,7 +401,7 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}

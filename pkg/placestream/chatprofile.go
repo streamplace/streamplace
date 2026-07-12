@@ -7,13 +7,13 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.chat.profile", &ChatProfile{})
+	glex.RegisterType("place.stream.chat.profile", &ChatProfile{})
 }
 
 // Record containing customizations for a user's chat profile.
@@ -26,17 +26,20 @@ type ChatProfile struct {
 	SelfLabels []string `json:"selfLabels,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatProfile) RecordTypeID() string { return "place.stream.chat.profile" }
+
 func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.chat.profile"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatProfile) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ChatProfile_BadgeSelections is a "badgeSelections" in the place.stream.chat.profile schema.
@@ -50,17 +53,22 @@ type ChatProfile_BadgeSelections struct {
 	Streamer []ChatProfile_StreamerBadgeSelection `json:"streamer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatProfile_BadgeSelections) RecordTypeID() string {
+	return "place.stream.chat.profile#badgeSelections"
+}
+
 func (t *ChatProfile_BadgeSelections) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.profile#badgeSelections"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatProfile_BadgeSelections) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ChatProfile_Color is a "color" in the place.stream.chat.profile schema.
@@ -73,17 +81,20 @@ type ChatProfile_Color struct {
 	Red           int64  `json:"red"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatProfile_Color) RecordTypeID() string { return "place.stream.chat.profile#color" }
+
 func (t *ChatProfile_Color) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.profile#color"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatProfile_Color) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ChatProfile_StreamerBadgeSelection is a "streamerBadgeSelection" in the place.stream.chat.profile schema.
@@ -97,15 +108,20 @@ type ChatProfile_StreamerBadgeSelection struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatProfile_StreamerBadgeSelection) RecordTypeID() string {
+	return "place.stream.chat.profile#streamerBadgeSelection"
+}
+
 func (t *ChatProfile_StreamerBadgeSelection) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.profile#streamerBadgeSelection"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatProfile_StreamerBadgeSelection) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

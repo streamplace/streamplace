@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -19,17 +19,20 @@ type MediaGetVideoList_Output struct {
 	Videos []MediaGetVideo_VideoView `json:"videos"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaGetVideoList_Output) RecordTypeID() string { return "place.stream.media.getVideoList" }
+
 func (t *MediaGetVideoList_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getVideoList#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.getVideoList"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaGetVideoList_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaGetVideoList calls the XRPC method "place.stream.media.getVideoList".
@@ -39,7 +42,7 @@ func (t *MediaGetVideoList_Output) UnmarshalCBOR(r io.Reader) error {
 // cursor: Pagination cursor from a previous response.
 // limit: Maximum number of videos to return.
 // repo: DID or handle of the repo whose videos to list. Omit to list videos globally across all repos.
-func MediaGetVideoList(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64, repo string) (*MediaGetVideoList_Output, error) {
+func MediaGetVideoList(ctx context.Context, c glex.LexClient, cursor string, limit *int64, repo string) (*MediaGetVideoList_Output, error) {
 	var out MediaGetVideoList_Output
 
 	params := map[string]interface{}{}
@@ -53,7 +56,7 @@ func MediaGetVideoList(ctx context.Context, c glexrt.LexClient, cursor string, l
 		params["repo"] = repo
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.media.getVideoList", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.media.getVideoList", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
@@ -31,7 +31,7 @@ func (bo *BroadcastOrigin) TableName() string {
 }
 
 func (bo *BroadcastOrigin) ToBroadcastOriginView() (placestream.BroadcastDefs_BroadcastOriginView, error) {
-	rec, err := glexrt.CborDecodeValue(bo.Record)
+	rec, err := glex.CborDecodeValue(bo.Record)
 	if err != nil {
 		return placestream.BroadcastDefs_BroadcastOriginView{}, fmt.Errorf("error decoding broadcast origin: %w", err)
 	}
@@ -40,7 +40,7 @@ func (bo *BroadcastOrigin) ToBroadcastOriginView() (placestream.BroadcastDefs_Br
 			Did: bo.StreamerRepoDID,
 		},
 		Cid:    bo.CID,
-		Record: &glexrt.LexiconTypeDecoder{Val: rec},
+		Record: &glex.LexiconTypeDecoder{Val: rec},
 		Uri:    bo.URI,
 	}, nil
 }

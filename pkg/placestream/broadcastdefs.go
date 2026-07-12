@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -17,8 +17,13 @@ type BroadcastDefs_BroadcastOriginView struct {
 	LexiconTypeID string                             `json:"$type"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
-	Record        *glexrt.LexiconTypeDecoder         `json:"record"`
+	Record        *glex.LexiconTypeDecoder           `json:"record"`
 	Uri           string                             `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *BroadcastDefs_BroadcastOriginView) RecordTypeID() string {
+	return "place.stream.broadcast.defs#broadcastOriginView"
 }
 
 func (t *BroadcastDefs_BroadcastOriginView) MarshalCBOR(w io.Writer) error {
@@ -26,10 +31,10 @@ func (t *BroadcastDefs_BroadcastOriginView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.broadcast.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.broadcast.defs#broadcastOriginView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BroadcastDefs_BroadcastOriginView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

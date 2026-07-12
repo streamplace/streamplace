@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,26 +17,29 @@ type ServerGetStorage_Output struct {
 	Storage       *ServerDefs_Storage `json:"storage,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerGetStorage_Output) RecordTypeID() string { return "place.stream.server.getStorage" }
+
 func (t *ServerGetStorage_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.getStorage#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.getStorage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerGetStorage_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerGetStorage calls the XRPC method "place.stream.server.getStorage".
 //
 // Get S3 storage configuration (with masked secret key).
-func ServerGetStorage(ctx context.Context, c glexrt.LexClient) (*ServerGetStorage_Output, error) {
+func ServerGetStorage(ctx context.Context, c glex.LexClient) (*ServerGetStorage_Output, error) {
 	var out ServerGetStorage_Output
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.server.getStorage", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.server.getStorage", nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,23 +18,26 @@ type RepoDescribeRepo_Output struct {
 	Collections []string `json:"collections"`
 	Did         string   `json:"did"`
 	// didDoc: The complete DID document for this account.
-	DidDoc *glexrt.LexiconTypeDecoder `json:"didDoc"`
-	Handle string                     `json:"handle"`
+	DidDoc *glex.LexiconTypeDecoder `json:"didDoc"`
+	Handle string                   `json:"handle"`
 	// handleIsCorrect: Indicates if handle is currently valid (resolves bi-directionally)
 	HandleIsCorrect bool `json:"handleIsCorrect"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *RepoDescribeRepo_Output) RecordTypeID() string { return "com.atproto.repo.describeRepo" }
 
 func (t *RepoDescribeRepo_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.describeRepo#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.describeRepo"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoDescribeRepo_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoDescribeRepo calls the XRPC method "com.atproto.repo.describeRepo".
@@ -42,13 +45,13 @@ func (t *RepoDescribeRepo_Output) UnmarshalCBOR(r io.Reader) error {
 // Get information about an account and repository, including the list of collections. Does not require auth.
 //
 // repo: The handle or DID of the repo.
-func RepoDescribeRepo(ctx context.Context, c glexrt.LexClient, repo string) (*RepoDescribeRepo_Output, error) {
+func RepoDescribeRepo(ctx context.Context, c glex.LexClient, repo string) (*RepoDescribeRepo_Output, error) {
 	var out RepoDescribeRepo_Output
 
 	params := map[string]interface{}{}
 	params["repo"] = repo
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "com.atproto.repo.describeRepo", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "com.atproto.repo.describeRepo", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

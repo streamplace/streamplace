@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.chat.pinnedRecord", &ChatPinnedRecord{})
+	glex.RegisterType("place.stream.chat.pinnedRecord", &ChatPinnedRecord{})
 }
 
 // Record pinning a chat message for prominent display.
@@ -28,15 +28,18 @@ type ChatPinnedRecord struct {
 	PinnedMessage string `json:"pinnedMessage"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatPinnedRecord) RecordTypeID() string { return "place.stream.chat.pinnedRecord" }
+
 func (t *ChatPinnedRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.chat.pinnedRecord"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatPinnedRecord) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

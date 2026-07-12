@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,20 @@ type ServerDeleteWebhook_Input struct {
 	Id string `json:"id"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerDeleteWebhook_Input) RecordTypeID() string { return "place.stream.server.deleteWebhook" }
+
 func (t *ServerDeleteWebhook_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.deleteWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.deleteWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerDeleteWebhook_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ServerDeleteWebhook_Output struct {
@@ -37,26 +40,31 @@ type ServerDeleteWebhook_Output struct {
 	Success bool `json:"success"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerDeleteWebhook_Output) RecordTypeID() string {
+	return "place.stream.server.deleteWebhook"
+}
+
 func (t *ServerDeleteWebhook_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.deleteWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.deleteWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerDeleteWebhook_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerDeleteWebhook calls the XRPC method "place.stream.server.deleteWebhook".
 //
 // Delete an existing webhook.
-func ServerDeleteWebhook(ctx context.Context, c glexrt.LexClient, input *ServerDeleteWebhook_Input) (*ServerDeleteWebhook_Output, error) {
+func ServerDeleteWebhook(ctx context.Context, c glex.LexClient, input *ServerDeleteWebhook_Input) (*ServerDeleteWebhook_Output, error) {
 	var out ServerDeleteWebhook_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.server.deleteWebhook", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.server.deleteWebhook", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -22,24 +22,27 @@ type VodDefs_CommentView struct {
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
 	// likeCount: Number of likes on this comment.
-	LikeCount int64                      `json:"likeCount"`
-	Record    *glexrt.LexiconTypeDecoder `json:"record"`
+	LikeCount int64                    `json:"likeCount"`
+	Record    *glex.LexiconTypeDecoder `json:"record"`
 	// replyTo: The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further.
 	ReplyTo *VodDefs_CommentView_ReplyTo `json:"replyTo,omitempty"`
 	Uri     string                       `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *VodDefs_CommentView) RecordTypeID() string { return "place.stream.vod.defs#commentView" }
 
 func (t *VodDefs_CommentView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.defs#commentView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodDefs_CommentView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further.
@@ -56,7 +59,7 @@ func (t *VodDefs_CommentView_ReplyTo) MarshalJSON() ([]byte, error) {
 }
 
 func (t *VodDefs_CommentView_ReplyTo) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -83,7 +86,7 @@ func (t *VodDefs_CommentView_ReplyTo) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *VodDefs_CommentView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -106,9 +109,14 @@ type VodDefs_CommentViewBasic struct {
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
 	// likeCount: Number of likes on this comment.
-	LikeCount int64                      `json:"likeCount"`
-	Record    *glexrt.LexiconTypeDecoder `json:"record"`
-	Uri       string                     `json:"uri"`
+	LikeCount int64                    `json:"likeCount"`
+	Record    *glex.LexiconTypeDecoder `json:"record"`
+	Uri       string                   `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *VodDefs_CommentViewBasic) RecordTypeID() string {
+	return "place.stream.vod.defs#commentViewBasic"
 }
 
 func (t *VodDefs_CommentViewBasic) MarshalCBOR(w io.Writer) error {
@@ -116,10 +124,10 @@ func (t *VodDefs_CommentViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodDefs_CommentViewBasic) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

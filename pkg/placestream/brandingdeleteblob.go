@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,20 @@ type BrandingDeleteBlob_Input struct {
 	Key string `json:"key"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingDeleteBlob_Input) RecordTypeID() string { return "place.stream.branding.deleteBlob" }
+
 func (t *BrandingDeleteBlob_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.deleteBlob#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.deleteBlob"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingDeleteBlob_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type BrandingDeleteBlob_Output struct {
@@ -38,26 +41,29 @@ type BrandingDeleteBlob_Output struct {
 	Success       bool   `json:"success"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingDeleteBlob_Output) RecordTypeID() string { return "place.stream.branding.deleteBlob" }
+
 func (t *BrandingDeleteBlob_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.deleteBlob#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.deleteBlob"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingDeleteBlob_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BrandingDeleteBlob calls the XRPC method "place.stream.branding.deleteBlob".
 //
 // Delete a branding asset blob. Requires admin authorization.
-func BrandingDeleteBlob(ctx context.Context, c glexrt.LexClient, input *BrandingDeleteBlob_Input) (*BrandingDeleteBlob_Output, error) {
+func BrandingDeleteBlob(ctx context.Context, c glex.LexClient, input *BrandingDeleteBlob_Input) (*BrandingDeleteBlob_Output, error) {
 	var out BrandingDeleteBlob_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.branding.deleteBlob", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.branding.deleteBlob", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

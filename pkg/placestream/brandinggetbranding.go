@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,22 @@ type BrandingGetBranding_Output struct {
 	Assets []BrandingGetBranding_BrandingAsset `json:"assets"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingGetBranding_Output) RecordTypeID() string {
+	return "place.stream.branding.getBranding"
+}
+
 func (t *BrandingGetBranding_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.getBranding#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.getBranding"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingGetBranding_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BrandingGetBranding calls the XRPC method "place.stream.branding.getBranding".
@@ -36,7 +41,7 @@ func (t *BrandingGetBranding_Output) UnmarshalCBOR(r io.Reader) error {
 // Get all branding configuration for the broadcaster.
 //
 // broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
-func BrandingGetBranding(ctx context.Context, c glexrt.LexClient, broadcaster string) (*BrandingGetBranding_Output, error) {
+func BrandingGetBranding(ctx context.Context, c glex.LexClient, broadcaster string) (*BrandingGetBranding_Output, error) {
 	var out BrandingGetBranding_Output
 
 	params := map[string]interface{}{}
@@ -44,7 +49,7 @@ func BrandingGetBranding(ctx context.Context, c glexrt.LexClient, broadcaster st
 		params["broadcaster"] = broadcaster
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.branding.getBranding", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.branding.getBranding", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -67,15 +72,20 @@ type BrandingGetBranding_BrandingAsset struct {
 	Width *int64 `json:"width,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingGetBranding_BrandingAsset) RecordTypeID() string {
+	return "place.stream.branding.getBranding#brandingAsset"
+}
+
 func (t *BrandingGetBranding_BrandingAsset) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.getBranding"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.getBranding#brandingAsset"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingGetBranding_BrandingAsset) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

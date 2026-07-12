@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,20 @@ type MediaPublishVideo_Input struct {
 	UploadId string `json:"uploadId"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaPublishVideo_Input) RecordTypeID() string { return "place.stream.media.publishVideo" }
+
 func (t *MediaPublishVideo_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.publishVideo#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.publishVideo"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaPublishVideo_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type MediaPublishVideo_Output struct {
@@ -41,26 +44,29 @@ type MediaPublishVideo_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaPublishVideo_Output) RecordTypeID() string { return "place.stream.media.publishVideo" }
+
 func (t *MediaPublishVideo_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.publishVideo#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.publishVideo"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaPublishVideo_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaPublishVideo calls the XRPC method "place.stream.media.publishVideo".
 //
 // Publish a place.stream.video record for a finished upload, server-side. The caller supplies the record it would otherwise putRecord itself; the server overrides the fields it is authoritative about (source tracks and durationMs, taken from the processed upload) and, if the record carries no thumb, generates one from the video and attaches it. The record is written to the authenticated user's repo.
-func MediaPublishVideo(ctx context.Context, c glexrt.LexClient, input *MediaPublishVideo_Input) (*MediaPublishVideo_Output, error) {
+func MediaPublishVideo(ctx context.Context, c glex.LexClient, input *MediaPublishVideo_Input) (*MediaPublishVideo_Output, error) {
 	var out MediaPublishVideo_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.media.publishVideo", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.media.publishVideo", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

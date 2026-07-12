@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -20,13 +20,9 @@ func (m *ChatProfile) ToStreamplaceChatProfile() (placestream.ChatProfile, error
 	if m == nil || m.Record == nil {
 		return placestream.ChatProfile{}, fmt.Errorf("chat profile is nil")
 	}
-	rec, err := glexrt.CborDecodeValue(*m.Record)
-	if err != nil {
-		return placestream.ChatProfile{}, fmt.Errorf("error decoding feed post: %w", err)
-	}
-	scp, ok := rec.(placestream.ChatProfile)
-	if !ok {
-		return placestream.ChatProfile{}, fmt.Errorf("invalid chat profile")
+	var scp placestream.ChatProfile
+	if err := glex.DecodeCBOR(*m.Record, &scp); err != nil {
+		return placestream.ChatProfile{}, fmt.Errorf("error decoding chat profile: %w", err)
 	}
 	return scp, nil
 }
@@ -51,8 +47,8 @@ func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*ChatProf
 	return &profile, nil
 }
 
-func ColorToHex(color placestream.ChatProfile_Color) string {
-	if true {
+func ColorToHex(color *placestream.ChatProfile_Color) string {
+	if color == nil {
 		return "#f8baca"
 	}
 	hex := fmt.Sprintf("#%02x%02x%02x", color.Red, color.Green, color.Blue)

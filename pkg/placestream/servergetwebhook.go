@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,17 +17,20 @@ type ServerGetWebhook_Output struct {
 	Webhook       ServerDefs_Webhook `json:"webhook"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerGetWebhook_Output) RecordTypeID() string { return "place.stream.server.getWebhook" }
+
 func (t *ServerGetWebhook_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.getWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.getWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerGetWebhook_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerGetWebhook calls the XRPC method "place.stream.server.getWebhook".
@@ -35,13 +38,13 @@ func (t *ServerGetWebhook_Output) UnmarshalCBOR(r io.Reader) error {
 // Get details for a specific webhook.
 //
 // id: The ID of the webhook to retrieve.
-func ServerGetWebhook(ctx context.Context, c glexrt.LexClient, id string) (*ServerGetWebhook_Output, error) {
+func ServerGetWebhook(ctx context.Context, c glex.LexClient, id string) (*ServerGetWebhook_Output, error) {
 	var out ServerGetWebhook_Output
 
 	params := map[string]interface{}{}
 	params["id"] = id
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.server.getWebhook", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.server.getWebhook", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,20 @@ type RepoListRecords_Output struct {
 	Records       []RepoListRecords_Record `json:"records"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoListRecords_Output) RecordTypeID() string { return "com.atproto.repo.listRecords" }
+
 func (t *RepoListRecords_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.listRecords#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.listRecords"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoListRecords_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoListRecords calls the XRPC method "com.atproto.repo.listRecords".
@@ -39,7 +42,7 @@ func (t *RepoListRecords_Output) UnmarshalCBOR(r io.Reader) error {
 // limit: The number of records to return.
 // repo: The handle or DID of the repo.
 // reverse: Flag to reverse the order of the returned records.
-func RepoListRecords(ctx context.Context, c glexrt.LexClient, collection string, cursor string, limit *int64, repo string, reverse *bool) (*RepoListRecords_Output, error) {
+func RepoListRecords(ctx context.Context, c glex.LexClient, collection string, cursor string, limit *int64, repo string, reverse *bool) (*RepoListRecords_Output, error) {
 	var out RepoListRecords_Output
 
 	params := map[string]interface{}{}
@@ -55,7 +58,7 @@ func RepoListRecords(ctx context.Context, c glexrt.LexClient, collection string,
 	params["collection"] = collection
 	params["repo"] = repo
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "com.atproto.repo.listRecords", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -63,21 +66,24 @@ func RepoListRecords(ctx context.Context, c glexrt.LexClient, collection string,
 
 // RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
 type RepoListRecords_Record struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           string                     `json:"cid"`
-	Uri           string                     `json:"uri"`
-	Value         *glexrt.LexiconTypeDecoder `json:"value"`
+	LexiconTypeID string                   `json:"$type"`
+	Cid           string                   `json:"cid"`
+	Uri           string                   `json:"uri"`
+	Value         *glex.LexiconTypeDecoder `json:"value"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *RepoListRecords_Record) RecordTypeID() string { return "com.atproto.repo.listRecords#record" }
 
 func (t *RepoListRecords_Record) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.listRecords"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.listRecords#record"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoListRecords_Record) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

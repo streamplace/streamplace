@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -19,20 +19,23 @@ type VodDraftDefs_DraftView struct {
 	// cid: CID (sha256 of CBOR record bytes, base32) of the draft record.
 	Cid string `json:"cid"`
 	// record: The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon.
-	Record *glexrt.LexiconTypeDecoder `json:"record"`
+	Record *glex.LexiconTypeDecoder `json:"record"`
 	// uri: The ats:// URI of the draft record.
 	Uri string `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *VodDraftDefs_DraftView) RecordTypeID() string { return "place.stream.vod.draftDefs#draftView" }
 
 func (t *VodDraftDefs_DraftView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.draftDefs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.draftDefs#draftView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodDraftDefs_DraftView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

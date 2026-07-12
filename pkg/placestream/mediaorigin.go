@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.media.origin", &MediaOrigin{})
+	glex.RegisterType("place.stream.media.origin", &MediaOrigin{})
 }
 
 // An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.
@@ -26,15 +26,18 @@ type MediaOrigin struct {
 	Size int64 `json:"size"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaOrigin) RecordTypeID() string { return "place.stream.media.origin" }
+
 func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.media.origin"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaOrigin) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

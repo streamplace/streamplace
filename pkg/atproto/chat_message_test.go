@@ -10,7 +10,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/cenkalti/backoff"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/comatproto"
@@ -78,7 +78,7 @@ func TestChatMessage(t *testing.T) {
 	rec1, err := comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 
@@ -92,7 +92,7 @@ func TestChatMessage(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, user2.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user2.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: msg2},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg2},
 	})
 	require.NoError(t, err)
 
@@ -111,7 +111,7 @@ func TestChatMessage(t *testing.T) {
 		return nil
 	})
 	// Reverse the messages slice to match expected order (most recent first)
-	slices.SortFunc(messages, func(a, b *placestream.ChatDefs_MessageView) int {
+	slices.SortFunc(messages, func(a, b placestream.ChatDefs_MessageView) int {
 		aTime := a.Record.Val.(*placestream.ChatMessage).CreatedAt
 		bTime := b.Record.Val.(*placestream.ChatMessage).CreatedAt
 		if aTime < bTime {

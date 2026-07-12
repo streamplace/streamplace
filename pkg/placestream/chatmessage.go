@@ -7,13 +7,13 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.chat.message", &ChatMessage{})
+	glex.RegisterType("place.stream.chat.message", &ChatMessage{})
 }
 
 // Record containing a Streamplace chat message.
@@ -30,17 +30,20 @@ type ChatMessage struct {
 	Text string `json:"text"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatMessage) RecordTypeID() string { return "place.stream.chat.message" }
+
 func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.chat.message"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatMessage) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ChatMessage_ReplyRef is a "replyRef" in the place.stream.chat.message schema.
@@ -50,15 +53,18 @@ type ChatMessage_ReplyRef struct {
 	Root          comatproto.RepoStrongRef `json:"root"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatMessage_ReplyRef) RecordTypeID() string { return "place.stream.chat.message#replyRef" }
+
 func (t *ChatMessage_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.message"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.message#replyRef"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatMessage_ReplyRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

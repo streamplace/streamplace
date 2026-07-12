@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,43 +18,49 @@ type VodDeleteDraft_Input struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodDeleteDraft_Input) RecordTypeID() string { return "place.stream.vod.deleteDraft" }
+
 func (t *VodDeleteDraft_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.deleteDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.deleteDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodDeleteDraft_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type VodDeleteDraft_Output struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodDeleteDraft_Output) RecordTypeID() string { return "place.stream.vod.deleteDraft" }
+
 func (t *VodDeleteDraft_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.deleteDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.deleteDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodDeleteDraft_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodDeleteDraft calls the XRPC method "place.stream.vod.deleteDraft".
 //
 // Discard a draft VOD. The processed content blob is not deleted (it may be referenced elsewhere). Only the draft record is removed.
-func VodDeleteDraft(ctx context.Context, c glexrt.LexClient, input *VodDeleteDraft_Input) (*VodDeleteDraft_Output, error) {
+func VodDeleteDraft(ctx context.Context, c glex.LexClient, input *VodDeleteDraft_Input) (*VodDeleteDraft_Output, error) {
 	var out VodDeleteDraft_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.vod.deleteDraft", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.vod.deleteDraft", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

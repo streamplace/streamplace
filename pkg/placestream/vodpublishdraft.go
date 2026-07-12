@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,20 @@ type VodPublishDraft_Input struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodPublishDraft_Input) RecordTypeID() string { return "place.stream.vod.publishDraft" }
+
 func (t *VodPublishDraft_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.publishDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.publishDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodPublishDraft_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type VodPublishDraft_Output struct {
@@ -39,26 +42,29 @@ type VodPublishDraft_Output struct {
 	VideoUri string `json:"videoUri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodPublishDraft_Output) RecordTypeID() string { return "place.stream.vod.publishDraft" }
+
 func (t *VodPublishDraft_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.publishDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.publishDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodPublishDraft_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodPublishDraft calls the XRPC method "place.stream.vod.publishDraft".
 //
 // Promote a ready draft VOD to a public place.stream.video record. The server carries over source and durationMs from the draft, backfills a generated thumbnail if the draft has none, writes the video record via putRecord, then deletes the draft.
-func VodPublishDraft(ctx context.Context, c glexrt.LexClient, input *VodPublishDraft_Input) (*VodPublishDraft_Output, error) {
+func VodPublishDraft(ctx context.Context, c glex.LexClient, input *VodPublishDraft_Input) (*VodPublishDraft_Output, error) {
 	var out VodPublishDraft_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.vod.publishDraft", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.vod.publishDraft", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

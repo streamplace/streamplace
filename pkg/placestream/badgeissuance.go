@@ -7,13 +7,13 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.badge.issuance", &BadgeIssuance{})
+	glex.RegisterType("place.stream.badge.issuance", &BadgeIssuance{})
 }
 
 // Grants a specific badge to a recipient. The badge only appears in chat after the recipient adds this record to their place.stream.chat.profile selection array.
@@ -27,15 +27,18 @@ type BadgeIssuance struct {
 	Did string `json:"did"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BadgeIssuance) RecordTypeID() string { return "place.stream.badge.issuance" }
+
 func (t *BadgeIssuance) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.badge.issuance"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeIssuance) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

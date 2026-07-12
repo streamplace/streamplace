@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.broadcast.origin", &BroadcastOrigin{})
+	glex.RegisterType("place.stream.broadcast.origin", &BroadcastOrigin{})
 }
 
 // Record indicating a livestream is published and available for replication at a given address. By convention, the record key is streamer::server
@@ -32,15 +32,18 @@ type BroadcastOrigin struct {
 	WebsocketURL *string `json:"websocketURL,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BroadcastOrigin) RecordTypeID() string { return "place.stream.broadcast.origin" }
+
 func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.broadcast.origin"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BroadcastOrigin) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -17,12 +17,11 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/lex"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -200,7 +199,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}
-		ltd := &glexrt.LexiconTypeDecoder{Val: record}
+		ltd := &glex.LexiconTypeDecoder{Val: record}
 
 		output.Segments[i] = placestream.Segment_SegmentView{
 			Record: ltd,
@@ -560,7 +559,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
-		var thumb *lex.Blob
+		var thumb *glex.Blob
 		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
 		if err != nil {
 			log.Error(ctx, "failed to read thumbnail file", "err", err)
@@ -640,7 +639,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 		postInput := comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Record:     &glexrt.LexiconTypeDecoder{Val: postRecord},
+			Record:     &glex.LexiconTypeDecoder{Val: &postRecord},
 			Repo:       session.DID,
 		}
 		var postOutput comatproto.RepoCreateRecord_Output
@@ -658,7 +657,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	// Step 4: create the place.stream.livestream record
 	lsInput := comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &glexrt.LexiconTypeDecoder{Val: livestream},
+		Record:     &glex.LexiconTypeDecoder{Val: &livestream},
 		Repo:       session.DID,
 	}
 	var lsOutput comatproto.RepoCreateRecord_Output
@@ -731,7 +730,7 @@ func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client 
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &glexrt.LexiconTypeDecoder{Val: priorRec},
+		Record:     &glex.LexiconTypeDecoder{Val: priorRec},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       repoDID,
 		SwapRecord: swapRecord,
@@ -796,7 +795,7 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 
 	lsInput := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &glexrt.LexiconTypeDecoder{Val: livestreamRecord},
+		Record:     &glex.LexiconTypeDecoder{Val: livestreamRecord},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       session.DID,
 		SwapRecord: swapRecord,

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/xrpc"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -144,7 +144,7 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_VIDEO,
-		Record:     &glexrt.LexiconTypeDecoder{Val: video},
+		Record:     &glex.LexiconTypeDecoder{Val: video},
 		Rkey:       rkey,
 		Repo:       did,
 	}
@@ -255,12 +255,10 @@ func draftConnectionsToVideo(in []placestream.VodDraftVideo_Connections_Elem) []
 	}
 	out := make([]placestream.Video_Connections_Elem, 0, len(in))
 	for _, c := range in {
-		if false || c.Video_Connection == nil {
+		if c.Video_Connection == nil {
 			continue
 		}
-		out = append(out, placestream.Video_Connections_Elem{
-			Video_Connection: c.Video_Connection,
-		})
+		out = append(out, placestream.Video_Connections_Elem(c))
 	}
 	return out
 }

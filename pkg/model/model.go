@@ -118,7 +118,7 @@ type Model interface {
 
 	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error
 	DeleteModerationDelegation(ctx context.Context, rkey string) error
-	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (placestream.ModerationDefs_PermissionView, error)
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error)
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
 	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
 	GetStreamerModerators(ctx context.Context, streamerDID string) ([]placestream.ModerationDefs_PermissionView, error)
@@ -127,7 +127,7 @@ type Model interface {
 	UpsertRecommendation(rec *Recommendation) error
 
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
-	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (appbsky.ActorProfile, error)
+	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error)
 
 	UpsertBadgeDef(ctx context.Context, def *BadgeDef) error
 	DeleteBadgeDef(ctx context.Context, uri string) error
@@ -139,12 +139,12 @@ type Model interface {
 
 	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error
 	DeleteVideo(ctx context.Context, uri string) error
-	GetVideoByURI(ctx context.Context, uri string) (placestream.Video, error)
+	GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error)
 	GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error)
 
 	UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error
 	DeleteMediaTrack(ctx context.Context, uri string) error
-	GetMediaTrackByURI(ctx context.Context, uri string) (placestream.MediaTrack, error)
+	GetMediaTrackByURI(ctx context.Context, uri string) (*placestream.MediaTrack, error)
 	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
 
 	UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error
@@ -162,7 +162,7 @@ type Model interface {
 	UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error
 	DeleteMediaViewCount(ctx context.Context, uri string) error
 	GetMediaViewCountByURI(ctx context.Context, uri string) (placestream.MediaViewCount, error)
-	GetVideoView(ctx context.Context, uri string) (placestream.MediaGetVideo_VideoView, error)
+	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
 
 	CreateVodComment(ctx context.Context, comment *VodComment) error

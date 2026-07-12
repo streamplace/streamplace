@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,26 +20,29 @@ type ConfigGetEnv_Output struct {
 	PlaybackWorkerUrl *string `json:"playbackWorkerUrl,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ConfigGetEnv_Output) RecordTypeID() string { return "place.stream.config.getEnv" }
+
 func (t *ConfigGetEnv_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.config.getEnv#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.config.getEnv"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ConfigGetEnv_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ConfigGetEnv calls the XRPC method "place.stream.config.getEnv".
 //
 // Get client-facing environment configuration from the server.
-func ConfigGetEnv(ctx context.Context, c glexrt.LexClient) (*ConfigGetEnv_Output, error) {
+func ConfigGetEnv(ctx context.Context, c glex.LexClient) (*ConfigGetEnv_Output, error) {
 	var out ConfigGetEnv_Output
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.config.getEnv", nil, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.config.getEnv", nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

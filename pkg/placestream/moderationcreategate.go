@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,22 @@ type ModerationCreateGate_Input struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateGate_Input) RecordTypeID() string {
+	return "place.stream.moderation.createGate"
+}
+
 func (t *ModerationCreateGate_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createGate#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createGate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateGate_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ModerationCreateGate_Output struct {
@@ -41,26 +46,31 @@ type ModerationCreateGate_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateGate_Output) RecordTypeID() string {
+	return "place.stream.moderation.createGate"
+}
+
 func (t *ModerationCreateGate_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createGate#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createGate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateGate_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ModerationCreateGate calls the XRPC method "place.stream.moderation.createGate".
 //
 // Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission. Creates a place.stream.chat.gate record in the streamer's repository.
-func ModerationCreateGate(ctx context.Context, c glexrt.LexClient, input *ModerationCreateGate_Input) (*ModerationCreateGate_Output, error) {
+func ModerationCreateGate(ctx context.Context, c glex.LexClient, input *ModerationCreateGate_Input) (*ModerationCreateGate_Output, error) {
 	var out ModerationCreateGate_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.moderation.createGate", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.moderation.createGate", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

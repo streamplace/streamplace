@@ -7,13 +7,13 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.graph.follow", &GraphFollow{})
+	glex.RegisterType("app.bsky.graph.follow", &GraphFollow{})
 }
 
 // Record declaring a social 'follow' relationship of another account. Duplicate follows will be ignored by the AppView.
@@ -24,15 +24,18 @@ type GraphFollow struct {
 	Via           *comatproto.RepoStrongRef `json:"via,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphFollow) RecordTypeID() string { return "app.bsky.graph.follow" }
+
 func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.graph.follow"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphFollow) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

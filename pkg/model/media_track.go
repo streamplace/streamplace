@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
@@ -31,13 +31,9 @@ type MediaTrack struct {
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
 func (t *MediaTrack) ToRecord() (placestream.MediaTrack, error) {
-	rec, err := glexrt.CborDecodeValue(t.Record)
-	if err != nil {
+	var track placestream.MediaTrack
+	if err := glex.DecodeCBOR(t.Record, &track); err != nil {
 		return placestream.MediaTrack{}, fmt.Errorf("decode media track record: %w", err)
-	}
-	track, ok := rec.(placestream.MediaTrack)
-	if !ok {
-		return placestream.MediaTrack{}, fmt.Errorf("media track record decoded as %T, expected placestream.MediaTrack", rec)
 	}
 	return track, nil
 }
@@ -81,16 +77,20 @@ func (m *DBModel) DeleteMediaTrack(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&MediaTrack{}).Error
 }
 
-func (m *DBModel) GetMediaTrackByURI(ctx context.Context, uri string) (placestream.MediaTrack, error) {
+func (m *DBModel) GetMediaTrackByURI(ctx context.Context, uri string) (*placestream.MediaTrack, error) {
 	var t MediaTrack
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&t).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return placestream.MediaTrack{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return placestream.MediaTrack{}, fmt.Errorf("get media track by uri: %w", err)
+		return nil, fmt.Errorf("get media track by uri: %w", err)
 	}
-	return t.ToRecord()
+	rec, err := t.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 // GetMediaTracksByBlob returns every track row that claims to live

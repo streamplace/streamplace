@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.video", &Video{})
+	glex.RegisterType("place.stream.video", &Video{})
 }
 
 // Some audiovisual content.
@@ -43,10 +43,13 @@ type Video struct {
 	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
 	Tags []string `json:"tags,omitempty"`
 	// thumb: Thumbnail image for the video.
-	Thumb *glexrt.Blob `json:"thumb,omitempty"`
+	Thumb *glex.Blob `json:"thumb,omitempty"`
 	// title: Title of the video referenced by this record
 	Title string `json:"title"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *Video) RecordTypeID() string { return "place.stream.video" }
 
 func (t *Video) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -54,11 +57,11 @@ func (t *Video) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.LexiconTypeID = "place.stream.video"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Video) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // The game or activity in the video.
@@ -80,7 +83,7 @@ func (t *Video_Activity) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Video_Activity) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -113,7 +116,7 @@ func (t *Video_Activity) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Video_Activity) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -143,7 +146,7 @@ func (t *Video_Connections_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Video_Connections_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -170,7 +173,7 @@ func (t *Video_Connections_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Video_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -203,7 +206,7 @@ func (t *Video_Source) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Video_Source) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -236,7 +239,7 @@ func (t *Video_Source) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -259,15 +262,18 @@ type Video_Connection struct {
 	Ref           *comatproto.RepoStrongRef `json:"ref,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Video_Connection) RecordTypeID() string { return "place.stream.video#connection" }
+
 func (t *Video_Connection) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.video"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.video#connection"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Video_Connection) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

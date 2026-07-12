@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,22 @@ type ModerationCreateVodGate_Input struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateVodGate_Input) RecordTypeID() string {
+	return "place.stream.moderation.createVodGate"
+}
+
 func (t *ModerationCreateVodGate_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createVodGate#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createVodGate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateVodGate_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ModerationCreateVodGate_Output struct {
@@ -41,26 +46,31 @@ type ModerationCreateVodGate_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateVodGate_Output) RecordTypeID() string {
+	return "place.stream.moderation.createVodGate"
+}
+
 func (t *ModerationCreateVodGate_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createVodGate#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createVodGate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateVodGate_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ModerationCreateVodGate calls the XRPC method "place.stream.moderation.createVodGate".
 //
 // Create a gate (hide VOD comment) on behalf of a streamer. Requires 'vod.comment.hide' permission. Creates a place.stream.vod.gate record in the streamer's repository.
-func ModerationCreateVodGate(ctx context.Context, c glexrt.LexClient, input *ModerationCreateVodGate_Input) (*ModerationCreateVodGate_Output, error) {
+func ModerationCreateVodGate(ctx context.Context, c glex.LexClient, input *ModerationCreateVodGate_Input) (*ModerationCreateVodGate_Output, error) {
 	var out ModerationCreateVodGate_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.moderation.createVodGate", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.moderation.createVodGate", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

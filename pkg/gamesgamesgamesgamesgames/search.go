@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -23,17 +23,20 @@ type Search_Output struct {
 	TotalResults *int64 `json:"totalResults,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Search_Output) RecordTypeID() string { return "games.gamesgamesgamesgames.search" }
+
 func (t *Search_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.search#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "games.gamesgamesgamesgames.search"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Search_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type Search_Output_Results_Elem struct {
@@ -69,7 +72,7 @@ func (t *Search_Output_Results_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Search_Output_Results_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -120,7 +123,7 @@ func (t *Search_Output_Results_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Search_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -153,7 +156,7 @@ func (t *Search_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
 // ageRatings[]: Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen).
 // applicationTypes[]: Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game.
 // includeUnrated: When age rating filters are active, also include games with no age ratings.
-func Search(ctx context.Context, c glexrt.LexClient, ageRatings []string, applicationTypes []string, cursor string, genres []string, includeCancelled *bool, includeUnrated *bool, limit *int64, modes []string, playerPerspectives []string, q string, sort string, themes []string, types []string) (*Search_Output, error) {
+func Search(ctx context.Context, c glex.LexClient, ageRatings []string, applicationTypes []string, cursor string, genres []string, includeCancelled *bool, includeUnrated *bool, limit *int64, modes []string, playerPerspectives []string, q string, sort string, themes []string, types []string) (*Search_Output, error) {
 	var out Search_Output
 
 	params := map[string]interface{}{}
@@ -195,7 +198,7 @@ func Search(ctx context.Context, c glexrt.LexClient, ageRatings []string, applic
 	}
 	params["q"] = q
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "games.gamesgamesgamesgames.search", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "games.gamesgamesgamesgames.search", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

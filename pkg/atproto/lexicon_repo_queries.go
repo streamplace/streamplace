@@ -12,7 +12,7 @@ import (
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/log"
 
 	"stream.place/streamplace/pkg/comatproto"
@@ -92,7 +92,7 @@ func LexiconRepoListRecords(ctx context.Context, collection string, cursor strin
 		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s", repo, rkey),
 			Cid:   c.String(),
-			Value: &glexrt.LexiconTypeDecoder{Val: val},
+			Value: &glex.LexiconTypeDecoder{Val: val},
 		})
 
 		return nil
@@ -123,7 +123,7 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 	return &comatproto.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &glexrt.LexiconTypeDecoder{Val: rec},
+		Value: &glex.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
 

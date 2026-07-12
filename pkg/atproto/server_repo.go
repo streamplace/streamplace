@@ -20,7 +20,7 @@ import (
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -354,13 +354,13 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 
 	ServerRepo = r
 
-	cidLink := glexrt.Link(recordCid)
+	cidLink := glex.Link(recordCid)
 	signed := r.SignedCommit()
 	commit := &comatproto.SyncSubscribeRepos_Commit{
 		Repo:   cli.ServerDID(),
 		Blocks: blocks,
 		Rev:    rev,
-		Commit: glexrt.Link(root),
+		Commit: glex.Link(root),
 		Time:   time.Now().Format(util.ISO8601),
 		Ops: []comatproto.SyncSubscribeRepos_RepoOp{
 			{
@@ -586,14 +586,14 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: %w", err)
 		}
-		val, err := glexrt.CborDecodeValue(raw)
+		val, err := glex.CborDecodeValue(raw)
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", e.rkey, err)
 		}
 		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s%s", repo, prefix, e.rkey),
 			Cid:   e.c.String(),
-			Value: &glexrt.LexiconTypeDecoder{Val: val},
+			Value: &glex.LexiconTypeDecoder{Val: val},
 		})
 	}
 
@@ -623,7 +623,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: %w", err)
 	}
-	rec, err := glexrt.CborDecodeValue(raw)
+	rec, err := glex.CborDecodeValue(raw)
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to decode record: %w", err)
 	}
@@ -631,7 +631,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	return &comatproto.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &glexrt.LexiconTypeDecoder{Val: rec},
+		Value: &glex.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
 

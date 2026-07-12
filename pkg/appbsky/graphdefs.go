@@ -7,7 +7,7 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -19,17 +19,20 @@ type GraphDefs_ListItemView struct {
 	Uri           string                `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_ListItemView) RecordTypeID() string { return "app.bsky.graph.defs#listItemView" }
+
 func (t *GraphDefs_ListItemView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#listItemView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_ListItemView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
@@ -49,17 +52,20 @@ type GraphDefs_ListView struct {
 	Viewer            *GraphDefs_ListViewerState   `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_ListView) RecordTypeID() string { return "app.bsky.graph.defs#listView" }
+
 func (t *GraphDefs_ListView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#listView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_ListView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_ListViewBasic is a "listViewBasic" in the app.bsky.graph.defs schema.
@@ -76,17 +82,20 @@ type GraphDefs_ListViewBasic struct {
 	Viewer        *GraphDefs_ListViewerState   `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_ListViewBasic) RecordTypeID() string { return "app.bsky.graph.defs#listViewBasic" }
+
 func (t *GraphDefs_ListViewBasic) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#listViewBasic"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_ListViewBasic) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
@@ -96,17 +105,22 @@ type GraphDefs_ListViewerState struct {
 	Muted         *bool   `json:"muted,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_ListViewerState) RecordTypeID() string {
+	return "app.bsky.graph.defs#listViewerState"
+}
+
 func (t *GraphDefs_ListViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#listViewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_ListViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_NotFoundActor is a "notFoundActor" in the app.bsky.graph.defs schema.
@@ -118,17 +132,20 @@ type GraphDefs_NotFoundActor struct {
 	NotFound      bool   `json:"notFound"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_NotFoundActor) RecordTypeID() string { return "app.bsky.graph.defs#notFoundActor" }
+
 func (t *GraphDefs_NotFoundActor) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#notFoundActor"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_NotFoundActor) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_Relationship is a "relationship" in the app.bsky.graph.defs schema.
@@ -151,17 +168,20 @@ type GraphDefs_Relationship struct {
 	Following *string `json:"following,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_Relationship) RecordTypeID() string { return "app.bsky.graph.defs#relationship" }
+
 func (t *GraphDefs_Relationship) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#relationship"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_Relationship) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_StarterPackView is a "starterPackView" in the app.bsky.graph.defs schema.
@@ -176,8 +196,13 @@ type GraphDefs_StarterPackView struct {
 	Labels             []comatproto.LabelDefs_Label `json:"labels,omitempty"`
 	List               *GraphDefs_ListViewBasic     `json:"list,omitempty"`
 	ListItemsSample    []GraphDefs_ListItemView     `json:"listItemsSample,omitempty"`
-	Record             *glexrt.LexiconTypeDecoder   `json:"record"`
+	Record             *glex.LexiconTypeDecoder     `json:"record"`
 	Uri                string                       `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_StarterPackView) RecordTypeID() string {
+	return "app.bsky.graph.defs#starterPackView"
 }
 
 func (t *GraphDefs_StarterPackView) MarshalCBOR(w io.Writer) error {
@@ -185,12 +210,12 @@ func (t *GraphDefs_StarterPackView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#starterPackView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_StarterPackView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphDefs_StarterPackViewBasic is a "starterPackViewBasic" in the app.bsky.graph.defs schema.
@@ -203,8 +228,13 @@ type GraphDefs_StarterPackViewBasic struct {
 	JoinedWeekCount    *int64                       `json:"joinedWeekCount,omitempty"`
 	Labels             []comatproto.LabelDefs_Label `json:"labels,omitempty"`
 	ListItemCount      *int64                       `json:"listItemCount,omitempty"`
-	Record             *glexrt.LexiconTypeDecoder   `json:"record"`
+	Record             *glex.LexiconTypeDecoder     `json:"record"`
 	Uri                string                       `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *GraphDefs_StarterPackViewBasic) RecordTypeID() string {
+	return "app.bsky.graph.defs#starterPackViewBasic"
 }
 
 func (t *GraphDefs_StarterPackViewBasic) MarshalCBOR(w io.Writer) error {
@@ -212,10 +242,10 @@ func (t *GraphDefs_StarterPackViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphDefs_StarterPackViewBasic) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

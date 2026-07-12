@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -215,7 +216,14 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 					log.Error(ctx, "failed to create label", "err", err)
 					continue
 				}
-				atsync.Bus.Publish(targetDID, labelLex)
+				// Publish our generated label type — bus consumers (e.g. the
+				// media ban watcher) type-switch on it, not on indigo's.
+				busLabel := &comatproto.LabelDefs_Label{}
+				if err := busLabel.UnmarshalCBOR(bytes.NewReader(bs.Bytes())); err != nil {
+					log.Error(ctx, "failed to decode label for bus publish", "err", err)
+					continue
+				}
+				atsync.Bus.Publish(targetDID, busLabel)
 			}
 			return nil
 		},

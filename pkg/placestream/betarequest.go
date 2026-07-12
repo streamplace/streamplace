@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.beta.request", &BetaRequest{})
+	glex.RegisterType("place.stream.beta.request", &BetaRequest{})
 }
 
 // Requests access to a named beta feature on this network. Published in the requester's own repo, so the requesting account is the record's authority — there is no separate subject field. Operators index these to surface who is waiting for access; granting access is a separate place.stream.beta.invite record issued by the operator-trusted issuer. Each (requester, feature) pair gets its own record.
@@ -24,15 +24,18 @@ type BetaRequest struct {
 	Feature string `json:"feature"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BetaRequest) RecordTypeID() string { return "place.stream.beta.request" }
+
 func (t *BetaRequest) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.beta.request"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BetaRequest) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

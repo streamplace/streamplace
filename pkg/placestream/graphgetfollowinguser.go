@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -18,17 +18,22 @@ type GraphGetFollowingUser_Output struct {
 	Follow        *comatproto.RepoStrongRef `json:"follow,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GraphGetFollowingUser_Output) RecordTypeID() string {
+	return "place.stream.graph.getFollowingUser"
+}
+
 func (t *GraphGetFollowingUser_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.graph.getFollowingUser#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.graph.getFollowingUser"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GraphGetFollowingUser_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GraphGetFollowingUser calls the XRPC method "place.stream.graph.getFollowingUser".
@@ -37,14 +42,14 @@ func (t *GraphGetFollowingUser_Output) UnmarshalCBOR(r io.Reader) error {
 //
 // subjectDID: The DID of the user potentially being followed
 // userDID: The DID of the potentially-following user
-func GraphGetFollowingUser(ctx context.Context, c glexrt.LexClient, subjectDID string, userDID string) (*GraphGetFollowingUser_Output, error) {
+func GraphGetFollowingUser(ctx context.Context, c glex.LexClient, subjectDID string, userDID string) (*GraphGetFollowingUser_Output, error) {
 	var out GraphGetFollowingUser_Output
 
 	params := map[string]interface{}{}
 	params["subjectDID"] = subjectDID
 	params["userDID"] = userDID
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.graph.getFollowingUser", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.graph.getFollowingUser", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

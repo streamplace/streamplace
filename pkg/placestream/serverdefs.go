@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,20 @@ type ServerDefs_RewriteRule struct {
 	To string `json:"to"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerDefs_RewriteRule) RecordTypeID() string { return "place.stream.server.defs#rewriteRule" }
+
 func (t *ServerDefs_RewriteRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.defs#rewriteRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerDefs_RewriteRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerDefs_Storage is a "storage" in the place.stream.server.defs schema.
@@ -44,17 +47,20 @@ type ServerDefs_Storage struct {
 	Url string `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerDefs_Storage) RecordTypeID() string { return "place.stream.server.defs#storage" }
+
 func (t *ServerDefs_Storage) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.defs#storage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerDefs_Storage) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerDefs_Webhook is a "webhook" in the place.stream.server.defs schema.
@@ -92,15 +98,18 @@ type ServerDefs_Webhook struct {
 	Url string `json:"url"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerDefs_Webhook) RecordTypeID() string { return "place.stream.server.defs#webhook" }
+
 func (t *ServerDefs_Webhook) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.defs#webhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerDefs_Webhook) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

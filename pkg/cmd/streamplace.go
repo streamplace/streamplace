@@ -453,7 +453,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 						"uri", row.URI, "error", err)
 					continue
 				}
-				if rec.Track.MediaDefs_MuxlTrack == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+				if rec.Track.MediaDefs_MuxlTrack == nil {
 					continue
 				}
 				tid := rec.Track.MediaDefs_MuxlTrack.TrackId

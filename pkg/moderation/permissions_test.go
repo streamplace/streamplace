@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -199,12 +199,12 @@ func TestPermissionChecker_HasPermission_NoExpiration(t *testing.T) {
 }
 
 type mockModel struct {
-	delegations map[string][]*placestream.ModerationDefs_PermissionView
+	delegations map[string][]placestream.ModerationDefs_PermissionView
 }
 
 func newMockModel() *mockModel {
 	return &mockModel{
-		delegations: make(map[string][]*placestream.ModerationDefs_PermissionView),
+		delegations: make(map[string][]placestream.ModerationDefs_PermissionView),
 	}
 }
 
@@ -223,17 +223,17 @@ func (m *mockModel) addPermissionView(streamerDID, moderatorDID string, permissi
 		ExpirationTime: expTimeStr,
 	}
 
-	view := &placestream.ModerationDefs_PermissionView{
+	view := placestream.ModerationDefs_PermissionView{
 		Uri:    fmt.Sprintf("at://%s/place.stream.moderation.permission/test", streamerDID),
 		Cid:    "bafytest",
-		Author: &appbsky.ActorDefs_ProfileViewBasic{Did: streamerDID},
-		Record: &glexrt.LexiconTypeDecoder{Val: permRecord},
+		Author: appbsky.ActorDefs_ProfileViewBasic{Did: streamerDID},
+		Record: &glex.LexiconTypeDecoder{Val: permRecord},
 	}
 
 	m.delegations[key] = append(m.delegations[key], view)
 }
 
-func (m *mockModel) GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*placestream.ModerationDefs_PermissionView, error) {
+func (m *mockModel) GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error) {
 	key := streamerDID + "_" + moderatorDID
 	delegations, exists := m.delegations[key]
 	if !exists {

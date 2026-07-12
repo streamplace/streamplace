@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.live.viewerCount", &LiveViewerCount{})
+	glex.RegisterType("place.stream.live.viewerCount", &LiveViewerCount{})
 }
 
 // Current viewer count for a livestream on a particular server. Record keys are streamer_did::server_did by convention.
@@ -28,15 +28,18 @@ type LiveViewerCount struct {
 	UpdatedAt *string `json:"updatedAt,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveViewerCount) RecordTypeID() string { return "place.stream.live.viewerCount" }
+
 func (t *LiveViewerCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.live.viewerCount"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveViewerCount) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

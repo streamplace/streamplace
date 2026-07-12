@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.feed.threadgate", &FeedThreadgate{})
+	glex.RegisterType("app.bsky.feed.threadgate", &FeedThreadgate{})
 }
 
 // Record defining interaction gating rules for a thread (aka, reply controls). The record key (rkey) of the threadgate record must match the record key of the thread's root post, and that record must be in the same repository.
@@ -30,17 +30,20 @@ type FeedThreadgate struct {
 	Post string `json:"post"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedThreadgate) RecordTypeID() string { return "app.bsky.feed.threadgate" }
+
 func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedThreadgate_Allow_Elem struct {
@@ -71,7 +74,7 @@ func (t *FeedThreadgate_Allow_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -116,7 +119,7 @@ func (t *FeedThreadgate_Allow_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -146,17 +149,22 @@ type FeedThreadgate_FollowerRule struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedThreadgate_FollowerRule) RecordTypeID() string {
+	return "app.bsky.feed.threadgate#followerRule"
+}
+
 func (t *FeedThreadgate_FollowerRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedThreadgate_FollowerRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedThreadgate_FollowingRule is a "followingRule" in the app.bsky.feed.threadgate schema.
@@ -166,17 +174,22 @@ type FeedThreadgate_FollowingRule struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedThreadgate_FollowingRule) RecordTypeID() string {
+	return "app.bsky.feed.threadgate#followingRule"
+}
+
 func (t *FeedThreadgate_FollowingRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedThreadgate_FollowingRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedThreadgate_ListRule is a "listRule" in the app.bsky.feed.threadgate schema.
@@ -187,17 +200,20 @@ type FeedThreadgate_ListRule struct {
 	List          string `json:"list"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedThreadgate_ListRule) RecordTypeID() string { return "app.bsky.feed.threadgate#listRule" }
+
 func (t *FeedThreadgate_ListRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedThreadgate_MentionRule is a "mentionRule" in the app.bsky.feed.threadgate schema.
@@ -207,15 +223,20 @@ type FeedThreadgate_MentionRule struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedThreadgate_MentionRule) RecordTypeID() string {
+	return "app.bsky.feed.threadgate#mentionRule"
+}
+
 func (t *FeedThreadgate_MentionRule) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedThreadgate_MentionRule) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

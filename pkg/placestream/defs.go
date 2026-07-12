@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -22,17 +22,20 @@ type Defs_ActivityGame struct {
 	Uri  string  `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActivityGame) RecordTypeID() string { return "place.stream.defs#activityGame" }
+
 func (t *Defs_ActivityGame) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.defs#activityGame"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActivityGame) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_ActivityLabel is a "activityLabel" in the place.stream.defs schema.
@@ -43,17 +46,20 @@ type Defs_ActivityLabel struct {
 	Label         string `json:"label"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_ActivityLabel) RecordTypeID() string { return "place.stream.defs#activityLabel" }
+
 func (t *Defs_ActivityLabel) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.defs#activityLabel"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_ActivityLabel) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_BlockView is a "blockView" in the place.stream.defs schema.
@@ -66,17 +72,20 @@ type Defs_BlockView struct {
 	Uri           string                             `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_BlockView) RecordTypeID() string { return "place.stream.defs#blockView" }
+
 func (t *Defs_BlockView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.defs#blockView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_BlockView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_Rendition is a "rendition" in the place.stream.defs schema.
@@ -85,17 +94,20 @@ type Defs_Rendition struct {
 	Name          string `json:"name"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_Rendition) RecordTypeID() string { return "place.stream.defs#rendition" }
+
 func (t *Defs_Rendition) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.defs#rendition"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_Rendition) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Defs_Renditions is a "renditions" in the place.stream.defs schema.
@@ -104,15 +116,18 @@ type Defs_Renditions struct {
 	Renditions    []Defs_Rendition `json:"renditions"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Defs_Renditions) RecordTypeID() string { return "place.stream.defs#renditions" }
+
 func (t *Defs_Renditions) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.defs#renditions"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Defs_Renditions) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

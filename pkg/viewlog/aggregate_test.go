@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/vod"
@@ -18,8 +18,8 @@ import (
 // fixtureTrackRefs returns the strongRefs that pair with the fixture
 // metafile, keyed by in-container trackId. Same shape the real
 // resolver in cmd/streamplace.go produces from MediaTrack rows.
-func fixtureTrackRefs() map[string]*comatproto.RepoStrongRef {
-	return map[string]*comatproto.RepoStrongRef{
+func fixtureTrackRefs() map[string]comatproto.RepoStrongRef {
+	return map[string]comatproto.RepoStrongRef{
 		"1": {
 			LexiconTypeID: "com.atproto.repo.strongRef",
 			Uri:           "at://did:plc:alice/place.stream.media.track/track-video-1",
@@ -434,7 +434,7 @@ func TestAggregateWindowTrackUsage(t *testing.T) {
 			require.Equal(t, cidA, cid)
 			return fixtureMetafile(), nil
 		},
-		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 			require.Equal(t, cidA, cid)
 			return refs, nil
 		},
@@ -485,7 +485,7 @@ func TestAggregateWindowVideoWithUsageButNoCount(t *testing.T) {
 		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
 			return fixtureMetafile(), nil
 		},
-		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 			return refs, nil
 		},
 	})
@@ -521,14 +521,14 @@ func TestAggregateWindowTidWithoutStrongRefIsDropped(t *testing.T) {
 	store, err := blob.NewFileStore(root)
 	require.NoError(t, err)
 	refs := fixtureTrackRefs()
-	partial := map[string]*comatproto.RepoStrongRef{"1": refs["1"]}
+	partial := map[string]comatproto.RepoStrongRef{"1": refs["1"]}
 	res, err := AggregateWindow(context.Background(), store, AggregateInput{
 		WindowStart: now.Add(-time.Minute),
 		WindowEnd:   now.Add(time.Minute),
 		FetchMetafile: func(ctx context.Context, cid string) (*vod.Metafile, error) {
 			return fixtureMetafile(), nil
 		},
-		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error) {
+		FetchTrackRefs: func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 			return partial, nil
 		},
 	})

@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.live.recommendations", &LiveRecommendations{})
+	glex.RegisterType("place.stream.live.recommendations", &LiveRecommendations{})
 }
 
 // A list of recommended streamers, in order of preference
@@ -24,15 +24,18 @@ type LiveRecommendations struct {
 	Streamers []string `json:"streamers"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveRecommendations) RecordTypeID() string { return "place.stream.live.recommendations" }
+
 func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.live.recommendations"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

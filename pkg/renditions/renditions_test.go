@@ -10,7 +10,7 @@ import (
 
 func seg(width int, height int, fpsNum int, fpsDen int) *placestream.Segment {
 	return &placestream.Segment{
-		Video: []*placestream.Segment_Video{
+		Video: []placestream.Segment_Video{
 			{
 				Width:  int64(width),
 				Height: int64(height),

@@ -321,7 +321,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
 		Track: placestream.MediaTrack_Track{
-			MediaDefs_MuxlTrack: placestream.MediaDefs_MuxlTrack{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          parentCID,
 				TrackId:       "1",
@@ -334,9 +334,9 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		LexiconTypeID: "place.stream.video",
 		Title:         "parent",
 		Source: placestream.Video_Source{
-			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks: []*comatproto.RepoStrongRef{
+				Tracks: []comatproto.RepoStrongRef{
 					{Uri: trackURI, Cid: "bafyrefcid"},
 				},
 			},
@@ -348,7 +348,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		LexiconTypeID: "place.stream.video",
 		Title:         "5s..10s of parent",
 		Source: placestream.Video_Source{
-			MediaDefs_SourceClip: placestream.MediaDefs_SourceClip{
+			MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
 				LexiconTypeID: "place.stream.media.defs#sourceClip",
 				Video:         parentURI,
 				Start:         5_000,
@@ -384,7 +384,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			LexiconTypeID: "place.stream.video",
 			Title:         "nested clip",
 			Source: placestream.Video_Source{
-				MediaDefs_SourceClip: placestream.MediaDefs_SourceClip{
+				MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
 					LexiconTypeID: "place.stream.media.defs#sourceClip",
 					Video:         clipURI,
 					Start:         100,

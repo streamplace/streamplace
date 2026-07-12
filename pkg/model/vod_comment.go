@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/rivo/uniseg"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/placestream"
@@ -31,23 +31,20 @@ type VodComment struct {
 
 // decodeRecord decodes the stored comment CBOR, truncating overly long text
 // to the same 300-grapheme cap the views enforce.
-func (c *VodComment) decodeRecord() (*glexrt.LexiconTypeDecoder, error) {
-	rec, err := glexrt.CborDecodeValue(*c.Comment)
-	if err != nil {
+func (c *VodComment) decodeRecord() (*glex.LexiconTypeDecoder, error) {
+	var msg placestream.VodComment
+	if err := glex.DecodeCBOR(*c.Comment, &msg); err != nil {
 		return nil, fmt.Errorf("error decoding comment: %w", err)
 	}
-	if msg, ok := rec.(placestream.VodComment); ok {
-		graphemeCount := uniseg.GraphemeClusterCount(msg.Text)
-		if graphemeCount > 300 {
-			gr := uniseg.NewGraphemes(msg.Text)
-			var result strings.Builder
-			for count := 0; count < 300 && gr.Next(); count++ {
-				result.WriteString(gr.Str())
-			}
-			msg.Text = result.String()
+	if uniseg.GraphemeClusterCount(msg.Text) > 300 {
+		gr := uniseg.NewGraphemes(msg.Text)
+		var result strings.Builder
+		for count := 0; count < 300 && gr.Next(); count++ {
+			result.WriteString(gr.Str())
 		}
+		msg.Text = result.String()
 	}
-	return &glexrt.LexiconTypeDecoder{Val: rec}, nil
+	return &glex.LexiconTypeDecoder{Val: &msg}, nil
 }
 
 func (c *VodComment) author() appbsky.ActorDefs_ProfileViewBasic {

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -16,17 +16,20 @@ type LiveStopLivestream_Input struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveStopLivestream_Input) RecordTypeID() string { return "place.stream.live.stopLivestream" }
+
 func (t *LiveStopLivestream_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.stopLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.stopLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveStopLivestream_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type LiveStopLivestream_Output struct {
@@ -37,26 +40,29 @@ type LiveStopLivestream_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveStopLivestream_Output) RecordTypeID() string { return "place.stream.live.stopLivestream" }
+
 func (t *LiveStopLivestream_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.stopLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.stopLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveStopLivestream_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LiveStopLivestream calls the XRPC method "place.stream.live.stopLivestream".
 //
 // Stop your current livestream, updating your current place.stream.livestream record and ceasing the flow of video.
-func LiveStopLivestream(ctx context.Context, c glexrt.LexClient, input *LiveStopLivestream_Input) (*LiveStopLivestream_Output, error) {
+func LiveStopLivestream(ctx context.Context, c glex.LexClient, input *LiveStopLivestream_Input) (*LiveStopLivestream_Output, error) {
 	var out LiveStopLivestream_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.live.stopLivestream", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.live.stopLivestream", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

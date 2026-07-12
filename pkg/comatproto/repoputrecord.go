@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,7 +17,7 @@ type RepoPutRecord_Input struct {
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection"`
 	// record: The record to write.
-	Record *glexrt.LexiconTypeDecoder `json:"record"`
+	Record *glex.LexiconTypeDecoder `json:"record"`
 	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo"`
 	// rkey: The Record Key.
@@ -30,17 +30,20 @@ type RepoPutRecord_Input struct {
 	Validate *bool `json:"validate,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoPutRecord_Input) RecordTypeID() string { return "com.atproto.repo.putRecord" }
+
 func (t *RepoPutRecord_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.putRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.putRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoPutRecord_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type RepoPutRecord_Output struct {
@@ -51,26 +54,29 @@ type RepoPutRecord_Output struct {
 	ValidationStatus *string              `json:"validationStatus,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoPutRecord_Output) RecordTypeID() string { return "com.atproto.repo.putRecord" }
+
 func (t *RepoPutRecord_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.putRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.putRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoPutRecord_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoPutRecord calls the XRPC method "com.atproto.repo.putRecord".
 //
 // Write a repository record, creating or updating it as needed. Requires auth, implemented by PDS.
-func RepoPutRecord(ctx context.Context, c glexrt.LexClient, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
+func RepoPutRecord(ctx context.Context, c glex.LexClient, input *RepoPutRecord_Input) (*RepoPutRecord_Output, error) {
 	var out RepoPutRecord_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "com.atproto.repo.putRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

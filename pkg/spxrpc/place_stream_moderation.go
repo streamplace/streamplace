@@ -2,7 +2,6 @@ package spxrpc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/constants"
@@ -43,7 +42,7 @@ func (s *Server) handlePlaceStreamModerationCreateBlock(ctx context.Context, inp
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
-		Record:     &glexrt.LexiconTypeDecoder{Val: block},
+		Record:     &glex.LexiconTypeDecoder{Val: &block},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -140,7 +139,7 @@ func (s *Server) handlePlaceStreamModerationCreateGate(ctx context.Context, inpu
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
-		Record:     &glexrt.LexiconTypeDecoder{Val: gate},
+		Record:     &glex.LexiconTypeDecoder{Val: &gate},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -259,17 +258,12 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 	}
 
 	// Convert the decoded value to our struct
-	livestream := placestream.Livestream{}
-	recordBytes, err := json.Marshal(getOutput.Value.Val)
+	existing, err := glex.RecordAs[placestream.Livestream](getOutput.Value.Val)
 	if err != nil {
-		log.Error(ctx, "failed to marshal livestream record", "err", err)
+		log.Error(ctx, "failed to decode livestream record", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to decode livestream record")
 	}
-	err = json.Unmarshal(recordBytes, livestream)
-	if err != nil {
-		log.Error(ctx, "failed to unmarshal livestream record", "err", err)
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "failed to decode livestream record")
-	}
+	livestream := *existing
 
 	// Create new record (don't edit existing - old records serve as "chapter markers")
 	// Copy fields from existing record and update title
@@ -290,7 +284,7 @@ func (s *Server) handlePlaceStreamModerationUpdateLivestream(ctx context.Context
 	// Create new record instead of updating existing
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_LIVESTREAM,
-		Record:     &glexrt.LexiconTypeDecoder{Val: livestream},
+		Record:     &glex.LexiconTypeDecoder{Val: &livestream},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -386,7 +380,7 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_PINNED_RECORD,
-		Record:     &glexrt.LexiconTypeDecoder{Val: pinnedRecord},
+		Record:     &glex.LexiconTypeDecoder{Val: &pinnedRecord},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}
@@ -481,7 +475,7 @@ func (s *Server) handlePlaceStreamModerationCreateVodGate(ctx context.Context, i
 
 	createInput := comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_VOD_GATE,
-		Record:     &glexrt.LexiconTypeDecoder{Val: gate},
+		Record:     &glex.LexiconTypeDecoder{Val: &gate},
 		Repo:       input.Streamer,
 	}
 	createOutput := comatproto.RepoCreateRecord_Output{}

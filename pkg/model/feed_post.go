@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 )
@@ -27,7 +27,7 @@ type FeedPost struct {
 }
 
 func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
-	rec, err := glexrt.CborDecodeValue(*fp.FeedPost)
+	rec, err := glex.CborDecodeValue(*fp.FeedPost)
 	if err != nil {
 		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
@@ -38,7 +38,7 @@ func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
 		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: fp.RepoDID,
 		},
-		Record:    &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:    &glex.LexiconTypeDecoder{Val: rec},
 		IndexedAt: fp.IndexedAt.UTC().Format(time.RFC3339Nano),
 	}
 	if fp.Repo != nil {

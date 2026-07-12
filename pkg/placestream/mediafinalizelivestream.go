@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -18,17 +18,22 @@ type MediaFinalizeLivestream_Input struct {
 	Livestream string `json:"livestream"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaFinalizeLivestream_Input) RecordTypeID() string {
+	return "place.stream.media.finalizeLivestream"
+}
+
 func (t *MediaFinalizeLivestream_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.finalizeLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.finalizeLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaFinalizeLivestream_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type MediaFinalizeLivestream_Output struct {
@@ -39,26 +44,31 @@ type MediaFinalizeLivestream_Output struct {
 	UploadId string `json:"uploadId"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaFinalizeLivestream_Output) RecordTypeID() string {
+	return "place.stream.media.finalizeLivestream"
+}
+
 func (t *MediaFinalizeLivestream_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.finalizeLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.finalizeLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaFinalizeLivestream_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaFinalizeLivestream calls the XRPC method "place.stream.media.finalizeLivestream".
 //
 // Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.
-func MediaFinalizeLivestream(ctx context.Context, c glexrt.LexClient, input *MediaFinalizeLivestream_Input) (*MediaFinalizeLivestream_Output, error) {
+func MediaFinalizeLivestream(ctx context.Context, c glex.LexClient, input *MediaFinalizeLivestream_Input) (*MediaFinalizeLivestream_Output, error) {
 	var out MediaFinalizeLivestream_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.media.finalizeLivestream", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.media.finalizeLivestream", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

@@ -47,7 +47,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 
 	color := "f8baca"
 	if spcp != nil && spcp.Color != nil {
-		color = strings.TrimPrefix(model.ColorToHex(*spcp.Color), "#")
+		color = strings.TrimPrefix(model.ColorToHex(spcp.Color), "#")
 	}
 
 	colorInt, err := strconv.ParseInt(color, 16, 64)

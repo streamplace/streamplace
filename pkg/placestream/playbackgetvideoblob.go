@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // PlaybackGetVideoBlob calls the XRPC method "place.stream.playback.getVideoBlob".
@@ -18,7 +18,7 @@ import (
 // cid: BLAKE-3 BDASL CID of the requested blob.
 // did: DID of the account that owns the record this blob is being served for. Used for egress/usage accounting, not for access control — the blob is served purely by CID.
 // sid: Opaque playback session identifier, propagated unmodified from the media playlist that referenced this blob. Logged for view-count correlation; not used for access control.
-func PlaybackGetVideoBlob(ctx context.Context, c glexrt.LexClient, cid string, did string, sid string) ([]byte, error) {
+func PlaybackGetVideoBlob(ctx context.Context, c glex.LexClient, cid string, did string, sid string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -28,7 +28,7 @@ func PlaybackGetVideoBlob(ctx context.Context, c glexrt.LexClient, cid string, d
 	params["cid"] = cid
 	params["did"] = did
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.playback.getVideoBlob", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.playback.getVideoBlob", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

@@ -8,14 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	placestream "stream.place/streamplace/pkg/placestream"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/log"
-	placestreamtypes "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 var defaultBrandingAssets = map[string]struct {
@@ -69,12 +68,12 @@ func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, bro
 	return bytes.NewReader(data), nil
 }
 
-func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestream.BrandingGetBranding_Output, error) {
 	return s.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
 }
 
 // HandlePlaceStreamBrandingGetBrandingDirect is the exported version for direct calls
-func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestream.BrandingGetBranding_Output, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 
 	// get all keys from database
@@ -100,7 +99,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 			continue // skip if error
 		}
 
-		asset := &placestreamtypes.BrandingGetBranding_BrandingAsset{
+		asset := &placestream.BrandingGetBranding_BrandingAsset{
 			Key:      key,
 			MimeType: mimeType,
 		}
@@ -127,7 +126,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 		assets = append(assets, *asset)
 	}
 
-	return &placestreamtypes.BrandingGetBranding_Output{
+	return &placestream.BrandingGetBranding_Output{
 		Assets: assets,
 	}, nil
 }
@@ -141,7 +140,7 @@ func (s *Server) isAdminDID(did string) bool {
 	return false
 }
 
-func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestreamtypes.BrandingUpdateBlob_Input) (*placestreamtypes.BrandingUpdateBlob_Output, error) {
+func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error) {
 	// check authentication
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
@@ -195,12 +194,12 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
 	}
 
-	return &placestreamtypes.BrandingUpdateBlob_Output{
+	return &placestream.BrandingUpdateBlob_Output{
 		Success: true,
 	}, nil
 }
 
-func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestreamtypes.BrandingDeleteBlob_Input) (*placestreamtypes.BrandingDeleteBlob_Output, error) {
+func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error) {
 	// check authentication
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
@@ -228,7 +227,7 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete branding blob")
 	}
 
-	return &placestreamtypes.BrandingDeleteBlob_Output{
+	return &placestream.BrandingDeleteBlob_Output{
 		Success: true,
 	}, nil
 }

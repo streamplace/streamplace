@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.metadata.contentRights#main", &MetadataContentRights{})
+	glex.RegisterType("place.stream.metadata.contentRights#main", &MetadataContentRights{})
 }
 
 // Content rights and attribution information.
@@ -30,15 +30,18 @@ type MetadataContentRights struct {
 	License *string `json:"license,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MetadataContentRights) RecordTypeID() string { return "place.stream.metadata.contentRights" }
+
 func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.metadata.contentRights"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

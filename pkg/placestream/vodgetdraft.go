@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,17 +17,20 @@ type VodGetDraft_Output struct {
 	Draft         VodDraftDefs_DraftView `json:"draft"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodGetDraft_Output) RecordTypeID() string { return "place.stream.vod.getDraft" }
+
 func (t *VodGetDraft_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.getDraft#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.getDraft"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodGetDraft_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodGetDraft calls the XRPC method "place.stream.vod.getDraft".
@@ -35,13 +38,13 @@ func (t *VodGetDraft_Output) UnmarshalCBOR(r io.Reader) error {
 // Get a single draft VOD by its ats:// URI. Only accessible by the draft's author.
 //
 // uri: The ats:// URI of the draft record.
-func VodGetDraft(ctx context.Context, c glexrt.LexClient, uri string) (*VodGetDraft_Output, error) {
+func VodGetDraft(ctx context.Context, c glex.LexClient, uri string) (*VodGetDraft_Output, error) {
 	var out VodGetDraft_Output
 
 	params := map[string]interface{}{}
 	params["uri"] = uri
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.vod.getDraft", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.vod.getDraft", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

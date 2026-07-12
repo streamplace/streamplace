@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,7 +17,7 @@ type RepoCreateRecord_Input struct {
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection"`
 	// record: The record itself. Must contain a $type field.
-	Record *glexrt.LexiconTypeDecoder `json:"record"`
+	Record *glex.LexiconTypeDecoder `json:"record"`
 	// repo: The handle or DID of the repo (aka, current account).
 	Repo string `json:"repo"`
 	// rkey: The Record Key.
@@ -28,17 +28,20 @@ type RepoCreateRecord_Input struct {
 	Validate *bool `json:"validate,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoCreateRecord_Input) RecordTypeID() string { return "com.atproto.repo.createRecord" }
+
 func (t *RepoCreateRecord_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.createRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.createRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoCreateRecord_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type RepoCreateRecord_Output struct {
@@ -49,26 +52,29 @@ type RepoCreateRecord_Output struct {
 	ValidationStatus *string              `json:"validationStatus,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoCreateRecord_Output) RecordTypeID() string { return "com.atproto.repo.createRecord" }
+
 func (t *RepoCreateRecord_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.createRecord#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.repo.createRecord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoCreateRecord_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // RepoCreateRecord calls the XRPC method "com.atproto.repo.createRecord".
 //
 // Create a single new repository record. Requires auth, implemented by PDS.
-func RepoCreateRecord(ctx context.Context, c glexrt.LexClient, input *RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {
+func RepoCreateRecord(ctx context.Context, c glex.LexClient, input *RepoCreateRecord_Input) (*RepoCreateRecord_Output, error) {
 	var out RepoCreateRecord_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "com.atproto.repo.createRecord", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

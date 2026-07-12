@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -31,17 +31,20 @@ type MediaDefs_MuxlTrack struct {
 	TrackId string `json:"trackId"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaDefs_MuxlTrack) RecordTypeID() string { return "place.stream.media.defs#muxlTrack" }
+
 func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.defs#muxlTrack"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaDefs_SourceClip is a "sourceClip" in the place.stream.media.defs schema.
@@ -57,17 +60,20 @@ type MediaDefs_SourceClip struct {
 	Video string `json:"video"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaDefs_SourceClip) RecordTypeID() string { return "place.stream.media.defs#sourceClip" }
+
 func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.defs#sourceClip"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaDefs_SourceTracks is a "sourceTracks" in the place.stream.media.defs schema.
@@ -79,15 +85,18 @@ type MediaDefs_SourceTracks struct {
 	Tracks []comatproto.RepoStrongRef `json:"tracks"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaDefs_SourceTracks) RecordTypeID() string { return "place.stream.media.defs#sourceTracks" }
+
 func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.defs#sourceTracks"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

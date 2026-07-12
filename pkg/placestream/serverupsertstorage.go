@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -20,17 +20,20 @@ type ServerUpsertStorage_Input struct {
 	Url *string `json:"url,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerUpsertStorage_Input) RecordTypeID() string { return "place.stream.server.upsertStorage" }
+
 func (t *ServerUpsertStorage_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.upsertStorage#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.upsertStorage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerUpsertStorage_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ServerUpsertStorage_Output struct {
@@ -38,26 +41,31 @@ type ServerUpsertStorage_Output struct {
 	Storage       ServerDefs_Storage `json:"storage"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerUpsertStorage_Output) RecordTypeID() string {
+	return "place.stream.server.upsertStorage"
+}
+
 func (t *ServerUpsertStorage_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.upsertStorage#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.upsertStorage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerUpsertStorage_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerUpsertStorage calls the XRPC method "place.stream.server.upsertStorage".
 //
 // Create or update S3 storage configuration for backups.
-func ServerUpsertStorage(ctx context.Context, c glexrt.LexClient, input *ServerUpsertStorage_Input) (*ServerUpsertStorage_Output, error) {
+func ServerUpsertStorage(ctx context.Context, c glex.LexClient, input *ServerUpsertStorage_Input) (*ServerUpsertStorage_Output, error) {
 	var out ServerUpsertStorage_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.server.upsertStorage", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.server.upsertStorage", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

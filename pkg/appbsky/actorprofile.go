@@ -10,23 +10,23 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.actor.profile", &ActorProfile{})
+	glex.RegisterType("app.bsky.actor.profile", &ActorProfile{})
 }
 
 // A declaration of a Bluesky account profile.
 type ActorProfile struct {
 	LexiconTypeID string `json:"$type"`
 	// avatar: Small image to be displayed next to posts from account. AKA, 'profile picture'
-	Avatar *glexrt.Blob `json:"avatar,omitempty"`
+	Avatar *glex.Blob `json:"avatar,omitempty"`
 	// banner: Larger horizontal image to display behind profile view.
-	Banner    *glexrt.Blob `json:"banner,omitempty"`
-	CreatedAt *string      `json:"createdAt,omitempty"`
+	Banner    *glex.Blob `json:"banner,omitempty"`
+	CreatedAt *string    `json:"createdAt,omitempty"`
 	// description: Free-form profile description text.
 	Description          *string                   `json:"description,omitempty"`
 	DisplayName          *string                   `json:"displayName,omitempty"`
@@ -39,17 +39,20 @@ type ActorProfile struct {
 	Website  *string `json:"website,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorProfile) RecordTypeID() string { return "app.bsky.actor.profile" }
+
 func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.actor.profile"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorProfile) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Self-label values, specific to the Bluesky application, on the overall account.
@@ -66,7 +69,7 @@ func (t *ActorProfile_Labels) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorProfile_Labels) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -93,7 +96,7 @@ func (t *ActorProfile_Labels) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorProfile_Labels) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}

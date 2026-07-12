@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/comatproto"
 )
@@ -52,7 +52,7 @@ func (state *StatefulDB) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos
 		if err != nil {
 			return err
 		}
-		ll := glexrt.Link(c)
+		ll := glex.Link(c)
 		commit.PrevData = &ll
 		commit.Since = prevCommit.Rev
 	} else {

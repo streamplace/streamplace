@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/decred/dcrd/dcrec/secp256k1"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
 	"stream.place/streamplace/pkg/livehls"

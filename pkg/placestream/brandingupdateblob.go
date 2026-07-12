@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -28,17 +28,20 @@ type BrandingUpdateBlob_Input struct {
 	Width *int64 `json:"width,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingUpdateBlob_Input) RecordTypeID() string { return "place.stream.branding.updateBlob" }
+
 func (t *BrandingUpdateBlob_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.updateBlob#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.updateBlob"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingUpdateBlob_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type BrandingUpdateBlob_Output struct {
@@ -46,26 +49,29 @@ type BrandingUpdateBlob_Output struct {
 	Success       bool   `json:"success"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BrandingUpdateBlob_Output) RecordTypeID() string { return "place.stream.branding.updateBlob" }
+
 func (t *BrandingUpdateBlob_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.updateBlob#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.branding.updateBlob"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BrandingUpdateBlob_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BrandingUpdateBlob calls the XRPC method "place.stream.branding.updateBlob".
 //
 // Update or create a branding asset blob. Requires admin authorization.
-func BrandingUpdateBlob(ctx context.Context, c glexrt.LexClient, input *BrandingUpdateBlob_Input) (*BrandingUpdateBlob_Output, error) {
+func BrandingUpdateBlob(ctx context.Context, c glex.LexClient, input *BrandingUpdateBlob_Input) (*BrandingUpdateBlob_Output, error) {
 	var out BrandingUpdateBlob_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.branding.updateBlob", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.branding.updateBlob", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

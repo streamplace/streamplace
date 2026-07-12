@@ -7,13 +7,13 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.media.viewCount", &MediaViewCount{})
+	glex.RegisterType("place.stream.media.viewCount", &MediaViewCount{})
 }
 
 // A streamplace node's report of view counts for one place.stream.video over a closed time window. Published in the reporting node's server repo (not the streamer's), so a video served by multiple nodes accumulates multiple records — consumers are expected to sum across trusted reporters. The rkey is conventionally `<windowStart-as-tid>-<video-rkey>` so re-running the aggregator over the same window is idempotent. Counts represent the reporting node's best effort given the data it has; the `tracks` array carries the objective byte / duration totals it observed.
@@ -33,17 +33,20 @@ type MediaViewCount struct {
 	WindowStart string `json:"windowStart"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaViewCount) RecordTypeID() string { return "place.stream.media.viewCount" }
+
 func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.media.viewCount"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaViewCount_TrackUsage is a "trackUsage" in the place.stream.media.viewCount schema.
@@ -59,15 +62,20 @@ type MediaViewCount_TrackUsage struct {
 	Track comatproto.RepoStrongRef `json:"track"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaViewCount_TrackUsage) RecordTypeID() string {
+	return "place.stream.media.viewCount#trackUsage"
+}
+
 func (t *MediaViewCount_TrackUsage) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.viewCount"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.viewCount#trackUsage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaViewCount_TrackUsage) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

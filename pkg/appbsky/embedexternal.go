@@ -7,12 +7,12 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
+	glex.RegisterType("app.bsky.embed.external#main", &EmbedExternal{})
 }
 
 // A representation of some externally linked content (eg, a URL and 'card'), embedded in a Bluesky record (eg, a post).
@@ -21,39 +21,45 @@ type EmbedExternal struct {
 	External      EmbedExternal_External `json:"external"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal) RecordTypeID() string { return "app.bsky.embed.external" }
+
 func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.embed.external"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	LexiconTypeID string       `json:"$type"`
-	Description   string       `json:"description"`
-	Thumb         *glexrt.Blob `json:"thumb,omitempty"`
-	Title         string       `json:"title"`
-	Uri           string       `json:"uri"`
+	LexiconTypeID string     `json:"$type"`
+	Description   string     `json:"description"`
+	Thumb         *glex.Blob `json:"thumb,omitempty"`
+	Title         string     `json:"title"`
+	Uri           string     `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_External) RecordTypeID() string { return "app.bsky.embed.external#external" }
 
 func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.external#external"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedExternal_View is a "view" in the app.bsky.embed.external schema.
@@ -62,17 +68,20 @@ type EmbedExternal_View struct {
 	External      EmbedExternal_ViewExternal `json:"external"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_View) RecordTypeID() string { return "app.bsky.embed.external#view" }
+
 func (t *EmbedExternal_View) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.external#view"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedExternal_View) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
@@ -84,15 +93,20 @@ type EmbedExternal_ViewExternal struct {
 	Uri           string  `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_ViewExternal) RecordTypeID() string {
+	return "app.bsky.embed.external#viewExternal"
+}
+
 func (t *EmbedExternal_ViewExternal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.external#viewExternal"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedExternal_ViewExternal) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

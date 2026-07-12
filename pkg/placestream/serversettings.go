@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.server.settings", &ServerSettings{})
+	glex.RegisterType("place.stream.server.settings", &ServerSettings{})
 }
 
 // Record containing user settings for a particular Streamplace node
@@ -24,15 +24,18 @@ type ServerSettings struct {
 	LivestreamRecording *bool `json:"livestreamRecording,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerSettings) RecordTypeID() string { return "place.stream.server.settings" }
+
 func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.server.settings"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerSettings) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

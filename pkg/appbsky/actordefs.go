@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -21,17 +21,22 @@ type ActorDefs_AdultContentPref struct {
 	Enabled       bool   `json:"enabled"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_AdultContentPref) RecordTypeID() string {
+	return "app.bsky.actor.defs#adultContentPref"
+}
+
 func (t *ActorDefs_AdultContentPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_AdultContentPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_BskyAppProgressGuide is a "bskyAppProgressGuide" in the app.bsky.actor.defs schema.
@@ -42,17 +47,22 @@ type ActorDefs_BskyAppProgressGuide struct {
 	Guide         string `json:"guide"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_BskyAppProgressGuide) RecordTypeID() string {
+	return "app.bsky.actor.defs#bskyAppProgressGuide"
+}
+
 func (t *ActorDefs_BskyAppProgressGuide) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#bskyAppProgressGuide"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_BskyAppProgressGuide) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_BskyAppStatePref is a "bskyAppStatePref" in the app.bsky.actor.defs schema.
@@ -67,17 +77,22 @@ type ActorDefs_BskyAppStatePref struct {
 	QueuedNudges []string `json:"queuedNudges,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_BskyAppStatePref) RecordTypeID() string {
+	return "app.bsky.actor.defs#bskyAppStatePref"
+}
+
 func (t *ActorDefs_BskyAppStatePref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_BskyAppStatePref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ContentLabelPref is a "contentLabelPref" in the app.bsky.actor.defs schema.
@@ -89,17 +104,22 @@ type ActorDefs_ContentLabelPref struct {
 	Visibility string  `json:"visibility"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ContentLabelPref) RecordTypeID() string {
+	return "app.bsky.actor.defs#contentLabelPref"
+}
+
 func (t *ActorDefs_ContentLabelPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ContentLabelPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_DeclaredAgePref is a "declaredAgePref" in the app.bsky.actor.defs schema.
@@ -115,17 +135,22 @@ type ActorDefs_DeclaredAgePref struct {
 	IsOverAge18 *bool `json:"isOverAge18,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_DeclaredAgePref) RecordTypeID() string {
+	return "app.bsky.actor.defs#declaredAgePref"
+}
+
 func (t *ActorDefs_DeclaredAgePref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_DeclaredAgePref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
@@ -145,17 +170,20 @@ type ActorDefs_FeedViewPref struct {
 	HideReposts *bool `json:"hideReposts,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_FeedViewPref) RecordTypeID() string { return "app.bsky.actor.defs#feedViewPref" }
+
 func (t *ActorDefs_FeedViewPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_FeedViewPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_HiddenPostsPref is a "hiddenPostsPref" in the app.bsky.actor.defs schema.
@@ -165,17 +193,22 @@ type ActorDefs_HiddenPostsPref struct {
 	Items []string `json:"items"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_HiddenPostsPref) RecordTypeID() string {
+	return "app.bsky.actor.defs#hiddenPostsPref"
+}
+
 func (t *ActorDefs_HiddenPostsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_HiddenPostsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_InterestsPref is a "interestsPref" in the app.bsky.actor.defs schema.
@@ -185,17 +218,20 @@ type ActorDefs_InterestsPref struct {
 	Tags []string `json:"tags"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_InterestsPref) RecordTypeID() string { return "app.bsky.actor.defs#interestsPref" }
+
 func (t *ActorDefs_InterestsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_InterestsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_KnownFollowers is a "knownFollowers" in the app.bsky.actor.defs schema.
@@ -207,17 +243,20 @@ type ActorDefs_KnownFollowers struct {
 	Followers     []ActorDefs_ProfileViewBasic `json:"followers"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_KnownFollowers) RecordTypeID() string { return "app.bsky.actor.defs#knownFollowers" }
+
 func (t *ActorDefs_KnownFollowers) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#knownFollowers"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_KnownFollowers) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_LabelerPrefItem is a "labelerPrefItem" in the app.bsky.actor.defs schema.
@@ -226,17 +265,22 @@ type ActorDefs_LabelerPrefItem struct {
 	Did           string `json:"did"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_LabelerPrefItem) RecordTypeID() string {
+	return "app.bsky.actor.defs#labelerPrefItem"
+}
+
 func (t *ActorDefs_LabelerPrefItem) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#labelerPrefItem"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_LabelerPrefItem) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_LabelersPref is a "labelersPref" in the app.bsky.actor.defs schema.
@@ -245,17 +289,20 @@ type ActorDefs_LabelersPref struct {
 	Labelers      []ActorDefs_LabelerPrefItem `json:"labelers"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_LabelersPref) RecordTypeID() string { return "app.bsky.actor.defs#labelersPref" }
+
 func (t *ActorDefs_LabelersPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_LabelersPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_LiveEventPreferences is a "liveEventPreferences" in the app.bsky.actor.defs schema.
@@ -269,17 +316,22 @@ type ActorDefs_LiveEventPreferences struct {
 	HideAllFeeds *bool `json:"hideAllFeeds,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_LiveEventPreferences) RecordTypeID() string {
+	return "app.bsky.actor.defs#liveEventPreferences"
+}
+
 func (t *ActorDefs_LiveEventPreferences) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_LiveEventPreferences) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_MutedWord is a "mutedWord" in the app.bsky.actor.defs schema.
@@ -298,17 +350,20 @@ type ActorDefs_MutedWord struct {
 	Value string `json:"value"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_MutedWord) RecordTypeID() string { return "app.bsky.actor.defs#mutedWord" }
+
 func (t *ActorDefs_MutedWord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#mutedWord"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_MutedWord) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_MutedWordsPref is a "mutedWordsPref" in the app.bsky.actor.defs schema.
@@ -318,17 +373,20 @@ type ActorDefs_MutedWordsPref struct {
 	Items []ActorDefs_MutedWord `json:"items"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_MutedWordsPref) RecordTypeID() string { return "app.bsky.actor.defs#mutedWordsPref" }
+
 func (t *ActorDefs_MutedWordsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_MutedWordsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_Nux is a "nux" in the app.bsky.actor.defs schema.
@@ -344,17 +402,20 @@ type ActorDefs_Nux struct {
 	Id        string  `json:"id"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_Nux) RecordTypeID() string { return "app.bsky.actor.defs#nux" }
+
 func (t *ActorDefs_Nux) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#nux"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_Nux) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
@@ -364,17 +425,22 @@ type ActorDefs_PersonalDetailsPref struct {
 	BirthDate *string `json:"birthDate,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_PersonalDetailsPref) RecordTypeID() string {
+	return "app.bsky.actor.defs#personalDetailsPref"
+}
+
 func (t *ActorDefs_PersonalDetailsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_PersonalDetailsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_PostInteractionSettingsPref is a "postInteractionSettingsPref" in the app.bsky.actor.defs schema.
@@ -388,17 +454,22 @@ type ActorDefs_PostInteractionSettingsPref struct {
 	ThreadgateAllowRules []ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem `json:"threadgateAllowRules,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_PostInteractionSettingsPref) RecordTypeID() string {
+	return "app.bsky.actor.defs#postInteractionSettingsPref"
+}
+
 func (t *ActorDefs_PostInteractionSettingsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem struct {
@@ -414,7 +485,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Mars
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -441,7 +512,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Mars
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -483,7 +554,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Marsha
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -528,7 +599,7 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Marsha
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -639,7 +710,7 @@ func (t *ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -756,7 +827,7 @@ func (t *ActorDefs_Preferences) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -827,17 +898,22 @@ type ActorDefs_ProfileAssociated struct {
 	StarterPacks         *int64                                           `json:"starterPacks,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileAssociated) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileAssociated"
+}
+
 func (t *ActorDefs_ProfileAssociated) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociated"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileAssociated) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileAssociatedActivitySubscription is a "profileAssociatedActivitySubscription" in the app.bsky.actor.defs schema.
@@ -846,17 +922,22 @@ type ActorDefs_ProfileAssociatedActivitySubscription struct {
 	AllowSubscriptions string `json:"allowSubscriptions"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileAssociatedActivitySubscription) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileAssociatedActivitySubscription"
+}
+
 func (t *ActorDefs_ProfileAssociatedActivitySubscription) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedActivitySubscription"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
@@ -865,17 +946,22 @@ type ActorDefs_ProfileAssociatedChat struct {
 	AllowIncoming string `json:"allowIncoming"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileAssociatedChat) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileAssociatedChat"
+}
+
 func (t *ActorDefs_ProfileAssociatedChat) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedChat"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileAssociatedChat) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileAssociatedGerm is a "profileAssociatedGerm" in the app.bsky.actor.defs schema.
@@ -885,17 +971,22 @@ type ActorDefs_ProfileAssociatedGerm struct {
 	ShowButtonTo  string `json:"showButtonTo"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileAssociatedGerm) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileAssociatedGerm"
+}
+
 func (t *ActorDefs_ProfileAssociatedGerm) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedGerm"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileAssociatedGerm) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
@@ -905,7 +996,7 @@ type ActorDefs_ProfileView struct {
 	Avatar        *string                      `json:"avatar,omitempty"`
 	CreatedAt     *string                      `json:"createdAt,omitempty"`
 	// debug: Debug information for internal development
-	Debug        *glexrt.LexiconTypeDecoder   `json:"debug,omitempty"`
+	Debug        *glex.LexiconTypeDecoder     `json:"debug,omitempty"`
 	Description  *string                      `json:"description,omitempty"`
 	Did          string                       `json:"did"`
 	DisplayName  *string                      `json:"displayName,omitempty"`
@@ -918,17 +1009,20 @@ type ActorDefs_ProfileView struct {
 	Viewer       *ActorDefs_ViewerState       `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileView) RecordTypeID() string { return "app.bsky.actor.defs#profileView" }
+
 func (t *ActorDefs_ProfileView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
@@ -938,7 +1032,7 @@ type ActorDefs_ProfileViewBasic struct {
 	Avatar        *string                      `json:"avatar,omitempty"`
 	CreatedAt     *string                      `json:"createdAt,omitempty"`
 	// debug: Debug information for internal development
-	Debug        *glexrt.LexiconTypeDecoder   `json:"debug,omitempty"`
+	Debug        *glex.LexiconTypeDecoder     `json:"debug,omitempty"`
 	Did          string                       `json:"did"`
 	DisplayName  *string                      `json:"displayName,omitempty"`
 	Handle       string                       `json:"handle"`
@@ -949,17 +1043,22 @@ type ActorDefs_ProfileViewBasic struct {
 	Viewer       *ActorDefs_ViewerState       `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileViewBasic) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileViewBasic"
+}
+
 func (t *ActorDefs_ProfileViewBasic) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileViewBasic"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileViewBasic) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
@@ -970,7 +1069,7 @@ type ActorDefs_ProfileViewDetailed struct {
 	Banner        *string                      `json:"banner,omitempty"`
 	CreatedAt     *string                      `json:"createdAt,omitempty"`
 	// debug: Debug information for internal development
-	Debug                *glexrt.LexiconTypeDecoder      `json:"debug,omitempty"`
+	Debug                *glex.LexiconTypeDecoder        `json:"debug,omitempty"`
 	Description          *string                         `json:"description,omitempty"`
 	Did                  string                          `json:"did"`
 	DisplayName          *string                         `json:"displayName,omitempty"`
@@ -989,17 +1088,22 @@ type ActorDefs_ProfileViewDetailed struct {
 	Website              *string                         `json:"website,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ProfileViewDetailed) RecordTypeID() string {
+	return "app.bsky.actor.defs#profileViewDetailed"
+}
+
 func (t *ActorDefs_ProfileViewDetailed) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#profileViewDetailed"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ProfileViewDetailed) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.
@@ -1011,17 +1115,20 @@ type ActorDefs_SavedFeed struct {
 	Value         string `json:"value"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_SavedFeed) RecordTypeID() string { return "app.bsky.actor.defs#savedFeed" }
+
 func (t *ActorDefs_SavedFeed) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#savedFeed"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_SavedFeed) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_SavedFeedsPref is a "savedFeedsPref" in the app.bsky.actor.defs schema.
@@ -1032,17 +1139,20 @@ type ActorDefs_SavedFeedsPref struct {
 	TimelineIndex *int64   `json:"timelineIndex,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_SavedFeedsPref) RecordTypeID() string { return "app.bsky.actor.defs#savedFeedsPref" }
+
 func (t *ActorDefs_SavedFeedsPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_SavedFeedsPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_SavedFeedsPrefV2 is a "savedFeedsPrefV2" in the app.bsky.actor.defs schema.
@@ -1051,17 +1161,22 @@ type ActorDefs_SavedFeedsPrefV2 struct {
 	Items         []ActorDefs_SavedFeed `json:"items"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_SavedFeedsPrefV2) RecordTypeID() string {
+	return "app.bsky.actor.defs#savedFeedsPrefV2"
+}
+
 func (t *ActorDefs_SavedFeedsPrefV2) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_SavedFeedsPrefV2) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
@@ -1077,23 +1192,26 @@ type ActorDefs_StatusView struct {
 	// isDisabled: True if the user's go-live access has been disabled by a moderator, false otherwise.
 	IsDisabled *bool                        `json:"isDisabled,omitempty"`
 	Labels     []comatproto.LabelDefs_Label `json:"labels,omitempty"`
-	Record     *glexrt.LexiconTypeDecoder   `json:"record"`
+	Record     *glex.LexiconTypeDecoder     `json:"record"`
 	// status: The status for the account.
 	Status string  `json:"status"`
 	Uri    *string `json:"uri,omitempty"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_StatusView) RecordTypeID() string { return "app.bsky.actor.defs#statusView" }
 
 func (t *ActorDefs_StatusView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#statusView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_StatusView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // An optional embed associated with the status.
@@ -1110,7 +1228,7 @@ func (t *ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -1137,7 +1255,7 @@ func (t *ActorDefs_StatusView_Embed) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ActorDefs_StatusView_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -1158,17 +1276,20 @@ type ActorDefs_ThreadViewPref struct {
 	Sort *string `json:"sort,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ThreadViewPref) RecordTypeID() string { return "app.bsky.actor.defs#threadViewPref" }
+
 func (t *ActorDefs_ThreadViewPref) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ThreadViewPref) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_VerificationPrefs is a "verificationPrefs" in the app.bsky.actor.defs schema.
@@ -1180,17 +1301,22 @@ type ActorDefs_VerificationPrefs struct {
 	HideBadges *bool `json:"hideBadges,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_VerificationPrefs) RecordTypeID() string {
+	return "app.bsky.actor.defs#verificationPrefs"
+}
+
 func (t *ActorDefs_VerificationPrefs) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_VerificationPrefs) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_VerificationState is a "verificationState" in the app.bsky.actor.defs schema.
@@ -1206,17 +1332,22 @@ type ActorDefs_VerificationState struct {
 	VerifiedStatus string `json:"verifiedStatus"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_VerificationState) RecordTypeID() string {
+	return "app.bsky.actor.defs#verificationState"
+}
+
 func (t *ActorDefs_VerificationState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#verificationState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_VerificationState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_VerificationView is a "verificationView" in the app.bsky.actor.defs schema.
@@ -1234,17 +1365,22 @@ type ActorDefs_VerificationView struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_VerificationView) RecordTypeID() string {
+	return "app.bsky.actor.defs#verificationView"
+}
+
 func (t *ActorDefs_VerificationView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#verificationView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_VerificationView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ActorDefs_ViewerState is a "viewerState" in the app.bsky.actor.defs schema.
@@ -1265,15 +1401,18 @@ type ActorDefs_ViewerState struct {
 	MutedByList    *GraphDefs_ListViewBasic  `json:"mutedByList,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ActorDefs_ViewerState) RecordTypeID() string { return "app.bsky.actor.defs#viewerState" }
+
 func (t *ActorDefs_ViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.actor.defs#viewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ActorDefs_ViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

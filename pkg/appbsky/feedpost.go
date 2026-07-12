@@ -10,13 +10,13 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.feed.post", &FeedPost{})
+	glex.RegisterType("app.bsky.feed.post", &FeedPost{})
 }
 
 // Record containing a Bluesky post.
@@ -40,17 +40,20 @@ type FeedPost struct {
 	Text string `json:"text"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPost) RecordTypeID() string { return "app.bsky.feed.post" }
+
 func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.feed.post"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedPost_Embed struct {
@@ -86,7 +89,7 @@ func (t *FeedPost_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedPost_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -137,7 +140,7 @@ func (t *FeedPost_Embed) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedPost_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -177,7 +180,7 @@ func (t *FeedPost_Labels) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedPost_Labels) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -204,7 +207,7 @@ func (t *FeedPost_Labels) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -229,17 +232,20 @@ type FeedPost_Entity struct {
 	Value string `json:"value"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPost_Entity) RecordTypeID() string { return "app.bsky.feed.post#entity" }
+
 func (t *FeedPost_Entity) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.post"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.post#entity"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.
@@ -249,17 +255,20 @@ type FeedPost_ReplyRef struct {
 	Root          comatproto.RepoStrongRef `json:"root"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPost_ReplyRef) RecordTypeID() string { return "app.bsky.feed.post#replyRef" }
+
 func (t *FeedPost_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.post"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.post#replyRef"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedPost_TextSlice is a "textSlice" in the app.bsky.feed.post schema.
@@ -271,15 +280,18 @@ type FeedPost_TextSlice struct {
 	Start         int64  `json:"start"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedPost_TextSlice) RecordTypeID() string { return "app.bsky.feed.post#textSlice" }
+
 func (t *FeedPost_TextSlice) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.post"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.post#textSlice"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedPost_TextSlice) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/appbsky"
@@ -30,13 +30,11 @@ func (ls *Livestream) ToLivestreamView() (placestream.Livestream_LivestreamView,
 	if ls == nil || ls.Livestream == nil {
 		return placestream.Livestream_LivestreamView{}, fmt.Errorf("livestream record is nil")
 	}
-	rec, err := glexrt.CborDecodeValue(*ls.Livestream)
-	if err != nil {
-		return placestream.Livestream_LivestreamView{}, fmt.Errorf("error decoding feed post: %w", err)
+	var rec placestream.Livestream
+	if err := glex.DecodeCBOR(*ls.Livestream, &rec); err != nil {
+		return placestream.Livestream_LivestreamView{}, fmt.Errorf("error decoding livestream record: %w", err)
 	}
-	if typedRec, ok := rec.(placestream.Livestream); ok {
-		typedRec.Tags = moderation.FilterTags(typedRec.Tags)
-	}
+	rec.Tags = moderation.FilterTags(rec.Tags)
 	postView := placestream.Livestream_LivestreamView{
 		LexiconTypeID: "place.stream.livestream#livestreamView",
 		Cid:           ls.CID,
@@ -45,7 +43,7 @@ func (ls *Livestream) ToLivestreamView() (placestream.Livestream_LivestreamView,
 			Did:    ls.RepoDID,
 			Handle: ls.Repo.Handle,
 		},
-		Record:    &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:    &glex.LexiconTypeDecoder{Val: &rec},
 		IndexedAt: time.Now().Format(time.RFC3339),
 	}
 	return postView, nil

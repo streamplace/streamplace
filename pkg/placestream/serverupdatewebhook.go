@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -36,17 +36,20 @@ type ServerUpdateWebhook_Input struct {
 	Url *string `json:"url,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerUpdateWebhook_Input) RecordTypeID() string { return "place.stream.server.updateWebhook" }
+
 func (t *ServerUpdateWebhook_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.updateWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.updateWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerUpdateWebhook_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ServerUpdateWebhook_Output struct {
@@ -54,26 +57,31 @@ type ServerUpdateWebhook_Output struct {
 	Webhook       ServerDefs_Webhook `json:"webhook"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ServerUpdateWebhook_Output) RecordTypeID() string {
+	return "place.stream.server.updateWebhook"
+}
+
 func (t *ServerUpdateWebhook_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.updateWebhook#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.server.updateWebhook"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ServerUpdateWebhook_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ServerUpdateWebhook calls the XRPC method "place.stream.server.updateWebhook".
 //
 // Update an existing webhook configuration.
-func ServerUpdateWebhook(ctx context.Context, c glexrt.LexClient, input *ServerUpdateWebhook_Input) (*ServerUpdateWebhook_Output, error) {
+func ServerUpdateWebhook(ctx context.Context, c glex.LexClient, input *ServerUpdateWebhook_Input) (*ServerUpdateWebhook_Output, error) {
 	var out ServerUpdateWebhook_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.server.updateWebhook", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.server.updateWebhook", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

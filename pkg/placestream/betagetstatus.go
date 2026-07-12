@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,17 +22,20 @@ type BetaGetStatus_Output struct {
 	Status string `json:"status"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BetaGetStatus_Output) RecordTypeID() string { return "place.stream.beta.getStatus" }
+
 func (t *BetaGetStatus_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.beta.getStatus#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.beta.getStatus"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BetaGetStatus_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BetaGetStatus calls the XRPC method "place.stream.beta.getStatus".
@@ -41,7 +44,7 @@ func (t *BetaGetStatus_Output) UnmarshalCBOR(r io.Reader) error {
 //
 // did: Account to check. Defaults to the authenticated caller's DID when omitted.
 // feature: Identifier of the beta feature to check (e.g. "vod").
-func BetaGetStatus(ctx context.Context, c glexrt.LexClient, did string, feature string) (*BetaGetStatus_Output, error) {
+func BetaGetStatus(ctx context.Context, c glex.LexClient, did string, feature string) (*BetaGetStatus_Output, error) {
 	var out BetaGetStatus_Output
 
 	params := map[string]interface{}{}
@@ -50,7 +53,7 @@ func BetaGetStatus(ctx context.Context, c glexrt.LexClient, did string, feature 
 	}
 	params["feature"] = feature
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.beta.getStatus", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.beta.getStatus", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

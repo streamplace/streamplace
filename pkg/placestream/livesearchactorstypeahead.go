@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,17 +17,22 @@ type LiveSearchActorsTypeahead_Output struct {
 	Actors        []LiveSearchActorsTypeahead_Actor `json:"actors"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveSearchActorsTypeahead_Output) RecordTypeID() string {
+	return "place.stream.live.searchActorsTypeahead"
+}
+
 func (t *LiveSearchActorsTypeahead_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.searchActorsTypeahead#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.searchActorsTypeahead"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveSearchActorsTypeahead_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LiveSearchActorsTypeahead calls the XRPC method "place.stream.live.searchActorsTypeahead".
@@ -35,7 +40,7 @@ func (t *LiveSearchActorsTypeahead_Output) UnmarshalCBOR(r io.Reader) error {
 // Find actor suggestions for a prefix search term. Expected use is for auto-completion during text field entry.
 //
 // q: Search query prefix; not a full query string.
-func LiveSearchActorsTypeahead(ctx context.Context, c glexrt.LexClient, limit *int64, q string) (*LiveSearchActorsTypeahead_Output, error) {
+func LiveSearchActorsTypeahead(ctx context.Context, c glex.LexClient, limit *int64, q string) (*LiveSearchActorsTypeahead_Output, error) {
 	var out LiveSearchActorsTypeahead_Output
 
 	params := map[string]interface{}{}
@@ -46,7 +51,7 @@ func LiveSearchActorsTypeahead(ctx context.Context, c glexrt.LexClient, limit *i
 		params["q"] = q
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.live.searchActorsTypeahead", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.live.searchActorsTypeahead", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -61,15 +66,20 @@ type LiveSearchActorsTypeahead_Actor struct {
 	Handle string `json:"handle"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveSearchActorsTypeahead_Actor) RecordTypeID() string {
+	return "place.stream.live.searchActorsTypeahead#actor"
+}
+
 func (t *LiveSearchActorsTypeahead_Actor) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.searchActorsTypeahead"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.searchActorsTypeahead#actor"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveSearchActorsTypeahead_Actor) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

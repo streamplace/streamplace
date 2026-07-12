@@ -20,8 +20,7 @@ import (
 	atrepo "github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
-	glexrt "github.com/streamplace/glex/runtime"
-	cbg "github.com/whyrusleeping/cbor-gen"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/comatproto"
 
 	"github.com/whyrusleeping/go-did"
@@ -68,6 +67,9 @@ type SchemaFileWrapper struct {
 	LexiconTypeID string `json:"$type,const=com.atproto.lexicon.schema" cborgen:"$type,const=com.atproto.lexicon.schema"`
 	SchemaFile    lexicon.SchemaFile
 }
+
+// RecordTypeID implements glex.Record.
+func (sfw *SchemaFileWrapper) RecordTypeID() string { return "com.atproto.lexicon.schema" }
 
 func (sfw *SchemaFileWrapper) MarshalCBOR(w io.Writer) error {
 	bs, err := json.Marshal(sfw.SchemaFile)
@@ -266,7 +268,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		if err != nil {
 			return nil, err
 		}
-		cidLink := glexrt.Link(*newCid)
+		cidLink := glex.Link(*newCid)
 
 		oldCid, _, err := LexiconRepo.GetRecord(ctx, rpath)
 		if errors.Is(err, mst.ErrNotFound) {
@@ -292,7 +294,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 				if err != nil {
 					return nil, err
 				}
-				oldLink := glexrt.Link(oldCid)
+				oldLink := glex.Link(oldCid)
 				ops = append(ops, comatproto.SyncSubscribeRepos_RepoOp{
 					Action: ActionUpdate,
 					Path:   rpath,
@@ -319,7 +321,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 			Repo:   cli.BroadcasterDID(),
 			Blocks: blocks,
 			Rev:    currentRev,
-			Commit: glexrt.Link(currentRoot),
+			Commit: glex.Link(currentRoot),
 			Time:   time.Now().Format(util.ISO8601),
 			Ops:    ops,
 			TooBig: false,
@@ -352,12 +354,11 @@ func OpenLexiconRepo(ctx context.Context) (*atrepo.Repo, *carstore.DeltaSession,
 }
 
 // Get record that handles special-casing for com.atproto.lexicon.schema
-func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, collection string, rkey string) (cbg.CBORMarshaler, error) {
+func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, collection string, rkey string) (glex.Record, error) {
 	b, err := ses.Get(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
 	}
-	var val cbg.CBORMarshaler
 	if collection == "com.atproto.lexicon.schema" {
 		sfMap, err := atdata.UnmarshalCBOR(b.RawData())
 		if err != nil {
@@ -372,22 +373,13 @@ func GetRecordCBOR(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid, c
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal schema file: %w", err)
 		}
-		val = &SchemaFileWrapper{
+		return &SchemaFileWrapper{
 			SchemaFile: sf,
-		}
-	} else {
-		decoded, err := glexrt.CborDecodeValue(b.RawData())
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode record: %w", err)
-		}
-		var ok bool
-		val, ok = decoded.(cbg.CBORMarshaler)
-		if !ok {
-			return nil, fmt.Errorf("decoded record does not implement CBORMarshaler: %T", decoded)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode record: %w", err)
-		}
+		}, nil
 	}
-	return val, nil
+	decoded, err := glex.CborDecodeValue(b.RawData())
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode record: %w", err)
+	}
+	return decoded, nil
 }

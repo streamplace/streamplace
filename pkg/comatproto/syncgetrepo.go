@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // SyncGetRepo calls the XRPC method "com.atproto.sync.getRepo".
@@ -17,7 +17,7 @@ import (
 //
 // did: The DID of the repo.
 // since: The revision ('rev') of the repo to create a diff from.
-func SyncGetRepo(ctx context.Context, c glexrt.LexClient, did string, since string) ([]byte, error) {
+func SyncGetRepo(ctx context.Context, c glex.LexClient, did string, since string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
@@ -26,7 +26,7 @@ func SyncGetRepo(ctx context.Context, c glexrt.LexClient, did string, since stri
 	}
 	params["did"] = did
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "com.atproto.sync.getRepo", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

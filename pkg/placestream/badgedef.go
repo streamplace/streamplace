@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.badge.def", &BadgeDef{})
+	glex.RegisterType("place.stream.badge.def", &BadgeDef{})
 }
 
 // Defines a badge's visual appearance and type. Created by the issuer and referenced by issuance records.
@@ -24,10 +24,13 @@ type BadgeDef struct {
 	// description: Optional description of the badge.
 	Description *string `json:"description,omitempty"`
 	// image: Badge icon image.
-	Image *glexrt.Blob `json:"image,omitempty"`
+	Image *glex.Blob `json:"image,omitempty"`
 	// name: Display name for this badge.
 	Name string `json:"name"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *BadgeDef) RecordTypeID() string { return "place.stream.badge.def" }
 
 func (t *BadgeDef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -35,9 +38,9 @@ func (t *BadgeDef) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.LexiconTypeID = "place.stream.badge.def"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeDef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

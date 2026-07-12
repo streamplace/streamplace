@@ -7,12 +7,12 @@ package appbsky
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
+	glex.RegisterType("app.bsky.embed.images#main", &EmbedImages{})
 }
 
 type EmbedImages struct {
@@ -20,17 +20,20 @@ type EmbedImages struct {
 	Images        []EmbedImages_Image `json:"images"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedImages) RecordTypeID() string { return "app.bsky.embed.images" }
+
 func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.embed.images"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedImages) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
@@ -40,20 +43,23 @@ type EmbedImages_Image struct {
 	Alt         string                 `json:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`
 	// image: The raw image file. May be up to 2 MB, formerly limited to 1 MB.
-	Image glexrt.Blob `json:"image"`
+	Image glex.Blob `json:"image"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedImages_Image) RecordTypeID() string { return "app.bsky.embed.images#image" }
 
 func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.images#image"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.
@@ -62,17 +68,20 @@ type EmbedImages_View struct {
 	Images        []EmbedImages_ViewImage `json:"images"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedImages_View) RecordTypeID() string { return "app.bsky.embed.images#view" }
+
 func (t *EmbedImages_View) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.images#view"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedImages_View) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
@@ -87,15 +96,18 @@ type EmbedImages_ViewImage struct {
 	Thumb string `json:"thumb"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedImages_ViewImage) RecordTypeID() string { return "app.bsky.embed.images#viewImage" }
+
 func (t *EmbedImages_ViewImage) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.images#viewImage"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedImages_ViewImage) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

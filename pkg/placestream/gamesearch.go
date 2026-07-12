@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
 )
@@ -23,17 +23,20 @@ type GameSearch_Output struct {
 	TotalResults  *int64                           `json:"totalResults,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GameSearch_Output) RecordTypeID() string { return "place.stream.game.search" }
+
 func (t *GameSearch_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.game.search#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.game.search"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GameSearch_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type GameSearch_Output_Results_Elem struct {
@@ -69,7 +72,7 @@ func (t *GameSearch_Output_Results_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *GameSearch_Output_Results_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -120,7 +123,7 @@ func (t *GameSearch_Output_Results_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *GameSearch_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -149,7 +152,7 @@ func (t *GameSearch_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
 // GameSearch calls the XRPC method "place.stream.game.search".
 //
 // Search for games and other entities via the games.gamesgamesgamesgames catalog. Proxied from the configured games API.
-func GameSearch(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64, q string) (*GameSearch_Output, error) {
+func GameSearch(ctx context.Context, c glex.LexClient, cursor string, limit *int64, q string) (*GameSearch_Output, error) {
 	var out GameSearch_Output
 
 	params := map[string]interface{}{}
@@ -161,7 +164,7 @@ func GameSearch(ctx context.Context, c glexrt.LexClient, cursor string, limit *i
 	}
 	params["q"] = q
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.game.search", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.game.search", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

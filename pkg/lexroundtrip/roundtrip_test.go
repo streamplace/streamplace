@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	glexrt "github.com/streamplace/glex/runtime"
-	"stream.place/streamplace/pkg/lex"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -20,7 +19,7 @@ func TestAdapterRegistryRoundtrip(t *testing.T) {
 		CreatedAt: "2026-07-07T00:00:00Z",
 		Title:     "hello world",
 		Tags:      []string{"lang:en"},
-		Thumb:     &lex.Blob{Ref: lex.Link(c), MimeType: "image/jpeg", Size: 4096},
+		Thumb:     &glex.Blob{Ref: glex.Link(c), MimeType: "image/jpeg", Size: 4096},
 		Activity: &placestream.Livestream_Activity{
 			Defs_ActivityGame: &placestream.Defs_ActivityGame{Uri: "at://did:plc:x/games.gamesgamesgamesgames.game/abc"},
 		},
@@ -38,7 +37,7 @@ func TestAdapterRegistryRoundtrip(t *testing.T) {
 	}
 
 	// Decode via the glex runtime registry, exactly like the firehose does.
-	decoded, err := glexrt.CborDecodeValue(enc)
+	decoded, err := glex.CborDecodeValue(enc)
 	if err != nil {
 		t.Fatalf("CborDecodeValue: %v", err)
 	}

@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,17 +22,22 @@ type ModerationCreateBlock_Input struct {
 	Subject string `json:"subject"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateBlock_Input) RecordTypeID() string {
+	return "place.stream.moderation.createBlock"
+}
+
 func (t *ModerationCreateBlock_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createBlock#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createBlock"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateBlock_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ModerationCreateBlock_Output struct {
@@ -43,26 +48,31 @@ type ModerationCreateBlock_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationCreateBlock_Output) RecordTypeID() string {
+	return "place.stream.moderation.createBlock"
+}
+
 func (t *ModerationCreateBlock_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.createBlock#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.createBlock"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationCreateBlock_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ModerationCreateBlock calls the XRPC method "place.stream.moderation.createBlock".
 //
 // Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.
-func ModerationCreateBlock(ctx context.Context, c glexrt.LexClient, input *ModerationCreateBlock_Input) (*ModerationCreateBlock_Output, error) {
+func ModerationCreateBlock(ctx context.Context, c glex.LexClient, input *ModerationCreateBlock_Input) (*ModerationCreateBlock_Output, error) {
 	var out ModerationCreateBlock_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.moderation.createBlock", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.moderation.createBlock", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

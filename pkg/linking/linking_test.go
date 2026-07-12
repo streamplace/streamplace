@@ -7,13 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bluesky-social/indigo/api/atproto"
 	"github.com/ipfs/go-cid"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/appbsky"
-	"stream.place/streamplace/pkg/lex"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -47,7 +46,7 @@ func TestGenerateLinkCard(t *testing.T) {
 	sp := "https://stream.place"
 	ls := &placestream.Livestream{
 		CreatedAt: "2025-03-25T00:39:49.121Z",
-		Post: &atproto.RepoStrongRef{
+		Post: &comatproto.RepoStrongRef{
 			Cid: "bafyreiczmyne5jd4lpax5ttyb5p2fbcageyt6fsthdpyymecokcsmyh4a4",
 			Uri: "at://did:plc:2zmxikig2sj7gqaezl5gntae/app.appbsky.feed.post/3ll5zuomua22x",
 		},
@@ -61,7 +60,7 @@ func TestGenerateLinkCard(t *testing.T) {
 		},
 		Cid:       "bafyreib2ohz45jileumnuwa3wdoo3o7caikfyq467eanleqcscouh5wery",
 		IndexedAt: "2025-03-25T01:16:14Z",
-		Record:    &glexrt.LexiconTypeDecoder{Val: ls},
+		Record:    &glex.LexiconTypeDecoder{Val: ls},
 		Uri:       "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.livestream/3ll5zuop2k22x",
 	}
 	linkCard, err := linker.GenerateStreamerCard(context.Background(), u, lsv, "")
@@ -87,8 +86,8 @@ func TestGenerateVideoCard(t *testing.T) {
 
 	video := &placestream.Video{
 		Title: "My excellent VOD",
-		Thumb: &lex.Blob{
-			Ref:      lex.Link(c),
+		Thumb: &glex.Blob{
+			Ref:      glex.Link(c),
 			MimeType: "image/jpeg",
 		},
 	}
@@ -98,7 +97,7 @@ func TestGenerateVideoCard(t *testing.T) {
 			Did:    "did:plc:2zmxikig2sj7gqaezl5gntae",
 		},
 		Cid:    "bafyreib2ohz45jileumnuwa3wdoo3o7caikfyq467eanleqcscouh5wery",
-		Record: &glexrt.LexiconTypeDecoder{Val: video},
+		Record: &glex.LexiconTypeDecoder{Val: video},
 		Uri:    "at://did:plc:2zmxikig2sj7gqaezl5gntae/place.stream.video/3mms3tfkcxstu",
 	}
 

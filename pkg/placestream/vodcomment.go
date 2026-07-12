@@ -7,13 +7,13 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.vod.comment", &VodComment{})
+	glex.RegisterType("place.stream.vod.comment", &VodComment{})
 }
 
 // Record containing a comment on a VOD.
@@ -30,17 +30,20 @@ type VodComment struct {
 	Video string `json:"video"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodComment) RecordTypeID() string { return "place.stream.vod.comment" }
+
 func (t *VodComment) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.vod.comment"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodComment) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // VodComment_ReplyRef is a "replyRef" in the place.stream.vod.comment schema.
@@ -50,15 +53,18 @@ type VodComment_ReplyRef struct {
 	Root          comatproto.RepoStrongRef `json:"root"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *VodComment_ReplyRef) RecordTypeID() string { return "place.stream.vod.comment#replyRef" }
+
 func (t *VodComment_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.comment"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.vod.comment#replyRef"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *VodComment_ReplyRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

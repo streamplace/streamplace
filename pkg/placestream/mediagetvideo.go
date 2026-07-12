@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -18,13 +18,13 @@ import (
 // Get a hydrated view of a place.stream.video record — the record itself plus author info plus aggregated view counts summed across every reporting node we've indexed. View counts come from place.stream.media.viewCount records; consumers see one number per metric, with the underlying multi-reporter detail collapsed away.
 //
 // uri: AT-URI of the place.stream.video record.
-func MediaGetVideo(ctx context.Context, c glexrt.LexClient, uri string) (*MediaGetVideo_VideoView, error) {
+func MediaGetVideo(ctx context.Context, c glex.LexClient, uri string) (*MediaGetVideo_VideoView, error) {
 	var out MediaGetVideo_VideoView
 
 	params := map[string]interface{}{}
 	params["uri"] = uri
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.media.getVideo", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.media.getVideo", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -36,12 +36,17 @@ type MediaGetVideo_VideoView struct {
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	// likeCount: Total number of place.stream.like records whose subject is this video. Always present; zero when none, so consumers can render a count unconditionally.
-	LikeCount int64                      `json:"likeCount"`
-	Record    *glexrt.LexiconTypeDecoder `json:"record"`
-	Tracks    []MediaTrack_TrackView     `json:"tracks,omitempty"`
-	Uri       string                     `json:"uri"`
+	LikeCount int64                    `json:"likeCount"`
+	Record    *glex.LexiconTypeDecoder `json:"record"`
+	Tracks    []MediaTrack_TrackView   `json:"tracks,omitempty"`
+	Uri       string                   `json:"uri"`
 	// viewCounts: Aggregated view counts across every indexed reporter. Always present; zero-valued (count=0, reporters=0) when no place.stream.media.viewCount records have been observed yet, so consumers can render a count unconditionally.
 	ViewCounts MediaGetVideo_ViewCountSummary `json:"viewCounts"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *MediaGetVideo_VideoView) RecordTypeID() string {
+	return "place.stream.media.getVideo#videoView"
 }
 
 func (t *MediaGetVideo_VideoView) MarshalCBOR(w io.Writer) error {
@@ -49,12 +54,12 @@ func (t *MediaGetVideo_VideoView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getVideo"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.getVideo#videoView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaGetVideo_VideoView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaGetVideo_ViewCountSummary is a "viewCountSummary" in the place.stream.media.getVideo schema.
@@ -72,15 +77,20 @@ type MediaGetVideo_ViewCountSummary struct {
 	Reporters int64 `json:"reporters"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaGetVideo_ViewCountSummary) RecordTypeID() string {
+	return "place.stream.media.getVideo#viewCountSummary"
+}
+
 func (t *MediaGetVideo_ViewCountSummary) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getVideo"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.getVideo#viewCountSummary"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaGetVideo_ViewCountSummary) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

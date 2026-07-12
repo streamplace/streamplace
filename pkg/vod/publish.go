@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/bluesky-social/indigo/xrpc"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -260,7 +260,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 	rkey := spid.TIDClock.Next().String()
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_MEDIA_TRACK,
-		Record:     &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       rkey,
 		Repo:       did,
 	}

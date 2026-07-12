@@ -10,14 +10,14 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.livestream", &Livestream{})
+	glex.RegisterType("place.stream.livestream", &Livestream{})
 }
 
 // Record announcing a livestream is happening
@@ -41,13 +41,16 @@ type Livestream struct {
 	// post: The post that announced this livestream.
 	Post *comatproto.RepoStrongRef `json:"post,omitempty"`
 	// tags: Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).
-	Tags  []string     `json:"tags,omitempty"`
-	Thumb *glexrt.Blob `json:"thumb,omitempty"`
+	Tags  []string   `json:"tags,omitempty"`
+	Thumb *glex.Blob `json:"thumb,omitempty"`
 	// title: The title of the livestream, as it will be announced to followers.
 	Title string `json:"title"`
 	// url: The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.
 	Url *string `json:"url,omitempty"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *Livestream) RecordTypeID() string { return "place.stream.livestream" }
 
 func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -55,11 +58,11 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // The game or activity being streamed.
@@ -81,7 +84,7 @@ func (t *Livestream_Activity) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Livestream_Activity) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -114,7 +117,7 @@ func (t *Livestream_Activity) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *Livestream_Activity) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -137,10 +140,15 @@ type Livestream_LivestreamView struct {
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
-	Record        *glexrt.LexiconTypeDecoder         `json:"record"`
+	Record        *glex.LexiconTypeDecoder           `json:"record"`
 	Uri           string                             `json:"uri"`
 	// viewerCount: The number of viewers watching this livestream. Use when you can't reasonably use #viewerCount directly.
 	ViewerCount *Livestream_ViewerCount `json:"viewerCount,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *Livestream_LivestreamView) RecordTypeID() string {
+	return "place.stream.livestream#livestreamView"
 }
 
 func (t *Livestream_LivestreamView) MarshalCBOR(w io.Writer) error {
@@ -148,12 +156,12 @@ func (t *Livestream_LivestreamView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#livestreamView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_LivestreamView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Livestream_NotificationSettings is a "notificationSettings" in the place.stream.livestream schema.
@@ -163,17 +171,22 @@ type Livestream_NotificationSettings struct {
 	PushNotification *bool `json:"pushNotification,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Livestream_NotificationSettings) RecordTypeID() string {
+	return "place.stream.livestream#notificationSettings"
+}
+
 func (t *Livestream_NotificationSettings) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#notificationSettings"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_NotificationSettings) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Livestream_StreamplaceAnything is a "streamplaceAnything" in the place.stream.livestream schema.
@@ -182,17 +195,22 @@ type Livestream_StreamplaceAnything struct {
 	Livestream    Livestream_StreamplaceAnything_Livestream `json:"livestream"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Livestream_StreamplaceAnything) RecordTypeID() string {
+	return "place.stream.livestream#streamplaceAnything"
+}
+
 func (t *Livestream_StreamplaceAnything) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#streamplaceAnything"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_StreamplaceAnything) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type Livestream_StreamplaceAnything_Livestream struct {
@@ -248,7 +266,7 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -323,7 +341,7 @@ func (t *Livestream_StreamplaceAnything_Livestream) MarshalCBOR(w io.Writer) err
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -376,17 +394,22 @@ type Livestream_TeleportArrival struct {
 	ViewerCount int64 `json:"viewerCount"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Livestream_TeleportArrival) RecordTypeID() string {
+	return "place.stream.livestream#teleportArrival"
+}
+
 func (t *Livestream_TeleportArrival) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#teleportArrival"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_TeleportArrival) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Livestream_TeleportCanceled is a "teleportCanceled" in the place.stream.livestream schema.
@@ -398,17 +421,22 @@ type Livestream_TeleportCanceled struct {
 	TeleportUri string `json:"teleportUri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Livestream_TeleportCanceled) RecordTypeID() string {
+	return "place.stream.livestream#teleportCanceled"
+}
+
 func (t *Livestream_TeleportCanceled) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#teleportCanceled"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_TeleportCanceled) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Livestream_ViewerCount is a "viewerCount" in the place.stream.livestream schema.
@@ -417,15 +445,18 @@ type Livestream_ViewerCount struct {
 	Count         int64  `json:"count"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Livestream_ViewerCount) RecordTypeID() string { return "place.stream.livestream#viewerCount" }
+
 func (t *Livestream_ViewerCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.livestream#viewerCount"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Livestream_ViewerCount) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

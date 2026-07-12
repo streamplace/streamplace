@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -24,17 +24,20 @@ type MediaCreateUpload_Input struct {
 	Size int64 `json:"size"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaCreateUpload_Input) RecordTypeID() string { return "place.stream.media.createUpload" }
+
 func (t *MediaCreateUpload_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.createUpload#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.createUpload"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaCreateUpload_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type MediaCreateUpload_Output struct {
@@ -49,26 +52,29 @@ type MediaCreateUpload_Output struct {
 	UploadUrl string `json:"uploadUrl"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MediaCreateUpload_Output) RecordTypeID() string { return "place.stream.media.createUpload" }
+
 func (t *MediaCreateUpload_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.createUpload#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.media.createUpload"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MediaCreateUpload_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MediaCreateUpload calls the XRPC method "place.stream.media.createUpload".
 //
 // Start a resumable upload of arbitrary media content. Returns a TUS upload URL and a short-lived bearer token used to authenticate subsequent chunk requests (no DPoP required on chunks). The DID of the authenticated user is recorded against the upload; on completion a VOD processing task is enqueued.
-func MediaCreateUpload(ctx context.Context, c glexrt.LexClient, input *MediaCreateUpload_Input) (*MediaCreateUpload_Output, error) {
+func MediaCreateUpload(ctx context.Context, c glex.LexClient, input *MediaCreateUpload_Input) (*MediaCreateUpload_Output, error) {
 	var out MediaCreateUpload_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.media.createUpload", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.media.createUpload", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

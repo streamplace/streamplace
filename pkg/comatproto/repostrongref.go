@@ -7,12 +7,12 @@ package comatproto
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
+	glex.RegisterType("com.atproto.repo.strongRef#main", &RepoStrongRef{})
 }
 
 type RepoStrongRef struct {
@@ -21,15 +21,18 @@ type RepoStrongRef struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *RepoStrongRef) RecordTypeID() string { return "com.atproto.repo.strongRef" }
+
 func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "com.atproto.repo.strongRef"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -10,12 +10,12 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
+	glex.RegisterType("app.bsky.embed.recordWithMedia#main", &EmbedRecordWithMedia{})
 }
 
 type EmbedRecordWithMedia struct {
@@ -24,17 +24,20 @@ type EmbedRecordWithMedia struct {
 	Record        EmbedRecord                `json:"record"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecordWithMedia) RecordTypeID() string { return "app.bsky.embed.recordWithMedia" }
+
 func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "app.bsky.embed.recordWithMedia"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type EmbedRecordWithMedia_Media struct {
@@ -60,7 +63,7 @@ func (t *EmbedRecordWithMedia_Media) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -99,7 +102,7 @@ func (t *EmbedRecordWithMedia_Media) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -126,17 +129,22 @@ type EmbedRecordWithMedia_View struct {
 	Record        EmbedRecord_View                `json:"record"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *EmbedRecordWithMedia_View) RecordTypeID() string {
+	return "app.bsky.embed.recordWithMedia#view"
+}
+
 func (t *EmbedRecordWithMedia_View) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.recordWithMedia"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *EmbedRecordWithMedia_View) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type EmbedRecordWithMedia_View_Media struct {
@@ -162,7 +170,7 @@ func (t *EmbedRecordWithMedia_View_Media) MarshalJSON() ([]byte, error) {
 }
 
 func (t *EmbedRecordWithMedia_View_Media) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -201,7 +209,7 @@ func (t *EmbedRecordWithMedia_View_Media) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *EmbedRecordWithMedia_View_Media) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}

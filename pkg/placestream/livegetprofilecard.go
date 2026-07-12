@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // LiveGetProfileCard calls the XRPC method "place.stream.live.getProfileCard".
@@ -16,13 +16,13 @@ import (
 // Get an OG image associated with a given account.
 //
 // id: The DID or handle of the account.
-func LiveGetProfileCard(ctx context.Context, c glexrt.LexClient, id string) ([]byte, error) {
+func LiveGetProfileCard(ctx context.Context, c glex.LexClient, id string) ([]byte, error) {
 	buf := new(bytes.Buffer)
 
 	params := map[string]interface{}{}
 	params["id"] = id
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.live.getProfileCard", params, nil, buf); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.live.getProfileCard", params, nil, buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

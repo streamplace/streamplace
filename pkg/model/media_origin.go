@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/placestream"
@@ -32,13 +32,9 @@ type MediaOrigin struct {
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
 func (o *MediaOrigin) ToRecord() (placestream.MediaOrigin, error) {
-	rec, err := glexrt.CborDecodeValue(o.Record)
-	if err != nil {
+	var origin placestream.MediaOrigin
+	if err := glex.DecodeCBOR(o.Record, &origin); err != nil {
 		return placestream.MediaOrigin{}, fmt.Errorf("decode media origin record: %w", err)
-	}
-	origin, ok := rec.(placestream.MediaOrigin)
-	if !ok {
-		return placestream.MediaOrigin{}, fmt.Errorf("media origin record decoded as %T, expected placestream.MediaOrigin", rec)
 	}
 	return origin, nil
 }

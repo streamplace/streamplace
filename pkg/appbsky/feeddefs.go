@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	comatproto "stream.place/streamplace/pkg/comatproto"
 )
@@ -22,17 +22,20 @@ type FeedDefs_BlockedAuthor struct {
 	Viewer        *ActorDefs_ViewerState `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_BlockedAuthor) RecordTypeID() string { return "app.bsky.feed.defs#blockedAuthor" }
+
 func (t *FeedDefs_BlockedAuthor) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#blockedAuthor"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_BlockedAuthor) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_BlockedPost is a "blockedPost" in the app.bsky.feed.defs schema.
@@ -43,17 +46,20 @@ type FeedDefs_BlockedPost struct {
 	Uri           string                 `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_BlockedPost) RecordTypeID() string { return "app.bsky.feed.defs#blockedPost" }
+
 func (t *FeedDefs_BlockedPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_BlockedPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
@@ -68,17 +74,20 @@ type FeedDefs_FeedViewPost struct {
 	ReqId *string `json:"reqId,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_FeedViewPost) RecordTypeID() string { return "app.bsky.feed.defs#feedViewPost" }
+
 func (t *FeedDefs_FeedViewPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#feedViewPost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_FeedViewPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedDefs_FeedViewPost_Reason struct {
@@ -99,7 +108,7 @@ func (t *FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -132,7 +141,7 @@ func (t *FeedDefs_FeedViewPost_Reason) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_FeedViewPost_Reason) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -168,17 +177,20 @@ type FeedDefs_GeneratorView struct {
 	Viewer              *FeedDefs_GeneratorViewerState `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_GeneratorView) RecordTypeID() string { return "app.bsky.feed.defs#generatorView" }
+
 func (t *FeedDefs_GeneratorView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#generatorView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_GeneratorView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_GeneratorViewerState is a "generatorViewerState" in the app.bsky.feed.defs schema.
@@ -187,17 +199,22 @@ type FeedDefs_GeneratorViewerState struct {
 	Like          *string `json:"like,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_GeneratorViewerState) RecordTypeID() string {
+	return "app.bsky.feed.defs#generatorViewerState"
+}
+
 func (t *FeedDefs_GeneratorViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#generatorViewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_GeneratorViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_Interaction is a "interaction" in the app.bsky.feed.defs schema.
@@ -211,17 +228,20 @@ type FeedDefs_Interaction struct {
 	ReqId *string `json:"reqId,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_Interaction) RecordTypeID() string { return "app.bsky.feed.defs#interaction" }
+
 func (t *FeedDefs_Interaction) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#interaction"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_Interaction) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
@@ -231,17 +251,20 @@ type FeedDefs_NotFoundPost struct {
 	Uri           string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_NotFoundPost) RecordTypeID() string { return "app.bsky.feed.defs#notFoundPost" }
+
 func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
@@ -251,13 +274,13 @@ type FeedDefs_PostView struct {
 	BookmarkCount *int64                     `json:"bookmarkCount,omitempty"`
 	Cid           string                     `json:"cid"`
 	// debug: Debug information for internal development
-	Debug       *glexrt.LexiconTypeDecoder   `json:"debug,omitempty"`
+	Debug       *glex.LexiconTypeDecoder     `json:"debug,omitempty"`
 	Embed       *FeedDefs_PostView_Embed     `json:"embed,omitempty"`
 	IndexedAt   string                       `json:"indexedAt"`
 	Labels      []comatproto.LabelDefs_Label `json:"labels,omitempty"`
 	LikeCount   *int64                       `json:"likeCount,omitempty"`
 	QuoteCount  *int64                       `json:"quoteCount,omitempty"`
-	Record      *glexrt.LexiconTypeDecoder   `json:"record"`
+	Record      *glex.LexiconTypeDecoder     `json:"record"`
 	ReplyCount  *int64                       `json:"replyCount,omitempty"`
 	RepostCount *int64                       `json:"repostCount,omitempty"`
 	Threadgate  *FeedDefs_ThreadgateView     `json:"threadgate,omitempty"`
@@ -265,17 +288,20 @@ type FeedDefs_PostView struct {
 	Viewer      *FeedDefs_ViewerState        `json:"viewer,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_PostView) RecordTypeID() string { return "app.bsky.feed.defs#postView" }
+
 func (t *FeedDefs_PostView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#postView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_PostView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedDefs_PostView_Embed struct {
@@ -311,7 +337,7 @@ func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -362,7 +388,7 @@ func (t *FeedDefs_PostView_Embed) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_PostView_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -393,17 +419,20 @@ type FeedDefs_ReasonPin struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ReasonPin) RecordTypeID() string { return "app.bsky.feed.defs#reasonPin" }
+
 func (t *FeedDefs_ReasonPin) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ReasonPin) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_ReasonRepost is a "reasonRepost" in the app.bsky.feed.defs schema.
@@ -415,17 +444,20 @@ type FeedDefs_ReasonRepost struct {
 	Uri           *string                    `json:"uri,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ReasonRepost) RecordTypeID() string { return "app.bsky.feed.defs#reasonRepost" }
+
 func (t *FeedDefs_ReasonRepost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ReasonRepost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
@@ -437,17 +469,20 @@ type FeedDefs_ReplyRef struct {
 	Root              FeedDefs_ReplyRef_Root      `json:"root"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ReplyRef) RecordTypeID() string { return "app.bsky.feed.defs#replyRef" }
+
 func (t *FeedDefs_ReplyRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#replyRef"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ReplyRef) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedDefs_ReplyRef_Parent struct {
@@ -473,7 +508,7 @@ func (t *FeedDefs_ReplyRef_Parent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ReplyRef_Parent) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -512,7 +547,7 @@ func (t *FeedDefs_ReplyRef_Parent) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_ReplyRef_Parent) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -555,7 +590,7 @@ func (t *FeedDefs_ReplyRef_Root) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -594,7 +629,7 @@ func (t *FeedDefs_ReplyRef_Root) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_ReplyRef_Root) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -623,17 +658,22 @@ type FeedDefs_SkeletonFeedPost struct {
 	Reason      *FeedDefs_SkeletonFeedPost_Reason `json:"reason,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_SkeletonFeedPost) RecordTypeID() string {
+	return "app.bsky.feed.defs#skeletonFeedPost"
+}
+
 func (t *FeedDefs_SkeletonFeedPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#skeletonFeedPost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_SkeletonFeedPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedDefs_SkeletonFeedPost_Reason struct {
@@ -654,7 +694,7 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -687,7 +727,7 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -709,17 +749,22 @@ type FeedDefs_SkeletonReasonPin struct {
 	LexiconTypeID string `json:"$type"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_SkeletonReasonPin) RecordTypeID() string {
+	return "app.bsky.feed.defs#skeletonReasonPin"
+}
+
 func (t *FeedDefs_SkeletonReasonPin) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_SkeletonReasonPin) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_SkeletonReasonRepost is a "skeletonReasonRepost" in the app.bsky.feed.defs schema.
@@ -728,17 +773,22 @@ type FeedDefs_SkeletonReasonRepost struct {
 	Repost        string `json:"repost"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_SkeletonReasonRepost) RecordTypeID() string {
+	return "app.bsky.feed.defs#skeletonReasonRepost"
+}
+
 func (t *FeedDefs_SkeletonReasonRepost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_SkeletonReasonRepost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_ThreadContext is a "threadContext" in the app.bsky.feed.defs schema.
@@ -749,17 +799,20 @@ type FeedDefs_ThreadContext struct {
 	RootAuthorLike *string `json:"rootAuthorLike,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ThreadContext) RecordTypeID() string { return "app.bsky.feed.defs#threadContext" }
+
 func (t *FeedDefs_ThreadContext) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#threadContext"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ThreadContext) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_ThreadViewPost is a "threadViewPost" in the app.bsky.feed.defs schema.
@@ -771,17 +824,20 @@ type FeedDefs_ThreadViewPost struct {
 	ThreadContext *FeedDefs_ThreadContext                `json:"threadContext,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ThreadViewPost) RecordTypeID() string { return "app.bsky.feed.defs#threadViewPost" }
+
 func (t *FeedDefs_ThreadViewPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ThreadViewPost) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type FeedDefs_ThreadViewPost_Parent struct {
@@ -807,7 +863,7 @@ func (t *FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -846,7 +902,7 @@ func (t *FeedDefs_ThreadViewPost_Parent) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -889,7 +945,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
 }
 
 func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -928,7 +984,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -950,24 +1006,27 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(r io.Reader) error 
 
 // FeedDefs_ThreadgateView is a "threadgateView" in the app.bsky.feed.defs schema.
 type FeedDefs_ThreadgateView struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           *string                    `json:"cid,omitempty"`
-	Lists         []GraphDefs_ListViewBasic  `json:"lists,omitempty"`
-	Record        *glexrt.LexiconTypeDecoder `json:"record,omitempty"`
-	Uri           *string                    `json:"uri,omitempty"`
+	LexiconTypeID string                    `json:"$type"`
+	Cid           *string                   `json:"cid,omitempty"`
+	Lists         []GraphDefs_ListViewBasic `json:"lists,omitempty"`
+	Record        *glex.LexiconTypeDecoder  `json:"record,omitempty"`
+	Uri           *string                   `json:"uri,omitempty"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ThreadgateView) RecordTypeID() string { return "app.bsky.feed.defs#threadgateView" }
 
 func (t *FeedDefs_ThreadgateView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#threadgateView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ThreadgateView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // FeedDefs_ViewerState is a "viewerState" in the app.bsky.feed.defs schema.
@@ -984,15 +1043,18 @@ type FeedDefs_ViewerState struct {
 	ThreadMuted       *bool   `json:"threadMuted,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *FeedDefs_ViewerState) RecordTypeID() string { return "app.bsky.feed.defs#viewerState" }
+
 func (t *FeedDefs_ViewerState) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "app.bsky.feed.defs#viewerState"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *FeedDefs_ViewerState) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

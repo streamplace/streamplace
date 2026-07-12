@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.broadcast.syndication", &BroadcastSyndication{})
+	glex.RegisterType("place.stream.broadcast.syndication", &BroadcastSyndication{})
 }
 
 // Record created by a Streamplace broadcaster to indicate that they will be replicating a livestream. NYI
@@ -26,15 +26,18 @@ type BroadcastSyndication struct {
 	Streamer string `json:"streamer"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BroadcastSyndication) RecordTypeID() string { return "place.stream.broadcast.syndication" }
+
 func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.broadcast.syndication"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

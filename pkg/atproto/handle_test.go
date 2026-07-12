@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/util"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/comatproto"
@@ -68,11 +68,11 @@ func TestHandleChange(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 
-	var message *placestream.ChatDefs_MessageView
+	var message placestream.ChatDefs_MessageView
 	err = untilNoErrors(t, func() error {
 		messages, err := mod.MostRecentChatMessages(user.DID)
 		if err != nil {

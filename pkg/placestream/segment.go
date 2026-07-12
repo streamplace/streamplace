@@ -7,12 +7,12 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
 func init() {
-	glexrt.RegisterType("place.stream.segment", &Segment{})
+	glex.RegisterType("place.stream.segment", &Segment{})
 }
 
 // Media file representing a segment of a livestream
@@ -36,17 +36,20 @@ type Segment struct {
 	Video     []Segment_Video `json:"video,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Segment) RecordTypeID() string { return "place.stream.segment" }
+
 func (t *Segment) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
 	t.LexiconTypeID = "place.stream.segment"
-	return glexrt.MarshalCBOR(w, t)
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Segment) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Segment_Audio is a "audio" in the place.stream.segment schema.
@@ -57,17 +60,20 @@ type Segment_Audio struct {
 	Rate          int64  `json:"rate"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Segment_Audio) RecordTypeID() string { return "place.stream.segment#audio" }
+
 func (t *Segment_Audio) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.segment"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.segment#audio"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Segment_Audio) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Segment_Framerate is a "framerate" in the place.stream.segment schema.
@@ -77,37 +83,43 @@ type Segment_Framerate struct {
 	Num           int64  `json:"num"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Segment_Framerate) RecordTypeID() string { return "place.stream.segment#framerate" }
+
 func (t *Segment_Framerate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.segment"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.segment#framerate"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Segment_Framerate) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Segment_SegmentView is a "segmentView" in the place.stream.segment schema.
 type Segment_SegmentView struct {
-	LexiconTypeID string                     `json:"$type"`
-	Cid           string                     `json:"cid"`
-	Record        *glexrt.LexiconTypeDecoder `json:"record"`
+	LexiconTypeID string                   `json:"$type"`
+	Cid           string                   `json:"cid"`
+	Record        *glex.LexiconTypeDecoder `json:"record"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *Segment_SegmentView) RecordTypeID() string { return "place.stream.segment#segmentView" }
 
 func (t *Segment_SegmentView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.segment"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.segment#segmentView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Segment_SegmentView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // Segment_Video is a "video" in the place.stream.segment schema.
@@ -120,15 +132,18 @@ type Segment_Video struct {
 	Width         int64              `json:"width"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *Segment_Video) RecordTypeID() string { return "place.stream.segment#video" }
+
 func (t *Segment_Video) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.segment"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.segment#video"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *Segment_Video) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

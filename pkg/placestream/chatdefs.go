@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -26,22 +26,25 @@ type ChatDefs_MessageView struct {
 	// deleted: If true, this message has been deleted or labeled and should be cleared from the cache
 	Deleted   *bool                         `json:"deleted,omitempty"`
 	IndexedAt string                        `json:"indexedAt"`
-	Record    *glexrt.LexiconTypeDecoder    `json:"record"`
+	Record    *glex.LexiconTypeDecoder      `json:"record"`
 	ReplyTo   *ChatDefs_MessageView_ReplyTo `json:"replyTo,omitempty"`
 	Uri       string                        `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *ChatDefs_MessageView) RecordTypeID() string { return "place.stream.chat.defs#messageView" }
 
 func (t *ChatDefs_MessageView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.defs#messageView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatDefs_MessageView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ChatDefs_MessageView_ReplyTo struct {
@@ -57,7 +60,7 @@ func (t *ChatDefs_MessageView_ReplyTo) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ChatDefs_MessageView_ReplyTo) UnmarshalJSON(b []byte) error {
-	typ, err := glexrt.TypeExtract(b)
+	typ, err := glex.TypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,7 @@ func (t *ChatDefs_MessageView_ReplyTo) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *ChatDefs_MessageView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glexrt.CborTypeExtractReader(r)
+	typ, b, err := glex.CborTypeExtractReader(r)
 	if err != nil {
 		return err
 	}
@@ -111,15 +114,20 @@ type ChatDefs_PinnedRecordView struct {
 	Uri           string                `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ChatDefs_PinnedRecordView) RecordTypeID() string {
+	return "place.stream.chat.defs#pinnedRecordView"
+}
+
 func (t *ChatDefs_PinnedRecordView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ChatDefs_PinnedRecordView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -33,17 +33,22 @@ type BadgeDefs_BadgeIssuanceView struct {
 	Selected *bool `json:"selected,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BadgeDefs_BadgeIssuanceView) RecordTypeID() string {
+	return "place.stream.badge.defs#badgeIssuanceView"
+}
+
 func (t *BadgeDefs_BadgeIssuanceView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.badge.defs#badgeIssuanceView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeDefs_BadgeIssuanceView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BadgeDefs_BadgeSlot is a "badgeSlot" in the place.stream.badge.defs schema.
@@ -57,17 +62,20 @@ type BadgeDefs_BadgeSlot struct {
 	Selected *BadgeDefs_BadgeIssuanceView `json:"selected,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BadgeDefs_BadgeSlot) RecordTypeID() string { return "place.stream.badge.defs#badgeSlot" }
+
 func (t *BadgeDefs_BadgeSlot) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.badge.defs#badgeSlot"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeDefs_BadgeSlot) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // BadgeDefs_BadgeView is a "badgeView" in the place.stream.badge.defs schema.
@@ -90,15 +98,18 @@ type BadgeDefs_BadgeView struct {
 	Signature *string `json:"signature,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *BadgeDefs_BadgeView) RecordTypeID() string { return "place.stream.badge.defs#badgeView" }
+
 func (t *BadgeDefs_BadgeView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.badge.defs#badgeView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *BadgeDefs_BadgeView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

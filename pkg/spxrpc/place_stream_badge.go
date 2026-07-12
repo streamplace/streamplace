@@ -62,7 +62,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		spcp, err := chatProfile.ToStreamplaceChatProfile()
 		if err == nil && true && spcp.Badges != nil {
 			for _, sel := range spcp.Badges.Streamer {
-				if sel.Badge.Uri != "" && sel.Badge.Uri != "" {
+				if sel.Badge.Uri != "" {
 					selectedURIs[sel.Badge.Uri] = true
 				}
 			}

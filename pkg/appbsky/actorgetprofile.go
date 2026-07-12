@@ -7,7 +7,7 @@ package appbsky
 import (
 	"context"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 // ActorGetProfile calls the XRPC method "app.bsky.actor.getProfile".
@@ -15,13 +15,13 @@ import (
 // Get detailed profile view of an actor. Does not require auth, but contains relevant metadata with auth.
 //
 // actor: Handle or DID of account to fetch profile of.
-func ActorGetProfile(ctx context.Context, c glexrt.LexClient, actor string) (*ActorDefs_ProfileViewDetailed, error) {
+func ActorGetProfile(ctx context.Context, c glex.LexClient, actor string) (*ActorDefs_ProfileViewDetailed, error) {
 	var out ActorDefs_ProfileViewDetailed
 
 	params := map[string]interface{}{}
 	params["actor"] = actor
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "app.bsky.actor.getProfile", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "app.bsky.actor.getProfile", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

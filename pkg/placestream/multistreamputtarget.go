@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -19,26 +19,31 @@ type MultistreamPutTarget_Input struct {
 	Rkey *string `json:"rkey,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *MultistreamPutTarget_Input) RecordTypeID() string {
+	return "place.stream.multistream.putTarget"
+}
+
 func (t *MultistreamPutTarget_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.putTarget#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.multistream.putTarget"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *MultistreamPutTarget_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // MultistreamPutTarget calls the XRPC method "place.stream.multistream.putTarget".
 //
 // Update an existing target for rebroadcasting a Streamplace stream.
-func MultistreamPutTarget(ctx context.Context, c glexrt.LexClient, input *MultistreamPutTarget_Input) (*MultistreamDefs_TargetView, error) {
+func MultistreamPutTarget(ctx context.Context, c glex.LexClient, input *MultistreamPutTarget_Input) (*MultistreamDefs_TargetView, error) {
 	var out MultistreamDefs_TargetView
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.multistream.putTarget", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.multistream.putTarget", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

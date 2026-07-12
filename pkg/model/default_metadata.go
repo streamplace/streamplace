@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -17,13 +17,9 @@ type MetadataConfiguration struct {
 }
 
 func (m *MetadataConfiguration) ToStreamplaceMetadataConfiguration() (placestream.MetadataConfiguration, error) {
-	rec, err := glexrt.CborDecodeValue(*m.Record)
-	if err != nil {
-		return placestream.MetadataConfiguration{}, fmt.Errorf("error decoding feed post: %w", err)
-	}
-	sdm, ok := rec.(placestream.MetadataConfiguration)
-	if !ok {
-		return placestream.MetadataConfiguration{}, fmt.Errorf("invalid metadata configuration")
+	var sdm placestream.MetadataConfiguration
+	if err := glex.DecodeCBOR(*m.Record, &sdm); err != nil {
+		return placestream.MetadataConfiguration{}, fmt.Errorf("error decoding metadata configuration: %w", err)
 	}
 	return sdm, nil
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
@@ -31,13 +31,9 @@ type Video struct {
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
 func (v *Video) ToRecord() (placestream.Video, error) {
-	rec, err := glexrt.CborDecodeValue(v.Record)
-	if err != nil {
+	var video placestream.Video
+	if err := glex.DecodeCBOR(v.Record, &video); err != nil {
 		return placestream.Video{}, fmt.Errorf("decode video record: %w", err)
-	}
-	video, ok := rec.(placestream.Video)
-	if !ok {
-		return placestream.Video{}, fmt.Errorf("video record decoded as %T, expected placestream.Video", rec)
 	}
 	return video, nil
 }
@@ -69,16 +65,20 @@ func (m *DBModel) DeleteVideo(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&Video{}).Error
 }
 
-func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (placestream.Video, error) {
+func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error) {
 	var v Video
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&v).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return placestream.Video{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return placestream.Video{}, fmt.Errorf("get video by uri: %w", err)
+		return nil, fmt.Errorf("get video by uri: %w", err)
 	}
-	return v.ToRecord()
+	rec, err := v.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 // GetVideoView is the hydrated read path for place.stream.media.getVideo:
@@ -86,24 +86,24 @@ func (m *DBModel) GetVideoByURI(ctx context.Context, uri string) (placestream.Vi
 // indexed place.stream.media.viewCount record for the video. Returns
 // (nil, nil) when no video matches the URI so callers can surface a
 // 404 without inspecting any model types.
-func (m *DBModel) GetVideoView(ctx context.Context, uri string) (placestream.MediaGetVideo_VideoView, error) {
+func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error) {
 	var row Video
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return placestream.MediaGetVideo_VideoView{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get video by uri: %w", err)
+		return nil, fmt.Errorf("get video by uri: %w", err)
 	}
 	rec, err := row.ToRecord()
 	if err != nil {
-		return placestream.MediaGetVideo_VideoView{}, err
+		return nil, err
 	}
 
 	author := appbsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
 	repo, err := m.GetRepo(row.RepoDID)
 	if err != nil {
-		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("hydrate author repo: %w", err)
+		return nil, fmt.Errorf("hydrate author repo: %w", err)
 	}
 	if repo != nil {
 		author.Handle = repo.Handle
@@ -111,12 +111,12 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (placestream.Med
 
 	summary, err := m.viewCountSummary(ctx, uri)
 	if err != nil {
-		return placestream.MediaGetVideo_VideoView{}, err
+		return nil, err
 	}
 
 	likeCount, err := m.GetLikeCount(ctx, uri)
 	if err != nil {
-		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get like count: %w", err)
+		return nil, fmt.Errorf("get like count: %w", err)
 	}
 
 	tracks := []placestream.MediaTrack_TrackView{}
@@ -124,17 +124,17 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (placestream.Med
 		for _, track := range rec.Source.MediaDefs_SourceTracks.Tracks {
 			t, err := m.GetMediaTrackByURI(ctx, track.Uri)
 			if err != nil {
-				return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get media track by uri: %w", err)
+				return nil, fmt.Errorf("get media track by uri: %w", err)
 			}
-			if false {
+			if t == nil {
 				continue
 			}
-			cid, err := spid.GetCID(&t)
+			cid, err := spid.GetCID(t)
 			if err != nil {
-				return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get cid: %w", err)
+				return nil, fmt.Errorf("get cid: %w", err)
 			}
 			tracks = append(tracks, placestream.MediaTrack_TrackView{
-				Record: &glexrt.LexiconTypeDecoder{Val: t},
+				Record: &glex.LexiconTypeDecoder{Val: t},
 				Uri:    track.Uri,
 				Cid:    cid.String(),
 				Author: author,
@@ -142,11 +142,11 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (placestream.Med
 		}
 	}
 
-	return placestream.MediaGetVideo_VideoView{
+	return &placestream.MediaGetVideo_VideoView{
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
-		Record:     &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: &rec},
 		ViewCounts: summary,
 		LikeCount:  likeCount,
 		Tracks:     tracks,

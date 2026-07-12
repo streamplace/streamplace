@@ -13,13 +13,13 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/util"
 	scraper "github.com/starttoaster/prometheus-exporter-scraper"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/cmd"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/gstinit"
@@ -256,7 +256,7 @@ func (node *TestNode) StartStream(t *testing.T, acct *devenv.DevEnvAccount) {
 	_, err = comatproto.RepoCreateRecord(context.TODO(), acct.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.key",
 		Repo:       acct.DID,
-		Record:     &glexrt.LexiconTypeDecoder{Val: &streamKey},
+		Record:     &glex.LexiconTypeDecoder{Val: &streamKey},
 	})
 	require.NoErrorf(t, err, "[%s] failed to create Repo record for DID %s", node.Name, acct.DID)
 	log.Log(context.Background(), "created stream key", "did", acct.DID, "pub", pub.DIDKey())

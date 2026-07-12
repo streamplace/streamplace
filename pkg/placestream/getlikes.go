@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -22,17 +22,20 @@ type GetLikes_Output struct {
 	Subject string              `json:"subject"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *GetLikes_Output) RecordTypeID() string { return "place.stream.getLikes" }
+
 func (t *GetLikes_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.getLikes#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.getLikes"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GetLikes_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // GetLikes calls the XRPC method "place.stream.getLikes".
@@ -42,7 +45,7 @@ func (t *GetLikes_Output) UnmarshalCBOR(r io.Reader) error {
 // cursor: Optional pagination cursor.
 // limit: Maximum number of likes to return.
 // subject: AT-URI of the subject (video or comment).
-func GetLikes(ctx context.Context, c glexrt.LexClient, cursor string, limit *int64, subject string) (*GetLikes_Output, error) {
+func GetLikes(ctx context.Context, c glex.LexClient, cursor string, limit *int64, subject string) (*GetLikes_Output, error) {
 	var out GetLikes_Output
 
 	params := map[string]interface{}{}
@@ -54,7 +57,7 @@ func GetLikes(ctx context.Context, c glexrt.LexClient, cursor string, limit *int
 	}
 	params["subject"] = subject
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.getLikes", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.getLikes", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -66,19 +69,22 @@ type GetLikes_LikeView struct {
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
-	Record        *glexrt.LexiconTypeDecoder         `json:"record"`
+	Record        *glex.LexiconTypeDecoder           `json:"record"`
 	Uri           string                             `json:"uri"`
 }
+
+// RecordTypeID implements glex.Record.
+func (t *GetLikes_LikeView) RecordTypeID() string { return "place.stream.getLikes#likeView" }
 
 func (t *GetLikes_LikeView) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.getLikes"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.getLikes#likeView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *GetLikes_LikeView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

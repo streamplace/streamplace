@@ -7,7 +7,7 @@ package comatproto
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -25,32 +25,37 @@ type SyncSubscribeRepos_Account struct {
 	Time   string  `json:"time"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_Account) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#account"
+}
+
 func (t *SyncSubscribeRepos_Account) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#account"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_Account) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // SyncSubscribeRepos_Commit is a "commit" in the com.atproto.sync.subscribeRepos schema.
 //
 // Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.
 type SyncSubscribeRepos_Commit struct {
-	LexiconTypeID string        `json:"$type"`
-	Blobs         []glexrt.Link `json:"blobs"`
+	LexiconTypeID string      `json:"$type"`
+	Blobs         []glex.Link `json:"blobs"`
 	// blocks: CAR file containing relevant blocks, as a diff since the previous repo state. The commit must be included as a block, and the commit block CID must be the first entry in the CAR header 'roots' list.
-	Blocks glexrt.Bytes `json:"blocks"`
+	Blocks glex.Bytes `json:"blocks"`
 	// commit: Repo commit object CID.
-	Commit glexrt.Link                 `json:"commit"`
+	Commit glex.Link                   `json:"commit"`
 	Ops    []SyncSubscribeRepos_RepoOp `json:"ops"`
 	// prevData: The root CID of the MST tree for the previous commit from this repo (indicated by the 'since' revision field in this message). Corresponds to the 'data' field in the repo commit object. NOTE: this field is effectively required for the 'inductive' version of firehose.
-	PrevData *glexrt.Link `json:"prevData,omitempty"`
+	PrevData *glex.Link `json:"prevData,omitempty"`
 	// rebase: DEPRECATED -- unused
 	Rebase bool `json:"rebase"`
 	// repo: The repo this event comes from. Note that all other message types name this field 'did'.
@@ -67,17 +72,22 @@ type SyncSubscribeRepos_Commit struct {
 	TooBig bool `json:"tooBig"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_Commit) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#commit"
+}
+
 func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#commit"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // SyncSubscribeRepos_Identity is a "identity" in the com.atproto.sync.subscribeRepos schema.
@@ -92,17 +102,22 @@ type SyncSubscribeRepos_Identity struct {
 	Time   string  `json:"time"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_Identity) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#identity"
+}
+
 func (t *SyncSubscribeRepos_Identity) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#identity"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_Identity) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
@@ -112,17 +127,22 @@ type SyncSubscribeRepos_Info struct {
 	Name          string  `json:"name"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_Info) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#info"
+}
+
 func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#info"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_Info) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // SyncSubscribeRepos_RepoOp is a "repoOp" in the com.atproto.sync.subscribeRepos schema.
@@ -132,10 +152,15 @@ type SyncSubscribeRepos_RepoOp struct {
 	LexiconTypeID string `json:"$type"`
 	Action        string `json:"action"`
 	// cid: For creates and updates, the new record CID. For deletions, null.
-	Cid  glexrt.Link `json:"cid"`
-	Path string      `json:"path"`
+	Cid  glex.Link `json:"cid"`
+	Path string    `json:"path"`
 	// prev: For updates and deletes, the previous record CID (required for inductive firehose). For creations, field should not be defined.
-	Prev *glexrt.Link `json:"prev,omitempty"`
+	Prev *glex.Link `json:"prev,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_RepoOp) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#repoOp"
 }
 
 func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
@@ -143,12 +168,12 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#repoOp"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // SyncSubscribeRepos_Sync is a "sync" in the com.atproto.sync.subscribeRepos schema.
@@ -157,7 +182,7 @@ func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) error {
 type SyncSubscribeRepos_Sync struct {
 	LexiconTypeID string `json:"$type"`
 	// blocks: CAR file containing the commit, as a block. The CAR header must include the commit block CID as the first 'root'.
-	Blocks glexrt.Bytes `json:"blocks"`
+	Blocks glex.Bytes `json:"blocks"`
 	// did: The account this repo event corresponds to. Must match that in the commit object.
 	Did string `json:"did"`
 	// rev: The rev of the commit. This value must match that in the commit object.
@@ -168,15 +193,20 @@ type SyncSubscribeRepos_Sync struct {
 	Time string `json:"time"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *SyncSubscribeRepos_Sync) RecordTypeID() string {
+	return "com.atproto.sync.subscribeRepos#sync"
+}
+
 func (t *SyncSubscribeRepos_Sync) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#sync"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *SyncSubscribeRepos_Sync) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

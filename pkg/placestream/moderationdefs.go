@@ -7,7 +7,7 @@ package placestream
 import (
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 )
@@ -20,9 +20,14 @@ type ModerationDefs_PermissionView struct {
 	// cid: Content identifier of the permission record
 	Cid string `json:"cid"`
 	// record: The permission record itself
-	Record *glexrt.LexiconTypeDecoder `json:"record"`
+	Record *glex.LexiconTypeDecoder `json:"record"`
 	// uri: AT-URI of the permission record
 	Uri string `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *ModerationDefs_PermissionView) RecordTypeID() string {
+	return "place.stream.moderation.defs#permissionView"
 }
 
 func (t *ModerationDefs_PermissionView) MarshalCBOR(w io.Writer) error {
@@ -30,10 +35,10 @@ func (t *ModerationDefs_PermissionView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.defs"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.defs#permissionView"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationDefs_PermissionView) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }

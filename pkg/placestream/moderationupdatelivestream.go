@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -22,17 +22,22 @@ type ModerationUpdateLivestream_Input struct {
 	Title *string `json:"title,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationUpdateLivestream_Input) RecordTypeID() string {
+	return "place.stream.moderation.updateLivestream"
+}
+
 func (t *ModerationUpdateLivestream_Input) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.updateLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.updateLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationUpdateLivestream_Input) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 type ModerationUpdateLivestream_Output struct {
@@ -43,26 +48,31 @@ type ModerationUpdateLivestream_Output struct {
 	Uri string `json:"uri"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *ModerationUpdateLivestream_Output) RecordTypeID() string {
+	return "place.stream.moderation.updateLivestream"
+}
+
 func (t *ModerationUpdateLivestream_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.updateLivestream#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.moderation.updateLivestream"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *ModerationUpdateLivestream_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // ModerationUpdateLivestream calls the XRPC method "place.stream.moderation.updateLivestream".
 //
 // Update livestream metadata on behalf of a streamer. Requires 'livestream.manage' permission. Updates a place.stream.livestream record in the streamer's repository.
-func ModerationUpdateLivestream(ctx context.Context, c glexrt.LexClient, input *ModerationUpdateLivestream_Input) (*ModerationUpdateLivestream_Output, error) {
+func ModerationUpdateLivestream(ctx context.Context, c glex.LexClient, input *ModerationUpdateLivestream_Input) (*ModerationUpdateLivestream_Output, error) {
 	var out ModerationUpdateLivestream_Output
 
-	if err := c.LexDo(ctx, glexrt.Procedure, "application/json", "place.stream.moderation.updateLivestream", nil, input, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Procedure, "application/json", "place.stream.moderation.updateLivestream", nil, input, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

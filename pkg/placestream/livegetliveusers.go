@@ -8,7 +8,7 @@ import (
 	"context"
 	"io"
 
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 )
 
@@ -17,23 +17,26 @@ type LiveGetLiveUsers_Output struct {
 	Streams       []Livestream_LivestreamView `json:"streams,omitempty"`
 }
 
+// RecordTypeID implements glex.Record.
+func (t *LiveGetLiveUsers_Output) RecordTypeID() string { return "place.stream.live.getLiveUsers" }
+
 func (t *LiveGetLiveUsers_Output) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.getLiveUsers#main"
-	return glexrt.MarshalCBOR(w, t)
+	t.LexiconTypeID = "place.stream.live.getLiveUsers"
+	return glex.MarshalCBOR(w, t)
 }
 
 func (t *LiveGetLiveUsers_Output) UnmarshalCBOR(r io.Reader) error {
-	return glexrt.UnmarshalCBOR(r, t)
+	return glex.UnmarshalCBOR(r, t)
 }
 
 // LiveGetLiveUsers calls the XRPC method "place.stream.live.getLiveUsers".
 //
 // Get a list of livestream segments for a user
-func LiveGetLiveUsers(ctx context.Context, c glexrt.LexClient, before string, limit *int64) (*LiveGetLiveUsers_Output, error) {
+func LiveGetLiveUsers(ctx context.Context, c glex.LexClient, before string, limit *int64) (*LiveGetLiveUsers_Output, error) {
 	var out LiveGetLiveUsers_Output
 
 	params := map[string]interface{}{}
@@ -44,7 +47,7 @@ func LiveGetLiveUsers(ctx context.Context, c glexrt.LexClient, before string, li
 		params["limit"] = *limit
 	}
 
-	if err := c.LexDo(ctx, glexrt.Query, "", "place.stream.live.getLiveUsers", params, nil, &out); err != nil {
+	if err := c.LexDo(ctx, glex.Query, "", "place.stream.live.getLiveUsers", params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

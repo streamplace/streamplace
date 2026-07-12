@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
@@ -394,7 +394,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &glexrt.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       uri.RecordKey().String(),
 		Repo:       livestream.RepoDID,
 		SwapRecord: &livestream.CID,
@@ -417,9 +417,9 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 		return err
 	}
 	lsv := notificationTask.Livestream
-	rec, ok := lsv.Record.Val.(placestream.Livestream)
-	if !ok {
-		return fmt.Errorf("invalid livestream record")
+	rec, err := glex.RecordAs[placestream.Livestream](lsv.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid livestream record: %w", err)
 	}
 	userDID := lsv.Author.Did
 
@@ -443,10 +443,10 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 
 	if state.noter != nil {
 		nb := &notificationpkg.NotificationBlast{
-			Title: fmt.Sprintf("🔴 @%s is LIVE!", &lsv.Author.Handle),
+			Title: fmt.Sprintf("🔴 @%s is LIVE!", lsv.Author.Handle),
 			Body:  rec.Title,
 			Data: map[string]string{
-				"path": fmt.Sprintf("/%s", &lsv.Author.Handle),
+				"path": fmt.Sprintf("/%s", lsv.Author.Handle),
 			},
 		}
 		err = state.noter.Blast(ctx, notifications, nb)
@@ -533,9 +533,9 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		return err
 	}
 	scm := chatTask.MessageView
-	rec, ok := scm.Record.Val.(placestream.ChatMessage)
-	if !ok {
-		return fmt.Errorf("invalid chat message record")
+	rec, err := glex.RecordAs[placestream.ChatMessage](scm.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid chat message record: %w", err)
 	}
 
 	// Send to webhooks using webhook manager

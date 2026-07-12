@@ -14,7 +14,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
-	glexrt "github.com/streamplace/glex/runtime"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/appbsky"
@@ -537,7 +537,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "app.appbsky.actor.status",
-		Record:     &glexrt.LexiconTypeDecoder{Val: &status},
+		Record:     &glex.LexiconTypeDecoder{Val: &status},
 		Rkey:       "self",
 		Repo:       repoDID,
 		SwapRecord: swapRecord,
@@ -638,7 +638,7 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &glexrt.LexiconTypeDecoder{Val: lsvr},
+		Record:     &glex.LexiconTypeDecoder{Val: lsvr},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       ss.repoDID,
 		SwapRecord: swapRecord,
@@ -762,7 +762,7 @@ func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.broadcast.origin",
-		Record:     &glexrt.LexiconTypeDecoder{Val: &origin},
+		Record:     &glex.LexiconTypeDecoder{Val: &origin},
 		Rkey:       rkey,
 		Repo:       ss.repoDID,
 		SwapRecord: swapRecord,

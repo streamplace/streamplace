@@ -452,10 +452,10 @@ func (a *StreamplaceAPI) writeVideoCard(ctx context.Context, w http.ResponseWrit
 		log.Error(ctx, "error fetching video view for card", "uri", uri, "error", err)
 		return false
 	}
-	if false {
+	if vv == nil {
 		return false
 	}
-	bs, err := linker.GenerateVideoCard(ctx, req.URL, &vv, a.CLI.SentryDSN)
+	bs, err := linker.GenerateVideoCard(ctx, req.URL, vv, a.CLI.SentryDSN)
 	if err != nil {
 		log.Error(ctx, "error generating video card", "uri", uri, "error", err)
 		return false

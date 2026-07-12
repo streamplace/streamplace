@@ -126,7 +126,7 @@ func TestSetDraftReadyAndError(t *testing.T) {
 		require.NoError(t, err)
 
 		sourceTracks := placestream.VodDraftVideo_Source{
-			MediaDefs_SourceTracks: placestream.MediaDefs_SourceTracks{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks:        nil,
 			},
@@ -163,7 +163,7 @@ func TestSetDraftReadyAndError(t *testing.T) {
 func TestSetDraftOnMissingUploadIsNoOp(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		// A pre-drafts-era upload (no draft row) must not error.
-		err := state.SetDraftReady(t.Context(), "no-such-upload", nil, 0, "")
+		err := state.SetDraftReady(t.Context(), "no-such-upload", placestream.VodDraftVideo_Source{}, 0, "")
 		require.NoError(t, err)
 		err = state.SetDraftError(t.Context(), "no-such-upload", "x")
 		require.NoError(t, err)

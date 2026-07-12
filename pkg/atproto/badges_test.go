@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/stretchr/testify/require"
-	bsky "stream.place/streamplace/pkg/appbsky"
+	appbsky "stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -37,14 +37,14 @@ func TestAddModBadge(t *testing.T) {
 	}
 
 	t.Run("no badge when user is not a moderator", func(t *testing.T) {
-		msg := *message // copy
+		msg := message // copy
 		err := AddModBadgeIfApplicable(ctx, &msg, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
 		require.Nil(t, msg.Badges, "should not have badges when user is not a moderator")
 	})
 
 	t.Run("adds streamer badge when user is the streamer", func(t *testing.T) {
-		msg := *message // copy
+		msg := message // copy
 		msg.Author = appbsky.ActorDefs_ProfileViewBasic{
 			Did:    streamerDID,
 			Handle: "streamer.test",
@@ -72,7 +72,7 @@ func TestAddModBadge(t *testing.T) {
 		err = mod.CreateModerationDelegation(ctx, perm, aturi)
 		require.NoError(t, err)
 
-		msg := *message // copy
+		msg := message // copy
 		err = AddModBadgeIfApplicable(ctx, &msg, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
 		require.Len(t, msg.Badges, 1, "should have 1 badge when user is a moderator")
@@ -83,7 +83,7 @@ func TestAddModBadge(t *testing.T) {
 
 	t.Run("prepends mod badge to existing badges", func(t *testing.T) {
 		// Create message with existing user-settable badge
-		msg := *message // copy
+		msg := message // copy
 		msg.Badges = []placestream.BadgeDefs_BadgeView{
 			{
 				BadgeType: constants.BadgeTypeVIP,

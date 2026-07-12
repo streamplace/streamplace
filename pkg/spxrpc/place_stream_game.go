@@ -25,7 +25,9 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 
 	cacheKey := fmt.Sprintf("game_search:%s:%d:%s", q, limit, cursor)
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
-		return cached.(*placestream.GameSearch_Output), nil
+		if out, ok := cached.(*placestream.GameSearch_Output); ok {
+			return out, nil
+		}
 	}
 
 	params := url.Values{}
@@ -79,7 +81,9 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 
 	cacheKey := "game:" + uri
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
-		return cached.(*placestream.GameGetGame_Output), nil
+		if out, ok := cached.(*placestream.GameGetGame_Output); ok {
+			return out, nil
+		}
 	}
 
 	// Parse AT URI: at://authority/collection/rkey
@@ -158,7 +162,7 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 		CoverUrl: coverUrl,
 	}
 
-	s.GameSearchCache.SetDefault(cacheKey, out)
+	s.GameSearchCache.SetDefault(cacheKey, &out)
 	return &out, nil
 }
 

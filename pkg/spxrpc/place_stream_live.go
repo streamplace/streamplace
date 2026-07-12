@@ -230,7 +230,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	// Cache key includes sort mode and user for personalized results
 	cacheKey := fmt.Sprintf("live_users_%s_%s_%d", sortMode, userDID, limit)
 	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
-		return cached.(*placestream.LiveGetLiveUsers_Output), nil
+		if out, ok := cached.(*placestream.LiveGetLiveUsers_Output); ok {
+			return out, nil
+		}
 	}
 
 	if sortMode == "latest" {
@@ -284,7 +286,7 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
-	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
+	s.LiveUsersCache.SetDefault(cacheKey, &liveUsers)
 	return &liveUsers, nil
 }
 
@@ -326,7 +328,7 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
-	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
+	s.LiveUsersCache.SetDefault(cacheKey, &liveUsers)
 	return &liveUsers, nil
 }
 

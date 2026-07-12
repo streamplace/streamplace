@@ -8,6 +8,9 @@ patchedDependencies:
   core-js:
     hash: 21c25ca1c792d52c0af7b9b268c163b4bda8a72bb061fcc6a07c81a8a42ecfe7
     path: patches/core-js.patch
+  lex-md:
+    hash: 3a90399ca1ab2bde028a4becd37ba1c5eb94c7fae2143d062b1ed5b70b3dc7e8
+    path: patches/lex-md.patch
 
 importers:
 
@@ -18,7 +21,7 @@ importers:
         version: 12.7.0(encoding@0.1.13)
       lex-md:
         specifier: ^0.1.0
-        version: 0.1.0
+        version: 0.1.0(patch_hash=3a90399ca1ab2bde028a4becd37ba1c5eb94c7fae2143d062b1ed5b70b3dc7e8)
       prettier-plugin-organize-imports:
         specifier: ^4.1.0
         version: 4.3.0(prettier@3.8.4)(typescript@5.9.3)
@@ -28516,7 +28519,7 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  lex-md@0.1.0:
+  lex-md@0.1.0(patch_hash=3a90399ca1ab2bde028a4becd37ba1c5eb94c7fae2143d062b1ed5b70b3dc7e8):
     dependencies:
       '@atproto/syntax': 0.4.0
       zod: 3.24.4

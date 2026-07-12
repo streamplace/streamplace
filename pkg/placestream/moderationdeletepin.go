@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationDeletePin_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// pinUri: The AT-URI of the pinned record to delete.
 	PinUri string `json:"pinUri"`
 	// streamer: The DID of the streamer.
@@ -37,7 +37,7 @@ func (t *ModerationDeletePin_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationDeletePin_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

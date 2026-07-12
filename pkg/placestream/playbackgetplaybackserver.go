@@ -13,7 +13,7 @@ import (
 )
 
 type PlaybackGetPlaybackServer_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// servers: List of available playback server addresses
 	Servers []string `json:"servers"`
 }

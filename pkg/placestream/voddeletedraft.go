@@ -13,7 +13,7 @@ import (
 )
 
 type VodDeleteDraft_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// uri: The ats:// URI of the draft to discard.
 	Uri string `json:"uri"`
 }
@@ -35,7 +35,7 @@ func (t *VodDeleteDraft_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type VodDeleteDraft_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

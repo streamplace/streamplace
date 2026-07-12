@@ -20,7 +20,7 @@ func init() {
 
 // A draft VOD: pre-publication video metadata and processing state. Modeled as a permissioned-data-style record (CBOR-serialized, addressed by an ats:// URI) stored in statedb until the permissioned-data spec ships (bluesky-social/proposals PR #94, the 0016-permissioned-data proposal). Publishing promotes it to a public place.stream.video record.
 type VodDraftVideo struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// activity: The game or activity in the video.
 	Activity *VodDraftVideo_Activity `json:"activity,omitempty"`
 	// connections: Related records (e.g. the source livestream for a finalized VOD).
@@ -50,6 +50,13 @@ type VodDraftVideo struct {
 
 // RecordTypeID implements glex.Record.
 func (t *VodDraftVideo) RecordTypeID() string { return "place.stream.vod.draftVideo" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *VodDraftVideo) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.vod.draftVideo"
+	type alias VodDraftVideo
+	return json.Marshal((*alias)(t))
+}
 
 func (t *VodDraftVideo) MarshalCBOR(w io.Writer) error {
 	if t == nil {

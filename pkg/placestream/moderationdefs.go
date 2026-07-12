@@ -14,7 +14,7 @@ import (
 
 // ModerationDefs_PermissionView is a "permissionView" in the place.stream.moderation.defs schema.
 type ModerationDefs_PermissionView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// author: The streamer who granted these permissions
 	Author appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	// cid: Content identifier of the permission record

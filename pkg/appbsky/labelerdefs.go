@@ -14,7 +14,7 @@ import (
 
 // LabelerDefs_LabelerPolicies is a "labelerPolicies" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerPolicies struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// labelValueDefinitions: Label values created by this labeler and scoped exclusively to it. Labels defined here will override global label definitions for this labeler.
 	LabelValueDefinitions []comatproto.LabelDefs_LabelValueDefinition `json:"labelValueDefinitions,omitempty"`
 	// labelValues: The label values which this labeler publishes. May include global or custom labels.
@@ -41,7 +41,7 @@ func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) error {
 
 // LabelerDefs_LabelerView is a "labelerView" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerView struct {
-	LexiconTypeID string                          `json:"$type"`
+	LexiconTypeID string                          `json:"$type,omitempty"`
 	Cid           string                          `json:"cid"`
 	Creator       ActorDefs_ProfileView           `json:"creator"`
 	IndexedAt     string                          `json:"indexedAt"`
@@ -69,7 +69,7 @@ func (t *LabelerDefs_LabelerView) UnmarshalCBOR(r io.Reader) error {
 
 // LabelerDefs_LabelerViewDetailed is a "labelerViewDetailed" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerViewDetailed struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Cid           string                       `json:"cid"`
 	Creator       ActorDefs_ProfileView        `json:"creator"`
 	IndexedAt     string                       `json:"indexedAt"`
@@ -106,7 +106,7 @@ func (t *LabelerDefs_LabelerViewDetailed) UnmarshalCBOR(r io.Reader) error {
 
 // LabelerDefs_LabelerViewerState is a "labelerViewerState" in the app.bsky.labeler.defs schema.
 type LabelerDefs_LabelerViewerState struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Like          *string `json:"like,omitempty"`
 }
 

@@ -21,7 +21,7 @@ func init() {
 
 // Some audiovisual content.
 type Video struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// activity: The game or activity in the video.
 	Activity *Video_Activity `json:"activity,omitempty"`
 	// connections: Free-form list of atproto records related in some way to this video
@@ -50,6 +50,13 @@ type Video struct {
 
 // RecordTypeID implements glex.Record.
 func (t *Video) RecordTypeID() string { return "place.stream.video" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *Video) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.video"
+	type alias Video
+	return json.Marshal((*alias)(t))
+}
 
 func (t *Video) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -258,7 +265,7 @@ func (t *Video_Source) UnmarshalCBOR(r io.Reader) error {
 
 // Video_Connection is a "connection" in the place.stream.video schema.
 type Video_Connection struct {
-	LexiconTypeID string                    `json:"$type"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
 	Ref           *comatproto.RepoStrongRef `json:"ref,omitempty"`
 }
 

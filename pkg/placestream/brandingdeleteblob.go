@@ -13,7 +13,7 @@ import (
 )
 
 type BrandingDeleteBlob_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
 	Broadcaster *string `json:"broadcaster,omitempty"`
 	// key: Branding asset key (mainLogo, favicon, siteTitle, etc.)
@@ -37,7 +37,7 @@ func (t *BrandingDeleteBlob_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type BrandingDeleteBlob_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Success       bool   `json:"success"`
 }
 

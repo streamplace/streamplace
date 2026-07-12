@@ -17,7 +17,7 @@ import (
 
 // ChatDefs_MessageView is a "messageView" in the place.stream.chat.defs schema.
 type ChatDefs_MessageView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	// badges: Up to 3 badge tokens to display with the message. First badge is server-controlled, remaining badges are user-settable. Tokens are looked up in badges.json for display info.
 	Badges      []BadgeDefs_BadgeView `json:"badges,omitempty"`
@@ -105,7 +105,7 @@ func (t *ChatDefs_MessageView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
 //
 // View of a pinned chat record with hydrated message data.
 type ChatDefs_PinnedRecordView struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Cid           string                `json:"cid"`
 	IndexedAt     string                `json:"indexedAt"`
 	Message       *ChatDefs_MessageView `json:"message,omitempty"`

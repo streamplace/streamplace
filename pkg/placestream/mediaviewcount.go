@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // A streamplace node's report of view counts for one place.stream.video over a closed time window. Published in the reporting node's server repo (not the streamer's), so a video served by multiple nodes accumulates multiple records — consumers are expected to sum across trusted reporters. The rkey is conventionally `<windowStart-as-tid>-<video-rkey>` so re-running the aggregator over the same window is idempotent. Counts represent the reporting node's best effort given the data it has; the `tracks` array carries the objective byte / duration totals it observed.
 type MediaViewCount struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// count: Number of distinct sessions the reporting node observed as a view over [windowStart, windowEnd).
 	Count int64 `json:"count"`
 	// indexedAt: When the reporting node ran this aggregation. Useful for ordering successive reports.
@@ -35,6 +36,13 @@ type MediaViewCount struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MediaViewCount) RecordTypeID() string { return "place.stream.media.viewCount" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MediaViewCount) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.media.viewCount"
+	type alias MediaViewCount
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -53,7 +61,7 @@ func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) error {
 //
 // One row of the tracks array: bytes + duration transferred for a single place.stream.media.track record over the window.
 type MediaViewCount_TrackUsage struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// bytes: Total bytes served from this track over the window. Sum across attributed segment_requests' Range intersections with the track's segment offsets in the metafile.
 	Bytes int64 `json:"bytes"`
 	// durationMs: Total playback duration served from this track, in milliseconds. Per HLS segment in the range: (overlap bytes / segment bytes) * segment duration, so partial-segment fetches credit a proportional share of duration.

@@ -13,7 +13,7 @@ import (
 )
 
 type MultistreamListTargets_Output struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Cursor        *string                      `json:"cursor,omitempty"`
 	Targets       []MultistreamDefs_TargetView `json:"targets"`
 }
@@ -60,7 +60,7 @@ func MultistreamListTargets(ctx context.Context, c glex.LexClient, cursor string
 
 // MultistreamListTargets_Record is a "record" in the place.stream.multistream.listTargets schema.
 type MultistreamListTargets_Record struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cid           string                   `json:"cid"`
 	Uri           string                   `json:"uri"`
 	Value         *glex.LexiconTypeDecoder `json:"value"`

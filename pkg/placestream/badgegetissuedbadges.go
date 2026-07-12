@@ -13,7 +13,7 @@ import (
 )
 
 type BadgeGetIssuedBadges_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// server: Computed server badge (streamer, mod, or bot) for the given streamer context. Absent if the user has no server role.
 	Server *BadgeDefs_BadgeView `json:"server,omitempty"`
 	// streamer: Streamer-issued badges (e.g. VIP) available to the user.

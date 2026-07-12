@@ -5,6 +5,7 @@
 package appbsky
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // Record declaring a social 'follow' relationship of another account. Duplicate follows will be ignored by the AppView.
 type GraphFollow struct {
-	LexiconTypeID string                    `json:"$type"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
 	CreatedAt     string                    `json:"createdAt"`
 	Subject       string                    `json:"subject"`
 	Via           *comatproto.RepoStrongRef `json:"via,omitempty"`
@@ -26,6 +27,13 @@ type GraphFollow struct {
 
 // RecordTypeID implements glex.Record.
 func (t *GraphFollow) RecordTypeID() string { return "app.bsky.graph.follow" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *GraphFollow) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.graph.follow"
+	type alias GraphFollow
+	return json.Marshal((*alias)(t))
+}
 
 func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 	if t == nil {

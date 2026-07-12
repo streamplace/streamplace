@@ -5,6 +5,7 @@
 package appbsky
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -16,12 +17,19 @@ func init() {
 }
 
 type EmbedImages struct {
-	LexiconTypeID string              `json:"$type"`
+	LexiconTypeID string              `json:"$type,omitempty"`
 	Images        []EmbedImages_Image `json:"images"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *EmbedImages) RecordTypeID() string { return "app.bsky.embed.images" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *EmbedImages) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.embed.images"
+	type alias EmbedImages
+	return json.Marshal((*alias)(t))
+}
 
 func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -38,7 +46,7 @@ func (t *EmbedImages) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedImages_Image is a "image" in the app.bsky.embed.images schema.
 type EmbedImages_Image struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`
@@ -64,7 +72,7 @@ func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedImages_View is a "view" in the app.bsky.embed.images schema.
 type EmbedImages_View struct {
-	LexiconTypeID string                  `json:"$type"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
 	Images        []EmbedImages_ViewImage `json:"images"`
 }
 
@@ -86,7 +94,7 @@ func (t *EmbedImages_View) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedImages_ViewImage is a "viewImage" in the app.bsky.embed.images schema.
 type EmbedImages_ViewImage struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// alt: Alt text description of the image, for accessibility.
 	Alt         string                 `json:"alt"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`

@@ -13,7 +13,7 @@ import (
 )
 
 type LiveGetSegments_Output struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Segments      []Segment_SegmentView `json:"segments,omitempty"`
 }
 

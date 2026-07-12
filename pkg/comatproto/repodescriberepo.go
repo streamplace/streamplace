@@ -13,7 +13,7 @@ import (
 )
 
 type RepoDescribeRepo_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// collections: List of all the collections (NSIDs) for which this repo contains at least one record.
 	Collections []string `json:"collections"`
 	Did         string   `json:"did"`

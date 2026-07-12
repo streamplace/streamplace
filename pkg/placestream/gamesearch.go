@@ -17,7 +17,7 @@ import (
 )
 
 type GameSearch_Output struct {
-	LexiconTypeID string                           `json:"$type"`
+	LexiconTypeID string                           `json:"$type,omitempty"`
 	Cursor        *string                          `json:"cursor,omitempty"`
 	Results       []GameSearch_Output_Results_Elem `json:"results"`
 	TotalResults  *int64                           `json:"totalResults,omitempty"`

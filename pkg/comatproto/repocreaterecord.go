@@ -13,7 +13,7 @@ import (
 )
 
 type RepoCreateRecord_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection"`
 	// record: The record itself. Must contain a $type field.
@@ -45,7 +45,7 @@ func (t *RepoCreateRecord_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type RepoCreateRecord_Output struct {
-	LexiconTypeID    string               `json:"$type"`
+	LexiconTypeID    string               `json:"$type,omitempty"`
 	Cid              string               `json:"cid"`
 	Commit           *RepoDefs_CommitMeta `json:"commit,omitempty"`
 	Uri              string               `json:"uri"`

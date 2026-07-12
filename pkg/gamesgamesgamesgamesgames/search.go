@@ -16,7 +16,7 @@ import (
 )
 
 type Search_Output struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Cursor        *string                      `json:"cursor,omitempty"`
 	Results       []Search_Output_Results_Elem `json:"results"`
 	// totalResults: Total number of results matching the query above the relevance threshold.

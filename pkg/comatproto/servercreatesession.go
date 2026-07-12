@@ -13,7 +13,7 @@ import (
 )
 
 type ServerCreateSession_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// allowTakendown: When true, instead of throwing error for takendown accounts, a valid response with a narrow scoped token will be returned
 	AllowTakendown  *bool   `json:"allowTakendown,omitempty"`
 	AuthFactorToken *string `json:"authFactorToken,omitempty"`
@@ -39,7 +39,7 @@ func (t *ServerCreateSession_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ServerCreateSession_Output struct {
-	LexiconTypeID   string                   `json:"$type"`
+	LexiconTypeID   string                   `json:"$type,omitempty"`
 	AccessJwt       string                   `json:"accessJwt"`
 	Active          *bool                    `json:"active,omitempty"`
 	Did             string                   `json:"did"`

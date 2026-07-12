@@ -13,7 +13,7 @@ import (
 )
 
 type VodCreateDraft_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -33,7 +33,7 @@ func (t *VodCreateDraft_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type VodCreateDraft_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// uri: The ats:// URI of the newly created draft record.
 	Uri string `json:"uri"`
 }

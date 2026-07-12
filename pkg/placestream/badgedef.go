@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Defines a badge's visual appearance and type. Created by the issuer and referenced by issuance records.
 type BadgeDef struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// badgeType: The category of this badge, used for scope and display rules.
 	BadgeType string `json:"badgeType"`
 	CreatedAt string `json:"createdAt"`
@@ -31,6 +32,13 @@ type BadgeDef struct {
 
 // RecordTypeID implements glex.Record.
 func (t *BadgeDef) RecordTypeID() string { return "place.stream.badge.def" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *BadgeDef) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.badge.def"
+	type alias BadgeDef
+	return json.Marshal((*alias)(t))
+}
 
 func (t *BadgeDef) MarshalCBOR(w io.Writer) error {
 	if t == nil {

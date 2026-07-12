@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // An external server for rebroadcasting a Streamplace stream
 type MultistreamTarget struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// active: Whether this target is currently active.
 	Active bool `json:"active"`
 	// createdAt: When this target was created.
@@ -30,6 +31,13 @@ type MultistreamTarget struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MultistreamTarget) RecordTypeID() string { return "place.stream.multistream.target" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MultistreamTarget) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.multistream.target"
+	type alias MultistreamTarget
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 	if t == nil {

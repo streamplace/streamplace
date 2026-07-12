@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Content rights and attribution information.
 type MetadataContentRights struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// copyrightNotice: Copyright notice for the work.
 	CopyrightNotice *string `json:"copyrightNotice,omitempty"`
 	// copyrightYear: Year of creation or publication.
@@ -32,6 +33,13 @@ type MetadataContentRights struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MetadataContentRights) RecordTypeID() string { return "place.stream.metadata.contentRights" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MetadataContentRights) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.metadata.contentRights"
+	type alias MetadataContentRights
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 	if t == nil {

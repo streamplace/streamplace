@@ -13,7 +13,7 @@ import (
 )
 
 type RepoPutRecord_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection"`
 	// record: The record to write.
@@ -47,7 +47,7 @@ func (t *RepoPutRecord_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type RepoPutRecord_Output struct {
-	LexiconTypeID    string               `json:"$type"`
+	LexiconTypeID    string               `json:"$type,omitempty"`
 	Cid              string               `json:"cid"`
 	Commit           *RepoDefs_CommitMeta `json:"commit,omitempty"`
 	Uri              string               `json:"uri"`

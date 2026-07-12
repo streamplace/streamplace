@@ -13,7 +13,7 @@ import (
 
 // NotificationDefs_ActivitySubscription is a "activitySubscription" in the app.bsky.notification.defs schema.
 type NotificationDefs_ActivitySubscription struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Post          bool   `json:"post"`
 	Reply         bool   `json:"reply"`
 }
@@ -38,7 +38,7 @@ func (t *NotificationDefs_ActivitySubscription) UnmarshalCBOR(r io.Reader) error
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_ChatPreference struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Include       string `json:"include"`
 	Push          bool   `json:"push"`
 }
@@ -63,7 +63,7 @@ func (t *NotificationDefs_ChatPreference) UnmarshalCBOR(r io.Reader) error {
 
 // NotificationDefs_FilterablePreference is a "filterablePreference" in the app.bsky.notification.defs schema.
 type NotificationDefs_FilterablePreference struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Include       string `json:"include"`
 	List          bool   `json:"list"`
 	Push          bool   `json:"push"`
@@ -89,7 +89,7 @@ func (t *NotificationDefs_FilterablePreference) UnmarshalCBOR(r io.Reader) error
 
 // NotificationDefs_Preference is a "preference" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preference struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	List          bool   `json:"list"`
 	Push          bool   `json:"push"`
 }
@@ -114,7 +114,7 @@ func (t *NotificationDefs_Preference) UnmarshalCBOR(r io.Reader) error {
 
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preferences struct {
-	LexiconTypeID     string                                `json:"$type"`
+	LexiconTypeID     string                                `json:"$type,omitempty"`
 	Chat              NotificationDefs_ChatPreference       `json:"chat"`
 	Follow            NotificationDefs_FilterablePreference `json:"follow"`
 	Like              NotificationDefs_FilterablePreference `json:"like"`
@@ -150,7 +150,7 @@ func (t *NotificationDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
 
 // NotificationDefs_RecordDeleted is a "recordDeleted" in the app.bsky.notification.defs schema.
 type NotificationDefs_RecordDeleted struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -175,7 +175,7 @@ func (t *NotificationDefs_RecordDeleted) UnmarshalCBOR(r io.Reader) error {
 //
 // Object used to store activity subscription data in stash.
 type NotificationDefs_SubjectActivitySubscription struct {
-	LexiconTypeID        string                                `json:"$type"`
+	LexiconTypeID        string                                `json:"$type,omitempty"`
 	ActivitySubscription NotificationDefs_ActivitySubscription `json:"activitySubscription"`
 	Subject              string                                `json:"subject"`
 }

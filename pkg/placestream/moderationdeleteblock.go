@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationDeleteBlock_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// blockUri: The AT-URI of the block record to delete.
 	BlockUri string `json:"blockUri"`
 	// streamer: The DID of the streamer.
@@ -39,7 +39,7 @@ func (t *ModerationDeleteBlock_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationDeleteBlock_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

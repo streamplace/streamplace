@@ -13,7 +13,7 @@ import (
 )
 
 type LiveGetLiveUsers_Output struct {
-	LexiconTypeID string                      `json:"$type"`
+	LexiconTypeID string                      `json:"$type,omitempty"`
 	Streams       []Livestream_LivestreamView `json:"streams,omitempty"`
 }
 

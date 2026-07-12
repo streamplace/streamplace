@@ -14,7 +14,7 @@ import (
 
 // Defs_ActivityFeedItem is a "activityFeedItem" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActivityFeedItem struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: When the activity occurred.
 	CreatedAt string `json:"createdAt"`
 	// game: The game associated with this activity.
@@ -47,7 +47,7 @@ func (t *Defs_ActivityFeedItem) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ActivityListView is a "activityListView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActivityListView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	CreatedAt     string `json:"createdAt"`
 	Name          string `json:"name"`
 	Uri           string `json:"uri"`
@@ -73,7 +73,7 @@ func (t *Defs_ActivityListView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ActivityReviewView is a "activityReviewView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActivityReviewView struct {
-	LexiconTypeID    string   `json:"$type"`
+	LexiconTypeID    string   `json:"$type,omitempty"`
 	ContainsSpoilers *bool    `json:"containsSpoilers,omitempty"`
 	CreatedAt        string   `json:"createdAt"`
 	Rating           int64    `json:"rating"`
@@ -103,7 +103,7 @@ func (t *Defs_ActivityReviewView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ActorCreditView is a "actorCreditView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorCreditView struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	ActorUri      *string            `json:"actorUri,omitempty"`
 	Credits       []Defs_CreditEntry `json:"credits"`
 	DisplayName   *string            `json:"displayName,omitempty"`
@@ -130,7 +130,7 @@ func (t *Defs_ActorCreditView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ActorProfileDetailView is a "actorProfileDetailView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorProfileDetailView struct {
-	LexiconTypeID     string                  `json:"$type"`
+	LexiconTypeID     string                  `json:"$type,omitempty"`
 	Avatar            *glex.Blob              `json:"avatar,omitempty"`
 	CreatedAt         *string                 `json:"createdAt,omitempty"`
 	Description       *string                 `json:"description,omitempty"`
@@ -162,7 +162,7 @@ func (t *Defs_ActorProfileDetailView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ActorProfileSummaryView is a "actorProfileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ActorProfileSummaryView struct {
-	LexiconTypeID string     `json:"$type"`
+	LexiconTypeID string     `json:"$type,omitempty"`
 	Avatar        *glex.Blob `json:"avatar,omitempty"`
 	Did           string     `json:"did"`
 	DisplayName   *string    `json:"displayName,omitempty"`
@@ -189,7 +189,7 @@ func (t *Defs_ActorProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_AgeRating is a "ageRating" in the games.gamesgamesgamesgames.defs schema.
 type Defs_AgeRating struct {
-	LexiconTypeID      string   `json:"$type"`
+	LexiconTypeID      string   `json:"$type,omitempty"`
 	ContentDescriptors []string `json:"contentDescriptors,omitempty"`
 	Organization       string   `json:"organization"`
 	Rating             string   `json:"rating"`
@@ -213,7 +213,7 @@ func (t *Defs_AgeRating) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_AlternativeName is a "alternativeName" in the games.gamesgamesgamesgames.defs schema.
 type Defs_AlternativeName struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Comment       *string `json:"comment,omitempty"`
 	Locale        *string `json:"locale,omitempty"`
 	Name          string  `json:"name"`
@@ -239,7 +239,7 @@ func (t *Defs_AlternativeName) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_CollectionSummaryView is a "collectionSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_CollectionSummaryView struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Name          string  `json:"name"`
 	Slug          *string `json:"slug,omitempty"`
 	Type          *string `json:"type,omitempty"`
@@ -268,7 +268,7 @@ func (t *Defs_CollectionSummaryView) UnmarshalCBOR(r io.Reader) error {
 //
 // Lightweight actor view for community feed items.
 type Defs_CommunityFeedActorView struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Did           string  `json:"did"`
 	DisplayName   *string `json:"displayName,omitempty"`
 	Handle        *string `json:"handle,omitempty"`
@@ -296,7 +296,7 @@ func (t *Defs_CommunityFeedActorView) UnmarshalCBOR(r io.Reader) error {
 //
 // A community activity item with actor information.
 type Defs_CommunityFeedItem struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// actor: The user who performed this activity.
 	Actor Defs_CommunityFeedActorView `json:"actor"`
 	// createdAt: When the activity occurred.
@@ -331,7 +331,7 @@ func (t *Defs_CommunityFeedItem) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_CreditEntry is a "creditEntry" in the games.gamesgamesgamesgames.defs schema.
 type Defs_CreditEntry struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Department    *string `json:"department,omitempty"`
 	Role          string  `json:"role"`
 }
@@ -356,7 +356,7 @@ func (t *Defs_CreditEntry) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_EngineSummaryView is a "engineSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_EngineSummaryView struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Name          string  `json:"name"`
 	Slug          *string `json:"slug,omitempty"`
 	Uri           string  `json:"uri"`
@@ -382,7 +382,7 @@ func (t *Defs_EngineSummaryView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ExternalIds is a "externalIds" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ExternalIds struct {
-	LexiconTypeID string         `json:"$type"`
+	LexiconTypeID string         `json:"$type,omitempty"`
 	AppleAppStore *string        `json:"appleAppStore,omitempty"`
 	EpicGames     *string        `json:"epicGames,omitempty"`
 	Gog           *string        `json:"gog,omitempty"`
@@ -417,7 +417,7 @@ func (t *Defs_ExternalIds) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ExternalVideo is a "externalVideo" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ExternalVideo struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Platform      string  `json:"platform"`
 	Title         *string `json:"title,omitempty"`
 	VideoId       string  `json:"videoId"`
@@ -443,7 +443,7 @@ func (t *Defs_ExternalVideo) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_GameDetailView is a "gameDetailView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_GameDetailView struct {
-	LexiconTypeID      string                 `json:"$type"`
+	LexiconTypeID      string                 `json:"$type,omitempty"`
 	ActorCredits       []Defs_ActorCreditView `json:"actorCredits,omitempty"`
 	AgeRatings         []Defs_AgeRating       `json:"ageRatings,omitempty"`
 	AlternativeNames   []Defs_AlternativeName `json:"alternativeNames,omitempty"`
@@ -494,7 +494,7 @@ func (t *Defs_GameDetailView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_GameFeedViewItem is a "gameFeedViewItem" in the games.gamesgamesgamesgames.defs schema.
 type Defs_GameFeedViewItem struct {
-	LexiconTypeID string        `json:"$type"`
+	LexiconTypeID string        `json:"$type,omitempty"`
 	FeedContext   *string       `json:"feedContext,omitempty"`
 	Game          Defs_GameView `json:"game"`
 }
@@ -519,7 +519,7 @@ func (t *Defs_GameFeedViewItem) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_GameSummaryView is a "gameSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_GameSummaryView struct {
-	LexiconTypeID   string  `json:"$type"`
+	LexiconTypeID   string  `json:"$type,omitempty"`
 	ApplicationType *string `json:"applicationType,omitempty"`
 	// firstReleaseDate: Earliest release date as YYYYMMDD integer.
 	FirstReleaseDate *int64           `json:"firstReleaseDate,omitempty"`
@@ -550,7 +550,7 @@ func (t *Defs_GameSummaryView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_GameView is a "gameView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_GameView struct {
-	LexiconTypeID   string            `json:"$type"`
+	LexiconTypeID   string            `json:"$type,omitempty"`
 	ApplicationType string            `json:"applicationType"`
 	Genres          []string          `json:"genres,omitempty"`
 	LikeCount       *int64            `json:"likeCount,omitempty"`
@@ -582,7 +582,7 @@ func (t *Defs_GameView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ItchIoId is a "itchIoId" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ItchIoId struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Developer     string `json:"developer"`
 	Game          string `json:"game"`
 }
@@ -605,7 +605,7 @@ func (t *Defs_ItchIoId) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_LanguageSupport is a "languageSupport" in the games.gamesgamesgamesgames.defs schema.
 type Defs_LanguageSupport struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Audio         *bool  `json:"audio,omitempty"`
 	Interface     *bool  `json:"interface,omitempty"`
 	Language      string `json:"language"`
@@ -632,7 +632,7 @@ func (t *Defs_LanguageSupport) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_MediaItem is a "mediaItem" in the games.gamesgamesgamesgames.defs schema.
 type Defs_MediaItem struct {
-	LexiconTypeID string     `json:"$type"`
+	LexiconTypeID string     `json:"$type,omitempty"`
 	Blob          *glex.Blob `json:"blob,omitempty"`
 	Description   *string    `json:"description,omitempty"`
 	Height        *int64     `json:"height,omitempty"`
@@ -660,7 +660,7 @@ func (t *Defs_MediaItem) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_MultiplayerMode is a "multiplayerMode" in the games.gamesgamesgamesgames.defs schema.
 type Defs_MultiplayerMode struct {
-	LexiconTypeID        string  `json:"$type"`
+	LexiconTypeID        string  `json:"$type,omitempty"`
 	HasCampaignCoop      *bool   `json:"hasCampaignCoop,omitempty"`
 	HasDropIn            *bool   `json:"hasDropIn,omitempty"`
 	HasLanCoop           *bool   `json:"hasLanCoop,omitempty"`
@@ -693,7 +693,7 @@ func (t *Defs_MultiplayerMode) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_OrgCreditView is a "orgCreditView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_OrgCreditView struct {
-	LexiconTypeID string   `json:"$type"`
+	LexiconTypeID string   `json:"$type,omitempty"`
 	DisplayName   *string  `json:"displayName,omitempty"`
 	OrgUri        *string  `json:"orgUri,omitempty"`
 	Roles         []string `json:"roles"`
@@ -720,7 +720,7 @@ func (t *Defs_OrgCreditView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_OrgProfileDetailView is a "orgProfileDetailView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_OrgProfileDetailView struct {
-	LexiconTypeID     string                  `json:"$type"`
+	LexiconTypeID     string                  `json:"$type,omitempty"`
 	Avatar            *glex.Blob              `json:"avatar,omitempty"`
 	Country           *string                 `json:"country,omitempty"`
 	CreatedAt         *string                 `json:"createdAt,omitempty"`
@@ -756,7 +756,7 @@ func (t *Defs_OrgProfileDetailView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_OrgProfileSummaryView is a "orgProfileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_OrgProfileSummaryView struct {
-	LexiconTypeID string     `json:"$type"`
+	LexiconTypeID string     `json:"$type,omitempty"`
 	Avatar        *glex.Blob `json:"avatar,omitempty"`
 	Did           string     `json:"did"`
 	DisplayName   *string    `json:"displayName,omitempty"`
@@ -785,7 +785,7 @@ func (t *Defs_OrgProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
 //
 // Features supported by a game on a specific storefront/platform.
 type Defs_PlatformFeatures struct {
-	LexiconTypeID string   `json:"$type"`
+	LexiconTypeID string   `json:"$type,omitempty"`
 	Features      []string `json:"features"`
 	Platform      string   `json:"platform"`
 }
@@ -810,7 +810,7 @@ func (t *Defs_PlatformFeatures) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_PlatformSummaryView is a "platformSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_PlatformSummaryView struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Abbreviation  *string `json:"abbreviation,omitempty"`
 	Category      *string `json:"category,omitempty"`
 	Name          string  `json:"name"`
@@ -838,7 +838,7 @@ func (t *Defs_PlatformSummaryView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_PlatformVersion is a "platformVersion" in the games.gamesgamesgamesgames.defs schema.
 type Defs_PlatformVersion struct {
-	LexiconTypeID string           `json:"$type"`
+	LexiconTypeID string           `json:"$type,omitempty"`
 	Connectivity  *string          `json:"connectivity,omitempty"`
 	Cpu           *string          `json:"cpu,omitempty"`
 	Gpu           *string          `json:"gpu,omitempty"`
@@ -872,7 +872,7 @@ func (t *Defs_PlatformVersion) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ProfileSummaryView is a "profileSummaryView" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ProfileSummaryView struct {
-	LexiconTypeID string     `json:"$type"`
+	LexiconTypeID string     `json:"$type,omitempty"`
 	Avatar        *glex.Blob `json:"avatar,omitempty"`
 	Did           string     `json:"did"`
 	DisplayName   *string    `json:"displayName,omitempty"`
@@ -900,7 +900,7 @@ func (t *Defs_ProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_Release is a "release" in the games.gamesgamesgamesgames.defs schema.
 type Defs_Release struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// platform: Free-text platform name, used when no platform record exists.
 	Platform *string `json:"platform,omitempty"`
 	// platformUri: AT URI of a platform record.
@@ -926,7 +926,7 @@ func (t *Defs_Release) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ReleaseDate is a "releaseDate" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ReleaseDate struct {
-	LexiconTypeID    string  `json:"$type"`
+	LexiconTypeID    string  `json:"$type,omitempty"`
 	Region           *string `json:"region,omitempty"`
 	ReleasedAt       *string `json:"releasedAt,omitempty"`
 	ReleasedAtFormat *string `json:"releasedAtFormat,omitempty"`
@@ -955,7 +955,7 @@ func (t *Defs_ReleaseDate) UnmarshalCBOR(r io.Reader) error {
 //
 // An inline attestation signature.
 type Defs_Signature struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// key: DID key reference (e.g., did:web:example.com#signing1).
 	Key string `json:"key"`
 	// signature: The signature bytes.
@@ -980,7 +980,7 @@ func (t *Defs_Signature) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_SkeletonGameFeedItem is a "skeletonGameFeedItem" in the games.gamesgamesgamesgames.defs schema.
 type Defs_SkeletonGameFeedItem struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	FeedContext   *string `json:"feedContext,omitempty"`
 	Game          string  `json:"game"`
 }
@@ -1007,7 +1007,7 @@ func (t *Defs_SkeletonGameFeedItem) UnmarshalCBOR(r io.Reader) error {
 //
 // System requirements for a game on a specific platform.
 type Defs_SystemRequirements struct {
-	LexiconTypeID string           `json:"$type"`
+	LexiconTypeID string           `json:"$type,omitempty"`
 	Minimum       *Defs_SystemSpec `json:"minimum,omitempty"`
 	Platform      string           `json:"platform"`
 	Recommended   *Defs_SystemSpec `json:"recommended,omitempty"`
@@ -1035,7 +1035,7 @@ func (t *Defs_SystemRequirements) UnmarshalCBOR(r io.Reader) error {
 //
 // Hardware/software specification for a platform.
 type Defs_SystemSpec struct {
-	LexiconTypeID   string  `json:"$type"`
+	LexiconTypeID   string  `json:"$type,omitempty"`
 	AdditionalNotes *string `json:"additionalNotes,omitempty"`
 	Directx         *string `json:"directx,omitempty"`
 	Graphics        *string `json:"graphics,omitempty"`
@@ -1064,7 +1064,7 @@ func (t *Defs_SystemSpec) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_TimeToBeat is a "timeToBeat" in the games.gamesgamesgamesgames.defs schema.
 type Defs_TimeToBeat struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Completely    *int64 `json:"completely,omitempty"`
 	Hastily       *int64 `json:"hastily,omitempty"`
 	Normally      *int64 `json:"normally,omitempty"`
@@ -1088,7 +1088,7 @@ func (t *Defs_TimeToBeat) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_ViewerState is a "viewerState" in the games.gamesgamesgamesgames.defs schema.
 type Defs_ViewerState struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Like          *string `json:"like,omitempty"`
 }
 
@@ -1112,7 +1112,7 @@ func (t *Defs_ViewerState) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_Website is a "website" in the games.gamesgamesgamesgames.defs schema.
 type Defs_Website struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Type          *string `json:"type,omitempty"`
 	Url           string  `json:"url"`
 }

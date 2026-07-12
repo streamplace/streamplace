@@ -15,7 +15,7 @@ import (
 //
 // width:height represents an aspect ratio. It may be approximate, and may not correspond to absolute dimensions in any given unit.
 type EmbedDefs_AspectRatio struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Height        int64  `json:"height"`
 	Width         int64  `json:"width"`
 }

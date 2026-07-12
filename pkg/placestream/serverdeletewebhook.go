@@ -13,7 +13,7 @@ import (
 )
 
 type ServerDeleteWebhook_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// id: The ID of the webhook to delete.
 	Id string `json:"id"`
 }
@@ -35,7 +35,7 @@ func (t *ServerDeleteWebhook_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ServerDeleteWebhook_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// success: Whether the webhook was successfully deleted.
 	Success bool `json:"success"`
 }

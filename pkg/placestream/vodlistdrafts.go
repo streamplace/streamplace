@@ -13,7 +13,7 @@ import (
 )
 
 type VodListDrafts_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cursor: Pagination cursor for the next page, if more results exist.
 	Cursor *string                  `json:"cursor,omitempty"`
 	Drafts []VodDraftDefs_DraftView `json:"drafts"`

@@ -13,7 +13,7 @@ import (
 
 // MultistreamDefs_Event is a "event" in the place.stream.multistream.defs schema.
 type MultistreamDefs_Event struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	CreatedAt     string `json:"createdAt"`
 	Message       string `json:"message"`
 	Status        string `json:"status"`
@@ -37,7 +37,7 @@ func (t *MultistreamDefs_Event) UnmarshalCBOR(r io.Reader) error {
 
 // MultistreamDefs_TargetView is a "targetView" in the place.stream.multistream.defs schema.
 type MultistreamDefs_TargetView struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cid           string                   `json:"cid"`
 	LatestEvent   *MultistreamDefs_Event   `json:"latestEvent,omitempty"`
 	Record        *glex.LexiconTypeDecoder `json:"record"`

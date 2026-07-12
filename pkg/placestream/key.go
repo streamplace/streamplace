@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record linking an atproto identity with a stream signing key
 type Key struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this key was created.
 	CreatedAt string `json:"createdAt"`
 	// createdBy: The name of the client that created this key.
@@ -28,6 +29,13 @@ type Key struct {
 
 // RecordTypeID implements glex.Record.
 func (t *Key) RecordTypeID() string { return "place.stream.key" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *Key) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.key"
+	type alias Key
+	return json.Marshal((*alias)(t))
+}
 
 func (t *Key) MarshalCBOR(w io.Writer) error {
 	if t == nil {

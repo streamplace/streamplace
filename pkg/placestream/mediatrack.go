@@ -22,7 +22,7 @@ func init() {
 
 // A track for a video stream, either part of the source or a custom additional track. One of: video, audio, subtitles.
 type MediaTrack struct {
-	LexiconTypeID string               `json:"$type"`
+	LexiconTypeID string               `json:"$type,omitempty"`
 	Metadata      *MediaTrack_Metadata `json:"metadata,omitempty"`
 	// parentTrack: If this is a derived track like a transcode or a transcript, what was the parent track?
 	ParentTrack *comatproto.RepoStrongRef `json:"parentTrack,omitempty"`
@@ -33,6 +33,13 @@ type MediaTrack struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MediaTrack) RecordTypeID() string { return "place.stream.media.track" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MediaTrack) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.media.track"
+	type alias MediaTrack
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -159,7 +166,7 @@ func (t *MediaTrack_Track) UnmarshalCBOR(r io.Reader) error {
 //
 // Metadata common to all media types. Contains subobjects for other media types.
 type MediaTrack_CommonMetadata struct {
-	LexiconTypeID string         `json:"$type"`
+	LexiconTypeID string         `json:"$type,omitempty"`
 	Audio         *Segment_Audio `json:"audio,omitempty"`
 	// durationMs: duration of this track in milliseconds
 	DurationMs *int64 `json:"durationMs,omitempty"`
@@ -188,7 +195,7 @@ func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error {
 
 // MediaTrack_TrackView is a "trackView" in the place.stream.media.track schema.
 type MediaTrack_TrackView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	Record        *glex.LexiconTypeDecoder           `json:"record"`

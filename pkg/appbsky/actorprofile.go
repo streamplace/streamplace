@@ -21,7 +21,7 @@ func init() {
 
 // A declaration of a Bluesky account profile.
 type ActorProfile struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// avatar: Small image to be displayed next to posts from account. AKA, 'profile picture'
 	Avatar *glex.Blob `json:"avatar,omitempty"`
 	// banner: Larger horizontal image to display behind profile view.
@@ -41,6 +41,13 @@ type ActorProfile struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ActorProfile) RecordTypeID() string { return "app.bsky.actor.profile" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ActorProfile) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.actor.profile"
+	type alias ActorProfile
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 	if t == nil {

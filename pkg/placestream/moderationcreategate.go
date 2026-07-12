@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationCreateGate_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// messageUri: The AT-URI of the chat message to hide.
 	MessageUri string `json:"messageUri"`
 	// streamer: The DID of the streamer.
@@ -39,7 +39,7 @@ func (t *ModerationCreateGate_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationCreateGate_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the created gate record.
 	Cid string `json:"cid"`
 	// uri: The AT-URI of the created gate record.

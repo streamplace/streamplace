@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Distribution and rebroadcast policy.
 type MetadataDistributionPolicy struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// allowedBroadcasters: List of did:webs of the broadcasters you want to allow to distribute your content. "*" allows anyone. Starting a line with a "!" bans that broadcaster.
 	AllowedBroadcasters []string `json:"allowedBroadcasters,omitempty"`
 	// deleteAfter: Duration in seconds after which segments should be deleted. Each segment will expire N seconds after its creation time. -1 to allow indefinite archival.
@@ -27,6 +28,13 @@ type MetadataDistributionPolicy struct {
 // RecordTypeID implements glex.Record.
 func (t *MetadataDistributionPolicy) RecordTypeID() string {
 	return "place.stream.metadata.distributionPolicy"
+}
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MetadataDistributionPolicy) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.metadata.distributionPolicy"
+	type alias MetadataDistributionPolicy
+	return json.Marshal((*alias)(t))
 }
 
 func (t *MetadataDistributionPolicy) MarshalCBOR(w io.Writer) error {

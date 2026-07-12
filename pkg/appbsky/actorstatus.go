@@ -20,7 +20,7 @@ func init() {
 
 // A declaration of a Bluesky account status.
 type ActorStatus struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	CreatedAt     string `json:"createdAt"`
 	// durationMinutes: The duration of the status in minutes. Applications can choose to impose minimum and maximum limits.
 	DurationMinutes *int64 `json:"durationMinutes,omitempty"`
@@ -32,6 +32,13 @@ type ActorStatus struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ActorStatus) RecordTypeID() string { return "app.bsky.actor.status" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ActorStatus) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.actor.status"
+	type alias ActorStatus
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ActorStatus) MarshalCBOR(w io.Writer) error {
 	if t == nil {

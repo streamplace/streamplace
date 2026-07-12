@@ -13,7 +13,7 @@ import (
 )
 
 type VodGetComments_Output struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Comments      []VodDefs_CommentView `json:"comments"`
 	Cursor        *string               `json:"cursor,omitempty"`
 }

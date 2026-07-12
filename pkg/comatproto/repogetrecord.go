@@ -13,7 +13,7 @@ import (
 )
 
 type RepoGetRecord_Output struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cid           *string                  `json:"cid,omitempty"`
 	Uri           string                   `json:"uri"`
 	Value         *glex.LexiconTypeDecoder `json:"value"`

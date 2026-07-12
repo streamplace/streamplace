@@ -13,7 +13,7 @@ import (
 )
 
 type ServerDeleteStorage_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Success       bool   `json:"success"`
 }
 

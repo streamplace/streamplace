@@ -16,7 +16,7 @@ import (
 //
 // A game from the gamesgamesgamesgames catalog, identified by its AT URI.
 type Defs_ActivityGame struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// name: Cached display name of the game.
 	Name *string `json:"name,omitempty"`
 	Uri  string  `json:"uri"`
@@ -42,7 +42,7 @@ func (t *Defs_ActivityGame) UnmarshalCBOR(r io.Reader) error {
 //
 // A non-game activity with a well-known label.
 type Defs_ActivityLabel struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Label         string `json:"label"`
 }
 
@@ -64,7 +64,7 @@ func (t *Defs_ActivityLabel) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_BlockView is a "blockView" in the place.stream.defs schema.
 type Defs_BlockView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Blocker       appbsky.ActorDefs_ProfileViewBasic `json:"blocker"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
@@ -90,7 +90,7 @@ func (t *Defs_BlockView) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_Rendition is a "rendition" in the place.stream.defs schema.
 type Defs_Rendition struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Name          string `json:"name"`
 }
 
@@ -112,7 +112,7 @@ func (t *Defs_Rendition) UnmarshalCBOR(r io.Reader) error {
 
 // Defs_Renditions is a "renditions" in the place.stream.defs schema.
 type Defs_Renditions struct {
-	LexiconTypeID string           `json:"$type"`
+	LexiconTypeID string           `json:"$type,omitempty"`
 	Renditions    []Defs_Rendition `json:"renditions"`
 }
 

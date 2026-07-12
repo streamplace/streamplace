@@ -15,7 +15,7 @@ import (
 //
 // A draft VOD with its ats:// URI and CID, for list/get responses.
 type VodDraftDefs_DraftView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: CID (sha256 of CBOR record bytes, base32) of the draft record.
 	Cid string `json:"cid"`
 	// record: The place.stream.vod.draftVideo record body. Typed as unknown (matching commentView/livestreamView/videoView) because the @atproto/api client validator cannot validate a ref to a record-type lexicon.

@@ -13,7 +13,7 @@ import (
 )
 
 type MultistreamDeleteTarget_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// rkey: The Record Key of the target to delete.
 	Rkey string `json:"rkey"`
 }
@@ -37,7 +37,7 @@ func (t *MultistreamDeleteTarget_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type MultistreamDeleteTarget_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

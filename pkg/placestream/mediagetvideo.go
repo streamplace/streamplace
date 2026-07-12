@@ -32,7 +32,7 @@ func MediaGetVideo(ctx context.Context, c glex.LexClient, uri string) (*MediaGet
 
 // MediaGetVideo_VideoView is a "videoView" in the place.stream.media.getVideo schema.
 type MediaGetVideo_VideoView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	// likeCount: Total number of place.stream.like records whose subject is this video. Always present; zero when none, so consumers can render a count unconditionally.
@@ -66,7 +66,7 @@ func (t *MediaGetVideo_VideoView) UnmarshalCBOR(r io.Reader) error {
 //
 // Sums across every place.stream.media.viewCount record indexed for this video, regardless of reporter or window. The underlying records are window-bounded; the consumer sees a running total.
 type MediaGetVideo_ViewCountSummary struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// bytes: Sum of bytes transferred across every track row in every indexed report.
 	Bytes int64 `json:"bytes"`
 	// count: Sum of `count` across every indexed report.

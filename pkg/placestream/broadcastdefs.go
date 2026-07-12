@@ -14,7 +14,7 @@ import (
 
 // BroadcastDefs_BroadcastOriginView is a "broadcastOriginView" in the place.stream.broadcast.defs schema.
 type BroadcastDefs_BroadcastOriginView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	Record        *glex.LexiconTypeDecoder           `json:"record"`

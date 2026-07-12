@@ -13,7 +13,7 @@ import (
 )
 
 type FeedGetFeedSkeleton_Output struct {
-	LexiconTypeID string                      `json:"$type"`
+	LexiconTypeID string                      `json:"$type,omitempty"`
 	Cursor        *string                     `json:"cursor,omitempty"`
 	Feed          []FeedDefs_SkeletonFeedPost `json:"feed"`
 	// reqId: Unique identifier per request that may be passed back alongside interactions.

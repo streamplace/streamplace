@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Grants a single account access to a named beta feature on this network. Records live in a project-operated repo (the streamplace node's `--beta-invite-did`); operators trust invites only from that one account, by configuration. Each (did, feature) pair gets its own record so individual features can be revoked independently by deleting the corresponding record.
 type BetaInvite struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this invite was issued.
 	CreatedAt string `json:"createdAt"`
 	// did: Account being granted access to the named beta feature.
@@ -28,6 +29,13 @@ type BetaInvite struct {
 
 // RecordTypeID implements glex.Record.
 func (t *BetaInvite) RecordTypeID() string { return "place.stream.beta.invite" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *BetaInvite) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.beta.invite"
+	type alias BetaInvite
+	return json.Marshal((*alias)(t))
+}
 
 func (t *BetaInvite) MarshalCBOR(w io.Writer) error {
 	if t == nil {

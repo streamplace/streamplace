@@ -13,7 +13,7 @@ import (
 )
 
 type LiveStopLivestream_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -33,7 +33,7 @@ func (t *LiveStopLivestream_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type LiveStopLivestream_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The new CID of the stopped livestream record.
 	Cid string `json:"cid"`
 	// uri: The URI of the stopped livestream record.

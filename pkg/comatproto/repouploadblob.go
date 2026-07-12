@@ -13,7 +13,7 @@ import (
 )
 
 type RepoUploadBlob_Output struct {
-	LexiconTypeID string    `json:"$type"`
+	LexiconTypeID string    `json:"$type,omitempty"`
 	Blob          glex.Blob `json:"blob"`
 }
 

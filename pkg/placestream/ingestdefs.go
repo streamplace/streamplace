@@ -15,7 +15,7 @@ import (
 //
 // An ingest URL for a Streamplace station.
 type IngestDefs_Ingest struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// type: The type of ingest endpoint, currently 'rtmp' and 'whip' are supported.
 	Type string `json:"type"`
 	// url: The URL of the ingest endpoint.

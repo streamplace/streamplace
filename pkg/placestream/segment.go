@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Media file representing a segment of a livestream
 type Segment struct {
-	LexiconTypeID      string                      `json:"$type"`
+	LexiconTypeID      string                      `json:"$type,omitempty"`
 	Audio              []Segment_Audio             `json:"audio,omitempty"`
 	ContentRights      *MetadataContentRights      `json:"contentRights,omitempty"`
 	ContentWarnings    *MetadataContentWarnings    `json:"contentWarnings,omitempty"`
@@ -39,6 +40,13 @@ type Segment struct {
 // RecordTypeID implements glex.Record.
 func (t *Segment) RecordTypeID() string { return "place.stream.segment" }
 
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *Segment) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.segment"
+	type alias Segment
+	return json.Marshal((*alias)(t))
+}
+
 func (t *Segment) MarshalCBOR(w io.Writer) error {
 	if t == nil {
 		_, err := w.Write(cbg.CborNull)
@@ -54,7 +62,7 @@ func (t *Segment) UnmarshalCBOR(r io.Reader) error {
 
 // Segment_Audio is a "audio" in the place.stream.segment schema.
 type Segment_Audio struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Channels      int64  `json:"channels"`
 	Codec         string `json:"codec"`
 	Rate          int64  `json:"rate"`
@@ -78,7 +86,7 @@ func (t *Segment_Audio) UnmarshalCBOR(r io.Reader) error {
 
 // Segment_Framerate is a "framerate" in the place.stream.segment schema.
 type Segment_Framerate struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Den           int64  `json:"den"`
 	Num           int64  `json:"num"`
 }
@@ -101,7 +109,7 @@ func (t *Segment_Framerate) UnmarshalCBOR(r io.Reader) error {
 
 // Segment_SegmentView is a "segmentView" in the place.stream.segment schema.
 type Segment_SegmentView struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cid           string                   `json:"cid"`
 	Record        *glex.LexiconTypeDecoder `json:"record"`
 }
@@ -124,7 +132,7 @@ func (t *Segment_SegmentView) UnmarshalCBOR(r io.Reader) error {
 
 // Segment_Video is a "video" in the place.stream.segment schema.
 type Segment_Video struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Bframes       *bool              `json:"bframes,omitempty"`
 	Codec         string             `json:"codec"`
 	Framerate     *Segment_Framerate `json:"framerate,omitempty"`

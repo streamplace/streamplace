@@ -13,7 +13,7 @@ import (
 )
 
 type GameGetGame_Output struct {
-	LexiconTypeID string   `json:"$type"`
+	LexiconTypeID string   `json:"$type,omitempty"`
 	CoverUrl      *string  `json:"coverUrl,omitempty"`
 	Genres        []string `json:"genres,omitempty"`
 	Name          string   `json:"name"`

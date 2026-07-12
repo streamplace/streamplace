@@ -16,7 +16,7 @@ import (
 )
 
 type LiveGetRecommendations_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// recommendations: Ordered list of recommendations
 	Recommendations []LiveGetRecommendations_Output_Recommendations_Elem `json:"recommendations"`
 	// userDID: The user DID this recommendation is for
@@ -114,7 +114,7 @@ func LiveGetRecommendations(ctx context.Context, c glex.LexClient, userDID strin
 
 // LiveGetRecommendations_LivestreamRecommendation is a "livestreamRecommendation" in the place.stream.live.getRecommendations schema.
 type LiveGetRecommendations_LivestreamRecommendation struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// did: The DID of the recommended streamer
 	Did string `json:"did"`
 	// source: Source of the recommendation

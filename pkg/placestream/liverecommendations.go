@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // A list of recommended streamers, in order of preference
 type LiveRecommendations struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this list was created.
 	CreatedAt string `json:"createdAt"`
 	// streamers: Ordered list of recommended streamer DIDs
@@ -26,6 +27,13 @@ type LiveRecommendations struct {
 
 // RecordTypeID implements glex.Record.
 func (t *LiveRecommendations) RecordTypeID() string { return "place.stream.live.recommendations" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *LiveRecommendations) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.live.recommendations"
+	type alias LiveRecommendations
+	return json.Marshal((*alias)(t))
+}
 
 func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 	if t == nil {

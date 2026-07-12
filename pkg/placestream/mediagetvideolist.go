@@ -13,7 +13,7 @@ import (
 )
 
 type MediaGetVideoList_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cursor: Pagination cursor for the next page, if any.
 	Cursor *string                   `json:"cursor,omitempty"`
 	Videos []MediaGetVideo_VideoView `json:"videos"`

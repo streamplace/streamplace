@@ -17,7 +17,7 @@ import (
 
 // VodDefs_CommentView is a "commentView" in the place.stream.vod.defs schema.
 type VodDefs_CommentView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
@@ -104,7 +104,7 @@ func (t *VodDefs_CommentView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
 //
 // A comment view without its own `replyTo`, used to represent the parent of a reply without recursively nesting the whole thread.
 type VodDefs_CommentViewBasic struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`

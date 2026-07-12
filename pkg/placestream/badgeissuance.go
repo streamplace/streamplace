@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // Grants a specific badge to a recipient. The badge only appears in chat after the recipient adds this record to their place.stream.chat.profile selection array.
 type BadgeIssuance struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// badge: Strong reference to the place.stream.badge.def record being granted.
 	Badge comatproto.RepoStrongRef `json:"badge"`
 	// createdAt: Client-declared timestamp when this issuance was created.
@@ -29,6 +30,13 @@ type BadgeIssuance struct {
 
 // RecordTypeID implements glex.Record.
 func (t *BadgeIssuance) RecordTypeID() string { return "place.stream.badge.issuance" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *BadgeIssuance) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.badge.issuance"
+	type alias BadgeIssuance
+	return json.Marshal((*alias)(t))
+}
 
 func (t *BadgeIssuance) MarshalCBOR(w io.Writer) error {
 	if t == nil {

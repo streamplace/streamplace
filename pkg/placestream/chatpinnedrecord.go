@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record pinning a chat message for prominent display.
 type ChatPinnedRecord struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: When this pin was created.
 	CreatedAt string `json:"createdAt"`
 	// expiresAt: Optional expiration time. If set, the pin is considered inactive after this time.
@@ -30,6 +31,13 @@ type ChatPinnedRecord struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ChatPinnedRecord) RecordTypeID() string { return "place.stream.chat.pinnedRecord" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ChatPinnedRecord) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.chat.pinnedRecord"
+	type alias ChatPinnedRecord
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ChatPinnedRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {

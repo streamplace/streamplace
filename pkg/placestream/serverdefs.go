@@ -13,7 +13,7 @@ import (
 
 // ServerDefs_RewriteRule is a "rewriteRule" in the place.stream.server.defs schema.
 type ServerDefs_RewriteRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// from: Text to search for and replace.
 	From string `json:"from"`
 	// to: Text to replace with.
@@ -40,7 +40,7 @@ func (t *ServerDefs_RewriteRule) UnmarshalCBOR(r io.Reader) error {
 //
 // S3 storage configuration for backups.
 type ServerDefs_Storage struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// isActive: Whether backup storage is currently active.
 	IsActive bool `json:"isActive"`
 	// url: S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket
@@ -67,7 +67,7 @@ func (t *ServerDefs_Storage) UnmarshalCBOR(r io.Reader) error {
 //
 // A webhook configuration for receiving Streamplace events.
 type ServerDefs_Webhook struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// active: Whether this webhook is currently active.
 	Active bool `json:"active"`
 	// createdAt: When this webhook was created.

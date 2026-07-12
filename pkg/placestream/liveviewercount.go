@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Current viewer count for a livestream on a particular server. Record keys are streamer_did::server_did by convention.
 type LiveViewerCount struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// count: The current view count for the livestream.
 	Count int64 `json:"count"`
 	// server: The DID of the server to get the view count for.
@@ -30,6 +31,13 @@ type LiveViewerCount struct {
 
 // RecordTypeID implements glex.Record.
 func (t *LiveViewerCount) RecordTypeID() string { return "place.stream.live.viewerCount" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *LiveViewerCount) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.live.viewerCount"
+	type alias LiveViewerCount
+	return json.Marshal((*alias)(t))
+}
 
 func (t *LiveViewerCount) MarshalCBOR(w io.Writer) error {
 	if t == nil {

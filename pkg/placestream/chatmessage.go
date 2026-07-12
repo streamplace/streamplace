@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // Record containing a Streamplace chat message.
 type ChatMessage struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this message was originally created.
 	CreatedAt string `json:"createdAt"`
 	// facets: Annotations of text (mentions, URLs, etc)
@@ -32,6 +33,13 @@ type ChatMessage struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ChatMessage) RecordTypeID() string { return "place.stream.chat.message" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ChatMessage) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.chat.message"
+	type alias ChatMessage
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -48,7 +56,7 @@ func (t *ChatMessage) UnmarshalCBOR(r io.Reader) error {
 
 // ChatMessage_ReplyRef is a "replyRef" in the place.stream.chat.message schema.
 type ChatMessage_ReplyRef struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Parent        comatproto.RepoStrongRef `json:"parent"`
 	Root          comatproto.RepoStrongRef `json:"root"`
 }

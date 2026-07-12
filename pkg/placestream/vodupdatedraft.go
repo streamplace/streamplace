@@ -16,7 +16,7 @@ import (
 )
 
 type VodUpdateDraft_Input struct {
-	LexiconTypeID     string                         `json:"$type"`
+	LexiconTypeID     string                         `json:"$type,omitempty"`
 	Activity          *VodUpdateDraft_Input_Activity `json:"activity,omitempty"`
 	ContentRights     *MetadataContentRights         `json:"contentRights,omitempty"`
 	ContentWarnings   *MetadataContentWarnings       `json:"contentWarnings,omitempty"`
@@ -114,7 +114,7 @@ func (t *VodUpdateDraft_Input_Activity) UnmarshalCBOR(r io.Reader) error {
 }
 
 type VodUpdateDraft_Output struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Draft         VodDraftDefs_DraftView `json:"draft"`
 }
 

@@ -21,13 +21,20 @@ func init() {
 
 // Annotation of a sub-string within rich text in a VOD description or comment.
 type RichtextVideoFacet struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Features      []RichtextVideoFacet_Features_Elem `json:"features"`
 	Index         appbsky.RichtextFacet_ByteSlice    `json:"index"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *RichtextVideoFacet) RecordTypeID() string { return "place.stream.richtext.videoFacet" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *RichtextVideoFacet) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.richtext.videoFacet"
+	type alias RichtextVideoFacet
+	return json.Marshal((*alias)(t))
+}
 
 func (t *RichtextVideoFacet) MarshalCBOR(w io.Writer) error {
 	if t == nil {

@@ -13,7 +13,7 @@ import (
 )
 
 type BroadcastGetBroadcaster_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// admins: Array of DIDs authorized as admins
 	Admins []string `json:"admins,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster to which this server belongs

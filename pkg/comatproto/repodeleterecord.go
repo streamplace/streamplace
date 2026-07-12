@@ -13,7 +13,7 @@ import (
 )
 
 type RepoDeleteRecord_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// collection: The NSID of the record collection.
 	Collection string `json:"collection"`
 	// repo: The handle or DID of the repo (aka, current account).
@@ -43,7 +43,7 @@ func (t *RepoDeleteRecord_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type RepoDeleteRecord_Output struct {
-	LexiconTypeID string               `json:"$type"`
+	LexiconTypeID string               `json:"$type,omitempty"`
 	Commit        *RepoDefs_CommitMeta `json:"commit,omitempty"`
 }
 

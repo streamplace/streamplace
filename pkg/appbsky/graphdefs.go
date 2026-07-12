@@ -14,7 +14,7 @@ import (
 
 // GraphDefs_ListItemView is a "listItemView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListItemView struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Subject       ActorDefs_ProfileView `json:"subject"`
 	Uri           string                `json:"uri"`
 }
@@ -37,7 +37,7 @@ func (t *GraphDefs_ListItemView) UnmarshalCBOR(r io.Reader) error {
 
 // GraphDefs_ListView is a "listView" in the app.bsky.graph.defs schema.
 type GraphDefs_ListView struct {
-	LexiconTypeID     string                       `json:"$type"`
+	LexiconTypeID     string                       `json:"$type,omitempty"`
 	Avatar            *string                      `json:"avatar,omitempty"`
 	Cid               string                       `json:"cid"`
 	Creator           ActorDefs_ProfileView        `json:"creator"`
@@ -70,7 +70,7 @@ func (t *GraphDefs_ListView) UnmarshalCBOR(r io.Reader) error {
 
 // GraphDefs_ListViewBasic is a "listViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewBasic struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Avatar        *string                      `json:"avatar,omitempty"`
 	Cid           string                       `json:"cid"`
 	IndexedAt     *string                      `json:"indexedAt,omitempty"`
@@ -100,7 +100,7 @@ func (t *GraphDefs_ListViewBasic) UnmarshalCBOR(r io.Reader) error {
 
 // GraphDefs_ListViewerState is a "listViewerState" in the app.bsky.graph.defs schema.
 type GraphDefs_ListViewerState struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Blocked       *string `json:"blocked,omitempty"`
 	Muted         *bool   `json:"muted,omitempty"`
 }
@@ -127,7 +127,7 @@ func (t *GraphDefs_ListViewerState) UnmarshalCBOR(r io.Reader) error {
 //
 // indicates that a handle or DID could not be resolved
 type GraphDefs_NotFoundActor struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Actor         string `json:"actor"`
 	NotFound      bool   `json:"notFound"`
 }
@@ -152,7 +152,7 @@ func (t *GraphDefs_NotFoundActor) UnmarshalCBOR(r io.Reader) error {
 //
 // lists the bi-directional graph relationships between one actor (not indicated in the object), and the target actors (the DID included in the object)
 type GraphDefs_Relationship struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// blockedBy: if the actor is blocked by this DID, contains the AT-URI of the block record
 	BlockedBy *string `json:"blockedBy,omitempty"`
 	// blockedByList: if the actor is blocked by this DID via a block list, contains the AT-URI of the listblock record
@@ -186,7 +186,7 @@ func (t *GraphDefs_Relationship) UnmarshalCBOR(r io.Reader) error {
 
 // GraphDefs_StarterPackView is a "starterPackView" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackView struct {
-	LexiconTypeID      string                       `json:"$type"`
+	LexiconTypeID      string                       `json:"$type,omitempty"`
 	Cid                string                       `json:"cid"`
 	Creator            ActorDefs_ProfileViewBasic   `json:"creator"`
 	Feeds              []FeedDefs_GeneratorView     `json:"feeds,omitempty"`
@@ -220,7 +220,7 @@ func (t *GraphDefs_StarterPackView) UnmarshalCBOR(r io.Reader) error {
 
 // GraphDefs_StarterPackViewBasic is a "starterPackViewBasic" in the app.bsky.graph.defs schema.
 type GraphDefs_StarterPackViewBasic struct {
-	LexiconTypeID      string                       `json:"$type"`
+	LexiconTypeID      string                       `json:"$type,omitempty"`
 	Cid                string                       `json:"cid"`
 	Creator            ActorDefs_ProfileViewBasic   `json:"creator"`
 	IndexedAt          string                       `json:"indexedAt"`

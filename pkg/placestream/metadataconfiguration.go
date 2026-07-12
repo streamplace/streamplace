@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Default metadata record for livestream including content warnings, rights, and distribution policy
 type MetadataConfiguration struct {
-	LexiconTypeID      string                      `json:"$type"`
+	LexiconTypeID      string                      `json:"$type,omitempty"`
 	ContentRights      *MetadataContentRights      `json:"contentRights,omitempty"`
 	ContentWarnings    *MetadataContentWarnings    `json:"contentWarnings,omitempty"`
 	DistributionPolicy *MetadataDistributionPolicy `json:"distributionPolicy,omitempty"`
@@ -25,6 +26,13 @@ type MetadataConfiguration struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MetadataConfiguration) RecordTypeID() string { return "place.stream.metadata.configuration" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MetadataConfiguration) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.metadata.configuration"
+	type alias MetadataConfiguration
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 	if t == nil {

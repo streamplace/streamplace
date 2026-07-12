@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record granting moderation permissions to a user for this streamer's content.
 type ModerationPermission struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this moderator was added.
 	CreatedAt string `json:"createdAt"`
 	// expirationTime: Optional expiration time for this delegation. If set, the delegation is invalid after this time.
@@ -30,6 +31,13 @@ type ModerationPermission struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ModerationPermission) RecordTypeID() string { return "place.stream.moderation.permission" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ModerationPermission) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.moderation.permission"
+	type alias ModerationPermission
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 	if t == nil {

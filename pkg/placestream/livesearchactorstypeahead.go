@@ -13,7 +13,7 @@ import (
 )
 
 type LiveSearchActorsTypeahead_Output struct {
-	LexiconTypeID string                            `json:"$type"`
+	LexiconTypeID string                            `json:"$type,omitempty"`
 	Actors        []LiveSearchActorsTypeahead_Actor `json:"actors"`
 }
 
@@ -59,7 +59,7 @@ func LiveSearchActorsTypeahead(ctx context.Context, c glex.LexClient, limit *int
 
 // LiveSearchActorsTypeahead_Actor is a "actor" in the place.stream.live.searchActorsTypeahead schema.
 type LiveSearchActorsTypeahead_Actor struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// did: The actor's DID
 	Did string `json:"did"`
 	// handle: The actor's handle

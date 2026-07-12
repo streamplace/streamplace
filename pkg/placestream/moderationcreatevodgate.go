@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationCreateVodGate_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// commentUri: The AT-URI of the VOD comment to hide.
 	CommentUri string `json:"commentUri"`
 	// streamer: The DID of the streamer.
@@ -39,7 +39,7 @@ func (t *ModerationCreateVodGate_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationCreateVodGate_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the created gate record.
 	Cid string `json:"cid"`
 	// uri: The AT-URI of the created gate record.

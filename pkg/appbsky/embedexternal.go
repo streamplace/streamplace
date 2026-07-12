@@ -5,6 +5,7 @@
 package appbsky
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,12 +18,19 @@ func init() {
 
 // A representation of some externally linked content (eg, a URL and 'card'), embedded in a Bluesky record (eg, a post).
 type EmbedExternal struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	External      EmbedExternal_External `json:"external"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *EmbedExternal) RecordTypeID() string { return "app.bsky.embed.external" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *EmbedExternal) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.embed.external"
+	type alias EmbedExternal
+	return json.Marshal((*alias)(t))
+}
 
 func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -39,7 +47,7 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	LexiconTypeID string     `json:"$type"`
+	LexiconTypeID string     `json:"$type,omitempty"`
 	Description   string     `json:"description"`
 	Thumb         *glex.Blob `json:"thumb,omitempty"`
 	Title         string     `json:"title"`
@@ -64,7 +72,7 @@ func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedExternal_View is a "view" in the app.bsky.embed.external schema.
 type EmbedExternal_View struct {
-	LexiconTypeID string                     `json:"$type"`
+	LexiconTypeID string                     `json:"$type,omitempty"`
 	External      EmbedExternal_ViewExternal `json:"external"`
 }
 
@@ -86,7 +94,7 @@ func (t *EmbedExternal_View) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Description   string  `json:"description"`
 	Thumb         *string `json:"thumb,omitempty"`
 	Title         string  `json:"title"`

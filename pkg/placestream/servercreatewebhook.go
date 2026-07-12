@@ -13,7 +13,7 @@ import (
 )
 
 type ServerCreateWebhook_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// active: Whether this webhook should be active upon creation.
 	Active *bool `json:"active,omitempty"`
 	// description: A description of what this webhook is used for.
@@ -51,7 +51,7 @@ func (t *ServerCreateWebhook_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ServerCreateWebhook_Output struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Webhook       ServerDefs_Webhook `json:"webhook"`
 }
 

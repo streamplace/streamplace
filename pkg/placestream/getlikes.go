@@ -14,7 +14,7 @@ import (
 )
 
 type GetLikes_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// count: Total number of likes for this subject.
 	Count   int64               `json:"count"`
 	Cursor  *string             `json:"cursor,omitempty"`
@@ -65,7 +65,7 @@ func GetLikes(ctx context.Context, c glex.LexClient, cursor string, limit *int64
 
 // GetLikes_LikeView is a "likeView" in the place.stream.getLikes schema.
 type GetLikes_LikeView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`

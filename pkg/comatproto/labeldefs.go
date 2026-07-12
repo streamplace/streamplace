@@ -15,7 +15,7 @@ import (
 //
 // Metadata tag on an atproto resource (eg, repo or record).
 type LabelDefs_Label struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: Optionally, CID specifying the specific version of 'uri' resource this label applies to.
 	Cid *string `json:"cid,omitempty"`
 	// cts: Timestamp when this label was created.
@@ -56,7 +56,7 @@ func (t *LabelDefs_Label) UnmarshalCBOR(r io.Reader) error {
 //
 // Declares a label value and its expected interpretations and behaviors.
 type LabelDefs_LabelValueDefinition struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// adultOnly: Does the user need to have adult content enabled in order to configure this label?
 	AdultOnly *bool `json:"adultOnly,omitempty"`
 	// blurs: What should this label hide in the UI, if applied? 'content' hides all of the target; 'media' hides the images/video/audio; 'none' hides nothing.
@@ -92,7 +92,7 @@ func (t *LabelDefs_LabelValueDefinition) UnmarshalCBOR(r io.Reader) error {
 //
 // Strings which describe the label in the UI, localized into a specific language.
 type LabelDefs_LabelValueDefinitionStrings struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// description: A longer description of what the label means and why it might be applied.
 	Description string `json:"description"`
 	// lang: The code of the language these strings are written in.
@@ -123,7 +123,7 @@ func (t *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBOR(r io.Reader) error
 //
 // Metadata tag on an atproto record, published by the author within the record. Note that schemas should use #selfLabels, not #selfLabel.
 type LabelDefs_SelfLabel struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// val: The short string name of the value or type of this label.
 	Val string `json:"val"`
 }
@@ -148,7 +148,7 @@ func (t *LabelDefs_SelfLabel) UnmarshalCBOR(r io.Reader) error {
 //
 // Metadata tags on an atproto record, published by the author within the record.
 type LabelDefs_SelfLabels struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Values        []LabelDefs_SelfLabel `json:"values"`
 }
 

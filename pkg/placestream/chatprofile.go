@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // Record containing customizations for a user's chat profile.
 type ChatProfile struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// badges: Badge selections for display in chat.
 	Badges *ChatProfile_BadgeSelections `json:"badges,omitempty"`
 	Color  *ChatProfile_Color           `json:"color,omitempty"`
@@ -28,6 +29,13 @@ type ChatProfile struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ChatProfile) RecordTypeID() string { return "place.stream.chat.profile" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ChatProfile) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.chat.profile"
+	type alias ChatProfile
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -46,7 +54,7 @@ func (t *ChatProfile) UnmarshalCBOR(r io.Reader) error {
 //
 // Selected badges for display in chat, organized by slot.
 type ChatProfile_BadgeSelections struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// global: Selected globally-issued badge (e.g. event badge).
 	Global *comatproto.RepoStrongRef `json:"global,omitempty"`
 	// streamer: Selected streamer-issued badges, one per streamer channel.
@@ -75,7 +83,7 @@ func (t *ChatProfile_BadgeSelections) UnmarshalCBOR(r io.Reader) error {
 //
 // Customizations for the color of a user's name in chat
 type ChatProfile_Color struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Blue          int64  `json:"blue"`
 	Green         int64  `json:"green"`
 	Red           int64  `json:"red"`
@@ -101,7 +109,7 @@ func (t *ChatProfile_Color) UnmarshalCBOR(r io.Reader) error {
 //
 // A selected badge for a specific streamer's channel.
 type ChatProfile_StreamerBadgeSelection struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// badge: Strong reference to the selected place.stream.badge.issuance record.
 	Badge comatproto.RepoStrongRef `json:"badge"`
 	// streamer: DID of the streamer whose channel this selection applies to.

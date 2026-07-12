@@ -13,7 +13,7 @@ import (
 )
 
 type VodGetDraft_Output struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Draft         VodDraftDefs_DraftView `json:"draft"`
 }
 

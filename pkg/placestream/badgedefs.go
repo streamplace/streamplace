@@ -15,7 +15,7 @@ import (
 //
 // A resolved view of a badge issuance, including def fields for display.
 type BadgeDefs_BadgeIssuanceView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	BadgeType     string `json:"badgeType"`
 	// description: Description from the badge definition.
 	Description *string `json:"description,omitempty"`
@@ -55,7 +55,7 @@ func (t *BadgeDefs_BadgeIssuanceView) UnmarshalCBOR(r io.Reader) error {
 //
 // A display slot containing available issuance-based badges and which one (if any) is currently selected.
 type BadgeDefs_BadgeSlot struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// available: All badges available for this slot.
 	Available []BadgeDefs_BadgeIssuanceView `json:"available"`
 	// selected: The currently selected badge in this slot, if any.
@@ -82,7 +82,7 @@ func (t *BadgeDefs_BadgeSlot) UnmarshalCBOR(r io.Reader) error {
 //
 // View of a badge record, with fields resolved for display. If the DID in issuer is not the current streamplace node, the signature field shall be required.
 type BadgeDefs_BadgeView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	BadgeType     string `json:"badgeType"`
 	// description: Description from the badge definition.
 	Description *string `json:"description,omitempty"`

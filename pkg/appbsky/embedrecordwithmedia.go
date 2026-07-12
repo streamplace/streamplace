@@ -19,13 +19,20 @@ func init() {
 }
 
 type EmbedRecordWithMedia struct {
-	LexiconTypeID string                     `json:"$type"`
+	LexiconTypeID string                     `json:"$type,omitempty"`
 	Media         EmbedRecordWithMedia_Media `json:"media"`
 	Record        EmbedRecord                `json:"record"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *EmbedRecordWithMedia) RecordTypeID() string { return "app.bsky.embed.recordWithMedia" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *EmbedRecordWithMedia) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.embed.recordWithMedia"
+	type alias EmbedRecordWithMedia
+	return json.Marshal((*alias)(t))
+}
 
 func (t *EmbedRecordWithMedia) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -124,7 +131,7 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecordWithMedia_View is a "view" in the app.bsky.embed.recordWithMedia schema.
 type EmbedRecordWithMedia_View struct {
-	LexiconTypeID string                          `json:"$type"`
+	LexiconTypeID string                          `json:"$type,omitempty"`
 	Media         EmbedRecordWithMedia_View_Media `json:"media"`
 	Record        EmbedRecord_View                `json:"record"`
 }

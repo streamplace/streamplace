@@ -5,6 +5,7 @@
 package appbsky
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record declaring a 'block' relationship against another account. NOTE: blocks are public in Bluesky; see blog posts for details.
 type GraphBlock struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	CreatedAt     string `json:"createdAt"`
 	// subject: DID of the account to be blocked.
 	Subject string `json:"subject"`
@@ -25,6 +26,13 @@ type GraphBlock struct {
 
 // RecordTypeID implements glex.Record.
 func (t *GraphBlock) RecordTypeID() string { return "app.bsky.graph.block" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *GraphBlock) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.graph.block"
+	type alias GraphBlock
+	return json.Marshal((*alias)(t))
+}
 
 func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 	if t == nil {

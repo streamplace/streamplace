@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -18,7 +19,7 @@ func init() {
 
 // Record containing a comment on a VOD.
 type VodComment struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this comment was created.
 	CreatedAt string `json:"createdAt"`
 	// facets: Annotations of text (mentions, URLs, etc)
@@ -32,6 +33,13 @@ type VodComment struct {
 
 // RecordTypeID implements glex.Record.
 func (t *VodComment) RecordTypeID() string { return "place.stream.vod.comment" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *VodComment) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.vod.comment"
+	type alias VodComment
+	return json.Marshal((*alias)(t))
+}
 
 func (t *VodComment) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -48,7 +56,7 @@ func (t *VodComment) UnmarshalCBOR(r io.Reader) error {
 
 // VodComment_ReplyRef is a "replyRef" in the place.stream.vod.comment schema.
 type VodComment_ReplyRef struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Parent        comatproto.RepoStrongRef `json:"parent"`
 	Root          comatproto.RepoStrongRef `json:"root"`
 }

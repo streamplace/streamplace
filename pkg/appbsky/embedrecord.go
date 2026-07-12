@@ -20,12 +20,19 @@ func init() {
 }
 
 type EmbedRecord struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Record        comatproto.RepoStrongRef `json:"record"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *EmbedRecord) RecordTypeID() string { return "app.bsky.embed.record" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *EmbedRecord) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.embed.record"
+	type alias EmbedRecord
+	return json.Marshal((*alias)(t))
+}
 
 func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -42,7 +49,7 @@ func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecord_View is a "view" in the app.bsky.embed.record schema.
 type EmbedRecord_View struct {
-	LexiconTypeID string                  `json:"$type"`
+	LexiconTypeID string                  `json:"$type,omitempty"`
 	Record        EmbedRecord_View_Record `json:"record"`
 }
 
@@ -216,7 +223,7 @@ func (t *EmbedRecord_View_Record) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecord_ViewBlocked is a "viewBlocked" in the app.bsky.embed.record schema.
 type EmbedRecord_ViewBlocked struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Author        FeedDefs_BlockedAuthor `json:"author"`
 	Blocked       bool                   `json:"blocked"`
 	Uri           string                 `json:"uri"`
@@ -240,7 +247,7 @@ func (t *EmbedRecord_ViewBlocked) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecord_ViewDetached is a "viewDetached" in the app.bsky.embed.record schema.
 type EmbedRecord_ViewDetached struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Detached      bool   `json:"detached"`
 	Uri           string `json:"uri"`
 }
@@ -263,7 +270,7 @@ func (t *EmbedRecord_ViewDetached) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecord_ViewNotFound is a "viewNotFound" in the app.bsky.embed.record schema.
 type EmbedRecord_ViewNotFound struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	NotFound      bool   `json:"notFound"`
 	Uri           string `json:"uri"`
 }
@@ -286,7 +293,7 @@ func (t *EmbedRecord_ViewNotFound) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedRecord_ViewRecord is a "viewRecord" in the app.bsky.embed.record schema.
 type EmbedRecord_ViewRecord struct {
-	LexiconTypeID string                               `json:"$type"`
+	LexiconTypeID string                               `json:"$type,omitempty"`
 	Author        ActorDefs_ProfileViewBasic           `json:"author"`
 	Cid           string                               `json:"cid"`
 	Embeds        []EmbedRecord_ViewRecord_Embeds_Elem `json:"embeds,omitempty"`

@@ -5,6 +5,7 @@
 package comatproto
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -16,13 +17,20 @@ func init() {
 }
 
 type RepoStrongRef struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Cid           string `json:"cid"`
 	Uri           string `json:"uri"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *RepoStrongRef) RecordTypeID() string { return "com.atproto.repo.strongRef" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *RepoStrongRef) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "com.atproto.repo.strongRef"
+	type alias RepoStrongRef
+	return json.Marshal((*alias)(t))
+}
 
 func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 	if t == nil {

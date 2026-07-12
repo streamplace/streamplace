@@ -13,7 +13,7 @@ import (
 )
 
 type MediaFinalizeLivestream_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// livestream: AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user.
 	Livestream string `json:"livestream"`
 }
@@ -37,7 +37,7 @@ func (t *MediaFinalizeLivestream_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type MediaFinalizeLivestream_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// draftUri: The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft.
 	DraftUri string `json:"draftUri"`
 	// uploadId: Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.

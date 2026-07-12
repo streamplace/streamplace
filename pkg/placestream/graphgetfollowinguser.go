@@ -14,7 +14,7 @@ import (
 )
 
 type GraphGetFollowingUser_Output struct {
-	LexiconTypeID string                    `json:"$type"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
 	Follow        *comatproto.RepoStrongRef `json:"follow,omitempty"`
 }
 

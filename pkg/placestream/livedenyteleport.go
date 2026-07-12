@@ -13,7 +13,7 @@ import (
 )
 
 type LiveDenyTeleport_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// uri: The URI of the teleport record to deny.
 	Uri string `json:"uri"`
 }
@@ -35,7 +35,7 @@ func (t *LiveDenyTeleport_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type LiveDenyTeleport_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// success: Whether the teleport was successfully denied.
 	Success bool `json:"success"`
 }

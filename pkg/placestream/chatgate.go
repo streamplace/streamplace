@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,13 +18,20 @@ func init() {
 
 // Record defining a single gated chat message.
 type ChatGate struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// hiddenMessage: URI of the hidden chat message.
 	HiddenMessage string `json:"hiddenMessage"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *ChatGate) RecordTypeID() string { return "place.stream.chat.gate" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ChatGate) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.chat.gate"
+	type alias ChatGate
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ChatGate) MarshalCBOR(w io.Writer) error {
 	if t == nil {

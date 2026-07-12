@@ -21,7 +21,7 @@ func init() {
 
 // Record containing a Bluesky post.
 type FeedPost struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this post was originally created.
 	CreatedAt string          `json:"createdAt"`
 	Embed     *FeedPost_Embed `json:"embed,omitempty"`
@@ -42,6 +42,13 @@ type FeedPost struct {
 
 // RecordTypeID implements glex.Record.
 func (t *FeedPost) RecordTypeID() string { return "app.bsky.feed.post" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *FeedPost) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.feed.post"
+	type alias FeedPost
+	return json.Marshal((*alias)(t))
+}
 
 func (t *FeedPost) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -225,7 +232,7 @@ func (t *FeedPost_Labels) UnmarshalCBOR(r io.Reader) error {
 //
 // Deprecated: use facets instead.
 type FeedPost_Entity struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Index         FeedPost_TextSlice `json:"index"`
 	// type: Expected values are 'mention' and 'link'.
 	Type  string `json:"type"`
@@ -250,7 +257,7 @@ func (t *FeedPost_Entity) UnmarshalCBOR(r io.Reader) error {
 
 // FeedPost_ReplyRef is a "replyRef" in the app.bsky.feed.post schema.
 type FeedPost_ReplyRef struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Parent        comatproto.RepoStrongRef `json:"parent"`
 	Root          comatproto.RepoStrongRef `json:"root"`
 }
@@ -275,7 +282,7 @@ func (t *FeedPost_ReplyRef) UnmarshalCBOR(r io.Reader) error {
 //
 // Deprecated. Use app.bsky.richtext instead -- A text segment. Start is inclusive, end is exclusive. Indices are for utf16-encoded strings.
 type FeedPost_TextSlice struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	End           int64  `json:"end"`
 	Start         int64  `json:"start"`
 }

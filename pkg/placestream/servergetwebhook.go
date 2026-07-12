@@ -13,7 +13,7 @@ import (
 )
 
 type ServerGetWebhook_Output struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Webhook       ServerDefs_Webhook `json:"webhook"`
 }
 

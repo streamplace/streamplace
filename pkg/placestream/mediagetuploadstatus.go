@@ -13,7 +13,7 @@ import (
 )
 
 type MediaGetUploadStatus_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// durationMs: Duration of the processed video in milliseconds. Present when status is 'done'.
 	DurationMs *int64 `json:"durationMs,omitempty"`
 	// error: Error message. Present when status is 'error'.
@@ -63,7 +63,7 @@ func MediaGetUploadStatus(ctx context.Context, c glex.LexClient, uploadId string
 
 // MediaGetUploadStatus_TrackRef is a "trackRef" in the place.stream.media.getUploadStatus schema.
 type MediaGetUploadStatus_TrackRef struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Cid           string `json:"cid"`
 	Uri           string `json:"uri"`
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type ServerListWebhooks_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cursor: A cursor for pagination, if there are more results.
 	Cursor   *string              `json:"cursor,omitempty"`
 	Webhooks []ServerDefs_Webhook `json:"webhooks"`

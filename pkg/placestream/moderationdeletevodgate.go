@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationDeleteVodGate_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// gateUri: The AT-URI of the gate record to delete.
 	GateUri string `json:"gateUri"`
 	// streamer: The DID of the streamer.
@@ -39,7 +39,7 @@ func (t *ModerationDeleteVodGate_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationDeleteVodGate_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

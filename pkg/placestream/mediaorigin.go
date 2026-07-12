@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // An attestation that a MUXL blob is available for download from the publishing node, retrievable via XRPC (com.atproto.repo.getBlob and similar). Published by the Streamplace node that hosts the blob, not by the user who owns the underlying video. The rkey is conventionally the blob's BDASL CID — atproto lexicon doesn't yet have a literal-rkey syntax so we settle for `key: any` and rely on the convention.
 type MediaOrigin struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// blob: BLAKE-3 content hash (BDASL CID) of the blob.
 	Blob string `json:"blob"`
 	// mimeType: MIME type of the blob (e.g. video/mp4).
@@ -28,6 +29,13 @@ type MediaOrigin struct {
 
 // RecordTypeID implements glex.Record.
 func (t *MediaOrigin) RecordTypeID() string { return "place.stream.media.origin" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MediaOrigin) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.media.origin"
+	type alias MediaOrigin
+	return json.Marshal((*alias)(t))
+}
 
 func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
 	if t == nil {

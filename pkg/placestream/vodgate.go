@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,13 +18,20 @@ func init() {
 
 // Record defining a single gated VOD comment.
 type VodGate struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// hiddenComment: URI of the hidden VOD comment.
 	HiddenComment string `json:"hiddenComment"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *VodGate) RecordTypeID() string { return "place.stream.vod.gate" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *VodGate) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.vod.gate"
+	type alias VodGate
+	return json.Marshal((*alias)(t))
+}
 
 func (t *VodGate) MarshalCBOR(w io.Writer) error {
 	if t == nil {

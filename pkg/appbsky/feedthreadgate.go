@@ -20,7 +20,7 @@ func init() {
 
 // Record defining interaction gating rules for a thread (aka, reply controls). The record key (rkey) of the threadgate record must match the record key of the thread's root post, and that record must be in the same repository.
 type FeedThreadgate struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// allow: List of rules defining who can reply to this post. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
 	Allow     []FeedThreadgate_Allow_Elem `json:"allow,omitempty"`
 	CreatedAt string                      `json:"createdAt"`
@@ -32,6 +32,13 @@ type FeedThreadgate struct {
 
 // RecordTypeID implements glex.Record.
 func (t *FeedThreadgate) RecordTypeID() string { return "app.bsky.feed.threadgate" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *FeedThreadgate) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.feed.threadgate"
+	type alias FeedThreadgate
+	return json.Marshal((*alias)(t))
+}
 
 func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -146,7 +153,7 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
 //
 // Allow replies from actors who follow you.
 type FeedThreadgate_FollowerRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -171,7 +178,7 @@ func (t *FeedThreadgate_FollowerRule) UnmarshalCBOR(r io.Reader) error {
 //
 // Allow replies from actors you follow.
 type FeedThreadgate_FollowingRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -196,7 +203,7 @@ func (t *FeedThreadgate_FollowingRule) UnmarshalCBOR(r io.Reader) error {
 //
 // Allow replies from actors on a list.
 type FeedThreadgate_ListRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	List          string `json:"list"`
 }
 
@@ -220,7 +227,7 @@ func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) error {
 //
 // Allow replies from actors mentioned in your post.
 type FeedThreadgate_MentionRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

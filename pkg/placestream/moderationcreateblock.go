@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationCreateBlock_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// reason: Optional reason for the block.
 	Reason *string `json:"reason,omitempty"`
 	// streamer: The DID of the streamer whose chat this block applies to.
@@ -41,7 +41,7 @@ func (t *ModerationCreateBlock_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationCreateBlock_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the created block record.
 	Cid string `json:"cid"`
 	// uri: The AT-URI of the created block record.

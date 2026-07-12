@@ -5,6 +5,7 @@
 package appbsky
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -16,7 +17,7 @@ func init() {
 }
 
 type EmbedVideo struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// alt: Alt text description of the video, for accessibility.
 	Alt         *string                `json:"alt,omitempty"`
 	AspectRatio *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`
@@ -29,6 +30,13 @@ type EmbedVideo struct {
 
 // RecordTypeID implements glex.Record.
 func (t *EmbedVideo) RecordTypeID() string { return "app.bsky.embed.video" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *EmbedVideo) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.embed.video"
+	type alias EmbedVideo
+	return json.Marshal((*alias)(t))
+}
 
 func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -45,7 +53,7 @@ func (t *EmbedVideo) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedVideo_Caption is a "caption" in the app.bsky.embed.video schema.
 type EmbedVideo_Caption struct {
-	LexiconTypeID string    `json:"$type"`
+	LexiconTypeID string    `json:"$type,omitempty"`
 	File          glex.Blob `json:"file"`
 	Lang          string    `json:"lang"`
 }
@@ -68,7 +76,7 @@ func (t *EmbedVideo_Caption) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedVideo_View is a "view" in the app.bsky.embed.video schema.
 type EmbedVideo_View struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Alt           *string                `json:"alt,omitempty"`
 	AspectRatio   *EmbedDefs_AspectRatio `json:"aspectRatio,omitempty"`
 	Cid           string                 `json:"cid"`

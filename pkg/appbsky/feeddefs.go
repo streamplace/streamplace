@@ -17,7 +17,7 @@ import (
 
 // FeedDefs_BlockedAuthor is a "blockedAuthor" in the app.bsky.feed.defs schema.
 type FeedDefs_BlockedAuthor struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Did           string                 `json:"did"`
 	Viewer        *ActorDefs_ViewerState `json:"viewer,omitempty"`
 }
@@ -40,7 +40,7 @@ func (t *FeedDefs_BlockedAuthor) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_BlockedPost is a "blockedPost" in the app.bsky.feed.defs schema.
 type FeedDefs_BlockedPost struct {
-	LexiconTypeID string                 `json:"$type"`
+	LexiconTypeID string                 `json:"$type,omitempty"`
 	Author        FeedDefs_BlockedAuthor `json:"author"`
 	Blocked       bool                   `json:"blocked"`
 	Uri           string                 `json:"uri"`
@@ -64,7 +64,7 @@ func (t *FeedDefs_BlockedPost) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_FeedViewPost is a "feedViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_FeedViewPost struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// feedContext: Context provided by feed generator that may be passed back alongside interactions.
 	FeedContext *string                       `json:"feedContext,omitempty"`
 	Post        FeedDefs_PostView             `json:"post"`
@@ -160,7 +160,7 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_GeneratorView is a "generatorView" in the app.bsky.feed.defs schema.
 type FeedDefs_GeneratorView struct {
-	LexiconTypeID       string                         `json:"$type"`
+	LexiconTypeID       string                         `json:"$type,omitempty"`
 	AcceptsInteractions *bool                          `json:"acceptsInteractions,omitempty"`
 	Avatar              *string                        `json:"avatar,omitempty"`
 	Cid                 string                         `json:"cid"`
@@ -195,7 +195,7 @@ func (t *FeedDefs_GeneratorView) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_GeneratorViewerState is a "generatorViewerState" in the app.bsky.feed.defs schema.
 type FeedDefs_GeneratorViewerState struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Like          *string `json:"like,omitempty"`
 }
 
@@ -219,7 +219,7 @@ func (t *FeedDefs_GeneratorViewerState) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_Interaction is a "interaction" in the app.bsky.feed.defs schema.
 type FeedDefs_Interaction struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Event         *string `json:"event,omitempty"`
 	// feedContext: Context on a feed item that was originally supplied by the feed generator on getFeedSkeleton.
 	FeedContext *string `json:"feedContext,omitempty"`
@@ -246,7 +246,7 @@ func (t *FeedDefs_Interaction) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_NotFoundPost is a "notFoundPost" in the app.bsky.feed.defs schema.
 type FeedDefs_NotFoundPost struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	NotFound      bool   `json:"notFound"`
 	Uri           string `json:"uri"`
 }
@@ -269,7 +269,7 @@ func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_PostView is a "postView" in the app.bsky.feed.defs schema.
 type FeedDefs_PostView struct {
-	LexiconTypeID string                     `json:"$type"`
+	LexiconTypeID string                     `json:"$type,omitempty"`
 	Author        ActorDefs_ProfileViewBasic `json:"author"`
 	BookmarkCount *int64                     `json:"bookmarkCount,omitempty"`
 	Cid           string                     `json:"cid"`
@@ -416,7 +416,7 @@ func (t *FeedDefs_PostView_Embed) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_ReasonPin is a "reasonPin" in the app.bsky.feed.defs schema.
 type FeedDefs_ReasonPin struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -437,7 +437,7 @@ func (t *FeedDefs_ReasonPin) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_ReasonRepost is a "reasonRepost" in the app.bsky.feed.defs schema.
 type FeedDefs_ReasonRepost struct {
-	LexiconTypeID string                     `json:"$type"`
+	LexiconTypeID string                     `json:"$type,omitempty"`
 	By            ActorDefs_ProfileViewBasic `json:"by"`
 	Cid           *string                    `json:"cid,omitempty"`
 	IndexedAt     string                     `json:"indexedAt"`
@@ -462,7 +462,7 @@ func (t *FeedDefs_ReasonRepost) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_ReplyRef is a "replyRef" in the app.bsky.feed.defs schema.
 type FeedDefs_ReplyRef struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// grandparentAuthor: When parent is a reply to another post, this is the author of that post.
 	GrandparentAuthor *ActorDefs_ProfileViewBasic `json:"grandparentAuthor,omitempty"`
 	Parent            FeedDefs_ReplyRef_Parent    `json:"parent"`
@@ -651,7 +651,7 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_SkeletonFeedPost is a "skeletonFeedPost" in the app.bsky.feed.defs schema.
 type FeedDefs_SkeletonFeedPost struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// feedContext: Context that will be passed through to client and may be passed to feed generator back alongside interactions.
 	FeedContext *string                           `json:"feedContext,omitempty"`
 	Post        string                            `json:"post"`
@@ -746,7 +746,7 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_SkeletonReasonPin is a "skeletonReasonPin" in the app.bsky.feed.defs schema.
 type FeedDefs_SkeletonReasonPin struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -769,7 +769,7 @@ func (t *FeedDefs_SkeletonReasonPin) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_SkeletonReasonRepost is a "skeletonReasonRepost" in the app.bsky.feed.defs schema.
 type FeedDefs_SkeletonReasonRepost struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Repost        string `json:"repost"`
 }
 
@@ -795,7 +795,7 @@ func (t *FeedDefs_SkeletonReasonRepost) UnmarshalCBOR(r io.Reader) error {
 //
 // Metadata about this post within the context of the thread it is in.
 type FeedDefs_ThreadContext struct {
-	LexiconTypeID  string  `json:"$type"`
+	LexiconTypeID  string  `json:"$type,omitempty"`
 	RootAuthorLike *string `json:"rootAuthorLike,omitempty"`
 }
 
@@ -817,7 +817,7 @@ func (t *FeedDefs_ThreadContext) UnmarshalCBOR(r io.Reader) error {
 
 // FeedDefs_ThreadViewPost is a "threadViewPost" in the app.bsky.feed.defs schema.
 type FeedDefs_ThreadViewPost struct {
-	LexiconTypeID string                                 `json:"$type"`
+	LexiconTypeID string                                 `json:"$type,omitempty"`
 	Parent        *FeedDefs_ThreadViewPost_Parent        `json:"parent,omitempty"`
 	Post          FeedDefs_PostView                      `json:"post"`
 	Replies       []FeedDefs_ThreadViewPost_Replies_Elem `json:"replies,omitempty"`
@@ -1006,7 +1006,7 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(r io.Reader) error 
 
 // FeedDefs_ThreadgateView is a "threadgateView" in the app.bsky.feed.defs schema.
 type FeedDefs_ThreadgateView struct {
-	LexiconTypeID string                    `json:"$type"`
+	LexiconTypeID string                    `json:"$type,omitempty"`
 	Cid           *string                   `json:"cid,omitempty"`
 	Lists         []GraphDefs_ListViewBasic `json:"lists,omitempty"`
 	Record        *glex.LexiconTypeDecoder  `json:"record,omitempty"`
@@ -1033,7 +1033,7 @@ func (t *FeedDefs_ThreadgateView) UnmarshalCBOR(r io.Reader) error {
 //
 // Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.
 type FeedDefs_ViewerState struct {
-	LexiconTypeID     string  `json:"$type"`
+	LexiconTypeID     string  `json:"$type,omitempty"`
 	Bookmarked        *bool   `json:"bookmarked,omitempty"`
 	EmbeddingDisabled *bool   `json:"embeddingDisabled,omitempty"`
 	Like              *string `json:"like,omitempty"`

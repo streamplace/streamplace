@@ -17,7 +17,7 @@ import (
 
 // ActorDefs_AdultContentPref is a "adultContentPref" in the app.bsky.actor.defs schema.
 type ActorDefs_AdultContentPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Enabled       bool   `json:"enabled"`
 }
 
@@ -43,7 +43,7 @@ func (t *ActorDefs_AdultContentPref) UnmarshalCBOR(r io.Reader) error {
 //
 // If set, an active progress guide. Once completed, can be set to undefined. Should have unspecced fields tracking progress.
 type ActorDefs_BskyAppProgressGuide struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Guide         string `json:"guide"`
 }
 
@@ -69,7 +69,7 @@ func (t *ActorDefs_BskyAppProgressGuide) UnmarshalCBOR(r io.Reader) error {
 //
 // A grab bag of state that's specific to the bsky.app program. Third-party apps shouldn't use this.
 type ActorDefs_BskyAppStatePref struct {
-	LexiconTypeID       string                          `json:"$type"`
+	LexiconTypeID       string                          `json:"$type,omitempty"`
 	ActiveProgressGuide *ActorDefs_BskyAppProgressGuide `json:"activeProgressGuide,omitempty"`
 	// nuxs: Storage for NUXs the user has encountered.
 	Nuxs []ActorDefs_Nux `json:"nuxs,omitempty"`
@@ -97,7 +97,7 @@ func (t *ActorDefs_BskyAppStatePref) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ContentLabelPref is a "contentLabelPref" in the app.bsky.actor.defs schema.
 type ActorDefs_ContentLabelPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Label         string `json:"label"`
 	// labelerDid: Which labeler does this preference apply to? If undefined, applies globally.
 	LabelerDid *string `json:"labelerDid,omitempty"`
@@ -126,7 +126,7 @@ func (t *ActorDefs_ContentLabelPref) UnmarshalCBOR(r io.Reader) error {
 //
 // Read-only preference containing value(s) inferred from the user's declared birthdate. Absence of this preference object in the response indicates that the user has not made a declaration.
 type ActorDefs_DeclaredAgePref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// isOverAge13: Indicates if the user has declared that they are over 13 years of age.
 	IsOverAge13 *bool `json:"isOverAge13,omitempty"`
 	// isOverAge16: Indicates if the user has declared that they are over 16 years of age.
@@ -155,7 +155,7 @@ func (t *ActorDefs_DeclaredAgePref) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_FeedViewPref is a "feedViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_FeedViewPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// feed: The URI of the feed, or an identifier which describes the feed.
 	Feed string `json:"feed"`
 	// hideQuotePosts: Hide quote posts in the feed.
@@ -188,7 +188,7 @@ func (t *ActorDefs_FeedViewPref) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_HiddenPostsPref is a "hiddenPostsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_HiddenPostsPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// items: A list of URIs of posts the account owner has hidden.
 	Items []string `json:"items"`
 }
@@ -213,7 +213,7 @@ func (t *ActorDefs_HiddenPostsPref) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_InterestsPref is a "interestsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_InterestsPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// tags: A list of tags which describe the account owner's interests gathered during onboarding.
 	Tags []string `json:"tags"`
 }
@@ -238,7 +238,7 @@ func (t *ActorDefs_InterestsPref) UnmarshalCBOR(r io.Reader) error {
 //
 // The subject's followers whom you also follow
 type ActorDefs_KnownFollowers struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Count         int64                        `json:"count"`
 	Followers     []ActorDefs_ProfileViewBasic `json:"followers"`
 }
@@ -261,7 +261,7 @@ func (t *ActorDefs_KnownFollowers) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_LabelerPrefItem is a "labelerPrefItem" in the app.bsky.actor.defs schema.
 type ActorDefs_LabelerPrefItem struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Did           string `json:"did"`
 }
 
@@ -285,7 +285,7 @@ func (t *ActorDefs_LabelerPrefItem) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_LabelersPref is a "labelersPref" in the app.bsky.actor.defs schema.
 type ActorDefs_LabelersPref struct {
-	LexiconTypeID string                      `json:"$type"`
+	LexiconTypeID string                      `json:"$type,omitempty"`
 	Labelers      []ActorDefs_LabelerPrefItem `json:"labelers"`
 }
 
@@ -309,7 +309,7 @@ func (t *ActorDefs_LabelersPref) UnmarshalCBOR(r io.Reader) error {
 //
 // Preferences for live events.
 type ActorDefs_LiveEventPreferences struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// hiddenFeedIds: A list of feed IDs that the user has hidden from live events.
 	HiddenFeedIds []string `json:"hiddenFeedIds,omitempty"`
 	// hideAllFeeds: Whether to hide all feeds from live events.
@@ -338,7 +338,7 @@ func (t *ActorDefs_LiveEventPreferences) UnmarshalCBOR(r io.Reader) error {
 //
 // A word that the account owner has muted.
 type ActorDefs_MutedWord struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// actorTarget: Groups of users to apply the muted word to. If undefined, applies to all users.
 	ActorTarget *string `json:"actorTarget,omitempty"`
 	// expiresAt: The date and time at which the muted word will expire and no longer be applied.
@@ -368,7 +368,7 @@ func (t *ActorDefs_MutedWord) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_MutedWordsPref is a "mutedWordsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_MutedWordsPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// items: A list of words the account owner has muted.
 	Items []ActorDefs_MutedWord `json:"items"`
 }
@@ -393,7 +393,7 @@ func (t *ActorDefs_MutedWordsPref) UnmarshalCBOR(r io.Reader) error {
 //
 // A new user experiences (NUX) storage object
 type ActorDefs_Nux struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Completed     bool   `json:"completed"`
 	// data: Arbitrary data for the NUX. The structure is defined by the NUX itself. Limited to 300 characters.
 	Data *string `json:"data,omitempty"`
@@ -420,7 +420,7 @@ func (t *ActorDefs_Nux) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_PersonalDetailsPref is a "personalDetailsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_PersonalDetailsPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// birthDate: The birth date of account owner.
 	BirthDate *string `json:"birthDate,omitempty"`
 }
@@ -447,7 +447,7 @@ func (t *ActorDefs_PersonalDetailsPref) UnmarshalCBOR(r io.Reader) error {
 //
 // Default post interaction settings for the account. These values should be applied as default values when creating new posts. These refs should mirror the threadgate and postgate records exactly.
 type ActorDefs_PostInteractionSettingsPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// postgateEmbeddingRules: Matches postgate record. List of rules defining who can embed this users posts. If value is an empty array or is undefined, no particular rules apply and anyone can embed.
 	PostgateEmbeddingRules []ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem `json:"postgateEmbeddingRules,omitempty"`
 	// threadgateAllowRules: Matches threadgate record. List of rules defining who can reply to this users posts. If value is an empty array, no one can reply. If value is undefined, anyone can reply.
@@ -888,7 +888,7 @@ func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileAssociated is a "profileAssociated" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociated struct {
-	LexiconTypeID        string                                           `json:"$type"`
+	LexiconTypeID        string                                           `json:"$type,omitempty"`
 	ActivitySubscription *ActorDefs_ProfileAssociatedActivitySubscription `json:"activitySubscription,omitempty"`
 	Chat                 *ActorDefs_ProfileAssociatedChat                 `json:"chat,omitempty"`
 	Feedgens             *int64                                           `json:"feedgens,omitempty"`
@@ -918,7 +918,7 @@ func (t *ActorDefs_ProfileAssociated) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileAssociatedActivitySubscription is a "profileAssociatedActivitySubscription" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedActivitySubscription struct {
-	LexiconTypeID      string `json:"$type"`
+	LexiconTypeID      string `json:"$type,omitempty"`
 	AllowSubscriptions string `json:"allowSubscriptions"`
 }
 
@@ -942,7 +942,7 @@ func (t *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBOR(r io.Rea
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedChat struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	AllowIncoming string `json:"allowIncoming"`
 }
 
@@ -966,7 +966,7 @@ func (t *ActorDefs_ProfileAssociatedChat) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileAssociatedGerm is a "profileAssociatedGerm" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedGerm struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	MessageMeUrl  string `json:"messageMeUrl"`
 	ShowButtonTo  string `json:"showButtonTo"`
 }
@@ -991,7 +991,7 @@ func (t *ActorDefs_ProfileAssociatedGerm) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileView is a "profileView" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileView struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty"`
 	Avatar        *string                      `json:"avatar,omitempty"`
 	CreatedAt     *string                      `json:"createdAt,omitempty"`
@@ -1027,7 +1027,7 @@ func (t *ActorDefs_ProfileView) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileViewBasic is a "profileViewBasic" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewBasic struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty"`
 	Avatar        *string                      `json:"avatar,omitempty"`
 	CreatedAt     *string                      `json:"createdAt,omitempty"`
@@ -1063,7 +1063,7 @@ func (t *ActorDefs_ProfileViewBasic) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ProfileViewDetailed is a "profileViewDetailed" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileViewDetailed struct {
-	LexiconTypeID string                       `json:"$type"`
+	LexiconTypeID string                       `json:"$type,omitempty"`
 	Associated    *ActorDefs_ProfileAssociated `json:"associated,omitempty"`
 	Avatar        *string                      `json:"avatar,omitempty"`
 	Banner        *string                      `json:"banner,omitempty"`
@@ -1108,7 +1108,7 @@ func (t *ActorDefs_ProfileViewDetailed) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_SavedFeed is a "savedFeed" in the app.bsky.actor.defs schema.
 type ActorDefs_SavedFeed struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Id            string `json:"id"`
 	Pinned        bool   `json:"pinned"`
 	Type          string `json:"type"`
@@ -1133,7 +1133,7 @@ func (t *ActorDefs_SavedFeed) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_SavedFeedsPref is a "savedFeedsPref" in the app.bsky.actor.defs schema.
 type ActorDefs_SavedFeedsPref struct {
-	LexiconTypeID string   `json:"$type"`
+	LexiconTypeID string   `json:"$type,omitempty"`
 	Pinned        []string `json:"pinned"`
 	Saved         []string `json:"saved"`
 	TimelineIndex *int64   `json:"timelineIndex,omitempty"`
@@ -1157,7 +1157,7 @@ func (t *ActorDefs_SavedFeedsPref) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_SavedFeedsPrefV2 is a "savedFeedsPrefV2" in the app.bsky.actor.defs schema.
 type ActorDefs_SavedFeedsPrefV2 struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Items         []ActorDefs_SavedFeed `json:"items"`
 }
 
@@ -1181,7 +1181,7 @@ func (t *ActorDefs_SavedFeedsPrefV2) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_StatusView is a "statusView" in the app.bsky.actor.defs schema.
 type ActorDefs_StatusView struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Cid           *string `json:"cid,omitempty"`
 	// embed: An optional embed associated with the status.
 	Embed *ActorDefs_StatusView_Embed `json:"embed,omitempty"`
@@ -1271,7 +1271,7 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalCBOR(r io.Reader) error {
 
 // ActorDefs_ThreadViewPref is a "threadViewPref" in the app.bsky.actor.defs schema.
 type ActorDefs_ThreadViewPref struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// sort: Sorting mode for threads.
 	Sort *string `json:"sort,omitempty"`
 }
@@ -1296,7 +1296,7 @@ func (t *ActorDefs_ThreadViewPref) UnmarshalCBOR(r io.Reader) error {
 //
 // Preferences for how verified accounts appear in the app.
 type ActorDefs_VerificationPrefs struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// hideBadges: Hide the blue check badges for verified accounts and trusted verifiers.
 	HideBadges *bool `json:"hideBadges,omitempty"`
 }
@@ -1323,7 +1323,7 @@ func (t *ActorDefs_VerificationPrefs) UnmarshalCBOR(r io.Reader) error {
 //
 // Represents the verification information about the user this object is attached to.
 type ActorDefs_VerificationState struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// trustedVerifierStatus: The user's status as a trusted verifier.
 	TrustedVerifierStatus string `json:"trustedVerifierStatus"`
 	// verifications: All verifications issued by trusted verifiers on behalf of this user. Verifications by untrusted verifiers are not included.
@@ -1354,7 +1354,7 @@ func (t *ActorDefs_VerificationState) UnmarshalCBOR(r io.Reader) error {
 //
 // An individual verification for an associated subject.
 type ActorDefs_VerificationView struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Timestamp when the verification was created.
 	CreatedAt string `json:"createdAt"`
 	// isValid: True if the verification passes validation, otherwise false.
@@ -1387,7 +1387,7 @@ func (t *ActorDefs_VerificationView) UnmarshalCBOR(r io.Reader) error {
 //
 // Metadata about the requesting account's relationship with the subject account. Only has meaningful content for authed requests.
 type ActorDefs_ViewerState struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// activitySubscription: This property is present only in selected cases, as an optimization.
 	ActivitySubscription *NotificationDefs_ActivitySubscription `json:"activitySubscription,omitempty"`
 	BlockedBy            *bool                                  `json:"blockedBy,omitempty"`

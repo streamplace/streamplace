@@ -13,7 +13,7 @@ import (
 )
 
 type BrandingGetBranding_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// assets: List of available branding assets
 	Assets []BrandingGetBranding_BrandingAsset `json:"assets"`
 }
@@ -57,7 +57,7 @@ func BrandingGetBranding(ctx context.Context, c glex.LexClient, broadcaster stri
 
 // BrandingGetBranding_BrandingAsset is a "brandingAsset" in the place.stream.branding.getBranding schema.
 type BrandingGetBranding_BrandingAsset struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// data: Inline data for text assets
 	Data *string `json:"data,omitempty"`
 	// height: Image height in pixels (optional, for images only)

@@ -13,7 +13,7 @@ import (
 
 // RepoDefs_CommitMeta is a "commitMeta" in the com.atproto.repo.defs schema.
 type RepoDefs_CommitMeta struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Cid           string `json:"cid"`
 	Rev           string `json:"rev"`
 }

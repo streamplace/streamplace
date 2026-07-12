@@ -16,7 +16,7 @@ import (
 //
 // A track backed by a MUXL container
 type MediaDefs_MuxlTrack struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// blob: BLAKE-3 content hash (BDASL CID) of the source video segment.
 	Blob string `json:"blob"`
 	// language: Language of the track, if applicable.
@@ -51,7 +51,7 @@ func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error {
 //
 // An object representing that this video's source is a clip from another video.
 type MediaDefs_SourceClip struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// end: End time of the clip in milliseconds.
 	End int64 `json:"end"`
 	// start: Start time of the clip in milliseconds.
@@ -80,7 +80,7 @@ func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error {
 //
 // A collection of tracks representing the canonical source of a video.
 type MediaDefs_SourceTracks struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// tracks: The canonical list of tracks specifying the source of a video.
 	Tracks []comatproto.RepoStrongRef `json:"tracks"`
 }

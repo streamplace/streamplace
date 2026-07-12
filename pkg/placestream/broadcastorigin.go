@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record indicating a livestream is published and available for replication at a given address. By convention, the record key is streamer::server
 type BroadcastOrigin struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// broadcaster: did of the broadcaster that operates the server syndicating the livestream
 	Broadcaster *string `json:"broadcaster,omitempty"`
 	// irohTicket: Iroh ticket that can be used to access the livestream from the server
@@ -34,6 +35,13 @@ type BroadcastOrigin struct {
 
 // RecordTypeID implements glex.Record.
 func (t *BroadcastOrigin) RecordTypeID() string { return "place.stream.broadcast.origin" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *BroadcastOrigin) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.broadcast.origin"
+	type alias BroadcastOrigin
+	return json.Marshal((*alias)(t))
+}
 
 func (t *BroadcastOrigin) MarshalCBOR(w io.Writer) error {
 	if t == nil {

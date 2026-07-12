@@ -13,7 +13,7 @@ import (
 )
 
 type BrandingUpdateBlob_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// broadcaster: DID of the broadcaster. If not provided, uses the server's default broadcaster.
 	Broadcaster *string `json:"broadcaster,omitempty"`
 	// data: Base64-encoded blob data
@@ -45,7 +45,7 @@ func (t *BrandingUpdateBlob_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type BrandingUpdateBlob_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Success       bool   `json:"success"`
 }
 

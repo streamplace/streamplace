@@ -13,7 +13,7 @@ import (
 )
 
 type IdentityUpdateHandle_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// handle: The new handle.
 	Handle string `json:"handle"`
 }

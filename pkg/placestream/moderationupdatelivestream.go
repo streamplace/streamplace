@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationUpdateLivestream_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// livestreamUri: The AT-URI of the livestream record to update.
 	LivestreamUri string `json:"livestreamUri"`
 	// streamer: The DID of the streamer.
@@ -41,7 +41,7 @@ func (t *ModerationUpdateLivestream_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationUpdateLivestream_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the updated livestream record.
 	Cid string `json:"cid"`
 	// uri: The AT-URI of the updated livestream record.

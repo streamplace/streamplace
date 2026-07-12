@@ -13,7 +13,7 @@ import (
 )
 
 type VodPublishDraft_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// uri: The ats:// URI of the draft to publish. Must have status 'ready'.
 	Uri string `json:"uri"`
 }
@@ -35,7 +35,7 @@ func (t *VodPublishDraft_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type VodPublishDraft_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// videoCid: CID of the created place.stream.video record.
 	VideoCid string `json:"videoCid"`
 	// videoUri: AT-URI of the created place.stream.video record.

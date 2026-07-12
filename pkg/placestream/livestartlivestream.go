@@ -13,7 +13,7 @@ import (
 )
 
 type LiveStartLivestream_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createBlueskyPost: Whether to create a Bluesky post announcing the livestream.
 	CreateBlueskyPost *bool      `json:"createBlueskyPost,omitempty"`
 	Livestream        Livestream `json:"livestream"`
@@ -38,7 +38,7 @@ func (t *LiveStartLivestream_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type LiveStartLivestream_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the livestream record.
 	Cid string `json:"cid"`
 	// uri: The URI of the livestream record.

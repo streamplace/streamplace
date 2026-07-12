@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,13 +18,20 @@ func init() {
 
 // Content warnings for a stream.
 type MetadataContentWarnings struct {
-	LexiconTypeID string   `json:"$type"`
+	LexiconTypeID string   `json:"$type,omitempty"`
 	Warnings      []string `json:"warnings,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *MetadataContentWarnings) RecordTypeID() string {
 	return "place.stream.metadata.contentWarnings"
+}
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *MetadataContentWarnings) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.metadata.contentWarnings"
+	type alias MetadataContentWarnings
+	return json.Marshal((*alias)(t))
 }
 
 func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {

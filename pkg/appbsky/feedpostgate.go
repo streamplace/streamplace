@@ -20,7 +20,7 @@ func init() {
 
 // Record defining interaction rules for a post. The record key (rkey) of the postgate record must match the record key of the post, and that record must be in the same repository.
 type FeedPostgate struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	CreatedAt     string `json:"createdAt"`
 	// detachedEmbeddingUris: List of AT-URIs embedding this post that the author has detached from.
 	DetachedEmbeddingUris []string `json:"detachedEmbeddingUris,omitempty"`
@@ -32,6 +32,13 @@ type FeedPostgate struct {
 
 // RecordTypeID implements glex.Record.
 func (t *FeedPostgate) RecordTypeID() string { return "app.bsky.feed.postgate" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *FeedPostgate) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.feed.postgate"
+	type alias FeedPostgate
+	return json.Marshal((*alias)(t))
+}
 
 func (t *FeedPostgate) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -104,7 +111,7 @@ func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
 //
 // Disables embedding of this post.
 type FeedPostgate_DisableRule struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

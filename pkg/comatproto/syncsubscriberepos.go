@@ -15,7 +15,7 @@ import (
 //
 // Represents a change to an account's status on a host (eg, PDS or Relay). The semantics of this event are that the status is at the host which emitted the event, not necessarily that at the currently active PDS. Eg, a Relay takedown would emit a takedown with active=false, even if the PDS is still active.
 type SyncSubscribeRepos_Account struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// active: Indicates that the account has a repository which can be fetched from the host that emitted this event.
 	Active bool   `json:"active"`
 	Did    string `json:"did"`
@@ -47,7 +47,7 @@ func (t *SyncSubscribeRepos_Account) UnmarshalCBOR(r io.Reader) error {
 //
 // Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.
 type SyncSubscribeRepos_Commit struct {
-	LexiconTypeID string      `json:"$type"`
+	LexiconTypeID string      `json:"$type,omitempty"`
 	Blobs         []glex.Link `json:"blobs"`
 	// blocks: CAR file containing relevant blocks, as a diff since the previous repo state. The commit must be included as a block, and the commit block CID must be the first entry in the CAR header 'roots' list.
 	Blocks glex.Bytes `json:"blocks"`
@@ -94,7 +94,7 @@ func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) error {
 //
 // Represents a change to an account's identity. Could be an updated handle, signing key, or pds hosting endpoint. Serves as a prod to all downstream services to refresh their identity cache.
 type SyncSubscribeRepos_Identity struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Did           string `json:"did"`
 	// handle: The current handle for the account, or 'handle.invalid' if validation fails. This field is optional, might have been validated or passed-through from an upstream source. Semantics and behaviors for PDS vs Relay may evolve in the future; see atproto specs for more details.
 	Handle *string `json:"handle,omitempty"`
@@ -122,7 +122,7 @@ func (t *SyncSubscribeRepos_Identity) UnmarshalCBOR(r io.Reader) error {
 
 // SyncSubscribeRepos_Info is a "info" in the com.atproto.sync.subscribeRepos schema.
 type SyncSubscribeRepos_Info struct {
-	LexiconTypeID string  `json:"$type"`
+	LexiconTypeID string  `json:"$type,omitempty"`
 	Message       *string `json:"message,omitempty"`
 	Name          string  `json:"name"`
 }
@@ -149,7 +149,7 @@ func (t *SyncSubscribeRepos_Info) UnmarshalCBOR(r io.Reader) error {
 //
 // A repo operation, ie a mutation of a single record.
 type SyncSubscribeRepos_RepoOp struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Action        string `json:"action"`
 	// cid: For creates and updates, the new record CID. For deletions, null.
 	Cid  glex.Link `json:"cid"`
@@ -180,7 +180,7 @@ func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) error {
 //
 // Updates the repo to a new state, without necessarily including that state on the firehose. Used to recover from broken commit streams, data loss incidents, or in situations where upstream host does not know recent state of the repository.
 type SyncSubscribeRepos_Sync struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// blocks: CAR file containing the commit, as a block. The CAR header must include the commit block CID as the first 'root'.
 	Blocks glex.Bytes `json:"blocks"`
 	// did: The account this repo event corresponds to. Must match that in the commit object.

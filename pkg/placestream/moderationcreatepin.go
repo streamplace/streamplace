@@ -13,7 +13,7 @@ import (
 )
 
 type ModerationCreatePin_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// expiresAt: Optional expiration time for this pin.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// messageUri: The AT-URI of the chat message to pin.
@@ -39,7 +39,7 @@ func (t *ModerationCreatePin_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ModerationCreatePin_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: The CID of the created pinned record.
 	Cid string `json:"cid"`
 	// uri: The AT-URI of the created pinned record.

@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record indicating a like on some other record (e.g. a video or a comment).
 type Like struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: Client-declared timestamp when this like was created.
 	CreatedAt string `json:"createdAt"`
 	// subject: AT-URI of the record being liked (e.g. a place.stream.video or place.stream.vod.comment).
@@ -26,6 +27,13 @@ type Like struct {
 
 // RecordTypeID implements glex.Record.
 func (t *Like) RecordTypeID() string { return "place.stream.like" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *Like) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.like"
+	type alias Like
+	return json.Marshal((*alias)(t))
+}
 
 func (t *Like) MarshalCBOR(w io.Writer) error {
 	if t == nil {

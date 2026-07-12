@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record created by a Streamplace broadcaster to indicate that they will be replicating a livestream. NYI
 type BroadcastSyndication struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster that will be replicating the livestream
 	Broadcaster string `json:"broadcaster"`
 	// createdAt: Client-declared timestamp when this syndication was created.
@@ -28,6 +29,13 @@ type BroadcastSyndication struct {
 
 // RecordTypeID implements glex.Record.
 func (t *BroadcastSyndication) RecordTypeID() string { return "place.stream.broadcast.syndication" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *BroadcastSyndication) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.broadcast.syndication"
+	type alias BroadcastSyndication
+	return json.Marshal((*alias)(t))
+}
 
 func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 	if t == nil {

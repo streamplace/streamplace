@@ -13,7 +13,7 @@ import (
 )
 
 type MultistreamCreateTarget_Input struct {
-	LexiconTypeID     string            `json:"$type"`
+	LexiconTypeID     string            `json:"$type,omitempty"`
 	MultistreamTarget MultistreamTarget `json:"multistreamTarget"`
 }
 

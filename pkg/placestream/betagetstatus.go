@@ -13,7 +13,7 @@ import (
 )
 
 type BetaGetStatus_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// did: The account this status applies to.
 	Did string `json:"did"`
 	// feature: The feature this status applies to (echoes the request).

@@ -20,13 +20,20 @@ func init() {
 
 // Annotation of a sub-string within rich text.
 type RichtextFacet struct {
-	LexiconTypeID string                        `json:"$type"`
+	LexiconTypeID string                        `json:"$type,omitempty"`
 	Features      []RichtextFacet_Features_Elem `json:"features"`
 	Index         RichtextFacet_ByteSlice       `json:"index"`
 }
 
 // RecordTypeID implements glex.Record.
 func (t *RichtextFacet) RecordTypeID() string { return "app.bsky.richtext.facet" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *RichtextFacet) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "app.bsky.richtext.facet"
+	type alias RichtextFacet
+	return json.Marshal((*alias)(t))
+}
 
 func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -127,7 +134,7 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 //
 // Specifies the sub-string range a facet feature applies to. Start index is inclusive, end index is exclusive. Indices are zero-indexed, counting bytes of the UTF-8 encoded text. NOTE: some languages, like Javascript, use UTF-16 or Unicode codepoints for string slice indexing; in these languages, convert to byte arrays before working with facets.
 type RichtextFacet_ByteSlice struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	ByteEnd       int64  `json:"byteEnd"`
 	ByteStart     int64  `json:"byteStart"`
 }
@@ -152,7 +159,7 @@ func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) error {
 //
 // Facet feature for a URL. The text URL may have been simplified or truncated, but the facet reference should be a complete URL.
 type RichtextFacet_Link struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Uri           string `json:"uri"`
 }
 
@@ -176,7 +183,7 @@ func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) error {
 //
 // Facet feature for mention of another account. The text is usually a handle, including a '@' prefix, but the facet reference is a DID.
 type RichtextFacet_Mention struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Did           string `json:"did"`
 }
 
@@ -200,7 +207,7 @@ func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) error {
 //
 // Facet feature for a hashtag. The text usually includes a '#' prefix, but the facet reference should not (except in the case of 'double hash tags').
 type RichtextFacet_Tag struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Tag           string `json:"tag"`
 }
 

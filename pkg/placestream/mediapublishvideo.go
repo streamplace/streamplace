@@ -13,7 +13,7 @@ import (
 )
 
 type MediaPublishVideo_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// record: A place.stream.video record. The server overrides `source` and `durationMs` from the processed upload, and fills in `thumb` with a generated thumbnail when the supplied record has none.
 	Record Video `json:"record"`
 	// uploadId: The upload ID returned by place.stream.media.createUpload. Its processing must be complete (status 'done').
@@ -37,7 +37,7 @@ func (t *MediaPublishVideo_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type MediaPublishVideo_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// cid: CID of the created place.stream.video record.
 	Cid string `json:"cid"`
 	// uri: AT-URI of the created place.stream.video record.

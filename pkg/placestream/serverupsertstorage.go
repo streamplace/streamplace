@@ -13,7 +13,7 @@ import (
 )
 
 type ServerUpsertStorage_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// isActive: Whether backup storage is currently active.
 	IsActive *bool `json:"isActive,omitempty"`
 	// url: S3 storage URL in format: s3+https://ACCESS_KEY:SECRET_KEY@endpoint/bucket
@@ -37,7 +37,7 @@ func (t *ServerUpsertStorage_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type ServerUpsertStorage_Output struct {
-	LexiconTypeID string             `json:"$type"`
+	LexiconTypeID string             `json:"$type,omitempty"`
 	Storage       ServerDefs_Storage `json:"storage"`
 }
 

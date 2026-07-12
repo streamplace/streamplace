@@ -13,7 +13,7 @@ import (
 )
 
 type ServerGetStorage_Output struct {
-	LexiconTypeID string              `json:"$type"`
+	LexiconTypeID string              `json:"$type,omitempty"`
 	Storage       *ServerDefs_Storage `json:"storage,omitempty"`
 }
 

@@ -13,7 +13,7 @@ import (
 )
 
 type RepoListRecords_Output struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cursor        *string                  `json:"cursor,omitempty"`
 	Records       []RepoListRecords_Record `json:"records"`
 }
@@ -66,7 +66,7 @@ func RepoListRecords(ctx context.Context, c glex.LexClient, collection string, c
 
 // RepoListRecords_Record is a "record" in the com.atproto.repo.listRecords schema.
 type RepoListRecords_Record struct {
-	LexiconTypeID string                   `json:"$type"`
+	LexiconTypeID string                   `json:"$type,omitempty"`
 	Cid           string                   `json:"cid"`
 	Uri           string                   `json:"uri"`
 	Value         *glex.LexiconTypeDecoder `json:"value"`

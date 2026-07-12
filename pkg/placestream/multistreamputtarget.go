@@ -13,7 +13,7 @@ import (
 )
 
 type MultistreamPutTarget_Input struct {
-	LexiconTypeID     string            `json:"$type"`
+	LexiconTypeID     string            `json:"$type,omitempty"`
 	MultistreamTarget MultistreamTarget `json:"multistreamTarget"`
 	// rkey: The Record Key.
 	Rkey *string `json:"rkey,omitempty"`

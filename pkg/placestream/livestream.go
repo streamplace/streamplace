@@ -22,7 +22,7 @@ func init() {
 
 // Record announcing a livestream is happening
 type Livestream struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// activity: The game or activity being streamed.
 	Activity *Livestream_Activity `json:"activity,omitempty"`
 	// agent: The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS
@@ -51,6 +51,13 @@ type Livestream struct {
 
 // RecordTypeID implements glex.Record.
 func (t *Livestream) RecordTypeID() string { return "place.stream.livestream" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *Livestream) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.livestream"
+	type alias Livestream
+	return json.Marshal((*alias)(t))
+}
 
 func (t *Livestream) MarshalCBOR(w io.Writer) error {
 	if t == nil {
@@ -136,7 +143,7 @@ func (t *Livestream_Activity) UnmarshalCBOR(r io.Reader) error {
 
 // Livestream_LivestreamView is a "livestreamView" in the place.stream.livestream schema.
 type Livestream_LivestreamView struct {
-	LexiconTypeID string                             `json:"$type"`
+	LexiconTypeID string                             `json:"$type,omitempty"`
 	Author        appbsky.ActorDefs_ProfileViewBasic `json:"author"`
 	Cid           string                             `json:"cid"`
 	IndexedAt     string                             `json:"indexedAt"`
@@ -166,7 +173,7 @@ func (t *Livestream_LivestreamView) UnmarshalCBOR(r io.Reader) error {
 
 // Livestream_NotificationSettings is a "notificationSettings" in the place.stream.livestream schema.
 type Livestream_NotificationSettings struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// pushNotification: Whether this livestream should trigger a push notification to followers.
 	PushNotification *bool `json:"pushNotification,omitempty"`
 }
@@ -191,7 +198,7 @@ func (t *Livestream_NotificationSettings) UnmarshalCBOR(r io.Reader) error {
 
 // Livestream_StreamplaceAnything is a "streamplaceAnything" in the place.stream.livestream schema.
 type Livestream_StreamplaceAnything struct {
-	LexiconTypeID string                                    `json:"$type"`
+	LexiconTypeID string                                    `json:"$type,omitempty"`
 	Livestream    Livestream_StreamplaceAnything_Livestream `json:"livestream"`
 }
 
@@ -381,7 +388,7 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalCBOR(r io.Reader) e
 
 // Livestream_TeleportArrival is a "teleportArrival" in the place.stream.livestream schema.
 type Livestream_TeleportArrival struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// chatProfile: The chat profile of the source streamer
 	ChatProfile *ChatProfile `json:"chatProfile,omitempty"`
 	// source: The streamer who is teleporting their viewers here
@@ -414,7 +421,7 @@ func (t *Livestream_TeleportArrival) UnmarshalCBOR(r io.Reader) error {
 
 // Livestream_TeleportCanceled is a "teleportCanceled" in the place.stream.livestream schema.
 type Livestream_TeleportCanceled struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// reason: Why this teleport was canceled
 	Reason string `json:"reason"`
 	// teleportUri: The URI of the teleport record that was canceled
@@ -441,7 +448,7 @@ func (t *Livestream_TeleportCanceled) UnmarshalCBOR(r io.Reader) error {
 
 // Livestream_ViewerCount is a "viewerCount" in the place.stream.livestream schema.
 type Livestream_ViewerCount struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	Count         int64  `json:"count"`
 }
 

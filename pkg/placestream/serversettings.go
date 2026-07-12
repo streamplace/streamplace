@@ -5,6 +5,7 @@
 package placestream
 
 import (
+	"encoding/json"
 	"io"
 
 	glex "github.com/streamplace/glex/runtime"
@@ -17,7 +18,7 @@ func init() {
 
 // Record containing user settings for a particular Streamplace node
 type ServerSettings struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// debugRecording: Whether this node may archive your livestream for improving the service
 	DebugRecording *bool `json:"debugRecording,omitempty"`
 	// livestreamRecording: Whether this node should record your livestreams into VODs that you can publish
@@ -26,6 +27,13 @@ type ServerSettings struct {
 
 // RecordTypeID implements glex.Record.
 func (t *ServerSettings) RecordTypeID() string { return "place.stream.server.settings" }
+
+// MarshalJSON stamps the $type field, like MarshalCBOR does.
+func (t *ServerSettings) MarshalJSON() ([]byte, error) {
+	t.LexiconTypeID = "place.stream.server.settings"
+	type alias ServerSettings
+	return json.Marshal((*alias)(t))
+}
 
 func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 	if t == nil {

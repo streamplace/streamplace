@@ -13,7 +13,7 @@ import (
 )
 
 type ServerGetServerTime_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// serverTime: Current server time in RFC3339 format
 	ServerTime string `json:"serverTime"`
 }

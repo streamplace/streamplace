@@ -13,7 +13,7 @@ import (
 )
 
 type MediaCreateUpload_Input struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// draftUri: Optional ats:// URI of a draft VOD created via place.stream.vod.createDraft. When supplied, the upload's processing fills that draft (rather than creating a new one), so the user can edit metadata while the upload runs and re-upload if it fails. The draft's origin_upload_id is set to this upload.
 	DraftUri *string `json:"draftUri,omitempty"`
 	// filename: Optional filename hint to attach as upload metadata.
@@ -41,7 +41,7 @@ func (t *MediaCreateUpload_Input) UnmarshalCBOR(r io.Reader) error {
 }
 
 type MediaCreateUpload_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// expiresAt: When the upload token expires.
 	ExpiresAt string `json:"expiresAt"`
 	// uploadId: Server-side identifier for this upload.

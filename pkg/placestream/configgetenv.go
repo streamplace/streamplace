@@ -13,7 +13,7 @@ import (
 )
 
 type ConfigGetEnv_Output struct {
-	LexiconTypeID string `json:"$type"`
+	LexiconTypeID string `json:"$type,omitempty"`
 	// gamesEnabled: Whether the games API is configured and available
 	GamesEnabled *bool `json:"gamesEnabled,omitempty"`
 	// playbackWorkerUrl: URL of the Cloudflare playback router worker

@@ -16,7 +16,7 @@ import (
 )
 
 type IngestGetIngestUrls_Output struct {
-	LexiconTypeID string                                    `json:"$type"`
+	LexiconTypeID string                                    `json:"$type,omitempty"`
 	Ingests       []IngestGetIngestUrls_Output_Ingests_Elem `json:"ingests"`
 }
 

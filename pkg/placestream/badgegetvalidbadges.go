@@ -13,7 +13,7 @@ import (
 )
 
 type BadgeGetValidBadges_Output struct {
-	LexiconTypeID string                `json:"$type"`
+	LexiconTypeID string                `json:"$type,omitempty"`
 	Badges        []BadgeDefs_BadgeView `json:"badges"`
 }
 

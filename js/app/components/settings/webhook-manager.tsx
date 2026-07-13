@@ -96,6 +96,15 @@ const EVENT_OPTIONS = [
   { value: "stream.received", labelKey: "events-stream-received" },
 ];
 
+const EVENT_LABEL_KEYS = new Map(
+  EVENT_OPTIONS.map((option) => [option.value, option.labelKey]),
+);
+
+function getEventLabel(t: (key: string) => string, event: string) {
+  const labelKey = EVENT_LABEL_KEYS.get(event);
+  return labelKey ? t(labelKey) : event;
+}
+
 function WebhookRow({
   webhook,
   onEdit,
@@ -168,7 +177,7 @@ function WebhookRow({
               key={event}
               style={[z.bg.muted, zero.px[2], zero.py[1], zero.r.full]}
             >
-              <Text size="sm">{t(`events-${event}`)}</Text>
+              <Text size="sm">{getEventLabel(t, event)}</Text>
             </View>
           ))}
         </View>

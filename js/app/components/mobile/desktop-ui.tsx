@@ -228,7 +228,6 @@ export function DesktopUi({
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
           collapsable={false}
         >
-          <MuteOverlay />
           <PlayerUI.ViewerLoadingOverlay />
           <PlayPauseIndicator />
           <Animated.View
@@ -323,6 +322,9 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
+      {/* MuteOverlay lives outside the gesture detector so its unmute tap
+          doesn't bubble up and trigger togglePlayPause. */}
+      <MuteOverlay />
       <Animated.View
         style={[
           layout.position.absolute,

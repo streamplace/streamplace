@@ -322,8 +322,6 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
-      {/* MuteOverlay lives outside the gesture detector so its unmute tap
-          doesn't bubble up and trigger togglePlayPause. */}
       <MuteOverlay />
       <Animated.View
         style={[

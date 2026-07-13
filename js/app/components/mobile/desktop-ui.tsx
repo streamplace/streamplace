@@ -228,7 +228,6 @@ export function DesktopUi({
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
           collapsable={false}
         >
-          <MuteOverlay />
           <PlayerUI.ViewerLoadingOverlay />
           <PlayPauseIndicator />
           <Animated.View
@@ -323,6 +322,7 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
+      <MuteOverlay />
       <Animated.View
         style={[
           layout.position.absolute,

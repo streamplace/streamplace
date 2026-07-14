@@ -24,7 +24,6 @@ interface GameResult {
   uri: string;
   name: string;
   coverUrl?: string;
-  genres?: string[];
 }
 
 interface ActivityPickerProps {
@@ -128,7 +127,6 @@ export default function ActivityPicker({
             uri: result.uri,
             name: result.name,
             coverUrl: cover,
-            genres: result.genres,
           });
         }
         setResults(games);
@@ -152,7 +150,6 @@ export default function ActivityPicker({
       name: game.name,
     });
     setSelectedCoverUrl(game.coverUrl);
-    setSelectedGenres(game.genres ?? []);
     setQuery("");
     setResults([]);
   };
@@ -195,14 +192,6 @@ export default function ActivityPicker({
           />
           <View style={[flex.values[1]]}>
             <Text numberOfLines={1}>{game.name}</Text>
-            {game.genres && game.genres.length > 0 && (
-              <Text
-                numberOfLines={1}
-                style={{ fontSize: 11, color: c.mutedForeground }}
-              >
-                {game.genres.join(" · ")}
-              </Text>
-            )}
           </View>
         </Pressable>
       ))}
@@ -267,26 +256,6 @@ export default function ActivityPicker({
               )}
               <View style={[flex.values[1]]}>
                 <Text style={{ color: c.primary }}>{selectedGame.name}</Text>
-                {selectedGenres.length > 0 && (
-                  <View
-                    style={[
-                      layout.flex.row,
-                      layout.flex.wrap.wrap,
-                      { marginTop: 4, rowGap: 4, columnGap: 2 },
-                    ]}
-                  >
-                    {selectedGenres.map((g) => (
-                      <View
-                        key={g}
-                        style={[z.bg.muted, px[2], r.full, { marginRight: 4 }]}
-                      >
-                        <Text size="xs" leading="snug" color="muted">
-                          {g}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
               </View>
               <Pressable onPress={clearActivity}>
                 <X size={16} color={c.mutedForeground} />

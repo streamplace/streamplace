@@ -376,7 +376,8 @@ export function PlayerInner(
     };
   }, [width, height]);
   // should cover full width on mobile?
-  const isDesktopMode = shouldShowChatSidePanel || screenWidth > 1200;
+  const isDesktopMode =
+    !!props.embedded || shouldShowChatSidePanel || screenWidth > 1200;
 
   // Calculate optimal height for desktop mode (90% of available height)
   const maxDesktopHeight = availableHeight * 0.8;
@@ -390,7 +391,9 @@ export function PlayerInner(
     ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
     : height;
 
-  const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
+  // Embeds are always web/desktop — never switch to MobileUi based on width.
+  const showFullDesktopMode =
+    !!props.embedded || (aspectRatio > 1 && screenWidth > 1200);
   const isLandscape = aspectRatio > 1;
 
   // When fullscreen or the device is rotated to landscape, a width-100% +

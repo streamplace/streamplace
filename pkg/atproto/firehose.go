@@ -410,7 +410,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "invalid path in repo op", "eventKind", op.Action, "path", op.Path)
 			return
 		}
-		ctx = log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
+		ctx := log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
 
 		if len(CollectionFilter) > 0 {
 			keep := slices.Contains(CollectionFilter, collection.String())

@@ -69,7 +69,10 @@ func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleComAtprotoRepoPutRecord)
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.POST("/xrpc/com.atproto.server.createSession", s.HandleComAtprotoServerCreateSession)
+	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
+	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
+	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
 	return nil
 }
 
@@ -266,6 +269,35 @@ func (s *Server) HandleComAtprotoServerCreateSession(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoServerDescribeServer")
+	defer span.End()
+	var out *comatproto.ServerDescribeServer_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatproto.ServerDescribeServer_Output, error)
+	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRecord")
+	defer span.End()
+	collection := c.QueryParam("collection")
+	did := c.QueryParam("did")
+	rkey := c.QueryParam("rkey")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context,collection string,did string,rkey string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetRecord(ctx, collection, did, rkey)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
 func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetRepo")
 	defer span.End()
@@ -279,6 +311,28 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 		return handleErr
 	}
 	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncListRepos")
+	defer span.End()
+	cursor := c.QueryParam("cursor")
+	limit := 0
+	if p := c.QueryParam("limit"); p != "" {
+		var err error
+		limit, err = strconv.Atoi(p)
+		if err != nil {
+			return err
+		}
+	}
+	var out *comatproto.SyncListRepos_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncListRepos(ctx context.Context,cursor string,limit int) (*comatproto.SyncListRepos_Output, error)
+	out, handleErr = s.handleComAtprotoSyncListRepos(ctx, cursor, limit)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) RegisterHandlersGamesgamesgamesgamesgames(e *echo.Echo) error {

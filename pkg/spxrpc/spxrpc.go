@@ -85,8 +85,20 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	if err != nil {
 		return nil, err
 	}
+	err = s.RegisterHandlersAppbsky(e)
+	if err != nil {
+		return nil, err
+	}
+	err = s.RegisterHandlersGamesgamesgamesgamesgames(e)
+	if err != nil {
+		return nil, err
+	}
+	err = s.RegisterHandlersComatproto(e)
+	if err != nil {
+		return nil, err
+	}
 	e.GET("/xrpc/_health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"version": cli.Build.Version})
+		return c.JSON(http.StatusOK, map[string]string{"version": fmt.Sprintf("streamplace %s", cli.Build.Version)})
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)

@@ -463,6 +463,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, lsv)
 
 		if !isFirstSync {
+			if atsync.CLI.StreamIsAllowed(userDID) != nil {
+				// they're live somewhere but they don't have nothin' to do with us
+				return nil
+			}
+			log.Log(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),

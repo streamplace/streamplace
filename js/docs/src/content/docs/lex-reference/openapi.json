@@ -4470,6 +4470,92 @@
         ]
       }
     },
+    "/xrpc/com.atproto.sync.getRecord": {
+      "get": {
+        "summary": "Get data blocks needed to prove the existence or non-existence of record in the current version of repo. Does not require auth.",
+        "operationId": "com.atproto.sync.getRecord",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/vnd.ipld.car": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RecordNotFound"
+                        },
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "rkey",
+            "in": "query",
+            "required": true,
+            "description": "Record Key",
+            "schema": {
+              "type": "string",
+              "description": "Record Key",
+              "format": "record-key"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "nsid"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.sync.getRepo": {
       "get": {
         "summary": "Download a repository export as CAR file. Optionally only a 'diff' since a previous revision. Does not require auth; implemented by PDS.",
@@ -4539,6 +4625,58 @@
               "type": "string",
               "description": "The revision ('rev') of the repo to create a diff from.",
               "format": "tid"
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.sync.listRepos": {
+      "get": {
+        "summary": "Enumerates all the DID, rev, and commit CID for all repos hosted by this service. Does not require auth; implemented by PDS and Relay.",
+        "operationId": "com.atproto.sync.listRepos",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "repos": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/com.atproto.sync.listRepos_repo"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["repos"]
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500,
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
             }
           }
         ]
@@ -4715,6 +4853,55 @@
                   }
                 },
                 "required": ["identifier", "password"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.server.describeServer": {
+      "get": {
+        "summary": "Describes the server's account creation requirements and capabilities. Implemented by PDS.",
+        "operationId": "com.atproto.server.describeServer",
+        "tags": ["com.atproto.server"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    },
+                    "links": {
+                      "$ref": "#/components/schemas/com.atproto.server.describeServer_links",
+                      "description": "URLs of service policy documents."
+                    },
+                    "contact": {
+                      "$ref": "#/components/schemas/com.atproto.server.describeServer_contact",
+                      "description": "Contact information"
+                    },
+                    "inviteCodeRequired": {
+                      "type": "boolean",
+                      "description": "If true, an invite code must be supplied to create an account on this instance."
+                    },
+                    "availableUserDomains": {
+                      "type": "array",
+                      "description": "List of domain suffixes that can be used in account handles.",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "phoneVerificationRequired": {
+                      "type": "boolean",
+                      "description": "If true, a phone verification token must be supplied to create an account on this instance."
+                    }
+                  },
+                  "required": ["did", "availableUserDomains"]
+                }
               }
             }
           }
@@ -7029,6 +7216,32 @@
         },
         "required": ["issuanceUri", "badgeType", "issuer"]
       },
+      "com.atproto.sync.listRepos_repo": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "rev": {
+            "type": "string",
+            "format": "tid"
+          },
+          "head": {
+            "type": "string",
+            "description": "Current repo commit CID",
+            "format": "cid"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "description": "If active=false, this optional field indicates a possible reason for why the account is not active. If active=false and no status is supplied, then the host makes no claim for why the repository is no longer being hosted."
+          }
+        },
+        "required": ["did", "head", "rev"]
+      },
       "com.atproto.sync.subscribeRepos_commit": {
         "type": "object",
         "description": "Represents an update of repository state. Note that empty commits are allowed, which include no repo data changes, but an update to rev and signature.",
@@ -7229,6 +7442,27 @@
           }
         },
         "required": ["name"]
+      },
+      "com.atproto.server.describeServer_links": {
+        "type": "object",
+        "properties": {
+          "privacyPolicy": {
+            "type": "string",
+            "format": "uri"
+          },
+          "termsOfService": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      },
+      "com.atproto.server.describeServer_contact": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
       },
       "com.atproto.repo.defs_commitMeta": {
         "type": "object",

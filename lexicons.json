@@ -23,7 +23,10 @@
     "com.atproto.repo.strongRef",
     "com.atproto.repo.uploadBlob",
     "com.atproto.server.createSession",
+    "com.atproto.server.describeServer",
+    "com.atproto.sync.getRecord",
     "com.atproto.sync.getRepo",
+    "com.atproto.sync.listRepos",
     "com.atproto.sync.subscribeRepos",
     "games.gamesgamesgamesgames.defs",
     "games.gamesgamesgamesgames.search"
@@ -181,9 +184,21 @@
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.createSession",
       "cid": "bafyreieftxrfcsudzvfk5l73r2cukzwa6axzkfjs2l7dxtieyqnkdngwsq"
     },
+    "com.atproto.server.describeServer": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.describeServer",
+      "cid": "bafyreidjve4qbhebxzppq23ogsto6luddd63mmn7a57rmml6qi3yf7n3ee"
+    },
+    "com.atproto.sync.getRecord": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getRecord",
+      "cid": "bafyreiermob6nqcfc6hlhmvuo7jv3imo7hfy3og34oom2p3qe6tldajoru"
+    },
     "com.atproto.sync.getRepo": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getRepo",
       "cid": "bafyreieyt5x6wf4pgcn56tb2724uplmwcqjivkubmi25km3xrvroz6dw5q"
+    },
+    "com.atproto.sync.listRepos": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.listRepos",
+      "cid": "bafyreic6q46ptlr4kv4eonzw3isiqegom5ldr32onhrv2kyrmppgakss2i"
     },
     "com.atproto.sync.subscribeRepos": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.subscribeRepos",

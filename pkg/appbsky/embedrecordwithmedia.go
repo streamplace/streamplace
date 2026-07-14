@@ -49,6 +49,7 @@ func (t *EmbedRecordWithMedia) UnmarshalCBOR(r io.Reader) error {
 
 type EmbedRecordWithMedia_Media struct {
 	EmbedExternal *EmbedExternal
+	EmbedGallery  *EmbedGallery
 	EmbedImages   *EmbedImages
 	EmbedVideo    *EmbedVideo
 }
@@ -57,6 +58,10 @@ func (t *EmbedRecordWithMedia_Media) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal != nil {
 		t.EmbedExternal.LexiconTypeID = "app.bsky.embed.external"
 		return json.Marshal(t.EmbedExternal)
+	}
+	if t.EmbedGallery != nil {
+		t.EmbedGallery.LexiconTypeID = "app.bsky.embed.gallery"
+		return json.Marshal(t.EmbedGallery)
 	}
 	if t.EmbedImages != nil {
 		t.EmbedImages.LexiconTypeID = "app.bsky.embed.images"
@@ -79,6 +84,9 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
+	case "app.bsky.embed.gallery":
+		t.EmbedGallery = new(EmbedGallery)
+		return json.Unmarshal(b, t.EmbedGallery)
 	case "app.bsky.embed.images":
 		t.EmbedImages = new(EmbedImages)
 		return json.Unmarshal(b, t.EmbedImages)
@@ -99,6 +107,9 @@ func (t *EmbedRecordWithMedia_Media) MarshalCBOR(w io.Writer) error {
 	if t.EmbedExternal != nil {
 		return t.EmbedExternal.MarshalCBOR(w)
 	}
+	if t.EmbedGallery != nil {
+		return t.EmbedGallery.MarshalCBOR(w)
+	}
 	if t.EmbedImages != nil {
 		return t.EmbedImages.MarshalCBOR(w)
 	}
@@ -118,6 +129,9 @@ func (t *EmbedRecordWithMedia_Media) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
 		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.gallery":
+		t.EmbedGallery = new(EmbedGallery)
+		return t.EmbedGallery.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.embed.images":
 		t.EmbedImages = new(EmbedImages)
 		return t.EmbedImages.UnmarshalCBOR(bytes.NewReader(b))
@@ -156,6 +170,7 @@ func (t *EmbedRecordWithMedia_View) UnmarshalCBOR(r io.Reader) error {
 
 type EmbedRecordWithMedia_View_Media struct {
 	EmbedExternal_View *EmbedExternal_View
+	EmbedGallery_View  *EmbedGallery_View
 	EmbedImages_View   *EmbedImages_View
 	EmbedVideo_View    *EmbedVideo_View
 }
@@ -164,6 +179,10 @@ func (t *EmbedRecordWithMedia_View_Media) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
 		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
 		return json.Marshal(t.EmbedExternal_View)
+	}
+	if t.EmbedGallery_View != nil {
+		t.EmbedGallery_View.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return json.Marshal(t.EmbedGallery_View)
 	}
 	if t.EmbedImages_View != nil {
 		t.EmbedImages_View.LexiconTypeID = "app.bsky.embed.images#view"
@@ -186,6 +205,9 @@ func (t *EmbedRecordWithMedia_View_Media) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)
+	case "app.bsky.embed.gallery#view":
+		t.EmbedGallery_View = new(EmbedGallery_View)
+		return json.Unmarshal(b, t.EmbedGallery_View)
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
 		return json.Unmarshal(b, t.EmbedImages_View)
@@ -206,6 +228,9 @@ func (t *EmbedRecordWithMedia_View_Media) MarshalCBOR(w io.Writer) error {
 	if t.EmbedExternal_View != nil {
 		return t.EmbedExternal_View.MarshalCBOR(w)
 	}
+	if t.EmbedGallery_View != nil {
+		return t.EmbedGallery_View.MarshalCBOR(w)
+	}
 	if t.EmbedImages_View != nil {
 		return t.EmbedImages_View.MarshalCBOR(w)
 	}
@@ -225,6 +250,9 @@ func (t *EmbedRecordWithMedia_View_Media) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return t.EmbedExternal_View.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.gallery#view":
+		t.EmbedGallery_View = new(EmbedGallery_View)
+		return t.EmbedGallery_View.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
 		return t.EmbedImages_View.UnmarshalCBOR(bytes.NewReader(b))

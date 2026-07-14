@@ -5303,6 +5303,135 @@
         }
       }
     },
+    "/xrpc/com.atproto.identity.refreshIdentity": {
+      "post": {
+        "summary": "Request that the server re-resolve an identity (DID and handle). The server may ignore this request, or require authentication, depending on the role, implementation, and policy of the server.",
+        "operationId": "com.atproto.identity.refreshIdentity",
+        "tags": ["com.atproto.identity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/com.atproto.identity.defs_identityInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "HandleNotFound"
+                        },
+                        {
+                          "const": "DidNotFound"
+                        },
+                        {
+                          "const": "DidDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "identifier": {
+                    "type": "string",
+                    "format": "at-identifier"
+                  }
+                },
+                "required": ["identifier"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/com.atproto.identity.resolveHandle": {
+      "get": {
+        "summary": "Resolves an atproto handle (hostname) to a DID. Does not necessarily bi-directionally verify against the the DID document.",
+        "operationId": "com.atproto.identity.resolveHandle",
+        "tags": ["com.atproto.identity"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "did": {
+                      "type": "string",
+                      "format": "did"
+                    }
+                  },
+                  "required": ["did"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "HandleNotFound"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "query",
+            "required": true,
+            "description": "The handle to resolve.",
+            "schema": {
+              "type": "string",
+              "description": "The handle to resolve.",
+              "format": "handle"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.identity.updateHandle": {
       "post": {
         "summary": "Updates the current account's handle. Verifies handle validity, and updates did:plc document if necessary. Implemented by PDS, and requires auth.",
@@ -5651,11 +5780,128 @@
           "title": {
             "type": "string"
           },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.label.defs_label"
+            }
+          },
+          "source": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_viewExternalSource"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "When the external content was created, if available. Example: a publication date, for an article.",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "When the external content was updated, if available.",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "readingTime": {
+            "type": "integer",
+            "description": "Estimated reading time in minutes, if applicable and available."
+          },
+          "associatedRefs": {
+            "type": "array",
+            "description": "StrongRefs (uri+cid) of the Atmosphere records that backed this view.",
+            "items": {
+              "$ref": "#/components/schemas/com.atproto.repo.strongRef"
+            }
+          },
+          "associatedProfiles": {
+            "type": "array",
+            "description": "Profiles of the owners of the Atmosphere records that backed this view.",
+            "items": {
+              "$ref": "#/components/schemas/app.bsky.actor.defs_profileViewBasic"
+            }
+          }
+        },
+        "required": ["uri", "title", "description"]
+      },
+      "app.bsky.embed.external_viewExternalSource": {
+        "type": "object",
+        "description": "The source of an external embed, such as a standard.site publication.",
+        "properties": {
+          "uri": {
+            "type": "string",
+            "description": "URI of the source, if available. Example: the https:// URL of a site.standard.publication record.",
+            "format": "uri"
+          },
+          "icon": {
+            "type": "string",
+            "description": "Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View.",
+            "format": "uri"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_viewExternalSourceTheme"
+          },
+          "title": {
+            "type": "string"
+          },
           "description": {
             "type": "string"
           }
         },
-        "required": ["uri", "title", "description"]
+        "required": ["uri", "title"]
+      },
+      "app.bsky.embed.external_viewExternalSourceTheme": {
+        "type": "object",
+        "description": "The theme colors of an external source, such as a site.standard.publication. These colors may be used when rendering an embed from that source.",
+        "properties": {
+          "accentRGB": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_colorRGB"
+          },
+          "backgroundRGB": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_colorRGB"
+          },
+          "foregroundRGB": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_colorRGB"
+          },
+          "accentForegroundRGB": {
+            "$ref": "#/components/schemas/app.bsky.embed.external_colorRGB"
+          }
+        }
+      },
+      "app.bsky.embed.external_colorRGB": {
+        "type": "object",
+        "description": "RGB color definition, inspired by site.standard.theme.color#rgb",
+        "properties": {
+          "b": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "g": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "r": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": ["r", "g", "b"]
+      },
+      "com.atproto.repo.strongRef": {
+        "type": "object",
+        "properties": {
+          "cid": {
+            "type": "string",
+            "format": "cid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": ["uri", "cid"]
       },
       "app.bsky.actor.defs_viewerState": {
         "type": "object",
@@ -5814,6 +6060,9 @@
         "properties": {
           "allowIncoming": {
             "type": "string"
+          },
+          "allowGroupInvites": {
+            "type": "string"
           }
         },
         "required": ["allowIncoming"]
@@ -5884,6 +6133,15 @@
             "type": "string",
             "description": "Timestamp when the verification was created.",
             "format": "date-time"
+          },
+          "issuerHandle": {
+            "type": "string",
+            "description": "The handle of the issuer.",
+            "format": "handle"
+          },
+          "issuerDisplayName": {
+            "type": "string",
+            "description": "The display name of the issuer."
           }
         },
         "required": ["issuer", "uri", "isValid", "createdAt"]
@@ -6453,20 +6711,6 @@
         },
         "required": ["type", "url"]
       },
-      "com.atproto.repo.strongRef": {
-        "type": "object",
-        "properties": {
-          "cid": {
-            "type": "string",
-            "format": "cid"
-          },
-          "uri": {
-            "type": "string",
-            "format": "uri"
-          }
-        },
-        "required": ["uri", "cid"]
-      },
       "games.gamesgamesgamesgames.defs_gameSummaryView": {
         "type": "object",
         "properties": {
@@ -7014,6 +7258,24 @@
           "value": {}
         },
         "required": ["uri", "cid", "value"]
+      },
+      "com.atproto.identity.defs_identityInfo": {
+        "type": "object",
+        "properties": {
+          "did": {
+            "type": "string",
+            "format": "did"
+          },
+          "didDoc": {
+            "description": "The complete DID document for the identity."
+          },
+          "handle": {
+            "type": "string",
+            "description": "The validated handle of the account; or 'handle.invalid' if the handle did not bi-directionally match the DID document.",
+            "format": "handle"
+          }
+        },
+        "required": ["did", "handle", "didDoc"]
       },
       "app.bsky.feed.defs_skeletonFeedPost": {
         "type": "object",

@@ -71,6 +71,8 @@ func (t *ActorDefs_BskyAppProgressGuide) UnmarshalCBOR(r io.Reader) error {
 type ActorDefs_BskyAppStatePref struct {
 	LexiconTypeID       string                          `json:"$type,omitempty"`
 	ActiveProgressGuide *ActorDefs_BskyAppProgressGuide `json:"activeProgressGuide,omitempty"`
+	// isBetaUser: Indicates if the user is participating in the beta features program.
+	IsBetaUser *bool `json:"isBetaUser,omitempty"`
 	// nuxs: Storage for NUXs the user has encountered.
 	Nuxs []ActorDefs_Nux `json:"nuxs,omitempty"`
 	// queuedNudges: An array of tokens which identify nudges (modals, popups, tours, highlight dots) that should be shown to the user.
@@ -942,8 +944,9 @@ func (t *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBOR(r io.Rea
 
 // ActorDefs_ProfileAssociatedChat is a "profileAssociatedChat" in the app.bsky.actor.defs schema.
 type ActorDefs_ProfileAssociatedChat struct {
-	LexiconTypeID string `json:"$type,omitempty"`
-	AllowIncoming string `json:"allowIncoming"`
+	LexiconTypeID     string  `json:"$type,omitempty"`
+	AllowGroupInvites *string `json:"allowGroupInvites,omitempty"`
+	AllowIncoming     string  `json:"allowIncoming"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -1361,6 +1364,10 @@ type ActorDefs_VerificationView struct {
 	IsValid bool `json:"isValid"`
 	// issuer: The user who issued this verification.
 	Issuer string `json:"issuer"`
+	// issuerDisplayName: The display name of the issuer.
+	IssuerDisplayName *string `json:"issuerDisplayName,omitempty"`
+	// issuerHandle: The handle of the issuer.
+	IssuerHandle *string `json:"issuerHandle,omitempty"`
 	// uri: The AT-URI of the verification record.
 	Uri string `json:"uri"`
 }

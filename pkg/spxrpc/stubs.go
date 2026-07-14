@@ -58,6 +58,8 @@ func (s *Server) HandleAppBskyFeedGetFeedSkeleton(c echo.Context) error {
 }
 
 func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
+	e.POST("/xrpc/com.atproto.identity.refreshIdentity", s.HandleComAtprotoIdentityRefreshIdentity)
+	e.GET("/xrpc/com.atproto.identity.resolveHandle", s.HandleComAtprotoIdentityResolveHandle)
 	e.POST("/xrpc/com.atproto.identity.updateHandle", s.HandleComAtprotoIdentityUpdateHandle)
 	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleComAtprotoRepoCreateRecord)
 	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleComAtprotoRepoDeleteRecord)
@@ -69,6 +71,37 @@ func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.server.createSession", s.HandleComAtprotoServerCreateSession)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
 	return nil
+}
+
+func (s *Server) HandleComAtprotoIdentityRefreshIdentity(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityRefreshIdentity")
+	defer span.End()
+	var body comatproto.IdentityRefreshIdentity_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *comatproto.IdentityDefs_IdentityInfo
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityRefreshIdentity(ctx context.Context,body *comatproto.IdentityRefreshIdentity_Input) (*comatproto.IdentityDefs_IdentityInfo, error)
+	out, handleErr = s.handleComAtprotoIdentityRefreshIdentity(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoIdentityResolveHandle(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoIdentityResolveHandle")
+	defer span.End()
+	handle := c.QueryParam("handle")
+	var out *comatproto.IdentityResolveHandle_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoIdentityResolveHandle(ctx context.Context,handle string) (*comatproto.IdentityResolveHandle_Output, error)
+	out, handleErr = s.handleComAtprotoIdentityResolveHandle(ctx, handle)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
 }
 
 func (s *Server) HandleComAtprotoIdentityUpdateHandle(c echo.Context) error {

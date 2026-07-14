@@ -10,6 +10,7 @@ import (
 
 	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
+	comatproto "stream.place/streamplace/pkg/comatproto"
 )
 
 func init() {
@@ -45,13 +46,41 @@ func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) error {
 	return glex.UnmarshalCBOR(r, t)
 }
 
+// EmbedExternal_ColorRGB is a "colorRGB" in the app.bsky.embed.external schema.
+//
+// RGB color definition, inspired by site.standard.theme.color#rgb
+type EmbedExternal_ColorRGB struct {
+	LexiconTypeID string `json:"$type,omitempty"`
+	B             int64  `json:"b"`
+	G             int64  `json:"g"`
+	R             int64  `json:"r"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_ColorRGB) RecordTypeID() string { return "app.bsky.embed.external#colorRGB" }
+
+func (t *EmbedExternal_ColorRGB) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.embed.external#colorRGB"
+	return glex.MarshalCBOR(w, t)
+}
+
+func (t *EmbedExternal_ColorRGB) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
 // EmbedExternal_External is a "external" in the app.bsky.embed.external schema.
 type EmbedExternal_External struct {
-	LexiconTypeID string     `json:"$type,omitempty"`
-	Description   string     `json:"description"`
-	Thumb         *glex.Blob `json:"thumb,omitempty"`
-	Title         string     `json:"title"`
-	Uri           string     `json:"uri"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view.
+	AssociatedRefs []comatproto.RepoStrongRef `json:"associatedRefs,omitempty"`
+	Description    string                     `json:"description"`
+	Thumb          *glex.Blob                 `json:"thumb,omitempty"`
+	Title          string                     `json:"title"`
+	Uri            string                     `json:"uri"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -94,11 +123,23 @@ func (t *EmbedExternal_View) UnmarshalCBOR(r io.Reader) error {
 
 // EmbedExternal_ViewExternal is a "viewExternal" in the app.bsky.embed.external schema.
 type EmbedExternal_ViewExternal struct {
-	LexiconTypeID string  `json:"$type,omitempty"`
-	Description   string  `json:"description"`
-	Thumb         *string `json:"thumb,omitempty"`
-	Title         string  `json:"title"`
-	Uri           string  `json:"uri"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	// associatedProfiles: Profiles of the owners of the Atmosphere records that backed this view.
+	AssociatedProfiles []ActorDefs_ProfileViewBasic `json:"associatedProfiles,omitempty"`
+	// associatedRefs: StrongRefs (uri+cid) of the Atmosphere records that backed this view.
+	AssociatedRefs []comatproto.RepoStrongRef `json:"associatedRefs,omitempty"`
+	// createdAt: When the external content was created, if available. Example: a publication date, for an article.
+	CreatedAt   *string                      `json:"createdAt,omitempty"`
+	Description string                       `json:"description"`
+	Labels      []comatproto.LabelDefs_Label `json:"labels,omitempty"`
+	// readingTime: Estimated reading time in minutes, if applicable and available.
+	ReadingTime *int64                            `json:"readingTime,omitempty"`
+	Source      *EmbedExternal_ViewExternalSource `json:"source,omitempty"`
+	Thumb       *string                           `json:"thumb,omitempty"`
+	Title       string                            `json:"title"`
+	// updatedAt: When the external content was updated, if available.
+	UpdatedAt *string `json:"updatedAt,omitempty"`
+	Uri       string  `json:"uri"`
 }
 
 // RecordTypeID implements glex.Record.
@@ -116,5 +157,66 @@ func (t *EmbedExternal_ViewExternal) MarshalCBOR(w io.Writer) error {
 }
 
 func (t *EmbedExternal_ViewExternal) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// EmbedExternal_ViewExternalSource is a "viewExternalSource" in the app.bsky.embed.external schema.
+//
+// The source of an external embed, such as a standard.site publication.
+type EmbedExternal_ViewExternalSource struct {
+	LexiconTypeID string  `json:"$type,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	// icon: Fully-qualified URL where an icon representing the source can be fetched. For example, CDN location provided by the App View.
+	Icon  *string                                `json:"icon,omitempty"`
+	Theme *EmbedExternal_ViewExternalSourceTheme `json:"theme,omitempty"`
+	Title string                                 `json:"title"`
+	// uri: URI of the source, if available. Example: the https:// URL of a site.standard.publication record.
+	Uri string `json:"uri"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_ViewExternalSource) RecordTypeID() string {
+	return "app.bsky.embed.external#viewExternalSource"
+}
+
+func (t *EmbedExternal_ViewExternalSource) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.embed.external#viewExternalSource"
+	return glex.MarshalCBOR(w, t)
+}
+
+func (t *EmbedExternal_ViewExternalSource) UnmarshalCBOR(r io.Reader) error {
+	return glex.UnmarshalCBOR(r, t)
+}
+
+// EmbedExternal_ViewExternalSourceTheme is a "viewExternalSourceTheme" in the app.bsky.embed.external schema.
+//
+// The theme colors of an external source, such as a site.standard.publication. These colors may be used when rendering an embed from that source.
+type EmbedExternal_ViewExternalSourceTheme struct {
+	LexiconTypeID       string                  `json:"$type,omitempty"`
+	AccentForegroundRGB *EmbedExternal_ColorRGB `json:"accentForegroundRGB,omitempty"`
+	AccentRGB           *EmbedExternal_ColorRGB `json:"accentRGB,omitempty"`
+	BackgroundRGB       *EmbedExternal_ColorRGB `json:"backgroundRGB,omitempty"`
+	ForegroundRGB       *EmbedExternal_ColorRGB `json:"foregroundRGB,omitempty"`
+}
+
+// RecordTypeID implements glex.Record.
+func (t *EmbedExternal_ViewExternalSourceTheme) RecordTypeID() string {
+	return "app.bsky.embed.external#viewExternalSourceTheme"
+}
+
+func (t *EmbedExternal_ViewExternalSourceTheme) MarshalCBOR(w io.Writer) error {
+	if t == nil {
+		_, err := w.Write(cbg.CborNull)
+		return err
+	}
+	t.LexiconTypeID = "app.bsky.embed.external#viewExternalSourceTheme"
+	return glex.MarshalCBOR(w, t)
+}
+
+func (t *EmbedExternal_ViewExternalSourceTheme) UnmarshalCBOR(r io.Reader) error {
 	return glex.UnmarshalCBOR(r, t)
 }

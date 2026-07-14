@@ -326,6 +326,7 @@ func (t *EmbedRecord_ViewRecord) UnmarshalCBOR(r io.Reader) error {
 
 type EmbedRecord_ViewRecord_Embeds_Elem struct {
 	EmbedExternal_View        *EmbedExternal_View
+	EmbedGallery_View         *EmbedGallery_View
 	EmbedImages_View          *EmbedImages_View
 	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
 	EmbedRecord_View          *EmbedRecord_View
@@ -336,6 +337,10 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
 		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
 		return json.Marshal(t.EmbedExternal_View)
+	}
+	if t.EmbedGallery_View != nil {
+		t.EmbedGallery_View.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return json.Marshal(t.EmbedGallery_View)
 	}
 	if t.EmbedImages_View != nil {
 		t.EmbedImages_View.LexiconTypeID = "app.bsky.embed.images#view"
@@ -366,6 +371,9 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)
+	case "app.bsky.embed.gallery#view":
+		t.EmbedGallery_View = new(EmbedGallery_View)
+		return json.Unmarshal(b, t.EmbedGallery_View)
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
 		return json.Unmarshal(b, t.EmbedImages_View)
@@ -392,6 +400,9 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalCBOR(w io.Writer) error {
 	if t.EmbedExternal_View != nil {
 		return t.EmbedExternal_View.MarshalCBOR(w)
 	}
+	if t.EmbedGallery_View != nil {
+		return t.EmbedGallery_View.MarshalCBOR(w)
+	}
 	if t.EmbedImages_View != nil {
 		return t.EmbedImages_View.MarshalCBOR(w)
 	}
@@ -417,6 +428,9 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalCBOR(r io.Reader) error {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return t.EmbedExternal_View.UnmarshalCBOR(bytes.NewReader(b))
+	case "app.bsky.embed.gallery#view":
+		t.EmbedGallery_View = new(EmbedGallery_View)
+		return t.EmbedGallery_View.UnmarshalCBOR(bytes.NewReader(b))
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
 		return t.EmbedImages_View.UnmarshalCBOR(bytes.NewReader(b))

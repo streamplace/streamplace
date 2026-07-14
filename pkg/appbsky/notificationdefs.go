@@ -37,6 +37,8 @@ func (t *NotificationDefs_ActivitySubscription) UnmarshalCBOR(r io.Reader) error
 }
 
 // NotificationDefs_ChatPreference is a "chatPreference" in the app.bsky.notification.defs schema.
+//
+// Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 type NotificationDefs_ChatPreference struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	Include       string `json:"include"`
@@ -114,7 +116,8 @@ func (t *NotificationDefs_Preference) UnmarshalCBOR(r io.Reader) error {
 
 // NotificationDefs_Preferences is a "preferences" in the app.bsky.notification.defs schema.
 type NotificationDefs_Preferences struct {
-	LexiconTypeID     string                                `json:"$type,omitempty"`
+	LexiconTypeID string `json:"$type,omitempty"`
+	// chat: Deprecated: use chat.bsky.notification preferences instead. This will only return a default value.
 	Chat              NotificationDefs_ChatPreference       `json:"chat"`
 	Follow            NotificationDefs_FilterablePreference `json:"follow"`
 	Like              NotificationDefs_FilterablePreference `json:"like"`

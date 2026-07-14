@@ -507,8 +507,8 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 			continue
 		}
-		go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-			err := webhook.SendStreamReceivedWebhook(ctx, lexiconWebhook, streamReceivedTask.StreamerDID)
+		go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+			err := webhook.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
 			if err != nil {
 				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
 				err = state.IncrementWebhookError(wid)

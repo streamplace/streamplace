@@ -174,7 +174,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 			}
 			if profile != nil {
 				p := map[string]any{
-					"$type":  "app.appbsky.actor.defs#profileViewBasic",
+					"$type":  "app.bsky.actor.defs#profileViewBasic",
 					"did":    repoDID,
 					"handle": profile.Handle,
 				}

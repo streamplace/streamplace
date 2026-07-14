@@ -24,7 +24,7 @@ func GetAvatarURL(ctx context.Context, did string) (string, error) {
 	}
 
 	xrpc := &xrpc.Client{
-		Host:   "https://public.api.appbsky.app",
+		Host:   "https://public.api.bsky.app",
 		Client: &aqhttp.Client,
 	}
 

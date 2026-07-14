@@ -48,7 +48,7 @@ func TestGenerateLinkCard(t *testing.T) {
 		CreatedAt: "2025-03-25T00:39:49.121Z",
 		Post: &comatproto.RepoStrongRef{
 			Cid: "bafyreiczmyne5jd4lpax5ttyb5p2fbcageyt6fsthdpyymecokcsmyh4a4",
-			Uri: "at://did:plc:2zmxikig2sj7gqaezl5gntae/app.appbsky.feed.post/3ll5zuomua22x",
+			Uri: "at://did:plc:2zmxikig2sj7gqaezl5gntae/app.bsky.feed.post/3ll5zuomua22x",
 		},
 		Title: "Back up! Once again water in the firehose. Link cards if this stays stable",
 		Url:   &sp,
@@ -110,7 +110,7 @@ func TestGenerateVideoCard(t *testing.T) {
 	require.True(t, strings.Contains(linkStr, `content="`+video.Title+`"`),
 		"og:title/twitter:title should be the video's own title")
 	require.True(t, strings.Contains(linkStr,
-		"https://cdn.appbsky.app/img/feed_thumbnail/plain/did:plc:2zmxikig2sj7gqaezl5gntae/"+thumbCID+"@jpeg"),
+		"https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:2zmxikig2sj7gqaezl5gntae/"+thumbCID+"@jpeg"),
 		"og:image should be the video thumbnail served via the bsky CDN")
 	require.True(t, strings.Count(linkStr, "<title>") == 1, "should have exactly one title tag")
 }

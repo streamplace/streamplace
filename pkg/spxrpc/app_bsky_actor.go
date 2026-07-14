@@ -11,7 +11,7 @@ import (
 )
 
 func bskyCDNURL(kind, did, cid string) *string {
-	ret := fmt.Sprintf("https://cdn.appbsky.app/img/%s/plain/%s/%s@jpeg", kind, did, cid)
+	ret := fmt.Sprintf("https://cdn.bsky.app/img/%s/plain/%s/%s@jpeg", kind, did, cid)
 	return &ret
 }
 

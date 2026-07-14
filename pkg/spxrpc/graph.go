@@ -28,7 +28,7 @@ func (s *Server) handlePlaceStreamGraphGetFollowingUser(ctx context.Context, sub
 	if follow != nil {
 		output.Follow = &comatproto.RepoStrongRef{
 			Cid: "", // We don't store CID in our model
-			Uri: fmt.Sprintf("at://%s/app.appbsky.graph.follow/%s", userDID, follow.RKey),
+			Uri: fmt.Sprintf("at://%s/app.bsky.graph.follow/%s", userDID, follow.RKey),
 		}
 	}
 

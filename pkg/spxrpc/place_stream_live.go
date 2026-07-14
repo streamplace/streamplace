@@ -620,7 +620,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 					Features: []appbsky.RichtextFacet_Features_Elem{
 						{
 							RichtextFacet_Link: &appbsky.RichtextFacet_Link{
-								LexiconTypeID: "app.appbsky.richtext.facet#link",
+								LexiconTypeID: "app.bsky.richtext.facet#link",
 								Uri:           canonicalUrl,
 							},
 						},

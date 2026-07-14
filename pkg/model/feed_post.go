@@ -32,7 +32,7 @@ func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
 		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
 	postView := appbsky.FeedDefs_PostView{
-		LexiconTypeID: "app.appbsky.feed.defs#postView",
+		LexiconTypeID: "app.bsky.feed.defs#postView",
 		Cid:           fp.CID,
 		Uri:           fp.URI,
 		Author: appbsky.ActorDefs_ProfileViewBasic{

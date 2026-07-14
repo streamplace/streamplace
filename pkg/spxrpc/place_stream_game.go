@@ -148,7 +148,7 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 	var coverUrl *string
 	for _, m := range record.Value.Media {
 		if (m.MediaType == "cover" || m.MediaType == "coverSquare") && m.Blob.Ref.Link != "" {
-			u := "https://cdn.appbsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
+			u := "https://cdn.bsky.app/img/feed_thumbnail/plain/" + did + "/" + m.Blob.Ref.Link + "@jpeg"
 			coverUrl = &u
 			break
 		}

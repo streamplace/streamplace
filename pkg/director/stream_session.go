@@ -508,7 +508,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 
 	duration := int64(10)
 	status := appbsky.ActorStatus{
-		Status:          "app.appbsky.actor.status#live",
+		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,
 		Embed:           &actorStatusEmbed,
 		CreatedAt:       time.Now().Format(time.RFC3339),
@@ -518,7 +518,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	getOutput := comatproto.RepoGetRecord_Output{}
 	err = client.Do(ctx, xrpc.Query, "application/json", "com.atproto.repo.getRecord", map[string]any{
 		"repo":       repoDID,
-		"collection": "app.appbsky.actor.status",
+		"collection": "app.bsky.actor.status",
 		"rkey":       "self",
 	}, nil, &getOutput)
 	if err != nil {
@@ -536,7 +536,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	}
 
 	inp := comatproto.RepoPutRecord_Input{
-		Collection: "app.appbsky.actor.status",
+		Collection: "app.bsky.actor.status",
 		Record:     &glex.LexiconTypeDecoder{Val: &status},
 		Rkey:       "self",
 		Repo:       repoDID,
@@ -665,7 +665,7 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 		return nil
 	}
 	inp := comatproto.RepoDeleteRecord_Input{
-		Collection: "app.appbsky.actor.status",
+		Collection: "app.bsky.actor.status",
 		Rkey:       "self",
 		Repo:       repoDID,
 	}

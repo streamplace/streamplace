@@ -108,7 +108,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 			view.Description = &def.Description
 		}
 		if def.ImageCID != "" {
-			imageUrl := fmt.Sprintf("https://cdn.appbsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
+			imageUrl := fmt.Sprintf("https://cdn.bsky.app/img/feed_fullsize/plain/%s/%s@png", def.RepoDID, def.ImageCID)
 			view.ImageUrl = &imageUrl
 		}
 		isSelected := selectedURIs[issuance.URI]

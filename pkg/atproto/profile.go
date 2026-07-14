@@ -28,7 +28,7 @@ func (atsync *ATProtoSynchronizer) FetchUserProfile(ctx context.Context, usernam
 
 	// Fetch full profile from Bluesky public API
 	client := &xrpc.Client{
-		Host: "https://public.api.appbsky.app",
+		Host: "https://public.api.bsky.app",
 	}
 
 	profile, err := appbsky.ActorGetProfile(ctx, client, actor)

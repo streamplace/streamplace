@@ -50,7 +50,7 @@ func (m *DBModel) UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, rec
 
 func (m *DBModel) GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error) {
 	var profile BskyProfile
-	err := m.DB.Where("uri = ? AND was_streamplace = ?", fmt.Sprintf("at://%s/app.appbsky.actor.profile/self", did), wasStreamplace).First(&profile).Error
+	err := m.DB.Where("uri = ? AND was_streamplace = ?", fmt.Sprintf("at://%s/app.bsky.actor.profile/self", did), wasStreamplace).First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

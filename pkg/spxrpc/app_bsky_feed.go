@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/model"
 )
 
-var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.appbsky.feed.generator/([a-z0-9\.\-]+)$`)
+var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.bsky.feed.generator/([a-z0-9\.\-]+)$`)
 
 func parseFeedSkeleton(did string) (string, string, error) {
 	matches := FeedSkeletonRE.FindStringSubmatch(did)

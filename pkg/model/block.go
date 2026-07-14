@@ -45,7 +45,7 @@ func (b *Block) ToStreamplaceBlock() (placestream.Defs_BlockView, error) {
 		Cid:       b.CID,
 		IndexedAt: b.CreatedAt.Format(time.RFC3339),
 		Record:    block,
-		Uri:       fmt.Sprintf(`at://%s/app.appbsky.graph.block/%s`, b.RepoDID, b.RKey),
+		Uri:       fmt.Sprintf(`at://%s/app.bsky.graph.block/%s`, b.RepoDID, b.RKey),
 	}, nil
 }
 

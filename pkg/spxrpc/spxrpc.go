@@ -114,6 +114,10 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// in-memory live window instead of a stored metafile.
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandleGetLiveSegment)
+	// glex code-generated these but we want them just passed upstream
+	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
+	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)
+	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleWildcard)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil

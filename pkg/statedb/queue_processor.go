@@ -354,11 +354,29 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	// truly abandoned the heartbeat stays frozen and we end it on the next
 	// pass; if it's a heartbeat-lag artifact, the heartbeat catches up and the
 	// rescheduled task hits the "active" early-return above.
+	//
+	// BUT the heartbeat-lag guard only applies to repos this node is actively
+	// ingesting — the heartbeat runs inside StreamSession.doUpdateLivestream,
+	// which requires the streamer to have a local OAuth session on this node.
+	// If no session exists, there is no heartbeat to wait for and no write
+	// access to end the record anyway: the record arrived via firehose sync
+	// from an account that never connected here. Rescheduling in that case just
+	// respawns the task every idle window forever (the rescheduled key embeds a
+	// fresh timestamp, so dedup never fires), flooding the logs and growing the
+	// task table without bound. So drop the task instead.
 	latest, err := state.model.GetLatestLivestreamForRepo(livestream.RepoDID)
 	if err != nil {
 		return fmt.Errorf("failed to get latest livestream for repo: %w", err)
 	}
 	if latest != nil && latest.URI == livestream.URI {
+		// Check for a local session before rescheduling. GetSessionByDID
+		// returns gorm.ErrRecordNotFound (or nil session via callers that
+		// swallow it) when the repo has never logged in here.
+		session, err := state.GetSessionByDID(livestream.RepoDID)
+		if err != nil || session == nil {
+			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
+			return state.CompleteTask(ctx, task.ID)
+		}
 		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
 		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
 		_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, finalizeLivestreamTask, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))

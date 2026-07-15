@@ -388,7 +388,8 @@ GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
-	go tool github.com/streamplace/glex/cmd/glex build \
+	go tool github.com/streamplace/glex/cmd/glex install \
+	&& go tool github.com/streamplace/glex/cmd/glex build \
 		--lexicons-dir lexicons \
 		--output-dir pkg \
 		--module-path stream.place/streamplace/pkg \

@@ -282,7 +282,7 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
 		}
-		streams[i] = stream
+		streams[i] = *stream
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
@@ -324,7 +324,7 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
 		}
-		streams[i] = stream
+		streams[i] = *stream
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}

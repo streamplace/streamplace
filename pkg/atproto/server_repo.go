@@ -325,7 +325,7 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 	rpath := fmt.Sprintf("%s/%s", collection, rkey)
 	var recordCid cid.Cid
 	var action string
-	_, _, err = r.GetRecord(ctx, rpath)
+	_, _, err = r.GetRecordBytes(ctx, rpath)
 	if err != nil {
 		// Record doesn't exist, create it
 		recordCid, err = r.PutRecord(ctx, rpath, value)
@@ -615,7 +615,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to open repo: %w", err)
 	}
-	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
+	outCID, _, err := r.GetRecordBytes(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
 	}

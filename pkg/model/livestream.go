@@ -26,13 +26,13 @@ type Livestream struct {
 	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
 }
 
-func (ls *Livestream) ToLivestreamView() (placestream.Livestream_LivestreamView, error) {
+func (ls *Livestream) ToLivestreamView() (*placestream.Livestream_LivestreamView, error) {
 	if ls == nil || ls.Livestream == nil {
-		return placestream.Livestream_LivestreamView{}, fmt.Errorf("livestream record is nil")
+		return nil, fmt.Errorf("livestream record is nil")
 	}
 	var rec placestream.Livestream
 	if err := glex.DecodeCBOR(*ls.Livestream, &rec); err != nil {
-		return placestream.Livestream_LivestreamView{}, fmt.Errorf("error decoding livestream record: %w", err)
+		return nil, fmt.Errorf("error decoding livestream record: %w", err)
 	}
 	rec.Tags = moderation.FilterTags(rec.Tags)
 	postView := placestream.Livestream_LivestreamView{
@@ -46,7 +46,7 @@ func (ls *Livestream) ToLivestreamView() (placestream.Livestream_LivestreamView,
 		Record:    &glex.LexiconTypeDecoder{Val: &rec},
 		IndexedAt: time.Now().Format(time.RFC3339),
 	}
-	return postView, nil
+	return &postView, nil
 }
 
 func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {

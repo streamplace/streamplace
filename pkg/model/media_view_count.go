@@ -36,12 +36,12 @@ type MediaViewCount struct {
 }
 
 // ToRecord decodes the stored CBOR into the typed lexicon struct.
-func (v *MediaViewCount) ToRecord() (placestream.MediaViewCount, error) {
+func (v *MediaViewCount) ToRecord() (*placestream.MediaViewCount, error) {
 	var vc placestream.MediaViewCount
 	if err := glex.DecodeCBOR(v.Record, &vc); err != nil {
-		return placestream.MediaViewCount{}, fmt.Errorf("decode view-count record: %w", err)
+		return nil, fmt.Errorf("decode view-count record: %w", err)
 	}
-	return vc, nil
+	return &vc, nil
 }
 
 func (m *DBModel) UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error {
@@ -72,14 +72,14 @@ func (m *DBModel) DeleteMediaViewCount(ctx context.Context, uri string) error {
 	return m.DB.WithContext(ctx).Where("uri = ?", uri).Delete(&MediaViewCount{}).Error
 }
 
-func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (placestream.MediaViewCount, error) {
+func (m *DBModel) GetMediaViewCountByURI(ctx context.Context, uri string) (*placestream.MediaViewCount, error) {
 	var row MediaViewCount
 	err := m.DB.WithContext(ctx).Where("uri = ?", uri).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return placestream.MediaViewCount{}, nil
+		return nil, nil
 	}
 	if err != nil {
-		return placestream.MediaViewCount{}, fmt.Errorf("get view count by uri: %w", err)
+		return nil, fmt.Errorf("get view count by uri: %w", err)
 	}
 	return row.ToRecord()
 }

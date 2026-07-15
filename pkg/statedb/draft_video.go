@@ -65,7 +65,7 @@ func DraftURI(did, tid string) string {
 }
 
 // marshalDraft CBOR-encodes a draft record and computes its CID.
-func marshalDraft(rec placestream.VodDraftVideo) (data []byte, cidStr string, err error) {
+func marshalDraft(rec *placestream.VodDraftVideo) (data []byte, cidStr string, err error) {
 	buf := bytes.NewBuffer(nil)
 	if err := rec.MarshalCBOR(buf); err != nil {
 		return nil, "", fmt.Errorf("marshal draft CBOR: %w", err)
@@ -79,18 +79,18 @@ func marshalDraft(rec placestream.VodDraftVideo) (data []byte, cidStr string, er
 }
 
 // unmarshalDraft CBOR-decodes a draft record body.
-func unmarshalDraft(data []byte) (placestream.VodDraftVideo, error) {
+func unmarshalDraft(data []byte) (*placestream.VodDraftVideo, error) {
 	var rec placestream.VodDraftVideo
 	if err := rec.UnmarshalCBOR(bytes.NewReader(data)); err != nil {
-		return placestream.VodDraftVideo{}, fmt.Errorf("unmarshal draft CBOR: %w", err)
+		return nil, fmt.Errorf("unmarshal draft CBOR: %w", err)
 	}
-	return rec, nil
+	return &rec, nil
 }
 
 // CreateDraft stores a new draft record. The record's CID and the row's URI are
 // derived from the record; originUploadID ties it to its processing job (may be
 // empty for drafts created outside an upload/finalize flow).
-func (state *StatefulDB) CreateDraft(ctx context.Context, did, originUploadID string, rec placestream.VodDraftVideo) (*DraftVideo, error) {
+func (state *StatefulDB) CreateDraft(ctx context.Context, did, originUploadID string, rec *placestream.VodDraftVideo) (*DraftVideo, error) {
 	data, cidStr, err := marshalDraft(rec)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func (state *StatefulDB) ListDrafts(ctx context.Context, did string, limit int, 
 // UpdateDraftMetadata applies a partial update of editable fields only. It never
 // touches source/durationMs/status/error — those are server-authoritative. The
 // CID is recomputed from the new CBOR body. Returns the updated row.
-func (state *StatefulDB) UpdateDraftMetadata(ctx context.Context, uri string, apply func(rec placestream.VodDraftVideo)) (*DraftVideo, error) {
+func (state *StatefulDB) UpdateDraftMetadata(ctx context.Context, uri string, apply func(rec *placestream.VodDraftVideo)) (*DraftVideo, error) {
 	var dv DraftVideo
 	err := state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// FOR UPDATE (Postgres) so a concurrent SetDraftReady/SetDraftError
@@ -224,10 +224,10 @@ func (state *StatefulDB) UpdateDraftMetadata(ctx context.Context, uri string, ap
 // fields (source, durationMs) in the CBOR body, plus content_cid on the SQL row.
 // sourceTracks is the JSON string of {uri,cid} track refs from the Upload row.
 // The caller is expected to have built the source union member from that JSON.
-func (state *StatefulDB) SetDraftReady(ctx context.Context, originUploadID string, source placestream.VodDraftVideo_Source, durationMs int64, contentCID string) error {
-	return state.updateDraftByUpload(ctx, originUploadID, func(rec placestream.VodDraftVideo) {
+func (state *StatefulDB) SetDraftReady(ctx context.Context, originUploadID string, source *placestream.VodDraftVideo_Source, durationMs int64, contentCID string) error {
+	return state.updateDraftByUpload(ctx, originUploadID, func(rec *placestream.VodDraftVideo) {
 		rec.Status = "ready"
-		rec.Source = &source
+		rec.Source = source
 		rec.DurationMs = &durationMs
 		rec.Error = nil
 	}, func(dv *DraftVideo) {
@@ -265,22 +265,22 @@ func (state *StatefulDB) markDraftReadyFromUpload(ctx context.Context, uploadID 
 // the {uri,cid} JSON array the Upload row stores — the same conversion
 // vod.sourceTracksFromUpload performs for the publishVideo path, replicated
 // here because pkg/statedb can't import pkg/vod (cycle).
-func draftSourceFromTrackURIs(trackURIsJSON string) (placestream.VodDraftVideo_Source, error) {
+func draftSourceFromTrackURIs(trackURIsJSON string) (*placestream.VodDraftVideo_Source, error) {
 	if trackURIsJSON == "" {
-		return placestream.VodDraftVideo_Source{}, nil
+		return nil, nil
 	}
 	var refs []struct {
 		URI string `json:"uri"`
 		CID string `json:"cid"`
 	}
 	if err := json.Unmarshal([]byte(trackURIsJSON), &refs); err != nil {
-		return placestream.VodDraftVideo_Source{}, fmt.Errorf("decode track refs: %w", err)
+		return nil, fmt.Errorf("decode track refs: %w", err)
 	}
 	tracks := make([]comatproto.RepoStrongRef, 0, len(refs))
 	for _, r := range refs {
 		tracks = append(tracks, comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
 	}
-	return placestream.VodDraftVideo_Source{
+	return &placestream.VodDraftVideo_Source{
 		MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 			LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			Tracks:        tracks,
@@ -290,7 +290,7 @@ func draftSourceFromTrackURIs(trackURIsJSON string) (placestream.VodDraftVideo_S
 
 // SetDraftError flips a draft to status "error" with an error message.
 func (state *StatefulDB) SetDraftError(ctx context.Context, originUploadID, errMsg string) error {
-	return state.updateDraftByUpload(ctx, originUploadID, func(rec placestream.VodDraftVideo) {
+	return state.updateDraftByUpload(ctx, originUploadID, func(rec *placestream.VodDraftVideo) {
 		rec.Status = "error"
 		rec.Error = &errMsg
 	}, nil)
@@ -298,7 +298,7 @@ func (state *StatefulDB) SetDraftError(ctx context.Context, originUploadID, errM
 
 // updateDraftByUpload rewrites the CBOR body (via apply) and, optionally, the
 // denormalized SQL columns (via applyRow) for the draft tied to originUploadID.
-func (state *StatefulDB) updateDraftByUpload(ctx context.Context, originUploadID string, apply func(rec placestream.VodDraftVideo), applyRow func(dv *DraftVideo)) error {
+func (state *StatefulDB) updateDraftByUpload(ctx context.Context, originUploadID string, apply func(rec *placestream.VodDraftVideo), applyRow func(dv *DraftVideo)) error {
 	return state.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// FOR UPDATE (Postgres) — see UpdateDraftMetadata. A concurrent user
 		// metadata edit blocks until this ready/error transition commits, so it
@@ -359,6 +359,6 @@ func (dv *DraftVideo) ToDraftView() (placestream.VodDraftDefs_DraftView, error) 
 	return placestream.VodDraftDefs_DraftView{
 		Uri:    dv.URI,
 		Cid:    dv.CID,
-		Record: &glex.LexiconTypeDecoder{Val: &rec},
+		Record: &glex.LexiconTypeDecoder{Val: rec},
 	}, nil
 }

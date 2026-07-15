@@ -161,7 +161,7 @@ type Model interface {
 
 	UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error
 	DeleteMediaViewCount(ctx context.Context, uri string) error
-	GetMediaViewCountByURI(ctx context.Context, uri string) (placestream.MediaViewCount, error)
+	GetMediaViewCountByURI(ctx context.Context, uri string) (*placestream.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
 

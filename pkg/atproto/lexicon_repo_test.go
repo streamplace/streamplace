@@ -109,6 +109,6 @@ func TestLexiconRepo(t *testing.T) {
 	require.NoError(t, err)
 	newCommit, err := evts[1].ToCommitEvent()
 	require.NoError(t, err)
-	require.Equal(t, newCommit.Since, &oldCommit.Rev)
+	require.Equal(t, newCommit.Since, oldCommit.Rev)
 	require.Equal(t, newCommit.PrevData.String(), evts[0].SignedData)
 }

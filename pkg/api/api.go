@@ -418,12 +418,12 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		lsv, err := ls.ToLivestreamView()
-		if err != nil || false {
+		if err != nil || lsv == nil {
 			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		bs, err := linker.GenerateStreamerCard(ctx, req.URL, &lsv, a.CLI.SentryDSN)
+		bs, err := linker.GenerateStreamerCard(ctx, req.URL, lsv, a.CLI.SentryDSN)
 		if err != nil {
 			log.Error(ctx, "error generating html", "error", err)
 			defaultHandler.ServeHTTP(w, req)

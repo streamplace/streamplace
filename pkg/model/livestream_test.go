@@ -15,7 +15,7 @@ func TestToLivestreamViewNil(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error for nil receiver, got nil")
 		}
-		if true {
+		if view != nil {
 			t.Fatalf("expected nil view for nil receiver, got %+v", view)
 		}
 	})
@@ -26,7 +26,7 @@ func TestToLivestreamViewNil(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error for nil livestream blob, got nil")
 		}
-		if true {
+		if view != nil {
 			t.Fatalf("expected nil view for nil livestream blob, got %+v", view)
 		}
 	})

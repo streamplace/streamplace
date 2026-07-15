@@ -167,7 +167,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		// Add mod badge if the author is a moderator
 		issuerDID := fmt.Sprintf("did:web:%s", atsync.CLI.BroadcasterHost)
-		err = AddModBadgeIfApplicable(ctx, &scm, rec.Streamer, issuerDID, atsync.Model)
+		err = AddModBadgeIfApplicable(ctx, scm, rec.Streamer, issuerDID, atsync.Model)
 		if err != nil {
 			log.Error(ctx, "failed to add mod badge", "err", err)
 		}
@@ -181,7 +181,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if !isUpdate && !isFirstSync {
 
 			task := &statedb.ChatTask{
-				MessageView: scm,
+				MessageView: *scm,
 			}
 
 			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskChat, task, statedb.WithTaskKey(fmt.Sprintf("chat-message::%s", aturi.String())))
@@ -293,7 +293,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}
-			pinnedView.Message = &msgView
+			pinnedView.Message = msgView
 		}
 		if profile != nil {
 			profileView, err := profile.ToStreamplaceChatProfile()

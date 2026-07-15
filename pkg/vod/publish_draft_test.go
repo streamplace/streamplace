@@ -41,7 +41,7 @@ func TestPublishDraftNotFoundForOtherUsersDraft(t *testing.T) {
 	ctx := context.Background()
 
 	// Alice owns the draft; Bob tries to publish it.
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", placestream.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-1", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Alice's draft",
 		Status:        "ready",
@@ -59,7 +59,7 @@ func TestPublishDraftNotReadyWhileProcessing(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-2", placestream.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-2", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Still cooking",
 		Status:        "processing",
@@ -77,7 +77,7 @@ func TestPublishDraftNotReadyWhenErrored(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-3", placestream.VodDraftVideo{
+	dv, err := state.CreateDraft(ctx, "did:plc:alice", "up-3", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Failed",
 		Status:        "error",

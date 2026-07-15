@@ -304,7 +304,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					if msgView.Author.Handle == "" || msgView.Author.Handle == "handle.invalid" {
 						msgView.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, msgView.Author.Did)
 					}
-					prv.Message = &msgView
+					prv.Message = msgView
 				}
 				if profile != nil {
 					profileView, err := profile.ToStreamplaceChatProfile()

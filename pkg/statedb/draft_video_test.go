@@ -8,8 +8,8 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
-func newDraftRec(title, status string) placestream.VodDraftVideo {
-	return placestream.VodDraftVideo{
+func newDraftRec(title, status string) *placestream.VodDraftVideo {
+	return &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         title,
 		Status:        status,
@@ -71,7 +71,7 @@ func TestDraftVideoUpdateMetadataRecomputesCID(t *testing.T) {
 		origCID := dv.CID
 
 		// Partial update of an editable field.
-		updated, err := state.UpdateDraftMetadata(ctx, dv.URI, func(rec placestream.VodDraftVideo) {
+		updated, err := state.UpdateDraftMetadata(ctx, dv.URI, func(rec *placestream.VodDraftVideo) {
 			rec.Title = "Edited Title"
 		})
 		require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestSetDraftReadyAndError(t *testing.T) {
 		dv, err := state.CreateDraft(ctx, did, "up-ready", newDraftRec("Ready me", "processing"))
 		require.NoError(t, err)
 
-		sourceTracks := placestream.VodDraftVideo_Source{
+		sourceTracks := &placestream.VodDraftVideo_Source{
 			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
 				Tracks:        nil,
@@ -163,7 +163,7 @@ func TestSetDraftReadyAndError(t *testing.T) {
 func TestSetDraftOnMissingUploadIsNoOp(t *testing.T) {
 	WithAllDatabases(t, func(state *StatefulDB) {
 		// A pre-drafts-era upload (no draft row) must not error.
-		err := state.SetDraftReady(t.Context(), "no-such-upload", placestream.VodDraftVideo_Source{}, 0, "")
+		err := state.SetDraftReady(t.Context(), "no-such-upload", nil, 0, "")
 		require.NoError(t, err)
 		err = state.SetDraftError(t.Context(), "no-such-upload", "x")
 		require.NoError(t, err)

@@ -270,7 +270,7 @@ func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, stat
 		}
 		cidLink := glex.Link(*newCid)
 
-		oldCid, _, err := LexiconRepo.GetRecord(ctx, rpath)
+		oldCid, _, err := LexiconRepo.GetRecordBytes(ctx, rpath)
 		if errors.Is(err, mst.ErrNotFound) {
 			_, err = LexiconRepo.PutRecord(ctx, rpath, sfw)
 			if err != nil {

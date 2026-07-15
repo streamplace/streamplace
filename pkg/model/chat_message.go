@@ -38,10 +38,10 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageView, error) {
+func (m *ChatMessage) ToStreamplaceMessageView() (*placestream.ChatDefs_MessageView, error) {
 	var msg placestream.ChatMessage
 	if err := glex.DecodeCBOR(*m.ChatMessage, &msg); err != nil {
-		return placestream.ChatDefs_MessageView{}, fmt.Errorf("error decoding chat message: %w", err)
+		return nil, fmt.Errorf("error decoding chat message: %w", err)
 	}
 	// Truncate overlong message text
 	if uniseg.GraphemeClusterCount(msg.Text) > 300 {
@@ -69,7 +69,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageVi
 	if m.ChatProfile != nil {
 		scp, err := m.ChatProfile.ToStreamplaceChatProfile()
 		if err != nil {
-			return placestream.ChatDefs_MessageView{}, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
+			return nil, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
 		}
 		message.ChatProfile = &scp
 	} else {
@@ -83,13 +83,13 @@ func (m *ChatMessage) ToStreamplaceMessageView() (placestream.ChatDefs_MessageVi
 	if m.ReplyTo != nil {
 		replyTo, err := m.ReplyTo.ToStreamplaceMessageView()
 		if err != nil {
-			return placestream.ChatDefs_MessageView{}, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
+			return nil, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
 		}
 		message.ReplyTo = &placestream.ChatDefs_MessageView_ReplyTo{
-			ChatDefs_MessageView: &replyTo,
+			ChatDefs_MessageView: replyTo,
 		}
 	}
-	return message, nil
+	return &message, nil
 }
 
 func (m *DBModel) CreateChatMessage(ctx context.Context, message *ChatMessage) error {
@@ -160,7 +160,7 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs
 		if err != nil {
 			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 		}
-		spmessages = append(spmessages, spmessage)
+		spmessages = append(spmessages, *spmessage)
 	}
 	return spmessages, nil
 }

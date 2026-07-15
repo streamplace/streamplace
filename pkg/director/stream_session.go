@@ -342,12 +342,12 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 			}
-			if !shouldNotify(&lsv) {
+			if !shouldNotify(lsv) {
 				log.Debug(ctx, "is not set to notify", "repoDID", spseg.Creator)
 				return nil
 			}
 			task := &statedb.NotificationTask{
-				Livestream: lsv,
+				Livestream: *lsv,
 				PDSURL:     r.PDS,
 			}
 			cp, err := ss.mod.GetChatProfile(ctx, spseg.Creator)

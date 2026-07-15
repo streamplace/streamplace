@@ -98,7 +98,7 @@ func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *plac
 	// Apply only the editable fields present in the partial input. The server-
 	// authoritative fields (source, durationMs, status, error) are never touched
 	// here — the closure only mutates editable metadata.
-	updated, err := s.statefulDB.UpdateDraftMetadata(ctx, body.Uri, func(rec placestream.VodDraftVideo) {
+	updated, err := s.statefulDB.UpdateDraftMetadata(ctx, body.Uri, func(rec *placestream.VodDraftVideo) {
 		if body.Title != nil {
 			rec.Title = *body.Title
 		}
@@ -177,7 +177,7 @@ func (s *Server) handlePlaceStreamVodCreateDraft(ctx context.Context, body *plac
 	} else if banned {
 		return nil, echo.NewHTTPError(http.StatusForbidden, "account is not permitted to publish videos")
 	}
-	dv, err := s.statefulDB.CreateDraft(ctx, session.DID, "", placestream.VodDraftVideo{
+	dv, err := s.statefulDB.CreateDraft(ctx, session.DID, "", &placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         "Untitled",
 		Status:        "processing",
@@ -263,7 +263,7 @@ func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string
 		},
 	}}
 
-	return s.statefulDB.CreateDraft(ctx, did, uploadID, draftRec)
+	return s.statefulDB.CreateDraft(ctx, did, uploadID, &draftRec)
 }
 
 // livestreamActivityToDraft maps a livestream's activity union onto the draft's

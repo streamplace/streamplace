@@ -111,7 +111,7 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
 	}
-	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
+	outCID, _, err := r.GetRecordBytes(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
 	}

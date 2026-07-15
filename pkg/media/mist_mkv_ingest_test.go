@@ -27,6 +27,14 @@ import (
 // stack dump). With transcode=true the node keys are supplied so the worker
 // completes to dual-codec, as production does.
 func runMKVThroughIngestWorker(t *testing.T, mkv []byte, transcode bool) (int, error) {
+	segs, err := runMKVThroughIngestWorkerSegments(t, mkv, transcode)
+	return len(segs), err
+}
+
+// runMKVThroughIngestWorkerSegments is runMKVThroughIngestWorker returning the
+// raw segment payloads, for tests that validate the emitted segments rather
+// than just count them.
+func runMKVThroughIngestWorkerSegments(t *testing.T, mkv []byte, transcode bool) ([][]byte, error) {
 	t.Helper()
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 10 * time.Second
@@ -59,15 +67,15 @@ func runMKVThroughIngestWorker(t *testing.T, mkv []byte, transcode bool) (int, e
 	runErr := RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(&buf), func() []byte { return cfg.Manifest })
 
 	r := ingestframe.NewReader(&buf)
-	segs := 0
+	var segs [][]byte
 	for {
-		typ, _, rerr := r.ReadFrame()
+		typ, payload, rerr := r.ReadFrame()
 		if errors.Is(rerr, io.EOF) {
 			break
 		}
 		require.NoError(t, rerr)
 		if typ == ingestframe.Segment {
-			segs++
+			segs = append(segs, payload)
 		}
 	}
 	return segs, runErr
@@ -185,6 +193,71 @@ func TestMKVIngestMistTail(t *testing.T) {
 	require.NoError(t, err, "tail of production sample ingests cleanly")
 	// 135s..164s at ~1s GoPs ≈ 29 segments; wedging yields ~5.
 	require.GreaterOrEqual(t, segs, 20, "tail sample emits segments past the keyframe-only transition")
+}
+
+// makeBFrameAACMKV synthesizes an H264 stream WITH B-frames (PTS ≠ DTS)
+// alongside AAC audio in a streamable MKV — the shape a hardware encoder or
+// non-zerolatency x264 push produces. Matroska blocks carry only presentation
+// timestamps, so on demux the reordered video arrives with dts=none; without
+// DTS reconstruction the fMP4 muxer stretches the video track and every
+// segment fails validation downstream (see buildMKVIngestPipeline's
+// h264timestamper). b-adapt=false forces x264 to actually emit the configured
+// B-frames rather than deciding per-scene.
+func makeBFrameAACMKV(t *testing.T, ctx context.Context, seconds int) []byte {
+	t.Helper()
+	gstinit.InitGST()
+	desc := strings.Join([]string{
+		fmt.Sprintf("videotestsrc num-buffers=%d ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc bframes=2 b-adapt=false key-int-max=30 speed-preset=veryfast ! h264parse ! matroskamux name=mux streamable=true ! appsink name=sink", seconds*30),
+		fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mux.", seconds*47),
+	}, "\n")
+	pipeline, err := gst.NewPipelineFromString(desc)
+	require.NoError(t, err)
+
+	sinkEle, err := pipeline.GetElementByName("sink")
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &buf),
+	})
+
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NoError(t, <-busErr, "synthesize B-frame MKV")
+	require.NotEmpty(t, buf.Bytes())
+	return buf.Bytes()
+}
+
+// TestMKVIngestBFramesValidate is the regression test for B-frame MKV ingest:
+// every emitted segment must survive the full ValidateMP4Media chokepoint.
+// Before DTS reconstruction, mp4mux treated the reordered (dts=none) B-frame
+// PTS as monotonic timing, stretching the video track ~2.2×; the segments
+// LOOKED fine (both tracks present, signatures valid) but the video/audio
+// duration mismatch made push-mode qtdemux EOS the audio pad before the audio
+// bytes arrived — muxl's flat wrap is non-interleaved, video first — and every
+// segment was rejected with "no audio in segment".
+func TestMKVIngestBFramesValidate(t *testing.T) {
+	ctx := context.Background()
+	mkv := makeBFrameAACMKV(t, ctx, 8)
+
+	segs, err := runMKVThroughIngestWorkerSegments(t, mkv, false)
+	require.NoError(t, err, "B-frame stream ingests cleanly")
+	require.GreaterOrEqual(t, len(segs), 6, "B-frame stream emits its segments")
+
+	sawBFrames := false
+	for i, seg := range segs {
+		res, verr := ValidateMP4Media(ctx, seg)
+		require.NoError(t, verr, "segment %d validates (video+audio both present)", i)
+		dur := time.Duration(res.MediaData.Duration)
+		require.Greater(t, dur, 500*time.Millisecond, "segment %d duration sane", i)
+		require.Less(t, dur, 2*time.Second, "segment %d duration not stretched", i)
+		if res.MediaData.Video[0].BFrames {
+			sawBFrames = true
+		}
+	}
+	require.True(t, sawBFrames, "synthesized stream actually contains B-frames — if this fails the test no longer exercises the reorder path")
+	t.Logf("B-frame stream: %d segments, all validated", len(segs))
 }
 
 // TestMKVIngestMistFullSampleNoTranscode is TestMKVIngestMistFullSample

@@ -448,7 +448,6 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			return
 		}
 		ctx := log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
-		log.Warn(ctx, "got event")
 
 		if len(CollectionFilter) > 0 {
 			keep := slices.Contains(CollectionFilter, collection.String())

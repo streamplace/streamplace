@@ -54,7 +54,19 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          set -o pipefail
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}" 2>&1 | tee make-node.log
+
+      # Temporary debugging: surface the tail of the make node log as an
+      # artifact so failures inside the container are diagnosable without
+      # log access. Remove once linux-amd64 is green.
+      - name: Upload make node log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make-node-log-${{ matrix.name }}-${{ github.sha }}
+          path: ./make-node.log
+          retention-days: 1
 
       - name: Publish Test Report
         if: matrix.name == 'linux-amd64' && (success() || failure())

@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -194,6 +195,7 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "publishDraft", "did", session.DID, "draftUri", body.Uri)
 	if body.Uri == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}

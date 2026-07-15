@@ -294,7 +294,14 @@ func (m *Manager) notifyLoop(ctx context.Context) {
 
 func (m *Manager) onComplete(ctx context.Context, ev tushandler.HookEvent) {
 	id := ev.Upload.ID
-	ctx = log.WithLogValues(ctx, "uploadId", id)
+	// The createUpload XRPC stashed the owner's DID in the TUS metadata;
+	// thread it into the log context so every downstream log line (complete,
+	// enqueue, draft creation) carries the user this upload belongs to.
+	did := ""
+	if ev.Upload.MetaData != nil {
+		did = ev.Upload.MetaData["did"]
+	}
+	ctx = log.WithLogValues(ctx, "uploadId", id, "did", did)
 	log.Log(ctx, "upload complete", "size", ev.Upload.Size)
 
 	location := ""

@@ -1,0 +1,151 @@
+{
+  "id": "games.gamesgamesgamesgames.search",
+  "defs": {
+    "main": {
+      "type": "query",
+      "output": {
+        "schema": {
+          "type": "object",
+          "required": [
+            "results"
+          ],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "refs": [
+                  "games.gamesgamesgamesgames.defs#gameSummaryView",
+                  "games.gamesgamesgamesgames.defs#profileSummaryView",
+                  "games.gamesgamesgamesgames.defs#platformSummaryView",
+                  "games.gamesgamesgamesgames.defs#collectionSummaryView",
+                  "games.gamesgamesgamesgames.defs#engineSummaryView"
+                ],
+                "type": "union"
+              }
+            },
+            "totalResults": {
+              "type": "integer",
+              "description": "Total number of results matching the query above the relevance threshold."
+            }
+          }
+        },
+        "encoding": "application/json"
+      },
+      "parameters": {
+        "type": "params",
+        "required": [
+          "q"
+        ],
+        "properties": {
+          "q": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1
+          },
+          "sort": {
+            "type": "string",
+            "knownValues": [
+              "name_asc",
+              "name_desc",
+              "published_asc",
+              "published_desc"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "default": 20,
+            "maximum": 100,
+            "minimum": 1
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "knownValues": [
+                "game",
+                "profile",
+                "platform",
+                "collection",
+                "engine"
+              ]
+            }
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "themes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ageRatings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Filter game results by age rating in 'organization:rating' format (e.g. esrb:M, pegi:Eighteen)."
+          },
+          "includeUnrated": {
+            "type": "boolean",
+            "default": false,
+            "description": "When age rating filters are active, also include games with no age ratings."
+          },
+          "applicationTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "knownValues": [
+                "addon",
+                "bundle",
+                "dlc",
+                "episode",
+                "expandedGame",
+                "expansion",
+                "fork",
+                "game",
+                "mod",
+                "pack",
+                "port",
+                "remake",
+                "remaster",
+                "season",
+                "standaloneExpansion",
+                "update"
+              ]
+            },
+            "description": "Filter game results by application type (e.g. game, dlc, bundle). Only applies when types includes game."
+          },
+          "includeCancelled": {
+            "type": "boolean",
+            "default": false
+          },
+          "playerPerspectives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "description": "Search across all entity types (games, profiles, platforms, collections, engines)."
+    }
+  },
+  "$type": "com.atproto.lexicon.schema",
+  "lexicon": 1
+}

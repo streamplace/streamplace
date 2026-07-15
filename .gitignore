@@ -27,7 +27,3 @@ js/app/src/build-info.json
 *.env
 muxl.wasm
 /moderation
-lexicons/app
-lexicons/com
-lexicons/tools
-lexicons/games

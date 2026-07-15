@@ -373,9 +373,12 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		// returns gorm.ErrRecordNotFound (or nil session via callers that
 		// swallow it) when the repo has never logged in here.
 		session, err := state.GetSessionByDID(livestream.RepoDID)
-		if err != nil || session == nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && session == nil) {
 			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
 			return state.CompleteTask(ctx, task.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
 		}
 		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
 		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))

@@ -417,7 +417,7 @@ md-lexicons:
 	&& ls -R .build/temp \
 	&& cp -rf .build/temp/place/stream/* js/docs/src/content/docs/lex-reference/ \
 	&& rm -rf .build/temp \
-	&& find js/docs/src/content/docs/lex-reference -type f  | xargs prettier --write --ignore-unknown
+	&& find js/docs/src/content/docs/lex-reference -type f  | xargs pnpm exec prettier --write --ignore-unknown
 
 .PHONY: ci-lexicons
 ci-lexicons:

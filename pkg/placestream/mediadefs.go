@@ -39,8 +39,10 @@ func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs#muxlTrack"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.defs#muxlTrack"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error {
@@ -68,8 +70,10 @@ func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs#sourceClip"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.defs#sourceClip"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error {
@@ -93,8 +97,10 @@ func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.defs#sourceTracks"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.defs#sourceTracks"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error {

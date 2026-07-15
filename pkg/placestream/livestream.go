@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -52,11 +51,13 @@ type Livestream struct {
 // RecordTypeID implements glex.Record.
 func (t *Livestream) RecordTypeID() string { return "place.stream.livestream" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *Livestream) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// Livestream and *Livestream marshal with $type.
+func (t Livestream) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.livestream"
 	type alias Livestream
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *Livestream) MarshalCBOR(w io.Writer) error {
@@ -64,8 +65,10 @@ func (t *Livestream) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream) UnmarshalCBOR(r io.Reader) error {
@@ -76,18 +79,33 @@ func (t *Livestream) UnmarshalCBOR(r io.Reader) error {
 type Livestream_Activity struct {
 	Defs_ActivityGame  *Defs_ActivityGame
 	Defs_ActivityLabel *Defs_ActivityLabel
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *Livestream_Activity) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both Livestream_Activity and *Livestream_Activity marshal correctly.
+func (t Livestream_Activity) MarshalJSON() ([]byte, error) {
 	if t.Defs_ActivityGame != nil {
-		t.Defs_ActivityGame.LexiconTypeID = "place.stream.defs#activityGame"
-		return json.Marshal(t.Defs_ActivityGame)
+		cp := *t.Defs_ActivityGame
+		cp.LexiconTypeID = "place.stream.defs#activityGame"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_ActivityLabel != nil {
-		t.Defs_ActivityLabel.LexiconTypeID = "place.stream.defs#activityLabel"
-		return json.Marshal(t.Defs_ActivityLabel)
+		cp := *t.Defs_ActivityLabel
+		cp.LexiconTypeID = "place.stream.defs#activityLabel"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union Livestream_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Livestream_Activity as JSON")
 }
 
 func (t *Livestream_Activity) UnmarshalJSON(b []byte) error {
@@ -104,27 +122,37 @@ func (t *Livestream_Activity) UnmarshalJSON(b []byte) error {
 		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
 		return json.Unmarshal(b, t.Defs_ActivityLabel)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *Livestream_Activity) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t Livestream_Activity) MarshalCBOR() ([]byte, error) {
 	if t.Defs_ActivityGame != nil {
-		return t.Defs_ActivityGame.MarshalCBOR(w)
+		cp := *t.Defs_ActivityGame
+		cp.LexiconTypeID = "place.stream.defs#activityGame"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_ActivityLabel != nil {
-		return t.Defs_ActivityLabel.MarshalCBOR(w)
+		cp := *t.Defs_ActivityLabel
+		cp.LexiconTypeID = "place.stream.defs#activityLabel"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union Livestream_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Livestream_Activity as CBOR")
 }
 
-func (t *Livestream_Activity) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *Livestream_Activity) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -132,11 +160,12 @@ func (t *Livestream_Activity) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.defs#activityGame":
 		t.Defs_ActivityGame = new(Defs_ActivityGame)
-		return t.Defs_ActivityGame.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_ActivityGame)
 	case "place.stream.defs#activityLabel":
 		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
-		return t.Defs_ActivityLabel.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_ActivityLabel)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -163,8 +192,10 @@ func (t *Livestream_LivestreamView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#livestreamView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#livestreamView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_LivestreamView) UnmarshalCBOR(r io.Reader) error {
@@ -188,8 +219,10 @@ func (t *Livestream_NotificationSettings) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#notificationSettings"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#notificationSettings"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_NotificationSettings) UnmarshalCBOR(r io.Reader) error {
@@ -212,8 +245,10 @@ func (t *Livestream_StreamplaceAnything) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#streamplaceAnything"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#streamplaceAnything"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_StreamplaceAnything) UnmarshalCBOR(r io.Reader) error {
@@ -230,46 +265,68 @@ type Livestream_StreamplaceAnything_Livestream struct {
 	Livestream_TeleportArrival  *Livestream_TeleportArrival
 	Livestream_TeleportCanceled *Livestream_TeleportCanceled
 	Livestream_ViewerCount      *Livestream_ViewerCount
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both Livestream_StreamplaceAnything_Livestream and *Livestream_StreamplaceAnything_Livestream marshal correctly.
+func (t Livestream_StreamplaceAnything_Livestream) MarshalJSON() ([]byte, error) {
 	if t.ChatDefs_MessageView != nil {
-		t.ChatDefs_MessageView.LexiconTypeID = "place.stream.chat.defs#messageView"
-		return json.Marshal(t.ChatDefs_MessageView)
+		cp := *t.ChatDefs_MessageView
+		cp.LexiconTypeID = "place.stream.chat.defs#messageView"
+		return json.Marshal(&cp)
 	}
 	if t.ChatDefs_PinnedRecordView != nil {
-		t.ChatDefs_PinnedRecordView.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
-		return json.Marshal(t.ChatDefs_PinnedRecordView)
+		cp := *t.ChatDefs_PinnedRecordView
+		cp.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_BlockView != nil {
-		t.Defs_BlockView.LexiconTypeID = "place.stream.defs#blockView"
-		return json.Marshal(t.Defs_BlockView)
+		cp := *t.Defs_BlockView
+		cp.LexiconTypeID = "place.stream.defs#blockView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_Rendition != nil {
-		t.Defs_Rendition.LexiconTypeID = "place.stream.defs#rendition"
-		return json.Marshal(t.Defs_Rendition)
+		cp := *t.Defs_Rendition
+		cp.LexiconTypeID = "place.stream.defs#rendition"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_Renditions != nil {
-		t.Defs_Renditions.LexiconTypeID = "place.stream.defs#renditions"
-		return json.Marshal(t.Defs_Renditions)
+		cp := *t.Defs_Renditions
+		cp.LexiconTypeID = "place.stream.defs#renditions"
+		return json.Marshal(&cp)
 	}
 	if t.Livestream_LivestreamView != nil {
-		t.Livestream_LivestreamView.LexiconTypeID = "place.stream.livestream#livestreamView"
-		return json.Marshal(t.Livestream_LivestreamView)
+		cp := *t.Livestream_LivestreamView
+		cp.LexiconTypeID = "place.stream.livestream#livestreamView"
+		return json.Marshal(&cp)
 	}
 	if t.Livestream_TeleportArrival != nil {
-		t.Livestream_TeleportArrival.LexiconTypeID = "place.stream.livestream#teleportArrival"
-		return json.Marshal(t.Livestream_TeleportArrival)
+		cp := *t.Livestream_TeleportArrival
+		cp.LexiconTypeID = "place.stream.livestream#teleportArrival"
+		return json.Marshal(&cp)
 	}
 	if t.Livestream_TeleportCanceled != nil {
-		t.Livestream_TeleportCanceled.LexiconTypeID = "place.stream.livestream#teleportCanceled"
-		return json.Marshal(t.Livestream_TeleportCanceled)
+		cp := *t.Livestream_TeleportCanceled
+		cp.LexiconTypeID = "place.stream.livestream#teleportCanceled"
+		return json.Marshal(&cp)
 	}
 	if t.Livestream_ViewerCount != nil {
-		t.Livestream_ViewerCount.LexiconTypeID = "place.stream.livestream#viewerCount"
-		return json.Marshal(t.Livestream_ViewerCount)
+		cp := *t.Livestream_ViewerCount
+		cp.LexiconTypeID = "place.stream.livestream#viewerCount"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union Livestream_StreamplaceAnything_Livestream", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Livestream_StreamplaceAnything_Livestream as JSON")
 }
 
 func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) error {
@@ -307,48 +364,72 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalJSON(b []byte) erro
 		t.Livestream_ViewerCount = new(Livestream_ViewerCount)
 		return json.Unmarshal(b, t.Livestream_ViewerCount)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *Livestream_StreamplaceAnything_Livestream) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t Livestream_StreamplaceAnything_Livestream) MarshalCBOR() ([]byte, error) {
 	if t.ChatDefs_MessageView != nil {
-		return t.ChatDefs_MessageView.MarshalCBOR(w)
+		cp := *t.ChatDefs_MessageView
+		cp.LexiconTypeID = "place.stream.chat.defs#messageView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ChatDefs_PinnedRecordView != nil {
-		return t.ChatDefs_PinnedRecordView.MarshalCBOR(w)
+		cp := *t.ChatDefs_PinnedRecordView
+		cp.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_BlockView != nil {
-		return t.Defs_BlockView.MarshalCBOR(w)
+		cp := *t.Defs_BlockView
+		cp.LexiconTypeID = "place.stream.defs#blockView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_Rendition != nil {
-		return t.Defs_Rendition.MarshalCBOR(w)
+		cp := *t.Defs_Rendition
+		cp.LexiconTypeID = "place.stream.defs#rendition"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_Renditions != nil {
-		return t.Defs_Renditions.MarshalCBOR(w)
+		cp := *t.Defs_Renditions
+		cp.LexiconTypeID = "place.stream.defs#renditions"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Livestream_LivestreamView != nil {
-		return t.Livestream_LivestreamView.MarshalCBOR(w)
+		cp := *t.Livestream_LivestreamView
+		cp.LexiconTypeID = "place.stream.livestream#livestreamView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Livestream_TeleportArrival != nil {
-		return t.Livestream_TeleportArrival.MarshalCBOR(w)
+		cp := *t.Livestream_TeleportArrival
+		cp.LexiconTypeID = "place.stream.livestream#teleportArrival"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Livestream_TeleportCanceled != nil {
-		return t.Livestream_TeleportCanceled.MarshalCBOR(w)
+		cp := *t.Livestream_TeleportCanceled
+		cp.LexiconTypeID = "place.stream.livestream#teleportCanceled"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Livestream_ViewerCount != nil {
-		return t.Livestream_ViewerCount.MarshalCBOR(w)
+		cp := *t.Livestream_ViewerCount
+		cp.LexiconTypeID = "place.stream.livestream#viewerCount"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union Livestream_StreamplaceAnything_Livestream", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Livestream_StreamplaceAnything_Livestream as CBOR")
 }
 
-func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -356,32 +437,33 @@ func (t *Livestream_StreamplaceAnything_Livestream) UnmarshalCBOR(r io.Reader) e
 	switch typ {
 	case "place.stream.chat.defs#messageView":
 		t.ChatDefs_MessageView = new(ChatDefs_MessageView)
-		return t.ChatDefs_MessageView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ChatDefs_MessageView)
 	case "place.stream.chat.defs#pinnedRecordView":
 		t.ChatDefs_PinnedRecordView = new(ChatDefs_PinnedRecordView)
-		return t.ChatDefs_PinnedRecordView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ChatDefs_PinnedRecordView)
 	case "place.stream.defs#blockView":
 		t.Defs_BlockView = new(Defs_BlockView)
-		return t.Defs_BlockView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_BlockView)
 	case "place.stream.defs#rendition":
 		t.Defs_Rendition = new(Defs_Rendition)
-		return t.Defs_Rendition.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_Rendition)
 	case "place.stream.defs#renditions":
 		t.Defs_Renditions = new(Defs_Renditions)
-		return t.Defs_Renditions.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_Renditions)
 	case "place.stream.livestream#livestreamView":
 		t.Livestream_LivestreamView = new(Livestream_LivestreamView)
-		return t.Livestream_LivestreamView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Livestream_LivestreamView)
 	case "place.stream.livestream#teleportArrival":
 		t.Livestream_TeleportArrival = new(Livestream_TeleportArrival)
-		return t.Livestream_TeleportArrival.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Livestream_TeleportArrival)
 	case "place.stream.livestream#teleportCanceled":
 		t.Livestream_TeleportCanceled = new(Livestream_TeleportCanceled)
-		return t.Livestream_TeleportCanceled.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Livestream_TeleportCanceled)
 	case "place.stream.livestream#viewerCount":
 		t.Livestream_ViewerCount = new(Livestream_ViewerCount)
-		return t.Livestream_ViewerCount.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Livestream_ViewerCount)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -411,8 +493,10 @@ func (t *Livestream_TeleportArrival) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#teleportArrival"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#teleportArrival"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_TeleportArrival) UnmarshalCBOR(r io.Reader) error {
@@ -438,8 +522,10 @@ func (t *Livestream_TeleportCanceled) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#teleportCanceled"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#teleportCanceled"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_TeleportCanceled) UnmarshalCBOR(r io.Reader) error {
@@ -460,8 +546,10 @@ func (t *Livestream_ViewerCount) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.livestream#viewerCount"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.livestream#viewerCount"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Livestream_ViewerCount) UnmarshalCBOR(r io.Reader) error {

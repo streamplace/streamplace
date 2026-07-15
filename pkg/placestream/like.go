@@ -28,11 +28,13 @@ type Like struct {
 // RecordTypeID implements glex.Record.
 func (t *Like) RecordTypeID() string { return "place.stream.like" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *Like) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// Like and *Like marshal with $type.
+func (t Like) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.like"
 	type alias Like
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *Like) MarshalCBOR(w io.Writer) error {
@@ -40,8 +42,10 @@ func (t *Like) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.like"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.like"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Like) UnmarshalCBOR(r io.Reader) error {

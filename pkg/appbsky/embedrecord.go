@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,11 +26,13 @@ type EmbedRecord struct {
 // RecordTypeID implements glex.Record.
 func (t *EmbedRecord) RecordTypeID() string { return "app.bsky.embed.record" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *EmbedRecord) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// EmbedRecord and *EmbedRecord marshal with $type.
+func (t EmbedRecord) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.embed.record"
 	type alias EmbedRecord
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
@@ -39,8 +40,10 @@ func (t *EmbedRecord) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord) UnmarshalCBOR(r io.Reader) error {
@@ -61,8 +64,10 @@ func (t *EmbedRecord_View) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record#view"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record#view"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord_View) UnmarshalCBOR(r io.Reader) error {
@@ -78,42 +83,63 @@ type EmbedRecord_View_Record struct {
 	GraphDefs_ListView             *GraphDefs_ListView
 	GraphDefs_StarterPackViewBasic *GraphDefs_StarterPackViewBasic
 	LabelerDefs_LabelerView        *LabelerDefs_LabelerView
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both EmbedRecord_View_Record and *EmbedRecord_View_Record marshal correctly.
+func (t EmbedRecord_View_Record) MarshalJSON() ([]byte, error) {
 	if t.EmbedRecord_ViewBlocked != nil {
-		t.EmbedRecord_ViewBlocked.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
-		return json.Marshal(t.EmbedRecord_ViewBlocked)
+		cp := *t.EmbedRecord_ViewBlocked
+		cp.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecord_ViewDetached != nil {
-		t.EmbedRecord_ViewDetached.LexiconTypeID = "app.bsky.embed.record#viewDetached"
-		return json.Marshal(t.EmbedRecord_ViewDetached)
+		cp := *t.EmbedRecord_ViewDetached
+		cp.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecord_ViewNotFound != nil {
-		t.EmbedRecord_ViewNotFound.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
-		return json.Marshal(t.EmbedRecord_ViewNotFound)
+		cp := *t.EmbedRecord_ViewNotFound
+		cp.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecord_ViewRecord != nil {
-		t.EmbedRecord_ViewRecord.LexiconTypeID = "app.bsky.embed.record#viewRecord"
-		return json.Marshal(t.EmbedRecord_ViewRecord)
+		cp := *t.EmbedRecord_ViewRecord
+		cp.LexiconTypeID = "app.bsky.embed.record#viewRecord"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_GeneratorView != nil {
-		t.FeedDefs_GeneratorView.LexiconTypeID = "app.bsky.feed.defs#generatorView"
-		return json.Marshal(t.FeedDefs_GeneratorView)
+		cp := *t.FeedDefs_GeneratorView
+		cp.LexiconTypeID = "app.bsky.feed.defs#generatorView"
+		return json.Marshal(&cp)
 	}
 	if t.GraphDefs_ListView != nil {
-		t.GraphDefs_ListView.LexiconTypeID = "app.bsky.graph.defs#listView"
-		return json.Marshal(t.GraphDefs_ListView)
+		cp := *t.GraphDefs_ListView
+		cp.LexiconTypeID = "app.bsky.graph.defs#listView"
+		return json.Marshal(&cp)
 	}
 	if t.GraphDefs_StarterPackViewBasic != nil {
-		t.GraphDefs_StarterPackViewBasic.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
-		return json.Marshal(t.GraphDefs_StarterPackViewBasic)
+		cp := *t.GraphDefs_StarterPackViewBasic
+		cp.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+		return json.Marshal(&cp)
 	}
 	if t.LabelerDefs_LabelerView != nil {
-		t.LabelerDefs_LabelerView.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
-		return json.Marshal(t.LabelerDefs_LabelerView)
+		cp := *t.LabelerDefs_LabelerView
+		cp.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union EmbedRecord_View_Record", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedRecord_View_Record as JSON")
 }
 
 func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
@@ -148,45 +174,67 @@ func (t *EmbedRecord_View_Record) UnmarshalJSON(b []byte) error {
 		t.LabelerDefs_LabelerView = new(LabelerDefs_LabelerView)
 		return json.Unmarshal(b, t.LabelerDefs_LabelerView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *EmbedRecord_View_Record) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t EmbedRecord_View_Record) MarshalCBOR() ([]byte, error) {
 	if t.EmbedRecord_ViewBlocked != nil {
-		return t.EmbedRecord_ViewBlocked.MarshalCBOR(w)
+		cp := *t.EmbedRecord_ViewBlocked
+		cp.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecord_ViewDetached != nil {
-		return t.EmbedRecord_ViewDetached.MarshalCBOR(w)
+		cp := *t.EmbedRecord_ViewDetached
+		cp.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecord_ViewNotFound != nil {
-		return t.EmbedRecord_ViewNotFound.MarshalCBOR(w)
+		cp := *t.EmbedRecord_ViewNotFound
+		cp.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecord_ViewRecord != nil {
-		return t.EmbedRecord_ViewRecord.MarshalCBOR(w)
+		cp := *t.EmbedRecord_ViewRecord
+		cp.LexiconTypeID = "app.bsky.embed.record#viewRecord"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_GeneratorView != nil {
-		return t.FeedDefs_GeneratorView.MarshalCBOR(w)
+		cp := *t.FeedDefs_GeneratorView
+		cp.LexiconTypeID = "app.bsky.feed.defs#generatorView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.GraphDefs_ListView != nil {
-		return t.GraphDefs_ListView.MarshalCBOR(w)
+		cp := *t.GraphDefs_ListView
+		cp.LexiconTypeID = "app.bsky.graph.defs#listView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.GraphDefs_StarterPackViewBasic != nil {
-		return t.GraphDefs_StarterPackViewBasic.MarshalCBOR(w)
+		cp := *t.GraphDefs_StarterPackViewBasic
+		cp.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.LabelerDefs_LabelerView != nil {
-		return t.LabelerDefs_LabelerView.MarshalCBOR(w)
+		cp := *t.LabelerDefs_LabelerView
+		cp.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union EmbedRecord_View_Record", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedRecord_View_Record as CBOR")
 }
 
-func (t *EmbedRecord_View_Record) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *EmbedRecord_View_Record) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -194,29 +242,30 @@ func (t *EmbedRecord_View_Record) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.record#viewBlocked":
 		t.EmbedRecord_ViewBlocked = new(EmbedRecord_ViewBlocked)
-		return t.EmbedRecord_ViewBlocked.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_ViewBlocked)
 	case "app.bsky.embed.record#viewDetached":
 		t.EmbedRecord_ViewDetached = new(EmbedRecord_ViewDetached)
-		return t.EmbedRecord_ViewDetached.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_ViewDetached)
 	case "app.bsky.embed.record#viewNotFound":
 		t.EmbedRecord_ViewNotFound = new(EmbedRecord_ViewNotFound)
-		return t.EmbedRecord_ViewNotFound.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_ViewNotFound)
 	case "app.bsky.embed.record#viewRecord":
 		t.EmbedRecord_ViewRecord = new(EmbedRecord_ViewRecord)
-		return t.EmbedRecord_ViewRecord.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_ViewRecord)
 	case "app.bsky.feed.defs#generatorView":
 		t.FeedDefs_GeneratorView = new(FeedDefs_GeneratorView)
-		return t.FeedDefs_GeneratorView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_GeneratorView)
 	case "app.bsky.graph.defs#listView":
 		t.GraphDefs_ListView = new(GraphDefs_ListView)
-		return t.GraphDefs_ListView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.GraphDefs_ListView)
 	case "app.bsky.graph.defs#starterPackViewBasic":
 		t.GraphDefs_StarterPackViewBasic = new(GraphDefs_StarterPackViewBasic)
-		return t.GraphDefs_StarterPackViewBasic.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.GraphDefs_StarterPackViewBasic)
 	case "app.bsky.labeler.defs#labelerView":
 		t.LabelerDefs_LabelerView = new(LabelerDefs_LabelerView)
-		return t.LabelerDefs_LabelerView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.LabelerDefs_LabelerView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -237,8 +286,10 @@ func (t *EmbedRecord_ViewBlocked) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record#viewBlocked"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord_ViewBlocked) UnmarshalCBOR(r io.Reader) error {
@@ -260,8 +311,10 @@ func (t *EmbedRecord_ViewDetached) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record#viewDetached"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record#viewDetached"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord_ViewDetached) UnmarshalCBOR(r io.Reader) error {
@@ -283,8 +336,10 @@ func (t *EmbedRecord_ViewNotFound) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record#viewNotFound"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord_ViewNotFound) UnmarshalCBOR(r io.Reader) error {
@@ -316,8 +371,10 @@ func (t *EmbedRecord_ViewRecord) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.record#viewRecord"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.record#viewRecord"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedRecord_ViewRecord) UnmarshalCBOR(r io.Reader) error {
@@ -331,34 +388,53 @@ type EmbedRecord_ViewRecord_Embeds_Elem struct {
 	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
 	EmbedRecord_View          *EmbedRecord_View
 	EmbedVideo_View           *EmbedVideo_View
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both EmbedRecord_ViewRecord_Embeds_Elem and *EmbedRecord_ViewRecord_Embeds_Elem marshal correctly.
+func (t EmbedRecord_ViewRecord_Embeds_Elem) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
-		return json.Marshal(t.EmbedExternal_View)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedGallery_View != nil {
-		t.EmbedGallery_View.LexiconTypeID = "app.bsky.embed.gallery#view"
-		return json.Marshal(t.EmbedGallery_View)
+		cp := *t.EmbedGallery_View
+		cp.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedImages_View != nil {
-		t.EmbedImages_View.LexiconTypeID = "app.bsky.embed.images#view"
-		return json.Marshal(t.EmbedImages_View)
+		cp := *t.EmbedImages_View
+		cp.LexiconTypeID = "app.bsky.embed.images#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecordWithMedia_View != nil {
-		t.EmbedRecordWithMedia_View.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
-		return json.Marshal(t.EmbedRecordWithMedia_View)
+		cp := *t.EmbedRecordWithMedia_View
+		cp.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecord_View != nil {
-		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
-		return json.Marshal(t.EmbedRecord_View)
+		cp := *t.EmbedRecord_View
+		cp.LexiconTypeID = "app.bsky.embed.record#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedVideo_View != nil {
-		t.EmbedVideo_View.LexiconTypeID = "app.bsky.embed.video#view"
-		return json.Marshal(t.EmbedVideo_View)
+		cp := *t.EmbedVideo_View
+		cp.LexiconTypeID = "app.bsky.embed.video#view"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union EmbedRecord_ViewRecord_Embeds_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedRecord_ViewRecord_Embeds_Elem as JSON")
 }
 
 func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
@@ -387,39 +463,57 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalJSON(b []byte) error {
 		t.EmbedVideo_View = new(EmbedVideo_View)
 		return json.Unmarshal(b, t.EmbedVideo_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *EmbedRecord_ViewRecord_Embeds_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t EmbedRecord_ViewRecord_Embeds_Elem) MarshalCBOR() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		return t.EmbedExternal_View.MarshalCBOR(w)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedGallery_View != nil {
-		return t.EmbedGallery_View.MarshalCBOR(w)
+		cp := *t.EmbedGallery_View
+		cp.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedImages_View != nil {
-		return t.EmbedImages_View.MarshalCBOR(w)
+		cp := *t.EmbedImages_View
+		cp.LexiconTypeID = "app.bsky.embed.images#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecordWithMedia_View != nil {
-		return t.EmbedRecordWithMedia_View.MarshalCBOR(w)
+		cp := *t.EmbedRecordWithMedia_View
+		cp.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecord_View != nil {
-		return t.EmbedRecord_View.MarshalCBOR(w)
+		cp := *t.EmbedRecord_View
+		cp.LexiconTypeID = "app.bsky.embed.record#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedVideo_View != nil {
-		return t.EmbedVideo_View.MarshalCBOR(w)
+		cp := *t.EmbedVideo_View
+		cp.LexiconTypeID = "app.bsky.embed.video#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union EmbedRecord_ViewRecord_Embeds_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedRecord_ViewRecord_Embeds_Elem as CBOR")
 }
 
-func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -427,23 +521,24 @@ func (t *EmbedRecord_ViewRecord_Embeds_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
-		return t.EmbedExternal_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedExternal_View)
 	case "app.bsky.embed.gallery#view":
 		t.EmbedGallery_View = new(EmbedGallery_View)
-		return t.EmbedGallery_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedGallery_View)
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
-		return t.EmbedImages_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedImages_View)
 	case "app.bsky.embed.recordWithMedia#view":
 		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
-		return t.EmbedRecordWithMedia_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecordWithMedia_View)
 	case "app.bsky.embed.record#view":
 		t.EmbedRecord_View = new(EmbedRecord_View)
-		return t.EmbedRecord_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_View)
 	case "app.bsky.embed.video#view":
 		t.EmbedVideo_View = new(EmbedVideo_View)
-		return t.EmbedVideo_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedVideo_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

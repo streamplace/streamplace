@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,11 +32,13 @@ type FeedPostgate struct {
 // RecordTypeID implements glex.Record.
 func (t *FeedPostgate) RecordTypeID() string { return "app.bsky.feed.postgate" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *FeedPostgate) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// FeedPostgate and *FeedPostgate marshal with $type.
+func (t FeedPostgate) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.feed.postgate"
 	type alias FeedPostgate
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *FeedPostgate) MarshalCBOR(w io.Writer) error {
@@ -45,8 +46,10 @@ func (t *FeedPostgate) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.postgate"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.postgate"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedPostgate) UnmarshalCBOR(r io.Reader) error {
@@ -55,14 +58,28 @@ func (t *FeedPostgate) UnmarshalCBOR(r io.Reader) error {
 
 type FeedPostgate_EmbeddingRules_Elem struct {
 	FeedPostgate_DisableRule *FeedPostgate_DisableRule
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedPostgate_EmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedPostgate_EmbeddingRules_Elem and *FeedPostgate_EmbeddingRules_Elem marshal correctly.
+func (t FeedPostgate_EmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedPostgate_DisableRule != nil {
-		t.FeedPostgate_DisableRule.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
-		return json.Marshal(t.FeedPostgate_DisableRule)
+		cp := *t.FeedPostgate_DisableRule
+		cp.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedPostgate_EmbeddingRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedPostgate_EmbeddingRules_Elem as JSON")
 }
 
 func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
@@ -76,24 +93,32 @@ func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
 		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
 		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedPostgate_EmbeddingRules_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedPostgate_EmbeddingRules_Elem) MarshalCBOR() ([]byte, error) {
 	if t.FeedPostgate_DisableRule != nil {
-		return t.FeedPostgate_DisableRule.MarshalCBOR(w)
+		cp := *t.FeedPostgate_DisableRule
+		cp.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedPostgate_EmbeddingRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedPostgate_EmbeddingRules_Elem as CBOR")
 }
 
-func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -101,8 +126,9 @@ func (t *FeedPostgate_EmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.postgate#disableRule":
 		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
-		return t.FeedPostgate_DisableRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedPostgate_DisableRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -122,8 +148,10 @@ func (t *FeedPostgate_DisableRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedPostgate_DisableRule) UnmarshalCBOR(r io.Reader) error {

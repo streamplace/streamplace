@@ -30,8 +30,10 @@ func (t *ModerationDeleteGate_Input) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.deleteGate"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.moderation.deleteGate"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ModerationDeleteGate_Input) UnmarshalCBOR(r io.Reader) error {
@@ -52,8 +54,10 @@ func (t *ModerationDeleteGate_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.deleteGate"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.moderation.deleteGate"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ModerationDeleteGate_Output) UnmarshalCBOR(r io.Reader) error {

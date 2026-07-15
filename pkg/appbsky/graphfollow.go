@@ -28,11 +28,13 @@ type GraphFollow struct {
 // RecordTypeID implements glex.Record.
 func (t *GraphFollow) RecordTypeID() string { return "app.bsky.graph.follow" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *GraphFollow) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// GraphFollow and *GraphFollow marshal with $type.
+func (t GraphFollow) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.graph.follow"
 	type alias GraphFollow
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
@@ -40,8 +42,10 @@ func (t *GraphFollow) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.follow"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.follow"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphFollow) UnmarshalCBOR(r io.Reader) error {

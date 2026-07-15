@@ -35,8 +35,10 @@ func (t *SyncSubscribeRepos_Account) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#account"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#account"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_Account) UnmarshalCBOR(r io.Reader) error {
@@ -82,8 +84,10 @@ func (t *SyncSubscribeRepos_Commit) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#commit"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#commit"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_Commit) UnmarshalCBOR(r io.Reader) error {
@@ -112,8 +116,10 @@ func (t *SyncSubscribeRepos_Identity) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#identity"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#identity"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_Identity) UnmarshalCBOR(r io.Reader) error {
@@ -137,8 +143,10 @@ func (t *SyncSubscribeRepos_Info) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#info"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#info"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_Info) UnmarshalCBOR(r io.Reader) error {
@@ -168,8 +176,10 @@ func (t *SyncSubscribeRepos_RepoOp) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#repoOp"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#repoOp"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_RepoOp) UnmarshalCBOR(r io.Reader) error {
@@ -203,8 +213,10 @@ func (t *SyncSubscribeRepos_Sync) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.subscribeRepos#sync"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.subscribeRepos#sync"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncSubscribeRepos_Sync) UnmarshalCBOR(r io.Reader) error {

@@ -28,11 +28,13 @@ type LiveRecommendations struct {
 // RecordTypeID implements glex.Record.
 func (t *LiveRecommendations) RecordTypeID() string { return "place.stream.live.recommendations" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *LiveRecommendations) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// LiveRecommendations and *LiveRecommendations marshal with $type.
+func (t LiveRecommendations) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.live.recommendations"
 	type alias LiveRecommendations
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
@@ -40,8 +42,10 @@ func (t *LiveRecommendations) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.recommendations"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.live.recommendations"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LiveRecommendations) UnmarshalCBOR(r io.Reader) error {

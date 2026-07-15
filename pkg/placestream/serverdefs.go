@@ -28,8 +28,10 @@ func (t *ServerDefs_RewriteRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs#rewriteRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.defs#rewriteRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDefs_RewriteRule) UnmarshalCBOR(r io.Reader) error {
@@ -55,8 +57,10 @@ func (t *ServerDefs_Storage) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs#storage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.defs#storage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDefs_Storage) UnmarshalCBOR(r io.Reader) error {
@@ -106,8 +110,10 @@ func (t *ServerDefs_Webhook) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.defs#webhook"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.defs#webhook"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDefs_Webhook) UnmarshalCBOR(r io.Reader) error {

@@ -37,11 +37,13 @@ type MediaViewCount struct {
 // RecordTypeID implements glex.Record.
 func (t *MediaViewCount) RecordTypeID() string { return "place.stream.media.viewCount" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MediaViewCount) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MediaViewCount and *MediaViewCount marshal with $type.
+func (t MediaViewCount) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.media.viewCount"
 	type alias MediaViewCount
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
@@ -49,8 +51,10 @@ func (t *MediaViewCount) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.viewCount"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.viewCount"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaViewCount) UnmarshalCBOR(r io.Reader) error {
@@ -80,8 +84,10 @@ func (t *MediaViewCount_TrackUsage) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.viewCount#trackUsage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.viewCount#trackUsage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaViewCount_TrackUsage) UnmarshalCBOR(r io.Reader) error {

@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,8 +30,10 @@ func (t *ActorDefs_AdultContentPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_AdultContentPref) UnmarshalCBOR(r io.Reader) error {
@@ -57,8 +58,10 @@ func (t *ActorDefs_BskyAppProgressGuide) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#bskyAppProgressGuide"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#bskyAppProgressGuide"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_BskyAppProgressGuide) UnmarshalCBOR(r io.Reader) error {
@@ -89,8 +92,10 @@ func (t *ActorDefs_BskyAppStatePref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_BskyAppStatePref) UnmarshalCBOR(r io.Reader) error {
@@ -116,8 +121,10 @@ func (t *ActorDefs_ContentLabelPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ContentLabelPref) UnmarshalCBOR(r io.Reader) error {
@@ -147,8 +154,10 @@ func (t *ActorDefs_DeclaredAgePref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_DeclaredAgePref) UnmarshalCBOR(r io.Reader) error {
@@ -180,8 +189,10 @@ func (t *ActorDefs_FeedViewPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_FeedViewPref) UnmarshalCBOR(r io.Reader) error {
@@ -205,8 +216,10 @@ func (t *ActorDefs_HiddenPostsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_HiddenPostsPref) UnmarshalCBOR(r io.Reader) error {
@@ -228,8 +241,10 @@ func (t *ActorDefs_InterestsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_InterestsPref) UnmarshalCBOR(r io.Reader) error {
@@ -253,8 +268,10 @@ func (t *ActorDefs_KnownFollowers) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#knownFollowers"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#knownFollowers"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_KnownFollowers) UnmarshalCBOR(r io.Reader) error {
@@ -277,8 +294,10 @@ func (t *ActorDefs_LabelerPrefItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#labelerPrefItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#labelerPrefItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_LabelerPrefItem) UnmarshalCBOR(r io.Reader) error {
@@ -299,8 +318,10 @@ func (t *ActorDefs_LabelersPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_LabelersPref) UnmarshalCBOR(r io.Reader) error {
@@ -328,8 +349,10 @@ func (t *ActorDefs_LiveEventPreferences) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_LiveEventPreferences) UnmarshalCBOR(r io.Reader) error {
@@ -360,8 +383,10 @@ func (t *ActorDefs_MutedWord) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#mutedWord"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#mutedWord"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_MutedWord) UnmarshalCBOR(r io.Reader) error {
@@ -383,8 +408,10 @@ func (t *ActorDefs_MutedWordsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_MutedWordsPref) UnmarshalCBOR(r io.Reader) error {
@@ -412,8 +439,10 @@ func (t *ActorDefs_Nux) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#nux"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#nux"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_Nux) UnmarshalCBOR(r io.Reader) error {
@@ -437,8 +466,10 @@ func (t *ActorDefs_PersonalDetailsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_PersonalDetailsPref) UnmarshalCBOR(r io.Reader) error {
@@ -466,8 +497,10 @@ func (t *ActorDefs_PostInteractionSettingsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref) UnmarshalCBOR(r io.Reader) error {
@@ -476,14 +509,28 @@ func (t *ActorDefs_PostInteractionSettingsPref) UnmarshalCBOR(r io.Reader) error
 
 type ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem struct {
 	FeedPostgate_DisableRule *FeedPostgate_DisableRule
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem and *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem marshal correctly.
+func (t ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedPostgate_DisableRule != nil {
-		t.FeedPostgate_DisableRule.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
-		return json.Marshal(t.FeedPostgate_DisableRule)
+		cp := *t.FeedPostgate_DisableRule
+		cp.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem as JSON")
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalJSON(b []byte) error {
@@ -497,24 +544,32 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Unma
 		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
 		return json.Unmarshal(b, t.FeedPostgate_DisableRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) MarshalCBOR() ([]byte, error) {
 	if t.FeedPostgate_DisableRule != nil {
-		return t.FeedPostgate_DisableRule.MarshalCBOR(w)
+		cp := *t.FeedPostgate_DisableRule
+		cp.LexiconTypeID = "app.bsky.feed.postgate#disableRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem as CBOR")
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -522,8 +577,9 @@ func (t *ActorDefs_PostInteractionSettingsPref_PostgateEmbeddingRules_Elem) Unma
 	switch typ {
 	case "app.bsky.feed.postgate#disableRule":
 		t.FeedPostgate_DisableRule = new(FeedPostgate_DisableRule)
-		return t.FeedPostgate_DisableRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedPostgate_DisableRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -533,26 +589,43 @@ type ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem struct {
 	FeedThreadgate_FollowingRule *FeedThreadgate_FollowingRule
 	FeedThreadgate_ListRule      *FeedThreadgate_ListRule
 	FeedThreadgate_MentionRule   *FeedThreadgate_MentionRule
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem and *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem marshal correctly.
+func (t ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedThreadgate_FollowerRule != nil {
-		t.FeedThreadgate_FollowerRule.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
-		return json.Marshal(t.FeedThreadgate_FollowerRule)
+		cp := *t.FeedThreadgate_FollowerRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_FollowingRule != nil {
-		t.FeedThreadgate_FollowingRule.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
-		return json.Marshal(t.FeedThreadgate_FollowingRule)
+		cp := *t.FeedThreadgate_FollowingRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_ListRule != nil {
-		t.FeedThreadgate_ListRule.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
-		return json.Marshal(t.FeedThreadgate_ListRule)
+		cp := *t.FeedThreadgate_ListRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_MentionRule != nil {
-		t.FeedThreadgate_MentionRule.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
-		return json.Marshal(t.FeedThreadgate_MentionRule)
+		cp := *t.FeedThreadgate_MentionRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem as JSON")
 }
 
 func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalJSON(b []byte) error {
@@ -575,33 +648,47 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Unmars
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
 		return json.Unmarshal(b, t.FeedThreadgate_MentionRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) MarshalCBOR() ([]byte, error) {
 	if t.FeedThreadgate_FollowerRule != nil {
-		return t.FeedThreadgate_FollowerRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_FollowerRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_FollowingRule != nil {
-		return t.FeedThreadgate_FollowingRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_FollowingRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_ListRule != nil {
-		return t.FeedThreadgate_ListRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_ListRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_MentionRule != nil {
-		return t.FeedThreadgate_MentionRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_MentionRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem as CBOR")
 }
 
-func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -609,17 +696,18 @@ func (t *ActorDefs_PostInteractionSettingsPref_ThreadgateAllowRules_Elem) Unmars
 	switch typ {
 	case "app.bsky.feed.threadgate#followerRule":
 		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
-		return t.FeedThreadgate_FollowerRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_FollowerRule)
 	case "app.bsky.feed.threadgate#followingRule":
 		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
-		return t.FeedThreadgate_FollowingRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_FollowingRule)
 	case "app.bsky.feed.threadgate#listRule":
 		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
-		return t.FeedThreadgate_ListRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_ListRule)
 	case "app.bsky.feed.threadgate#mentionRule":
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
-		return t.FeedThreadgate_MentionRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_MentionRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -641,74 +729,103 @@ type ActorDefs_Preferences struct {
 	ActorDefs_SavedFeedsPrefV2            *ActorDefs_SavedFeedsPrefV2
 	ActorDefs_ThreadViewPref              *ActorDefs_ThreadViewPref
 	ActorDefs_VerificationPrefs           *ActorDefs_VerificationPrefs
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorDefs_Preferences and *ActorDefs_Preferences marshal correctly.
+func (t ActorDefs_Preferences) MarshalJSON() ([]byte, error) {
 	if t.ActorDefs_AdultContentPref != nil {
-		t.ActorDefs_AdultContentPref.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
-		return json.Marshal(t.ActorDefs_AdultContentPref)
+		cp := *t.ActorDefs_AdultContentPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_BskyAppStatePref != nil {
-		t.ActorDefs_BskyAppStatePref.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
-		return json.Marshal(t.ActorDefs_BskyAppStatePref)
+		cp := *t.ActorDefs_BskyAppStatePref
+		cp.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_ContentLabelPref != nil {
-		t.ActorDefs_ContentLabelPref.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
-		return json.Marshal(t.ActorDefs_ContentLabelPref)
+		cp := *t.ActorDefs_ContentLabelPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_DeclaredAgePref != nil {
-		t.ActorDefs_DeclaredAgePref.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
-		return json.Marshal(t.ActorDefs_DeclaredAgePref)
+		cp := *t.ActorDefs_DeclaredAgePref
+		cp.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_FeedViewPref != nil {
-		t.ActorDefs_FeedViewPref.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
-		return json.Marshal(t.ActorDefs_FeedViewPref)
+		cp := *t.ActorDefs_FeedViewPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_HiddenPostsPref != nil {
-		t.ActorDefs_HiddenPostsPref.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
-		return json.Marshal(t.ActorDefs_HiddenPostsPref)
+		cp := *t.ActorDefs_HiddenPostsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_InterestsPref != nil {
-		t.ActorDefs_InterestsPref.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
-		return json.Marshal(t.ActorDefs_InterestsPref)
+		cp := *t.ActorDefs_InterestsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_LabelersPref != nil {
-		t.ActorDefs_LabelersPref.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
-		return json.Marshal(t.ActorDefs_LabelersPref)
+		cp := *t.ActorDefs_LabelersPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_LiveEventPreferences != nil {
-		t.ActorDefs_LiveEventPreferences.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
-		return json.Marshal(t.ActorDefs_LiveEventPreferences)
+		cp := *t.ActorDefs_LiveEventPreferences
+		cp.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_MutedWordsPref != nil {
-		t.ActorDefs_MutedWordsPref.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
-		return json.Marshal(t.ActorDefs_MutedWordsPref)
+		cp := *t.ActorDefs_MutedWordsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_PersonalDetailsPref != nil {
-		t.ActorDefs_PersonalDetailsPref.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
-		return json.Marshal(t.ActorDefs_PersonalDetailsPref)
+		cp := *t.ActorDefs_PersonalDetailsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_PostInteractionSettingsPref != nil {
-		t.ActorDefs_PostInteractionSettingsPref.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
-		return json.Marshal(t.ActorDefs_PostInteractionSettingsPref)
+		cp := *t.ActorDefs_PostInteractionSettingsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_SavedFeedsPref != nil {
-		t.ActorDefs_SavedFeedsPref.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
-		return json.Marshal(t.ActorDefs_SavedFeedsPref)
+		cp := *t.ActorDefs_SavedFeedsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_SavedFeedsPrefV2 != nil {
-		t.ActorDefs_SavedFeedsPrefV2.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
-		return json.Marshal(t.ActorDefs_SavedFeedsPrefV2)
+		cp := *t.ActorDefs_SavedFeedsPrefV2
+		cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_ThreadViewPref != nil {
-		t.ActorDefs_ThreadViewPref.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
-		return json.Marshal(t.ActorDefs_ThreadViewPref)
+		cp := *t.ActorDefs_ThreadViewPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
+		return json.Marshal(&cp)
 	}
 	if t.ActorDefs_VerificationPrefs != nil {
-		t.ActorDefs_VerificationPrefs.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
-		return json.Marshal(t.ActorDefs_VerificationPrefs)
+		cp := *t.ActorDefs_VerificationPrefs
+		cp.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorDefs_Preferences", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_Preferences as JSON")
 }
 
 func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
@@ -767,69 +884,107 @@ func (t *ActorDefs_Preferences) UnmarshalJSON(b []byte) error {
 		t.ActorDefs_VerificationPrefs = new(ActorDefs_VerificationPrefs)
 		return json.Unmarshal(b, t.ActorDefs_VerificationPrefs)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorDefs_Preferences) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorDefs_Preferences) MarshalCBOR() ([]byte, error) {
 	if t.ActorDefs_AdultContentPref != nil {
-		return t.ActorDefs_AdultContentPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_AdultContentPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#adultContentPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_BskyAppStatePref != nil {
-		return t.ActorDefs_BskyAppStatePref.MarshalCBOR(w)
+		cp := *t.ActorDefs_BskyAppStatePref
+		cp.LexiconTypeID = "app.bsky.actor.defs#bskyAppStatePref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_ContentLabelPref != nil {
-		return t.ActorDefs_ContentLabelPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_ContentLabelPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#contentLabelPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_DeclaredAgePref != nil {
-		return t.ActorDefs_DeclaredAgePref.MarshalCBOR(w)
+		cp := *t.ActorDefs_DeclaredAgePref
+		cp.LexiconTypeID = "app.bsky.actor.defs#declaredAgePref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_FeedViewPref != nil {
-		return t.ActorDefs_FeedViewPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_FeedViewPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#feedViewPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_HiddenPostsPref != nil {
-		return t.ActorDefs_HiddenPostsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_HiddenPostsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#hiddenPostsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_InterestsPref != nil {
-		return t.ActorDefs_InterestsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_InterestsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#interestsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_LabelersPref != nil {
-		return t.ActorDefs_LabelersPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_LabelersPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#labelersPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_LiveEventPreferences != nil {
-		return t.ActorDefs_LiveEventPreferences.MarshalCBOR(w)
+		cp := *t.ActorDefs_LiveEventPreferences
+		cp.LexiconTypeID = "app.bsky.actor.defs#liveEventPreferences"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_MutedWordsPref != nil {
-		return t.ActorDefs_MutedWordsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_MutedWordsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#mutedWordsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_PersonalDetailsPref != nil {
-		return t.ActorDefs_PersonalDetailsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_PersonalDetailsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#personalDetailsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_PostInteractionSettingsPref != nil {
-		return t.ActorDefs_PostInteractionSettingsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_PostInteractionSettingsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#postInteractionSettingsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_SavedFeedsPref != nil {
-		return t.ActorDefs_SavedFeedsPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_SavedFeedsPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_SavedFeedsPrefV2 != nil {
-		return t.ActorDefs_SavedFeedsPrefV2.MarshalCBOR(w)
+		cp := *t.ActorDefs_SavedFeedsPrefV2
+		cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_ThreadViewPref != nil {
-		return t.ActorDefs_ThreadViewPref.MarshalCBOR(w)
+		cp := *t.ActorDefs_ThreadViewPref
+		cp.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.ActorDefs_VerificationPrefs != nil {
-		return t.ActorDefs_VerificationPrefs.MarshalCBOR(w)
+		cp := *t.ActorDefs_VerificationPrefs
+		cp.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorDefs_Preferences", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_Preferences as CBOR")
 }
 
-func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorDefs_Preferences) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -837,53 +992,54 @@ func (t *ActorDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.actor.defs#adultContentPref":
 		t.ActorDefs_AdultContentPref = new(ActorDefs_AdultContentPref)
-		return t.ActorDefs_AdultContentPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_AdultContentPref)
 	case "app.bsky.actor.defs#bskyAppStatePref":
 		t.ActorDefs_BskyAppStatePref = new(ActorDefs_BskyAppStatePref)
-		return t.ActorDefs_BskyAppStatePref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_BskyAppStatePref)
 	case "app.bsky.actor.defs#contentLabelPref":
 		t.ActorDefs_ContentLabelPref = new(ActorDefs_ContentLabelPref)
-		return t.ActorDefs_ContentLabelPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_ContentLabelPref)
 	case "app.bsky.actor.defs#declaredAgePref":
 		t.ActorDefs_DeclaredAgePref = new(ActorDefs_DeclaredAgePref)
-		return t.ActorDefs_DeclaredAgePref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_DeclaredAgePref)
 	case "app.bsky.actor.defs#feedViewPref":
 		t.ActorDefs_FeedViewPref = new(ActorDefs_FeedViewPref)
-		return t.ActorDefs_FeedViewPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_FeedViewPref)
 	case "app.bsky.actor.defs#hiddenPostsPref":
 		t.ActorDefs_HiddenPostsPref = new(ActorDefs_HiddenPostsPref)
-		return t.ActorDefs_HiddenPostsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_HiddenPostsPref)
 	case "app.bsky.actor.defs#interestsPref":
 		t.ActorDefs_InterestsPref = new(ActorDefs_InterestsPref)
-		return t.ActorDefs_InterestsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_InterestsPref)
 	case "app.bsky.actor.defs#labelersPref":
 		t.ActorDefs_LabelersPref = new(ActorDefs_LabelersPref)
-		return t.ActorDefs_LabelersPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_LabelersPref)
 	case "app.bsky.actor.defs#liveEventPreferences":
 		t.ActorDefs_LiveEventPreferences = new(ActorDefs_LiveEventPreferences)
-		return t.ActorDefs_LiveEventPreferences.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_LiveEventPreferences)
 	case "app.bsky.actor.defs#mutedWordsPref":
 		t.ActorDefs_MutedWordsPref = new(ActorDefs_MutedWordsPref)
-		return t.ActorDefs_MutedWordsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_MutedWordsPref)
 	case "app.bsky.actor.defs#personalDetailsPref":
 		t.ActorDefs_PersonalDetailsPref = new(ActorDefs_PersonalDetailsPref)
-		return t.ActorDefs_PersonalDetailsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_PersonalDetailsPref)
 	case "app.bsky.actor.defs#postInteractionSettingsPref":
 		t.ActorDefs_PostInteractionSettingsPref = new(ActorDefs_PostInteractionSettingsPref)
-		return t.ActorDefs_PostInteractionSettingsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_PostInteractionSettingsPref)
 	case "app.bsky.actor.defs#savedFeedsPref":
 		t.ActorDefs_SavedFeedsPref = new(ActorDefs_SavedFeedsPref)
-		return t.ActorDefs_SavedFeedsPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_SavedFeedsPref)
 	case "app.bsky.actor.defs#savedFeedsPrefV2":
 		t.ActorDefs_SavedFeedsPrefV2 = new(ActorDefs_SavedFeedsPrefV2)
-		return t.ActorDefs_SavedFeedsPrefV2.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_SavedFeedsPrefV2)
 	case "app.bsky.actor.defs#threadViewPref":
 		t.ActorDefs_ThreadViewPref = new(ActorDefs_ThreadViewPref)
-		return t.ActorDefs_ThreadViewPref.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_ThreadViewPref)
 	case "app.bsky.actor.defs#verificationPrefs":
 		t.ActorDefs_VerificationPrefs = new(ActorDefs_VerificationPrefs)
-		return t.ActorDefs_VerificationPrefs.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ActorDefs_VerificationPrefs)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -910,8 +1066,10 @@ func (t *ActorDefs_ProfileAssociated) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociated"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileAssociated"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileAssociated) UnmarshalCBOR(r io.Reader) error {
@@ -934,8 +1092,10 @@ func (t *ActorDefs_ProfileAssociatedActivitySubscription) MarshalCBOR(w io.Write
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedActivitySubscription"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedActivitySubscription"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileAssociatedActivitySubscription) UnmarshalCBOR(r io.Reader) error {
@@ -959,8 +1119,10 @@ func (t *ActorDefs_ProfileAssociatedChat) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedChat"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedChat"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileAssociatedChat) UnmarshalCBOR(r io.Reader) error {
@@ -984,8 +1146,10 @@ func (t *ActorDefs_ProfileAssociatedGerm) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedGerm"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileAssociatedGerm"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileAssociatedGerm) UnmarshalCBOR(r io.Reader) error {
@@ -1020,8 +1184,10 @@ func (t *ActorDefs_ProfileView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileView) UnmarshalCBOR(r io.Reader) error {
@@ -1056,8 +1222,10 @@ func (t *ActorDefs_ProfileViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileViewBasic"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileViewBasic"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileViewBasic) UnmarshalCBOR(r io.Reader) error {
@@ -1101,8 +1269,10 @@ func (t *ActorDefs_ProfileViewDetailed) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#profileViewDetailed"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#profileViewDetailed"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ProfileViewDetailed) UnmarshalCBOR(r io.Reader) error {
@@ -1126,8 +1296,10 @@ func (t *ActorDefs_SavedFeed) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#savedFeed"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#savedFeed"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_SavedFeed) UnmarshalCBOR(r io.Reader) error {
@@ -1150,8 +1322,10 @@ func (t *ActorDefs_SavedFeedsPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_SavedFeedsPref) UnmarshalCBOR(r io.Reader) error {
@@ -1174,8 +1348,10 @@ func (t *ActorDefs_SavedFeedsPrefV2) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#savedFeedsPrefV2"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_SavedFeedsPrefV2) UnmarshalCBOR(r io.Reader) error {
@@ -1209,8 +1385,10 @@ func (t *ActorDefs_StatusView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#statusView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#statusView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_StatusView) UnmarshalCBOR(r io.Reader) error {
@@ -1220,14 +1398,28 @@ func (t *ActorDefs_StatusView) UnmarshalCBOR(r io.Reader) error {
 // An optional embed associated with the status.
 type ActorDefs_StatusView_Embed struct {
 	EmbedExternal_View *EmbedExternal_View
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorDefs_StatusView_Embed and *ActorDefs_StatusView_Embed marshal correctly.
+func (t ActorDefs_StatusView_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
-		return json.Marshal(t.EmbedExternal_View)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorDefs_StatusView_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_StatusView_Embed as JSON")
 }
 
 func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
@@ -1241,24 +1433,32 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalJSON(b []byte) error {
 		t.EmbedExternal_View = new(EmbedExternal_View)
 		return json.Unmarshal(b, t.EmbedExternal_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorDefs_StatusView_Embed) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorDefs_StatusView_Embed) MarshalCBOR() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		return t.EmbedExternal_View.MarshalCBOR(w)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorDefs_StatusView_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorDefs_StatusView_Embed as CBOR")
 }
 
-func (t *ActorDefs_StatusView_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorDefs_StatusView_Embed) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -1266,8 +1466,9 @@ func (t *ActorDefs_StatusView_Embed) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
-		return t.EmbedExternal_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedExternal_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -1287,8 +1488,10 @@ func (t *ActorDefs_ThreadViewPref) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#threadViewPref"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ThreadViewPref) UnmarshalCBOR(r io.Reader) error {
@@ -1314,8 +1517,10 @@ func (t *ActorDefs_VerificationPrefs) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#verificationPrefs"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_VerificationPrefs) UnmarshalCBOR(r io.Reader) error {
@@ -1345,8 +1550,10 @@ func (t *ActorDefs_VerificationState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#verificationState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#verificationState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_VerificationState) UnmarshalCBOR(r io.Reader) error {
@@ -1382,8 +1589,10 @@ func (t *ActorDefs_VerificationView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#verificationView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#verificationView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_VerificationView) UnmarshalCBOR(r io.Reader) error {
@@ -1416,8 +1625,10 @@ func (t *ActorDefs_ViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.defs#viewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.defs#viewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorDefs_ViewerState) UnmarshalCBOR(r io.Reader) error {

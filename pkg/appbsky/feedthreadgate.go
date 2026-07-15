@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,11 +32,13 @@ type FeedThreadgate struct {
 // RecordTypeID implements glex.Record.
 func (t *FeedThreadgate) RecordTypeID() string { return "app.bsky.feed.threadgate" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *FeedThreadgate) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// FeedThreadgate and *FeedThreadgate marshal with $type.
+func (t FeedThreadgate) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.feed.threadgate"
 	type alias FeedThreadgate
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
@@ -45,8 +46,10 @@ func (t *FeedThreadgate) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.threadgate"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedThreadgate) UnmarshalCBOR(r io.Reader) error {
@@ -58,26 +61,43 @@ type FeedThreadgate_Allow_Elem struct {
 	FeedThreadgate_FollowingRule *FeedThreadgate_FollowingRule
 	FeedThreadgate_ListRule      *FeedThreadgate_ListRule
 	FeedThreadgate_MentionRule   *FeedThreadgate_MentionRule
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedThreadgate_Allow_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedThreadgate_Allow_Elem and *FeedThreadgate_Allow_Elem marshal correctly.
+func (t FeedThreadgate_Allow_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedThreadgate_FollowerRule != nil {
-		t.FeedThreadgate_FollowerRule.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
-		return json.Marshal(t.FeedThreadgate_FollowerRule)
+		cp := *t.FeedThreadgate_FollowerRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_FollowingRule != nil {
-		t.FeedThreadgate_FollowingRule.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
-		return json.Marshal(t.FeedThreadgate_FollowingRule)
+		cp := *t.FeedThreadgate_FollowingRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_ListRule != nil {
-		t.FeedThreadgate_ListRule.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
-		return json.Marshal(t.FeedThreadgate_ListRule)
+		cp := *t.FeedThreadgate_ListRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return json.Marshal(&cp)
 	}
 	if t.FeedThreadgate_MentionRule != nil {
-		t.FeedThreadgate_MentionRule.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
-		return json.Marshal(t.FeedThreadgate_MentionRule)
+		cp := *t.FeedThreadgate_MentionRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedThreadgate_Allow_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedThreadgate_Allow_Elem as JSON")
 }
 
 func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
@@ -100,33 +120,47 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalJSON(b []byte) error {
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
 		return json.Unmarshal(b, t.FeedThreadgate_MentionRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedThreadgate_Allow_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedThreadgate_Allow_Elem) MarshalCBOR() ([]byte, error) {
 	if t.FeedThreadgate_FollowerRule != nil {
-		return t.FeedThreadgate_FollowerRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_FollowerRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_FollowingRule != nil {
-		return t.FeedThreadgate_FollowingRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_FollowingRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_ListRule != nil {
-		return t.FeedThreadgate_ListRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_ListRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedThreadgate_MentionRule != nil {
-		return t.FeedThreadgate_MentionRule.MarshalCBOR(w)
+		cp := *t.FeedThreadgate_MentionRule
+		cp.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedThreadgate_Allow_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedThreadgate_Allow_Elem as CBOR")
 }
 
-func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -134,17 +168,18 @@ func (t *FeedThreadgate_Allow_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.threadgate#followerRule":
 		t.FeedThreadgate_FollowerRule = new(FeedThreadgate_FollowerRule)
-		return t.FeedThreadgate_FollowerRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_FollowerRule)
 	case "app.bsky.feed.threadgate#followingRule":
 		t.FeedThreadgate_FollowingRule = new(FeedThreadgate_FollowingRule)
-		return t.FeedThreadgate_FollowingRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_FollowingRule)
 	case "app.bsky.feed.threadgate#listRule":
 		t.FeedThreadgate_ListRule = new(FeedThreadgate_ListRule)
-		return t.FeedThreadgate_ListRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_ListRule)
 	case "app.bsky.feed.threadgate#mentionRule":
 		t.FeedThreadgate_MentionRule = new(FeedThreadgate_MentionRule)
-		return t.FeedThreadgate_MentionRule.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedThreadgate_MentionRule)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -166,8 +201,10 @@ func (t *FeedThreadgate_FollowerRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.threadgate#followerRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedThreadgate_FollowerRule) UnmarshalCBOR(r io.Reader) error {
@@ -191,8 +228,10 @@ func (t *FeedThreadgate_FollowingRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.threadgate#followingRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedThreadgate_FollowingRule) UnmarshalCBOR(r io.Reader) error {
@@ -215,8 +254,10 @@ func (t *FeedThreadgate_ListRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.threadgate#listRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedThreadgate_ListRule) UnmarshalCBOR(r io.Reader) error {
@@ -240,8 +281,10 @@ func (t *FeedThreadgate_MentionRule) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.threadgate#mentionRule"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedThreadgate_MentionRule) UnmarshalCBOR(r io.Reader) error {

@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,11 +26,13 @@ type EmbedGallery struct {
 // RecordTypeID implements glex.Record.
 func (t *EmbedGallery) RecordTypeID() string { return "app.bsky.embed.gallery" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *EmbedGallery) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// EmbedGallery and *EmbedGallery marshal with $type.
+func (t EmbedGallery) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.embed.gallery"
 	type alias EmbedGallery
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *EmbedGallery) MarshalCBOR(w io.Writer) error {
@@ -39,8 +40,10 @@ func (t *EmbedGallery) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.gallery"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.gallery"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedGallery) UnmarshalCBOR(r io.Reader) error {
@@ -50,14 +53,28 @@ func (t *EmbedGallery) UnmarshalCBOR(r io.Reader) error {
 // The media items in the gallery. Each item may be of a different type, but all types must be supported by the client.
 type EmbedGallery_Items_Elem struct {
 	EmbedGallery_Image *EmbedGallery_Image
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *EmbedGallery_Items_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both EmbedGallery_Items_Elem and *EmbedGallery_Items_Elem marshal correctly.
+func (t EmbedGallery_Items_Elem) MarshalJSON() ([]byte, error) {
 	if t.EmbedGallery_Image != nil {
-		t.EmbedGallery_Image.LexiconTypeID = "app.bsky.embed.gallery#image"
-		return json.Marshal(t.EmbedGallery_Image)
+		cp := *t.EmbedGallery_Image
+		cp.LexiconTypeID = "app.bsky.embed.gallery#image"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union EmbedGallery_Items_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedGallery_Items_Elem as JSON")
 }
 
 func (t *EmbedGallery_Items_Elem) UnmarshalJSON(b []byte) error {
@@ -71,24 +88,32 @@ func (t *EmbedGallery_Items_Elem) UnmarshalJSON(b []byte) error {
 		t.EmbedGallery_Image = new(EmbedGallery_Image)
 		return json.Unmarshal(b, t.EmbedGallery_Image)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *EmbedGallery_Items_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t EmbedGallery_Items_Elem) MarshalCBOR() ([]byte, error) {
 	if t.EmbedGallery_Image != nil {
-		return t.EmbedGallery_Image.MarshalCBOR(w)
+		cp := *t.EmbedGallery_Image
+		cp.LexiconTypeID = "app.bsky.embed.gallery#image"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union EmbedGallery_Items_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedGallery_Items_Elem as CBOR")
 }
 
-func (t *EmbedGallery_Items_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *EmbedGallery_Items_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -96,8 +121,9 @@ func (t *EmbedGallery_Items_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.gallery#image":
 		t.EmbedGallery_Image = new(EmbedGallery_Image)
-		return t.EmbedGallery_Image.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedGallery_Image)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -119,8 +145,10 @@ func (t *EmbedGallery_Image) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.gallery#image"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.gallery#image"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedGallery_Image) UnmarshalCBOR(r io.Reader) error {
@@ -141,8 +169,10 @@ func (t *EmbedGallery_View) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.gallery#view"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.gallery#view"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedGallery_View) UnmarshalCBOR(r io.Reader) error {
@@ -151,14 +181,28 @@ func (t *EmbedGallery_View) UnmarshalCBOR(r io.Reader) error {
 
 type EmbedGallery_View_Items_Elem struct {
 	EmbedGallery_ViewImage *EmbedGallery_ViewImage
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *EmbedGallery_View_Items_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both EmbedGallery_View_Items_Elem and *EmbedGallery_View_Items_Elem marshal correctly.
+func (t EmbedGallery_View_Items_Elem) MarshalJSON() ([]byte, error) {
 	if t.EmbedGallery_ViewImage != nil {
-		t.EmbedGallery_ViewImage.LexiconTypeID = "app.bsky.embed.gallery#viewImage"
-		return json.Marshal(t.EmbedGallery_ViewImage)
+		cp := *t.EmbedGallery_ViewImage
+		cp.LexiconTypeID = "app.bsky.embed.gallery#viewImage"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union EmbedGallery_View_Items_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedGallery_View_Items_Elem as JSON")
 }
 
 func (t *EmbedGallery_View_Items_Elem) UnmarshalJSON(b []byte) error {
@@ -172,24 +216,32 @@ func (t *EmbedGallery_View_Items_Elem) UnmarshalJSON(b []byte) error {
 		t.EmbedGallery_ViewImage = new(EmbedGallery_ViewImage)
 		return json.Unmarshal(b, t.EmbedGallery_ViewImage)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *EmbedGallery_View_Items_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t EmbedGallery_View_Items_Elem) MarshalCBOR() ([]byte, error) {
 	if t.EmbedGallery_ViewImage != nil {
-		return t.EmbedGallery_ViewImage.MarshalCBOR(w)
+		cp := *t.EmbedGallery_ViewImage
+		cp.LexiconTypeID = "app.bsky.embed.gallery#viewImage"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union EmbedGallery_View_Items_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union EmbedGallery_View_Items_Elem as CBOR")
 }
 
-func (t *EmbedGallery_View_Items_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *EmbedGallery_View_Items_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -197,8 +249,9 @@ func (t *EmbedGallery_View_Items_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.gallery#viewImage":
 		t.EmbedGallery_ViewImage = new(EmbedGallery_ViewImage)
-		return t.EmbedGallery_ViewImage.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedGallery_ViewImage)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -223,8 +276,10 @@ func (t *EmbedGallery_ViewImage) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.gallery#viewImage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.gallery#viewImage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedGallery_ViewImage) UnmarshalCBOR(r io.Reader) error {

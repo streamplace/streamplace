@@ -30,11 +30,13 @@ type Key struct {
 // RecordTypeID implements glex.Record.
 func (t *Key) RecordTypeID() string { return "place.stream.key" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *Key) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// Key and *Key marshal with $type.
+func (t Key) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.key"
 	type alias Key
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *Key) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *Key) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.key"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.key"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Key) UnmarshalCBOR(r io.Reader) error {

@@ -5,7 +5,6 @@
 package gamesgamesgamesgamesgames
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -31,8 +30,10 @@ func (t *Search_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.search"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.search"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Search_Output) UnmarshalCBOR(r io.Reader) error {
@@ -45,30 +46,48 @@ type Search_Output_Results_Elem struct {
 	Defs_GameSummaryView       *Defs_GameSummaryView
 	Defs_PlatformSummaryView   *Defs_PlatformSummaryView
 	Defs_ProfileSummaryView    *Defs_ProfileSummaryView
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *Search_Output_Results_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both Search_Output_Results_Elem and *Search_Output_Results_Elem marshal correctly.
+func (t Search_Output_Results_Elem) MarshalJSON() ([]byte, error) {
 	if t.Defs_CollectionSummaryView != nil {
-		t.Defs_CollectionSummaryView.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
-		return json.Marshal(t.Defs_CollectionSummaryView)
+		cp := *t.Defs_CollectionSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_EngineSummaryView != nil {
-		t.Defs_EngineSummaryView.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
-		return json.Marshal(t.Defs_EngineSummaryView)
+		cp := *t.Defs_EngineSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_GameSummaryView != nil {
-		t.Defs_GameSummaryView.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
-		return json.Marshal(t.Defs_GameSummaryView)
+		cp := *t.Defs_GameSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_PlatformSummaryView != nil {
-		t.Defs_PlatformSummaryView.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
-		return json.Marshal(t.Defs_PlatformSummaryView)
+		cp := *t.Defs_PlatformSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_ProfileSummaryView != nil {
-		t.Defs_ProfileSummaryView.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
-		return json.Marshal(t.Defs_ProfileSummaryView)
+		cp := *t.Defs_ProfileSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union Search_Output_Results_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Search_Output_Results_Elem as JSON")
 }
 
 func (t *Search_Output_Results_Elem) UnmarshalJSON(b []byte) error {
@@ -94,36 +113,52 @@ func (t *Search_Output_Results_Elem) UnmarshalJSON(b []byte) error {
 		t.Defs_ProfileSummaryView = new(Defs_ProfileSummaryView)
 		return json.Unmarshal(b, t.Defs_ProfileSummaryView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *Search_Output_Results_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t Search_Output_Results_Elem) MarshalCBOR() ([]byte, error) {
 	if t.Defs_CollectionSummaryView != nil {
-		return t.Defs_CollectionSummaryView.MarshalCBOR(w)
+		cp := *t.Defs_CollectionSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_EngineSummaryView != nil {
-		return t.Defs_EngineSummaryView.MarshalCBOR(w)
+		cp := *t.Defs_EngineSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_GameSummaryView != nil {
-		return t.Defs_GameSummaryView.MarshalCBOR(w)
+		cp := *t.Defs_GameSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_PlatformSummaryView != nil {
-		return t.Defs_PlatformSummaryView.MarshalCBOR(w)
+		cp := *t.Defs_PlatformSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_ProfileSummaryView != nil {
-		return t.Defs_ProfileSummaryView.MarshalCBOR(w)
+		cp := *t.Defs_ProfileSummaryView
+		cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union Search_Output_Results_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union Search_Output_Results_Elem as CBOR")
 }
 
-func (t *Search_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *Search_Output_Results_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -131,20 +166,21 @@ func (t *Search_Output_Results_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "games.gamesgamesgamesgames.defs#collectionSummaryView":
 		t.Defs_CollectionSummaryView = new(Defs_CollectionSummaryView)
-		return t.Defs_CollectionSummaryView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_CollectionSummaryView)
 	case "games.gamesgamesgamesgames.defs#engineSummaryView":
 		t.Defs_EngineSummaryView = new(Defs_EngineSummaryView)
-		return t.Defs_EngineSummaryView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_EngineSummaryView)
 	case "games.gamesgamesgamesgames.defs#gameSummaryView":
 		t.Defs_GameSummaryView = new(Defs_GameSummaryView)
-		return t.Defs_GameSummaryView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_GameSummaryView)
 	case "games.gamesgamesgamesgames.defs#platformSummaryView":
 		t.Defs_PlatformSummaryView = new(Defs_PlatformSummaryView)
-		return t.Defs_PlatformSummaryView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_PlatformSummaryView)
 	case "games.gamesgamesgamesgames.defs#profileSummaryView":
 		t.Defs_ProfileSummaryView = new(Defs_ProfileSummaryView)
-		return t.Defs_ProfileSummaryView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_ProfileSummaryView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

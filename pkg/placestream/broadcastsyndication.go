@@ -30,11 +30,13 @@ type BroadcastSyndication struct {
 // RecordTypeID implements glex.Record.
 func (t *BroadcastSyndication) RecordTypeID() string { return "place.stream.broadcast.syndication" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *BroadcastSyndication) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// BroadcastSyndication and *BroadcastSyndication marshal with $type.
+func (t BroadcastSyndication) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.broadcast.syndication"
 	type alias BroadcastSyndication
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *BroadcastSyndication) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.broadcast.syndication"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.broadcast.syndication"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BroadcastSyndication) UnmarshalCBOR(r io.Reader) error {

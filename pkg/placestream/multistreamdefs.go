@@ -27,8 +27,10 @@ func (t *MultistreamDefs_Event) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.defs#event"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.multistream.defs#event"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MultistreamDefs_Event) UnmarshalCBOR(r io.Reader) error {
@@ -54,8 +56,10 @@ func (t *MultistreamDefs_TargetView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.defs#targetView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.multistream.defs#targetView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MultistreamDefs_TargetView) UnmarshalCBOR(r io.Reader) error {

@@ -24,11 +24,13 @@ type EmbedImages struct {
 // RecordTypeID implements glex.Record.
 func (t *EmbedImages) RecordTypeID() string { return "app.bsky.embed.images" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *EmbedImages) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// EmbedImages and *EmbedImages marshal with $type.
+func (t EmbedImages) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.embed.images"
 	type alias EmbedImages
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
@@ -36,8 +38,10 @@ func (t *EmbedImages) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.images"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedImages) UnmarshalCBOR(r io.Reader) error {
@@ -62,8 +66,10 @@ func (t *EmbedImages_Image) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images#image"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.images#image"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedImages_Image) UnmarshalCBOR(r io.Reader) error {
@@ -84,8 +90,10 @@ func (t *EmbedImages_View) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images#view"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.images#view"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedImages_View) UnmarshalCBOR(r io.Reader) error {
@@ -112,8 +120,10 @@ func (t *EmbedImages_ViewImage) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.images#viewImage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.images#viewImage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedImages_ViewImage) UnmarshalCBOR(r io.Reader) error {

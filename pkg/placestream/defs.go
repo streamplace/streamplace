@@ -30,8 +30,10 @@ func (t *Defs_ActivityGame) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs#activityGame"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.defs#activityGame"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActivityGame) UnmarshalCBOR(r io.Reader) error {
@@ -54,8 +56,10 @@ func (t *Defs_ActivityLabel) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs#activityLabel"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.defs#activityLabel"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActivityLabel) UnmarshalCBOR(r io.Reader) error {
@@ -80,8 +84,10 @@ func (t *Defs_BlockView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs#blockView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.defs#blockView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_BlockView) UnmarshalCBOR(r io.Reader) error {
@@ -102,8 +108,10 @@ func (t *Defs_Rendition) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs#rendition"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.defs#rendition"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_Rendition) UnmarshalCBOR(r io.Reader) error {
@@ -124,8 +132,10 @@ func (t *Defs_Renditions) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.defs#renditions"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.defs#renditions"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_Renditions) UnmarshalCBOR(r io.Reader) error {

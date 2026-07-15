@@ -32,11 +32,13 @@ type LiveViewerCount struct {
 // RecordTypeID implements glex.Record.
 func (t *LiveViewerCount) RecordTypeID() string { return "place.stream.live.viewerCount" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *LiveViewerCount) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// LiveViewerCount and *LiveViewerCount marshal with $type.
+func (t LiveViewerCount) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.live.viewerCount"
 	type alias LiveViewerCount
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *LiveViewerCount) MarshalCBOR(w io.Writer) error {
@@ -44,8 +46,10 @@ func (t *LiveViewerCount) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.viewerCount"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.live.viewerCount"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LiveViewerCount) UnmarshalCBOR(r io.Reader) error {

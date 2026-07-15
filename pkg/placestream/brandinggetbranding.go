@@ -28,8 +28,10 @@ func (t *BrandingGetBranding_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.getBranding"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.branding.getBranding"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BrandingGetBranding_Output) UnmarshalCBOR(r io.Reader) error {
@@ -82,8 +84,10 @@ func (t *BrandingGetBranding_BrandingAsset) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.branding.getBranding#brandingAsset"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.branding.getBranding#brandingAsset"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BrandingGetBranding_BrandingAsset) UnmarshalCBOR(r io.Reader) error {

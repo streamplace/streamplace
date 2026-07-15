@@ -37,8 +37,10 @@ func (t *ServerDescribeServer_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.describeServer"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.server.describeServer"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDescribeServer_Output) UnmarshalCBOR(r io.Reader) error {
@@ -73,8 +75,10 @@ func (t *ServerDescribeServer_Contact) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.describeServer#contact"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.server.describeServer#contact"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDescribeServer_Contact) UnmarshalCBOR(r io.Reader) error {
@@ -98,8 +102,10 @@ func (t *ServerDescribeServer_Links) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.describeServer#links"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.server.describeServer#links"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerDescribeServer_Links) UnmarshalCBOR(r io.Reader) error {

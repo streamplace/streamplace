@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -33,8 +32,10 @@ func (t *LiveGetRecommendations_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.getRecommendations"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.live.getRecommendations"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LiveGetRecommendations_Output) UnmarshalCBOR(r io.Reader) error {
@@ -43,14 +44,28 @@ func (t *LiveGetRecommendations_Output) UnmarshalCBOR(r io.Reader) error {
 
 type LiveGetRecommendations_Output_Recommendations_Elem struct {
 	LiveGetRecommendations_LivestreamRecommendation *LiveGetRecommendations_LivestreamRecommendation
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *LiveGetRecommendations_Output_Recommendations_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both LiveGetRecommendations_Output_Recommendations_Elem and *LiveGetRecommendations_Output_Recommendations_Elem marshal correctly.
+func (t LiveGetRecommendations_Output_Recommendations_Elem) MarshalJSON() ([]byte, error) {
 	if t.LiveGetRecommendations_LivestreamRecommendation != nil {
-		t.LiveGetRecommendations_LivestreamRecommendation.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
-		return json.Marshal(t.LiveGetRecommendations_LivestreamRecommendation)
+		cp := *t.LiveGetRecommendations_LivestreamRecommendation
+		cp.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union LiveGetRecommendations_Output_Recommendations_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union LiveGetRecommendations_Output_Recommendations_Elem as JSON")
 }
 
 func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalJSON(b []byte) error {
@@ -64,24 +79,32 @@ func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalJSON(b []b
 		t.LiveGetRecommendations_LivestreamRecommendation = new(LiveGetRecommendations_LivestreamRecommendation)
 		return json.Unmarshal(b, t.LiveGetRecommendations_LivestreamRecommendation)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *LiveGetRecommendations_Output_Recommendations_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t LiveGetRecommendations_Output_Recommendations_Elem) MarshalCBOR() ([]byte, error) {
 	if t.LiveGetRecommendations_LivestreamRecommendation != nil {
-		return t.LiveGetRecommendations_LivestreamRecommendation.MarshalCBOR(w)
+		cp := *t.LiveGetRecommendations_LivestreamRecommendation
+		cp.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union LiveGetRecommendations_Output_Recommendations_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union LiveGetRecommendations_Output_Recommendations_Elem as CBOR")
 }
 
-func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -89,8 +112,9 @@ func (t *LiveGetRecommendations_Output_Recommendations_Elem) UnmarshalCBOR(r io.
 	switch typ {
 	case "place.stream.live.getRecommendations#livestreamRecommendation":
 		t.LiveGetRecommendations_LivestreamRecommendation = new(LiveGetRecommendations_LivestreamRecommendation)
-		return t.LiveGetRecommendations_LivestreamRecommendation.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.LiveGetRecommendations_LivestreamRecommendation)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -131,8 +155,10 @@ func (t *LiveGetRecommendations_LivestreamRecommendation) MarshalCBOR(w io.Write
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.live.getRecommendations#livestreamRecommendation"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LiveGetRecommendations_LivestreamRecommendation) UnmarshalCBOR(r io.Reader) error {

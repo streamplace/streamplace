@@ -32,11 +32,13 @@ type ModerationPermission struct {
 // RecordTypeID implements glex.Record.
 func (t *ModerationPermission) RecordTypeID() string { return "place.stream.moderation.permission" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ModerationPermission) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ModerationPermission and *ModerationPermission marshal with $type.
+func (t ModerationPermission) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.moderation.permission"
 	type alias ModerationPermission
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
@@ -44,8 +46,10 @@ func (t *ModerationPermission) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.moderation.permission"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.moderation.permission"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ModerationPermission) UnmarshalCBOR(r io.Reader) error {

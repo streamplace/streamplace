@@ -34,11 +34,13 @@ type MetadataContentRights struct {
 // RecordTypeID implements glex.Record.
 func (t *MetadataContentRights) RecordTypeID() string { return "place.stream.metadata.contentRights" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MetadataContentRights) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MetadataContentRights and *MetadataContentRights marshal with $type.
+func (t MetadataContentRights) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.metadata.contentRights"
 	type alias MetadataContentRights
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
@@ -46,8 +48,10 @@ func (t *MetadataContentRights) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.metadata.contentRights"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.metadata.contentRights"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MetadataContentRights) UnmarshalCBOR(r io.Reader) error {

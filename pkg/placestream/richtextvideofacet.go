@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,11 +28,13 @@ type RichtextVideoFacet struct {
 // RecordTypeID implements glex.Record.
 func (t *RichtextVideoFacet) RecordTypeID() string { return "place.stream.richtext.videoFacet" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *RichtextVideoFacet) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// RichtextVideoFacet and *RichtextVideoFacet marshal with $type.
+func (t RichtextVideoFacet) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.richtext.videoFacet"
 	type alias RichtextVideoFacet
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *RichtextVideoFacet) MarshalCBOR(w io.Writer) error {
@@ -41,8 +42,10 @@ func (t *RichtextVideoFacet) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.richtext.videoFacet"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.richtext.videoFacet"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextVideoFacet) UnmarshalCBOR(r io.Reader) error {
@@ -52,18 +55,33 @@ func (t *RichtextVideoFacet) UnmarshalCBOR(r io.Reader) error {
 type RichtextVideoFacet_Features_Elem struct {
 	RichtextFacet_Link    *appbsky.RichtextFacet_Link
 	RichtextFacet_Mention *appbsky.RichtextFacet_Mention
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *RichtextVideoFacet_Features_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both RichtextVideoFacet_Features_Elem and *RichtextVideoFacet_Features_Elem marshal correctly.
+func (t RichtextVideoFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
-		t.RichtextFacet_Link.LexiconTypeID = "app.bsky.richtext.facet#link"
-		return json.Marshal(t.RichtextFacet_Link)
+		cp := *t.RichtextFacet_Link
+		cp.LexiconTypeID = "app.bsky.richtext.facet#link"
+		return json.Marshal(&cp)
 	}
 	if t.RichtextFacet_Mention != nil {
-		t.RichtextFacet_Mention.LexiconTypeID = "app.bsky.richtext.facet#mention"
-		return json.Marshal(t.RichtextFacet_Mention)
+		cp := *t.RichtextFacet_Mention
+		cp.LexiconTypeID = "app.bsky.richtext.facet#mention"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union RichtextVideoFacet_Features_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union RichtextVideoFacet_Features_Elem as JSON")
 }
 
 func (t *RichtextVideoFacet_Features_Elem) UnmarshalJSON(b []byte) error {
@@ -80,27 +98,37 @@ func (t *RichtextVideoFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 		t.RichtextFacet_Mention = new(appbsky.RichtextFacet_Mention)
 		return json.Unmarshal(b, t.RichtextFacet_Mention)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *RichtextVideoFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t RichtextVideoFacet_Features_Elem) MarshalCBOR() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
-		return t.RichtextFacet_Link.MarshalCBOR(w)
+		cp := *t.RichtextFacet_Link
+		cp.LexiconTypeID = "app.bsky.richtext.facet#link"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.RichtextFacet_Mention != nil {
-		return t.RichtextFacet_Mention.MarshalCBOR(w)
+		cp := *t.RichtextFacet_Mention
+		cp.LexiconTypeID = "app.bsky.richtext.facet#mention"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union RichtextVideoFacet_Features_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union RichtextVideoFacet_Features_Elem as CBOR")
 }
 
-func (t *RichtextVideoFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *RichtextVideoFacet_Features_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -108,11 +136,12 @@ func (t *RichtextVideoFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(appbsky.RichtextFacet_Link)
-		return t.RichtextFacet_Link.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.RichtextFacet_Link)
 	case "app.bsky.richtext.facet#mention":
 		t.RichtextFacet_Mention = new(appbsky.RichtextFacet_Mention)
-		return t.RichtextFacet_Mention.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.RichtextFacet_Mention)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

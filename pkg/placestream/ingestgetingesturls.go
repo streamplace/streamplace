@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -30,8 +29,10 @@ func (t *IngestGetIngestUrls_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.ingest.getIngestUrls"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.ingest.getIngestUrls"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *IngestGetIngestUrls_Output) UnmarshalCBOR(r io.Reader) error {
@@ -40,14 +41,28 @@ func (t *IngestGetIngestUrls_Output) UnmarshalCBOR(r io.Reader) error {
 
 type IngestGetIngestUrls_Output_Ingests_Elem struct {
 	IngestDefs_Ingest *IngestDefs_Ingest
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *IngestGetIngestUrls_Output_Ingests_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both IngestGetIngestUrls_Output_Ingests_Elem and *IngestGetIngestUrls_Output_Ingests_Elem marshal correctly.
+func (t IngestGetIngestUrls_Output_Ingests_Elem) MarshalJSON() ([]byte, error) {
 	if t.IngestDefs_Ingest != nil {
-		t.IngestDefs_Ingest.LexiconTypeID = "place.stream.ingest.defs#ingest"
-		return json.Marshal(t.IngestDefs_Ingest)
+		cp := *t.IngestDefs_Ingest
+		cp.LexiconTypeID = "place.stream.ingest.defs#ingest"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union IngestGetIngestUrls_Output_Ingests_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union IngestGetIngestUrls_Output_Ingests_Elem as JSON")
 }
 
 func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalJSON(b []byte) error {
@@ -61,24 +76,32 @@ func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalJSON(b []byte) error 
 		t.IngestDefs_Ingest = new(IngestDefs_Ingest)
 		return json.Unmarshal(b, t.IngestDefs_Ingest)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *IngestGetIngestUrls_Output_Ingests_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t IngestGetIngestUrls_Output_Ingests_Elem) MarshalCBOR() ([]byte, error) {
 	if t.IngestDefs_Ingest != nil {
-		return t.IngestDefs_Ingest.MarshalCBOR(w)
+		cp := *t.IngestDefs_Ingest
+		cp.LexiconTypeID = "place.stream.ingest.defs#ingest"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union IngestGetIngestUrls_Output_Ingests_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union IngestGetIngestUrls_Output_Ingests_Elem as CBOR")
 }
 
-func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -86,8 +109,9 @@ func (t *IngestGetIngestUrls_Output_Ingests_Elem) UnmarshalCBOR(r io.Reader) err
 	switch typ {
 	case "place.stream.ingest.defs#ingest":
 		t.IngestDefs_Ingest = new(IngestDefs_Ingest)
-		return t.IngestDefs_Ingest.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.IngestDefs_Ingest)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

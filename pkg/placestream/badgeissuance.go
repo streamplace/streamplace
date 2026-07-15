@@ -31,11 +31,13 @@ type BadgeIssuance struct {
 // RecordTypeID implements glex.Record.
 func (t *BadgeIssuance) RecordTypeID() string { return "place.stream.badge.issuance" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *BadgeIssuance) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// BadgeIssuance and *BadgeIssuance marshal with $type.
+func (t BadgeIssuance) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.badge.issuance"
 	type alias BadgeIssuance
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *BadgeIssuance) MarshalCBOR(w io.Writer) error {
@@ -43,8 +45,10 @@ func (t *BadgeIssuance) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.issuance"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.badge.issuance"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BadgeIssuance) UnmarshalCBOR(r io.Reader) error {

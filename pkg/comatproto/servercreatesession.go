@@ -30,8 +30,10 @@ func (t *ServerCreateSession_Input) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.createSession"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.server.createSession"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerCreateSession_Input) UnmarshalCBOR(r io.Reader) error {
@@ -61,8 +63,10 @@ func (t *ServerCreateSession_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.server.createSession"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.server.createSession"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerCreateSession_Output) UnmarshalCBOR(r io.Reader) error {

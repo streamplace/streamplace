@@ -28,8 +28,10 @@ func (t *ServerUpsertStorage_Input) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.upsertStorage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.upsertStorage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerUpsertStorage_Input) UnmarshalCBOR(r io.Reader) error {
@@ -51,8 +53,10 @@ func (t *ServerUpsertStorage_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.upsertStorage"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.upsertStorage"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerUpsertStorage_Output) UnmarshalCBOR(r io.Reader) error {

@@ -30,11 +30,13 @@ type BetaInvite struct {
 // RecordTypeID implements glex.Record.
 func (t *BetaInvite) RecordTypeID() string { return "place.stream.beta.invite" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *BetaInvite) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// BetaInvite and *BetaInvite marshal with $type.
+func (t BetaInvite) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.beta.invite"
 	type alias BetaInvite
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *BetaInvite) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *BetaInvite) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.beta.invite"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.beta.invite"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BetaInvite) UnmarshalCBOR(r io.Reader) error {

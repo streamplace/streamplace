@@ -26,11 +26,13 @@ type EmbedExternal struct {
 // RecordTypeID implements glex.Record.
 func (t *EmbedExternal) RecordTypeID() string { return "app.bsky.embed.external" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *EmbedExternal) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// EmbedExternal and *EmbedExternal marshal with $type.
+func (t EmbedExternal) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.embed.external"
 	type alias EmbedExternal
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
@@ -38,8 +40,10 @@ func (t *EmbedExternal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal) UnmarshalCBOR(r io.Reader) error {
@@ -64,8 +68,10 @@ func (t *EmbedExternal_ColorRGB) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#colorRGB"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#colorRGB"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_ColorRGB) UnmarshalCBOR(r io.Reader) error {
@@ -91,8 +97,10 @@ func (t *EmbedExternal_External) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#external"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#external"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_External) UnmarshalCBOR(r io.Reader) error {
@@ -113,8 +121,10 @@ func (t *EmbedExternal_View) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#view"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#view"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_View) UnmarshalCBOR(r io.Reader) error {
@@ -152,8 +162,10 @@ func (t *EmbedExternal_ViewExternal) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#viewExternal"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#viewExternal"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_ViewExternal) UnmarshalCBOR(r io.Reader) error {
@@ -184,8 +196,10 @@ func (t *EmbedExternal_ViewExternalSource) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#viewExternalSource"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#viewExternalSource"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_ViewExternalSource) UnmarshalCBOR(r io.Reader) error {
@@ -213,8 +227,10 @@ func (t *EmbedExternal_ViewExternalSourceTheme) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.external#viewExternalSourceTheme"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.external#viewExternalSourceTheme"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedExternal_ViewExternalSourceTheme) UnmarshalCBOR(r io.Reader) error {

@@ -31,8 +31,10 @@ func (t *BroadcastDefs_BroadcastOriginView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.broadcast.defs#broadcastOriginView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.broadcast.defs#broadcastOriginView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BroadcastDefs_BroadcastOriginView) UnmarshalCBOR(r io.Reader) error {

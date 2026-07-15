@@ -10,7 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	"github.com/ipfs/go-cid"
-	atmoq "github.com/streamplace/atmoq-go"
+	atmoq "github.com/streamplace/atmoq/go"
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"

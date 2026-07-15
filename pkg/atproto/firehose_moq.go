@@ -3,15 +3,23 @@ package atproto
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	atmoq "github.com/streamplace/atmoq-go"
+	atmoq "github.com/streamplace/atmoq/go"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
 )
+
+// moqResumeProbeTimeout bounds how long a resumed subscription may stay silent
+// before we conclude the cursor is bad and re-tail live. The firehose delivers
+// many events per second, so a healthy resume answers near-instantly; this only
+// needs to be generous enough to cover a slow disk backfill starting up.
+const moqResumeProbeTimeout = 30 * time.Second
 
 // connectRelayMoq consumes one relay's atproto firehose over MoQ transport
 // (moqt:// and its aliases) instead of WebSocket, and pumps it until the
@@ -40,8 +48,9 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	// relay jumps forward to the oldest it still retains, leaving a gap we accept
 	// here (deep recovery is a PDS re-sync, tracked separately).
 	var sub *atmoq.Subscription
-	if g, ok := cursor.groupStart(); ok {
-		sub, err = sess.SubscribeFrom(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack, g)
+	resumedFrom, resumed := cursor.groupStart()
+	if resumed {
+		sub, err = sess.SubscribeFrom(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack, resumedFrom)
 	} else {
 		sub, err = sess.Subscribe(streamCtx, atmoq.DefaultBroadcast, atmoq.DefaultTrack)
 	}
@@ -60,13 +69,32 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 
 	log.Log(ctx, "connected to relay firehose (moq)", "version", sess.Version())
 	for {
-		raw, group, err := sub.ReadFrame(streamCtx)
+		// The relay accepts a SubscribeFrom for any group, including one past
+		// its live edge that it will never produce (a stale or corrupted
+		// cursor), and just serves silence. So probe the first frame of a
+		// resume: if replay yields nothing, abandon the cursor and reconnect
+		// at the live edge — the skipped replay is a gap of the kind we
+		// already accept (idempotent handlers + cross-relay redelivery).
+		rctx := streamCtx
+		var cancelProbe context.CancelFunc
+		if resumed {
+			rctx, cancelProbe = context.WithTimeout(streamCtx, moqResumeProbeTimeout)
+		}
+		raw, group, err := sub.ReadFrame(rctx)
+		if cancelProbe != nil {
+			cancelProbe()
+		}
 		if err != nil {
 			if streamCtx.Err() != nil {
 				return streamCtx.Err()
 			}
+			if resumed && errors.Is(err, context.DeadlineExceeded) {
+				cursor.reset()
+				return fmt.Errorf("moq resume from group %d served nothing for %s; cursor reset, tailing live on reconnect", resumedFrom, moqResumeProbeTimeout)
+			}
 			return fmt.Errorf("moq firehose read: %w", err)
 		}
+		resumed = false
 		// Track the group on every frame (before dedup) so a reconnect resumes
 		// from here; replayed frames are absorbed by the commit-CID deduper.
 		cursor.observeGroup(group)

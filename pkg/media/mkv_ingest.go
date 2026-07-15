@@ -82,9 +82,18 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 	// no EOS — a live stream wedges until the watchdog kills it. Use the shared
 	// Queue2Big preset (no time/buffer cap, generous byte cap) like the other
 	// demux-fed pipelines (transcode, rtmp_push, packetize, media_data_parser).
+	//
+	// h264timestamper: Matroska blocks carry only presentation timestamps, so
+	// for B-frame streams (PTS ≠ DTS) matroskademux emits reordered PTS with
+	// dts=none — and h264parse does not reconstruct DTS. The fMP4 muxer needs
+	// DTS to mux a reordered stream; without it it treats the jumbled PTS as
+	// monotonic timing and stretches the video track (~2.2× on a real capture),
+	// which downstream makes qtdemux EOS the audio pad early and every segment
+	// fails validation with "no audio in segment". h264timestamper rebuilds
+	// DTS from the H264 picture order count.
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
-		"demux. ! " + constants.Queue2Big + " ! h264parse name=parse",
+		"demux. ! " + constants.Queue2Big + " ! h264parse ! h264timestamper name=videoout",
 		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -98,7 +107,7 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 	app.SrcFromElement(srcele).SetCallbacks(&app.SourceCallbacks{
 		NeedDataFunc: ReaderNeedDataIncremental(ctx, input),
 	})
-	parseEle, err := pipeline.GetElementByName("parse")
+	parseEle, err := pipeline.GetElementByName("videoout")
 	if err != nil {
 		return nil, err
 	}

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
+	glex "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 const MAX_MULTISTREAM_TARGETS = 100
@@ -26,15 +26,15 @@ func (m *MultistreamTarget) TableName() string {
 	return "multistream_targets"
 }
 
-func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamCreateTarget_Input, repoDID string) (*streamplace.MultistreamDefs_TargetView, error) {
+func (state *StatefulDB) CreateMultistreamTarget(input placestream.MultistreamCreateTarget_Input, repoDID string) (placestream.MultistreamDefs_TargetView, error) {
 	// Check total targets limit
 	var totalCount int64
 	err := state.DB.Model(&MultistreamTarget{}).Where("repo_did = ?", repoDID).Count(&totalCount).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to count existing targets: %w", err)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to count existing targets: %w", err)
 	}
 	if totalCount >= MAX_MULTISTREAM_TARGETS {
-		return nil, fmt.Errorf("maximum number of multistream targets (%d) reached", MAX_MULTISTREAM_TARGETS)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("maximum number of multistream targets (%d) reached", MAX_MULTISTREAM_TARGETS)
 	}
 
 	// Check active targets limit if this target is active
@@ -42,10 +42,10 @@ func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamC
 		var activeCount int64
 		err := state.DB.Model(&MultistreamTarget{}).Where("repo_did = ? AND active = ?", repoDID, true).Count(&activeCount).Error
 		if err != nil {
-			return nil, fmt.Errorf("failed to count active targets: %w", err)
+			return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to count active targets: %w", err)
 		}
 		if activeCount >= MAX_ACTIVE_MULTISTREAM_TARGETS {
-			return nil, fmt.Errorf("maximum number of active multistream targets (%d) reached", MAX_ACTIVE_MULTISTREAM_TARGETS)
+			return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("maximum number of active multistream targets (%d) reached", MAX_ACTIVE_MULTISTREAM_TARGETS)
 		}
 	}
 
@@ -53,15 +53,15 @@ func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamC
 	tid := spid.TIDClock.Next()
 	uri := fmt.Sprintf("at://%s/place.stream.multistream.target/%s", repoDID, tid.String())
 
-	cid, err := spid.GetCID(input.MultistreamTarget)
+	cid, err := spid.GetCID(&input.MultistreamTarget)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CID: %w", err)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to get CID: %w", err)
 	}
 
 	buf := bytes.Buffer{}
 	err = input.MultistreamTarget.MarshalCBOR(&buf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal multistream target: %w", err)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to marshal multistream target: %w", err)
 	}
 
 	dbTarget := &MultistreamTarget{
@@ -73,17 +73,17 @@ func (state *StatefulDB) CreateMultistreamTarget(input *streamplace.MultistreamC
 	}
 	err = state.DB.Create(dbTarget).Error
 	if err != nil {
-		return nil, err
+		return placestream.MultistreamDefs_TargetView{}, err
 	}
-	return &streamplace.MultistreamDefs_TargetView{
+	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &lexutil.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 
-func (state *StatefulDB) GetMultistreamTarget(uri string) (*streamplace.MultistreamDefs_TargetView, error) {
-	return nil, nil
+func (state *StatefulDB) GetMultistreamTarget(uri string) (placestream.MultistreamDefs_TargetView, error) {
+	return placestream.MultistreamDefs_TargetView{}, nil
 }
 
 type TargetWithEvent struct {
@@ -94,7 +94,7 @@ type TargetWithEvent struct {
 	LatestEventCreatedAt *time.Time `gorm:"column:latest_event_created_at"`
 }
 
-func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offset int, active *bool) ([]*streamplace.MultistreamDefs_TargetView, error) {
+func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offset int, active *bool) ([]placestream.MultistreamDefs_TargetView, error) {
 
 	var targets []TargetWithEvent
 	query := state.DB.Table("multistream_targets").
@@ -115,9 +115,9 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 		return nil, fmt.Errorf("failed to list multistream targets: %w", err)
 	}
 
-	result := make([]*streamplace.MultistreamDefs_TargetView, len(targets))
+	result := make([]placestream.MultistreamDefs_TargetView, len(targets))
 	for i, target := range targets {
-		var multistreamTarget streamplace.MultistreamTarget
+		var multistreamTarget placestream.MultistreamTarget
 		err = multistreamTarget.UnmarshalCBOR(bytes.NewReader(target.MultistreamTarget.MultistreamTarget))
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal multistream target: %w", err)
@@ -127,20 +127,20 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 			return nil, fmt.Errorf("failed to get CID: %w", err)
 		}
 
-		targetView := &streamplace.MultistreamDefs_TargetView{
+		targetView := placestream.MultistreamDefs_TargetView{
 			Uri:    target.URI,
 			Cid:    cid.String(),
-			Record: &lexutil.LexiconTypeDecoder{Val: &multistreamTarget},
+			Record: &glex.LexiconTypeDecoder{Val: &multistreamTarget},
 		}
 
 		// Add the latest event if it exists
 		if target.LatestEventID != nil {
-			event := &streamplace.MultistreamDefs_Event{
+			event := placestream.MultistreamDefs_Event{
 				Status:    *target.LatestEventStatus,
 				Message:   *target.LatestEventMessage,
 				CreatedAt: target.LatestEventCreatedAt.Format(util.ISO8601),
 			}
-			targetView.LatestEvent = event
+			targetView.LatestEvent = &event
 		}
 
 		result[i] = targetView
@@ -149,16 +149,12 @@ func (state *StatefulDB) ListMultistreamTargets(repoDID string, limit int, offse
 	return result, nil
 }
 
-func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.MultistreamPutTarget_Input) (*streamplace.MultistreamDefs_TargetView, error) {
-	if input.MultistreamTarget == nil {
-		return nil, fmt.Errorf("multistream target is required")
-	}
-
+func (state *StatefulDB) UpdateMultistreamTarget(uri string, input placestream.MultistreamPutTarget_Input) (placestream.MultistreamDefs_TargetView, error) {
 	// Get the current target to check repo ownership and current active status
 	var currentTarget MultistreamTarget
 	err := state.DB.Where("uri = ?", uri).First(&currentTarget).Error
 	if err != nil {
-		return nil, fmt.Errorf("multistream target not found")
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("multistream target not found")
 	}
 
 	// If updating to active and wasn't previously active, check active targets limit
@@ -166,24 +162,24 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.
 		var activeCount int64
 		err := state.DB.Model(&MultistreamTarget{}).Where("repo_did = ? AND active = ?", currentTarget.RepoDID, true).Count(&activeCount).Error
 		if err != nil {
-			return nil, fmt.Errorf("failed to count active targets: %w", err)
+			return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to count active targets: %w", err)
 		}
 		if activeCount >= MAX_ACTIVE_MULTISTREAM_TARGETS {
-			return nil, fmt.Errorf("maximum number of active multistream targets (%d) reached", MAX_ACTIVE_MULTISTREAM_TARGETS)
+			return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("maximum number of active multistream targets (%d) reached", MAX_ACTIVE_MULTISTREAM_TARGETS)
 		}
 	}
 
 	// Get CID for the updated target
-	cid, err := spid.GetCID(input.MultistreamTarget)
+	cid, err := spid.GetCID(&input.MultistreamTarget)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CID: %w", err)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to get CID: %w", err)
 	}
 
 	// Marshal the target data
 	buf := bytes.Buffer{}
 	err = input.MultistreamTarget.MarshalCBOR(&buf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal multistream target: %w", err)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to marshal multistream target: %w", err)
 	}
 
 	// Update the database record
@@ -195,16 +191,16 @@ func (state *StatefulDB) UpdateMultistreamTarget(uri string, input *streamplace.
 
 	result := state.DB.Model(&MultistreamTarget{}).Where("uri = ?", uri).Updates(updates)
 	if result.Error != nil {
-		return nil, fmt.Errorf("failed to update multistream target: %w", result.Error)
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("failed to update multistream target: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return nil, fmt.Errorf("multistream target not found")
+		return placestream.MultistreamDefs_TargetView{}, fmt.Errorf("multistream target not found")
 	}
 
-	return &streamplace.MultistreamDefs_TargetView{
+	return placestream.MultistreamDefs_TargetView{
 		Uri:    uri,
 		Cid:    cid.String(),
-		Record: &lexutil.LexiconTypeDecoder{Val: input.MultistreamTarget},
+		Record: &glex.LexiconTypeDecoder{Val: &input.MultistreamTarget},
 	}, nil
 }
 

@@ -7,19 +7,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 var TaskNotification = "notification"
@@ -45,14 +45,14 @@ var nonVODTaskTypes = []string{
 }
 
 type NotificationTask struct {
-	Livestream  *streamplace.Livestream_LivestreamView
-	FeedPost    *bsky.FeedDefs_PostView
-	ChatProfile *streamplace.ChatProfile
+	Livestream  placestream.Livestream_LivestreamView
+	FeedPost    *appbsky.FeedDefs_PostView
+	ChatProfile placestream.ChatProfile
 	PDSURL      string
 }
 
 type ChatTask struct {
-	MessageView *streamplace.ChatDefs_MessageView
+	MessageView placestream.ChatDefs_MessageView
 }
 
 type StreamReceivedTask struct {
@@ -322,7 +322,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err != nil {
 		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 	}
-	rec, ok := lastLivestreamView.Record.Val.(*streamplace.Livestream)
+	rec, ok := lastLivestreamView.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -394,7 +394,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       uri.RecordKey().String(),
 		Repo:       livestream.RepoDID,
 		SwapRecord: &livestream.CID,
@@ -417,9 +417,9 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 		return err
 	}
 	lsv := notificationTask.Livestream
-	rec, ok := lsv.Record.Val.(*streamplace.Livestream)
-	if !ok {
-		return fmt.Errorf("invalid livestream record")
+	rec, err := glex.RecordAs[placestream.Livestream](lsv.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid livestream record: %w", err)
 	}
 	userDID := lsv.Author.Did
 
@@ -470,8 +470,8 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue
 			}
-			go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-				err := webhook.SendLivestreamWebhook(ctx, lexiconWebhook, notificationTask.PDSURL, lsv, notificationTask.FeedPost, notificationTask.ChatProfile)
+			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+				err := webhook.SendLivestreamWebhook(ctx, &lexiconWebhook, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
 				if err != nil {
 					log.Error(ctx, "failed to send livestream to webhook", "err", err, "webhook_id", wid)
 					err := state.IncrementWebhookError(wid)
@@ -507,8 +507,8 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 			continue
 		}
-		go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-			err := webhook.SendStreamReceivedWebhook(ctx, lexiconWebhook, streamReceivedTask.StreamerDID)
+		go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+			err := webhook.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
 			if err != nil {
 				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
 				err = state.IncrementWebhookError(wid)
@@ -533,9 +533,9 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		return err
 	}
 	scm := chatTask.MessageView
-	rec, ok := scm.Record.Val.(*streamplace.ChatMessage)
-	if !ok {
-		return fmt.Errorf("invalid chat message record")
+	rec, err := glex.RecordAs[placestream.ChatMessage](scm.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid chat message record: %w", err)
 	}
 
 	// Send to webhooks using webhook manager
@@ -549,8 +549,8 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue
 			}
-			go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-				err := webhook.SendChatWebhook(ctx, lexiconWebhook, scm.Author.Did, scm)
+			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+				err := webhook.SendChatWebhook(ctx, &lexiconWebhook, scm.Author.Did, &scm)
 				if err != nil {
 					log.Error(ctx, "failed to send chat to webhook", "err", err, "webhook_id", wid)
 					err = state.IncrementWebhookError(wid)

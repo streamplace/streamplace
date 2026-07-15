@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
+	"stream.place/streamplace/pkg/appbsky"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
@@ -43,9 +43,9 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 
@@ -642,7 +642,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			return
 		}
 		count := a.Bus.GetViewerCount(user)
-		bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+		bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return
@@ -678,9 +678,9 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 }
 
 type ChatResponse struct {
-	Post *bsky.FeedPost `json:"post"`
-	Repo *model.Repo    `json:"repo"`
-	CID  string         `json:"cid"`
+	Post *appbsky.FeedPost `json:"post"`
+	Repo *model.Repo       `json:"repo"`
+	CID  string            `json:"cid"`
 }
 
 func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {

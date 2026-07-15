@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/appbsky"
 )
 
 type FeedPost struct {
@@ -26,25 +26,25 @@ type FeedPost struct {
 	IndexedAt        *time.Time `json:"indexedAt,omitempty" gorm:"column:indexed_at"`
 }
 
-func (fp *FeedPost) ToBskyPostView() (*bsky.FeedDefs_PostView, error) {
-	rec, err := lexutil.CborDecodeValue(*fp.FeedPost)
+func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
+	rec, err := glex.CborDecodeValue(*fp.FeedPost)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error decoding feed post: %w", err)
 	}
-	postView := bsky.FeedDefs_PostView{
+	postView := appbsky.FeedDefs_PostView{
 		LexiconTypeID: "app.bsky.feed.defs#postView",
 		Cid:           fp.CID,
 		Uri:           fp.URI,
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: fp.RepoDID,
 		},
-		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:    &glex.LexiconTypeDecoder{Val: rec},
 		IndexedAt: fp.IndexedAt.UTC().Format(time.RFC3339Nano),
 	}
 	if fp.Repo != nil {
 		postView.Author.Handle = fp.Repo.Handle
 	}
-	return &postView, nil
+	return postView, nil
 }
 
 func (m *DBModel) CreateFeedPost(ctx context.Context, post *FeedPost) error {
@@ -89,7 +89,7 @@ func (m *DBModel) GetFeedPost(uri string) (*FeedPost, error) {
 	return &post, nil
 }
 
-func (m *DBModel) GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error) {
+func (m *DBModel) GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error) {
 	posts := []FeedPost{}
 	err := m.DB.
 		Preload("Repo").
@@ -100,7 +100,7 @@ func (m *DBModel) GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error) 
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving replies: %w", err)
 	}
-	bskyPosts := []*bsky.FeedDefs_PostView{}
+	bskyPosts := []appbsky.FeedDefs_PostView{}
 	for _, post := range posts {
 		bskyPost, err := post.ToBskyPostView()
 		if err != nil {
@@ -116,7 +116,7 @@ type StreamplaceFeedPostLivestream struct {
 	Title string `json:"title"`
 }
 
-func (m *DBModel) GetLatestLivestream(repoDID string) (*bsky.FeedDefs_PostView, error) {
+func (m *DBModel) GetLatestLivestream(repoDID string) (appbsky.FeedDefs_PostView, error) {
 	posts := []FeedPost{}
 	err := m.DB.
 		Preload("Repo").
@@ -126,16 +126,16 @@ func (m *DBModel) GetLatestLivestream(repoDID string) (*bsky.FeedDefs_PostView, 
 		Order("created_at DESC").
 		Find(&posts).Error
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving livestream: %w", err)
+		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error retrieving livestream: %w", err)
 	}
 
 	if len(posts) == 0 {
-		return nil, nil
+		return appbsky.FeedDefs_PostView{}, nil
 	}
 
 	view, err := posts[0].ToBskyPostView()
 	if err != nil {
-		return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
+		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 	}
 
 	return view, nil

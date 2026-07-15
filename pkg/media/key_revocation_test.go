@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 // TestStreamKickMarshalsAsPlaceStreamError locks the dashboard wire contract: a

@@ -6,7 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 // handlePlaceStreamMediaGetVideo serves a hydrated view of a video

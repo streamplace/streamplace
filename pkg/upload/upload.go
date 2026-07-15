@@ -32,8 +32,8 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // Backend identifies which TUS data store backs an upload.
@@ -336,7 +336,7 @@ func (m *Manager) onComplete(ctx context.Context, ev tushandler.HookEvent) {
 	// supply a draftUri. A failed create is non-fatal: the upload still
 	// processes.
 	if existing, _ := m.state.GetDraftByUpload(ctx, row.ID); existing == nil {
-		if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &streamplace.VodDraftVideo{
+		if _, err := m.state.CreateDraft(ctx, row.RepoDID, row.ID, &placestream.VodDraftVideo{
 			LexiconTypeID: "place.stream.vod.draftVideo",
 			Title:         filenameOrDefault(row.Filename),
 			Status:        "processing",

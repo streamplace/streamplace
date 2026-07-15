@@ -5,7 +5,7 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Replicator interface {
@@ -14,5 +14,5 @@ type Replicator interface {
 	// hey, we have a new segment! send it to whoever
 	SendSegment(context.Context, *media.NewSegmentNotification) error
 	// populate this origin record with whatever fields are pertinent to your replicator
-	BuildOriginRecord(*streamplace.BroadcastOrigin) error
+	BuildOriginRecord(*placestream.BroadcastOrigin) error
 }

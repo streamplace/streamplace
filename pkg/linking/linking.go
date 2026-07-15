@@ -11,8 +11,8 @@ import (
 
 	"golang.org/x/net/html"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 type Linker struct {
@@ -57,8 +57,8 @@ var BrandingAssetList = [...]string{
 }
 
 // fetch branding assets for a given broadcaster DID
-func (l *Linker) getBrandingAssets(broadcasterDid string) ([]streamplace.BrandingGetBranding_BrandingAsset, error) {
-	ret := make([]streamplace.BrandingGetBranding_BrandingAsset, 0)
+func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.BrandingGetBranding_BrandingAsset, error) {
+	ret := make([]placestream.BrandingGetBranding_BrandingAsset, 0)
 	for _, asset := range BrandingAssetList {
 		blob, err := l.sdb.GetBrandingBlob(broadcasterDid, asset)
 		if err != nil {
@@ -66,7 +66,7 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]streamplace.Brandin
 			log.Printf("error fetching branding asset %s for broadcaster %s: %v", asset, broadcasterDid, err)
 			continue
 		}
-		asset := streamplace.BrandingGetBranding_BrandingAsset{
+		asset := placestream.BrandingGetBranding_BrandingAsset{
 			Key:      blob.Key,
 			MimeType: blob.MimeType,
 		}
@@ -94,14 +94,14 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]streamplace.Brandin
 	return ret, nil
 }
 
-func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *streamplace.Livestream_LivestreamView, sentryDSN string) ([]byte, error) {
+func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *placestream.Livestream_LivestreamView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
 	if lsv == nil {
 		return nil, errors.New("livestream view is nil")
 	}
-	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
+	ls, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return nil, errors.New("livestream view is not a livestream")
 	}
@@ -176,14 +176,14 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *stre
 	})
 }
 
-func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *streamplace.MediaGetVideo_VideoView, sentryDSN string) ([]byte, error) {
+func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestream.MediaGetVideo_VideoView, sentryDSN string) ([]byte, error) {
 	if u == nil {
 		return nil, errors.New("url is nil")
 	}
 	if vv == nil {
 		return nil, errors.New("video view is nil")
 	}
-	video, ok := vv.Record.Val.(*streamplace.Video)
+	video, ok := vv.Record.Val.(*placestream.Video)
 	if !ok {
 		return nil, errors.New("video view record is not a video")
 	}
@@ -192,7 +192,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *streampl
 
 	authorDid := ""
 	authorHandle := ""
-	if vv.Author != nil {
+	if !false {
 		authorDid = vv.Author.Did
 		authorHandle = vv.Author.Handle
 	}

@@ -32,8 +32,8 @@ import (
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/moderation"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/s3"
-	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
 const SPDataDir = "$SP_DATA_DIR"

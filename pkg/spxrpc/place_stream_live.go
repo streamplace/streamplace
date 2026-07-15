@@ -12,21 +12,21 @@ import (
 	"strconv"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/spmetrics"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *placestream.LiveDenyTeleport_Input) (*placestream.LiveDenyTeleport_Output, error) {
@@ -59,7 +59,7 @@ func (s *Server) handlePlaceStreamLiveDenyTeleport(ctx context.Context, input *p
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to deny teleport")
 	}
 
-	cancelMsg := &placestream.Livestream_TeleportCanceled{
+	cancelMsg := placestream.Livestream_TeleportCanceled{
 		LexiconTypeID: "place.stream.livestream#teleportCanceled",
 		TeleportUri:   input.Uri,
 		Reason:        "denied",
@@ -186,8 +186,8 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	// Convert segments to the expected output format
-	output := &placestream.LiveGetSegments_Output{
-		Segments: make([]*placestream.Segment_SegmentView, len(segments)),
+	output := placestream.LiveGetSegments_Output{
+		Segments: make([]placestream.Segment_SegmentView, len(segments)),
 	}
 
 	for i, segment := range segments {
@@ -199,15 +199,15 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to get CID: %s", err))
 		}
-		ltd := &lexutil.LexiconTypeDecoder{Val: record}
+		ltd := &glex.LexiconTypeDecoder{Val: record}
 
-		output.Segments[i] = &placestream.Segment_SegmentView{
+		output.Segments[i] = placestream.Segment_SegmentView{
 			Record: ltd,
 			Cid:    c.String(),
 		}
 	}
 
-	return output, nil
+	return &output, nil
 }
 
 func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before string, limit int) (*placestream.LiveGetLiveUsers_Output, error) {
@@ -230,7 +230,9 @@ func (s *Server) handlePlaceStreamLiveGetLiveUsers(ctx context.Context, before s
 	// Cache key includes sort mode and user for personalized results
 	cacheKey := fmt.Sprintf("live_users_%s_%s_%d", sortMode, userDID, limit)
 	if cached, found := s.LiveUsersCache.Get(cacheKey); found {
-		return cached.(*placestream.LiveGetLiveUsers_Output), nil
+		if out, ok := cached.(*placestream.LiveGetLiveUsers_Output); ok {
+			return out, nil
+		}
 	}
 
 	if sortMode == "latest" {
@@ -270,7 +272,7 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
+	streams := make([]placestream.Livestream_LivestreamView, len(ls))
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
@@ -280,12 +282,12 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
 		}
-		streams[i] = stream
+		streams[i] = *stream
 	}
 
-	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
-	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
-	return liveUsers, nil
+	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
+	s.LiveUsersCache.SetDefault(cacheKey, &liveUsers)
+	return &liveUsers, nil
 }
 
 // getLiveUsersLatest returns live streams ordered by start time (newest first).
@@ -312,7 +314,7 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]*placestream.Livestream_LivestreamView, len(ls))
+	streams := make([]placestream.Livestream_LivestreamView, len(ls))
 	for i, l := range ls {
 		stream, err := l.ToLivestreamView()
 		if err != nil {
@@ -322,12 +324,12 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 			LexiconTypeID: "place.stream.livestream#viewerCount",
 			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
 		}
-		streams[i] = stream
+		streams[i] = *stream
 	}
 
-	liveUsers := &placestream.LiveGetLiveUsers_Output{Streams: streams}
-	s.LiveUsersCache.SetDefault(cacheKey, liveUsers)
-	return liveUsers, nil
+	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
+	s.LiveUsersCache.SetDefault(cacheKey, &liveUsers)
+	return &liveUsers, nil
 }
 
 func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
@@ -410,9 +412,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveStreamers) > 0 {
-			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveStreamers {
-				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+				recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "streamer",
@@ -443,9 +445,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		}
 
 		if len(liveFollows) > 0 {
-			var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+			var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 			for _, did := range liveFollows {
-				recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+				recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 					LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 						Did:    did,
 						Source: "follows",
@@ -466,9 +468,9 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to filter default streamers")
 		}
-		var recommendations []*placestream.LiveGetRecommendations_Output_Recommendations_Elem
+		var recommendations []placestream.LiveGetRecommendations_Output_Recommendations_Elem
 		for _, did := range liveDefaults {
-			recommendations = append(recommendations, &placestream.LiveGetRecommendations_Output_Recommendations_Elem{
+			recommendations = append(recommendations, placestream.LiveGetRecommendations_Output_Recommendations_Elem{
 				LiveGetRecommendations_LivestreamRecommendation: &placestream.LiveGetRecommendations_LivestreamRecommendation{
 					Did:    did,
 					Source: "host",
@@ -483,7 +485,7 @@ func (s *Server) handlePlaceStreamLiveGetRecommendations(ctx context.Context, us
 
 	// No recommendations available
 	return &placestream.LiveGetRecommendations_Output{
-		Recommendations: []*placestream.LiveGetRecommendations_Output_Recommendations_Elem{},
+		Recommendations: []placestream.LiveGetRecommendations_Output_Recommendations_Elem{},
 		UserDID:         &userDID,
 	}, nil
 }
@@ -559,7 +561,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 	if livestream.Thumb == nil {
 		// Upload the user's current thumbnail to their PDS as the livestream image.
-		var thumb *lexutil.LexBlob
+		var thumb *glex.Blob
 		thumbData, err := os.ReadFile(s.cli.ThumbnailFilePath(session.DID))
 		if err != nil {
 			log.Error(ctx, "failed to read thumbnail file", "err", err)
@@ -569,7 +571,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 			if err != nil {
 				log.Error(ctx, "failed to upload thumbnail to PDS", "err", err)
 			} else {
-				thumb = uploadOut.Blob
+				thumb = &uploadOut.Blob
 			}
 		}
 		livestream.Thumb = thumb
@@ -604,20 +606,20 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 		linkStart := int64(len(prefix))
 		linkEnd := linkStart + int64(len(canonicalUrl))
 
-		postRecord := &bsky.FeedPost{
+		postRecord := appbsky.FeedPost{
 			LexiconTypeID: "app.bsky.feed.post",
 			Text:          postText,
 			CreatedAt:     now,
 			Langs:         []string{"en"},
-			Facets: []*bsky.RichtextFacet{
+			Facets: []appbsky.RichtextFacet{
 				{
-					Index: &bsky.RichtextFacet_ByteSlice{
+					Index: appbsky.RichtextFacet_ByteSlice{
 						ByteStart: linkStart,
 						ByteEnd:   linkEnd,
 					},
-					Features: []*bsky.RichtextFacet_Features_Elem{
+					Features: []appbsky.RichtextFacet_Features_Elem{
 						{
-							RichtextFacet_Link: &bsky.RichtextFacet_Link{
+							RichtextFacet_Link: &appbsky.RichtextFacet_Link{
 								LexiconTypeID: "app.bsky.richtext.facet#link",
 								Uri:           canonicalUrl,
 							},
@@ -625,9 +627,9 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 					},
 				},
 			},
-			Embed: &bsky.FeedPost_Embed{
-				EmbedExternal: &bsky.EmbedExternal{
-					External: &bsky.EmbedExternal_External{
+			Embed: &appbsky.FeedPost_Embed{
+				EmbedExternal: &appbsky.EmbedExternal{
+					External: appbsky.EmbedExternal_External{
 						Title:       fmt.Sprintf("@%s is 🔴LIVE on %s!", handle, s.cli.BroadcasterHost),
 						Uri:         canonicalUrl,
 						Description: livestream.Title,
@@ -639,7 +641,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 
 		postInput := comatproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
-			Record:     &lexutil.LexiconTypeDecoder{Val: postRecord},
+			Record:     &glex.LexiconTypeDecoder{Val: &postRecord},
 			Repo:       session.DID,
 		}
 		var postOutput comatproto.RepoCreateRecord_Output
@@ -657,7 +659,7 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 	// Step 4: create the place.stream.livestream record
 	lsInput := comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: livestream},
+		Record:     &glex.LexiconTypeDecoder{Val: &livestream},
 		Repo:       session.DID,
 	}
 	var lsOutput comatproto.RepoCreateRecord_Output
@@ -730,7 +732,7 @@ func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client 
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: priorRec},
+		Record:     &glex.LexiconTypeDecoder{Val: priorRec},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       repoDID,
 		SwapRecord: swapRecord,
@@ -795,7 +797,7 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 
 	lsInput := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: livestreamRecord},
+		Record:     &glex.LexiconTypeDecoder{Val: livestreamRecord},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       session.DID,
 		SwapRecord: swapRecord,

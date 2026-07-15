@@ -3,11 +3,11 @@ package spxrpc
 import (
 	"context"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestream.ConfigGetEnv_Output, error) {
-	out := &placestream.ConfigGetEnv_Output{}
+	out := placestream.ConfigGetEnv_Output{}
 	if s.cli.PlaybackWorkerURL != "" {
 		out.PlaybackWorkerUrl = &s.cli.PlaybackWorkerURL
 	}
@@ -15,5 +15,5 @@ func (s *Server) handlePlaceStreamConfigGetEnv(ctx context.Context) (*placestrea
 		t := true
 		out.GamesEnabled = &t
 	}
-	return out, nil
+	return &out, nil
 }

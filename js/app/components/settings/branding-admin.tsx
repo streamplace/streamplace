@@ -23,6 +23,7 @@ import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc"
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView } from "react-native";
+import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
 export function BrandingAdmin() {
@@ -93,9 +94,9 @@ export function BrandingAdmin() {
       const textBytes = new TextEncoder().encode(value.trim());
       const base64Data = btoa(String.fromCharCode(...textBytes));
 
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: "text/plain",
       });
@@ -183,9 +184,9 @@ export function BrandingAdmin() {
         });
       }
 
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: file.type,
         width,
@@ -251,9 +252,9 @@ export function BrandingAdmin() {
 
     setUploading(true);
     try {
-      await agent.place.stream.branding.deleteBlob({
+      await agent.client.call(place.stream.branding.deleteBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
       });
 
       toast.show(

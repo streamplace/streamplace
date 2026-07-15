@@ -8,7 +8,7 @@ import (
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context, cursor string, limit int, video string) (*placestream.VodGetComments_Output, error) {
@@ -34,14 +34,14 @@ func (s *Server) handlePlaceStreamVodGetComments(ctx context.Context, cursor str
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	out := &placestream.VodGetComments_Output{
+	out := placestream.VodGetComments_Output{
 		Comments: comments,
 	}
 	if nextCursor != nil {
 		cs := nextCursor.Format(time.RFC3339Nano)
 		out.Cursor = &cs
 	}
-	return out, nil
+	return &out, nil
 }
 
 func (s *Server) handlePlaceStreamGetLikes(ctx context.Context, cursor string, limit int, subject string) (*placestream.GetLikes_Output, error) {
@@ -67,7 +67,7 @@ func (s *Server) handlePlaceStreamGetLikes(ctx context.Context, cursor string, l
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	out := &placestream.GetLikes_Output{
+	out := placestream.GetLikes_Output{
 		Subject: subject,
 		Count:   count,
 		Likes:   likes,
@@ -76,5 +76,5 @@ func (s *Server) handlePlaceStreamGetLikes(ctx context.Context, cursor string, l
 		cs := nextCursor.Format(time.RFC3339Nano)
 		out.Cursor = &cs
 	}
-	return out, nil
+	return &out, nil
 }

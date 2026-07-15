@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
+	placestreamtypes "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
 )
 
 func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input *placestreamtypes.ServerUpsertStorage_Input) (*placestreamtypes.ServerUpsertStorage_Output, error) {
@@ -49,7 +49,7 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 		url = existing.URL
 	}
 
-	storage := statedb.StorageFromLexiconInput(input, session.DID)
+	storage := statedb.StorageFromLexiconInput(*input, session.DID)
 	storage.URL = url
 	if input.IsActive == nil && existing != nil {
 		storage.IsActive = existing.IsActive
@@ -85,8 +85,9 @@ func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*places
 		}, nil
 	}
 
+	storageLex := storage.ToLexicon()
 	return &placestreamtypes.ServerGetStorage_Output{
-		Storage: storage.ToLexicon(),
+		Storage: &storageLex,
 	}, nil
 }
 

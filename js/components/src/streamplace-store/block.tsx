@@ -1,5 +1,6 @@
 import { AppBskyGraphBlock } from "@atproto/api";
 import { useState } from "react";
+import { place } from "streamplace";
 import { usePDSAgent } from "./xrpc";
 
 /**
@@ -43,10 +44,13 @@ export function useCreateBlockRecord() {
       }
 
       // Otherwise, use delegated moderation endpoint
-      const result = await agent.place.stream.moderation.createBlock({
-        streamer: streamerDID,
-        subject: subjectDID,
-      });
+      const result = await agent.client.call(
+        place.stream.moderation.createBlock,
+        {
+          streamer: streamerDID as any,
+          subject: subjectDID as any,
+        },
+      );
       return result;
     } finally {
       setIsLoading(false);
@@ -86,24 +90,24 @@ export function useCreateHideChatRecord() {
     try {
       // If no streamerDID provided or caller is the streamer, use direct ATProto write
       if (!streamerDID || agent.did === streamerDID) {
-        const record = {
-          $type: "place.stream.chat.gate",
-          hiddenMessage: chatMessageUri,
-        };
-
-        const result = await agent.com.atproto.repo.createRecord({
-          repo: agent.did,
-          collection: "place.stream.chat.gate",
-          record,
-        });
+        const result = await agent.client.create(
+          place.stream.chat.gate,
+          {
+            hiddenMessage: chatMessageUri as any,
+          },
+          { repo: agent.did as any },
+        );
         return result;
       }
 
       // Otherwise, use delegated moderation endpoint
-      const result = await agent.place.stream.moderation.createGate({
-        streamer: streamerDID,
-        messageUri: chatMessageUri,
-      });
+      const result = await agent.client.call(
+        place.stream.moderation.createGate,
+        {
+          streamer: streamerDID as any,
+          messageUri: chatMessageUri as any,
+        },
+      );
       return result;
     } finally {
       setIsLoading(false);
@@ -151,13 +155,12 @@ export function useUpdateLivestreamRecord() {
         }
 
         // Get existing record to copy fields
-        const getResult = await agent.com.atproto.repo.getRecord({
-          repo: agent.did,
-          collection: "place.stream.livestream",
+        const getResult = await agent.client.get(place.stream.livestream, {
+          repo: agent.did as any,
           rkey,
         });
 
-        const oldRecord = getResult.data.value as any;
+        const oldRecord = getResult.value as any;
 
         // Create new record (don't edit - old records are "chapter markers")
         // Spread entire record to preserve all fields (agent, canonicalUrl, notificationSettings, etc.)
@@ -167,20 +170,23 @@ export function useUpdateLivestreamRecord() {
           createdAt: new Date().toISOString(), // Override timestamp for new chapter marker
         };
 
-        const result = await agent.com.atproto.repo.createRecord({
-          repo: agent.did,
-          collection: "place.stream.livestream",
+        const result = await agent.client.create(
+          place.stream.livestream,
           record,
-        });
+          { repo: agent.did as any },
+        );
         return result;
       }
 
       // Otherwise, use delegated moderation endpoint
-      const result = await agent.place.stream.moderation.updateLivestream({
-        streamer: streamerDID,
-        livestreamUri: livestreamUri,
-        title: title,
-      });
+      const result = await agent.client.call(
+        place.stream.moderation.updateLivestream,
+        {
+          streamer: streamerDID as any,
+          livestreamUri: livestreamUri as any,
+          title: title,
+        },
+      );
       return result;
     } finally {
       setIsLoading(false);

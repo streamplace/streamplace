@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type PinnedRecord struct {
@@ -22,8 +22,8 @@ type PinnedRecord struct {
 	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
 }
 
-func (p *PinnedRecord) ToStreamplacePinnedRecord() (*streamplace.ChatPinnedRecord, error) {
-	rec := &streamplace.ChatPinnedRecord{
+func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord, error) {
+	rec := placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,
 		CreatedAt:     p.CreatedAt.UTC().Format(util.ISO8601),
@@ -35,8 +35,8 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (*streamplace.ChatPinnedRecor
 	return rec, nil
 }
 
-func (p *PinnedRecord) ToStreamplacePinnedRecordView() (*streamplace.ChatDefs_PinnedRecordView, error) {
-	pr := &streamplace.ChatPinnedRecord{
+func (p *PinnedRecord) ToStreamplacePinnedRecordView() (placestream.ChatDefs_PinnedRecordView, error) {
+	pr := placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,
 		CreatedAt:     p.CreatedAt.UTC().Format(util.ISO8601),
@@ -45,7 +45,7 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (*streamplace.ChatDefs_Pi
 		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		pr.ExpiresAt = &s
 	}
-	rec := &streamplace.ChatDefs_PinnedRecordView{
+	rec := placestream.ChatDefs_PinnedRecordView{
 		LexiconTypeID: "place.stream.chat.defs#pinnedRecordView",
 		Record:        pr,
 		Cid:           p.CID,

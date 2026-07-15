@@ -7,19 +7,19 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 func TestDelegatedModeration(t *testing.T) {
@@ -62,7 +62,7 @@ func TestDelegatedModeration(t *testing.T) {
 	// Test 1: Create delegation record with expiration time
 	t.Log("Test 1: Creating delegation record with expiration time")
 	expirationTime := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
-	delegationRecord := &streamplace.ModerationPermission{
+	delegationRecord := placestream.ModerationPermission{
 		LexiconTypeID:  "place.stream.moderation.permission",
 		Moderator:      moderator.DID,
 		Permissions:    []string{"ban", "hide", "livestream.manage"},
@@ -73,7 +73,7 @@ func TestDelegatedModeration(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_MODERATION_PERMISSION,
 		Repo:       streamer.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: delegationRecord},
+		Record:     &glex.LexiconTypeDecoder{Val: &delegationRecord},
 	})
 	require.NoError(t, err)
 
@@ -97,7 +97,7 @@ func TestDelegatedModeration(t *testing.T) {
 	require.NotNil(t, view)
 	require.Equal(t, streamer.DID, view.Author.Did)
 
-	delegation := view.Record.Val.(*streamplace.ModerationPermission)
+	delegation := view.Record.Val.(*placestream.ModerationPermission)
 	require.NotNil(t, delegation)
 	require.Equal(t, moderator.DID, delegation.Moderator)
 	require.NotNil(t, delegation.ExpirationTime, "expiration time should be set")
@@ -109,7 +109,7 @@ func TestDelegatedModeration(t *testing.T) {
 
 	// Test 2: Create block (ban user)
 	t.Log("Test 2: Creating block record")
-	block := &bsky.GraphBlock{
+	block := appbsky.GraphBlock{
 		Subject:   user.DID,
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 	}
@@ -117,7 +117,7 @@ func TestDelegatedModeration(t *testing.T) {
 	blockRec, err := comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.APP_BSKY_GRAPH_BLOCK,
 		Repo:       streamer.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: block},
+		Record:     &glex.LexiconTypeDecoder{Val: &block},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Block record created: %s", blockRec.Uri)
@@ -139,7 +139,7 @@ func TestDelegatedModeration(t *testing.T) {
 
 	// Test 3: Create chat message and gate
 	t.Log("Test 3: Creating chat message and gate")
-	msg := &streamplace.ChatMessage{
+	msg := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Test message to be hidden",
 		CreatedAt:     time.Now().Format(util.ISO8601),
@@ -149,13 +149,13 @@ func TestDelegatedModeration(t *testing.T) {
 	msgRec, err := comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_MESSAGE,
 		Repo:       user.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Chat message created: %s", msgRec.Uri)
 
 	// Create gate to hide the message
-	gate := &streamplace.ChatGate{
+	gate := placestream.ChatGate{
 		LexiconTypeID: "place.stream.chat.gate",
 		HiddenMessage: msgRec.Uri,
 	}
@@ -163,7 +163,7 @@ func TestDelegatedModeration(t *testing.T) {
 	gateRec, err := comatproto.RepoCreateRecord(ctx, streamer.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: constants.PLACE_STREAM_CHAT_GATE,
 		Repo:       streamer.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: gate},
+		Record:     &glex.LexiconTypeDecoder{Val: &gate},
 	})
 	require.NoError(t, err)
 	t.Logf("✓ Gate record created: %s", gateRec.Uri)

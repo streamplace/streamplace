@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
-	"stream.place/streamplace/pkg/streamplace"
+	glex "github.com/streamplace/glex/runtime"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // videoListMaxScan bounds how many indexed rows GetVideoList will examine
@@ -30,7 +30,7 @@ const videoListMaxScan = 2000
 // back videos it only knows about from the firehose but can't serve. The
 // scan walks indexed rows in page order, skipping the ones we don't host,
 // until the page is full or the table (or scan budget) is exhausted.
-func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (*streamplace.MediaGetVideoList_Output, error) {
+func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 25
 	}
@@ -43,13 +43,13 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 	if cursor != "" {
 		var last Video
 		if err := m.DB.WithContext(ctx).Where("uri = ?", cursor).First(&last).Error; err != nil {
-			return nil, fmt.Errorf("resolve cursor: %w", err)
+			return placestream.MediaGetVideoList_Output{}, fmt.Errorf("resolve cursor: %w", err)
 		}
 		anchorIndexedAt = last.IndexedAt
 		haveAnchor = true
 	}
 
-	videos := make([]*streamplace.MediaGetVideo_VideoView, 0, limit)
+	videos := make([]placestream.MediaGetVideo_VideoView, 0, limit)
 	scanned := 0
 	lastExaminedURI := ""
 	moreRows := true
@@ -78,7 +78,7 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 
 		var rows []*Video
 		if err := query.Limit(batchSize).Find(&rows).Error; err != nil {
-			return nil, fmt.Errorf("list videos: %w", err)
+			return placestream.MediaGetVideoList_Output{}, fmt.Errorf("list videos: %w", err)
 		}
 		if len(rows) == 0 {
 			moreRows = false
@@ -95,7 +95,7 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 			var err error
 			hosted, err = m.hostedVideoRows(ctx, rows, hostedByServerDID)
 			if err != nil {
-				return nil, err
+				return placestream.MediaGetVideoList_Output{}, err
 			}
 		}
 
@@ -113,7 +113,7 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 
 			view, err := m.hydrateVideoView(ctx, row)
 			if err != nil {
-				return nil, fmt.Errorf("hydrate video %s: %w", row.URI, err)
+				return placestream.MediaGetVideoList_Output{}, fmt.Errorf("hydrate video %s: %w", row.URI, err)
 			}
 			videos = append(videos, view)
 			if len(videos) >= limit {
@@ -137,7 +137,7 @@ func (m *DBModel) GetVideoList(ctx context.Context, repoDID string, limit int, c
 		}
 	}
 
-	out := &streamplace.MediaGetVideoList_Output{Videos: videos}
+	out := placestream.MediaGetVideoList_Output{Videos: videos}
 	// Hand back a cursor whenever more rows might remain — the page filled,
 	// or we stopped on the scan budget. The client pages until the cursor
 	// comes back nil.
@@ -195,7 +195,7 @@ func (m *DBModel) videoContentBlob(ctx context.Context, row *Video) (string, err
 	if err != nil {
 		return "", err
 	}
-	if rec.Source == nil {
+	if rec.Source.MediaDefs_SourceTracks == nil && rec.Source.MediaDefs_SourceClip == nil {
 		return "", nil
 	}
 	switch {
@@ -210,7 +210,7 @@ func (m *DBModel) videoContentBlob(ctx context.Context, row *Video) (string, err
 		if err != nil {
 			return "", err
 		}
-		if parent == nil || parent.Source == nil || parent.Source.MediaDefs_SourceTracks == nil {
+		if parent == nil || parent.Source.MediaDefs_SourceTracks == nil {
 			return "", nil
 		}
 		return m.firstTrackBlobCID(ctx, parent.Source.MediaDefs_SourceTracks.Tracks)
@@ -222,15 +222,15 @@ func (m *DBModel) videoContentBlob(ctx context.Context, row *Video) (string, err
 // firstTrackBlobCID returns the muxlTrack.blob CID of the first track ref in
 // a sourceTracks bundle, via the local track index. Returns "" when the ref
 // is empty or the track isn't indexed / isn't a muxlTrack.
-func (m *DBModel) firstTrackBlobCID(ctx context.Context, tracks []*comatproto.RepoStrongRef) (string, error) {
-	if len(tracks) == 0 || tracks[0] == nil || tracks[0].Uri == "" {
+func (m *DBModel) firstTrackBlobCID(ctx context.Context, tracks []comatproto.RepoStrongRef) (string, error) {
+	if len(tracks) == 0 || tracks[0].Uri == "" {
 		return "", nil
 	}
 	track, err := m.GetMediaTrackByURI(ctx, tracks[0].Uri)
 	if err != nil {
 		return "", err
 	}
-	if track == nil || track.Track == nil || track.Track.MediaDefs_MuxlTrack == nil {
+	if track == nil || track.Track.MediaDefs_MuxlTrack == nil {
 		return "", nil
 	}
 	return track.Track.MediaDefs_MuxlTrack.Blob, nil
@@ -260,16 +260,16 @@ func (m *DBModel) hostedBlobs(ctx context.Context, serverDID string, blobs []str
 
 // hydrateVideoView builds a VideoView from a model row: decodes the
 // record, fetches the author handle, and sums view counts.
-func (m *DBModel) hydrateVideoView(ctx context.Context, row *Video) (*streamplace.MediaGetVideo_VideoView, error) {
+func (m *DBModel) hydrateVideoView(ctx context.Context, row *Video) (placestream.MediaGetVideo_VideoView, error) {
 	rec, err := row.ToRecord()
 	if err != nil {
-		return nil, err
+		return placestream.MediaGetVideo_VideoView{}, err
 	}
 
-	author := &bsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
+	author := appbsky.ActorDefs_ProfileViewBasic{Did: row.RepoDID}
 	repo, err := m.GetRepo(row.RepoDID)
 	if err != nil {
-		return nil, fmt.Errorf("hydrate author repo: %w", err)
+		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("hydrate author repo: %w", err)
 	}
 	if repo != nil {
 		author.Handle = repo.Handle
@@ -277,19 +277,19 @@ func (m *DBModel) hydrateVideoView(ctx context.Context, row *Video) (*streamplac
 
 	summary, err := m.viewCountSummary(ctx, row.URI)
 	if err != nil {
-		return nil, err
+		return placestream.MediaGetVideo_VideoView{}, err
 	}
 
 	likeCount, err := m.GetLikeCount(ctx, row.URI)
 	if err != nil {
-		return nil, fmt.Errorf("get like count: %w", err)
+		return placestream.MediaGetVideo_VideoView{}, fmt.Errorf("get like count: %w", err)
 	}
 
-	return &streamplace.MediaGetVideo_VideoView{
+	return placestream.MediaGetVideo_VideoView{
 		Uri:        row.URI,
 		Cid:        row.CID,
 		Author:     author,
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: &rec},
 		ViewCounts: summary,
 		LikeCount:  likeCount,
 	}, nil

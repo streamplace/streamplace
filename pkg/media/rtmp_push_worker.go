@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // RTMPPushWorkerConfig is the startup handshake main hands an rtmp-push worker
@@ -70,11 +70,11 @@ func RunRTMPPushWorker(ctx context.Context, cfg RTMPPushWorkerConfig, source io.
 // under exec.CommandContext(ctx), so the cancel HandleMultistreamTargets fires
 // when a target is disabled tears the worker down, and a crash surfaces as a
 // non-zero exit that StartMultistreamTarget turns into an "error" event + retry.
-func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendition string, targetView *streamplace.MultistreamDefs_TargetView) error {
+func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPushIsolated")
-	rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+	rec, ok := targetView.Record.Val.(*placestream.MultistreamTarget)
 	if !ok {
 		return fmt.Errorf("failed to convert target view to multistream target")
 	}

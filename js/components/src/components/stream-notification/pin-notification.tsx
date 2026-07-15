@@ -1,7 +1,7 @@
 import { EyeOff, Pin, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { PinnedRecordViewHydrated, PlaceStreamChatProfile } from "streamplace";
+import { PinnedRecordViewHydrated, place } from "streamplace";
 import {
   Text,
   useCanModerate,
@@ -12,7 +12,7 @@ import {
 import { RichtextSegment, segmentize } from "../../lib/facet";
 import { formatHandleWithAt } from "../../utils/format-handle";
 
-const getRgbColor = (color?: PlaceStreamChatProfile.Color) =>
+const getRgbColor = (color?: place.stream.chat.profile.Color) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined;
 
 function renderSegment(segment: RichtextSegment, index: number) {

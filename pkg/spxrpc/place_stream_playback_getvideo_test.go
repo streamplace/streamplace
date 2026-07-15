@@ -8,15 +8,15 @@ import (
 	"strings"
 	"testing"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -318,10 +318,10 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		return u
 	}
 
-	require.NoError(t, m.UpsertMediaTrack(ctx, &streamplace.MediaTrack{
+	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
-		Track: &streamplace.MediaTrack_Track{
-			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
+		Track: placestream.MediaTrack_Track{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          parentCID,
 				TrackId:       "1",
@@ -330,13 +330,13 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		},
 	}, parseURI(trackURI)))
 
-	parent := &streamplace.Video{
+	parent := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         "parent",
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 				LexiconTypeID: "place.stream.media.defs#sourceTracks",
-				Tracks: []*comatproto.RepoStrongRef{
+				Tracks: []comatproto.RepoStrongRef{
 					{Uri: trackURI, Cid: "bafyrefcid"},
 				},
 			},
@@ -344,11 +344,11 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 	}
 	require.NoError(t, m.UpsertVideo(ctx, parent, parseURI(parentURI)))
 
-	clip := &streamplace.Video{
+	clip := placestream.Video{
 		LexiconTypeID: "place.stream.video",
 		Title:         "5s..10s of parent",
-		Source: &streamplace.Video_Source{
-			MediaDefs_SourceClip: &streamplace.MediaDefs_SourceClip{
+		Source: placestream.Video_Source{
+			MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
 				LexiconTypeID: "place.stream.media.defs#sourceClip",
 				Video:         parentURI,
 				Start:         5_000,
@@ -380,11 +380,11 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		// resolve only follows one hop and demands sourceTracks on
 		// the parent.
 		const nestedURI = "at://did:plc:owner/place.stream.video/nested"
-		nested := &streamplace.Video{
+		nested := placestream.Video{
 			LexiconTypeID: "place.stream.video",
 			Title:         "nested clip",
-			Source: &streamplace.Video_Source{
-				MediaDefs_SourceClip: &streamplace.MediaDefs_SourceClip{
+			Source: placestream.Video_Source{
+				MediaDefs_SourceClip: &placestream.MediaDefs_SourceClip{
 					LexiconTypeID: "place.stream.media.defs#sourceClip",
 					Video:         clipURI,
 					Start:         100,

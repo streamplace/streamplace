@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
 // handlePlaceStreamMediaFinalizeLivestream turns a finished livestream into a

@@ -201,11 +201,6 @@ streamplace_deps += [
   dependency('libffi'),
 ]
 
-atproto = subproject(
-  'atproto',
-  default_options: {},
-)
-
 if get_option('default_library') == 'static'
   gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')
   streamplace_deps += [

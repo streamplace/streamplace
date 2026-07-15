@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 type ModerationDelegation struct {
@@ -27,20 +27,20 @@ type ModerationDelegation struct {
 	IndexedAt    time.Time `gorm:"column:indexed_at"`
 }
 
-func (md *ModerationDelegation) ToPermissionView() (*streamplace.ModerationDefs_PermissionView, error) {
-	rec, err := lexutil.CborDecodeValue(md.Record)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding moderation permission: %w", err)
+func (md *ModerationDelegation) ToPermissionView() (placestream.ModerationDefs_PermissionView, error) {
+	var rec placestream.ModerationPermission
+	if err := glex.DecodeCBOR(md.Record, &rec); err != nil {
+		return placestream.ModerationDefs_PermissionView{}, fmt.Errorf("error decoding moderation permission: %w", err)
 	}
 
 	uri := fmt.Sprintf("at://%s/place.stream.moderation.permission/%s", md.RepoDID, md.RKey)
 
-	view := &streamplace.ModerationDefs_PermissionView{
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+	view := placestream.ModerationDefs_PermissionView{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: md.RepoDID,
 		},
 		Cid:    md.CID,
-		Record: &lexutil.LexiconTypeDecoder{Val: rec},
+		Record: &glex.LexiconTypeDecoder{Val: &rec},
 		Uri:    uri,
 	}
 
@@ -51,12 +51,12 @@ func (md *ModerationDelegation) ToPermissionView() (*streamplace.ModerationDefs_
 	return view, nil
 }
 
-func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec *streamplace.ModerationPermission, aturi syntax.ATURI) error {
+func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("failed to get CID: %w", err)
 	}
@@ -87,7 +87,7 @@ func (m *DBModel) DeleteModerationDelegation(ctx context.Context, rkey string) e
 	return m.DB.WithContext(ctx).Where("rkey = ?", rkey).Delete(&ModerationDelegation{}).Error
 }
 
-func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*streamplace.ModerationDefs_PermissionView, error) {
+func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error) {
 	var delegation ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").
 		Where("repo_did = ? AND moderator_did = ?", streamerDID, moderatorDID).
@@ -99,12 +99,16 @@ func (m *DBModel) GetModerationDelegation(ctx context.Context, streamerDID, mode
 	if err != nil {
 		return nil, err
 	}
-	return delegation.ToPermissionView()
+	view, err := delegation.ToPermissionView()
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }
 
 // GetModerationDelegations returns ALL delegation records for a moderator from a specific streamer.
 // This allows multiple separate permission records (e.g., one for "ban", one for "hide") to be merged.
-func (m *DBModel) GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error) {
+func (m *DBModel) GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error) {
 	var delegations []*ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").
 		Where("repo_did = ? AND moderator_did = ?", streamerDID, moderatorDID).
@@ -113,7 +117,7 @@ func (m *DBModel) GetModerationDelegations(ctx context.Context, streamerDID, mod
 		return nil, err
 	}
 
-	views := make([]*streamplace.ModerationDefs_PermissionView, len(delegations))
+	views := make([]placestream.ModerationDefs_PermissionView, len(delegations))
 	for i, d := range delegations {
 		view, err := d.ToPermissionView()
 		if err != nil {
@@ -124,7 +128,7 @@ func (m *DBModel) GetModerationDelegations(ctx context.Context, streamerDID, mod
 	return views, nil
 }
 
-func (m *DBModel) GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error) {
+func (m *DBModel) GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error) {
 	var delegations []*ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").
 		Where("moderator_did = ?", moderatorDID).
@@ -133,7 +137,7 @@ func (m *DBModel) GetModeratorDelegations(ctx context.Context, moderatorDID stri
 		return nil, err
 	}
 
-	views := make([]*streamplace.ModerationDefs_PermissionView, len(delegations))
+	views := make([]placestream.ModerationDefs_PermissionView, len(delegations))
 	for i, d := range delegations {
 		view, err := d.ToPermissionView()
 		if err != nil {
@@ -144,7 +148,7 @@ func (m *DBModel) GetModeratorDelegations(ctx context.Context, moderatorDID stri
 	return views, nil
 }
 
-func (m *DBModel) GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error) {
+func (m *DBModel) GetStreamerModerators(ctx context.Context, streamerDID string) ([]placestream.ModerationDefs_PermissionView, error) {
 	var delegations []*ModerationDelegation
 	err := m.DB.WithContext(ctx).Preload("Repo").
 		Where("repo_did = ?", streamerDID).
@@ -153,7 +157,7 @@ func (m *DBModel) GetStreamerModerators(ctx context.Context, streamerDID string)
 		return nil, err
 	}
 
-	views := make([]*streamplace.ModerationDefs_PermissionView, len(delegations))
+	views := make([]placestream.ModerationDefs_PermissionView, len(delegations))
 	for i, d := range delegations {
 		view, err := d.ToPermissionView()
 		if err != nil {

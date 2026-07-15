@@ -1,4 +1,4 @@
-import { PlaceStreamLiveTeleport, StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import {
   registerSlashCommand,
   SlashCommandHandler,
@@ -14,9 +14,8 @@ export async function deleteTeleport(
   if (!rkey) {
     throw new Error("No rkey found in teleport URI");
   }
-  return await pdsAgent.com.atproto.repo.deleteRecord({
-    repo: userDID,
-    collection: "place.stream.live.teleport",
+  return await pdsAgent.client.delete(place.stream.live.teleport, {
+    repo: userDID as any,
     rkey: rkey,
   });
 }
@@ -57,22 +56,18 @@ export async function createTeleport(
 
   const startsAt = new Date(Date.now() + countdownSeconds * 1000).toISOString();
 
-  const record: PlaceStreamLiveTeleport.Record = {
-    $type: "place.stream.live.teleport",
-    streamer: targetDID,
-    startsAt,
-    countdownSeconds,
-  };
-
   try {
-    const result = await pdsAgent.com.atproto.repo.createRecord({
-      repo: userDID,
-      collection: "place.stream.live.teleport",
-      record,
-    });
+    const result = await pdsAgent.client.create(
+      place.stream.live.teleport,
+      {
+        streamer: targetDID as any,
+        startsAt: startsAt as any,
+      },
+      { repo: userDID as any },
+    );
 
     if (setActiveTeleportUri) {
-      setActiveTeleportUri(result.data.uri);
+      setActiveTeleportUri(result.uri);
     }
 
     return { success: true };
@@ -160,23 +155,19 @@ export function registerTeleportCommand(
       Date.now() + countdownSeconds * 1000,
     ).toISOString();
 
-    const record: PlaceStreamLiveTeleport.Record = {
-      $type: "place.stream.live.teleport",
-      streamer: targetDID,
-      startsAt,
-      countdownSeconds,
-    };
-
     try {
-      const result = await pdsAgent.com.atproto.repo.createRecord({
-        repo: userDID,
-        collection: "place.stream.live.teleport",
-        record,
-      });
+      const result = await pdsAgent.client.create(
+        place.stream.live.teleport,
+        {
+          streamer: targetDID as any,
+          startsAt: startsAt as any,
+        },
+        { repo: userDID as any },
+      );
 
       // store the URI in the livestream store
       if (setActiveTeleportUri) {
-        setActiveTeleportUri(result.data.uri);
+        setActiveTeleportUri(result.uri);
       }
 
       return { handled: true };

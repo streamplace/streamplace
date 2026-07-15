@@ -1,6 +1,6 @@
 import { storage } from "@streamplace/components";
 import { Platform } from "react-native";
-import type { PlaceStreamSegment } from "streamplace";
+import { place } from "streamplace";
 import { StateCreator } from "zustand";
 
 let DEFAULT_URL = process.env.EXPO_PUBLIC_STREAMPLACE_URL as string;
@@ -30,7 +30,7 @@ export interface StreamplaceSlice {
   initialized: boolean;
   userMuted: boolean | null;
   chatWarned: boolean;
-  mySegments: PlaceStreamSegment.SegmentView[];
+  mySegments: place.stream.segment.SegmentView[];
   // actions
   initialize: () => Promise<void>;
   setURL: (url: string) => void;
@@ -115,10 +115,13 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
       if (!state.oauthSession) {
         throw new Error("no oauthSession");
       }
-      const result = await state.pdsAgent.place.stream.live.getSegments({
-        userDID: state.oauthSession?.did ?? "",
-      });
-      set({ mySegments: result.data.segments ?? [] });
+      const result = await state.pdsAgent.client.call(
+        place.stream.live.getSegments,
+        {
+          userDID: state.oauthSession?.did ?? "",
+        },
+      );
+      set({ mySegments: result.segments ?? [] });
     } catch (err) {
       // silently fail
     }
@@ -128,9 +131,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     if (!state.pdsAgent) {
       throw new Error("no pdsAgent");
     }
-    const result = await state.pdsAgent.place.stream.live.getRecommendations({
-      userDID,
-    });
-    return result.data;
+    const result = await state.pdsAgent.client.call(
+      place.stream.live.getRecommendations,
+      {
+        userDID,
+      },
+    );
+    return result;
   },
 });

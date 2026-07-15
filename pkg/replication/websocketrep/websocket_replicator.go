@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type WebsocketReplicator struct {
@@ -52,7 +52,7 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
 	}
 	for _, view := range originViews {
-		err = r.handleOriginMessage(ctx, view)
+		err = r.handleOriginMessage(ctx, &view)
 		if err != nil {
 			log.Error(ctx, "could not check origin", "error", err)
 		}
@@ -63,7 +63,7 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-busCh:
-			if view, ok := msg.(*streamplace.BroadcastDefs_BroadcastOriginView); ok {
+			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
 				log.Debug(ctx, "got broadcast origin view", "view", view)
 				err = r.handleOriginMessage(ctx, view)
 				if err != nil {
@@ -74,8 +74,8 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 	}
 }
 
-func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *streamplace.BroadcastDefs_BroadcastOriginView) error {
-	origin, ok := view.Record.Val.(*streamplace.BroadcastOrigin)
+func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
+	origin, ok := view.Record.Val.(*placestream.BroadcastOrigin)
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}
@@ -108,13 +108,13 @@ func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *str
 	return nil
 }
 
-func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *streamplace.BroadcastDefs_BroadcastOriginView) error {
+func (r *WebsocketReplicator) openWebsocket(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
 	err := r.tryConnection(view.Author.Did)
 	if err != nil {
 		return err
 	}
 	defer r.removeConnection(view.Author.Did)
-	origin, ok := view.Record.Val.(*streamplace.BroadcastOrigin)
+	origin, ok := view.Record.Val.(*placestream.BroadcastOrigin)
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}
@@ -171,7 +171,7 @@ func (r *WebsocketReplicator) SendSegment(ctx context.Context, seg *media.NewSeg
 	return nil
 }
 
-func (r *WebsocketReplicator) BuildOriginRecord(origin *streamplace.BroadcastOrigin) error {
+func (r *WebsocketReplicator) BuildOriginRecord(origin *placestream.BroadcastOrigin) error {
 	u := r.getMyWebsocketURL()
 	u.Path = "/xrpc/place.stream.live.subscribeSegments"
 	u.RawQuery = url.Values{

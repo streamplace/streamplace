@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Like struct {
@@ -25,16 +25,15 @@ type Like struct {
 	CreatedAt time.Time  `json:"createdAt"      gorm:"column:created_at"`
 }
 
-func (l *Like) ToStreamplaceLikeView() (*streamplace.GetLikes_LikeView, error) {
-	rec, err := lexutil.CborDecodeValue([]byte{})
-	if err != nil {
-		rec = &streamplace.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
-	}
-	return &streamplace.GetLikes_LikeView{
+func (l *Like) ToStreamplaceLikeView() (placestream.GetLikes_LikeView, error) {
+	// The likes table doesn't store record bytes; synthesize the record from
+	// the indexed columns.
+	rec := &placestream.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
+	return placestream.GetLikes_LikeView{
 		Uri:    l.URI,
 		Cid:    l.CID,
-		Record: &lexutil.LexiconTypeDecoder{Val: rec},
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+		Record: &glex.LexiconTypeDecoder{Val: rec},
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did: l.RepoDID,
 			Handle: func() string {
 				if l.Repo != nil {
@@ -83,7 +82,7 @@ func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, r
 	return &like, nil
 }
 
-func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]*streamplace.GetLikes_LikeView, int64, *time.Time, error) {
+func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error) {
 	count, err := m.GetLikeCount(ctx, subject)
 	if err != nil {
 		return nil, 0, nil, err
@@ -107,7 +106,7 @@ func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit 
 		nextCursor = &dblikes[limit-1].CreatedAt
 		dblikes = dblikes[:limit]
 	}
-	views := []*streamplace.GetLikes_LikeView{}
+	views := []placestream.GetLikes_LikeView{}
 	for _, l := range dblikes {
 		view, err := l.ToStreamplaceLikeView()
 		if err != nil {

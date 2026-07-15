@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
@@ -35,7 +35,7 @@ type MetafileFetcher func(ctx context.Context, cid string) (*vod.Metafile, error
 //
 // Returning a nil map (no error) is fine; the corresponding bytes
 // just don't get a per-track row in the output.
-type TrackRefFetcher func(ctx context.Context, cid string) (map[string]*comatproto.RepoStrongRef, error)
+type TrackRefFetcher func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error)
 
 // AggregateInput bundles the window + tunables for one aggregation
 // pass. WindowStart is inclusive, WindowEnd is exclusive — matches the
@@ -83,7 +83,7 @@ type VideoCount struct {
 // place.stream.media.track record inside the window. The strongRef
 // points at the track record whose bytes were transferred.
 type TrackUsage struct {
-	Track      *comatproto.RepoStrongRef
+	Track      comatproto.RepoStrongRef
 	Bytes      int64
 	DurationMS int64
 }
@@ -191,7 +191,7 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 	// whole window. The nil values are cached too, so a missing
 	// metafile / refs lookup doesn't trigger repeated fetches.
 	metafileCache := make(map[string]*vod.Metafile)
-	trackRefCache := make(map[string]map[string]*comatproto.RepoStrongRef)
+	trackRefCache := make(map[string]map[string]comatproto.RepoStrongRef)
 	metafilesLoaded := 0
 
 	var eventsRead int
@@ -265,7 +265,7 @@ func AggregateWindow(ctx context.Context, store blob.Store, in AggregateInput) (
 						continue
 					}
 					ref := refs[tid]
-					if ref == nil {
+					if ref.Uri == "" {
 						// No track record found for this in-container
 						// tid. Drop the credit — a TrackUsage row
 						// without a stable strongRef wouldn't be

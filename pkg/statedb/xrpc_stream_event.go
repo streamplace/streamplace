@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 type XrpcStreamEvent struct {
@@ -52,9 +52,9 @@ func (state *StatefulDB) CreateCommitEvent(commit *comatproto.SyncSubscribeRepos
 		if err != nil {
 			return err
 		}
-		ll := lexutil.LexLink(c)
+		ll := glex.Link(c)
 		commit.PrevData = &ll
-		commit.Since = &prevCommit.Rev
+		commit.Since = prevCommit.Rev
 	} else {
 		commit.Seq = 1
 	}

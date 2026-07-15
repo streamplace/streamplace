@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	atmoq "github.com/streamplace/atmoq-go"
@@ -95,13 +95,13 @@ func (atsync *ATProtoSynchronizer) dispatchMoqFrame(ctx context.Context, raw []b
 	case events.EvtKindMessage:
 		switch header.MsgType {
 		case "#commit":
-			var evt comatproto.SyncSubscribeRepos_Commit
+			var evt indigoatproto.SyncSubscribeRepos_Commit
 			if err := evt.UnmarshalCBOR(r); err != nil {
 				return fmt.Errorf("reading moq commit event: %w", err)
 			}
 			return scheduler.AddWork(ctx, evt.Repo, &events.XRPCStreamEvent{RepoCommit: &evt})
 		case "#identity":
-			var evt comatproto.SyncSubscribeRepos_Identity
+			var evt indigoatproto.SyncSubscribeRepos_Identity
 			if err := evt.UnmarshalCBOR(r); err != nil {
 				return fmt.Errorf("reading moq identity event: %w", err)
 			}

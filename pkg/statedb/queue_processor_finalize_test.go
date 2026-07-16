@@ -180,7 +180,7 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &streamplace.Livestream{
+		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -212,7 +212,7 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 		require.NoError(t, err)
 		view, err := ls.ToLivestreamView()
 		require.NoError(t, err)
-		rec, ok := view.Record.Val.(*streamplace.Livestream)
+		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)
 		require.Nil(t, rec.EndedAt, "endedAt must not be set without a local session to write it")
 	})
@@ -231,14 +231,14 @@ func TestFinalizeLivestreamSupersededWithoutSessionErrorsAtSessionLookup(t *test
 		did := "did:plc:superseded-nosession"
 
 		// Older record: stale, will be superseded.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &streamplace.Livestream{
+		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &streamplace.Livestream{
+		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),

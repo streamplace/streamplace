@@ -30,11 +30,13 @@ type ChatProfile struct {
 // RecordTypeID implements glex.Record.
 func (t *ChatProfile) RecordTypeID() string { return "place.stream.chat.profile" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ChatProfile) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ChatProfile and *ChatProfile marshal with $type.
+func (t ChatProfile) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.chat.profile"
 	type alias ChatProfile
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *ChatProfile) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.profile"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatProfile) UnmarshalCBOR(r io.Reader) error {
@@ -71,8 +75,10 @@ func (t *ChatProfile_BadgeSelections) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile#badgeSelections"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.profile#badgeSelections"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatProfile_BadgeSelections) UnmarshalCBOR(r io.Reader) error {
@@ -97,8 +103,10 @@ func (t *ChatProfile_Color) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile#color"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.profile#color"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatProfile_Color) UnmarshalCBOR(r io.Reader) error {
@@ -126,8 +134,10 @@ func (t *ChatProfile_StreamerBadgeSelection) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.profile#streamerBadgeSelection"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.profile#streamerBadgeSelection"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatProfile_StreamerBadgeSelection) UnmarshalCBOR(r io.Reader) error {

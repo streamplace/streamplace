@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -33,11 +32,13 @@ type ActorStatus struct {
 // RecordTypeID implements glex.Record.
 func (t *ActorStatus) RecordTypeID() string { return "app.bsky.actor.status" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ActorStatus) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ActorStatus and *ActorStatus marshal with $type.
+func (t ActorStatus) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.actor.status"
 	type alias ActorStatus
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ActorStatus) MarshalCBOR(w io.Writer) error {
@@ -45,8 +46,10 @@ func (t *ActorStatus) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.status"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.status"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorStatus) UnmarshalCBOR(r io.Reader) error {
@@ -56,14 +59,28 @@ func (t *ActorStatus) UnmarshalCBOR(r io.Reader) error {
 // An optional embed associated with the status.
 type ActorStatus_Embed struct {
 	EmbedExternal *EmbedExternal
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorStatus_Embed) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorStatus_Embed and *ActorStatus_Embed marshal correctly.
+func (t ActorStatus_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal != nil {
-		t.EmbedExternal.LexiconTypeID = "app.bsky.embed.external"
-		return json.Marshal(t.EmbedExternal)
+		cp := *t.EmbedExternal
+		cp.LexiconTypeID = "app.bsky.embed.external"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorStatus_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorStatus_Embed as JSON")
 }
 
 func (t *ActorStatus_Embed) UnmarshalJSON(b []byte) error {
@@ -77,24 +94,32 @@ func (t *ActorStatus_Embed) UnmarshalJSON(b []byte) error {
 		t.EmbedExternal = new(EmbedExternal)
 		return json.Unmarshal(b, t.EmbedExternal)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorStatus_Embed) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorStatus_Embed) MarshalCBOR() ([]byte, error) {
 	if t.EmbedExternal != nil {
-		return t.EmbedExternal.MarshalCBOR(w)
+		cp := *t.EmbedExternal
+		cp.LexiconTypeID = "app.bsky.embed.external"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorStatus_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorStatus_Embed as CBOR")
 }
 
-func (t *ActorStatus_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorStatus_Embed) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -102,8 +127,9 @@ func (t *ActorStatus_Embed) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.external":
 		t.EmbedExternal = new(EmbedExternal)
-		return t.EmbedExternal.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedExternal)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

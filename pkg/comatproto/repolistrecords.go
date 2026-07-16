@@ -26,8 +26,10 @@ func (t *RepoListRecords_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.listRecords"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.repo.listRecords"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RepoListRecords_Output) UnmarshalCBOR(r io.Reader) error {
@@ -80,8 +82,10 @@ func (t *RepoListRecords_Record) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.listRecords#record"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.repo.listRecords#record"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RepoListRecords_Record) UnmarshalCBOR(r io.Reader) error {

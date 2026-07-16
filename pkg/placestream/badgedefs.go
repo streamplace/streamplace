@@ -43,8 +43,10 @@ func (t *BadgeDefs_BadgeIssuanceView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs#badgeIssuanceView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.badge.defs#badgeIssuanceView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BadgeDefs_BadgeIssuanceView) UnmarshalCBOR(r io.Reader) error {
@@ -70,8 +72,10 @@ func (t *BadgeDefs_BadgeSlot) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs#badgeSlot"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.badge.defs#badgeSlot"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BadgeDefs_BadgeSlot) UnmarshalCBOR(r io.Reader) error {
@@ -106,8 +110,10 @@ func (t *BadgeDefs_BadgeView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.badge.defs#badgeView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.badge.defs#badgeView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BadgeDefs_BadgeView) UnmarshalCBOR(r io.Reader) error {

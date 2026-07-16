@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,11 +27,13 @@ type RichtextFacet struct {
 // RecordTypeID implements glex.Record.
 func (t *RichtextFacet) RecordTypeID() string { return "app.bsky.richtext.facet" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *RichtextFacet) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// RichtextFacet and *RichtextFacet marshal with $type.
+func (t RichtextFacet) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.richtext.facet"
 	type alias RichtextFacet
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
@@ -40,8 +41,10 @@ func (t *RichtextFacet) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.richtext.facet"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextFacet) UnmarshalCBOR(r io.Reader) error {
@@ -52,22 +55,38 @@ type RichtextFacet_Features_Elem struct {
 	RichtextFacet_Link    *RichtextFacet_Link
 	RichtextFacet_Mention *RichtextFacet_Mention
 	RichtextFacet_Tag     *RichtextFacet_Tag
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both RichtextFacet_Features_Elem and *RichtextFacet_Features_Elem marshal correctly.
+func (t RichtextFacet_Features_Elem) MarshalJSON() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
-		t.RichtextFacet_Link.LexiconTypeID = "app.bsky.richtext.facet#link"
-		return json.Marshal(t.RichtextFacet_Link)
+		cp := *t.RichtextFacet_Link
+		cp.LexiconTypeID = "app.bsky.richtext.facet#link"
+		return json.Marshal(&cp)
 	}
 	if t.RichtextFacet_Mention != nil {
-		t.RichtextFacet_Mention.LexiconTypeID = "app.bsky.richtext.facet#mention"
-		return json.Marshal(t.RichtextFacet_Mention)
+		cp := *t.RichtextFacet_Mention
+		cp.LexiconTypeID = "app.bsky.richtext.facet#mention"
+		return json.Marshal(&cp)
 	}
 	if t.RichtextFacet_Tag != nil {
-		t.RichtextFacet_Tag.LexiconTypeID = "app.bsky.richtext.facet#tag"
-		return json.Marshal(t.RichtextFacet_Tag)
+		cp := *t.RichtextFacet_Tag
+		cp.LexiconTypeID = "app.bsky.richtext.facet#tag"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union RichtextFacet_Features_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union RichtextFacet_Features_Elem as JSON")
 }
 
 func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
@@ -87,30 +106,42 @@ func (t *RichtextFacet_Features_Elem) UnmarshalJSON(b []byte) error {
 		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
 		return json.Unmarshal(b, t.RichtextFacet_Tag)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *RichtextFacet_Features_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t RichtextFacet_Features_Elem) MarshalCBOR() ([]byte, error) {
 	if t.RichtextFacet_Link != nil {
-		return t.RichtextFacet_Link.MarshalCBOR(w)
+		cp := *t.RichtextFacet_Link
+		cp.LexiconTypeID = "app.bsky.richtext.facet#link"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.RichtextFacet_Mention != nil {
-		return t.RichtextFacet_Mention.MarshalCBOR(w)
+		cp := *t.RichtextFacet_Mention
+		cp.LexiconTypeID = "app.bsky.richtext.facet#mention"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.RichtextFacet_Tag != nil {
-		return t.RichtextFacet_Tag.MarshalCBOR(w)
+		cp := *t.RichtextFacet_Tag
+		cp.LexiconTypeID = "app.bsky.richtext.facet#tag"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union RichtextFacet_Features_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union RichtextFacet_Features_Elem as CBOR")
 }
 
-func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -118,14 +149,15 @@ func (t *RichtextFacet_Features_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.richtext.facet#link":
 		t.RichtextFacet_Link = new(RichtextFacet_Link)
-		return t.RichtextFacet_Link.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.RichtextFacet_Link)
 	case "app.bsky.richtext.facet#mention":
 		t.RichtextFacet_Mention = new(RichtextFacet_Mention)
-		return t.RichtextFacet_Mention.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.RichtextFacet_Mention)
 	case "app.bsky.richtext.facet#tag":
 		t.RichtextFacet_Tag = new(RichtextFacet_Tag)
-		return t.RichtextFacet_Tag.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.RichtextFacet_Tag)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -147,8 +179,10 @@ func (t *RichtextFacet_ByteSlice) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet#byteSlice"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.richtext.facet#byteSlice"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextFacet_ByteSlice) UnmarshalCBOR(r io.Reader) error {
@@ -171,8 +205,10 @@ func (t *RichtextFacet_Link) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet#link"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.richtext.facet#link"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextFacet_Link) UnmarshalCBOR(r io.Reader) error {
@@ -195,8 +231,10 @@ func (t *RichtextFacet_Mention) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet#mention"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.richtext.facet#mention"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextFacet_Mention) UnmarshalCBOR(r io.Reader) error {
@@ -219,8 +257,10 @@ func (t *RichtextFacet_Tag) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.richtext.facet#tag"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.richtext.facet#tag"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RichtextFacet_Tag) UnmarshalCBOR(r io.Reader) error {

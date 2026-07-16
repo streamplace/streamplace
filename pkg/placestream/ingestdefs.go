@@ -30,8 +30,10 @@ func (t *IngestDefs_Ingest) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.ingest.defs#ingest"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.ingest.defs#ingest"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *IngestDefs_Ingest) UnmarshalCBOR(r io.Reader) error {

@@ -27,8 +27,10 @@ func (t *GraphDefs_ListItemView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#listItemView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#listItemView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_ListItemView) UnmarshalCBOR(r io.Reader) error {
@@ -60,8 +62,10 @@ func (t *GraphDefs_ListView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#listView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#listView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_ListView) UnmarshalCBOR(r io.Reader) error {
@@ -90,8 +94,10 @@ func (t *GraphDefs_ListViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#listViewBasic"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#listViewBasic"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_ListViewBasic) UnmarshalCBOR(r io.Reader) error {
@@ -115,8 +121,10 @@ func (t *GraphDefs_ListViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#listViewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#listViewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_ListViewerState) UnmarshalCBOR(r io.Reader) error {
@@ -140,8 +148,10 @@ func (t *GraphDefs_NotFoundActor) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#notFoundActor"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#notFoundActor"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_NotFoundActor) UnmarshalCBOR(r io.Reader) error {
@@ -176,8 +186,10 @@ func (t *GraphDefs_Relationship) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#relationship"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#relationship"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_Relationship) UnmarshalCBOR(r io.Reader) error {
@@ -210,8 +222,10 @@ func (t *GraphDefs_StarterPackView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#starterPackView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#starterPackView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_StarterPackView) UnmarshalCBOR(r io.Reader) error {
@@ -242,8 +256,10 @@ func (t *GraphDefs_StarterPackViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.defs#starterPackViewBasic"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphDefs_StarterPackViewBasic) UnmarshalCBOR(r io.Reader) error {

@@ -30,11 +30,13 @@ type LiveTeleport struct {
 // RecordTypeID implements glex.Record.
 func (t *LiveTeleport) RecordTypeID() string { return "place.stream.live.teleport" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *LiveTeleport) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// LiveTeleport and *LiveTeleport marshal with $type.
+func (t LiveTeleport) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.live.teleport"
 	type alias LiveTeleport
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *LiveTeleport) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.live.teleport"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.live.teleport"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LiveTeleport) UnmarshalCBOR(r io.Reader) error {

@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,8 +29,10 @@ func (t *FeedDefs_BlockedAuthor) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#blockedAuthor"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#blockedAuthor"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_BlockedAuthor) UnmarshalCBOR(r io.Reader) error {
@@ -54,8 +55,10 @@ func (t *FeedDefs_BlockedPost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_BlockedPost) UnmarshalCBOR(r io.Reader) error {
@@ -82,8 +85,10 @@ func (t *FeedDefs_FeedViewPost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#feedViewPost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#feedViewPost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_FeedViewPost) UnmarshalCBOR(r io.Reader) error {
@@ -93,18 +98,33 @@ func (t *FeedDefs_FeedViewPost) UnmarshalCBOR(r io.Reader) error {
 type FeedDefs_FeedViewPost_Reason struct {
 	FeedDefs_ReasonPin    *FeedDefs_ReasonPin
 	FeedDefs_ReasonRepost *FeedDefs_ReasonRepost
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_FeedViewPost_Reason and *FeedDefs_FeedViewPost_Reason marshal correctly.
+func (t FeedDefs_FeedViewPost_Reason) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_ReasonPin != nil {
-		t.FeedDefs_ReasonPin.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
-		return json.Marshal(t.FeedDefs_ReasonPin)
+		cp := *t.FeedDefs_ReasonPin
+		cp.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_ReasonRepost != nil {
-		t.FeedDefs_ReasonRepost.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
-		return json.Marshal(t.FeedDefs_ReasonRepost)
+		cp := *t.FeedDefs_ReasonRepost
+		cp.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_FeedViewPost_Reason", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_FeedViewPost_Reason as JSON")
 }
 
 func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
@@ -121,27 +141,37 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_ReasonRepost = new(FeedDefs_ReasonRepost)
 		return json.Unmarshal(b, t.FeedDefs_ReasonRepost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_FeedViewPost_Reason) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_FeedViewPost_Reason) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_ReasonPin != nil {
-		return t.FeedDefs_ReasonPin.MarshalCBOR(w)
+		cp := *t.FeedDefs_ReasonPin
+		cp.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_ReasonRepost != nil {
-		return t.FeedDefs_ReasonRepost.MarshalCBOR(w)
+		cp := *t.FeedDefs_ReasonRepost
+		cp.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_FeedViewPost_Reason", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_FeedViewPost_Reason as CBOR")
 }
 
-func (t *FeedDefs_FeedViewPost_Reason) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_FeedViewPost_Reason) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -149,11 +179,12 @@ func (t *FeedDefs_FeedViewPost_Reason) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.defs#reasonPin":
 		t.FeedDefs_ReasonPin = new(FeedDefs_ReasonPin)
-		return t.FeedDefs_ReasonPin.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_ReasonPin)
 	case "app.bsky.feed.defs#reasonRepost":
 		t.FeedDefs_ReasonRepost = new(FeedDefs_ReasonRepost)
-		return t.FeedDefs_ReasonRepost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_ReasonRepost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -185,8 +216,10 @@ func (t *FeedDefs_GeneratorView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#generatorView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#generatorView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_GeneratorView) UnmarshalCBOR(r io.Reader) error {
@@ -209,8 +242,10 @@ func (t *FeedDefs_GeneratorViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#generatorViewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#generatorViewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_GeneratorViewerState) UnmarshalCBOR(r io.Reader) error {
@@ -236,8 +271,10 @@ func (t *FeedDefs_Interaction) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#interaction"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#interaction"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_Interaction) UnmarshalCBOR(r io.Reader) error {
@@ -259,8 +296,10 @@ func (t *FeedDefs_NotFoundPost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_NotFoundPost) UnmarshalCBOR(r io.Reader) error {
@@ -296,8 +335,10 @@ func (t *FeedDefs_PostView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#postView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#postView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_PostView) UnmarshalCBOR(r io.Reader) error {
@@ -311,34 +352,53 @@ type FeedDefs_PostView_Embed struct {
 	EmbedRecordWithMedia_View *EmbedRecordWithMedia_View
 	EmbedRecord_View          *EmbedRecord_View
 	EmbedVideo_View           *EmbedVideo_View
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_PostView_Embed and *FeedDefs_PostView_Embed marshal correctly.
+func (t FeedDefs_PostView_Embed) MarshalJSON() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		t.EmbedExternal_View.LexiconTypeID = "app.bsky.embed.external#view"
-		return json.Marshal(t.EmbedExternal_View)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedGallery_View != nil {
-		t.EmbedGallery_View.LexiconTypeID = "app.bsky.embed.gallery#view"
-		return json.Marshal(t.EmbedGallery_View)
+		cp := *t.EmbedGallery_View
+		cp.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedImages_View != nil {
-		t.EmbedImages_View.LexiconTypeID = "app.bsky.embed.images#view"
-		return json.Marshal(t.EmbedImages_View)
+		cp := *t.EmbedImages_View
+		cp.LexiconTypeID = "app.bsky.embed.images#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecordWithMedia_View != nil {
-		t.EmbedRecordWithMedia_View.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
-		return json.Marshal(t.EmbedRecordWithMedia_View)
+		cp := *t.EmbedRecordWithMedia_View
+		cp.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedRecord_View != nil {
-		t.EmbedRecord_View.LexiconTypeID = "app.bsky.embed.record#view"
-		return json.Marshal(t.EmbedRecord_View)
+		cp := *t.EmbedRecord_View
+		cp.LexiconTypeID = "app.bsky.embed.record#view"
+		return json.Marshal(&cp)
 	}
 	if t.EmbedVideo_View != nil {
-		t.EmbedVideo_View.LexiconTypeID = "app.bsky.embed.video#view"
-		return json.Marshal(t.EmbedVideo_View)
+		cp := *t.EmbedVideo_View
+		cp.LexiconTypeID = "app.bsky.embed.video#view"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_PostView_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_PostView_Embed as JSON")
 }
 
 func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
@@ -367,39 +427,57 @@ func (t *FeedDefs_PostView_Embed) UnmarshalJSON(b []byte) error {
 		t.EmbedVideo_View = new(EmbedVideo_View)
 		return json.Unmarshal(b, t.EmbedVideo_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_PostView_Embed) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_PostView_Embed) MarshalCBOR() ([]byte, error) {
 	if t.EmbedExternal_View != nil {
-		return t.EmbedExternal_View.MarshalCBOR(w)
+		cp := *t.EmbedExternal_View
+		cp.LexiconTypeID = "app.bsky.embed.external#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedGallery_View != nil {
-		return t.EmbedGallery_View.MarshalCBOR(w)
+		cp := *t.EmbedGallery_View
+		cp.LexiconTypeID = "app.bsky.embed.gallery#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedImages_View != nil {
-		return t.EmbedImages_View.MarshalCBOR(w)
+		cp := *t.EmbedImages_View
+		cp.LexiconTypeID = "app.bsky.embed.images#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecordWithMedia_View != nil {
-		return t.EmbedRecordWithMedia_View.MarshalCBOR(w)
+		cp := *t.EmbedRecordWithMedia_View
+		cp.LexiconTypeID = "app.bsky.embed.recordWithMedia#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedRecord_View != nil {
-		return t.EmbedRecord_View.MarshalCBOR(w)
+		cp := *t.EmbedRecord_View
+		cp.LexiconTypeID = "app.bsky.embed.record#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.EmbedVideo_View != nil {
-		return t.EmbedVideo_View.MarshalCBOR(w)
+		cp := *t.EmbedVideo_View
+		cp.LexiconTypeID = "app.bsky.embed.video#view"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_PostView_Embed", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_PostView_Embed as CBOR")
 }
 
-func (t *FeedDefs_PostView_Embed) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_PostView_Embed) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -407,23 +485,24 @@ func (t *FeedDefs_PostView_Embed) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.embed.external#view":
 		t.EmbedExternal_View = new(EmbedExternal_View)
-		return t.EmbedExternal_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedExternal_View)
 	case "app.bsky.embed.gallery#view":
 		t.EmbedGallery_View = new(EmbedGallery_View)
-		return t.EmbedGallery_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedGallery_View)
 	case "app.bsky.embed.images#view":
 		t.EmbedImages_View = new(EmbedImages_View)
-		return t.EmbedImages_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedImages_View)
 	case "app.bsky.embed.recordWithMedia#view":
 		t.EmbedRecordWithMedia_View = new(EmbedRecordWithMedia_View)
-		return t.EmbedRecordWithMedia_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecordWithMedia_View)
 	case "app.bsky.embed.record#view":
 		t.EmbedRecord_View = new(EmbedRecord_View)
-		return t.EmbedRecord_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedRecord_View)
 	case "app.bsky.embed.video#view":
 		t.EmbedVideo_View = new(EmbedVideo_View)
-		return t.EmbedVideo_View.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.EmbedVideo_View)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -441,8 +520,10 @@ func (t *FeedDefs_ReasonPin) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#reasonPin"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ReasonPin) UnmarshalCBOR(r io.Reader) error {
@@ -466,8 +547,10 @@ func (t *FeedDefs_ReasonRepost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#reasonRepost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ReasonRepost) UnmarshalCBOR(r io.Reader) error {
@@ -491,8 +574,10 @@ func (t *FeedDefs_ReplyRef) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#replyRef"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#replyRef"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ReplyRef) UnmarshalCBOR(r io.Reader) error {
@@ -503,22 +588,38 @@ type FeedDefs_ReplyRef_Parent struct {
 	FeedDefs_BlockedPost  *FeedDefs_BlockedPost
 	FeedDefs_NotFoundPost *FeedDefs_NotFoundPost
 	FeedDefs_PostView     *FeedDefs_PostView
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_ReplyRef_Parent) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_ReplyRef_Parent and *FeedDefs_ReplyRef_Parent marshal correctly.
+func (t FeedDefs_ReplyRef_Parent) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
-		return json.Marshal(t.FeedDefs_BlockedPost)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
-		return json.Marshal(t.FeedDefs_NotFoundPost)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_PostView != nil {
-		t.FeedDefs_PostView.LexiconTypeID = "app.bsky.feed.defs#postView"
-		return json.Marshal(t.FeedDefs_PostView)
+		cp := *t.FeedDefs_PostView
+		cp.LexiconTypeID = "app.bsky.feed.defs#postView"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_ReplyRef_Parent", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ReplyRef_Parent as JSON")
 }
 
 func (t *FeedDefs_ReplyRef_Parent) UnmarshalJSON(b []byte) error {
@@ -538,30 +639,42 @@ func (t *FeedDefs_ReplyRef_Parent) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_PostView = new(FeedDefs_PostView)
 		return json.Unmarshal(b, t.FeedDefs_PostView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_ReplyRef_Parent) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_ReplyRef_Parent) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		return t.FeedDefs_BlockedPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		return t.FeedDefs_NotFoundPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_PostView != nil {
-		return t.FeedDefs_PostView.MarshalCBOR(w)
+		cp := *t.FeedDefs_PostView
+		cp.LexiconTypeID = "app.bsky.feed.defs#postView"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_ReplyRef_Parent", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ReplyRef_Parent as CBOR")
 }
 
-func (t *FeedDefs_ReplyRef_Parent) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_ReplyRef_Parent) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -569,14 +682,15 @@ func (t *FeedDefs_ReplyRef_Parent) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
-		return t.FeedDefs_BlockedPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_BlockedPost)
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
-		return t.FeedDefs_NotFoundPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_NotFoundPost)
 	case "app.bsky.feed.defs#postView":
 		t.FeedDefs_PostView = new(FeedDefs_PostView)
-		return t.FeedDefs_PostView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_PostView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -585,22 +699,38 @@ type FeedDefs_ReplyRef_Root struct {
 	FeedDefs_BlockedPost  *FeedDefs_BlockedPost
 	FeedDefs_NotFoundPost *FeedDefs_NotFoundPost
 	FeedDefs_PostView     *FeedDefs_PostView
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_ReplyRef_Root) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_ReplyRef_Root and *FeedDefs_ReplyRef_Root marshal correctly.
+func (t FeedDefs_ReplyRef_Root) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
-		return json.Marshal(t.FeedDefs_BlockedPost)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
-		return json.Marshal(t.FeedDefs_NotFoundPost)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_PostView != nil {
-		t.FeedDefs_PostView.LexiconTypeID = "app.bsky.feed.defs#postView"
-		return json.Marshal(t.FeedDefs_PostView)
+		cp := *t.FeedDefs_PostView
+		cp.LexiconTypeID = "app.bsky.feed.defs#postView"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_ReplyRef_Root", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ReplyRef_Root as JSON")
 }
 
 func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
@@ -620,30 +750,42 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_PostView = new(FeedDefs_PostView)
 		return json.Unmarshal(b, t.FeedDefs_PostView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_ReplyRef_Root) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_ReplyRef_Root) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		return t.FeedDefs_BlockedPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		return t.FeedDefs_NotFoundPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_PostView != nil {
-		return t.FeedDefs_PostView.MarshalCBOR(w)
+		cp := *t.FeedDefs_PostView
+		cp.LexiconTypeID = "app.bsky.feed.defs#postView"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_ReplyRef_Root", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ReplyRef_Root as CBOR")
 }
 
-func (t *FeedDefs_ReplyRef_Root) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_ReplyRef_Root) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -651,14 +793,15 @@ func (t *FeedDefs_ReplyRef_Root) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
-		return t.FeedDefs_BlockedPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_BlockedPost)
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
-		return t.FeedDefs_NotFoundPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_NotFoundPost)
 	case "app.bsky.feed.defs#postView":
 		t.FeedDefs_PostView = new(FeedDefs_PostView)
-		return t.FeedDefs_PostView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_PostView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -682,8 +825,10 @@ func (t *FeedDefs_SkeletonFeedPost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#skeletonFeedPost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#skeletonFeedPost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_SkeletonFeedPost) UnmarshalCBOR(r io.Reader) error {
@@ -693,18 +838,33 @@ func (t *FeedDefs_SkeletonFeedPost) UnmarshalCBOR(r io.Reader) error {
 type FeedDefs_SkeletonFeedPost_Reason struct {
 	FeedDefs_SkeletonReasonPin    *FeedDefs_SkeletonReasonPin
 	FeedDefs_SkeletonReasonRepost *FeedDefs_SkeletonReasonRepost
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_SkeletonFeedPost_Reason and *FeedDefs_SkeletonFeedPost_Reason marshal correctly.
+func (t FeedDefs_SkeletonFeedPost_Reason) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_SkeletonReasonPin != nil {
-		t.FeedDefs_SkeletonReasonPin.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
-		return json.Marshal(t.FeedDefs_SkeletonReasonPin)
+		cp := *t.FeedDefs_SkeletonReasonPin
+		cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_SkeletonReasonRepost != nil {
-		t.FeedDefs_SkeletonReasonRepost.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
-		return json.Marshal(t.FeedDefs_SkeletonReasonRepost)
+		cp := *t.FeedDefs_SkeletonReasonRepost
+		cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_SkeletonFeedPost_Reason", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_SkeletonFeedPost_Reason as JSON")
 }
 
 func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
@@ -721,27 +881,37 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_SkeletonReasonRepost = new(FeedDefs_SkeletonReasonRepost)
 		return json.Unmarshal(b, t.FeedDefs_SkeletonReasonRepost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_SkeletonFeedPost_Reason) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_SkeletonFeedPost_Reason) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_SkeletonReasonPin != nil {
-		return t.FeedDefs_SkeletonReasonPin.MarshalCBOR(w)
+		cp := *t.FeedDefs_SkeletonReasonPin
+		cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_SkeletonReasonRepost != nil {
-		return t.FeedDefs_SkeletonReasonRepost.MarshalCBOR(w)
+		cp := *t.FeedDefs_SkeletonReasonRepost
+		cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_SkeletonFeedPost_Reason", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_SkeletonFeedPost_Reason as CBOR")
 }
 
-func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -749,11 +919,12 @@ func (t *FeedDefs_SkeletonFeedPost_Reason) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.defs#skeletonReasonPin":
 		t.FeedDefs_SkeletonReasonPin = new(FeedDefs_SkeletonReasonPin)
-		return t.FeedDefs_SkeletonReasonPin.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_SkeletonReasonPin)
 	case "app.bsky.feed.defs#skeletonReasonRepost":
 		t.FeedDefs_SkeletonReasonRepost = new(FeedDefs_SkeletonReasonRepost)
-		return t.FeedDefs_SkeletonReasonRepost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_SkeletonReasonRepost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -773,8 +944,10 @@ func (t *FeedDefs_SkeletonReasonPin) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonPin"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_SkeletonReasonPin) UnmarshalCBOR(r io.Reader) error {
@@ -797,8 +970,10 @@ func (t *FeedDefs_SkeletonReasonRepost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#skeletonReasonRepost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_SkeletonReasonRepost) UnmarshalCBOR(r io.Reader) error {
@@ -821,8 +996,10 @@ func (t *FeedDefs_ThreadContext) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#threadContext"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#threadContext"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ThreadContext) UnmarshalCBOR(r io.Reader) error {
@@ -846,8 +1023,10 @@ func (t *FeedDefs_ThreadViewPost) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ThreadViewPost) UnmarshalCBOR(r io.Reader) error {
@@ -858,22 +1037,38 @@ type FeedDefs_ThreadViewPost_Parent struct {
 	FeedDefs_BlockedPost    *FeedDefs_BlockedPost
 	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
 	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_ThreadViewPost_Parent and *FeedDefs_ThreadViewPost_Parent marshal correctly.
+func (t FeedDefs_ThreadViewPost_Parent) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
-		return json.Marshal(t.FeedDefs_BlockedPost)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
-		return json.Marshal(t.FeedDefs_NotFoundPost)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_ThreadViewPost != nil {
-		t.FeedDefs_ThreadViewPost.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
-		return json.Marshal(t.FeedDefs_ThreadViewPost)
+		cp := *t.FeedDefs_ThreadViewPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_ThreadViewPost_Parent", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ThreadViewPost_Parent as JSON")
 }
 
 func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
@@ -893,30 +1088,42 @@ func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_ThreadViewPost = new(FeedDefs_ThreadViewPost)
 		return json.Unmarshal(b, t.FeedDefs_ThreadViewPost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_ThreadViewPost_Parent) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_ThreadViewPost_Parent) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		return t.FeedDefs_BlockedPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		return t.FeedDefs_NotFoundPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_ThreadViewPost != nil {
-		return t.FeedDefs_ThreadViewPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_ThreadViewPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_ThreadViewPost_Parent", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ThreadViewPost_Parent as CBOR")
 }
 
-func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -924,14 +1131,15 @@ func (t *FeedDefs_ThreadViewPost_Parent) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
-		return t.FeedDefs_BlockedPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_BlockedPost)
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
-		return t.FeedDefs_NotFoundPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_NotFoundPost)
 	case "app.bsky.feed.defs#threadViewPost":
 		t.FeedDefs_ThreadViewPost = new(FeedDefs_ThreadViewPost)
-		return t.FeedDefs_ThreadViewPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_ThreadViewPost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -940,22 +1148,38 @@ type FeedDefs_ThreadViewPost_Replies_Elem struct {
 	FeedDefs_BlockedPost    *FeedDefs_BlockedPost
 	FeedDefs_NotFoundPost   *FeedDefs_NotFoundPost
 	FeedDefs_ThreadViewPost *FeedDefs_ThreadViewPost
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both FeedDefs_ThreadViewPost_Replies_Elem and *FeedDefs_ThreadViewPost_Replies_Elem marshal correctly.
+func (t FeedDefs_ThreadViewPost_Replies_Elem) MarshalJSON() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		t.FeedDefs_BlockedPost.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
-		return json.Marshal(t.FeedDefs_BlockedPost)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		t.FeedDefs_NotFoundPost.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
-		return json.Marshal(t.FeedDefs_NotFoundPost)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return json.Marshal(&cp)
 	}
 	if t.FeedDefs_ThreadViewPost != nil {
-		t.FeedDefs_ThreadViewPost.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
-		return json.Marshal(t.FeedDefs_ThreadViewPost)
+		cp := *t.FeedDefs_ThreadViewPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union FeedDefs_ThreadViewPost_Replies_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ThreadViewPost_Replies_Elem as JSON")
 }
 
 func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
@@ -975,30 +1199,42 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalJSON(b []byte) error {
 		t.FeedDefs_ThreadViewPost = new(FeedDefs_ThreadViewPost)
 		return json.Unmarshal(b, t.FeedDefs_ThreadViewPost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *FeedDefs_ThreadViewPost_Replies_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t FeedDefs_ThreadViewPost_Replies_Elem) MarshalCBOR() ([]byte, error) {
 	if t.FeedDefs_BlockedPost != nil {
-		return t.FeedDefs_BlockedPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_BlockedPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#blockedPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_NotFoundPost != nil {
-		return t.FeedDefs_NotFoundPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_NotFoundPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#notFoundPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.FeedDefs_ThreadViewPost != nil {
-		return t.FeedDefs_ThreadViewPost.MarshalCBOR(w)
+		cp := *t.FeedDefs_ThreadViewPost
+		cp.LexiconTypeID = "app.bsky.feed.defs#threadViewPost"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union FeedDefs_ThreadViewPost_Replies_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union FeedDefs_ThreadViewPost_Replies_Elem as CBOR")
 }
 
-func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -1006,14 +1242,15 @@ func (t *FeedDefs_ThreadViewPost_Replies_Elem) UnmarshalCBOR(r io.Reader) error 
 	switch typ {
 	case "app.bsky.feed.defs#blockedPost":
 		t.FeedDefs_BlockedPost = new(FeedDefs_BlockedPost)
-		return t.FeedDefs_BlockedPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_BlockedPost)
 	case "app.bsky.feed.defs#notFoundPost":
 		t.FeedDefs_NotFoundPost = new(FeedDefs_NotFoundPost)
-		return t.FeedDefs_NotFoundPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_NotFoundPost)
 	case "app.bsky.feed.defs#threadViewPost":
 		t.FeedDefs_ThreadViewPost = new(FeedDefs_ThreadViewPost)
-		return t.FeedDefs_ThreadViewPost.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.FeedDefs_ThreadViewPost)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -1035,8 +1272,10 @@ func (t *FeedDefs_ThreadgateView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#threadgateView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#threadgateView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ThreadgateView) UnmarshalCBOR(r io.Reader) error {
@@ -1065,8 +1304,10 @@ func (t *FeedDefs_ViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.feed.defs#viewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.feed.defs#viewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *FeedDefs_ViewerState) UnmarshalCBOR(r io.Reader) error {

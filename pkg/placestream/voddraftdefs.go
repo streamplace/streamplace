@@ -32,8 +32,10 @@ func (t *VodDraftDefs_DraftView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.draftDefs#draftView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.vod.draftDefs#draftView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *VodDraftDefs_DraftView) UnmarshalCBOR(r io.Reader) error {

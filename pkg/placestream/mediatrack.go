@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,11 +33,13 @@ type MediaTrack struct {
 // RecordTypeID implements glex.Record.
 func (t *MediaTrack) RecordTypeID() string { return "place.stream.media.track" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MediaTrack) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MediaTrack and *MediaTrack marshal with $type.
+func (t MediaTrack) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.media.track"
 	type alias MediaTrack
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
@@ -46,8 +47,10 @@ func (t *MediaTrack) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.track"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.track"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaTrack) UnmarshalCBOR(r io.Reader) error {
@@ -56,14 +59,28 @@ func (t *MediaTrack) UnmarshalCBOR(r io.Reader) error {
 
 type MediaTrack_Metadata struct {
 	MediaTrack_CommonMetadata *MediaTrack_CommonMetadata
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *MediaTrack_Metadata) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both MediaTrack_Metadata and *MediaTrack_Metadata marshal correctly.
+func (t MediaTrack_Metadata) MarshalJSON() ([]byte, error) {
 	if t.MediaTrack_CommonMetadata != nil {
-		t.MediaTrack_CommonMetadata.LexiconTypeID = "place.stream.media.track#commonMetadata"
-		return json.Marshal(t.MediaTrack_CommonMetadata)
+		cp := *t.MediaTrack_CommonMetadata
+		cp.LexiconTypeID = "place.stream.media.track#commonMetadata"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union MediaTrack_Metadata", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union MediaTrack_Metadata as JSON")
 }
 
 func (t *MediaTrack_Metadata) UnmarshalJSON(b []byte) error {
@@ -77,24 +94,32 @@ func (t *MediaTrack_Metadata) UnmarshalJSON(b []byte) error {
 		t.MediaTrack_CommonMetadata = new(MediaTrack_CommonMetadata)
 		return json.Unmarshal(b, t.MediaTrack_CommonMetadata)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *MediaTrack_Metadata) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t MediaTrack_Metadata) MarshalCBOR() ([]byte, error) {
 	if t.MediaTrack_CommonMetadata != nil {
-		return t.MediaTrack_CommonMetadata.MarshalCBOR(w)
+		cp := *t.MediaTrack_CommonMetadata
+		cp.LexiconTypeID = "place.stream.media.track#commonMetadata"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union MediaTrack_Metadata", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union MediaTrack_Metadata as CBOR")
 }
 
-func (t *MediaTrack_Metadata) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *MediaTrack_Metadata) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -102,22 +127,37 @@ func (t *MediaTrack_Metadata) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.media.track#commonMetadata":
 		t.MediaTrack_CommonMetadata = new(MediaTrack_CommonMetadata)
-		return t.MediaTrack_CommonMetadata.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.MediaTrack_CommonMetadata)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
 type MediaTrack_Track struct {
 	MediaDefs_MuxlTrack *MediaDefs_MuxlTrack
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *MediaTrack_Track) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both MediaTrack_Track and *MediaTrack_Track marshal correctly.
+func (t MediaTrack_Track) MarshalJSON() ([]byte, error) {
 	if t.MediaDefs_MuxlTrack != nil {
-		t.MediaDefs_MuxlTrack.LexiconTypeID = "place.stream.media.defs#muxlTrack"
-		return json.Marshal(t.MediaDefs_MuxlTrack)
+		cp := *t.MediaDefs_MuxlTrack
+		cp.LexiconTypeID = "place.stream.media.defs#muxlTrack"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union MediaTrack_Track", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union MediaTrack_Track as JSON")
 }
 
 func (t *MediaTrack_Track) UnmarshalJSON(b []byte) error {
@@ -131,24 +171,32 @@ func (t *MediaTrack_Track) UnmarshalJSON(b []byte) error {
 		t.MediaDefs_MuxlTrack = new(MediaDefs_MuxlTrack)
 		return json.Unmarshal(b, t.MediaDefs_MuxlTrack)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *MediaTrack_Track) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t MediaTrack_Track) MarshalCBOR() ([]byte, error) {
 	if t.MediaDefs_MuxlTrack != nil {
-		return t.MediaDefs_MuxlTrack.MarshalCBOR(w)
+		cp := *t.MediaDefs_MuxlTrack
+		cp.LexiconTypeID = "place.stream.media.defs#muxlTrack"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union MediaTrack_Track", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union MediaTrack_Track as CBOR")
 }
 
-func (t *MediaTrack_Track) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *MediaTrack_Track) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -156,8 +204,9 @@ func (t *MediaTrack_Track) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.media.defs#muxlTrack":
 		t.MediaDefs_MuxlTrack = new(MediaDefs_MuxlTrack)
-		return t.MediaDefs_MuxlTrack.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.MediaDefs_MuxlTrack)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -185,8 +234,10 @@ func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.track#commonMetadata"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.track#commonMetadata"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error {
@@ -210,8 +261,10 @@ func (t *MediaTrack_TrackView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.track#trackView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.track#trackView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaTrack_TrackView) UnmarshalCBOR(r io.Reader) error {

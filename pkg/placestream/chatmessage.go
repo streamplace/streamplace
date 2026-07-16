@@ -34,11 +34,13 @@ type ChatMessage struct {
 // RecordTypeID implements glex.Record.
 func (t *ChatMessage) RecordTypeID() string { return "place.stream.chat.message" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ChatMessage) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ChatMessage and *ChatMessage marshal with $type.
+func (t ChatMessage) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.chat.message"
 	type alias ChatMessage
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
@@ -46,8 +48,10 @@ func (t *ChatMessage) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.message"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.message"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatMessage) UnmarshalCBOR(r io.Reader) error {
@@ -69,8 +73,10 @@ func (t *ChatMessage_ReplyRef) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.message#replyRef"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.message#replyRef"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatMessage_ReplyRef) UnmarshalCBOR(r io.Reader) error {

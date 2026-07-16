@@ -37,8 +37,10 @@ func (t *Defs_ActivityFeedItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityFeedItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityFeedItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActivityFeedItem) UnmarshalCBOR(r io.Reader) error {
@@ -63,8 +65,10 @@ func (t *Defs_ActivityListView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityListView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityListView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActivityListView) UnmarshalCBOR(r io.Reader) error {
@@ -93,8 +97,10 @@ func (t *Defs_ActivityReviewView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityReviewView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#activityReviewView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActivityReviewView) UnmarshalCBOR(r io.Reader) error {
@@ -120,8 +126,10 @@ func (t *Defs_ActorCreditView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorCreditView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorCreditView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActorCreditView) UnmarshalCBOR(r io.Reader) error {
@@ -152,8 +160,10 @@ func (t *Defs_ActorProfileDetailView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileDetailView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileDetailView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActorProfileDetailView) UnmarshalCBOR(r io.Reader) error {
@@ -179,8 +189,10 @@ func (t *Defs_ActorProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#actorProfileSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ActorProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -203,8 +215,10 @@ func (t *Defs_AgeRating) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#ageRating"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#ageRating"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_AgeRating) UnmarshalCBOR(r io.Reader) error {
@@ -229,8 +243,10 @@ func (t *Defs_AlternativeName) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#alternativeName"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#alternativeName"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_AlternativeName) UnmarshalCBOR(r io.Reader) error {
@@ -256,8 +272,10 @@ func (t *Defs_CollectionSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#collectionSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_CollectionSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -284,8 +302,10 @@ func (t *Defs_CommunityFeedActorView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedActorView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedActorView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_CommunityFeedActorView) UnmarshalCBOR(r io.Reader) error {
@@ -321,8 +341,10 @@ func (t *Defs_CommunityFeedItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#communityFeedItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_CommunityFeedItem) UnmarshalCBOR(r io.Reader) error {
@@ -346,8 +368,10 @@ func (t *Defs_CreditEntry) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#creditEntry"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#creditEntry"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_CreditEntry) UnmarshalCBOR(r io.Reader) error {
@@ -372,8 +396,10 @@ func (t *Defs_EngineSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#engineSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_EngineSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -407,8 +433,10 @@ func (t *Defs_ExternalIds) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalIds"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalIds"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ExternalIds) UnmarshalCBOR(r io.Reader) error {
@@ -433,8 +461,10 @@ func (t *Defs_ExternalVideo) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalVideo"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#externalVideo"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ExternalVideo) UnmarshalCBOR(r io.Reader) error {
@@ -484,8 +514,10 @@ func (t *Defs_GameDetailView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameDetailView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameDetailView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_GameDetailView) UnmarshalCBOR(r io.Reader) error {
@@ -509,8 +541,10 @@ func (t *Defs_GameFeedViewItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameFeedViewItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameFeedViewItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_GameFeedViewItem) UnmarshalCBOR(r io.Reader) error {
@@ -540,8 +574,10 @@ func (t *Defs_GameSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_GameSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -572,8 +608,10 @@ func (t *Defs_GameView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#gameView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_GameView) UnmarshalCBOR(r io.Reader) error {
@@ -595,8 +633,10 @@ func (t *Defs_ItchIoId) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#itchIoId"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#itchIoId"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ItchIoId) UnmarshalCBOR(r io.Reader) error {
@@ -622,8 +662,10 @@ func (t *Defs_LanguageSupport) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#languageSupport"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#languageSupport"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_LanguageSupport) UnmarshalCBOR(r io.Reader) error {
@@ -650,8 +692,10 @@ func (t *Defs_MediaItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#mediaItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#mediaItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_MediaItem) UnmarshalCBOR(r io.Reader) error {
@@ -683,8 +727,10 @@ func (t *Defs_MultiplayerMode) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#multiplayerMode"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#multiplayerMode"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_MultiplayerMode) UnmarshalCBOR(r io.Reader) error {
@@ -710,8 +756,10 @@ func (t *Defs_OrgCreditView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgCreditView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgCreditView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_OrgCreditView) UnmarshalCBOR(r io.Reader) error {
@@ -746,8 +794,10 @@ func (t *Defs_OrgProfileDetailView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileDetailView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileDetailView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_OrgProfileDetailView) UnmarshalCBOR(r io.Reader) error {
@@ -773,8 +823,10 @@ func (t *Defs_OrgProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#orgProfileSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_OrgProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -800,8 +852,10 @@ func (t *Defs_PlatformFeatures) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformFeatures"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformFeatures"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_PlatformFeatures) UnmarshalCBOR(r io.Reader) error {
@@ -828,8 +882,10 @@ func (t *Defs_PlatformSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_PlatformSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -862,8 +918,10 @@ func (t *Defs_PlatformVersion) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformVersion"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#platformVersion"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_PlatformVersion) UnmarshalCBOR(r io.Reader) error {
@@ -890,8 +948,10 @@ func (t *Defs_ProfileSummaryView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#profileSummaryView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ProfileSummaryView) UnmarshalCBOR(r io.Reader) error {
@@ -916,8 +976,10 @@ func (t *Defs_Release) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#release"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#release"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_Release) UnmarshalCBOR(r io.Reader) error {
@@ -943,8 +1005,10 @@ func (t *Defs_ReleaseDate) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#releaseDate"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#releaseDate"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ReleaseDate) UnmarshalCBOR(r io.Reader) error {
@@ -970,8 +1034,10 @@ func (t *Defs_Signature) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#signature"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#signature"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_Signature) UnmarshalCBOR(r io.Reader) error {
@@ -995,8 +1061,10 @@ func (t *Defs_SkeletonGameFeedItem) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#skeletonGameFeedItem"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#skeletonGameFeedItem"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_SkeletonGameFeedItem) UnmarshalCBOR(r io.Reader) error {
@@ -1023,8 +1091,10 @@ func (t *Defs_SystemRequirements) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemRequirements"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemRequirements"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_SystemRequirements) UnmarshalCBOR(r io.Reader) error {
@@ -1054,8 +1124,10 @@ func (t *Defs_SystemSpec) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemSpec"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#systemSpec"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_SystemSpec) UnmarshalCBOR(r io.Reader) error {
@@ -1078,8 +1150,10 @@ func (t *Defs_TimeToBeat) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#timeToBeat"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#timeToBeat"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_TimeToBeat) UnmarshalCBOR(r io.Reader) error {
@@ -1102,8 +1176,10 @@ func (t *Defs_ViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#viewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#viewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_ViewerState) UnmarshalCBOR(r io.Reader) error {
@@ -1125,8 +1201,10 @@ func (t *Defs_Website) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "games.gamesgamesgamesgames.defs#website"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "games.gamesgamesgamesgames.defs#website"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *Defs_Website) UnmarshalCBOR(r io.Reader) error {

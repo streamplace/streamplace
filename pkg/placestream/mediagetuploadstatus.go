@@ -36,8 +36,10 @@ func (t *MediaGetUploadStatus_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getUploadStatus"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.getUploadStatus"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaGetUploadStatus_Output) UnmarshalCBOR(r io.Reader) error {
@@ -78,8 +80,10 @@ func (t *MediaGetUploadStatus_TrackRef) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.getUploadStatus#trackRef"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.getUploadStatus#trackRef"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaGetUploadStatus_TrackRef) UnmarshalCBOR(r io.Reader) error {

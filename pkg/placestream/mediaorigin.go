@@ -30,11 +30,13 @@ type MediaOrigin struct {
 // RecordTypeID implements glex.Record.
 func (t *MediaOrigin) RecordTypeID() string { return "place.stream.media.origin" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MediaOrigin) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MediaOrigin and *MediaOrigin marshal with $type.
+func (t MediaOrigin) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.media.origin"
 	type alias MediaOrigin
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
@@ -42,8 +44,10 @@ func (t *MediaOrigin) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.media.origin"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.media.origin"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MediaOrigin) UnmarshalCBOR(r io.Reader) error {

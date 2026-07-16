@@ -26,8 +26,10 @@ func (t *SyncListRepos_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.listRepos"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.listRepos"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncListRepos_Output) UnmarshalCBOR(r io.Reader) error {
@@ -74,8 +76,10 @@ func (t *SyncListRepos_Repo) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.sync.listRepos#repo"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.sync.listRepos#repo"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *SyncListRepos_Repo) UnmarshalCBOR(r io.Reader) error {

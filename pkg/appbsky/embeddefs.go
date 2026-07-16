@@ -28,8 +28,10 @@ func (t *EmbedDefs_AspectRatio) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.defs#aspectRatio"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.defs#aspectRatio"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedDefs_AspectRatio) UnmarshalCBOR(r io.Reader) error {

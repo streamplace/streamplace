@@ -44,8 +44,10 @@ func (t *LabelDefs_Label) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs#label"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.label.defs#label"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelDefs_Label) UnmarshalCBOR(r io.Reader) error {
@@ -80,8 +82,10 @@ func (t *LabelDefs_LabelValueDefinition) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs#labelValueDefinition"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.label.defs#labelValueDefinition"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelDefs_LabelValueDefinition) UnmarshalCBOR(r io.Reader) error {
@@ -111,8 +115,10 @@ func (t *LabelDefs_LabelValueDefinitionStrings) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs#labelValueDefinitionStrings"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.label.defs#labelValueDefinitionStrings"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelDefs_LabelValueDefinitionStrings) UnmarshalCBOR(r io.Reader) error {
@@ -136,8 +142,10 @@ func (t *LabelDefs_SelfLabel) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs#selfLabel"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.label.defs#selfLabel"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelDefs_SelfLabel) UnmarshalCBOR(r io.Reader) error {
@@ -160,8 +168,10 @@ func (t *LabelDefs_SelfLabels) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.label.defs#selfLabels"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelDefs_SelfLabels) UnmarshalCBOR(r io.Reader) error {

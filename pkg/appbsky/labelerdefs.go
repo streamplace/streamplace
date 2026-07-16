@@ -31,8 +31,10 @@ func (t *LabelerDefs_LabelerPolicies) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs#labelerPolicies"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.labeler.defs#labelerPolicies"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelerDefs_LabelerPolicies) UnmarshalCBOR(r io.Reader) error {
@@ -59,8 +61,10 @@ func (t *LabelerDefs_LabelerView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.labeler.defs#labelerView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelerDefs_LabelerView) UnmarshalCBOR(r io.Reader) error {
@@ -96,8 +100,10 @@ func (t *LabelerDefs_LabelerViewDetailed) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs#labelerViewDetailed"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.labeler.defs#labelerViewDetailed"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelerDefs_LabelerViewDetailed) UnmarshalCBOR(r io.Reader) error {
@@ -120,8 +126,10 @@ func (t *LabelerDefs_LabelerViewerState) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.labeler.defs#labelerViewerState"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.labeler.defs#labelerViewerState"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *LabelerDefs_LabelerViewerState) UnmarshalCBOR(r io.Reader) error {

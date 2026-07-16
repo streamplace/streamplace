@@ -25,11 +25,13 @@ type RepoStrongRef struct {
 // RecordTypeID implements glex.Record.
 func (t *RepoStrongRef) RecordTypeID() string { return "com.atproto.repo.strongRef" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *RepoStrongRef) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// RepoStrongRef and *RepoStrongRef marshal with $type.
+func (t RepoStrongRef) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "com.atproto.repo.strongRef"
 	type alias RepoStrongRef
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
@@ -37,8 +39,10 @@ func (t *RepoStrongRef) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "com.atproto.repo.strongRef"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "com.atproto.repo.strongRef"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *RepoStrongRef) UnmarshalCBOR(r io.Reader) error {

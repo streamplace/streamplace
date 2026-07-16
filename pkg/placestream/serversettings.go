@@ -28,11 +28,13 @@ type ServerSettings struct {
 // RecordTypeID implements glex.Record.
 func (t *ServerSettings) RecordTypeID() string { return "place.stream.server.settings" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ServerSettings) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ServerSettings and *ServerSettings marshal with $type.
+func (t ServerSettings) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.server.settings"
 	type alias ServerSettings
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
@@ -40,8 +42,10 @@ func (t *ServerSettings) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.server.settings"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.server.settings"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ServerSettings) UnmarshalCBOR(r io.Reader) error {

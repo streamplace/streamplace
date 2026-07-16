@@ -27,11 +27,13 @@ type MetadataConfiguration struct {
 // RecordTypeID implements glex.Record.
 func (t *MetadataConfiguration) RecordTypeID() string { return "place.stream.metadata.configuration" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MetadataConfiguration) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MetadataConfiguration and *MetadataConfiguration marshal with $type.
+func (t MetadataConfiguration) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.metadata.configuration"
 	type alias MetadataConfiguration
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
@@ -39,8 +41,10 @@ func (t *MetadataConfiguration) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.metadata.configuration"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.metadata.configuration"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MetadataConfiguration) UnmarshalCBOR(r io.Reader) error {

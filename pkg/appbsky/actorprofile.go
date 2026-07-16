@@ -5,7 +5,6 @@
 package appbsky
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,11 +41,13 @@ type ActorProfile struct {
 // RecordTypeID implements glex.Record.
 func (t *ActorProfile) RecordTypeID() string { return "app.bsky.actor.profile" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *ActorProfile) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// ActorProfile and *ActorProfile marshal with $type.
+func (t ActorProfile) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.actor.profile"
 	type alias ActorProfile
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
@@ -54,8 +55,10 @@ func (t *ActorProfile) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.actor.profile"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.actor.profile"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ActorProfile) UnmarshalCBOR(r io.Reader) error {
@@ -65,14 +68,28 @@ func (t *ActorProfile) UnmarshalCBOR(r io.Reader) error {
 // Self-label values, specific to the Bluesky application, on the overall account.
 type ActorProfile_Labels struct {
 	LabelDefs_SelfLabels *comatproto.LabelDefs_SelfLabels
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ActorProfile_Labels) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ActorProfile_Labels and *ActorProfile_Labels marshal correctly.
+func (t ActorProfile_Labels) MarshalJSON() ([]byte, error) {
 	if t.LabelDefs_SelfLabels != nil {
-		t.LabelDefs_SelfLabels.LexiconTypeID = "com.atproto.label.defs#selfLabels"
-		return json.Marshal(t.LabelDefs_SelfLabels)
+		cp := *t.LabelDefs_SelfLabels
+		cp.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ActorProfile_Labels", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorProfile_Labels as JSON")
 }
 
 func (t *ActorProfile_Labels) UnmarshalJSON(b []byte) error {
@@ -86,24 +103,32 @@ func (t *ActorProfile_Labels) UnmarshalJSON(b []byte) error {
 		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
 		return json.Unmarshal(b, t.LabelDefs_SelfLabels)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ActorProfile_Labels) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ActorProfile_Labels) MarshalCBOR() ([]byte, error) {
 	if t.LabelDefs_SelfLabels != nil {
-		return t.LabelDefs_SelfLabels.MarshalCBOR(w)
+		cp := *t.LabelDefs_SelfLabels
+		cp.LexiconTypeID = "com.atproto.label.defs#selfLabels"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ActorProfile_Labels", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ActorProfile_Labels as CBOR")
 }
 
-func (t *ActorProfile_Labels) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ActorProfile_Labels) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -111,8 +136,9 @@ func (t *ActorProfile_Labels) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "com.atproto.label.defs#selfLabels":
 		t.LabelDefs_SelfLabels = new(comatproto.LabelDefs_SelfLabels)
-		return t.LabelDefs_SelfLabels.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.LabelDefs_SelfLabels)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

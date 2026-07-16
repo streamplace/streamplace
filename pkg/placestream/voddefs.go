@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,8 +36,10 @@ func (t *VodDefs_CommentView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.defs#commentView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.vod.defs#commentView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *VodDefs_CommentView) UnmarshalCBOR(r io.Reader) error {
@@ -48,14 +49,28 @@ func (t *VodDefs_CommentView) UnmarshalCBOR(r io.Reader) error {
 // The parent comment this one replies to, if any. A non-recursive view (it carries no replyTo of its own), so the thread is flattened to a single hop; walk `record.reply` to follow the chain further.
 type VodDefs_CommentView_ReplyTo struct {
 	VodDefs_CommentViewBasic *VodDefs_CommentViewBasic
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *VodDefs_CommentView_ReplyTo) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both VodDefs_CommentView_ReplyTo and *VodDefs_CommentView_ReplyTo marshal correctly.
+func (t VodDefs_CommentView_ReplyTo) MarshalJSON() ([]byte, error) {
 	if t.VodDefs_CommentViewBasic != nil {
-		t.VodDefs_CommentViewBasic.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
-		return json.Marshal(t.VodDefs_CommentViewBasic)
+		cp := *t.VodDefs_CommentViewBasic
+		cp.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union VodDefs_CommentView_ReplyTo", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDefs_CommentView_ReplyTo as JSON")
 }
 
 func (t *VodDefs_CommentView_ReplyTo) UnmarshalJSON(b []byte) error {
@@ -69,24 +84,32 @@ func (t *VodDefs_CommentView_ReplyTo) UnmarshalJSON(b []byte) error {
 		t.VodDefs_CommentViewBasic = new(VodDefs_CommentViewBasic)
 		return json.Unmarshal(b, t.VodDefs_CommentViewBasic)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *VodDefs_CommentView_ReplyTo) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t VodDefs_CommentView_ReplyTo) MarshalCBOR() ([]byte, error) {
 	if t.VodDefs_CommentViewBasic != nil {
-		return t.VodDefs_CommentViewBasic.MarshalCBOR(w)
+		cp := *t.VodDefs_CommentViewBasic
+		cp.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union VodDefs_CommentView_ReplyTo", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDefs_CommentView_ReplyTo as CBOR")
 }
 
-func (t *VodDefs_CommentView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *VodDefs_CommentView_ReplyTo) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -94,8 +117,9 @@ func (t *VodDefs_CommentView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.vod.defs#commentViewBasic":
 		t.VodDefs_CommentViewBasic = new(VodDefs_CommentViewBasic)
-		return t.VodDefs_CommentViewBasic.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.VodDefs_CommentViewBasic)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -124,8 +148,10 @@ func (t *VodDefs_CommentViewBasic) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.vod.defs#commentViewBasic"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *VodDefs_CommentViewBasic) UnmarshalCBOR(r io.Reader) error {

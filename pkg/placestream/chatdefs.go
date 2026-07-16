@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,8 +38,10 @@ func (t *ChatDefs_MessageView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.defs#messageView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.defs#messageView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatDefs_MessageView) UnmarshalCBOR(r io.Reader) error {
@@ -49,14 +50,28 @@ func (t *ChatDefs_MessageView) UnmarshalCBOR(r io.Reader) error {
 
 type ChatDefs_MessageView_ReplyTo struct {
 	ChatDefs_MessageView *ChatDefs_MessageView
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *ChatDefs_MessageView_ReplyTo) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both ChatDefs_MessageView_ReplyTo and *ChatDefs_MessageView_ReplyTo marshal correctly.
+func (t ChatDefs_MessageView_ReplyTo) MarshalJSON() ([]byte, error) {
 	if t.ChatDefs_MessageView != nil {
-		t.ChatDefs_MessageView.LexiconTypeID = "place.stream.chat.defs#messageView"
-		return json.Marshal(t.ChatDefs_MessageView)
+		cp := *t.ChatDefs_MessageView
+		cp.LexiconTypeID = "place.stream.chat.defs#messageView"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union ChatDefs_MessageView_ReplyTo", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ChatDefs_MessageView_ReplyTo as JSON")
 }
 
 func (t *ChatDefs_MessageView_ReplyTo) UnmarshalJSON(b []byte) error {
@@ -70,24 +85,32 @@ func (t *ChatDefs_MessageView_ReplyTo) UnmarshalJSON(b []byte) error {
 		t.ChatDefs_MessageView = new(ChatDefs_MessageView)
 		return json.Unmarshal(b, t.ChatDefs_MessageView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *ChatDefs_MessageView_ReplyTo) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t ChatDefs_MessageView_ReplyTo) MarshalCBOR() ([]byte, error) {
 	if t.ChatDefs_MessageView != nil {
-		return t.ChatDefs_MessageView.MarshalCBOR(w)
+		cp := *t.ChatDefs_MessageView
+		cp.LexiconTypeID = "place.stream.chat.defs#messageView"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union ChatDefs_MessageView_ReplyTo", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union ChatDefs_MessageView_ReplyTo as CBOR")
 }
 
-func (t *ChatDefs_MessageView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *ChatDefs_MessageView_ReplyTo) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -95,8 +118,9 @@ func (t *ChatDefs_MessageView_ReplyTo) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.chat.defs#messageView":
 		t.ChatDefs_MessageView = new(ChatDefs_MessageView)
-		return t.ChatDefs_MessageView.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.ChatDefs_MessageView)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -124,8 +148,10 @@ func (t *ChatDefs_PinnedRecordView) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.chat.defs#pinnedRecordView"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *ChatDefs_PinnedRecordView) UnmarshalCBOR(r io.Reader) error {

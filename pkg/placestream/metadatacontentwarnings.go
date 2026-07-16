@@ -27,11 +27,13 @@ func (t *MetadataContentWarnings) RecordTypeID() string {
 	return "place.stream.metadata.contentWarnings"
 }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MetadataContentWarnings) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MetadataContentWarnings and *MetadataContentWarnings marshal with $type.
+func (t MetadataContentWarnings) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.metadata.contentWarnings"
 	type alias MetadataContentWarnings
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {
@@ -39,8 +41,10 @@ func (t *MetadataContentWarnings) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.metadata.contentWarnings"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.metadata.contentWarnings"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MetadataContentWarnings) UnmarshalCBOR(r io.Reader) error {

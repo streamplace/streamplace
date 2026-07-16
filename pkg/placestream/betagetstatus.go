@@ -30,8 +30,10 @@ func (t *BetaGetStatus_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.beta.getStatus"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.beta.getStatus"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *BetaGetStatus_Output) UnmarshalCBOR(r io.Reader) error {

@@ -27,8 +27,10 @@ func (t *VodListDrafts_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.listDrafts"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.vod.listDrafts"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *VodListDrafts_Output) UnmarshalCBOR(r io.Reader) error {

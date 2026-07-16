@@ -28,8 +28,10 @@ func (t *NotificationDefs_ActivitySubscription) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#activitySubscription"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#activitySubscription"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_ActivitySubscription) UnmarshalCBOR(r io.Reader) error {
@@ -55,8 +57,10 @@ func (t *NotificationDefs_ChatPreference) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#chatPreference"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#chatPreference"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_ChatPreference) UnmarshalCBOR(r io.Reader) error {
@@ -81,8 +85,10 @@ func (t *NotificationDefs_FilterablePreference) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#filterablePreference"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#filterablePreference"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_FilterablePreference) UnmarshalCBOR(r io.Reader) error {
@@ -106,8 +112,10 @@ func (t *NotificationDefs_Preference) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#preference"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#preference"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_Preference) UnmarshalCBOR(r io.Reader) error {
@@ -143,8 +151,10 @@ func (t *NotificationDefs_Preferences) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#preferences"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#preferences"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_Preferences) UnmarshalCBOR(r io.Reader) error {
@@ -166,8 +176,10 @@ func (t *NotificationDefs_RecordDeleted) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#recordDeleted"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#recordDeleted"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_RecordDeleted) UnmarshalCBOR(r io.Reader) error {
@@ -193,8 +205,10 @@ func (t *NotificationDefs_SubjectActivitySubscription) MarshalCBOR(w io.Writer) 
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.notification.defs#subjectActivitySubscription"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.notification.defs#subjectActivitySubscription"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *NotificationDefs_SubjectActivitySubscription) UnmarshalCBOR(r io.Reader) error {

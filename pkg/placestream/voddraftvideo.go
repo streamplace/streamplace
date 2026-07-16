@@ -5,7 +5,6 @@
 package placestream
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,11 +50,13 @@ type VodDraftVideo struct {
 // RecordTypeID implements glex.Record.
 func (t *VodDraftVideo) RecordTypeID() string { return "place.stream.vod.draftVideo" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *VodDraftVideo) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// VodDraftVideo and *VodDraftVideo marshal with $type.
+func (t VodDraftVideo) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.vod.draftVideo"
 	type alias VodDraftVideo
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *VodDraftVideo) MarshalCBOR(w io.Writer) error {
@@ -63,8 +64,10 @@ func (t *VodDraftVideo) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.vod.draftVideo"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.vod.draftVideo"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *VodDraftVideo) UnmarshalCBOR(r io.Reader) error {
@@ -75,18 +78,33 @@ func (t *VodDraftVideo) UnmarshalCBOR(r io.Reader) error {
 type VodDraftVideo_Activity struct {
 	Defs_ActivityGame  *Defs_ActivityGame
 	Defs_ActivityLabel *Defs_ActivityLabel
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *VodDraftVideo_Activity) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both VodDraftVideo_Activity and *VodDraftVideo_Activity marshal correctly.
+func (t VodDraftVideo_Activity) MarshalJSON() ([]byte, error) {
 	if t.Defs_ActivityGame != nil {
-		t.Defs_ActivityGame.LexiconTypeID = "place.stream.defs#activityGame"
-		return json.Marshal(t.Defs_ActivityGame)
+		cp := *t.Defs_ActivityGame
+		cp.LexiconTypeID = "place.stream.defs#activityGame"
+		return json.Marshal(&cp)
 	}
 	if t.Defs_ActivityLabel != nil {
-		t.Defs_ActivityLabel.LexiconTypeID = "place.stream.defs#activityLabel"
-		return json.Marshal(t.Defs_ActivityLabel)
+		cp := *t.Defs_ActivityLabel
+		cp.LexiconTypeID = "place.stream.defs#activityLabel"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union VodDraftVideo_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Activity as JSON")
 }
 
 func (t *VodDraftVideo_Activity) UnmarshalJSON(b []byte) error {
@@ -103,27 +121,37 @@ func (t *VodDraftVideo_Activity) UnmarshalJSON(b []byte) error {
 		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
 		return json.Unmarshal(b, t.Defs_ActivityLabel)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *VodDraftVideo_Activity) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t VodDraftVideo_Activity) MarshalCBOR() ([]byte, error) {
 	if t.Defs_ActivityGame != nil {
-		return t.Defs_ActivityGame.MarshalCBOR(w)
+		cp := *t.Defs_ActivityGame
+		cp.LexiconTypeID = "place.stream.defs#activityGame"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.Defs_ActivityLabel != nil {
-		return t.Defs_ActivityLabel.MarshalCBOR(w)
+		cp := *t.Defs_ActivityLabel
+		cp.LexiconTypeID = "place.stream.defs#activityLabel"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union VodDraftVideo_Activity", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Activity as CBOR")
 }
 
-func (t *VodDraftVideo_Activity) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *VodDraftVideo_Activity) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -131,25 +159,40 @@ func (t *VodDraftVideo_Activity) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.defs#activityGame":
 		t.Defs_ActivityGame = new(Defs_ActivityGame)
-		return t.Defs_ActivityGame.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_ActivityGame)
 	case "place.stream.defs#activityLabel":
 		t.Defs_ActivityLabel = new(Defs_ActivityLabel)
-		return t.Defs_ActivityLabel.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Defs_ActivityLabel)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
 type VodDraftVideo_Connections_Elem struct {
 	Video_Connection *Video_Connection
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *VodDraftVideo_Connections_Elem) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both VodDraftVideo_Connections_Elem and *VodDraftVideo_Connections_Elem marshal correctly.
+func (t VodDraftVideo_Connections_Elem) MarshalJSON() ([]byte, error) {
 	if t.Video_Connection != nil {
-		t.Video_Connection.LexiconTypeID = "place.stream.video#connection"
-		return json.Marshal(t.Video_Connection)
+		cp := *t.Video_Connection
+		cp.LexiconTypeID = "place.stream.video#connection"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union VodDraftVideo_Connections_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Connections_Elem as JSON")
 }
 
 func (t *VodDraftVideo_Connections_Elem) UnmarshalJSON(b []byte) error {
@@ -163,24 +206,32 @@ func (t *VodDraftVideo_Connections_Elem) UnmarshalJSON(b []byte) error {
 		t.Video_Connection = new(Video_Connection)
 		return json.Unmarshal(b, t.Video_Connection)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *VodDraftVideo_Connections_Elem) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t VodDraftVideo_Connections_Elem) MarshalCBOR() ([]byte, error) {
 	if t.Video_Connection != nil {
-		return t.Video_Connection.MarshalCBOR(w)
+		cp := *t.Video_Connection
+		cp.LexiconTypeID = "place.stream.video#connection"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union VodDraftVideo_Connections_Elem", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Connections_Elem as CBOR")
 }
 
-func (t *VodDraftVideo_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *VodDraftVideo_Connections_Elem) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -188,8 +239,9 @@ func (t *VodDraftVideo_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.video#connection":
 		t.Video_Connection = new(Video_Connection)
-		return t.Video_Connection.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.Video_Connection)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
@@ -198,18 +250,33 @@ func (t *VodDraftVideo_Connections_Elem) UnmarshalCBOR(r io.Reader) error {
 type VodDraftVideo_Source struct {
 	MediaDefs_SourceClip   *MediaDefs_SourceClip
 	MediaDefs_SourceTracks *MediaDefs_SourceTracks
+	// Raw preserves a variant whose $type is not in this union's generated
+	// set, so unrecognized variants still round-trip losslessly through
+	// decode/re-encode. Nil when a known variant is set.
+	Raw *glex.RawRecord
 }
 
-func (t *VodDraftVideo_Source) MarshalJSON() ([]byte, error) {
+// MarshalJSON emits the set variant, stamped with its $type, per the atproto
+// union wire format. The value receiver stamps a copy, so the variant is
+// never mutated and both VodDraftVideo_Source and *VodDraftVideo_Source marshal correctly.
+func (t VodDraftVideo_Source) MarshalJSON() ([]byte, error) {
 	if t.MediaDefs_SourceClip != nil {
-		t.MediaDefs_SourceClip.LexiconTypeID = "place.stream.media.defs#sourceClip"
-		return json.Marshal(t.MediaDefs_SourceClip)
+		cp := *t.MediaDefs_SourceClip
+		cp.LexiconTypeID = "place.stream.media.defs#sourceClip"
+		return json.Marshal(&cp)
 	}
 	if t.MediaDefs_SourceTracks != nil {
-		t.MediaDefs_SourceTracks.LexiconTypeID = "place.stream.media.defs#sourceTracks"
-		return json.Marshal(t.MediaDefs_SourceTracks)
+		cp := *t.MediaDefs_SourceTracks
+		cp.LexiconTypeID = "place.stream.media.defs#sourceTracks"
+		return json.Marshal(&cp)
 	}
-	return nil, fmt.Errorf("can not marshal empty union as JSON")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "json" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as JSON in union VodDraftVideo_Source", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Source as JSON")
 }
 
 func (t *VodDraftVideo_Source) UnmarshalJSON(b []byte) error {
@@ -226,27 +293,37 @@ func (t *VodDraftVideo_Source) UnmarshalJSON(b []byte) error {
 		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
 		return json.Unmarshal(b, t.MediaDefs_SourceTracks)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "json", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }
 
-func (t *VodDraftVideo_Source) MarshalCBOR(w io.Writer) error {
-
-	if t == nil {
-		_, err := w.Write(cbg.CborNull)
-		return err
-	}
+// MarshalCBOR implements drisl.Marshaler, emitting the set variant (stamped
+// with its $type) per the atproto union wire format. go-dasl invokes this
+// when the union appears inside another record, so nested unions serialize
+// correctly.
+func (t VodDraftVideo_Source) MarshalCBOR() ([]byte, error) {
 	if t.MediaDefs_SourceClip != nil {
-		return t.MediaDefs_SourceClip.MarshalCBOR(w)
+		cp := *t.MediaDefs_SourceClip
+		cp.LexiconTypeID = "place.stream.media.defs#sourceClip"
+		return glex.MarshalCBORBytes(&cp)
 	}
 	if t.MediaDefs_SourceTracks != nil {
-		return t.MediaDefs_SourceTracks.MarshalCBOR(w)
+		cp := *t.MediaDefs_SourceTracks
+		cp.LexiconTypeID = "place.stream.media.defs#sourceTracks"
+		return glex.MarshalCBORBytes(&cp)
 	}
-	return fmt.Errorf("can not marshal empty union as CBOR")
+	if t.Raw != nil {
+		if t.Raw.Encoding != "cbor" {
+			return nil, fmt.Errorf("cannot marshal raw %s record as CBOR in union VodDraftVideo_Source", t.Raw.Encoding)
+		}
+		return t.Raw.Bytes, nil
+	}
+	return nil, fmt.Errorf("cannot marshal empty union VodDraftVideo_Source as CBOR")
 }
 
-func (t *VodDraftVideo_Source) UnmarshalCBOR(r io.Reader) error {
-	typ, b, err := glex.CborTypeExtractReader(r)
+func (t *VodDraftVideo_Source) UnmarshalCBOR(b []byte) error {
+	typ, err := glex.CborTypeExtract(b)
 	if err != nil {
 		return err
 	}
@@ -254,11 +331,12 @@ func (t *VodDraftVideo_Source) UnmarshalCBOR(r io.Reader) error {
 	switch typ {
 	case "place.stream.media.defs#sourceClip":
 		t.MediaDefs_SourceClip = new(MediaDefs_SourceClip)
-		return t.MediaDefs_SourceClip.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.MediaDefs_SourceClip)
 	case "place.stream.media.defs#sourceTracks":
 		t.MediaDefs_SourceTracks = new(MediaDefs_SourceTracks)
-		return t.MediaDefs_SourceTracks.UnmarshalCBOR(bytes.NewReader(b))
+		return glex.UnmarshalCBORBytes(b, t.MediaDefs_SourceTracks)
 	default:
+		t.Raw = &glex.RawRecord{Type: typ, Encoding: "cbor", Bytes: append([]byte(nil), b...)}
 		return nil
 	}
 }

@@ -32,11 +32,13 @@ type MultistreamTarget struct {
 // RecordTypeID implements glex.Record.
 func (t *MultistreamTarget) RecordTypeID() string { return "place.stream.multistream.target" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *MultistreamTarget) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// MultistreamTarget and *MultistreamTarget marshal with $type.
+func (t MultistreamTarget) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "place.stream.multistream.target"
 	type alias MultistreamTarget
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
@@ -44,8 +46,10 @@ func (t *MultistreamTarget) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.target"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.multistream.target"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MultistreamTarget) UnmarshalCBOR(r io.Reader) error {

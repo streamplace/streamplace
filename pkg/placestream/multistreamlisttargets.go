@@ -28,8 +28,10 @@ func (t *MultistreamListTargets_Output) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.listTargets"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.multistream.listTargets"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MultistreamListTargets_Output) UnmarshalCBOR(r io.Reader) error {
@@ -76,8 +78,10 @@ func (t *MultistreamListTargets_Record) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "place.stream.multistream.listTargets#record"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "place.stream.multistream.listTargets#record"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *MultistreamListTargets_Record) UnmarshalCBOR(r io.Reader) error {

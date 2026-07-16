@@ -27,11 +27,13 @@ type GraphBlock struct {
 // RecordTypeID implements glex.Record.
 func (t *GraphBlock) RecordTypeID() string { return "app.bsky.graph.block" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *GraphBlock) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// GraphBlock and *GraphBlock marshal with $type.
+func (t GraphBlock) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.graph.block"
 	type alias GraphBlock
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
@@ -39,8 +41,10 @@ func (t *GraphBlock) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.graph.block"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.graph.block"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *GraphBlock) UnmarshalCBOR(r io.Reader) error {

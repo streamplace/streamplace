@@ -31,11 +31,13 @@ type EmbedVideo struct {
 // RecordTypeID implements glex.Record.
 func (t *EmbedVideo) RecordTypeID() string { return "app.bsky.embed.video" }
 
-// MarshalJSON stamps the $type field, like MarshalCBOR does.
-func (t *EmbedVideo) MarshalJSON() ([]byte, error) {
+// MarshalJSON stamps the $type field, like MarshalCBOR does. The value
+// receiver operates on a copy, so the record is never mutated and both
+// EmbedVideo and *EmbedVideo marshal with $type.
+func (t EmbedVideo) MarshalJSON() ([]byte, error) {
 	t.LexiconTypeID = "app.bsky.embed.video"
 	type alias EmbedVideo
-	return json.Marshal((*alias)(t))
+	return json.Marshal((alias)(t))
 }
 
 func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
@@ -43,8 +45,10 @@ func (t *EmbedVideo) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.video"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.video"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedVideo) UnmarshalCBOR(r io.Reader) error {
@@ -66,8 +70,10 @@ func (t *EmbedVideo_Caption) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.video#caption"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.video#caption"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedVideo_Caption) UnmarshalCBOR(r io.Reader) error {
@@ -94,8 +100,10 @@ func (t *EmbedVideo_View) MarshalCBOR(w io.Writer) error {
 		_, err := w.Write(cbg.CborNull)
 		return err
 	}
-	t.LexiconTypeID = "app.bsky.embed.video#view"
-	return glex.MarshalCBOR(w, t)
+	// stamp $type on a copy so marshal never mutates the record
+	cp := *t
+	cp.LexiconTypeID = "app.bsky.embed.video#view"
+	return glex.MarshalCBOR(w, &cp)
 }
 
 func (t *EmbedVideo_View) UnmarshalCBOR(r io.Reader) error {

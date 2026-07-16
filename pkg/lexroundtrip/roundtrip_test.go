@@ -31,12 +31,16 @@ func TestAdapterRegistryRoundtrip(t *testing.T) {
 	}
 	enc := buf.Bytes()
 
-	// $type must have been stamped by the adapter.
-	if orig.LexiconTypeID != "place.stream.livestream" {
-		t.Errorf("adapter did not stamp $type, got %q", orig.LexiconTypeID)
+	// Marshal stamps $type on a copy: the original record must NOT be
+	// mutated (a marshal that writes to the record is a data race for
+	// records marshaled concurrently).
+	if orig.LexiconTypeID != "" {
+		t.Errorf("marshal mutated the record's LexiconTypeID to %q", orig.LexiconTypeID)
 	}
 
 	// Decode via the glex runtime registry, exactly like the firehose does.
+	// Registry dispatch succeeding is itself proof $type was stamped into
+	// the encoded bytes.
 	decoded, err := glex.CborDecodeValue(enc)
 	if err != nil {
 		t.Fatalf("CborDecodeValue: %v", err)
@@ -44,6 +48,9 @@ func TestAdapterRegistryRoundtrip(t *testing.T) {
 	ls, ok := decoded.(*placestream.Livestream)
 	if !ok {
 		t.Fatalf("decoded to %T, want *placestream.Livestream", decoded)
+	}
+	if ls.LexiconTypeID != "place.stream.livestream" {
+		t.Errorf("decoded $type: got %q, want place.stream.livestream", ls.LexiconTypeID)
 	}
 	if ls.Title != orig.Title || ls.CreatedAt != orig.CreatedAt {
 		t.Errorf("scalar mismatch: got title=%q created=%q", ls.Title, ls.CreatedAt)

@@ -15,6 +15,28 @@ import (
 // in-process reconnects.
 const cursorFlushInterval = 5 * time.Second
 
+// highWater is a concurrency-safe monotonically-increasing maximum.
+type highWater struct{ v atomic.Int64 }
+
+// observe raises the mark to seq if it is higher. Safe for concurrent callers.
+func (h *highWater) observe(seq int64) {
+	for {
+		cur := h.v.Load()
+		if seq <= cur {
+			return
+		}
+		if h.v.CompareAndSwap(cur, seq) {
+			return
+		}
+	}
+}
+
+func (h *highWater) get() int64 { return h.v.Load() }
+
+// set overwrites the mark unconditionally, including downward. Only for
+// initialization and reset; everything else goes through observe.
+func (h *highWater) set(seq int64) { h.v.Store(seq) }
+
 // relayCursor tracks how far we've consumed one relay's firehose so we can
 // resume after a disconnect or restart instead of re-tailing from live (which
 // would leave a gap). It keeps the high-water sequence number in memory,
@@ -32,12 +54,16 @@ type relayCursor struct {
 	// latest is the high-water cursor: the upstream at-sequence for a WebSocket
 	// relay, or the high-water MoQ group sequence for a moqt:// relay (used to
 	// resume replay via SubscribeFrom — see connectRelayMoq). A host is one
-	// transport or the other, so a single value covers both. 0 = nothing seen
-	// yet (tail from live). Persisted periodically so a Streamplace restart
-	// resumes from here — the relay assigns durable ids across its own restarts,
-	// so a stored cursor stays valid (it just ages out of the relay's replay
-	// window if we are down too long, which is the gap PDS re-sync covers).
-	latest  atomic.Int64
+	// transport or the other, so a single value covers both — but the two
+	// sequence spaces must never mix: upstream at-seqs are orders of magnitude
+	// larger than group sequences, so on a moq host only observeGroup may feed
+	// this (repoStreamCallbacks keeps the upstream seq out of it and in the
+	// metrics gauge only). 0 = nothing seen yet (tail from live). Persisted
+	// periodically so a Streamplace restart resumes from here — the relay
+	// assigns durable ids across its own restarts, so a stored cursor stays
+	// valid (it just ages out of the relay's replay window if we are down too
+	// long, which is the gap PDS re-sync covers).
+	latest  highWater
 	flushed int64 // last persisted value; only the flush loop touches it
 }
 
@@ -49,7 +75,7 @@ func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host stri
 		return rc
 	}
 	if stored != nil {
-		rc.latest.Store(stored.Cursor)
+		rc.latest.set(stored.Cursor)
 		rc.flushed = stored.Cursor
 		log.Log(ctx, "resuming relay from stored cursor", "cursor", stored.Cursor)
 	}
@@ -59,27 +85,19 @@ func (atsync *ATProtoSynchronizer) newRelayCursor(ctx context.Context, host stri
 // observe advances the high-water mark. Safe for concurrent callers (the
 // scheduler runs several event workers).
 func (rc *relayCursor) observe(seq int64) {
-	for {
-		cur := rc.latest.Load()
-		if seq <= cur {
-			return
-		}
-		if rc.latest.CompareAndSwap(cur, seq) {
-			return
-		}
-	}
+	rc.latest.observe(seq)
 }
 
 // param returns the cursor to dial with and whether to send one at all. With no
 // progress yet we send none, so a fresh external relay tails from live instead
 // of backfilling its entire history.
 func (rc *relayCursor) param() (int64, bool) {
-	v := rc.latest.Load()
+	v := rc.latest.get()
 	return v, v > 0
 }
 
 // highSeq returns the high-water upstream sequence number observed so far.
-func (rc *relayCursor) highSeq() int64 { return rc.latest.Load() }
+func (rc *relayCursor) highSeq() int64 { return rc.latest.get() }
 
 // observeGroup advances the high-water cursor from a MoQ group sequence (the
 // moqt:// transport's flavour of a cursor). Called on every frame received from
@@ -96,17 +114,26 @@ func (rc *relayCursor) observeGroup(seq uint64) {
 // and self-healing, and in practice relay group ids are large (seeded for
 // durability across restarts).
 func (rc *relayCursor) groupStart() (uint64, bool) {
-	v := rc.latest.Load()
+	v := rc.latest.get()
 	if v <= 0 {
 		return 0, false
 	}
 	return uint64(v), true
 }
 
+// reset abandons the cursor so the next connect tails the live edge. For when
+// a resume proves the stored value can't be trusted — e.g. a row poisoned by
+// upstream at-seqs before the group/at-seq split in repoStreamCallbacks —
+// which observe()'s max-wins semantics could otherwise never walk back. The
+// flush loop persists the zero, healing the stored row too.
+func (rc *relayCursor) reset() {
+	rc.latest.set(0)
+}
+
 // flush persists the high-water mark if it has advanced since the last write.
 // Only ever called from the single flush goroutine, so flushed is unsynchronized.
 func (rc *relayCursor) flush(ctx context.Context) {
-	v := rc.latest.Load()
+	v := rc.latest.get()
 	if v == rc.flushed {
 		return
 	}

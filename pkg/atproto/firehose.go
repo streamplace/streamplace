@@ -57,6 +57,8 @@ type ATProtoSynchronizer struct {
 	// (unix nanos).
 	lastSeen  atomic.Int64
 	lastEvent atomic.Int64
+	// events seen across all relays, pre-dedup (for the periodic in-sync ping).
+	seenEvents atomic.Int64
 
 	// cross-relay dedup, shared by every relay consumer. Initialized at the
 	// top of StartFirehose.
@@ -66,6 +68,7 @@ type ATProtoSynchronizer struct {
 
 func (atsync *ATProtoSynchronizer) markSeen() {
 	atsync.lastSeen.Store(time.Now().UnixNano())
+	atsync.seenEvents.Add(1)
 }
 
 func (atsync *ATProtoSynchronizer) markEvent(t time.Time) {
@@ -311,7 +314,20 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 	// observeSeq advances the cursor and republishes the per-relay high-water
 	// seq gauge; both relays carry the upstream's seq, so the gauge's cross-relay
 	// difference measures how far apart the relays are.
+	//
+	// On a moq relay only the gauge gets the upstream seq: there the resume
+	// cursor holds MoQ group sequences (observeGroup in connectRelayMoq), and
+	// upstream at-seqs are orders of magnitude larger, so feeding them into the
+	// same max-wins cursor would bury the group cursor — the next SubscribeFrom
+	// would then wait forever on a group the relay will never produce.
+	moq := protocol == "moq"
+	var gaugeHigh highWater // upstream-seq high-water for the moq gauge only
 	observeSeq := func(seq int64) {
+		if moq {
+			gaugeHigh.observe(seq)
+			spmetrics.FirehoseRelayHighSeq.WithLabelValues(relay, protocol).Set(float64(gaugeHigh.get()))
+			return
+		}
 		cursor.observe(seq)
 		spmetrics.FirehoseRelayHighSeq.WithLabelValues(relay, protocol).Set(float64(cursor.highSeq()))
 	}
@@ -359,9 +375,16 @@ func identityDedupKey(evt *indigoatproto.SyncSubscribeRepos_Identity) string {
 	return evt.Did + "\x00" + evt.Time + "\x00" + handle
 }
 
+// firehoseSyncPingInterval is how often monitorFirehose emits its Info-level
+// "in sync" heartbeat while healthy. Trouble is still reported within the 5s
+// tick; this only spaces out the all-is-well line so it doesn't spam.
+const firehoseSyncPingInterval = 60 * time.Second
+
 func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	lastPing := time.Now()
+	lastPingSeen := atsync.seenEvents.Load()
 	for {
 		select {
 		case <-ctx.Done():
@@ -374,8 +397,22 @@ func (atsync *ATProtoSynchronizer) monitorFirehose(ctx context.Context) {
 			} else {
 				log.Debug(ctx, fmt.Sprintf("firehose is %s behind real time", since), "goroutines", goroutines)
 			}
-			if dry := sinceNanos(atsync.lastSeen.Load()); dry > 10*time.Second {
+			dry := sinceNanos(atsync.lastSeen.Load())
+			if dry > 10*time.Second {
 				log.Warn(ctx, fmt.Sprintf("firehose dry; no new events for %s", dry))
+			}
+			// Periodic in-sync ping: healthy operation is otherwise Debug-only,
+			// so surface a heartbeat at Info once a minute. An unhealthy stretch
+			// (warns above) just delays the next ping; the ping never lies.
+			if since <= 10*time.Second && dry <= 10*time.Second &&
+				time.Since(lastPing) >= firehoseSyncPingInterval {
+				seen := atsync.seenEvents.Load()
+				log.Log(ctx, "firehose in sync",
+					"behind", since,
+					"events", seen-lastPingSeen,
+					"goroutines", goroutines)
+				lastPing = time.Now()
+				lastPingSeen = seen
 			}
 		}
 	}

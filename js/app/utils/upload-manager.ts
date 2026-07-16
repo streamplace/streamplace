@@ -36,6 +36,7 @@ function patchJob(id: string, patch: Partial<UploadJob>) {
 // Warn before the tab closes while uploads are still running (web only).
 function beforeUnload(e: BeforeUnloadEvent) {
   e.preventDefault();
+  e.returnValue = "";
 }
 
 function syncBeforeUnload() {

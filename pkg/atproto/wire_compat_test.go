@@ -7,8 +7,8 @@ import (
 
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/ipfs/go-cid"
-	"github.com/stretchr/testify/require"
 	glex "github.com/streamplace/glex/runtime"
+	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"
 )
 

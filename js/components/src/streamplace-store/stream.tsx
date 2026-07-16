@@ -42,7 +42,12 @@ const useUploadThumbnail = () => {
           thumbnail.data.blob.size === customThumbnail.size
         ) {
           console.log("Successfully uploaded thumbnail");
-          return thumbnail.data.blob;
+          // Convert @atproto/api's BlobRef class to its plain lex-JSON form
+          // ({$type: "blob", ref: {$link}, ...}). The @atproto/lex client's
+          // lexStringify only recognizes its OWN BlobRef class — a foreign
+          // BlobRef gets serialized field-by-field, losing $type, which the
+          // server then rejects as a malformed blob.
+          return JSON.parse(JSON.stringify(thumbnail.data.blob));
         } else {
           console.warn(
             `Blob size mismatch (attempt ${tries + 1}): received ${thumbnail.data.blob.size}, expected ${customThumbnail.size}`,

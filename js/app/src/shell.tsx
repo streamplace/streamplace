@@ -38,6 +38,7 @@ import RecommendationsManager from "components/settings/recommendations-manager"
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
 import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
+import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
@@ -791,6 +792,7 @@ export default function Shell() {
           loginAction(pdsHost, openLoginLink);
         }}
       />
+      <UploadProgressIndicator />
     </View>
   );
 }

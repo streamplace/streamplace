@@ -45,7 +45,7 @@ import {
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 import { place } from "streamplace";
-import * as tus from "tus-js-client";
+import * as uploadManager from "utils/upload-manager";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -653,8 +653,6 @@ export default function UploadScreen() {
   const navigation = useNavigation();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const uploadRef = useRef<tus.Upload | null>(null);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingAnim = useRef(new Animated.Value(0)).current;
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
@@ -686,14 +684,6 @@ export default function UploadScreen() {
       processingAnim.setValue(0);
     }
   }, [phase.kind, processingAnim]);
-
-  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearTimeout(pollRef.current);
-      uploadRef.current?.abort();
-    };
-  }, []);
 
   const pickFile = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -742,51 +732,16 @@ export default function UploadScreen() {
       });
       const { uploadUrl, uploadToken } = res;
 
+      // Hand the TUS upload to the module-level upload manager — it survives
+      // this screen unmounting, and the floating indicator in the app shell
+      // shows progress until the bytes are all up. The draft (navigated to
+      // below) flips to 'ready' server-side when processing finishes.
+      uploadManager.startUpload({ file, uploadUrl, uploadToken, tid });
+
       // Navigate to the draft editor now — the upload continues in the
       // background and fills this draft when it finishes processing.
       navigation.navigate("UploadVideo" as any, { tid });
-
-      // The TUS upload runs to completion here; the draft (already navigated
-      // to) will flip to 'ready' server-side when processing finishes.
-      await new Promise<void>((resolve, reject) => {
-        let retried = false;
-        const params: tus.UploadOptions = {
-          uploadUrl,
-          retryDelays: [0, 1000, 3000, 5000],
-          headers: { Authorization: `Bearer ${uploadToken}` },
-          metadata: { filename: file.name, filetype: file.type },
-          onError: (err) => {
-            if (!retried) {
-              retried = true;
-              // <1mb for default nginx proxy settings
-              params.chunkSize = 800000;
-              doTry();
-            } else {
-              console.log(err);
-              reject(err);
-            }
-          },
-          onProgress(bytesSent, bytesTotal) {
-            // Progress isn't shown on the bare upload screen anymore (we've
-            // navigated away to the editor); the editor surfaces the draft's
-            // processing status instead.
-          },
-          onSuccess: () => resolve(),
-        };
-        const doTry = () => {
-          const upload = new tus.Upload(file, params);
-          uploadRef.current = upload;
-          upload.start();
-        };
-        doTry();
-      });
-
-      uploadRef.current = null;
-      // No phase change here: we've already navigated to the draft editor,
-      // which polls/reloads the draft and reflects the 'ready' state when
-      // processing completes.
     } catch (err) {
-      uploadRef.current = null;
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
@@ -795,9 +750,6 @@ export default function UploadScreen() {
   }, [agent, file, navigation]);
 
   const cancelUpload = useCallback(() => {
-    if (pollRef.current) clearTimeout(pollRef.current);
-    uploadRef.current?.abort();
-    uploadRef.current = null;
     setPhase({ kind: "idle" });
   }, []);
 
@@ -1782,6 +1734,7 @@ export function UploadDraftsScreen() {
                   <Button
                     size="sm"
                     variant="destructive"
+                    style={[{ width: "auto" }]}
                     onPress={() => handleDeleteDraft(draft.uri)}
                   >
                     <X size={14} color="#fff" />

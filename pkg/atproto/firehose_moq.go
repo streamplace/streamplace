@@ -10,6 +10,7 @@ import (
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
+	"github.com/fxamacker/cbor/v2"
 	atmoq "github.com/streamplace/atmoq/go"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -98,7 +99,7 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 		// Track the group on every frame (before dedup) so a reconnect resumes
 		// from here; replayed frames are absorbed by the commit-CID deduper.
 		cursor.observeGroup(group)
-		if err := atsync.dispatchMoqFrame(streamCtx, raw, scheduler); err != nil {
+		if err := atsync.dispatchMoqFrame(streamCtx, raw, group, relay, protocol, scheduler); err != nil {
 			return err
 		}
 	}
@@ -111,12 +112,27 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 // message types whose callbacks repoStreamCallbacks registers; other types
 // (#sync/#account/#info/#labels) are decoded-but-ignored just as they are over
 // WebSocket (no matching callback => dropped).
-func (atsync *ATProtoSynchronizer) dispatchMoqFrame(ctx context.Context, raw []byte, scheduler *parallel.Scheduler) error {
+//
+// A frame that fails strict decoding is logged (with whatever DID/seq context
+// a lenient decode can salvage) and SKIPPED, not returned as an error: one
+// undecodable event must not take down the whole relay connection, and — per
+// the 2026-07-15 investigation — such frames have so far been relay-side
+// serving corruption, not user data, so there is nothing to do but drop them
+// and let cross-relay redelivery / PDS re-sync repair the gap. Only an
+// explicit protocol-level ErrorFrame (or a scheduler/ctx failure) is fatal.
+func (atsync *ATProtoSynchronizer) dispatchMoqFrame(ctx context.Context, raw []byte, group uint64, relay, protocol string, scheduler *parallel.Scheduler) error {
+	skip := func(stage string, err error) error {
+		spmetrics.FirehoseBadFramesTotal.WithLabelValues(relay, protocol).Inc()
+		fields := append([]any{"stage", stage, "err", err, "group", group, "len", len(raw)}, badFrameContext(raw)...)
+		log.Warn(ctx, "skipping undecodable firehose frame", fields...)
+		return nil
+	}
+
 	r := bytes.NewReader(raw)
 
 	var header events.EventHeader
 	if err := header.UnmarshalCBOR(r); err != nil {
-		return fmt.Errorf("reading moq frame header: %w", err)
+		return skip("header", err)
 	}
 
 	switch header.Op {
@@ -125,13 +141,13 @@ func (atsync *ATProtoSynchronizer) dispatchMoqFrame(ctx context.Context, raw []b
 		case "#commit":
 			var evt indigoatproto.SyncSubscribeRepos_Commit
 			if err := evt.UnmarshalCBOR(r); err != nil {
-				return fmt.Errorf("reading moq commit event: %w", err)
+				return skip("commit", err)
 			}
 			return scheduler.AddWork(ctx, evt.Repo, &events.XRPCStreamEvent{RepoCommit: &evt})
 		case "#identity":
 			var evt indigoatproto.SyncSubscribeRepos_Identity
 			if err := evt.UnmarshalCBOR(r); err != nil {
-				return fmt.Errorf("reading moq identity event: %w", err)
+				return skip("identity", err)
 			}
 			return scheduler.AddWork(ctx, evt.Did, &events.XRPCStreamEvent{RepoIdentity: &evt})
 		default:
@@ -140,10 +156,43 @@ func (atsync *ATProtoSynchronizer) dispatchMoqFrame(ctx context.Context, raw []b
 	case events.EvtKindErrorFrame:
 		var errframe events.ErrorFrame
 		if err := errframe.UnmarshalCBOR(r); err != nil {
-			return fmt.Errorf("reading moq error frame: %w", err)
+			return skip("errorframe", err)
 		}
 		return fmt.Errorf("moq firehose error frame: %s: %s", errframe.Error, errframe.Message)
 	default:
-		return fmt.Errorf("unrecognized moq event op: %d", header.Op)
+		return skip("op", fmt.Errorf("unrecognized moq event op: %d", header.Op))
 	}
+}
+
+// badFrameContext best-effort-decodes a frame that failed strict decoding so
+// the skip log can say whose event it was. Lenient on purpose (invalid UTF-8,
+// unknown simple values, and truncation all still yield whatever fields sit in
+// the valid prefix); returns log key/value pairs, possibly none.
+func badFrameContext(raw []byte) []any {
+	dm, err := cbor.DecOptions{UTF8: cbor.UTF8DecodeInvalid}.DecMode()
+	if err != nil {
+		return nil
+	}
+	dec := dm.NewDecoder(bytes.NewReader(raw))
+	var hdr, pay map[string]any
+	_ = dec.Decode(&hdr)
+	_ = dec.Decode(&pay)
+	var fields []any
+	if t, ok := hdr["t"].(string); ok {
+		fields = append(fields, "msgType", t)
+	}
+	// #commit events carry the repo in "repo"; #identity/#account in "did".
+	for _, k := range []string{"repo", "did"} {
+		if v, ok := pay[k].(string); ok {
+			fields = append(fields, "did", v)
+			break
+		}
+	}
+	if seq, ok := pay["seq"]; ok {
+		fields = append(fields, "seq", seq)
+	}
+	if rev, ok := pay["rev"].(string); ok {
+		fields = append(fields, "rev", rev)
+	}
+	return fields
 }

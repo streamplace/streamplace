@@ -59,7 +59,7 @@ func TestDispatchMoqFrameCommit(t *testing.T) {
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -86,7 +86,7 @@ func TestDispatchMoqFrameIdentity(t *testing.T) {
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -113,7 +113,7 @@ func TestDispatchMoqFrameIgnoredType(t *testing.T) {
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -148,7 +148,7 @@ func TestFirehoseMoqLive(t *testing.T) {
 	for commits < 5 {
 		raw, _, err := sub.ReadFrame(ctx)
 		require.NoError(t, err, "reading %d live frames", commits)
-		require.NoError(t, atsync.dispatchMoqFrame(ctx, raw, sched))
+		require.NoError(t, atsync.dispatchMoqFrame(ctx, raw, 1, "moqt://test", "moq", sched))
 		select {
 		case ev := <-out:
 			if ev.RepoCommit != nil {

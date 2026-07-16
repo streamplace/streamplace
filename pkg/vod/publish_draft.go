@@ -41,6 +41,7 @@ var (
 //
 // did is the authenticated user; draftURI is the ats:// URI of their draft.
 func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, draftURI string) (string, string, error) {
+	ctx = log.WithLogValues(ctx, "func", "PublishDraft", "did", did, "draftUri", draftURI)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishDraft", trace.WithAttributes(
 		attribute.String("did", did),
 		attribute.String("draft_uri", draftURI),

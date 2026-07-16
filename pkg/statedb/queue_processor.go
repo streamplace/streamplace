@@ -155,6 +155,7 @@ func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, ta
 }
 
 func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "taskType", task.Type, "taskId", fmt.Sprintf("%d", task.ID))
 	switch task.Type {
 	case TaskNotification:
 		return state.processNotificationTask(ctx, task)
@@ -190,6 +191,11 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
+	// Thread the upload + owner into the log context as early as possible so
+	// every downstream log line (and the error returned below, which is
+	// re-logged by runQueueWorker with the loop's context) carries the user.
+	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID)
+	log.Log(ctx, "dequeued vod-process task")
 	if state.vodProcessor == nil {
 		log.Warn(ctx, "no VOD processor configured; dropping task",
 			"uploadId", t.UploadID, "did", t.RepoDID)
@@ -211,10 +217,9 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		// Complete the task so it doesn't retry — most VOD failures are
 		// permanent (unsupported codec, corrupted file, etc.).
 		_ = state.CompleteTask(ctx, task.ID)
-		// Include the upload ID in the error string: this error is logged
-		// upstream in ProcessQueue with the loop's context, which doesn't
-		// carry the per-task "uploadId" log value, so without it the failure
-		// (e.g. a publish-records track error) can't be tied to an upload.
+		// The upload ID + DID are now in the log context (set above), so the
+		// error string no longer needs to embed them for traceability — the
+		// runQueueWorker re-log picks them up from context.
 		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
 	// The processor (vod.ProcessVOD) calls SetUploadProcessed deep inside its
@@ -246,6 +251,11 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
+	// Thread the upload + owner into the log context so every downstream log
+	// line (and the error returned below, re-logged by runQueueWorker) carries
+	// the user.
+	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID, "livestream", t.LivestreamURI)
+	log.Log(ctx, "dequeued finalize-livestream-vod task")
 	if state.livestreamVODFinalizer == nil {
 		log.Warn(ctx, "no livestream VOD finalizer configured; dropping task",
 			"uploadId", t.UploadID, "did", t.RepoDID)

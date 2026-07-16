@@ -45,6 +45,7 @@ var (
 // (the client may not supply one) using the same generateThumbnail path
 // vod-test exercises.
 func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *placestream.Video) (string, string, error) {
+	ctx = log.WithLogValues(ctx, "func", "PublishVideo", "did", did, "uploadId", uploadID)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishVideo", trace.WithAttributes(
 		attribute.String("did", did),
 		attribute.String("upload_id", uploadID),

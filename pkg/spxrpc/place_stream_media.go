@@ -17,6 +17,7 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "createUpload", "did", session.DID)
 	// Labeler enforcement: a banned account can't start new uploads.
 	if banned, err := s.accountBanned(session.DID); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -79,6 +80,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "getUploadStatus", "did", session.DID, "uploadId", uploadId)
 	if uploadId == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uploadId is required")
 	}

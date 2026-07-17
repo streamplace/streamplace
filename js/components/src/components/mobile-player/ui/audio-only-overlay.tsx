@@ -1,5 +1,6 @@
 import { Volume2 } from "lucide-react-native";
 import { zero } from "../../..";
+import { colors } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
 import { Text, View } from "../../ui";
 
@@ -30,7 +31,7 @@ export function AudioOnlyOverlay() {
           zero.px[6],
         ]}
       >
-        <Volume2 color="#fff" size={48} />
+        <Volume2 color={colors.white} size={48} />
         <Text size="lg" weight="semibold" center>
           Audio Only mode
         </Text>

@@ -15,6 +15,7 @@ import { ChatMessageViewHydrated } from "streamplace";
 import {
   ErrorBoundary,
   getSystemMessageType,
+  Skeleton,
   SystemMessage,
   SystemMessageType,
   Text,
@@ -24,7 +25,8 @@ import {
   useTheme,
   View,
 } from "../../";
-import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
+import { flex, gap, layout, mr, px, py } from "../../lib/theme/atoms";
+import { borderRadius, colors, motion, spacing } from "../../lib/theme/tokens";
 import { RenderChatMessage } from "./chat-message";
 import { ModView } from "./mod-view";
 import { ProfileCardProvider } from "./user-profile-card";
@@ -38,7 +40,7 @@ function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 
   return (
     <Reanimated.View style={[styleAnimation]}>
-      <Reply color="white" />
+      <Reply color={colors.white} />
     </Reanimated.View>
   );
 }
@@ -52,7 +54,7 @@ function LeftAction(prog: SharedValue<number>, drag: SharedValue<number>) {
 
   return (
     <Reanimated.View style={[styleAnimation]}>
-      <Ellipsis color="white" />
+      <Ellipsis color={colors.white} />
     </Reanimated.View>
   );
 }
@@ -78,6 +80,7 @@ const ActionsBar = memo(
   }) => {
     const setReply = useSetReplyToMessage();
     const setModMsg = usePlayerStore((state) => state.setModMessage);
+    const { theme } = useTheme();
 
     if (!visible) return null;
 
@@ -89,11 +92,12 @@ const ActionsBar = memo(
             top: -14,
             right: 8,
             flexDirection: "row",
-            backgroundColor: "rgba(180,180,180, 0.5)",
-            borderRadius: 6,
+            backgroundColor: theme.colors.surface3,
+            borderRadius: borderRadius.sm,
             borderWidth: 1,
+            borderColor: theme.colors.borderStrong,
             padding: 1,
-            gap: 4,
+            gap: spacing[1],
             zIndex: 10,
             maxWidth: 120,
             flexShrink: 0,
@@ -105,8 +109,7 @@ const ActionsBar = memo(
           style={[
             {
               padding: 6,
-              borderRadius: 4,
-              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              borderRadius: borderRadius.sm,
             },
           ]}
           onHoverIn={() => {
@@ -117,15 +120,14 @@ const ActionsBar = memo(
             }
           }}
         >
-          <Reply color="white" size={16} />
+          <Reply color={theme.colors.text2} size={16} />
         </Pressable>
         <Pressable
           onPress={() => setModMsg(item)}
           style={[
             {
               padding: 6,
-              borderRadius: 4,
-              backgroundColor: "rgba(255, 255, 255, 0.1)",
+              borderRadius: borderRadius.sm,
             },
           ]}
           onHoverIn={() => {
@@ -136,7 +138,7 @@ const ActionsBar = memo(
             }
           }}
         >
-          <Ellipsis color="white" size={16} />
+          <Ellipsis color={theme.colors.text2} size={16} />
         </Pressable>
       </View>
     );
@@ -144,6 +146,7 @@ const ActionsBar = memo(
 );
 
 const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
+  const { theme } = useTheme();
   const setReply = useSetReplyToMessage();
   const setModMsg = usePlayerStore((state) => state.setModMessage);
   const swipeableRef = useRef<SwipeableMethods | null>(null);
@@ -191,11 +194,11 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
           px[2],
           {
             position: "relative",
-            borderRadius: 8,
+            borderRadius: borderRadius.md,
             minWidth: 0,
             maxWidth: "100%",
           },
-          isHovered && bg.gray[950],
+          isHovered ? { backgroundColor: theme.colors.surfaceHover } : {},
         ]}
         onPointerEnter={handleHoverIn}
         onPointerLeave={handleHoverOut}
@@ -270,9 +273,11 @@ export function Chat({
   const buttonTranslateY = useSharedValue(20);
 
   useEffect(() => {
-    buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, { duration: 200 });
+    buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, {
+      duration: motion.base,
+    });
     buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 50, {
-      duration: 200,
+      duration: motion.base,
     });
   }, [isScrolledUp]);
 
@@ -326,8 +331,18 @@ export function Chat({
 
   if (!chat)
     return (
-      <View style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }]}>
-        <Text>Loading chat...</Text>
+      <View
+        style={[
+          flex.values[1],
+          px[2],
+          py[2],
+          gap.all[3],
+          { minWidth: 0, maxWidth: "100%", justifyContent: "flex-end" },
+        ]}
+      >
+        {[78, 52, 88, 40, 64, 72].map((w, i) => (
+          <Skeleton key={i} shape="text" width={`${w}%`} height={13} />
+        ))}
       </View>
     );
 
@@ -386,25 +401,22 @@ export function Chat({
           style={[
             {
               pointerEvents: isScrolledUp ? "auto" : "none",
-              backgroundColor: theme.colors.primary,
-              opacity: 0.9,
-              borderRadius: 20,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.25,
-              shadowRadius: 4,
-              elevation: 5,
+              backgroundColor: theme.colors.surface3,
+              borderWidth: 1,
+              borderColor: theme.colors.borderStrong,
+              borderRadius: borderRadius.full,
+              ...theme.shadows.sm,
             },
             layout.flex.row,
             layout.flex.center,
-            px[2],
+            px[3],
             py[1],
-            { gap: 6 },
+            { gap: spacing[1] },
           ]}
         >
-          <ChevronDown size={24} style={{ marginTop: 2 }} color="white" />
-          <Text style={[mr[1]]}>
-            {reverse ? "Scroll to top" : "Scroll to bottom"}
+          <ChevronDown size={16} color={theme.colors.text1} />
+          <Text size="sm" weight="medium" style={[mr[1]]}>
+            {reverse ? "New messages above" : "New messages"}
           </Text>
         </Pressable>
       </Reanimated.View>

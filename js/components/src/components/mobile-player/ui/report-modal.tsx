@@ -133,7 +133,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               zero.borderRadius[8],
               zero.layout.flex.alignCenter,
               selectedReason === reason.value && {
-                backgroundColor: "rgba(0, 122, 255, 0.1)",
+                backgroundColor: theme.colors.surfaceHover,
               },
             ]}
           >
@@ -148,7 +148,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               style={[zero.layout.flex.column, zero.gap.all[1], zero.flex[1]]}
             >
               <Text style={[{ fontWeight: "600" }]}>{reason.label}</Text>
-              <Text style={[{ fontSize: 14, color: "rgba(255,255,255,0.7)" }]}>
+              <Text style={[{ fontSize: 14, color: theme.colors.text2 }]}>
                 {reason.description}
               </Text>
             </View>

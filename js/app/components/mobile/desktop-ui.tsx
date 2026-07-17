@@ -1,4 +1,5 @@
 import {
+  hexToRgba,
   PlayerStatus,
   PlayerUI,
   PortalHost,
@@ -11,6 +12,12 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  borderAlphas,
+  colors,
+  motion,
+  scrims,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { AnimatedGradient } from "components/ui/gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
@@ -30,7 +37,7 @@ import {
 import { PlayPauseIndicator } from "./desktop-ui/play-pause-indicator";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { h, layout, position, w, px, py, r, p } = zero;
+const { h, layout, position, w, px, py, p } = zero;
 
 function isRefObject(
   ref: any,
@@ -87,13 +94,14 @@ export function DesktopUi({
   const [pipActive, setPipActive] = useState(false);
   const fadeOpacity = useSharedValue(1);
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const FADE_OUT_DELAY = 2500;
+  // Controls auto-hide after 3s of inactivity (design-system standard)
+  const FADE_OUT_DELAY = 3000;
 
   const isSelfAndNotLive = ingest === "new";
   const isActivelyLive = ingest !== null && ingest !== "new";
 
   const resetFadeTimer = useCallback(() => {
-    fadeOpacity.value = withTiming(1, { duration: 200 });
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     setIsControlsVisible(true);
 
@@ -102,7 +110,7 @@ export function DesktopUi({
     if (status === PlayerStatus.PAUSE) return;
 
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: 400 });
+      fadeOpacity.value = withTiming(0, { duration: motion.slow });
       setIsControlsVisible(false);
     }, FADE_OUT_DELAY);
   }, [fadeOpacity, selectedRendition, ingest, status]);
@@ -254,27 +262,21 @@ export function DesktopUi({
           </Animated.View>
 
           {isActivelyLive && isControlsVisible && (
-            <View
+            <Animated.View
               style={[
                 layout.position.absolute,
                 {
-                  transform: [{ translateX: -100 }, { translateY: -25 }],
+                  top: safeAreaInsets.top + 64,
+                  left: 16,
                 },
+                animatedFadeStyle,
               ]}
             >
-              <Animated.View
-                style={[
-                  {
-                    padding: 12,
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  },
-                  r[3],
-                  animatedFadeStyle,
-                ]}
-              >
-                <PlayerUI.MetricsPanel showMetrics={isActivelyLive} />
-              </Animated.View>
-            </View>
+              {/* Connection-health HUD. `showMetrics` (debug flag) gates the
+                  raw Δ/mean/range readout — never shown to broadcasters by
+                  default; the pill itself is always visible while live. */}
+              <PlayerUI.MetricsPanel showMetrics={showMetrics} />
+            </Animated.View>
           )}
 
           {isSelfAndNotLive && (
@@ -311,10 +313,10 @@ export function DesktopUi({
                 px[4],
                 py[2],
                 {
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: scrims.dark,
                   borderRadius: 8,
                   borderWidth: 1,
-                  borderColor: "#374151",
+                  borderColor: borderAlphas.dark.strong,
                 },
               ]}
             >
@@ -335,8 +337,8 @@ export function DesktopUi({
         ]}
       >
         <AnimatedGradient
-          fromColor="#00000080"
-          toColor="#000000"
+          fromColor={hexToRgba(colors.black, 0.5)}
+          toColor={colors.black}
           opacityColor1={0}
         >
           <BottomControlBar

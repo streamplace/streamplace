@@ -1,7 +1,8 @@
 import { Platform, View } from "react-native";
 import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
 import { SystemMessageType } from "../../lib/system-messages";
-import { bg, colors, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
+import { useTheme } from "../../lib/theme/theme";
+import { bg, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
 import { Code, Text } from "../ui/text";
 import { RichTextMessage } from "./chat-message";
 
@@ -19,6 +20,7 @@ export function SystemMessage({
   facets,
 }: SystemMessageProps) {
   const isError = variant === SystemMessageType.command_error;
+  const { theme } = useTheme();
 
   return (
     <View
@@ -41,7 +43,7 @@ export function SystemMessage({
         <Text
           style={{
             fontVariant: ["tabular-nums"],
-            color: colors.gray[400],
+            color: theme.colors.text2,
           }}
         >
           {timestamp.toLocaleTimeString([], {

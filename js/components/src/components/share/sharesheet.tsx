@@ -1,7 +1,7 @@
 import { Code, Copy, Link2, Share2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { Clipboard, Linking, Platform, View } from "react-native";
-import { colors } from "../../lib/theme";
+import { textAlphas } from "../../lib/theme/tokens";
 import { useLivestreamStore } from "../../livestream-store";
 import { useUrl } from "../../streamplace-store";
 import { formatHandle } from "../../utils/format-handle";
@@ -115,7 +115,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Share2 color={colors.gray[200]} />
+        <Share2 color={textAlphas.dark[1]} />
       </DropdownMenuTrigger>
       <ResponsiveDropdownMenuContent>
         <DropdownMenuGroup title="Share">
@@ -123,7 +123,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <BlueskyIcon size={20} color={colors.gray[400]} />
+              <BlueskyIcon size={20} color={textAlphas.dark[2]} />
               <Text>Share to Bluesky</Text>
             </View>
           </DropdownMenuItem>
@@ -133,7 +133,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
               >
-                <Share2 size={20} color={colors.gray[400]} />
+                <Share2 size={20} color={textAlphas.dark[2]} />
                 <Text>More Options...</Text>
               </View>
             </DropdownMenuItem>
@@ -148,7 +148,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <Link2 size={20} color={colors.gray[400]} />
+              <Link2 size={20} color={textAlphas.dark[2]} />
               <Text>Copy Link</Text>
             </View>
           </DropdownMenuItem>
@@ -161,7 +161,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <Code size={20} color={colors.gray[400]} />
+              <Code size={20} color={textAlphas.dark[2]} />
               <Text>Copy Embed Code</Text>
             </View>
           </DropdownMenuItem>
@@ -174,7 +174,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
             <View
               style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
             >
-              <Copy size={20} color={colors.gray[400]} />
+              <Copy size={20} color={textAlphas.dark[2]} />
               <Text>Copy Embed URL</Text>
             </View>
           </DropdownMenuItem>

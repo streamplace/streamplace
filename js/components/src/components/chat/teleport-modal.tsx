@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { PlaceStreamLivestream } from "streamplace";
 import { useAvatars, zero } from "../..";
+import { scrims } from "../../lib/theme/tokens";
 import { useStreamplaceStore } from "../../streamplace-store";
 import { Button, Input, ResponsiveDialog, Text, useTheme } from "../ui";
 
@@ -188,7 +189,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                                 height: 24,
                                 alignItems: "center",
                                 justifyContent: "center",
-                                boxShadow: "0 2px 4px rgba(0, 0, 0, 0.6)",
+                                boxShadow: `0 2px 4px ${scrims.dark}`,
                               },
                             ]}
                           >
@@ -202,7 +203,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
                                 position: "absolute",
                                 top: 8,
                                 left: 8,
-                                backgroundColor: "rgba(0, 0, 0, 0.75)",
+                                backgroundColor: scrims.dark,
                                 borderRadius: 999,
                                 paddingHorizontal: 8,
                                 paddingVertical: 4,

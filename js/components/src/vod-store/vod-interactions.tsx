@@ -7,7 +7,10 @@ import {
   PlaceStreamVodGetComments,
 } from "streamplace";
 import { useDID } from "../streamplace-store/streamplace-store";
-import { usePDSAgent } from "../streamplace-store/xrpc";
+import {
+  usePDSAgent,
+  usePossiblyUnauthedPDSAgent,
+} from "../streamplace-store/xrpc";
 
 export const useCreateVodComment = () => {
   const pdsAgent = usePDSAgent();
@@ -105,7 +108,10 @@ export const useDeleteLike = () => {
 };
 
 export const useGetVodComments = () => {
-  const pdsAgent = usePDSAgent();
+  // Reads must hit the streamplace node (not Bluesky's appview, which is what
+  // usePDSAgent falls back to when logged out and doesn't implement this
+  // method) so comments are visible to logged-out viewers.
+  const pdsAgent = usePossiblyUnauthedPDSAgent();
 
   return useCallback(
     async (
@@ -128,7 +134,8 @@ export const useGetVodComments = () => {
 };
 
 export const useGetLikes = () => {
-  const pdsAgent = usePDSAgent();
+  // Read against the streamplace node so counts are visible when logged out.
+  const pdsAgent = usePossiblyUnauthedPDSAgent();
 
   return useCallback(
     async (
@@ -151,7 +158,7 @@ export const useGetLikes = () => {
 };
 
 export const useLikeCount = () => {
-  const pdsAgent = usePDSAgent();
+  const pdsAgent = usePossiblyUnauthedPDSAgent();
 
   return useCallback(
     async (subject: string): Promise<number> => {

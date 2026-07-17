@@ -464,7 +464,7 @@ export const UserProfileCard = ({
           marginLeft: -3,
           marginRight: -2,
           marginBottom: -4,
-          ...(hovered ? { backgroundColor: "rgba(255,255,255,0.15)" } : {}),
+          ...(hovered ? { backgroundColor: theme.colors.surfaceHover } : {}),
         },
       ]}
     >

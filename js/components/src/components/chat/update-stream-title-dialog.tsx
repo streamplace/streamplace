@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "../../lib/theme/theme";
 import {
   atoms,
   Button,
@@ -32,6 +33,7 @@ export function UpdateStreamTitleDialog({
   const [title, setTitle] = useState(livestream?.record?.title || "");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (livestream?.record?.title) {
@@ -86,7 +88,7 @@ export function UpdateStreamTitleDialog({
         <View style={[{ marginBottom: 16 }]}>
           <Text
             style={[
-              { color: atoms.colors.gray[300], fontSize: 13, marginBottom: 8 },
+              { color: theme.colors.text2, fontSize: 13, marginBottom: 8 },
             ]}
           >
             Stream Title
@@ -104,19 +106,17 @@ export function UpdateStreamTitleDialog({
               {
                 padding: 12,
                 borderRadius: 8,
-                backgroundColor: atoms.colors.neutral[800],
+                backgroundColor: theme.colors.surface3,
                 color: atoms.colors.white,
                 borderWidth: 1,
-                borderColor: atoms.colors.neutral[600],
+                borderColor: theme.colors.borderStrong,
                 minHeight: 100,
                 fontSize: 16,
               },
             ]}
           />
           <Text
-            style={[
-              { color: atoms.colors.gray[400], fontSize: 12, marginTop: 4 },
-            ]}
+            style={[{ color: theme.colors.text2, fontSize: 12, marginTop: 4 }]}
           >
             {title.length}/140 characters
           </Text>
@@ -126,16 +126,16 @@ export function UpdateStreamTitleDialog({
           <View
             style={[
               {
-                backgroundColor: atoms.colors.red[900],
+                backgroundColor: theme.colors.surface2,
                 padding: 12,
                 borderRadius: 8,
                 borderWidth: 1,
-                borderColor: atoms.colors.red[700],
+                borderColor: theme.colors.danger,
                 marginBottom: 16,
               },
             ]}
           >
-            <Text style={[{ color: atoms.colors.red[400], fontSize: 13 }]}>
+            <Text style={[{ color: theme.colors.danger, fontSize: 13 }]}>
               {error}
             </Text>
           </View>

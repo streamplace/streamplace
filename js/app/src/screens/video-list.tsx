@@ -1,8 +1,11 @@
-import { Text, useTheme, zero } from "@streamplace/components";
+import { useNavigation } from "@react-navigation/native";
+import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Title from "components/title";
 import VideoCard from "components/video/video-card";
 import useAvatars from "hooks/useAvatars";
 import { useVideoList, VideoView } from "hooks/useVideoList";
+import { AlertCircle, Clapperboard, Upload } from "lucide-react-native";
 import { useMemo } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +33,7 @@ export default function VideoListScreen({
 }) {
   const repo = route?.params?.did;
   const { theme } = useTheme();
+  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const safeAreaInsets = useSafeAreaInsets();
   const { videos, loading, refreshing, error, hasMore, loadMore, refresh } =
@@ -68,6 +72,9 @@ export default function VideoListScreen({
       numColumns={columns}
       columnWrapperStyle={columns > 1 ? { gap: GAP } : undefined}
       contentContainerStyle={{
+        // flexGrow lets the empty state fill and center vertically; harmless
+        // once the list has items.
+        flexGrow: 1,
         gap: GAP,
         paddingHorizontal: GAP,
         paddingBottom:
@@ -89,15 +96,49 @@ export default function VideoListScreen({
       }
       ListEmptyComponent={
         loading ? (
-          <View style={{ paddingVertical: 64, alignItems: "center" }}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
+          <View
+            style={{
+              flex: 1,
+              minHeight: 320,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <ActivityIndicator size="large" color={theme.colors.text3} />
           </View>
         ) : (
-          <View style={{ paddingVertical: 64, alignItems: "center" }}>
-            <Text style={{ color: theme.colors.textMuted }}>
-              {error ? `Couldn't load videos: ${error}` : "No videos yet."}
-            </Text>
-          </View>
+          <EmptyState
+            illustration={
+              error ? (
+                <EmptyStateTile icon={AlertCircle} tone={theme.colors.danger} />
+              ) : (
+                <EmptyStateTile icon={Clapperboard} />
+              )
+            }
+            title={error ? "Couldn't load videos" : "No videos yet"}
+            subtitle={
+              error
+                ? error
+                : repo
+                  ? "This channel hasn't published any videos."
+                  : "Upload a video and it'll show up here — processed, titled, and ready to share."
+            }
+            action={
+              !repo && !error ? (
+                <Button
+                  width="min"
+                  leftIcon={<Upload size={16} />}
+                  onPress={() =>
+                    (navigation as any).navigate("HomeTab", {
+                      screen: "Upload",
+                    })
+                  }
+                >
+                  Upload video
+                </Button>
+              ) : undefined
+            }
+          />
         )
       }
       ListFooterComponent={

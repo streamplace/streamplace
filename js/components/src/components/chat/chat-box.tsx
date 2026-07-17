@@ -442,18 +442,20 @@ export function ChatBox({
                   layout.flex.alignCenter,
                   { flex: 1 },
                   borders.width.thin,
-                  borders.color.gray[400],
-                  bg.gray[900],
+                  { borderColor: theme.colors.borderSubtle },
+                  { backgroundColor: theme.colors.input },
                   chatBoxStyle,
                   isOverLimit
                     ? {
-                        borderColor: "#ef4444",
+                        borderColor: theme.colors.danger,
                         borderWidth: 2,
                         outline: "none",
                       }
                     : inputFocused
                       ? {
-                          borderColor: theme.colors.foreground,
+                          // Match every other field: focus lights the indigo
+                          // ring, not a loud white border.
+                          borderColor: theme.colors.ring,
                           outline: "none",
                         }
                       : null,
@@ -553,7 +555,7 @@ export function ChatBox({
                 : [
                     chatBoxStyle,
                     isOverLimit && {
-                      borderColor: "#ef4444",
+                      borderColor: theme.colors.danger,
                       borderWidth: 2,
                       outline: "none",
                     },
@@ -569,7 +571,7 @@ export function ChatBox({
             disabled={submitting}
             variant="secondary"
             width="min"
-            style={{ borderRadius: 16, height: 43 }}
+            style={{ borderRadius: theme.borderRadius.md, height: 43 }}
             onPress={submit}
           >
             {submitting ? <Loader /> : "Send"}
@@ -608,7 +610,7 @@ export function ChatBox({
           {env.NODE_ENV === "development" && (
             <Button
               variant="secondary"
-              style={{ borderRadius: 16 }}
+              style={{ borderRadius: theme.borderRadius.md }}
               width="min"
               onPress={() => {
                 StreamNotifications.teleport({
@@ -626,7 +628,7 @@ export function ChatBox({
           )}
           <Button
             variant="secondary"
-            style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+            style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
             aria-label="Insert Mention"
             onPress={() => {
               !message.endsWith("@") && setMessage(message + "@");
@@ -650,7 +652,7 @@ export function ChatBox({
               variant="secondary"
               id="web-emoji-picker-btn"
               aria-label="Insert Emoji"
-              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+              style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
                 onEmojiPickerToggle
                   ? onEmojiPickerToggle()
@@ -666,7 +668,7 @@ export function ChatBox({
               href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
-              style={{ borderRadius: 16, maxWidth: 44, aspectRatio: 1 }}
+              style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
               onPress={() => {
                 const did = linfo?.author?.did ?? profile?.did;
                 if (did) {

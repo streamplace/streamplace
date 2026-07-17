@@ -6,7 +6,10 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { useDID } from "../../streamplace-store/streamplace-store";
+import {
+  useDID,
+  useOnNeedsLogin,
+} from "../../streamplace-store/streamplace-store";
 import { gap, layout, useTheme } from "../../ui";
 import {
   useCreateLike,
@@ -22,6 +25,7 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   const [loading, setLoading] = useState(false);
 
   const userDID = useDID();
+  const onNeedsLogin = useOnNeedsLogin();
   const getLikes = useGetLikes();
   const createLike = useCreateLike();
   const deleteLike = useDeleteLike();
@@ -52,6 +56,10 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
   }, [loadLikes]);
 
   const toggleLike = useCallback(async () => {
+    if (!userDID) {
+      onNeedsLogin?.();
+      return;
+    }
     scale.value = withSpring(1.05, { stiffness: 500, damping: 10 }, () => {
       scale.value = withSpring(1, { stiffness: 500 });
     });
@@ -73,7 +81,16 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
     } finally {
       setLoading(false);
     }
-  }, [userLiked, userLikeUri, subjectUri, createLike, deleteLike, scale]);
+  }, [
+    userDID,
+    onNeedsLogin,
+    userLiked,
+    userLikeUri,
+    subjectUri,
+    createLike,
+    deleteLike,
+    scale,
+  ]);
 
   const heartColor = userLiked
     ? theme.colors.background

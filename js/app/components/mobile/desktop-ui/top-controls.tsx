@@ -8,9 +8,16 @@ import {
   useAvatar,
   useCameraToggle,
   useLivestreamStore,
+  useTheme,
   useTitle,
   zero,
 } from "@streamplace/components";
+import {
+  scrims,
+  surfaces,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
+import { LogoTile } from "components/brand/logo";
 import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
 import {
@@ -42,6 +49,7 @@ export function TopControlBar({
   embedded = false,
 }: TopControlBarProps) {
   const navigation = useNavigation();
+  const { theme } = useTheme();
   const profile = useAuthor();
   const { doSetIngestCamera } = useCameraToggle();
   const avatar = useAvatar();
@@ -99,7 +107,7 @@ export function TopControlBar({
                       width: 40,
                       height: 40,
                       borderRadius: 20,
-                      backgroundColor: colors.gray[800],
+                      backgroundColor: surfaces.dark[2],
                     },
                     borders.width.thin,
                     borders.color.gray[700],
@@ -125,7 +133,7 @@ export function TopControlBar({
             gap.all[3],
           ]}
         >
-          {!embedded && !offline && <LiveBubble />}
+          {!embedded && !offline && <LiveBubble broadcasting={ingest !== null} />}
           {embedded && Platform.OS === "web" && (
             <Pressable
               onPress={() => {
@@ -140,18 +148,12 @@ export function TopControlBar({
                 px[3],
                 r.xl,
                 {
-                  backgroundColor: "rgba(75,75,75, 0.65)",
+                  backgroundColor: scrims.dark,
                 },
               ]}
             >
               {!isSmallScreen && <Text size="lg">Powered by</Text>}
-              <Image
-                source={require("assets/images/cube_small.png")}
-                style={{
-                  width: 24,
-                  height: 24,
-                }}
-              />
+              <LogoTile size={24} />
               {!isTinyScreen && <Text size="lg">Streamplace</Text>}
             </Pressable>
           )}
@@ -162,14 +164,14 @@ export function TopControlBar({
               <Pressable onPress={onToggleChat} style={[p[2], r[1]]}>
                 <MessageSquare
                   size={20}
-                  color={isChatOpen ? colors.primary[500] : colors.white}
+                  color={isChatOpen ? theme.colors.primary : colors.white}
                 />
               </Pressable>
             </>
           )}
           {ingest !== null && (
             <Pressable onPress={doSetIngestCamera} style={[p[2], r[1]]}>
-              <SwitchCamera size={24} color={colors.gray[200]} />
+              <SwitchCamera size={24} color={textAlphas.dark[1]} />
             </Pressable>
           )}
         </View>

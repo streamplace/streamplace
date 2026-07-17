@@ -22,7 +22,7 @@ import {
 } from "../../streamplace-store/streamplace-store";
 import { usePDSAgent } from "../../streamplace-store/xrpc";
 import * as zero from "../../ui";
-import { Admonition } from "../ui";
+import { Admonition, SegmentedTabs } from "../ui";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
@@ -42,46 +42,6 @@ export interface ContentMetadataFormProps {
   initialMetadata?: PlaceStreamMetadataConfiguration.Record;
   style?: any;
 }
-
-const ButtonSelector = ({
-  values,
-  selectedValue,
-  setSelectedValue,
-  disabledValues = [],
-  style = [],
-}: {
-  values: { label: string; value: string }[];
-  selectedValue: string;
-  setSelectedValue: (value: string) => void;
-  disabledValues?: string[];
-  style?: any[];
-}) => (
-  <View style={[layout.flex.row, gap.all[1], layout.flex.wrap.wrap, ...style]}>
-    {values.map(({ label, value }) => (
-      <Button
-        key={value}
-        variant={selectedValue === value ? "primary" : "secondary"}
-        size="pill"
-        width="min"
-        disabled={disabledValues.includes(value)}
-        onPress={() => setSelectedValue(value)}
-        style={[
-          r.md,
-          {
-            opacity: disabledValues.includes(value) ? 0.5 : 1,
-          },
-        ]}
-      >
-        <Text
-          size="sm"
-          style={[selectedValue === value ? text.white : text.gray[300]]}
-        >
-          {label}
-        </Text>
-      </Button>
-    ))}
-  </View>
-);
 
 export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
   (
@@ -357,15 +317,14 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           <View style={[gap.all[8], w.percent[100], { alignItems: "stretch" }]}>
             {/* Section Selector */}
             <View style={[gap.all[4], w.percent[100]]}>
-              <ButtonSelector
-                values={[
-                  { label: "Content Warnings", value: "contentWarnings" },
-                  { label: "Content Rights", value: "contentRights" },
+              <SegmentedTabs
+                options={[
+                  { label: "Warnings", value: "contentWarnings" },
+                  { label: "Rights", value: "contentRights" },
                   { label: "Distribution", value: "distribution" },
                 ]}
-                selectedValue={activeSection}
-                setSelectedValue={setActiveSection}
-                style={[{ marginVertical: -2 }]}
+                value={activeSection}
+                onChange={setActiveSection}
               />
             </View>
 
@@ -415,7 +374,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                         )
                       }
                     >
-                      <Text size="sm" color={zero.colors.blue[400]}>
+                      <Text size="sm" color={th.theme.colors.primary}>
                         Learn more{" "}
                         <ExternalLink
                           size="14"

@@ -1,4 +1,5 @@
 import {
+  IconButton,
   Player,
   PlayerUI,
   Text,
@@ -6,15 +7,23 @@ import {
   useLivestreamStore,
   usePlayerStore,
   useSegmentTiming,
+  useTheme,
   zero,
 } from "@streamplace/components";
+import {
+  scrims,
+  statusColors,
+  textAlphas,
+  surfaces,
+  borderAlphas,
+  fontFamilies,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
 import { Image } from "expo-image";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
-import Animated from "react-native-reanimated";
+import { View } from "react-native";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import StreamScreen from "./live-selector";
 
@@ -27,16 +36,7 @@ interface StreamMonitorProps {
 }
 
 function PreviewOverlay() {
-  // const opacity = useSharedValue(1);
-
-  // useEffect(() => {
-  //   opacity.value = withRepeat(withTiming(0.8, { duration: 1500 }), -1, true);
-  // }, [opacity]);
-
-  // const animatedStyle = useAnimatedStyle(() => ({
-  //   opacity: opacity.value,
-  // }));
-
+  const { theme } = useTheme();
   return (
     <View
       style={{
@@ -50,24 +50,76 @@ function PreviewOverlay() {
         pointerEvents: "none",
       }}
     >
-      <Animated.Text
-        style={[
-          // animatedStyle,
-          {
-            paddingLeft: 16,
-            paddingTop: 16,
-            fontSize: 32,
-            fontWeight: "800",
-            color: "white",
-            letterSpacing: 4,
-            textShadowColor: "rgba(0, 0, 0, 0.9)",
-            textShadowOffset: { width: 0, height: 2 },
-            textShadowRadius: 8,
-          },
-        ]}
-      >
-        PREVIEW (NOT LIVE)
-      </Animated.Text>
+      <View style={{ margin: 16, gap: 8, alignItems: "flex-start" }}>
+        {/* Refined status pill — matches the connection HUD grammar. Indigo
+            (accent, not live-red) says "previewing, ready" rather than "on air". */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 7,
+            backgroundColor: scrims.dark,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: borderAlphas.dark.strong,
+          }}
+        >
+          <View
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 999,
+              backgroundColor: theme.colors.primary,
+            }}
+          />
+          <Text
+            style={{
+              color: "white",
+              fontSize: 12,
+              fontFamily: fontFamilies.semiBold,
+              fontWeight: "600",
+              letterSpacing: 0.5,
+            }}
+          >
+            PREVIEW
+          </Text>
+        </View>
+        <View
+          style={{
+            backgroundColor: scrims.dark,
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: borderAlphas.dark.strong,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            maxWidth: 340,
+          }}
+        >
+          <Text
+            style={{
+              color: "white",
+              fontSize: 14,
+              fontWeight: "600",
+              lineHeight: 19,
+            }}
+          >
+            Only you can see this preview.
+          </Text>
+          <Text
+            style={{
+              color: textAlphas.dark[2],
+              fontSize: 12.5,
+              fontWeight: "500",
+              lineHeight: 17,
+              marginTop: 2,
+            }}
+          >
+            Press “Start Livestream” to go live for everyone.
+          </Text>
+        </View>
+      </View>
     </View>
   );
 }
@@ -109,17 +161,17 @@ export default function StreamMonitor({
   // Connection quality indicator
   const getConnectionIcon = () => {
     if (!isLive) return null;
-    if (!ls) return <Wifi size={16} color="#3b82f6" />;
+    if (!ls) return <Wifi size={16} color={textAlphas.dark[2]} />;
 
     switch (segmentTiming.connectionQuality) {
       case "good":
-        return <Wifi size={16} color="#10b981" />;
+        return <Wifi size={16} color={statusColors.dark.success} />;
       case "degraded":
-        return <Signal size={16} color="#f59e0b" />;
+        return <Signal size={16} color={statusColors.dark.warning} />;
       case "poor":
-        return <WifiOff size={16} color="#ef4444" />;
+        return <WifiOff size={16} color={statusColors.dark.danger} />;
       default:
-        return <WifiOff size={16} color="#6b7280" />;
+        return <WifiOff size={16} color={textAlphas.dark[3]} />;
     }
   };
 
@@ -145,18 +197,30 @@ export default function StreamMonitor({
     return "LIVE";
   };
 
+  const getStatusDotColor = () => {
+    if (!isLive) return textAlphas.dark[3];
+    if (!ls) return textAlphas.dark[2];
+    switch (segmentTiming.connectionQuality) {
+      case "good":
+        return statusColors.dark.success;
+      case "degraded":
+        return statusColors.dark.warning;
+      case "poor":
+        return statusColors.dark.danger;
+      default:
+        return textAlphas.dark[3];
+    }
+  };
+
   const getStreamTitle = () => {
     if (!ls) {
       return (
         <Text
-          style={[
-            text.white,
-            { fontSize: 14, fontWeight: "400", fontStyle: "italic" },
-          ]}
+          style={[text.white, { fontSize: 14, fontWeight: "600" }]}
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          Stream not live yet. Press "Announce Livestream" to start!
+          {userProfile?.handle || userProfile?.displayName || "Not live"}
         </Text>
       );
     }
@@ -175,16 +239,15 @@ export default function StreamMonitor({
     <View
       style={[
         flex.values[2],
-        bg.gray[800],
+        { backgroundColor: surfaces.dark[1] },
         r.lg,
-        bg.neutral[900],
         borders.width.thin,
-        borders.color.neutral[700],
+        { borderColor: borderAlphas.dark.strong },
         layout.flex.column,
         { overflow: "hidden" },
       ]}
     >
-      <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
+      <View style={[flex.values[1], layout.flex.center, { backgroundColor: surfaces.dark[1] }]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
             <View
@@ -221,7 +284,7 @@ export default function StreamMonitor({
                   position: "absolute",
                   top: 12,
                   left: 12,
-                  backgroundColor: "rgba(0, 0, 0, 0.9)",
+                  backgroundColor: scrims.dark,
                   paddingHorizontal: 8,
                   paddingVertical: 4,
                   borderRadius: 4,
@@ -244,7 +307,7 @@ export default function StreamMonitor({
           layout.flex.alignCenter,
           p[4],
           borders.top.width.thin,
-          borders.top.color.gray[700],
+          { borderTopColor: borderAlphas.dark.strong },
         ]}
       >
         <View
@@ -259,38 +322,47 @@ export default function StreamMonitor({
             style={[
               layout.flex.row,
               layout.flex.justify.end,
-              layout.flex.align.start,
+              layout.flex.alignCenter,
               { gap: 8, flexShrink: 0 },
             ]}
           >
             {isLive && userProfile && (
-              <TouchableOpacity
+              <IconButton
+                size="sm"
+                accessibilityLabel={
+                  isStreamVisible ? "Hide preview" : "Show preview"
+                }
                 onPress={() => setIsStreamVisible(!isStreamVisible)}
-                style={{
-                  padding: 4,
-                  borderRadius: 4,
-                  backgroundColor: "rgba(255, 255, 255, 0.1)",
-                }}
               >
                 {isStreamVisible ? (
-                  <EyeOff size={16} color="#9ca3af" />
+                  <EyeOff size={16} color={textAlphas.dark[3]} />
                 ) : (
-                  <Eye size={16} color="#9ca3af" />
+                  <Eye size={16} color={textAlphas.dark[3]} />
                 )}
-              </TouchableOpacity>
+              </IconButton>
             )}
             <View
-              style={[
-                w[3],
-                h[3],
-                r.full,
-                { marginTop: 3 },
-                bg[getConnectionColor()][500],
-              ]}
-            />
-            <Text style={[text.gray[400], { fontSize: 14 }]}>
-              {getStreamStatus()}
-            </Text>
+              style={[layout.flex.row, layout.flex.alignCenter, { gap: 6 }]}
+            >
+              <View
+                style={[
+                  w[3],
+                  h[3],
+                  r.full,
+                  { backgroundColor: getStatusDotColor() },
+                ]}
+              />
+              <Text
+                style={{
+                  color: textAlphas.dark[2],
+                  fontSize: 12,
+                  fontWeight: "600",
+                  letterSpacing: 0.4,
+                }}
+              >
+                {getStreamStatus()}
+              </Text>
+            </View>
           </View>
         </View>
       </View>

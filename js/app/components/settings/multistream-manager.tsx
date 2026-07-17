@@ -2,24 +2,28 @@ import {
   Button,
   Dialog,
   DialogFooter,
+  IconButton,
   Input,
+  Switch,
   Text,
   TFunction,
   useTranslation,
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import { gap, layout, mb, mt, text, w } from "@streamplace/components/src/ui";
+import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
-import { Plus, RefreshCw } from "lucide-react-native";
+import { Edit3, Plus, Radio, RefreshCw, Trash2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, Switch, View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import {
   PlaceStreamMultistreamDefs,
   PlaceStreamMultistreamTarget,
 } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
-import { SettingsListItem } from "./settings-list-item";
+import { SettingsViewHeader } from "./components/settings-view-header";
+
+const { layout, gap, mb, mt, w, h, p, r, px, py, pt, borders, flex } = zero;
 
 interface MultistreamTargetViewHydrated
   extends PlaceStreamMultistreamDefs.TargetView {
@@ -211,93 +215,97 @@ export default function MultistreamManager() {
 
   return (
     <>
-      <ScrollView>
-        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-          <View style={{ maxWidth: 800, width: "100%" }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}>
+        <View
+          style={[
+            { maxWidth: 800, width: "100%" },
+            flex.values[1],
+            layout.flex.column,
+            zero.px[2],
+            zero.py[2],
+          ]}
+        >
             {/* Header */}
-            <View style={[mb[6]]}>
-              <Text style={[mb[2], { fontSize: 24, fontWeight: "700" }]}>
-                {t("multistream-targets")}
-              </Text>
-              <Text style={[text.gray[400], mb[4], { fontSize: 14 }]}>
-                {t("multistream-description")}
-              </Text>
+            <SettingsViewHeader
+              title={t("multistream-targets")}
+              description={t("multistream-description")}
+              action={
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Button
+                    size="sm"
+                    width="min"
+                    variant="secondary"
+                    leftIcon={<RefreshCw size={16} />}
+                    onPress={loadMultistreamTargets}
+                    disabled={loading}
+                  >
+                    {t("refresh")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    width="min"
+                    variant="primary"
+                    leftIcon={<Plus size={16} />}
+                    onPress={handleCreate}
+                  >
+                    {t("create")}
+                  </Button>
+                </View>
+              }
+            />
 
-              <View
-                style={[
-                  layout.flex.row,
-                  layout.flex.justify.start,
-                  gap.all[3],
-                  w.percent[100],
-                  mt[2],
-                ]}
-              >
-                <Button
-                  onPress={handleCreate}
-                  size="pill"
-                  width="min"
-                  leftIcon={<Plus color={theme.colors.text} />}
-                >
-                  <Text>{t("create-multistream-target")}</Text>
-                </Button>
-
-                <Button
-                  onPress={loadMultistreamTargets}
-                  disabled={loading}
-                  leftIcon={<RefreshCw color={theme.colors.text} />}
-                  size="pill"
-                  width="min"
-                  variant="secondary"
-                >
-                  <Text>{t("refresh")}</Text>
-                </Button>
-              </View>
-            </View>
-          </View>
-
-          {/* Content */}
-          {loading && !targets ? (
-            <Loading />
-          ) : targets === null ? (
-            <View style={[layout.flex.center, mt[8]]}>
-              <Text style={[text.gray[600]]}>
-                {t("failed-load-multistream-targets")}
-              </Text>
-            </View>
-          ) : targets.length === 0 ? (
-            <View style={[layout.flex.center, mt[8]]}>
-              <Text style={[text.gray[600], mb[4], { fontSize: 16 }]}>
-                {t("no-multistream-targets-yet")}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <View style={[mb[4]]}>
-                <Text style={[text.gray[600], { fontSize: 14 }]}>
-                  {t("multistream-targets-count", { count: targets.length })}
+            {/* Content */}
+            {loading && !targets ? (
+              <Loading />
+            ) : targets === null ? (
+              <View style={[layout.flex.center, mt[8]]}>
+                <Text style={{ color: theme.colors.text3 }}>
+                  {t("failed-load-multistream-targets")}
                 </Text>
               </View>
-              {targets.map((target) => (
-                <MultistreamRow
-                  key={target.uri}
-                  target={target}
-                  onEdit={handleEdit}
-                  onDelete={() =>
-                    setDeleteDialog({
-                      isVisible: true,
-                      target,
-                      isLoading: false,
-                    })
-                  }
-                  onToggle={toggleMultistreamTarget}
-                  isDeleting={deletingTargets.has(target.uri)}
-                  isToggling={togglingTargets.has(target.uri)}
-                />
-              ))}
-            </>
-          )}
-        </View>
-      </ScrollView>
+            ) : targets.length === 0 ? (
+              <EmptyState
+                illustration={<EmptyStateTile icon={Radio} />}
+                title="No multistream targets yet"
+                subtitle="Add a destination to restream to Twitch, YouTube, and more."
+                action={
+                  <Button
+                    size="sm"
+                    leftIcon={<Plus size={16} />}
+                    onPress={handleCreate}
+                  >
+                    {t("create-multistream-target")}
+                  </Button>
+                }
+              />
+            ) : (
+              <>
+                <View style={[mb[4]]}>
+                  <Text size="sm" style={{ color: theme.colors.text3 }}>
+                    {t("multistream-targets-count", { count: targets.length })}
+                  </Text>
+                </View>
+                {targets.map((target) => (
+                  <MultistreamRow
+                    key={target.uri}
+                    target={target}
+                    onEdit={handleEdit}
+                    onDelete={() =>
+                      setDeleteDialog({
+                        isVisible: true,
+                        target,
+                        isLoading: false,
+                      })
+                    }
+                    onToggle={toggleMultistreamTarget}
+                    isDeleting={deletingTargets.has(target.uri)}
+                    isToggling={togglingTargets.has(target.uri)}
+                  />
+                ))}
+              </>
+            )}
+          </View>
+        </ScrollView>
       <MultistreamTargetForm
         target={editingTarget}
         isVisible={showForm}
@@ -352,15 +360,18 @@ export function MultistreamRow({
   isToggling: boolean;
 }) {
   const { t } = useTranslation("settings");
+  const { theme } = zero.useTheme();
+  const active = target.record.active;
+
   // Determine latest event status for footer
   const getStatusInfo = () => {
     if (target.latestEvent) {
       return (
-        <View style={[layout.flex.row, gap.all[4]]}>
-          <Text style={[text.gray[400], { fontSize: 11 }]}>
+        <View style={[layout.flex.row, gap.all[3]]}>
+          <Text size="xs" style={{ color: theme.colors.text3 }}>
             {t("status")}: {target.latestEvent.status}
           </Text>
-          <Text style={[text.gray[400], { fontSize: 11 }]}>
+          <Text size="xs" style={{ color: theme.colors.text3 }}>
             {timeAgo(new Date(target.latestEvent.createdAt))}
           </Text>
         </View>
@@ -370,20 +381,127 @@ export function MultistreamRow({
   };
 
   return (
-    <SettingsListItem
-      title={multistreamTitle(target, t)}
-      url={redactMultistreamTargetURL(target.record.url)}
-      active={target.record.active}
-      isDeleting={isDeleting}
-      isToggling={isToggling}
-      footer={{
-        left: `${t("created")} ${timeAgo(new Date(target.record.createdAt))}`,
-        right: getStatusInfo(),
-      }}
-      onEdit={() => onEdit(target)}
-      onDelete={() => onDelete(target.uri)}
-      onToggle={(active) => onToggle(target, active)}
-    />
+    <View
+      style={[
+        borders.width.thin,
+        { borderColor: theme.colors.borderSubtle },
+        { backgroundColor: theme.colors.surface1 },
+        r.lg,
+        p[4],
+        mb[3],
+        { opacity: isDeleting ? 0.5 : 1 },
+      ]}
+    >
+      {/* Top: name / URL + actions */}
+      <View
+        style={[layout.flex.row, layout.flex.spaceBetween, gap.all[3]]}
+      >
+        <View style={[flex.values[1], gap.all[1]]}>
+          {/* Name + status pill */}
+          <View
+            style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+          >
+            <Text size="lg" weight="semibold" numberOfLines={1}>
+              {multistreamTitle(target, t)}
+            </Text>
+            <View
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                gap.all[1],
+                px[2],
+                py[1],
+                r.full,
+                { backgroundColor: theme.colors.surface2 },
+              ]}
+            >
+              <View
+                style={[
+                  w[2],
+                  h[2],
+                  r.full,
+                  {
+                    backgroundColor: active
+                      ? theme.colors.primary
+                      : theme.colors.text3,
+                  },
+                ]}
+              />
+              <Text
+                size="xs"
+                style={{
+                  color: active ? theme.colors.primary : theme.colors.text3,
+                }}
+              >
+                {active ? t("active") : t("inactive")}
+              </Text>
+            </View>
+          </View>
+
+          {/* URL */}
+          <View
+            style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+          >
+            <Text size="sm" color="muted">
+              URL:
+            </Text>
+            <Text
+              size="sm"
+              style={{ color: theme.colors.text3 }}
+              numberOfLines={1}
+              ellipsizeMode="middle"
+            >
+              {redactMultistreamTargetURL(target.record.url)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Actions */}
+        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
+          <Switch
+            value={active}
+            onValueChange={(next) => onToggle(target, next)}
+            disabled={isDeleting || isToggling}
+          />
+          <IconButton
+            size="sm"
+            variant="ghost"
+            accessibilityLabel="Edit multistream target"
+            onPress={() => onEdit(target)}
+            disabled={isDeleting}
+          >
+            <Edit3 size={18} color={theme.colors.text2} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            accessibilityLabel="Delete multistream target"
+            onPress={() => onDelete(target.uri)}
+            disabled={isDeleting}
+          >
+            <Trash2 size={18} color={theme.colors.danger} />
+          </IconButton>
+        </View>
+      </View>
+
+      {/* Footer */}
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.spaceBetween,
+          layout.flex.alignCenter,
+          pt[3],
+          mt[3],
+          borders.top.width.thin,
+          { borderTopColor: theme.colors.borderSubtle },
+        ]}
+      >
+        <Text size="xs" style={{ color: theme.colors.text3 }}>
+          {t("created")} {timeAgo(new Date(target.record.createdAt))}
+        </Text>
+        {getStatusInfo()}
+      </View>
+    </View>
   );
 }
 
@@ -403,6 +521,7 @@ function MultistreamTargetForm({
   formError: string;
 }) {
   const { t } = useTranslation("settings");
+  const { theme } = zero.useTheme();
   const [formData, setFormData] = useState<PlaceStreamMultistreamTarget.Record>(
     {
       $type: "place.stream.multistream.target",
@@ -478,7 +597,9 @@ function MultistreamTargetForm({
         {/* Name */}
         <View style={[mb[4]]}>
           <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+            size="sm"
+            weight="medium"
+            style={[{ color: theme.colors.text2 }, mb[2]]}
           >
             {t("rtmp-target-name")} ({t("optional")})
           </Text>
@@ -494,7 +615,9 @@ function MultistreamTargetForm({
         {/* URL */}
         <View style={[mb[4]]}>
           <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
+            size="sm"
+            weight="medium"
+            style={[{ color: theme.colors.text2 }, mb[2]]}
           >
             {t("rtmp-target-url")} *
           </Text>
@@ -514,7 +637,7 @@ function MultistreamTargetForm({
             }
             multiline
           />
-          <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+          <Text size="xs" style={[{ color: theme.colors.danger }, mt[1]]}>
             &nbsp;{errors.url}
           </Text>
         </View>
@@ -528,7 +651,11 @@ function MultistreamTargetForm({
             mb[6],
           ]}
         >
-          <Text style={[text.gray[300], { fontSize: 14, fontWeight: "500" }]}>
+          <Text
+            size="sm"
+            weight="medium"
+            style={{ color: theme.colors.text2 }}
+          >
             {t("active")}
           </Text>
           <Switch
@@ -538,7 +665,7 @@ function MultistreamTargetForm({
             }
           />
         </View>
-        <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+        <Text size="xs" style={[{ color: theme.colors.danger }, mt[1]]}>
           &nbsp;{formError}
         </Text>
       </View>
@@ -550,10 +677,10 @@ function MultistreamTargetForm({
           disabled={isLoading}
           width="min"
         >
-          <Text>Cancel</Text>
+          Cancel
         </Button>
         <Button onPress={handleSubmit} disabled={isLoading} width="min">
-          <Text>{isLoading ? "Saving..." : target ? "Update" : "Create"}</Text>
+          {isLoading ? "Saving..." : target ? "Update" : "Create"}
         </Button>
       </DialogFooter>
     </Dialog>
@@ -576,44 +703,50 @@ const MultistreamTargetDeleteDialog = ({
   formError: string;
 }) => {
   const { t } = useTranslation("settings");
+  const { theme } = zero.useTheme();
   return (
     <Dialog
       open={isVisible}
       onOpenChange={(open) => !open && onClose()}
-      title="Delete Webhook"
+      title="Delete Target"
       dismissible={false}
     >
       <View style={[w.percent[100], mb[8], mt[2]]}>
-        <Text style={[{ fontSize: 24 }]}>
+        <Text size="lg" weight="semibold">
           {t("multistream-delete-target-confirmation", {
             target: multistreamTitle(target, t),
           })}
         </Text>
         <Text
-          style={[text.gray[400], mt[4], { fontSize: 18, fontWeight: "700" }]}
+          weight="semibold"
+          style={[{ color: theme.colors.text3 }, mt[4], { fontSize: 18 }]}
         >
           {t("this-action-cannot-be-undone")}
         </Text>
       </View>
 
-      <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+      <Text size="xs" style={[{ color: theme.colors.danger }, mt[1]]}>
         &nbsp;{formError}
       </Text>
 
-      <View style={[layout.flex.row, layout.flex.justify.end, gap.all[3]]}>
+      <DialogFooter>
         <Button
           variant="secondary"
           onPress={() => onClose()}
           disabled={isLoading}
+          width="min"
         >
-          <Text>Cancel</Text>
+          Cancel
         </Button>
-        <Button variant="destructive" onPress={onSubmit} disabled={isLoading}>
-          <Text style={[text.white, { fontSize: 14, fontWeight: "500" }]}>
-            {isLoading ? t("deleting") : t("delete")}
-          </Text>
+        <Button
+          variant="danger"
+          onPress={onSubmit}
+          disabled={isLoading}
+          width="min"
+        >
+          {isLoading ? t("deleting") : t("delete")}
         </Button>
-      </View>
+      </DialogFooter>
     </Dialog>
   );
 };

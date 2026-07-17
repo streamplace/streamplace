@@ -13,6 +13,7 @@ import {
   Input,
   resolveDIDDocument,
   ResponsiveDropdownMenuContent,
+  SegmentedTabs,
   Text,
   Textarea,
   Tooltip,
@@ -25,8 +26,16 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import {
+  scrims,
+  shadows,
+  statusColors,
+  textAlphas,
+  surfaces,
+  borderAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
-import { ChevronsUpDown, ImagePlus, X } from "lucide-react-native";
+import { ChevronsUpDown, Globe, ImagePlus, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -94,14 +103,18 @@ function LanguagePicker({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           width="min"
-          style={[bg.neutral[800], borders.color.neutral[600]]}
-          rightIcon={<ChevronsUpDown />}
+          style={[
+            { backgroundColor: surfaces.dark[2] },
+            { borderColor: borderAlphas.dark.strong },
+          ]}
+          leftIcon={<Globe size={14} color={textAlphas.dark[2]} />}
+          rightIcon={<ChevronsUpDown size={14} color={textAlphas.dark[3]} />}
         >
           <Text style={[text.neutral[300], { fontSize: 14 }]}>
-            {currentLabel ?? "Select language"}
+            {currentLabel ?? "Language"}
           </Text>
         </Button>
       </DropdownMenuTrigger>
@@ -127,48 +140,6 @@ function LanguagePicker({
     </DropdownMenu>
   );
 }
-
-const ButtonSelector = ({
-  values,
-  selectedValue,
-  setSelectedValue,
-  disabledValues = [],
-  style = [],
-}: {
-  values: { label: string; value: string }[];
-  selectedValue: string;
-  setSelectedValue: (value: string) => void;
-  disabledValues?: string[];
-  style?: any[];
-}) => (
-  <View style={[layout.flex.row, gap.all[1], ...style]}>
-    {values.map(({ label, value }) => (
-      <Button
-        key={value}
-        variant={selectedValue === value ? "primary" : "secondary"}
-        size="pill"
-        width="min"
-        disabled={disabledValues.includes(value)}
-        onPress={() => setSelectedValue(value)}
-        style={[
-          r.md,
-          {
-            opacity: disabledValues.includes(value) ? 0.5 : 1,
-          },
-        ]}
-      >
-        <Text
-          style={[
-            selectedValue === value ? text.white : text.gray[300],
-            { fontSize: 14, fontWeight: "600" },
-          ]}
-        >
-          {label}
-        </Text>
-      </Button>
-    ))}
-  </View>
-);
 
 const ImageUploadComponent = ({
   selectedImage,
@@ -196,8 +167,8 @@ const ImageUploadComponent = ({
   const containerStyle = useMemo(
     () => [
       borders.width.thin,
-      borders.color.neutral[600],
-      bg.neutral[800],
+      { borderColor: borderAlphas.dark.strong },
+      { backgroundColor: surfaces.dark[2] },
       r.md,
       layout.flex.center,
       {
@@ -225,7 +196,7 @@ const ImageUploadComponent = ({
         position: "absolute" as const,
         top: 8,
         right: 8,
-        backgroundColor: "rgba(0, 0, 0, 0.7)",
+        backgroundColor: scrims.dark,
         borderRadius: 12,
         width: 24,
         height: 24,
@@ -255,7 +226,7 @@ const ImageUploadComponent = ({
       ) : (
         <>
           <TouchableOpacity onPress={onImageSelect} style={containerStyle}>
-            <ImagePlus size={48} color="#6b7280" />
+            <ImagePlus size={48} color={textAlphas.dark[3]} />
             <Text style={[text.gray[400], { marginTop: 8, fontSize: 14 }]}>
               Add thumbnail image
             </Text>
@@ -548,46 +519,54 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     livestream && livestream.record.endedAt === undefined;
 
   return (
-    <>
-      <Wrapper {...wrapperProps}>
-        <View
-          style={[
-            flex.values[1],
-            bg.neutral[900],
-            r.lg,
-            borders.width.thin,
-            borders.color.neutral[700],
-            layout.flex.column,
+    <View
+      style={[
+        flex.values[1],
+        { backgroundColor: surfaces.dark[1] },
+        r.lg,
+        borders.width.thin,
+        { borderColor: borderAlphas.dark.strong },
+        layout.flex.column,
+        // Clip the scroll body to the rounded corners — only in the desktop
+        // sticky-footer layout; the mobile inline layout must not be clipped.
+        scrollable && { overflow: "hidden" },
+      ]}
+    >
+      {/* Fixed header */}
+      <View
+        style={[
+          px[4],
+          py[4],
+          borders.bottom.width.thin,
+          { borderBottomColor: borderAlphas.dark.strong, gap: 12 },
+        ]}
+      >
+        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
+          Stream Settings
+        </Text>
+        <SegmentedTabs
+          fullWidth
+          size="sm"
+          options={[
+            { label: "Create", value: "create" },
+            { label: "Metadata", value: "metadata" },
+            { label: "Moderation", value: "moderation" },
           ]}
-        >
-          <View
-            style={[
-              layout.flex.row,
-              layout.flex.spaceBetween,
-              layout.flex.alignCenter,
-              px[4],
-              py[4],
-              borders.bottom.width.thin,
-              borders.bottom.color.neutral[700],
-            ]}
-          >
-            <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
-              Stream Settings
-            </Text>
-            <ButtonSelector
-              values={[
-                { label: "Create", value: "create" },
-                { label: "Metadata", value: "metadata" },
-                { label: "Moderation", value: "moderation" },
-              ]}
-              style={[{ marginVertical: -2 }]}
-              selectedValue={mode}
-              setSelectedValue={handleModeChange as any}
-              disabledValues={[]}
-            />
-          </View>
+          value={mode}
+          onChange={handleModeChange as any}
+        />
+      </View>
 
-          {mode === "metadata" ? (
+      {/* Scrollable body */}
+      <Wrapper
+        style={
+          scrollable
+            ? { flexGrow: 1, flexShrink: 1, flexBasis: 0, minHeight: 0 }
+            : undefined
+        }
+        {...wrapperProps}
+      >
+        {mode === "metadata" ? (
             // Metadata view
             <View style={[flex.values[1], p[4]]}>
               <ContentMetadataForm
@@ -619,10 +598,10 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                     style={[
                       p[3],
                       r.md,
-                      bg.neutral[800],
+                      { backgroundColor: surfaces.dark[2] },
                       text.white,
                       borders.width.thin,
-                      borders.color.neutral[600],
+                      { borderColor: borderAlphas.dark.strong },
                       w.percent[100],
                       { fontSize: 15, lineHeight: 22 },
                     ]}
@@ -637,8 +616,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                         title.length <= 120
                           ? text.neutral[600]
                           : title.length < 140
-                            ? { color: "#f59e0b" }
-                            : { color: "#ef4444" },
+                            ? { color: statusColors.dark.warning }
+                            : { color: statusColors.dark.danger },
                       ]}
                     >
                       {title.length}/140
@@ -654,18 +633,59 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                   <ActivityPicker value={activity} onChange={setActivity} />
                 </View>
 
-                {/* Tags */}
-                <View style={[gap.all[1]]}>
-                  <Text size="sm" color="muted">
-                    Tags
-                  </Text>
-                  <View style={[gap.all[2]]}>
+                {/* Tags + language */}
+                <View style={[gap.all[2]]}>
+                  <View
+                    style={[
+                      layout.flex.row,
+                      layout.flex.spaceBetween,
+                      layout.flex.alignCenter,
+                    ]}
+                  >
+                    <Text size="sm" color="muted">
+                      Tags
+                    </Text>
+                    <LanguagePicker tags={tags} onTagsChange={setTags} />
+                  </View>
+                  {tags.length < 10 && (
+                    <Input
+                      value={tagInput}
+                      onChange={(v) =>
+                        setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
+                      }
+                      placeholder="Add a tag, press Enter"
+                      variant="filled"
+                      onSubmitEditing={(e) => {
+                        const trimmed = tagInput.trim();
+                        if (trimmed && !tags.includes(trimmed)) {
+                          setTags([...tags, trimmed]);
+                        }
+                        setTagInput("");
+                        // re-focus the input after submitting
+                        setTimeout(() => {
+                          const input = e.target;
+                          input.focus();
+                        }, 10);
+                      }}
+                      inputStyle={[
+                        p[3],
+                        r.md,
+                        { backgroundColor: surfaces.dark[2] },
+                        text.white,
+                        borders.width.thin,
+                        { borderColor: borderAlphas.dark.strong },
+                        w.percent[100],
+                        { fontSize: 15 },
+                      ]}
+                    />
+                  )}
+                  {tags.filter((t) => !t.startsWith(LANG_TAG_PREFIX)).length >
+                    0 && (
                     <View
                       style={{
                         flexDirection: "row",
                         flexWrap: "wrap",
                         gap: 6,
-                        alignItems: "center",
                         width: "100%",
                       }}
                     >
@@ -711,42 +731,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                             </Text>
                           </Pressable>
                         ))}
-                      <View style={{ marginLeft: "auto" }}>
-                        <LanguagePicker tags={tags} onTagsChange={setTags} />
-                      </View>
                     </View>
-                    {tags.length < 10 && (
-                      <Input
-                        value={tagInput}
-                        onChange={(v) =>
-                          setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
-                        }
-                        placeholder="Add a tag, press Enter"
-                        variant="filled"
-                        onSubmitEditing={(e) => {
-                          const trimmed = tagInput.trim();
-                          if (trimmed && !tags.includes(trimmed)) {
-                            setTags([...tags, trimmed]);
-                          }
-                          setTagInput("");
-                          // re-focus the input after submitting
-                          setTimeout(() => {
-                            const input = e.target;
-                            input.focus();
-                          }, 10);
-                        }}
-                        inputStyle={[
-                          p[3],
-                          r.md,
-                          bg.neutral[800],
-                          text.white,
-                          borders.width.thin,
-                          borders.color.neutral[600],
-                          w.percent[100],
-                        ]}
-                      />
-                    )}
-                  </View>
+                  )}
                 </View>
 
                 {/* Canonical URL */}
@@ -766,11 +752,12 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       inputStyle={[
                         p[3],
                         r.md,
-                        bg.neutral[800],
+                        { backgroundColor: surfaces.dark[2] },
                         text.white,
                         borders.width.thin,
-                        borders.color.neutral[600],
+                        { borderColor: borderAlphas.dark.strong },
                         w.percent[100],
+                        { fontSize: 15 },
                       ]}
                     />
                   </View>
@@ -783,7 +770,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                     p[3],
                     r.md,
                     borders.width.thin,
-                    borders.color.neutral[700],
+                    { borderColor: borderAlphas.dark.strong },
                   ]}
                 >
                   <Tooltip
@@ -833,53 +820,54 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                 />
               )}
 
-              {/* Actions */}
-              <View style={[gap.all[2]]}>
-                <Button
-                  disabled={disabled}
-                  onPress={handleSubmit}
-                  style={[
-                    bg.primary[500],
-                    r.md,
-                    py[3],
-                    w.percent[100],
-                    layout.flex.center,
-                    { opacity: disabled ? 0.5 : 1 },
-                  ]}
-                >
-                  <Text
-                    style={[text.white, { fontSize: 15, fontWeight: "600" }]}
-                  >
-                    {buttonText}
-                  </Text>
-                </Button>
-                <Button
-                  variant={canEndLivestream ? "destructive" : "secondary"}
-                  onPress={handleEndLivestream}
-                  style={[
-                    r.md,
-                    py[3],
-                    w.percent[100],
-                    layout.flex.center,
-                    {
-                      opacity: !canEndLivestream ? 0.5 : 1,
-                      cursor: canEndLivestream ? "pointer" : "not-allowed",
-                    },
-                  ]}
-                  disabled={!canEndLivestream || endingLivestream}
-                >
-                  <Text
-                    style={[text.white, { fontSize: 15, fontWeight: "600" }]}
-                  >
-                    {endingLivestream ? "Ending..." : "End Livestream"}
-                  </Text>
-                </Button>
-              </View>
             </View>
           )}
-        </View>
       </Wrapper>
-    </>
+
+      {/* Sticky footer — the primary go-live actions stay pinned above the fold
+          no matter how long the settings form gets. The destructive End action
+          only appears once there's a published stream to end. */}
+      {mode === "create" && (
+        <View
+          style={[
+            px[4],
+            py[4],
+            {
+              borderTopWidth: 1,
+              borderTopColor: borderAlphas.dark.strong,
+              backgroundColor: surfaces.dark[1],
+              gap: 8,
+              // Cast the footer's shadow *up* over the scroll body so content
+              // reads as passing beneath it — the cue that there's more to
+              // scroll. (A gradient scrim would be web-only; shadows are
+              // cross-platform.)
+              ...shadows.lg,
+              shadowOffset: { width: 0, height: -6 },
+              shadowOpacity: 0.4,
+            },
+          ]}
+        >
+          {/* Hero action → Paper (system primary), not indigo. */}
+          <Button
+            disabled={disabled}
+            onPress={handleSubmit}
+            style={[py[3], { opacity: disabled ? 0.5 : 1 }]}
+          >
+            {buttonText}
+          </Button>
+          {canEndLivestream && (
+            <Button
+              variant="danger"
+              onPress={handleEndLivestream}
+              style={[py[3]]}
+              disabled={endingLivestream}
+            >
+              {endingLivestream ? "Ending..." : "End Livestream"}
+            </Button>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 

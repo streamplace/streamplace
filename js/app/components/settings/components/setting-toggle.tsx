@@ -1,5 +1,5 @@
-import { MenuItem, Text, View } from "@streamplace/components";
-import { Switch, ViewStyle } from "react-native";
+import { MenuItem, Switch, Text, View } from "@streamplace/components";
+import { ViewStyle } from "react-native";
 
 export interface SettingToggleProps {
   title: string;

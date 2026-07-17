@@ -212,7 +212,7 @@ export function LanguagesCategorySettings() {
                   zero.layout.flex.alignCenter,
                 ]}
               >
-                <Handshake size={24} color="#999" />
+                <Handshake size={24} color={theme.colors.text3} />
                 <Text size="xl">{t("help-translate")}</Text>
               </View>
               <Text size="lg" color="muted">

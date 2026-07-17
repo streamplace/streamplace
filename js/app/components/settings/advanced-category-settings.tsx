@@ -132,7 +132,7 @@ export function AdvancedCategorySettings() {
                 <View>
                   {refreshBranding === "active" && <Loader />}
                   {refreshBranding === "done" && (
-                    <Check size={20} color="#4ade80" />
+                    <Check size={20} color={theme.colors.success} />
                   )}
                 </View>
               </SettingsRowItem>

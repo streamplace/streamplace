@@ -1,6 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 import * as zero from "../../ui";
+import { surfaces, borderAlphas } from "../../lib/theme/tokens";
 import { Chat } from "../chat/chat";
 import { ChatBox } from "../chat/chat-box";
 
@@ -31,9 +32,9 @@ export default function ChatPanel({
     <View
       style={[
         flex.values[1],
-        bg.neutral[900],
+        { backgroundColor: surfaces.dark[1] },
         borders.width.thin,
-        borders.color.neutral[700],
+        { borderColor: borderAlphas.dark.strong },
         layout.flex.column,
         r.lg,
       ]}
@@ -44,11 +45,11 @@ export default function ChatPanel({
           layout.flex.spaceBetween,
           layout.flex.alignCenter,
           borders.bottom.width.thin,
-          borders.bottom.color.neutral[700],
+          { borderBottomColor: borderAlphas.dark.strong },
           p[4],
         ]}
       >
-        <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
           Chat
         </Text>
         <View style={[layout.flex.row, layout.flex.alignCenter]}>
@@ -72,9 +73,9 @@ export default function ChatPanel({
             emojiData={emojiData}
             emojiPicker={emojiPicker}
             chatBoxStyle={[
-              bg.gray[700],
+              { backgroundColor: surfaces.dark[2] },
               borders.width.thin,
-              borders.color.gray[600],
+              { borderColor: borderAlphas.dark.strong },
               r.md,
               p[3],
               !isConnected && { opacity: 0.6 },

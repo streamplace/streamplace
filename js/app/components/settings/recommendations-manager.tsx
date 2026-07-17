@@ -1,6 +1,6 @@
 import {
   Button,
-  hexToRgba,
+  IconButton,
   Input,
   MenuContainer,
   MenuGroup,
@@ -13,6 +13,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
 import {
   Check,
@@ -21,6 +22,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Users,
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -28,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import Sortable from "react-native-sortables";
 import { SettingsRowItem } from "./components/settings-navigation-item";
+import { SettingsViewHeader } from "./components/settings-view-header";
 
 const { text, mt, mb, px, py, w, layout, gap, r, p } = zero;
 
@@ -313,34 +316,30 @@ export default function RecommendationsManager() {
 
   return (
     <>
-      <ScrollView>
-        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-          <View style={{ maxWidth: 800, width: "100%" }}>
-            <MenuContainer>
-              <View style={[mb[2]]}>
-                <View
-                  style={[
-                    layout.flex.row,
-                    layout.flex.justify.between,
-                    layout.flex.alignCenter,
-                  ]}
+      <ScrollView contentContainerStyle={{ alignItems: "center" }}>
+        <View
+          style={[
+            { maxWidth: 800, width: "100%" },
+            zero.px[8],
+            zero.py[6],
+          ]}
+        >
+          <SettingsViewHeader
+              title={t("recommendations-to-others")}
+              description={t("recommendations-description")}
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  width="min"
+                  leftIcon={<RefreshCw size={16} />}
+                  onPress={loadRecommendations}
+                  disabled={loading || saving}
                 >
-                  <Text size="xl">{t("recommendations-to-others")}</Text>
-                  <Button
-                    onPress={loadRecommendations}
-                    disabled={loading || saving}
-                    leftIcon={<RefreshCw size={16} color={theme.colors.text} />}
-                    size="pill"
-                    width="min"
-                    variant="secondary"
-                  >
-                    <Text size="sm">{t("refresh")}</Text>
-                  </Button>
-                </View>
-              </View>
-
-              <MenuInfo description={t("recommendations-description")} />
-            </MenuContainer>
+                  {t("refresh")}
+                </Button>
+              }
+            />
 
             {/* Search Bar */}
             {streamers.length < 8 && (
@@ -354,7 +353,7 @@ export default function RecommendationsManager() {
                         gap.all[2],
                       ]}
                     >
-                      <Search size={20} color={theme.colors.textMuted} />
+                      <Search size={18} color={theme.colors.text3} />
                       <Input
                         value={searchQuery}
                         onChangeText={handleSearchChange}
@@ -367,10 +366,7 @@ export default function RecommendationsManager() {
                     <>
                       <MenuSeparator />
                       <View style={[py[2], layout.flex.center]}>
-                        <Text
-                          size="sm"
-                          style={{ color: theme.colors.textMuted }}
-                        >
+                        <Text size="sm" style={{ color: theme.colors.text3 }}>
                           Searching...
                         </Text>
                       </View>
@@ -403,7 +399,7 @@ export default function RecommendationsManager() {
                                     {
                                       backgroundColor:
                                         pressed && !alreadyAdded
-                                          ? "#ffffff08"
+                                          ? theme.colors.surface3
                                           : "transparent",
                                       opacity: alreadyAdded ? 0.5 : 1,
                                     },
@@ -415,7 +411,7 @@ export default function RecommendationsManager() {
                                   {alreadyAdded && (
                                     <Text
                                       size="xs"
-                                      style={{ color: theme.colors.textMuted }}
+                                      style={{ color: theme.colors.text3 }}
                                     >
                                       Added
                                     </Text>
@@ -435,10 +431,7 @@ export default function RecommendationsManager() {
                       <>
                         <MenuSeparator />
                         <View style={[py[2], layout.flex.center]}>
-                          <Text
-                            size="sm"
-                            style={{ color: theme.colors.textMuted }}
-                          >
+                          <Text size="sm" style={{ color: theme.colors.text3 }}>
                             No results found
                           </Text>
                         </View>
@@ -458,11 +451,11 @@ export default function RecommendationsManager() {
               <MenuContainer>
                 <MenuGroup>
                   {streamers.length === 0 ? (
-                    <View style={[py[4], layout.flex.center]}>
-                      <Text size="sm" style={{ color: theme.colors.textMuted }}>
-                        {t("no-recommendations-yet")}
-                      </Text>
-                    </View>
+                    <EmptyState
+                      illustration={<EmptyStateTile icon={Users} />}
+                      title={t("no-recommendations-yet")}
+                      subtitle="Search above to add streamers you want to recommend to your viewers."
+                    />
                   ) : (
                     <Sortable.Grid
                       columns={1}
@@ -492,10 +485,7 @@ export default function RecommendationsManager() {
                             {beforeSeparator}
                             <MenuItem key={`item-${index}`}>
                               <GripVertical
-                                color={hexToRgba(
-                                  theme.colors.mutedForeground,
-                                  0.63,
-                                )}
+                                color={theme.colors.text3}
                                 size={18}
                                 style={{
                                   marginLeft: -4,
@@ -515,7 +505,7 @@ export default function RecommendationsManager() {
                                       <Text
                                         size="xs"
                                         style={{
-                                          color: theme.colors.destructive,
+                                          color: theme.colors.danger,
                                           marginTop: 4,
                                         }}
                                       >
@@ -524,41 +514,26 @@ export default function RecommendationsManager() {
                                     )}
                                   </View>
 
-                                  <Pressable
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    accessibilityLabel="Save"
                                     onPress={handleSaveEdit}
-                                    style={({ pressed }) => [
-                                      {
-                                        padding: 8,
-                                        borderRadius: 6,
-                                        backgroundColor: pressed
-                                          ? "#ffffff08"
-                                          : "transparent",
-                                      },
-                                    ]}
                                   >
                                     <Check
                                       size={18}
-                                      color={theme.colors.text}
+                                      color={theme.colors.text1}
                                     />
-                                  </Pressable>
+                                  </IconButton>
 
-                                  <Pressable
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    accessibilityLabel="Cancel"
                                     onPress={handleCancelEdit}
-                                    style={({ pressed }) => [
-                                      {
-                                        padding: 8,
-                                        borderRadius: 6,
-                                        backgroundColor: pressed
-                                          ? "#ffffff08"
-                                          : "transparent",
-                                      },
-                                    ]}
                                   >
-                                    <X
-                                      size={18}
-                                      color={theme.colors.textMuted}
-                                    />
-                                  </Pressable>
+                                    <X size={18} color={theme.colors.text3} />
+                                  </IconButton>
                                 </>
                               ) : (
                                 <>
@@ -571,41 +546,26 @@ export default function RecommendationsManager() {
                                     </Text>
                                   </View>
 
-                                  <Pressable
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    accessibilityLabel="Edit"
                                     onPress={() => handleEdit(index)}
-                                    style={({ pressed }) => [
-                                      {
-                                        padding: 8,
-                                        borderRadius: 6,
-                                        backgroundColor: pressed
-                                          ? "#ffffff08"
-                                          : "transparent",
-                                      },
-                                    ]}
                                   >
                                     <Pencil
                                       size={18}
-                                      color={theme.colors.textMuted}
+                                      color={theme.colors.text3}
                                     />
-                                  </Pressable>
+                                  </IconButton>
 
-                                  <Pressable
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    accessibilityLabel="Delete"
                                     onPress={() => handleDelete(index)}
-                                    style={({ pressed }) => [
-                                      {
-                                        padding: 8,
-                                        borderRadius: 6,
-                                        backgroundColor: pressed
-                                          ? "#ffffff08"
-                                          : "transparent",
-                                      },
-                                    ]}
                                   >
-                                    <X
-                                      size={18}
-                                      color={theme.colors.destructive}
-                                    />
-                                  </Pressable>
+                                    <X size={18} color={theme.colors.danger} />
+                                  </IconButton>
                                 </>
                               )}
                             </MenuItem>
@@ -642,7 +602,7 @@ export default function RecommendationsManager() {
                           gap.all[2],
                         ]}
                       >
-                        <Plus color={theme.colors.text} />
+                        <Plus size={18} color={theme.colors.text1} />
                         <Text>Add DID manually</Text>
                       </View>
                     </SettingsRowItem>
@@ -650,7 +610,7 @@ export default function RecommendationsManager() {
 
                   {saving && (
                     <View style={[mt[2], layout.flex.center]}>
-                      <Text size="sm" style={{ color: theme.colors.textMuted }}>
+                      <Text size="sm" style={{ color: theme.colors.text3 }}>
                         {t("saving")}
                       </Text>
                     </View>
@@ -659,8 +619,7 @@ export default function RecommendationsManager() {
               </MenuContainer>
             )}
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
       <ResponsiveDialog
         open={deleteDialog.isVisible}
@@ -683,15 +642,15 @@ export default function RecommendationsManager() {
             onPress={() => setDeleteDialog({ isVisible: false, index: null })}
             disabled={saving}
           >
-            <Text>{t("cancel")}</Text>
+            {t("cancel")}
           </Button>
           <Button
-            variant="destructive"
+            variant="danger"
             width="min"
             onPress={confirmDelete}
             disabled={saving}
           >
-            <Text>{saving ? t("deleting") : t("delete")}</Text>
+            {saving ? t("deleting") : t("delete")}
           </Button>
         </View>
       </ResponsiveDialog>

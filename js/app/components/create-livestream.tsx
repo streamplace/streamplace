@@ -1,4 +1,10 @@
-import { formatHandleWithAt, Text, zero } from "@streamplace/components";
+import {
+  Button,
+  formatHandleWithAt,
+  Text,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import ActivityPicker from "components/activity-picker";
 import ThumbnailSelector from "components/thumbnail-selector";
 import { useCaptureVideoFrame } from "hooks/useCaptureVideoFrame";
@@ -39,6 +45,7 @@ export default function CreateLivestream() {
   const newLivestream = useNewLivestream();
   const captureFrame = useCaptureVideoFrame();
   const { width } = useWindowDimensions();
+  const { theme } = useTheme();
 
   // Responsive layout logic
   const isWide = width > 1020;
@@ -157,7 +164,7 @@ export default function CreateLivestream() {
                     minHeight: 100,
                     width: "100%",
                     borderWidth: 1,
-                    borderColor: "#ccc",
+                    borderColor: theme.colors.border,
                     borderRadius: 8,
                     padding: 12,
                     textAlignVertical: "top",
@@ -202,18 +209,22 @@ export default function CreateLivestream() {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: "#e8f0fe",
+                      backgroundColor: theme.colors.surface2,
                       borderRadius: 16,
                       paddingHorizontal: 10,
                       paddingVertical: 4,
                       gap: 4,
                     }}
                   >
-                    <Text style={{ color: "#0066cc", fontSize: 13 }}>
+                    <Text style={{ color: theme.colors.primary, fontSize: 13 }}>
                       {tag}
                     </Text>
                     <Text
-                      style={{ color: "#0066cc", fontSize: 14, lineHeight: 16 }}
+                      style={{
+                        color: theme.colors.primary,
+                        fontSize: 14,
+                        lineHeight: 16,
+                      }}
                     >
                       ×
                     </Text>
@@ -236,7 +247,7 @@ export default function CreateLivestream() {
                   }}
                   style={{
                     borderWidth: 1,
-                    borderColor: "#ccc",
+                    borderColor: theme.colors.border,
                     borderRadius: 8,
                     padding: 10,
                   }}
@@ -245,29 +256,14 @@ export default function CreateLivestream() {
             </View>
           </View>
 
-          <View
-            style={[{ width: "100%" }, { alignItems: "center" }, zero.mt[4]]}
-          >
-            <Pressable
+          <View style={[{ width: "100%" }, zero.mt[4]]}>
+            <Button
+              size="lg"
               disabled={disabled}
-              style={[
-                {
-                  opacity: disabled ? 0.5 : 1,
-                  width: "100%",
-                  backgroundColor: "#0066cc",
-                  padding: 16,
-                  borderRadius: 8,
-                  alignItems: "center",
-                },
-              ]}
               onPress={handleSubmit}
             >
-              <Text
-                style={{ color: "white", fontSize: 16, fontWeight: "bold" }}
-              >
-                {buttonText}
-              </Text>
-            </Pressable>
+              {buttonText}
+            </Button>
           </View>
         </View>
 

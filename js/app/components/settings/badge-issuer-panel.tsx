@@ -2,6 +2,7 @@ import { BlobRef } from "@atproto/lexicon";
 import {
   Button,
   hexToRgba,
+  IconButton,
   Input,
   MenuContainer,
   MenuGroup,
@@ -473,17 +474,16 @@ export function BadgeIssuerPanel() {
                           borderRadius: radiusTokens.md,
                         }}
                       />
-                      <TouchableOpacity
+                      <IconButton
+                        size="sm"
+                        accessibilityLabel="Remove selected image"
                         onPress={() => {
                           setCreateImageUri(null);
                           setCreateImageBlob(null);
                         }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Remove selected image"
-                        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                       >
                         <X size={16} color={theme.colors.textMuted} />
-                      </TouchableOpacity>
+                      </IconButton>
                     </View>
                   ) : (
                     <Button

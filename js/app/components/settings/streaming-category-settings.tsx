@@ -35,9 +35,10 @@ export function StreamingCategorySettings() {
                 screen="WebhooksSettings"
                 icon={Webhook}
               />
-              <MenuSeparator />
-              {/* Hidden until we finish the backend */}
-              {/* <SettingsNavigationItem
+              {/* Backup is hidden until the backend is finished; its separator
+                  is omitted so Webhooks/Multistream don't get a double rule. */}
+              {/* <MenuSeparator />
+              <SettingsNavigationItem
                 title={t("backup")}
                 screen="BackupSettings"
                 icon={Database}

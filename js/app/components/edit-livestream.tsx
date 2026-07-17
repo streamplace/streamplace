@@ -1,7 +1,9 @@
 import {
+  Button,
   formatHandleWithAt,
   Text,
   useLivestream,
+  useTheme,
   zero,
 } from "@streamplace/components";
 import ActivityPicker from "components/activity-picker";
@@ -29,6 +31,7 @@ export default function UpdateLivestream() {
   const profile = useUserProfile();
   const livestream = useLivestream();
   const newLivestream = useNewLivestream();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (livestream?.record) {
@@ -131,7 +134,7 @@ export default function UpdateLivestream() {
                     minHeight: 100,
                     width: "100%",
                     borderWidth: 1,
-                    borderColor: "#ccc",
+                    borderColor: theme.colors.border,
                     borderRadius: 8,
                     padding: 12,
                     textAlignVertical: "top",
@@ -176,18 +179,22 @@ export default function UpdateLivestream() {
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
-                      backgroundColor: "#e8f0fe",
+                      backgroundColor: theme.colors.surface2,
                       borderRadius: 16,
                       paddingHorizontal: 10,
                       paddingVertical: 4,
                       gap: 4,
                     }}
                   >
-                    <Text style={{ color: "#0066cc", fontSize: 13 }}>
+                    <Text style={{ color: theme.colors.primary, fontSize: 13 }}>
                       {tag}
                     </Text>
                     <Text
-                      style={{ color: "#0066cc", fontSize: 14, lineHeight: 16 }}
+                      style={{
+                        color: theme.colors.primary,
+                        fontSize: 14,
+                        lineHeight: 16,
+                      }}
                     >
                       ×
                     </Text>
@@ -210,7 +217,7 @@ export default function UpdateLivestream() {
                   }}
                   style={{
                     borderWidth: 1,
-                    borderColor: "#ccc",
+                    borderColor: theme.colors.border,
                     borderRadius: 8,
                     padding: 10,
                   }}
@@ -228,40 +235,17 @@ export default function UpdateLivestream() {
           >
             <Text style={[{ minWidth: 100, textAlign: "left" }]}></Text>
             <View style={zero.flex.values[1]}>
-              <Text style={[{ fontSize: 12, color: "#666" }]}>
+              <Text style={[{ fontSize: 12, color: theme.colors.text3 }]}>
                 Updating will not send out notifications to viewers or create a
                 new social media post.
               </Text>
             </View>
           </View>
 
-          <View
-            style={[
-              { width: "100%" },
-              { alignItems: "center" },
-              { marginTop: -16 },
-            ]}
-          >
-            <Pressable
-              disabled={disabled}
-              style={[
-                {
-                  opacity: disabled ? 0.5 : 1,
-                  width: "100%",
-                  backgroundColor: "#0066cc",
-                  padding: 16,
-                  borderRadius: 8,
-                  alignItems: "center",
-                },
-              ]}
-              onPress={handleSubmit}
-            >
-              <Text
-                style={{ color: "white", fontSize: 16, fontWeight: "bold" }}
-              >
-                {buttonText}
-              </Text>
-            </Pressable>
+          <View style={[{ width: "100%" }, { marginTop: -16 }]}>
+            <Button size="lg" disabled={disabled} onPress={handleSubmit}>
+              {buttonText}
+            </Button>
           </View>
         </View>
       </View>

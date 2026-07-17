@@ -2,27 +2,34 @@ import {
   Button,
   Dialog,
   DialogFooter,
+  IconButton,
   Input,
   MenuContainer,
   MenuGroup,
   MenuSeparator,
   ResponsiveDialog,
+  Switch,
   Text,
   zero,
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
-import AQLink from "components/aqlink";
+import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
-import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react-native";
+import {
+  Edit2,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Webhook as WebhookIcon,
+  X,
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Pressable, ScrollView, Switch, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { SettingsRowItem } from "./components/settings-navigation-item";
+import { SettingsViewHeader } from "./components/settings-view-header";
 
 const {
-  atoms,
-  bg,
-  text,
   m,
   mt,
   mr,
@@ -91,7 +98,7 @@ function WebhookRow({
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
-  const { theme, zero: z } = zero.useTheme();
+  const { theme } = zero.useTheme();
   const { t } = useTranslation("settings");
   const isDiscord = webhook.url
     .toLowerCase()
@@ -104,8 +111,16 @@ function WebhookRow({
         <View style={[zero.layout.flex.row, zero.layout.flex.alignCenter]}>
           <Text size="lg">{webhook.name || t("untitled-webhook")}</Text>
           {!webhook.active && (
-            <View style={[z.bg.muted, zero.px[2], zero.r.full, zero.ml[2]]}>
-              <Text size="sm" muted>
+            <View
+              style={[
+                { backgroundColor: theme.colors.surface2 },
+                zero.px[2],
+                zero.py[1],
+                zero.r.full,
+                zero.ml[2],
+              ]}
+            >
+              <Text size="sm" style={{ color: theme.colors.text3 }}>
                 {t("inactive")}
               </Text>
             </View>
@@ -114,7 +129,7 @@ function WebhookRow({
 
         {/* Description */}
         {webhook.description && (
-          <Text size="sm" color="muted">
+          <Text size="sm" style={{ color: theme.colors.text3 }}>
             {webhook.description}
           </Text>
         )}
@@ -127,10 +142,15 @@ function WebhookRow({
             zero.gap.column[1],
           ]}
         >
-          <Text muted size="sm">
+          <Text size="sm" style={{ color: theme.colors.text3 }}>
             URL:
           </Text>
-          <Text numberOfLines={1} ellipsizeMode="middle">
+          <Text
+            size="sm"
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            style={{ color: theme.colors.text2 }}
+          >
             {webhook.url}
           </Text>
         </View>
@@ -144,48 +164,46 @@ function WebhookRow({
             alignItems: "center",
           }}
         >
-          <Text size="sm" color="muted">
+          <Text size="sm" style={{ color: theme.colors.text3 }}>
             {t("activates-on")}
           </Text>
           {webhook.events.map((event) => (
             <View
               key={event}
-              style={[z.bg.muted, zero.px[2], zero.py[1], zero.r.full]}
+              style={[
+                { backgroundColor: theme.colors.surface2 },
+                zero.px[2],
+                zero.py[1],
+                zero.r.full,
+              ]}
             >
-              <Text size="sm">{t(`events-${event}`)}</Text>
+              <Text size="sm" style={{ color: theme.colors.text2 }}>
+                {t(`events-${event}`)}
+              </Text>
             </View>
           ))}
         </View>
       </View>
 
       {/* Actions */}
-      <View style={{ flexDirection: "row", gap: 8, marginLeft: 12 }}>
-        <Pressable
+      <View style={{ flexDirection: "row", gap: 4, marginLeft: 12 }}>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          accessibilityLabel="Edit webhook"
           onPress={() => onEdit(webhook)}
-          style={({ pressed }) => [
-            {
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: pressed ? "#ffffff08" : "transparent",
-            },
-          ]}
         >
-          <Edit2 size={18} color={theme.colors.textMuted} />
-        </Pressable>
-        <Pressable
-          onPress={() => onDelete(webhook.id)}
+          <Edit2 size={18} color={theme.colors.text3} />
+        </IconButton>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          accessibilityLabel="Delete webhook"
           disabled={isDeleting}
-          style={({ pressed }) => [
-            {
-              padding: 8,
-              borderRadius: 6,
-              backgroundColor: pressed ? "#ffffff08" : "transparent",
-              opacity: isDeleting ? 0.5 : 1,
-            },
-          ]}
+          onPress={() => onDelete(webhook.id)}
         >
-          <Trash2 size={18} color={theme.colors.destructive} />
-        </Pressable>
+          <Trash2 size={18} color={theme.colors.danger} />
+        </IconButton>
       </View>
     </SettingsRowItem>
   );
@@ -218,6 +236,12 @@ function WebhookForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { t } = useTranslation("settings");
+  const { theme } = zero.useTheme();
+
+  const labelStyle = {
+    color: theme.colors.text2,
+    marginBottom: 8,
+  } as const;
 
   // Update form data when webhook prop changes (for editing)
   useEffect(() => {
@@ -319,9 +343,7 @@ function WebhookForm({
       <View style={[w.percent[100]]}>
         {/* Name */}
         <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
+          <Text size="sm" weight="medium" style={labelStyle}>
             {t("name-optional")}
           </Text>
           <Input
@@ -335,9 +357,7 @@ function WebhookForm({
 
         {/* URL */}
         <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
+          <Text size="sm" weight="medium" style={labelStyle}>
             Webhook URL *
           </Text>
           <Input
@@ -349,7 +369,10 @@ function WebhookForm({
             multiline
           />
           {errors.url && (
-            <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+            <Text
+              size="sm"
+              style={{ color: theme.colors.danger, marginTop: 4 }}
+            >
               {errors.url}
             </Text>
           )}
@@ -357,9 +380,7 @@ function WebhookForm({
 
         {/* Description */}
         <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
+          <Text size="sm" weight="medium" style={labelStyle}>
             Description (optional)
           </Text>
           <Input
@@ -374,40 +395,55 @@ function WebhookForm({
 
         {/* Events */}
         <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
+          <Text size="sm" weight="medium" style={labelStyle}>
             Events *
           </Text>
-          {EVENT_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              style={[layout.flex.row, layout.flex.alignCenter, mb[2]]}
-              onPress={() => toggleEvent(option.value)}
-            >
-              <View
-                style={[
-                  w[5],
-                  h[5],
-                  borders.width.thin,
-                  borders.color.gray[300],
-                  r[1],
-                  mr[3],
-                  layout.flex.center,
-                  formData.events.includes(option.value) && bg.blue[500],
-                ]}
+          {EVENT_OPTIONS.map((option) => {
+            const checked = formData.events.includes(option.value);
+            return (
+              <Pressable
+                key={option.value}
+                style={[layout.flex.row, layout.flex.alignCenter, mb[2]]}
+                onPress={() => toggleEvent(option.value)}
               >
-                {formData.events.includes(option.value) && (
-                  <Text style={[text.white, { fontSize: 12 }]}>✓</Text>
-                )}
-              </View>
-              <Text style={[text.gray[300], { fontSize: 14 }]}>
-                {t(option.labelKey)}
-              </Text>
-            </Pressable>
-          ))}
+                <View
+                  style={[
+                    w[5],
+                    h[5],
+                    borders.width.thin,
+                    {
+                      borderColor: checked
+                        ? theme.colors.primary
+                        : theme.colors.borderStrong,
+                    },
+                    r.sm,
+                    mr[3],
+                    layout.flex.center,
+                    checked && { backgroundColor: theme.colors.primary },
+                  ]}
+                >
+                  {checked && (
+                    <Text
+                      style={{
+                        color: theme.colors.primaryForeground,
+                        fontSize: 12,
+                      }}
+                    >
+                      ✓
+                    </Text>
+                  )}
+                </View>
+                <Text style={{ color: theme.colors.text2 }}>
+                  {t(option.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
           {errors.events && (
-            <Text style={[text.red[600], mt[1], { fontSize: 12 }]}>
+            <Text
+              size="sm"
+              style={{ color: theme.colors.danger, marginTop: 4 }}
+            >
               {errors.events}
             </Text>
           )}
@@ -416,13 +452,7 @@ function WebhookForm({
         {/* Prefix & Suffix */}
         <View style={[layout.flex.row, gap.all[3], mb[4]]}>
           <View style={[flex.values[1]]}>
-            <Text
-              style={[
-                text.gray[400],
-                mb[2],
-                { fontSize: 14, fontWeight: "500" },
-              ]}
-            >
+            <Text size="sm" weight="medium" style={labelStyle}>
               Prefix
             </Text>
             <Input
@@ -434,13 +464,7 @@ function WebhookForm({
             />
           </View>
           <View style={[flex.values[1]]}>
-            <Text
-              style={[
-                text.gray[400],
-                mb[2],
-                { fontSize: 14, fontWeight: "500" },
-              ]}
-            >
+            <Text size="sm" weight="medium" style={labelStyle}>
               Suffix
             </Text>
             <Input
@@ -450,6 +474,30 @@ function WebhookForm({
               }
               placeholder=" is now live!"
             />
+          </View>
+        </View>
+
+        {/* Example message preview */}
+        <View style={[mb[4]]}>
+          <Text size="sm" weight="medium" style={labelStyle}>
+            Example
+          </Text>
+          <View
+            style={[
+              { backgroundColor: theme.colors.surface0 },
+              p[3],
+              r.md,
+              borders.width.thin,
+              { borderColor: theme.colors.borderSubtle },
+            ]}
+          >
+            <Text style={{ color: theme.colors.text3 }}>
+              {formData.prefix}
+              <Text style={{ color: theme.colors.primary }}>
+                {"{username}"}
+              </Text>
+              {formData.suffix}
+            </Text>
           </View>
         </View>
 
@@ -463,14 +511,20 @@ function WebhookForm({
               mb[2],
             ]}
           >
-            <Text style={[text.gray[300], { fontSize: 14, fontWeight: "500" }]}>
+            <Text size="sm" weight="medium" style={{ color: theme.colors.text2 }}>
               Text Replacements
             </Text>
-            <Button width="min" size="pill" onPress={addReplacement}>
-              <Text style={[text.white, { fontSize: 12 }]}>+ Add</Text>
+            <Button
+              variant="secondary"
+              size="sm"
+              width="min"
+              leftIcon={<Plus size={14} />}
+              onPress={addReplacement}
+            >
+              Add
             </Button>
           </View>
-          <Text style={[text.gray[300], mb[3], { fontSize: 12 }]}>
+          <Text size="sm" style={{ color: theme.colors.text3, marginBottom: 12 }}>
             Replace text in messages. Example: "#gaming" →
             "&lt;@1384516462017777734&gt;"
           </Text>
@@ -494,7 +548,7 @@ function WebhookForm({
                   placeholder="input text"
                 />
               </View>
-              <Text style={[text.gray[400], px[1]]}>→</Text>
+              <Text style={[{ color: theme.colors.text3 }, px[1]]}>→</Text>
               <View style={[flex.values[2]]}>
                 <Input
                   value={replacement.to}
@@ -503,13 +557,14 @@ function WebhookForm({
                 />
               </View>
               {formData.rewrite.length > 1 && (
-                <Button
-                  style={[m[0], p[0]]}
-                  variant="destructive"
+                <IconButton
+                  size="sm"
+                  variant="ghost"
+                  accessibilityLabel="Remove replacement"
                   onPress={() => removeReplacement(index)}
                 >
-                  <X size={20} />
-                </Button>
+                  <X size={18} color={theme.colors.danger} />
+                </IconButton>
               )}
             </View>
           ))}
@@ -517,12 +572,10 @@ function WebhookForm({
 
         {/* Mute Words */}
         <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[400], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
+          <Text size="sm" weight="medium" style={labelStyle}>
             Mute Words (Chat Only)
           </Text>
-          <Text style={[text.gray[400], mb[3], { fontSize: 12 }]}>
+          <Text size="sm" style={{ color: theme.colors.text3, marginBottom: 12 }}>
             Chat messages containing any of these words will not be forwarded.
             Useful for avoiding reforwarding of forwarded messages.
           </Text>
@@ -542,39 +595,23 @@ function WebhookForm({
           />
         </View>
 
-        {/* Example message text */}
-        <View style={[mb[4]]}>
-          <Text
-            style={[text.gray[300], mb[2], { fontSize: 14, fontWeight: "500" }]}
-          >
-            Example
-          </Text>
-          <View
-            style={[
-              bg.neutral[800],
-              p[3],
-              r.md,
-              borders.width.thin,
-              borders.color.gray[200],
-            ]}
-          >
-            <Text style={[text.gray[400], { fontSize: 14 }]}>
-              {formData.prefix}
-              <Text style={[text.blue[400]]}>{"{username}"}</Text>
-              {formData.suffix}
-            </Text>
-          </View>
-        </View>
         {/* Active toggle */}
         <View
           style={[
             layout.flex.row,
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
+            p[3],
+            r.md,
+            borders.width.thin,
+            {
+              backgroundColor: theme.colors.surface1,
+              borderColor: theme.colors.borderSubtle,
+            },
             mb[6],
           ]}
         >
-          <Text style={[text.gray[300], { fontSize: 14, fontWeight: "500" }]}>
+          <Text weight="medium" style={{ color: theme.colors.text2 }}>
             Active
           </Text>
           <Switch
@@ -593,12 +630,10 @@ function WebhookForm({
           onPress={onClose}
           disabled={isLoading}
         >
-          <Text>{t("cancel")}</Text>
+          {t("cancel")}
         </Button>
         <Button width="min" onPress={handleSubmit} disabled={isLoading}>
-          <Text>
-            {isLoading ? t("saving") : webhook ? t("update") : t("create")}
-          </Text>
+          {isLoading ? t("saving") : webhook ? t("update") : t("create")}
         </Button>
       </DialogFooter>
     </ResponsiveDialog>
@@ -781,80 +816,84 @@ export default function WebhookManager() {
     return <Loading />;
   }
 
+  const deleteDisabled = deleteDialog.webhook
+    ? deletingWebhooks.has(deleteDialog.webhook.id)
+    : false;
+
   return (
     <>
-      <ScrollView>
-        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-          <View style={{ maxWidth: 800, width: "100%" }}>
-            {/* Header */}
-            <MenuContainer>
-              <View>
-                <Text size="xl">{t("webhook-integrations")}</Text>
-                <Text size="lg" style={[text.gray[400], { marginTop: 4 }]}>
-                  {t("webhook-integrations-description")}
-                </Text>
-
-                <View
-                  style={[
-                    layout.flex.row,
-                    layout.flex.justify.start,
-                    gap.all[3],
-                    w.percent[100],
-                    mt[2],
-                  ]}
-                >
+      <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: "center" }}>
+        <View
+          style={{
+            width: "100%",
+            maxWidth: 800,
+            flex: 1,
+            paddingHorizontal: 32,
+            paddingVertical: 24,
+          }}
+        >
+          {/* Header */}
+          <SettingsViewHeader
+              title={t("webhook-integrations")}
+              description={t("webhook-integrations-description")}
+              action={
+                <View style={{ flexDirection: "row", gap: 8 }}>
                   <Button
-                    onPress={handleCreate}
-                    size="pill"
-                    width="min"
-                    leftIcon={<Plus color={theme.colors.text} />}
-                  >
-                    <Text>{t("create-webhook")}</Text>
-                  </Button>
-
-                  <Button
-                    onPress={loadWebhooks}
-                    disabled={loading}
-                    leftIcon={<RefreshCw color={theme.colors.text} />}
-                    size="pill"
+                    size="sm"
                     width="min"
                     variant="secondary"
+                    leftIcon={<RefreshCw size={16} />}
+                    disabled={loading}
+                    onPress={loadWebhooks}
                   >
-                    <Text>{t("refresh")}</Text>
+                    {t("refresh")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    width="min"
+                    variant="primary"
+                    leftIcon={<Plus size={16} />}
+                    onPress={handleCreate}
+                  >
+                    {t("create")}
                   </Button>
                 </View>
-              </View>
-            </MenuContainer>
+              }
+            />
 
             {/* Content */}
             {loading ? (
-              <Loading />
+              <View
+                style={{
+                  flex: 1,
+                  minHeight: 320,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Loading />
+              </View>
             ) : webhooks === null ? (
               <View style={[layout.flex.center, mt[8]]}>
-                <Text style={[text.gray[600]]}>
+                <Text style={{ color: theme.colors.danger }}>
                   {t("failed-load-webhooks")}
                 </Text>
               </View>
             ) : webhooks.length === 0 ? (
-              <View style={[layout.flex.center, mt[8]]}>
-                <Text style={[text.gray[600], mb[4], { fontSize: 16 }]}>
-                  {t("no-webhooks-yet")}
-                </Text>
-                <Text
-                  style={[
-                    text.gray[500],
-                    mb[6],
-                    { fontSize: 14, textAlign: "center" },
-                  ]}
-                >
-                  {t("create-first-webhook-description")}
-                </Text>
-                <AQLink to={{ screen: "LiveDashboard" }}>
-                  <Text style={[text.blue[600], { fontSize: 14 }]}>
-                    {t("need-setup-live-dashboard")}
-                  </Text>
-                </AQLink>
-              </View>
+              <EmptyState
+                illustration={<EmptyStateTile icon={WebhookIcon} />}
+                title={t("no-webhooks-yet")}
+                subtitle={t("create-first-webhook-description")}
+                action={
+                  <Button
+                    size="sm"
+                    leftIcon={<Plus size={16} />}
+                    onPress={handleCreate}
+                  >
+                    {t("create-webhook")}
+                  </Button>
+                }
+              />
             ) : (
               <MenuContainer>
                 <MenuGroup>
@@ -873,8 +912,7 @@ export default function WebhookManager() {
               </MenuContainer>
             )}
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
       <WebhookForm
         webhook={editingWebhook}
@@ -895,53 +933,41 @@ export default function WebhookManager() {
         title={t("delete-webhook")}
         dismissible={false}
       >
-        <View style={[w.percent[100], mb[8], mt[2]]}>
-          <Text style={[{ fontSize: 24 }]}>
+        <View style={{ width: "100%", marginTop: 8, marginBottom: 16, gap: 8 }}>
+          <Text size="lg">
             {t("confirm-delete", {
               name: deleteDialog.webhook?.name || t("untitled-webhook"),
             })}
           </Text>
-          <Text
-            style={[text.gray[400], mt[4], { fontSize: 18, fontWeight: "700" }]}
-          >
+          <Text size="sm" style={{ color: theme.colors.text3 }}>
             {t("action-cannot-be-undone")}
           </Text>
-          <Text style={[text.gray[400], { fontSize: 18, fontWeight: "700" }]}>
+          <Text size="sm" style={{ color: theme.colors.text3 }}>
             {t("webhook-will-no-longer-receive-events")}
           </Text>
         </View>
 
-        <View style={[layout.flex.row, layout.flex.justify.end, gap.all[3]]}>
+        <DialogFooter>
           <Button
             variant="secondary"
-            width="full"
+            width="min"
             onPress={() => setDeleteDialog({ isVisible: false, webhook: null })}
-            disabled={
-              deleteDialog.webhook
-                ? deletingWebhooks.has(deleteDialog.webhook.id)
-                : false
-            }
+            disabled={deleteDisabled}
           >
-            <Text>{t("cancel")}</Text>
+            {t("cancel")}
           </Button>
           <Button
-            variant="destructive"
-            width="full"
+            variant="danger"
+            width="min"
             onPress={confirmDelete}
-            disabled={
-              deleteDialog.webhook
-                ? deletingWebhooks.has(deleteDialog.webhook.id)
-                : false
-            }
+            disabled={deleteDisabled}
           >
-            <Text style={[text.white, { fontSize: 14, fontWeight: "500" }]}>
-              {deleteDialog.webhook &&
-              deletingWebhooks.has(deleteDialog.webhook.id)
-                ? t("deleting")
-                : t("delete")}
-            </Text>
+            {deleteDialog.webhook &&
+            deletingWebhooks.has(deleteDialog.webhook.id)
+              ? t("deleting")
+              : t("delete")}
           </Button>
-        </View>
+        </DialogFooter>
       </Dialog>
     </>
   );

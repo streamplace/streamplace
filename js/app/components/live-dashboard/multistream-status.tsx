@@ -1,7 +1,9 @@
-import { Loader, Text, View, zero } from "@streamplace/components";
+import { useNavigation } from "@react-navigation/native";
+import { Button, Loader, Switch, Text, View, zero } from "@streamplace/components";
+import { Plus } from "lucide-react-native";
+import { surfaces, borderAlphas, textAlphas } from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { useCallback, useEffect, useState } from "react";
-import { Switch } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -20,6 +22,7 @@ interface MultistreamTargetViewHydrated
 
 export default function MultistreamStatus() {
   const agent = usePDSAgent();
+  const navigation = useNavigation();
   const [targets, setTargets] = useState<MultistreamTargetViewHydrated[]>([]);
   const [loading, setLoading] = useState(true);
   const [togglingTargets, setTogglingTargets] = useState<Set<string>>(
@@ -134,35 +137,75 @@ export default function MultistreamStatus() {
     }
   };
 
-  if (loading && targets.length === 0) {
-    return (
-      <View style={[p[3]]}>
-        <Text style={[text.gray[400], { fontSize: 14 }]}>
-          Loading multistream...
-        </Text>
-      </View>
-    );
-  }
-
-  if (targets.length === 0) {
-    return (
-      <View style={[p[3]]}>
-        <Text style={[text.gray[400], { fontSize: 14 }]}>
-          No multistream targets configured
-        </Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={[p[3], gap.all[2]]}>
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-        <Text size="xl" style={[text.white]}>
-          Multistream {loading && <Loader size="small" />}
+    <View
+      style={[
+        { backgroundColor: surfaces.dark[1] },
+        r.lg,
+        borders.width.thin,
+        { borderColor: borderAlphas.dark.strong },
+      ]}
+    >
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.spaceBetween,
+          layout.flex.alignCenter,
+          p[4],
+          borders.bottom.width.thin,
+          { borderBottomColor: borderAlphas.dark.strong },
+        ]}
+      >
+        <Text style={[text.white, { fontSize: 15, fontWeight: "600" }]}>
+          Multistream
         </Text>
+        {loading ? (
+          <Loader size="small" />
+        ) : targets.length > 0 ? (
+          <Text
+            style={{
+              color: textAlphas.dark[3],
+              fontSize: 12,
+              fontWeight: "600",
+            }}
+          >
+            {targets.length}
+          </Text>
+        ) : null}
       </View>
-
-      {targets.map((target) => (
+      {targets.length === 0 ? (
+        <View style={[p[4], { gap: 12, alignItems: "flex-start" }]}>
+          <View style={{ gap: 2 }}>
+            <Text
+              style={{
+                color: textAlphas.dark[2],
+                fontSize: 13,
+                fontWeight: "500",
+              }}
+            >
+              No destinations yet
+            </Text>
+            <Text style={{ color: textAlphas.dark[3], fontSize: 12 }}>
+              Restream to Twitch, YouTube, and more.
+            </Text>
+          </View>
+          <Button
+            size="sm"
+            width="min"
+            variant="secondary"
+            leftIcon={<Plus size={14} />}
+            onPress={() =>
+              (navigation as any).navigate("SettingsTab", {
+                screen: "MultistreamCategory",
+              })
+            }
+          >
+            Add destination
+          </Button>
+        </View>
+      ) : (
+        <View style={[p[3], gap.all[2]]}>
+          {targets.map((target) => (
         <View
           key={target.uri}
           style={[
@@ -170,10 +213,10 @@ export default function MultistreamStatus() {
             layout.flex.alignCenter,
             layout.flex.spaceBetween,
             p[2],
-            bg.neutral[800],
+            { backgroundColor: surfaces.dark[2] },
             r.md,
             borders.width.thin,
-            borders.color.neutral[700],
+            { borderColor: borderAlphas.dark.strong },
           ]}
         >
           <View style={[flex.values[1]]}>
@@ -203,7 +246,9 @@ export default function MultistreamStatus() {
             disabled={togglingTargets.has(target.uri)}
           />
         </View>
-      ))}
+          ))}
+        </View>
+      )}
     </View>
   );
 }

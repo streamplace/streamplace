@@ -36,6 +36,7 @@ import { useUserProfile } from "store/hooks";
 import pkg from "../../package.json";
 
 export function Settings() {
+  const { theme } = zero.useTheme();
   const loggedIn = useStore((state) => state.authStatus === "loggedIn");
   const userProfile = useUserProfile();
   const danmuUnlocked = useDanmuUnlocked();
@@ -105,12 +106,12 @@ export function Settings() {
                         width: 48,
                         height: 48,
                         borderRadius: 24,
-                        backgroundColor: "#333",
+                        backgroundColor: theme.colors.surface2,
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <LogIn size={24} color="#999" />
+                      <LogIn size={24} color={theme.colors.text3} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text size="xl" style={{ fontWeight: "600" }}>

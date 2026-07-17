@@ -3,10 +3,12 @@ import {
   Admonition,
   Button,
   Checkbox,
+  hexToRgba,
   MenuContainer,
   MenuGroup,
   MenuLabel,
   MenuSeparator,
+  SegmentedTabs,
   Select,
   Text,
   Tooltip,
@@ -19,9 +21,14 @@ import {
   CONTENT_WARNINGS,
   LICENSE_OPTIONS,
 } from "@streamplace/components/src/lib/metadata-constants";
+import {
+  fontFamilies,
+  scrims,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import ActivityPicker from "components/activity-picker";
 import AQLink from "components/aqlink";
+import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Loading from "components/loading/loading";
 import BetaAccessGate from "components/upload/beta-access-gate";
 import { Image } from "expo-image";
@@ -29,14 +36,21 @@ import {
   AlertCircle,
   ArrowUp,
   CheckCircle2,
+  FileVideo,
+  Film,
   ImagePlus,
   LoaderCircle,
+  Pencil,
+  Radio,
+  Sparkles,
+  UploadCloud,
   Video,
   X,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -237,7 +251,14 @@ function UploadGate({ children }: { children: React.ReactNode }) {
               })
             }
           >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>Log in</Text>
+            <Text
+              style={{
+                color: theme.colors.primaryForeground,
+                fontWeight: "600",
+              }}
+            >
+              Log in
+            </Text>
           </Button>
         </View>
       </View>
@@ -257,74 +278,58 @@ function UploadGate({ children }: { children: React.ReactNode }) {
 
 // ── tab nav row ──────────────────────────────────────────────────────────────
 
-// The sub-nav row that used to switch managerMode. Now each entry is a real
-// navigation.navigate() call. Renders the same segmented-control style.
-function UploadTabNav() {
+// Segmented control for the upload section. Rendered inside a fixed maxWidth-960
+// column (self-contained) so its left edge stays put across every tab screen —
+// the previous version inherited each screen's content width and appeared to
+// jump when switching tabs.
+function UploadTabNav({ activeScreen }: { activeScreen?: string } = {}) {
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const c = theme.colors;
   const route = useRoute();
+  // Sub-routes (e.g. the Edit Video editor) aren't tabs themselves, so they pass
+  // the tab they belong under to keep one segment lit.
+  const current = activeScreen ?? route.name;
 
-  type TabDef = {
-    label: string;
-    screen: "Upload" | "UploadVideos" | "UploadLivestreams" | "UploadDrafts";
-    position: "left" | "middle" | "right";
-  };
-  const tabs: TabDef[] = [
-    { label: "Upload", screen: "Upload", position: "left" },
-    { label: "My Videos", screen: "UploadVideos", position: "middle" },
-    { label: "Livestreams", screen: "UploadLivestreams", position: "middle" },
-    { label: "Drafts", screen: "UploadDrafts", position: "right" },
-  ];
+  // Views of your content — not actions. "Upload" is a verb, so it lives as the
+  // CTA on the right, not as a peer tab.
+  const tabs = [
+    { label: "My Videos", screen: "UploadVideos" },
+    { label: "Livestreams", screen: "UploadLivestreams" },
+    { label: "Drafts", screen: "UploadDrafts" },
+  ] as const;
 
   return (
-    <View
-      style={{
-        maxWidth: 960,
-        width: "100%",
-        flexDirection: "row",
-        marginBottom: 16,
-        gap: 0,
-      }}
-    >
-      {tabs.map((tab) => {
-        const active = route.name === tab.screen;
-        const radiusOverride =
-          tab.position === "left"
-            ? { borderTopRightRadius: 0, borderBottomRightRadius: 0 }
-            : tab.position === "right"
-              ? { borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }
-              : { borderRadius: 0 };
-        return (
-          <Pressable
-            key={tab.screen}
-            onPress={() => navigation.navigate(tab.screen as any)}
-            style={[
-              zero.px[4],
-              zero.py[2],
-              zero.r.lg,
-              radiusOverride,
-              active
-                ? { backgroundColor: theme.colors.primary }
-                : {
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: theme.colors.border,
-                    ...(tab.position === "left" ? {} : { borderLeftWidth: 0 }),
-                  },
-            ]}
-          >
-            <Text
-              style={{
-                color: active ? "#fff" : theme.colors.foreground,
-                fontWeight: "600",
-                fontSize: 14,
-              }}
-            >
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View style={{ maxWidth: 960, width: "100%", marginBottom: 20 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+        }}
+      >
+        <SegmentedTabs
+          options={tabs.map((tab) => ({
+            label: tab.label,
+            value: tab.screen,
+          }))}
+          value={current}
+          onChange={(screen) => navigation.navigate(screen as any)}
+        />
+        {/* Persistent primary action, visible on every content view. width="min"
+            sets alignSelf:flex-start (hug content), which in this row would pin the
+            button to the top — override back to center so it aligns with the tabs. */}
+        <Button
+          size="md"
+          width="min"
+          leftIcon={<UploadCloud size={18} />}
+          onPress={() => navigation.navigate("Upload" as any)}
+          style={{ alignSelf: "center" }}
+        >
+          Upload video
+        </Button>
+      </View>
     </View>
   );
 }
@@ -588,7 +593,7 @@ function MetadataEditor({
                       position: "absolute",
                       top: 8,
                       right: 8,
-                      backgroundColor: "rgba(0, 0, 0, 0.7)",
+                      backgroundColor: scrims.dark,
                       borderRadius: 12,
                       width: 24,
                       height: 24,
@@ -662,6 +667,58 @@ export default function UploadScreen() {
   const processingAnim = useRef(new Animated.Value(0)).current;
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepthRef = useRef(0);
+  const c = theme.colors;
+  const track = {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: c.surface3,
+    overflow: "hidden" as const,
+    width: "100%" as const,
+  };
+
+  const acceptFile = useCallback((f: File | null | undefined) => {
+    if (!f) return;
+    if (!f.type.startsWith("video/")) {
+      setPhase({
+        kind: "error",
+        message: "That doesn't look like a video. Try MP4, MOV, or WebM.",
+      });
+      return;
+    }
+    setFile(f);
+    setPhase({ kind: "idle" });
+  }, []);
+
+  const dropzoneVisible =
+    !file && (phase.kind === "idle" || phase.kind === "error");
+  const selectedVisible =
+    !!file && (phase.kind === "idle" || phase.kind === "error");
+  const progressVisible =
+    phase.kind === "creating" ||
+    phase.kind === "uploading" ||
+    phase.kind === "processing" ||
+    phase.kind === "publishing";
+  const doneVisible = phase.kind === "done" || phase.kind === "ready";
+
+  const NEXT_STEPS: { icon: any; title: string; body: string }[] = [
+    {
+      icon: Film,
+      title: "We process it",
+      body: "Transcoded for smooth, adaptive playback.",
+    },
+    {
+      icon: Pencil,
+      title: "Add details",
+      body: "Title, thumbnail, tags, and more.",
+    },
+    {
+      icon: Sparkles,
+      title: "Publish",
+      body: "Share it to your channel when ready.",
+    },
+  ];
 
   // indeterminate progress bar animation
   useEffect(() => {
@@ -703,12 +760,10 @@ export default function UploadScreen() {
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const f = e.target.files?.[0] ?? null;
-      setFile(f);
-      setPhase({ kind: "idle" });
+      acceptFile(e.target.files?.[0] ?? null);
       e.target.value = "";
     },
-    [],
+    [acceptFile],
   );
 
   const agent = gate.state === "ok" ? gate.agent : null;
@@ -816,306 +871,402 @@ export default function UploadScreen() {
 
   return (
     <ScrollView>
-      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-        <UploadTabNav />
+      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[6]]}>
+        <View style={{ width: "100%", maxWidth: 960 }}>
+          <View style={{ width: "100%", maxWidth: 680, gap: 20 }}>
+            <Text style={{ color: c.text3, fontSize: 14, lineHeight: 20 }}>
+              Upload a recorded video. It processes into a draft you can title,
+              thumbnail, and publish whenever you are ready.
+            </Text>
 
-        <View style={{ maxWidth: 960, width: "100%" }}>
-          <MenuContainer>
-            <View style={{ gap: 6 }}>
-              {/* file picker */}
-              <MenuLabel>File</MenuLabel>
-              <MenuGroup>
-                <Pressable
-                  onPress={pickFile}
-                  disabled={isUploading}
-                  style={[
-                    zero.px[3],
-                    zero.py[3],
-                    zero.r.md,
-                    zero.borders.width.medium,
-                    zero.borders.style.dashed,
-                    zt.border.border,
-                    {
-                      opacity: isUploading ? 0.5 : 1,
-                      height: 120,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 4,
-                    },
-                  ]}
+        {dropzoneVisible && (
+          <>
+            <div
+              onClick={pickFile}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                dragDepthRef.current += 1;
+                setDragActive(true);
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                dragDepthRef.current -= 1;
+                if (dragDepthRef.current <= 0) setDragActive(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dragDepthRef.current = 0;
+                setDragActive(false);
+                acceptFile(e.dataTransfer.files?.[0]);
+              }}
+              style={{
+                position: "relative",
+                cursor: "pointer",
+                borderRadius: 20,
+                border: `1.5px dashed ${dragActive ? c.primary : c.borderStrong}`,
+                background: dragActive
+                  ? `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.2)} 0%, ${c.surface1} 58%)`
+                  : `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.07)} 0%, ${c.surface1} 52%)`,
+                transition:
+                  "border-color 160ms ease, background 220ms ease, transform 160ms ease, box-shadow 220ms ease",
+                transform: dragActive ? "scale(1.006)" : "scale(1)",
+                boxShadow: dragActive
+                  ? `0 0 0 4px ${hexToRgba(c.primary, 0.12)}`
+                  : "none",
+                padding: "60px 24px",
+              }}
+            >
+              <View
+                style={{ alignItems: "center", gap: 16, pointerEvents: "none" }}
+              >
+                <View
+                  style={{
+                    width: 78,
+                    height: 78,
+                    borderRadius: 22,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: hexToRgba(c.primary, dragActive ? 0.24 : 0.12),
+                    borderWidth: 1,
+                    borderColor: hexToRgba(c.primary, 0.35),
+                  }}
                 >
-                  <Video size={32} color={theme.colors.mutedForeground} />
-                  <Text weight="medium">
-                    {file ? file.name : "Choose a video file"}
-                  </Text>
-                  {file && (
-                    <Text size="sm" color="muted">
-                      {file.type || "unknown"} — {humanBytes(file.size)}
-                    </Text>
-                  )}
-                </Pressable>
-              </MenuGroup>
-
-              {/* status */}
-              {phase.kind !== "idle" && (
-                <MenuGroup>
-                  <MenuLabel>Status</MenuLabel>
-                  <View style={[zero.px[3], zero.py[2], { gap: 12 }]}>
-                    {phase.kind === "creating" && (
-                      <View style={{ gap: 8 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <LoaderCircle
-                            size={18}
-                            color={theme.colors.mutedForeground}
-                          />
-                          <Text size="sm" color="muted">
-                            Preparing upload…
-                          </Text>
-                        </View>
-                        <Animated.View
-                          style={{
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: theme.colors.muted,
-                            overflow: "hidden",
-                            width: "100%",
-                          }}
-                        >
-                          <Animated.View
-                            style={{
-                              height: 6,
-                              borderRadius: 3,
-                              backgroundColor: theme.colors.primary,
-                              width: processingAnim.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: ["0%", "100%"],
-                              }),
-                              opacity: processingAnim.interpolate({
-                                inputRange: [0, 0.5, 1],
-                                outputRange: [0.4, 1, 0.4],
-                              }),
-                            }}
-                          />
-                        </Animated.View>
-                      </View>
-                    )}
-                    {phase.kind === "uploading" && (
-                      <View style={{ gap: 8 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <ArrowUp size={18} color={theme.colors.primary} />
-                          <Text size="sm">
-                            {phase.pct.toFixed(1)}% —{" "}
-                            {humanBytes(phase.bytesSent)} /{" "}
-                            {humanBytes(phase.bytesTotal)}
-                          </Text>
-                        </View>
-                        <View
-                          style={{
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: theme.colors.muted,
-                            overflow: "hidden",
-                            width: "100%",
-                          }}
-                        >
-                          <View
-                            style={{
-                              height: 6,
-                              width: `${phase.pct}%`,
-                              backgroundColor: theme.colors.primary,
-                              borderRadius: 3,
-                            }}
-                          />
-                        </View>
-                      </View>
-                    )}
-                    {(phase.kind === "processing" ||
-                      phase.kind === "publishing") && (
-                      <View style={{ gap: 8 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <LoaderCircle
-                            size={18}
-                            color={theme.colors.mutedForeground}
-                          />
-                          <Text size="sm" color="muted">
-                            {phase.kind === "processing"
-                              ? phase.serverStatus === "processing"
-                                ? `Processing video${phase.progress != null ? ` (${phase.progress}%)` : "…"}`
-                                : "Waiting to process…"
-                              : "Publishing…"}
-                          </Text>
-                        </View>
-                        {phase.kind === "processing" &&
-                        phase.progress != null ? (
-                          <View
-                            style={{
-                              height: 6,
-                              borderRadius: 3,
-                              backgroundColor: theme.colors.muted,
-                              overflow: "hidden",
-                              width: "100%",
-                            }}
-                          >
-                            <View
-                              style={{
-                                height: 6,
-                                width: `${phase.progress}%`,
-                                backgroundColor: theme.colors.primary,
-                                borderRadius: 3,
-                              }}
-                            />
-                          </View>
-                        ) : (
-                          <Animated.View
-                            style={{
-                              height: 6,
-                              borderRadius: 3,
-                              backgroundColor: theme.colors.muted,
-                              overflow: "hidden",
-                              width: "100%",
-                            }}
-                          >
-                            <Animated.View
-                              style={{
-                                height: 6,
-                                borderRadius: 3,
-                                backgroundColor: theme.colors.primary,
-                                width: processingAnim.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: ["0%", "100%"],
-                                }),
-                                opacity: processingAnim.interpolate({
-                                  inputRange: [0, 0.5, 1],
-                                  outputRange: [0.4, 1, 0.4],
-                                }),
-                              }}
-                            />
-                          </Animated.View>
-                        )}
-                      </View>
-                    )}
-                    {phase.kind === "ready" && (
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 10,
-                        }}
-                      >
-                        <CheckCircle2 size={18} color={theme.colors.success} />
-                        <Text size="sm" style={{ color: theme.colors.success }}>
-                          Ready to publish
-                        </Text>
-                      </View>
-                    )}
-                    {phase.kind === "done" && (
-                      <View style={{ gap: 8 }}>
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <CheckCircle2
-                            size={18}
-                            color={theme.colors.success}
-                          />
-                          <Text
-                            size="sm"
-                            style={{ color: theme.colors.success }}
-                          >
-                            Upload complete
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={() =>
-                            navigation.navigate("UploadDrafts" as any)
-                          }
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <Text
-                            size="sm"
-                            style={{ color: theme.colors.primary }}
-                          >
-                            Find your draft in the Drafts tab to add details and
-                            publish →
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-                    {phase.kind === "error" && (
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 10,
-                        }}
-                      >
-                        <AlertCircle
-                          size={18}
-                          color={theme.colors.destructive}
-                        />
-                        <Text size="sm" color="destructive">
-                          {phase.message}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </MenuGroup>
-              )}
-
-              {/* actions */}
-              <MenuGroup>
-                <View style={[zero.px[3], zero.py[2], { gap: 8 }]}>
-                  {canUpload && <Button onPress={startUpload}>Upload</Button>}
-                  {!file && phase.kind === "idle" && (
-                    <Button onPress={pickFile} variant="secondary">
-                      Choose file
-                    </Button>
-                  )}
-                  {isUploading && phase.kind !== "processing" && (
-                    <Button variant="destructive" onPress={cancelUpload}>
-                      Cancel
-                    </Button>
-                  )}
-                  {phase.kind === "done" && (
-                    <Button
-                      onPress={() => {
-                        setFile(null);
-                        setPhase({ kind: "idle" });
-                      }}
-                      variant="secondary"
-                    >
-                      Upload another
-                    </Button>
-                  )}
+                  <UploadCloud size={34} color={c.primary} />
                 </View>
-              </MenuGroup>
+                <View style={{ alignItems: "center", gap: 5 }}>
+                  <Text
+                    style={{ color: c.text1, fontSize: 18, fontWeight: "600" }}
+                  >
+                    {dragActive ? "Drop to upload" : "Drag and drop your video"}
+                  </Text>
+                  <Text style={{ color: c.text3, fontSize: 14 }}>
+                    or{" "}
+                    <Text style={{ color: c.primary, fontWeight: "600" }}>
+                      browse your files
+                    </Text>
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    marginTop: 2,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: c.surface2,
+                    borderWidth: 1,
+                    borderColor: c.borderSubtle,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: c.text4,
+                      fontSize: 12,
+                      fontFamily: fontFamilies.monoMedium,
+                      letterSpacing: 0.4,
+                    }}
+                  >
+                    MP4 · MOV · WEBM
+                  </Text>
+                </View>
+              </View>
+            </div>
+
+            {phase.kind === "error" && (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <AlertCircle size={16} color={c.destructive} />
+                <Text size="sm" color="destructive">
+                  {phase.message}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              {NEXT_STEPS.map((step, i) => (
+                <View
+                  key={step.title}
+                  style={{
+                    flex: 1,
+                    gap: 8,
+                    padding: 14,
+                    borderRadius: 14,
+                    backgroundColor: c.surface1,
+                    borderWidth: 1,
+                    borderColor: c.borderSubtle,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: c.surface3,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: c.text3,
+                          fontSize: 11,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {i + 1}
+                      </Text>
+                    </View>
+                    <step.icon size={16} color={c.text2} />
+                  </View>
+                  <View style={{ gap: 2 }}>
+                    <Text
+                      style={{
+                        color: c.text1,
+                        fontSize: 13,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {step.title}
+                    </Text>
+                    <Text style={{ color: c.text4, fontSize: 12, lineHeight: 16 }}>
+                      {step.body}
+                    </Text>
+                  </View>
+                </View>
+              ))}
             </View>
-          </MenuContainer>
+          </>
+        )}
+
+        {selectedVisible && file && (
+          <View style={{ gap: 14 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 14,
+                backgroundColor: c.surface1,
+                borderWidth: 1,
+                borderColor: c.borderStrong,
+                borderRadius: 16,
+                padding: 14,
+              }}
+            >
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 12,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: hexToRgba(c.primary, 0.12),
+                  borderWidth: 1,
+                  borderColor: hexToRgba(c.primary, 0.3),
+                }}
+              >
+                <FileVideo size={24} color={c.primary} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: c.text1, fontSize: 15, fontWeight: "600" }}
+                >
+                  {file.name}
+                </Text>
+                <Text
+                  style={{
+                    color: c.text3,
+                    fontSize: 13,
+                    fontFamily: fontFamilies.monoRegular,
+                  }}
+                >
+                  {humanBytes(file.size)} ·{" "}
+                  {(file.type || "video").replace("video/", "").toUpperCase() ||
+                    "VIDEO"}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setFile(null);
+                  setPhase({ kind: "idle" });
+                }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: c.surface2,
+                }}
+              >
+                <X size={16} color={c.text3} />
+              </Pressable>
+            </View>
+
+            {phase.kind === "error" && (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              >
+                <AlertCircle size={16} color={c.destructive} />
+                <Text size="sm" color="destructive">
+                  {phase.message}
+                </Text>
+              </View>
+            )}
+
+            <View style={{ gap: 8 }}>
+              <Button onPress={startUpload}>Upload video</Button>
+              <Button variant="secondary" onPress={pickFile}>
+                Choose a different file
+              </Button>
+            </View>
+          </View>
+        )}
+
+        {progressVisible && (
+          <View
+            style={{
+              gap: 14,
+              backgroundColor: c.surface1,
+              borderWidth: 1,
+              borderColor: c.borderStrong,
+              borderRadius: 16,
+              padding: 18,
+            }}
+          >
+            {file && (
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                <FileVideo size={18} color={c.text3} />
+                <Text
+                  numberOfLines={1}
+                  style={{ color: c.text2, fontSize: 14, flex: 1 }}
+                >
+                  {file.name}
+                </Text>
+              </View>
+            )}
+            <View style={{ gap: 8 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                {phase.kind === "uploading" ? (
+                  <ArrowUp size={16} color={c.primary} />
+                ) : (
+                  <LoaderCircle size={16} color={c.primary} />
+                )}
+                <Text size="sm" color="muted">
+                  {phase.kind === "creating"
+                    ? "Preparing your upload…"
+                    : phase.kind === "uploading"
+                      ? `Uploading — ${phase.pct.toFixed(0)}% · ${humanBytes(phase.bytesSent)} / ${humanBytes(phase.bytesTotal)}`
+                      : phase.kind === "processing"
+                        ? phase.serverStatus === "processing"
+                          ? `Processing${phase.progress != null ? ` (${phase.progress}%)` : "…"}`
+                          : "Waiting to process…"
+                        : "Publishing…"}
+                </Text>
+              </View>
+              {phase.kind === "uploading" ? (
+                <View style={track}>
+                  <View
+                    style={{
+                      height: 6,
+                      width: `${phase.pct}%`,
+                      backgroundColor: c.primary,
+                      borderRadius: 3,
+                    }}
+                  />
+                </View>
+              ) : phase.kind === "processing" && phase.progress != null ? (
+                <View style={track}>
+                  <View
+                    style={{
+                      height: 6,
+                      width: `${phase.progress}%`,
+                      backgroundColor: c.primary,
+                      borderRadius: 3,
+                    }}
+                  />
+                </View>
+              ) : (
+                <Animated.View style={track}>
+                  <Animated.View
+                    style={{
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: c.primary,
+                      width: processingAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["0%", "100%"],
+                      }),
+                      opacity: processingAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.4, 1, 0.4],
+                      }),
+                    }}
+                  />
+                </Animated.View>
+              )}
+            </View>
+            {isUploading && phase.kind !== "processing" && (
+              <Button variant="danger" onPress={cancelUpload}>
+                Cancel
+              </Button>
+            )}
+          </View>
+        )}
+
+        {doneVisible && (
+          <View
+            style={{
+              gap: 12,
+              backgroundColor: c.surface1,
+              borderWidth: 1,
+              borderColor: c.borderStrong,
+              borderRadius: 16,
+              padding: 20,
+              alignItems: "flex-start",
+            }}
+          >
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+            >
+              <CheckCircle2 size={22} color={c.success} />
+              <Text style={{ color: c.text1, fontSize: 16, fontWeight: "600" }}>
+                {phase.kind === "ready" ? "Ready to publish" : "Upload complete"}
+              </Text>
+            </View>
+            <Text style={{ color: c.text3, fontSize: 14, lineHeight: 20 }}>
+              Your video is processing into a draft. Add the finishing touches
+              and publish it from your Drafts.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button onPress={() => navigation.navigate("UploadDrafts" as any)}>
+                Go to drafts
+              </Button>
+              <Button
+                variant="secondary"
+                onPress={() => {
+                  setFile(null);
+                  setPhase({ kind: "idle" });
+                }}
+              >
+                Upload another
+              </Button>
+            </View>
+          </View>
+        )}
+          </View>
         </View>
       </View>
 
@@ -1435,8 +1586,10 @@ export function UploadVideoScreen({ route }: { route: any }) {
   if (error && !mode) {
     return (
       <ScrollView>
-        <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-          <UploadTabNav />
+        <View style={[zero.layout.flex.align.center, zero.px[2], zero.pt[8], zero.pb[6]]}>
+          <UploadTabNav
+            activeScreen={mode === "video" ? "UploadVideos" : "UploadDrafts"}
+          />
           <View style={{ maxWidth: 960, width: "100%" }}>
             <View style={[zero.p[6], { alignItems: "center", gap: 12 }]}>
               <AlertCircle size={32} color={theme.colors.destructive} />
@@ -1451,7 +1604,9 @@ export function UploadVideoScreen({ route }: { route: any }) {
   return (
     <ScrollView>
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
-        <UploadTabNav />
+        <UploadTabNav
+          activeScreen={mode === "video" ? "UploadVideos" : "UploadDrafts"}
+        />
 
         {/* Editor header */}
         <View
@@ -1470,18 +1625,6 @@ export function UploadVideoScreen({ route }: { route: any }) {
               ? ` · ${draftStatus === "processing" ? "Processing" : draftStatus === "error" ? "Error" : "Ready"}`
               : ""}
           </Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button
-              variant="destructive"
-              size="sm"
-              onPress={handleDelete}
-              disabled={deleting}
-            >
-              <Text style={{ color: "#fff" }}>
-                {deleting ? "Deleting…" : "Delete"}
-              </Text>
-            </Button>
-          </View>
         </View>
 
         {error && (
@@ -1503,16 +1646,31 @@ export function UploadVideoScreen({ route }: { route: any }) {
         >
           <MetadataEditor meta={meta} setMeta={setMeta} />
 
-          {/* Right column: actions */}
+          {/* Right column: actions. Sticks to the top of the viewport once it
+              scrolls up, so Save/Publish stay reachable through the long form.
+              Web-only (native has no sticky) and only in the two-column layout —
+              stacked, it lives inline under the form. */}
           <View
-            style={{ flex: isWide ? 2 : undefined, width: "100%", gap: 12 }}
+            style={[
+              { flex: isWide ? 2 : undefined, width: "100%", gap: 12 },
+              isWide && Platform.OS === "web"
+                ? ({ position: "sticky", top: 16 } as any)
+                : null,
+            ]}
           >
             <MenuContainer>
               <View style={{ gap: 6 }}>
                 <MenuLabel>Actions</MenuLabel>
                 <MenuGroup>
                   <View style={[zero.px[3], zero.py[2], { gap: 8 }]}>
+                    {/* Publish is the primary action (indigo); Save Draft is a
+                        quieter secondary so the hierarchy reads at a glance. */}
                     <Button
+                      variant={
+                        mode === "draft" && draftStatus === "ready"
+                          ? "secondary"
+                          : "primary"
+                      }
                       onPress={handleSave}
                       disabled={!meta.title.trim() || updating}
                     >
@@ -1524,6 +1682,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
                     </Button>
                     {mode === "draft" && draftStatus === "ready" && (
                       <Button
+                        variant="primary"
                         onPress={handlePublish}
                         disabled={publishing || updating}
                       >
@@ -1554,6 +1713,26 @@ export function UploadVideoScreen({ route }: { route: any }) {
                         </Text>
                       </Admonition>
                     )}
+
+                    {/* Destructive action, set apart below a hairline. */}
+                    <View
+                      style={{
+                        height: 1,
+                        backgroundColor: theme.colors.borderSubtle,
+                        marginVertical: 2,
+                      }}
+                    />
+                    <Button
+                      variant="danger"
+                      onPress={handleDelete}
+                      disabled={deleting}
+                    >
+                      {deleting
+                        ? "Deleting…"
+                        : mode === "draft"
+                          ? "Delete draft"
+                          : "Delete video"}
+                    </Button>
                   </View>
                 </MenuGroup>
               </View>
@@ -1639,29 +1818,37 @@ export function UploadDraftsScreen() {
   }
 
   return (
-    <ScrollView>
-      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <View
+        style={[
+          zero.layout.flex.align.center,
+          zero.px[2],
+          zero.pt[8],
+          zero.pb[6],
+          { flex: 1 },
+        ]}
+      >
         <UploadTabNav />
 
-        <View style={{ maxWidth: 960, width: "100%", gap: 12 }}>
+        <View style={{ maxWidth: 960, width: "100%", flex: 1, gap: 12 }}>
           {draftsLoading && drafts.length === 0 && (
-            <View style={[zero.p[6], { alignItems: "center" }]}>
+            <View
+              style={{
+                flex: 1,
+                minHeight: 320,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <LoaderCircle size={32} color={theme.colors.mutedForeground} />
             </View>
           )}
           {!draftsLoading && drafts.length === 0 && (
-            <View style={[zero.p[6], { alignItems: "center" }]}>
-              <Video size={48} color={theme.colors.mutedForeground} />
-              <Text
-                color="muted"
-                size="sm"
-                style={{ marginTop: 12, textAlign: "center" }}
-              >
-                No drafts. Uploads and finalized livestreams appear here as
-                drafts while they process — come back to add details and
-                publish.
-              </Text>
-            </View>
+            <EmptyState
+              illustration={<EmptyStateTile icon={FileVideo} />}
+              title="No drafts yet"
+              subtitle="Uploads and finalized livestreams appear here as drafts while they process — come back to add details and publish."
+            />
           )}
           {drafts.map((draft) => {
             const rec = draft.record as PlaceStreamVodDraftVideo.Main;
@@ -1766,16 +1953,16 @@ export function UploadDraftsScreen() {
                     <Button
                       size="sm"
                       style={[{ width: "auto" }]}
-                      variant="destructive"
+                      variant="danger"
                       onPress={() => handleDeleteDraft(draft.uri)}
                     >
-                      <X size={14} color="#fff" />
+                      <X size={14} color={theme.colors.destructiveForeground} />
                     </Button>
                   </View>
                 ) : status === "error" ? (
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="danger"
                     style={[{ width: "auto" }]}
                     onPress={() => handleDeleteDraft(draft.uri)}
                   >
@@ -1784,10 +1971,10 @@ export function UploadDraftsScreen() {
                 ) : (
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="danger"
                     onPress={() => handleDeleteDraft(draft.uri)}
                   >
-                    <X size={14} color="#fff" />
+                    <X size={14} color={theme.colors.destructiveForeground} />
                   </Button>
                 )}
               </View>
@@ -1922,28 +2109,37 @@ export function UploadLivestreamsScreen() {
   }
 
   return (
-    <ScrollView>
-      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <View
+        style={[
+          zero.layout.flex.align.center,
+          zero.px[2],
+          zero.pt[8],
+          zero.pb[6],
+          { flex: 1 },
+        ]}
+      >
         <UploadTabNav />
 
-        <View style={{ maxWidth: 960, width: "100%", gap: 12 }}>
+        <View style={{ maxWidth: 960, width: "100%", flex: 1, gap: 12 }}>
           {livestreamsLoading && livestreams.length === 0 && (
-            <View style={[zero.p[6], { alignItems: "center" }]}>
+            <View
+              style={{
+                flex: 1,
+                minHeight: 320,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <LoaderCircle size={32} color={theme.colors.mutedForeground} />
             </View>
           )}
           {!livestreamsLoading && livestreams.length === 0 && (
-            <View style={[zero.p[6], { alignItems: "center" }]}>
-              <Video size={48} color={theme.colors.mutedForeground} />
-              <Text
-                color="muted"
-                size="sm"
-                style={{ marginTop: 12, textAlign: "center" }}
-              >
-                No livestreams yet. When you go live, your past streams show up
-                here to finalize into VODs.
-              </Text>
-            </View>
+            <EmptyState
+              illustration={<EmptyStateTile icon={Radio} />}
+              title="No livestreams yet"
+              subtitle="When you go live, your past streams show up here to finalize into VODs."
+            />
           )}
           {livestreams.map((ls: any) => {
             const rec = ls.value || {};
@@ -2045,7 +2241,7 @@ export function UploadLivestreamsScreen() {
                 ) : !ended ? (
                   <Tooltip content="This stream is still live. Finalize once it has ended.">
                     <Button size="sm" disabled onPress={() => {}}>
-                      <Text style={{ color: "#fff" }}>Finalize</Text>
+                      Finalize
                     </Button>
                   </Tooltip>
                 ) : (
@@ -2054,9 +2250,7 @@ export function UploadLivestreamsScreen() {
                     onPress={() => finalizeLivestreamRow(ls)}
                     style={{ width: "auto" }}
                   >
-                    <Text style={{ color: "#fff" }}>
-                      {status === "error" ? "Retry" : "Finalize"}
-                    </Text>
+                    {status === "error" ? "Retry" : "Finalize"}
                   </Button>
                 )}
               </View>
@@ -2100,22 +2294,25 @@ export function UploadVideosScreen() {
   }
 
   return (
-    <ScrollView>
-      <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
+    <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+      <View
+        style={[
+          zero.layout.flex.align.center,
+          zero.px[2],
+          zero.pt[8],
+          zero.pb[6],
+          { flex: 1 },
+        ]}
+      >
         <UploadTabNav />
 
-        <View style={{ maxWidth: 960, width: "100%", gap: 12 }}>
+        <View style={{ maxWidth: 960, width: "100%", flex: 1, gap: 12 }}>
           {userVideos.length === 0 && (
-            <View style={[zero.p[6], { alignItems: "center" }]}>
-              <Video size={48} color={theme.colors.mutedForeground} />
-              <Text
-                color="muted"
-                size="sm"
-                style={{ marginTop: 12, textAlign: "center" }}
-              >
-                No videos yet. Switch to the Upload tab to add your first video.
-              </Text>
-            </View>
+            <EmptyState
+              illustration={<EmptyStateTile icon={Video} />}
+              title="No videos yet"
+              subtitle="Hit “Upload video” to add your first one."
+            />
           )}
           {userVideos.map((video: any) => {
             const rec = video.record?.value || video.record || {};

@@ -10,6 +10,9 @@ export const useSidebarTargetWidth = () =>
   useStore((state) => state.targetWidth);
 export const useIsSidebarLoaded = () => useStore((state) => state.isLoaded);
 export const useIsSidebarHidden = () => useStore((state) => state.isHidden);
+export const useIsSidebarOverlay = () => useStore((state) => state.overlay);
+export const useIsSidebarDrawerOpen = () =>
+  useStore((state) => state.drawerOpen);
 
 // Bluesky selectors
 export const useOAuthSession = () => useStore((state) => state.oauthSession);

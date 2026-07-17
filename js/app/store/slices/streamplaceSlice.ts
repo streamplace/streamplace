@@ -17,6 +17,7 @@ export { DEFAULT_URL };
 const USER_MUTED_KEY = "streamplaceUserMuted";
 const URL_KEY = "streamplaceUrl";
 const CHAT_WARNING_KEY = "streamplaceChatWarning2";
+const CHAT_VISIBLE_KEY = "streamplaceChatVisible";
 
 export interface Identity {
   id: string;
@@ -30,12 +31,15 @@ export interface StreamplaceSlice {
   initialized: boolean;
   userMuted: boolean | null;
   chatWarned: boolean;
+  /** Whether the channel chat side-panel is shown. Persisted across reloads. */
+  chatVisible: boolean;
   mySegments: PlaceStreamSegment.SegmentView[];
   // actions
   initialize: () => Promise<void>;
   setURL: (url: string) => void;
   userMute: (muted: boolean) => void;
   chatWarn: (warned: boolean) => void;
+  setChatVisible: (visible: boolean) => void;
   getIdentity: () => Promise<void>;
   pollMySegments: () => Promise<void>;
   getRecommendations: (userDID: string) => Promise<{
@@ -58,12 +62,14 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
   initialized: false,
   userMuted: null,
   chatWarned: false,
+  chatVisible: true,
   mySegments: [],
   initialize: async () => {
-    let [url, userMutedStr, chatWarningStr] = await Promise.all([
+    let [url, userMutedStr, chatWarningStr, chatVisibleStr] = await Promise.all([
       storage.getItem(URL_KEY),
       storage.getItem(USER_MUTED_KEY),
       storage.getItem(CHAT_WARNING_KEY),
+      storage.getItem(CHAT_VISIBLE_KEY),
     ]);
     if (!url) {
       url = DEFAULT_URL;
@@ -79,7 +85,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
     if (typeof chatWarningStr === "string") {
       chatWarned = chatWarningStr === "true";
     }
-    set({ url, userMuted, chatWarned, initialized: true });
+    // Default the chat panel to shown for first-ever visits; otherwise restore.
+    let chatVisible = true;
+    if (typeof chatVisibleStr === "string") {
+      chatVisible = chatVisibleStr === "true";
+    }
+    set({ url, userMuted, chatWarned, chatVisible, initialized: true });
   },
   setURL: (url: string) => {
     console.log("setURL", url);
@@ -99,6 +110,12 @@ export const createStreamplaceSlice: StateCreator<StreamplaceSlice> = (
       console.error("chatWarn error", err);
     });
     set({ chatWarned: warned });
+  },
+  setChatVisible: (visible: boolean) => {
+    storage.setItem(CHAT_VISIBLE_KEY, JSON.stringify(visible)).catch((err) => {
+      console.error("setChatVisible error", err);
+    });
+    set({ chatVisible: visible });
   },
   getIdentity: async () => {
     const state = get() as StreamplaceSlice;

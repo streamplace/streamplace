@@ -17,6 +17,10 @@ import {
   useToast,
   zero,
 } from "@streamplace/components";
+import {
+  colors,
+  spacing,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -37,19 +41,24 @@ import { PrivacyCategorySettings } from "components/settings/privacy-category-se
 import RecommendationsManager from "components/settings/recommendations-manager";
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
-import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
+import { LogoLockup } from "components/brand/logo";
+import { LogoBrandMenu } from "components/brand/logo-brand-menu";
+import { SidebarOverlay, SidebarToggle } from "components/sidebar/sidebar-overlay";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
 import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Platform, StatusBar, View } from "react-native";
+import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
 import AboutScreen from "src/screens/about";
 import AppReturnScreen from "src/screens/app-return";
+import BrandScreen from "src/screens/brand";
 import PopoutChat from "src/screens/chat-popout";
 import DanmuOBSScreen from "src/screens/danmu-obs";
 import DownloadScreen from "src/screens/download";
@@ -101,13 +110,19 @@ function useBaseScreenOptions() {
     headerShown: true,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
+    // Slim, quiet chrome: 15px medium title on surface0 with a hairline
     headerTitleStyle: {
-      fontFamily: z.theme.typography.universal["2xl"].fontFamily,
+      fontFamily: z.theme.typography.universal.xl.fontFamily,
+      fontSize: 15,
+      fontWeight: "500" as const,
+      color: z.theme.colors.text1,
     },
     headerStyle: {
-      backgroundColor: z.theme.colors.background,
-      borderBottomColor: z.theme.colors.border,
+      backgroundColor: z.theme.colors.surface0,
+      borderBottomColor: z.theme.colors.borderSubtle,
       borderBottomWidth: 1,
+      // Slimmer bar, aligned with the 56px sidebar brand row.
+      height: 56,
     },
   };
 }
@@ -137,7 +152,10 @@ function HomeNavigator() {
       headerTransparent: true,
     }),
     headerTitleStyle: {
-      fontFamily: z.theme.typography.universal.base.fontFamily,
+      fontFamily: z.theme.typography.universal.xl.fontFamily,
+      fontSize: 15,
+      fontWeight: "500" as const,
+      color: z.theme.colors.text1,
     },
   };
 
@@ -147,6 +165,8 @@ function HomeNavigator() {
         name="HomeMain"
         component={HomeScreen}
         options={{
+          // `title` drives the browser tab (keep the brand there); the visible
+          // web header shows the contextual "Home", not a repeat of the brand.
           title: "Streamplace",
           headerTitle:
             Platform.OS === "ios"
@@ -157,7 +177,7 @@ function HomeNavigator() {
                     </Text>
                   </View>
                 )
-              : undefined,
+              : "Home",
           headerLeft:
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
@@ -193,6 +213,11 @@ function HomeNavigator() {
         }}
       />
       <HomeStack.Screen
+        name="Brand"
+        component={BrandScreen}
+        options={{ title: "Brand Guidelines", ...headerScreenOptions }}
+      />
+      <HomeStack.Screen
         name="Download"
         component={DownloadScreen}
         options={{ title: "Download", ...headerScreenOptions }}
@@ -200,7 +225,7 @@ function HomeNavigator() {
       <HomeStack.Screen
         name="LiveDashboard"
         component={LiveDashboard}
-        options={{ title: "Live Dashboard", ...headerScreenOptions }}
+        options={{ title: "Live streaming", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Login"
@@ -261,7 +286,6 @@ function HomeNavigator() {
 function VideosNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
-  const z = useTheme();
 
   return (
     <VideosStack.Navigator
@@ -278,9 +302,6 @@ function VideosNavigator() {
             <LGAvatarButton />
           </View>
         ),
-        headerTitleStyle: {
-          fontFamily: z.theme.typography.universal.base.fontFamily,
-        },
       }}
     >
       <VideosStack.Screen
@@ -300,26 +321,19 @@ function VideosNavigator() {
 // Settings stack navigator
 function SettingsNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
-  const z = useTheme();
-  const isNative = Platform.OS !== "web";
   const headerScreenOptions = {
     ...baseScreenOptions,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
     headerShown: true,
-    // headerLeft: isNative
-    //   ? undefined
-    //   : ({ canGoBack }: NativeStackHeaderBackProps) => (
-    //       <NavigationButton canGoBack={canGoBack} />
-    //     ),
-    // headerRight: () => <LGAvatarButton />,
-    // ...(isNative && {
-    //   headerTransparent: true,
-    // }),
-    // headerTitleStyle: {
-    //   fontFamily: z.theme.typography.universal.base.fontFamily,
-    //   marginBottom: 100,
-    // },
+    // Same Create + avatar cluster as the other navigators, so the header
+    // controls don't vanish on Settings screens.
+    headerRight: () => (
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UploadButton />
+        <LGAvatarButton />
+      </View>
+    ),
   };
   return (
     <SettingsStack.Navigator
@@ -456,11 +470,19 @@ function TabNavigator() {
         headerShown: false,
         // Hide tab bar on web and < 800px
         tabBarStyle: isNative
-          ? undefined
+          ? {
+              backgroundColor: z.theme.colors.surface1,
+              borderTopColor: z.theme.colors.borderSubtle,
+            }
           : !isLargeScreen
-            ? undefined
+            ? {
+                backgroundColor: z.theme.colors.surface1,
+                borderTopColor: z.theme.colors.borderSubtle,
+              }
             : { display: "none" },
-        tabBarActiveTintColor: accentColor || primaryColor || "#06f",
+        tabBarActiveTintColor:
+          accentColor || primaryColor || z.theme.colors.primary,
+        tabBarInactiveTintColor: z.theme.colors.text3,
         headerTitleStyle: {
           fontFamily: z.theme.typography.universal["2xl"].fontFamily,
         },
@@ -540,6 +562,17 @@ function TabNavigator() {
   );
 }
 
+// Walk the (possibly nested) navigation state to the deepest active route, so
+// checks against leaf screen names like "LiveDashboard" resolve correctly —
+// getState().routes[index].name alone only yields the top-level route
+// (e.g. "MainTabs"), so nested screens never match.
+function getActiveLeafRouteName(state: any): string | undefined {
+  if (!state?.routes) return undefined;
+  const route = state.routes[state.index ?? 0];
+  if (route?.state) return getActiveLeafRouteName(route.state) ?? route.name;
+  return route?.name;
+}
+
 export default function Shell() {
   const { isNative } = usePlatform();
   const sidebar = useSidebarControl();
@@ -562,6 +595,7 @@ export default function Shell() {
   const openLoginLink = useStore((state) => state.openLoginLink);
   const livePopupShown = useRef(false);
   const z = useTheme();
+  const baseScreenOptions = useBaseScreenOptions();
 
   const toast = useToast();
 
@@ -612,19 +646,39 @@ export default function Shell() {
   // Track current route
   const [currentRouteName, setCurrentRouteName] = useState<
     string | undefined
-  >();
+  >(() => {
+    try {
+      return getActiveLeafRouteName(navigation.getState());
+    } catch {
+      return undefined;
+    }
+  });
 
   useEffect(() => {
-    const unsubscribe = navigation.addListener("state", () => {
-      const state = navigation.getState();
-      if (state?.routes) {
-        const currentRoute = state.routes[state.index];
-        console.log("setCurrentRouteName", currentRoute?.name);
-        setCurrentRouteName(currentRoute?.name);
-      }
-    });
+    const update = () => {
+      const name = getActiveLeafRouteName(navigation.getState());
+      if (name) setCurrentRouteName(name);
+    };
+    update(); // seed on mount so direct loads (e.g. a stream URL) resolve now
+    const unsubscribe = navigation.addListener("state", update);
     return unsubscribe;
   }, [navigation]);
+
+  // Detail views (watching a stream or video) take the sidebar out of the flow
+  // so it opens as an overlay drawer over dimmed content instead of pushing.
+  const setOverlay = useStore((state) => state.setOverlay);
+  const closeDrawer = useStore((state) => state.closeDrawer);
+  const isDetailView =
+    currentRouteName === "Stream" ||
+    currentRouteName === "Video" ||
+    currentRouteName === "Vod";
+  // Video pages get a YouTube-style sticky translucent header the content
+  // scrolls under; the livestream keeps its own solid header.
+  const isVodDetail =
+    currentRouteName === "Video" || currentRouteName === "Vod";
+  useEffect(() => {
+    setOverlay(isDetailView);
+  }, [isDetailView, setOverlay]);
 
   const noLivePopupRoutes =
     currentRouteName === "LiveDashboard" ||
@@ -653,15 +707,21 @@ export default function Shell() {
     }
   }, [userIsLive, noLivePopupRoutes]);
 
-  // Animate content margin when sidebar is active (web only)
+  // Animate content margin when sidebar is active (web only). In overlay mode
+  // the content stays full width (margin 0) and the drawer floats over it.
   const animatedContentStyle = useAnimatedStyle(() => {
     if (isNative || !sidebar.isActive) {
       return { marginLeft: 0 };
     }
     return {
-      marginLeft: sidebar.animatedWidth.value,
+      marginLeft: sidebar.animatedContentMargin.value,
     };
   });
+
+  // Scrim that dims content behind the overlay drawer.
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: sidebar.animatedScrim.value,
+  }));
 
   if (!hydrated) {
     return <View />;
@@ -675,6 +735,10 @@ export default function Shell() {
       <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
         <RootStack.Navigator
           screenOptions={{
+            // Reuse the shared chrome (surface0 + hairline, 15px title) so
+            // pushed screens like Stream don't render a differently-colored
+            // header than the HomeStack.
+            ...baseScreenOptions,
             headerShown: !isNative,
             headerLeft: ({ canGoBack }) => (
               <NavigationButton canGoBack={canGoBack} />
@@ -688,9 +752,6 @@ export default function Shell() {
             ...(isNative && {
               headerTransparent: true,
             }),
-            headerTitleStyle: {
-              fontFamily: z.theme.typography.universal.base.fontFamily,
-            },
           }}
         >
           {/* Main tabs (initial screen for all platforms) */}
@@ -778,6 +839,87 @@ export default function Shell() {
           />
         </RootStack.Navigator>
       </Animated.View>
+      {/* Scrim behind the overlay drawer (detail views only) */}
+      {!isNative && (
+        <AnimatedPressable
+          accessibilityLabel="Close menu"
+          pointerEvents={
+            sidebar.overlay && sidebar.drawerOpen ? "auto" : "none"
+          }
+          onPress={closeDrawer}
+          style={[
+            scrimStyle,
+            {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "#000", // token-ok: overlay scrim
+              zIndex: 127000,
+            },
+          ]}
+        />
+      )}
+      {/* Header cluster on detail views: hamburger + logo, sitting exactly where
+          the drawer's brand row will appear so it stays put as the drawer opens. */}
+      {!isNative &&
+        sidebar.isActive &&
+        sidebar.overlay &&
+        !sidebar.drawerOpen && (
+          <View
+            style={[
+              {
+                position: "absolute",
+                top: 0,
+                height: 56,
+                flexDirection: "row",
+                alignItems: "center",
+                // Match the sidebar brand row (gap 0) so the logo sits in the
+                // same spot when navigating between the sidebar and detail-view
+                // headers.
+                gap: 0,
+                zIndex: 128001,
+              },
+              isVodDetail
+                ? // Full-width liquid-glass bar the video scrolls under.
+                  ({
+                    left: 0,
+                    right: 0,
+                    paddingHorizontal: spacing[2],
+                    backgroundColor: "rgba(10,10,11,0.55)", // token-ok: glass tint
+                    backdropFilter: "blur(18px)",
+                    WebkitBackdropFilter: "blur(18px)",
+                    borderBottomWidth: 1,
+                    borderBottomColor: z.theme.colors.borderSubtle,
+                  } as any)
+                : { left: spacing[2] },
+            ]}
+          >
+            <SidebarToggle label="Open menu" onPress={sidebar.toggle} />
+            <LogoBrandMenu>
+              <Pressable
+                // @ts-ignore renders as <a> on web
+                href="/"
+                onPress={(e: any) => {
+                  e?.preventDefault?.();
+                  navigation.navigate("MainTabs" as any, {
+                    screen: "HomeTab",
+                    params: { screen: "HomeMain" },
+                  });
+                }}
+              >
+                <LogoLockup
+                size={19}
+                weight="semibold"
+                letterSpacing={0}
+                markColor={colors.white}
+                color={colors.white}
+              />
+              </Pressable>
+            </LogoBrandMenu>
+          </View>
+        )}
       <LoginModal
         visible={showLoginModal}
         onClose={closeLoginModal}

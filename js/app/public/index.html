@@ -7,7 +7,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="apple-itunes-app" content="app-id=6535653195" />
     <title>Streamplace</title>
     <meta
@@ -61,7 +61,11 @@
     </style>
     <style>
       body {
-        background-color: black;
+        /* surfaces.dark[0] — the app's base surface. The web nav container is
+           transparent (for OBS sourcing), so header/content scenes fall through
+           to the body; matching surface0 keeps them consistent with the
+           sidebar, which paints its own surface0 fill. */
+        background-color: #0a0a0b;
       }
     </style>
   </head>

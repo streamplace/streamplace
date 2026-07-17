@@ -6,13 +6,14 @@ import {
 import {
   Text,
   useDID,
-  useMainLogo,
   useSidebarBackgroundImage,
-  useSiteTitle,
   useTheme,
   useUrl,
   zero,
 } from "@streamplace/components";
+import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
+import { LogoLockup } from "components/brand/logo";
+import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
@@ -20,21 +21,66 @@ import {
   Book,
   Clapperboard,
   Download,
-  ExternalLink,
   Home,
+  Library,
   LogIn,
+  Menu,
+  Radio,
   Settings as SettingsIcon,
   ShieldQuestion,
-  Video,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Linking, Platform, Pressable } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import {
   getStreamplaceStateFromPath,
   streamplaceLinkingOptions,
 } from "src/linking-config";
+import { useStore } from "store";
 import SidebarItem from "./sidebar-item";
+
+/**
+ * Sidebar toggle — a hamburger/panel button styled to line its icon up with
+ * the nav item icons below it (YouTube-style), sitting left of the logo.
+ */
+export function SidebarToggle({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const [hover, setHover] = useState(false);
+  return (
+    <Pressable
+      onPress={onPress}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      accessibilityLabel={label}
+    >
+      <View
+        style={{
+          height: 36,
+          paddingHorizontal: spacing[3],
+          borderRadius: theme.borderRadius.md,
+          backgroundColor: hover ? theme.colors.surface1 : "transparent",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <View
+          style={{ width: 24, alignItems: "center", justifyContent: "center" }}
+        >
+          <Menu
+            size={24}
+            color={hover ? theme.colors.text1 : theme.colors.text2}
+          />
+        </View>
+      </View>
+    </Pressable>
+  );
+}
 
 function getActiveTabAndScreen(state: any): {
   tab: string | undefined;
@@ -87,31 +133,21 @@ export interface SidebarNavItem {
     | React.ComponentType<any>
     | React.ReactElement
     | (() => React.ReactElement);
-  label: React.ReactNode;
+  label: string;
   href: string;
   hidden?: boolean;
   matchPrefix?: string;
 }
 
-export interface ExternalSidebarItem {
-  icon:
-    | React.ComponentType<any>
-    | React.ReactElement
-    | (() => React.ReactElement);
-  label: React.ReactNode;
-  onPress: () => void;
-  href: string;
-  hidden?: boolean;
-}
-
 export function SidebarOverlay() {
   const sidebar = useSidebarControl();
+  const closeDrawer = useStore((state) => state.closeDrawer);
   const navigation = useNavigation();
   const { theme } = useTheme();
+  // The overlay drawer is always full-width; only the docked sidebar collapses.
+  const collapsed = sidebar.isCollapsed && !sidebar.overlay;
   const { isNative, isBrowser } = usePlatform();
   const streamplaceUrl = useUrl();
-  const nodeName = useSiteTitle() || "My Streamplace Station";
-  const mainLogo = useMainLogo();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
   const did = useDID();
 
@@ -141,6 +177,7 @@ export function SidebarOverlay() {
     return {
       minWidth: sidebar.animatedWidth.value,
       maxWidth: sidebar.animatedWidth.value,
+      transform: [{ translateX: sidebar.animatedTranslateX.value }],
     };
   });
 
@@ -149,84 +186,130 @@ export function SidebarOverlay() {
     return null;
   }
 
-  const foregroundColor = theme.colors.text || "#fff";
-
-  const navItems: SidebarNavItem[] = [
+  // Browse destinations — public, content-first, YouTube-style
+  const browseItems: SidebarNavItem[] = [
+    { icon: Home, label: "Home", href: "/" },
     {
-      icon: () => <Home color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Home</Text>,
-      href: "/",
-    },
-    {
-      icon: () => <Clapperboard color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Videos</Text>,
+      icon: Clapperboard,
+      label: "Videos",
       href: "/video",
       matchPrefix: "/video",
     },
+  ];
+
+  // Creator Dashboard — the creator-side counterparts to the public feed, under
+  // their own labeled section.
+  const creatorItems: SidebarNavItem[] = [
     {
-      icon: () => <ShieldQuestion color={foregroundColor} size={24} />,
-      label: <Text variant="h5">What's Streamplace?</Text>,
-      href: "/about",
-      hidden: isNative,
+      // Your content hub (My Videos / Livestreams / Drafts). Logged-in only.
+      icon: Library,
+      label: "My Videos",
+      href: "/upload/videos",
+      matchPrefix: "/upload",
+      hidden: !did,
     },
     {
-      icon: () => <Download color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Download</Text>,
-      href: "/download",
-      hidden: !isBrowser,
+      icon: Radio,
+      label: "Live streaming",
+      href: "/live",
+      // Creator Dashboard is logged-in only; with both items hidden the whole
+      // section (header included) collapses via the `some(!hidden)` guard below.
+      hidden: isNative || !did,
     },
+  ];
+
+  // You / meta destinations. Account lives under Settings, so it's dropped from
+  // the sidebar — this row is just the logged-out "Log in" entry.
+  const secondaryItems: SidebarNavItem[] = [
+    { icon: LogIn, label: "Log in", href: "/login", hidden: !!did },
     {
-      icon: () => <SettingsIcon color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Settings</Text>,
+      icon: SettingsIcon,
+      label: "Settings",
       href: "/settings",
       matchPrefix: "/settings",
     },
     {
-      icon: () => <Video color={foregroundColor} size={24} />,
-      label: <Text variant="h5">Live Dashboard</Text>,
-      href: "/live",
+      icon: ShieldQuestion,
+      label: "What's Streamplace?",
+      href: "/about",
       hidden: isNative,
     },
     {
-      icon: () => <LogIn color={foregroundColor} size={24} />,
-      label: <Text variant="h5">{did ? "Account" : "Login"}</Text>,
-      href: "/login",
+      icon: Download,
+      label: "Download",
+      href: "/download",
+      hidden: !isBrowser,
     },
   ];
 
   const u = new URL(streamplaceUrl);
   u.pathname = "/docs";
 
-  const externalItems: ExternalSidebarItem[] = [
-    {
-      icon: React.memo(() => <Book size={24} color={theme.colors.text} />),
-      label: (
-        <Text variant="h5" style={{ alignSelf: "flex-start" }}>
-          Documentation{" "}
-          <ExternalLink
-            size={16}
-            color={theme.colors.mutedForeground}
-            style={{
-              position: "relative",
-              top: 2,
-            }}
-          />
-        </Text>
-      ),
-      onPress: () => {
-        Linking.openURL(u.toString());
-      },
-      href: u.toString(),
-      hidden: !isBrowser,
-    },
-  ];
+  const navigate = (href: string) => {
+    closeDrawer();
+    const state = getStreamplaceStateFromPath(href);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: state.routes,
+      }),
+    );
+  };
+
+  // Quiet section label, Linear-style: title case, same 14px size as its items
+  // (the hierarchy comes from a muted color + medium weight, not a smaller
+  // size), no letter-spacing, left-rail aligned with the icons. Airy above,
+  // tight hug below. Collapsed to an icon rail, it degrades to a hairline.
+  const renderSectionHeader = (label: string) =>
+    collapsed ? (
+      <View
+        style={{
+          height: 1,
+          backgroundColor: theme.colors.borderSubtle,
+          marginVertical: spacing[2],
+          marginHorizontal: spacing[3],
+        }}
+      />
+    ) : (
+      <Text
+        weight="medium"
+        numberOfLines={1}
+        style={{
+          fontSize: 14,
+          lineHeight: 20,
+          color: theme.colors.text3,
+          paddingHorizontal: spacing[3],
+          marginTop: spacing[4],
+          marginBottom: spacing[2],
+        }}
+      >
+        {label}
+      </Text>
+    );
+
+  const renderItems = (items: SidebarNavItem[]) =>
+    items.map((item) => {
+      if (item.hidden) return null;
+      return (
+        <SidebarItem
+          key={item.href}
+          icon={item.icon}
+          href={item.href}
+          label={item.label}
+          active={isItemActive(item.href, item.matchPrefix)}
+          collapsed={collapsed}
+          onPress={(e) => {
+            e.preventDefault();
+            navigate(item.href);
+          }}
+        />
+      );
+    });
 
   return (
     <Animated.View
       style={[
         animatedSidebarStyle,
-        zero.p[2],
-        zero.gap.all[2],
         zero.layout.flex.column,
         {
           position: "absolute",
@@ -234,8 +317,10 @@ export function SidebarOverlay() {
           left: 0,
           bottom: 0,
           zIndex: 128000,
-          backgroundColor: theme.colors.background,
-          borderRightColor: theme.colors.border,
+          paddingHorizontal: spacing[2],
+          paddingBottom: spacing[3],
+          backgroundColor: theme.colors.surface0,
+          borderRightColor: theme.colors.borderSubtle,
           borderRightWidth: 1,
         },
       ]}
@@ -245,7 +330,6 @@ export function SidebarOverlay() {
           source={{ uri: sidebarBackgroundImageAsset.data }}
           contentFit="contain"
           style={{
-            //opacity: 0.3,
             position: "absolute",
             bottom: 0,
             left: 0,
@@ -260,87 +344,98 @@ export function SidebarOverlay() {
           }}
         />
       )}
-      <Pressable
-        // @ts-ignore renders as <a> on web
-        href="/"
+
+      {/* Brand row — toggle left of the logo, its icon aligned with the nav
+          icons below (YouTube-style). */}
+      <View
         style={[
           zero.layout.flex.row,
           zero.layout.flex.alignCenter,
-          zero.gap.all[3],
           {
-            marginTop: Platform.OS === "ios" ? 29 : 8,
-            marginBottom: 20,
-            paddingLeft: 11,
+            height: 56,
+            marginTop: Platform.OS === "ios" ? spacing[6] : 0,
+            marginBottom: spacing[2],
+            // No gap: the toggle's width equals a nav row's icon cluster, so
+            // butting the logo against it lands the mark on the nav-label
+            // column while the toggle icon stays aligned with the nav icons.
+            gap: 0,
           },
         ]}
-        onPress={(e) => {
-          e.preventDefault();
-          navigation.navigate("MainTabs", {
-            screen: "HomeTab",
-            params: { screen: "HomeMain" },
-          });
-          return;
-        }}
       >
-        {mainLogo ? (
-          <Image
-            source={{ uri: mainLogo }}
-            contentFit="contain"
-            style={{ width: 28, height: 30 }}
-          />
-        ) : (
-          <Image
-            source={require("../../assets/images/cube.png")}
-            contentFit="contain"
-            style={{ width: 28, height: 30 }}
-          />
+        <SidebarToggle
+          label={
+            sidebar.overlay
+              ? "Close menu"
+              : collapsed
+                ? "Expand sidebar"
+                : "Collapse sidebar"
+          }
+          onPress={sidebar.toggle}
+        />
+        {!collapsed && (
+          <LogoBrandMenu>
+            <Pressable
+              // @ts-ignore renders as <a> on web
+              href="/"
+              style={[zero.layout.flex.row, zero.layout.flex.alignCenter]}
+              onPress={(e) => {
+                e.preventDefault();
+                closeDrawer();
+                navigation.navigate("MainTabs", {
+                  screen: "HomeTab",
+                  params: { screen: "HomeMain" },
+                });
+              }}
+            >
+              <LogoLockup
+                size={19}
+                weight="semibold"
+                letterSpacing={0}
+                markColor={colors.white}
+                color={colors.white}
+              />
+            </Pressable>
+          </LogoBrandMenu>
         )}
-        {!sidebar.isCollapsed && <Text size="2xl">{nodeName}</Text>}
-      </Pressable>
+      </View>
 
-      {navItems.map((item, index) => {
-        if (item.hidden) return null;
-        return (
-          <SidebarItem
-            key={index}
-            icon={item.icon}
-            href={item.href}
-            label={item.label}
-            active={isItemActive(item.href, item.matchPrefix)}
-            collapsed={sidebar.isCollapsed}
-            onPress={(e) => {
-              e.preventDefault();
-              const state = getStreamplaceStateFromPath(item.href);
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: state.routes,
-                }),
-              );
-            }}
-            tint="rgba(189, 110, 134)"
-          />
-        );
-      })}
+      <View style={{ gap: 2 }}>{renderItems(browseItems)}</View>
 
-      {externalItems.map((item, index) => {
-        if (item.hidden) return null;
-        return (
+      {creatorItems.some((item) => !item.hidden) && (
+        <>
+          {renderSectionHeader("Creator Dashboard")}
+          <View style={{ gap: 2 }}>{renderItems(creatorItems)}</View>
+        </>
+      )}
+
+      {/* Hairline section divider */}
+      <View
+        style={{
+          height: 1,
+          backgroundColor: theme.colors.borderSubtle,
+          marginVertical: spacing[3],
+          marginHorizontal: spacing[3],
+        }}
+      />
+
+      <View style={{ gap: 2 }}>{renderItems(secondaryItems)}</View>
+
+      {/* Docs pinned to the bottom */}
+      {isBrowser && (
+        <View style={{ marginTop: "auto", gap: 2 }}>
           <SidebarItem
-            key={`external-${index}`}
-            icon={item.icon}
-            label={item.label}
-            href={item.href}
+            icon={Book}
+            href={u.toString()}
+            label="Documentation"
             active={false}
             collapsed={sidebar.isCollapsed}
             onPress={(e) => {
               e.preventDefault();
-              item.onPress();
+              Linking.openURL(u.toString());
             }}
-            tint="rgba(189, 110, 134)"
           />
-        );
-      })}
+        </View>
+      )}
     </Animated.View>
   );
 }

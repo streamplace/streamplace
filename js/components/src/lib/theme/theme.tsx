@@ -2,6 +2,7 @@ import { PortalHost } from "@rn-primitives/portal";
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -9,10 +10,16 @@ import {
 import { Platform, useColorScheme } from "react-native";
 import {
   animations,
+  borderAlphas,
   borderRadius,
   colors,
+  motion,
+  scrims,
   shadows,
   spacing,
+  statusColors,
+  surfaces,
+  textAlphas,
   touchTargets,
   typography,
 } from "./tokens";
@@ -97,6 +104,45 @@ export interface Theme {
     text: string;
     textMuted: string;
     textDisabled: string;
+
+    // Surface scale — base app background → raised → overlay → highest.
+    // Surfaces separate with hairline borders, not shadows.
+    surface0: string;
+    surface1: string;
+    surface2: string;
+    surface3: string;
+    surfaceHover: string;
+
+    // 4-step text scale: primary / secondary / tertiary / disabled
+    text1: string;
+    text2: string;
+    text3: string;
+    text4: string;
+
+    // Hairline borders (border = default strength)
+    borderSubtle: string;
+    borderStrong: string;
+
+    // LIVE — reserved for the live state, never errors
+    live: string;
+    liveDim: string;
+    liveForeground: string;
+
+    // Modal scrim + focus ring
+    overlay: string;
+    focus: string;
+
+    // Danger (alias family of destructive, tuned per scheme)
+    danger: string;
+    // Low-alpha danger tint for red-ink destructive button hover/press
+    dangerSoft: string;
+
+    // Ink & Paper — the monochrome high-contrast pole, theme-adaptive.
+    // `inverse` is the primary-button fill (Paper on dark, Ink on light);
+    // `inverseForeground` is the text/icon on it. Contrast, not hue, carries
+    // primary emphasis — indigo is reserved for state (see `accent`/`primary`).
+    inverse: string;
+    inverseForeground: string;
   };
   spacing: typeof spacing;
   borderRadius: typeof borderRadius;
@@ -104,6 +150,7 @@ export interface Theme {
   shadows: typeof shadows;
   touchTargets: typeof touchTargets;
   animations: typeof animations;
+  motion: typeof motion;
 }
 
 // Theme-aware zero interface (like atoms but with theme colors)
@@ -186,11 +233,16 @@ const createThemeColors = (
     baseColors = generateThemeColorsFromPalette(defaultPalette, isDark);
   }
 
-  // Merge with custom color overrides if provided
-  return {
+  // Merge with custom color overrides if provided. Focus rings follow the
+  // ring color so broadcaster branding recolors them too.
+  const merged = {
     ...baseColors,
     ...colorTheme,
   };
+  if (colorTheme?.ring && !colorTheme.focus) {
+    merged.focus = colorTheme.ring;
+  }
+  return merged;
 };
 
 // Create theme-aware zero tokens using pairify
@@ -320,53 +372,102 @@ function isColorPalette(
   return "50" in input && "100" in input && "950" in input;
 }
 
-// Helper function to generate Theme["colors"] from ColorPalette
+// Helper function to generate Theme["colors"] from ColorPalette.
+// The neutral chrome (surfaces, text, borders) comes from the fixed
+// dark-first design tokens; the palette parameter is kept for API
+// compatibility with consumers passing custom palettes and only tints
+// palette-derived slots (secondary/muted/input).
 function generateThemeColorsFromPalette(
   palette: ColorPalette,
   isDark: boolean,
 ): Theme["colors"] {
+  const surface = isDark ? surfaces.dark : surfaces.light;
+  const text = isDark ? textAlphas.dark : textAlphas.light;
+  const border = isDark ? borderAlphas.dark : borderAlphas.light;
+  const status = isDark ? statusColors.dark : statusColors.light;
+  const isDefaultPalette = palette === colors.neutral;
+
   return {
-    background: isDark ? palette[950] : colors.white,
-    foreground: isDark ? palette[50] : palette[950],
+    background: surface[0],
+    foreground: text[1],
 
-    card: isDark ? palette[900] : colors.white,
-    cardForeground: isDark ? palette[50] : palette[950],
+    card: surface[1],
+    cardForeground: text[1],
 
-    popover: isDark ? palette[900] : colors.white,
-    popoverForeground: isDark ? palette[50] : palette[950],
+    popover: surface[2],
+    popoverForeground: text[1],
 
-    primary:
-      Platform.OS === "ios" ? colors.ios.systemBlue : colors.primary[500],
+    // One accent, used sparingly. (No per-platform accent split — the
+    // product looks the same everywhere.)
+    primary: colors.primary[500],
     primaryForeground: colors.white,
 
-    secondary: isDark ? palette[800] : palette[100],
-    secondaryForeground: isDark ? palette[50] : palette[900],
+    secondary: isDefaultPalette
+      ? surface[2]
+      : isDark
+        ? palette[800]
+        : palette[100],
+    secondaryForeground: text[1],
 
-    muted: isDark ? palette[800] : palette[100],
-    mutedForeground: isDark ? palette[400] : palette[500],
+    muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
+    mutedForeground: text[2],
 
-    accent: isDark ? palette[800] : palette[100],
-    accentForeground: isDark ? palette[50] : palette[900],
+    accent: isDefaultPalette
+      ? surface[2]
+      : isDark
+        ? palette[800]
+        : palette[100],
+    accentForeground: text[1],
 
-    destructive: colors.destructive[700],
+    destructive: status.danger,
     destructiveForeground: colors.white,
 
-    success: colors.success[700],
-    successForeground: colors.white,
+    success: status.success,
+    successForeground: isDark ? surfaces.dark[0] : colors.white,
 
-    warning: colors.warning[700],
-    warningForeground: colors.white,
+    warning: status.warning,
+    warningForeground: isDark ? surfaces.dark[0] : colors.white,
 
-    info: colors.blue[700],
-    infoForeground: isDark ? palette[50] : palette[900],
+    info: colors.primary[isDark ? 400 : 600],
+    infoForeground: text[1],
 
-    border: isDark ? palette[500] + "30" : palette[200] + "30",
-    input: isDark ? palette[800] : palette[200],
-    ring: Platform.OS === "ios" ? colors.ios.systemBlue : colors.primary[500],
+    border: border.default,
+    input: surface[1],
+    ring: colors.primary[500],
 
-    text: isDark ? palette[50] : palette[950],
-    textMuted: isDark ? palette[400] : palette[500],
-    textDisabled: isDark ? palette[600] : palette[400],
+    text: text[1],
+    textMuted: text[2],
+    textDisabled: text[4],
+
+    // New-scale tokens
+    surface0: surface[0],
+    surface1: surface[1],
+    surface2: surface[2],
+    surface3: surface[3],
+    surfaceHover: surface[3],
+
+    text1: text[1],
+    text2: text[2],
+    text3: text[3],
+    text4: text[4],
+
+    borderSubtle: border.subtle,
+    borderStrong: border.strong,
+
+    live: statusColors.live,
+    liveDim: statusColors.liveDim,
+    liveForeground: colors.white,
+
+    overlay: isDark ? scrims.dark : scrims.light,
+    focus: colors.primary[500],
+
+    danger: status.danger,
+    dangerSoft: status.dangerSoft,
+
+    // Paper on dark, Ink on light — the opposite scheme's raised surface, with
+    // the current scheme's base surface as its text.
+    inverse: (isDark ? surfaces.light : surfaces.dark)[1],
+    inverseForeground: surface[0],
   };
 }
 
@@ -421,6 +522,7 @@ export function ThemeProvider({
       shadows,
       touchTargets,
       animations,
+      motion,
     };
   }, [isDark, lightTheme, darkTheme, colorTheme]);
 
@@ -477,6 +579,25 @@ export function ThemeProvider({
 
   const parentTheme = useContext(ThemeContext);
   const isRoot = !parentTheme;
+
+  // Web keyboard navigation: one global :focus-visible rule (2px ring,
+  // 2px offset) instead of per-component focus tracking. Mouse/touch
+  // interactions don't show the ring; keyboard focus always does.
+  useEffect(() => {
+    if (!isRoot || Platform.OS !== "web" || typeof document === "undefined") {
+      return;
+    }
+    let el = document.getElementById("sp-focus-ring");
+    if (!el) {
+      el = document.createElement("style");
+      el.id = "sp-focus-ring";
+      document.head.appendChild(el);
+    }
+    el.textContent = [
+      `:focus { outline: none; }`,
+      `:focus-visible { outline: 2px solid ${theme.colors.focus}; outline-offset: 2px; }`,
+    ].join("\n");
+  }, [isRoot, theme.colors.focus]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -538,6 +659,7 @@ export const lightTheme: Theme = {
   shadows,
   touchTargets,
   animations,
+  motion,
 };
 
 export const darkTheme: Theme = {
@@ -548,6 +670,7 @@ export const darkTheme: Theme = {
   shadows,
   touchTargets,
   animations,
+  motion,
 };
 
 // Export individual theme utilities for convenience

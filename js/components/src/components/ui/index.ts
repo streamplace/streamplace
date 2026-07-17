@@ -6,10 +6,13 @@ export * from "./primitives/text";
 
 // Export styled components
 export * from "./admonition";
+export * from "./avatar";
+export * from "./badge";
 export * from "./button";
 export * from "./checkbox";
 export * from "./dialog";
 export * from "./dropdown";
+export * from "./icon-button";
 export * from "./icons";
 export * from "./info-box";
 export * from "./info-row";
@@ -18,8 +21,13 @@ export * from "./loader";
 export * from "./menu";
 export * from "./portal";
 export * from "./resizeable";
+export * from "./segmented-tabs";
 export * from "./select";
+export * from "./skeleton";
 export * from "./slider";
+export * from "./surface";
+export * from "./switch";
+export * from "./tabs";
 export * from "./text";
 export * from "./textarea";
 export * from "./toast";

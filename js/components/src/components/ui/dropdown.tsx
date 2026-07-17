@@ -37,6 +37,12 @@ import {
   TextContext as TextClassContext,
 } from "./primitives/text";
 import { Text } from "./text";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -189,6 +195,61 @@ export const DropdownMenuSubContent = forwardRef<
   },
 );
 
+// The floating menu surface: refined radius + a deep soft shadow, and a
+// spring-eased scale/fade/rise on open so it grows out of its trigger instead
+// of popping in. Shared by every dropdown in the app.
+function AnimatedDropdownPanel({
+  children,
+  style,
+  maxHeight,
+}: {
+  children: React.ReactNode;
+  style?: any;
+  maxHeight: number;
+}) {
+  const { theme } = useTheme();
+  const c = theme.colors;
+  const progress = useSharedValue(0);
+  React.useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: 190,
+      easing: Easing.bezier(0.16, 1, 0.3, 1),
+    });
+  }, []);
+  const animated = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [
+      { scale: 0.95 + 0.05 * progress.value },
+      { translateY: -8 * (1 - progress.value) },
+    ],
+  }));
+  return (
+    <Animated.View
+      style={[
+        {
+          maxWidth: 400,
+          maxHeight,
+          overflow: "hidden",
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: c.borderStrong,
+          backgroundColor: c.popover,
+          ...a.shadows.xl,
+          shadowOpacity: 0.5,
+          shadowRadius: 30,
+          shadowOffset: { width: 0, height: 16 },
+          // web-only: grow out of the trigger corner
+          transformOrigin: "top right" as any,
+        },
+        animated,
+        style,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 export const DropdownMenuContent = forwardRef<
   any,
   DropdownMenuPrimitive.ContentProps & {
@@ -209,7 +270,6 @@ export const DropdownMenuContent = forwardRef<
         `[data-portal-host="${portalHost}"]`,
       );
       setPortalContainer(element);
-      console.log("set portal container to", element);
     }
   }, [portalHost]);
 
@@ -232,25 +292,21 @@ export const DropdownMenuContent = forwardRef<
             [
               a.zIndex[50],
               a.sizes.minWidth[64],
-              a.sizes.maxWidth[64],
-              { maxHeight: maxHeight },
-              a.overflow.hidden,
-              a.radius.all.md,
-              a.borders.width.thin,
-              zt.border.default,
-              zt.bg.popover,
-              p[2],
-              a.shadows.md,
-              style,
+              { backgroundColor: "transparent" },
             ] as any
           }
           {...props}
         >
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {typeof children === "function"
-              ? children({ pressed: false })
-              : children}
-          </ScrollView>
+          <AnimatedDropdownPanel maxHeight={maxHeight} style={style}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={p[2]}
+            >
+              {typeof children === "function"
+                ? children({ pressed: false })
+                : children}
+            </ScrollView>
+          </AnimatedDropdownPanel>
         </DropdownMenuPrimitive.Content>
       </DropdownMenuPrimitive.Overlay>
     </DropdownMenuPrimitive.Portal>
@@ -338,11 +394,45 @@ export const ResponsiveDropdownMenuContent = forwardRef<
 
 export const DropdownMenuItem = forwardRef<
   any,
-  DropdownMenuPrimitive.ItemProps & { inset?: boolean; disabled?: boolean }
->(({ inset, disabled, style, children, ...props }, ref) => {
+  DropdownMenuPrimitive.ItemProps & {
+    inset?: boolean;
+    disabled?: boolean;
+    onFocus?: (e: any) => void;
+    onBlur?: (e: any) => void;
+    // Opt out of the built-in row fill for items that paint their own hover
+    // background (e.g. the Create / account menus with icon-recoloring rows).
+    noHighlight?: boolean;
+  }
+>(
+  (
+    { inset, disabled, style, children, onFocus, onBlur, noHighlight, ...props },
+    ref,
+  ) => {
   const { theme } = useTheme();
+  const c = theme.colors;
+  // Highlight the row on hover and on keyboard focus. Radix moves DOM focus to
+  // whichever item the pointer is over (roving focus), so a single `active`
+  // flag covers both mouse and keyboard, and the surface fill replaces the
+  // global :focus-visible outline that would otherwise draw an indigo ring.
+  const [active, setActive] = React.useState(false);
+  const highlight = active && !disabled && !noHighlight;
   return (
-    <DropdownMenuPrimitive.Item ref={ref} {...props}>
+    <DropdownMenuPrimitive.Item
+      ref={ref}
+      // Flatten to a single style object: on web this style is forwarded
+      // straight to a DOM node (via Radix asChild/Slot), and React DOM throws
+      // "Indexed property setter is not supported" if handed a style array.
+      style={StyleSheet.flatten([{ outlineStyle: "none" }, style]) as any}
+      onFocus={(e: any) => {
+        setActive(true);
+        onFocus?.(e);
+      }}
+      onBlur={(e: any) => {
+        setActive(false);
+        onBlur?.(e);
+      }}
+      {...props}
+    >
       <TextClassContext.Provider
         value={objectFromObjects([
           { color: theme.colors.popoverForeground },
@@ -350,6 +440,8 @@ export const DropdownMenuItem = forwardRef<
         ])}
       >
         <View
+          onPointerEnter={() => setActive(true)}
+          onPointerLeave={() => setActive(false)}
           style={[
             a.layout.flex.row,
             a.layout.flex.alignCenter,
@@ -357,6 +449,7 @@ export const DropdownMenuItem = forwardRef<
             py[1],
             pl[2],
             pr[2],
+            { backgroundColor: highlight ? c.surface3 : "transparent" },
           ]}
         >
           {typeof children === "function" ? (
@@ -372,7 +465,8 @@ export const DropdownMenuItem = forwardRef<
       </TextClassContext.Provider>
     </DropdownMenuPrimitive.Item>
   );
-});
+  },
+);
 
 export const DropdownMenuCheckboxItem = forwardRef<
   any,

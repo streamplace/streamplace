@@ -96,19 +96,19 @@ function createStyles(
   const sizeStyles = {
     sm: {
       checkboxSize: 16,
-      borderRadius: 2,
+      borderRadius: theme.borderRadius.sm,
       padding: theme.spacing[1],
       gap: theme.spacing[1],
     },
     md: {
       checkboxSize: 20,
-      borderRadius: 4,
+      borderRadius: theme.borderRadius.sm,
       padding: theme.spacing[1],
       gap: theme.spacing[1],
     },
     lg: {
       checkboxSize: 24,
-      borderRadius: 6,
+      borderRadius: theme.borderRadius.sm,
       padding: theme.spacing[1],
       gap: theme.spacing[2],
     },

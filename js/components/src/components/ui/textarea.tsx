@@ -4,12 +4,14 @@ import {
 } from "@gorhom/bottom-sheet";
 import * as React from "react";
 import { Platform, TextInput, type TextInputProps } from "react-native";
-import { bg, borders, flex, p, text } from "../../lib/theme/atoms";
+import { flex, p } from "../../lib/theme/atoms";
+import { borderRadius, fontFamilies, typeScale } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
 
 const Textarea = React.forwardRef<TextInput, TextInputProps>(
   ({ style, multiline = true, numberOfLines = 4, ...props }, ref) => {
     let th = useTheme();
+    const [focused, setFocused] = React.useState(false);
     // Detect if we're inside a bottom sheet
     let isInBottomSheet = false;
     try {
@@ -31,13 +33,20 @@ const Textarea = React.forwardRef<TextInput, TextInputProps>(
         ref={ref as any}
         style={[
           flex.values[1],
-          borders.width.thin,
-          borders.color.gray[400],
-          bg.gray[900],
           p[3],
-          text.gray[200],
+          {
+            borderWidth: 1,
+            borderColor: focused
+              ? th.theme.colors.ring
+              : th.theme.colors.border,
+            backgroundColor: th.theme.colors.input,
+            color: th.theme.colors.text1,
+            borderRadius: borderRadius.md,
+            // ≥16px so mobile web browsers don't zoom on focus
+            fontSize: typeScale.md.fontSize,
+            fontFamily: fontFamilies.regular,
+          },
           props.editable === false && { opacity: 0.5 },
-          { borderRadius: 10 },
           style,
         ]}
         autoComplete={props.autoComplete || "off"}
@@ -45,8 +54,16 @@ const Textarea = React.forwardRef<TextInput, TextInputProps>(
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical="top"
-        placeholderTextColor={th.theme.colors.textMuted}
+        placeholderTextColor={th.theme.colors.text3}
         {...props}
+        onFocus={(e) => {
+          setFocused(true);
+          props.onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          props.onBlur?.(e);
+        }}
       />
     );
   },

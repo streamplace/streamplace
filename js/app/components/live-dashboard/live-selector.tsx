@@ -4,6 +4,7 @@ import { flex } from "@streamplace/components/src/ui";
 import Loading from "components/loading/loading";
 import { Camera, FerrisWheel } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
+import { Linking, Pressable } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 import { StreamKeyScreen } from "./stream-key";
@@ -65,9 +66,20 @@ export default function StreamScreen({ route }) {
           >
             ← Back
           </Button>
-          <Text variant="h4" weight="bold">
-            Stream from OBS
-          </Text>
+          <View align="center">
+            <Text variant="h4" weight="bold">
+              Stream from OBS
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL("https://obsproject.com/")}
+            >
+              <Text
+                style={{ color: "#0066cc", textDecorationLine: "underline" }}
+              >
+                obsproject.com
+              </Text>
+            </Pressable>
+          </View>
           <Button variant="ghost" width="min" style={{ opacity: 0 }}>
             ← Back
           </Button>

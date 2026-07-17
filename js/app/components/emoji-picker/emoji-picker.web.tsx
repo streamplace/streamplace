@@ -1,4 +1,5 @@
 import { hexToRgba, Text, useAQState, useTheme } from "@streamplace/components";
+import { motion, scrims } from "@streamplace/components/src/lib/theme/tokens";
 import {
   EmojiPicker as FrimousseEmojiPicker,
   SkinTone,
@@ -62,6 +63,7 @@ interface SkinTonePickerOpen {
 }
 
 export function SkinToneTray({ open, setOpen }: SkinTonePickerOpen) {
+  const { theme } = useTheme();
   const [aqSkinTone, setAQSkinTone] = useAQState(
     "emoji-picker-tone",
     "none" as SkinTone,
@@ -83,11 +85,11 @@ export function SkinToneTray({ open, setOpen }: SkinTonePickerOpen) {
         overflow: "hidden",
         maxHeight: open ? 48 : 0,
         opacity: open ? 1 : 0,
-        transition: "max-height 0.2s ease, opacity 0.15s ease",
+        transition: `max-height ${motion.base}ms ease, opacity ${motion.fast}ms ease`,
         display: "flex",
         gap: 4,
         padding: open ? "6px 8px" : "0 8px",
-        borderTop: open ? "1px solid rgba(255,255,255,0.07)" : "none",
+        borderTop: open ? `1px solid ${theme.colors.borderSubtle}` : "none",
       }}
     >
       {skinToneVariations.map((variation) => (
@@ -100,11 +102,11 @@ export function SkinToneTray({ open, setOpen }: SkinTonePickerOpen) {
             borderRadius: 6,
             border:
               skinTone === variation.skinTone
-                ? "1px solid rgba(255,255,255,0.35)"
-                : "1px solid rgba(255,255,255,0.08)",
+                ? `1px solid ${theme.colors.ring}`
+                : `1px solid ${theme.colors.border}`,
             background:
               skinTone === variation.skinTone
-                ? "rgba(255,255,255,0.15)"
+                ? theme.colors.surfaceHover
                 : "transparent",
             cursor: "pointer",
             fontSize: 18,
@@ -121,6 +123,7 @@ export function SkinToneTray({ open, setOpen }: SkinTonePickerOpen) {
 }
 
 export function SkinToneTrigger({ open, setOpen }: SkinTonePickerOpen) {
+  const { theme } = useTheme();
   const [aqSkinTone] = useAQState("emoji-picker-tone", "none" as SkinTone);
   const [, , skinToneVariations] = useSkinTone("👋");
   const current =
@@ -136,9 +139,9 @@ export function SkinToneTrigger({ open, setOpen }: SkinTonePickerOpen) {
         alignItems: "center",
         gap: 4,
         padding: "2px 4px",
-        border: "1px solid rgba(255,255,255,0.08)",
+        border: `1px solid ${theme.colors.border}`,
         borderRadius: 6,
-        background: open ? "rgba(255,255,255,0.1)" : "transparent",
+        background: open ? theme.colors.surface2 : "transparent",
         cursor: "pointer",
         fontSize: 18,
         flexShrink: 0,
@@ -150,8 +153,8 @@ export function SkinToneTrigger({ open, setOpen }: SkinTonePickerOpen) {
           fontSize: 9,
           transform: open ? "rotate(180deg)" : "rotate(0deg)",
           display: "inline-block",
-          transition: "transform 0.2s ease",
-          color: "grey",
+          transition: `transform ${motion.base}ms ease`,
+          color: theme.colors.text3,
         }}
       >
         <ChevronUp />
@@ -274,7 +277,7 @@ export function EmojiPicker({
         borderRadius: 12,
         overflow: "hidden",
         backgroundColor: theme.colors.background,
-        boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
+        boxShadow: `0 4px 24px ${scrims.light}`,
       }}
     >
       {customEmoji.length > 0 && (
@@ -290,7 +293,7 @@ export function EmojiPicker({
               display: "block",
               fontSize: 11,
               fontWeight: 600,
-              color: "rgba(255,255,255,0.4)",
+              color: theme.colors.text3,
               textTransform: "uppercase",
               letterSpacing: "0.05em",
               padding: "4px 4px 8px",
@@ -324,7 +327,7 @@ export function EmojiPicker({
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
-                    "rgba(255,255,255,0.1)";
+                    theme.colors.surfaceHover;
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLButtonElement).style.background =
@@ -361,9 +364,9 @@ export function EmojiPicker({
             margin: "10px 10px 4px 10px",
             padding: "6px 10px",
             borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.1)",
-            background: "rgba(255,255,255,0.07)",
-            color: "white",
+            border: `1px solid ${theme.colors.borderStrong}`,
+            background: theme.colors.input,
+            color: theme.colors.text1,
             fontSize: 13,
             outline: "none",
             width: "calc(100% - 16px - 10px)",
@@ -392,7 +395,7 @@ export function EmojiPicker({
                 border: "none",
                 background:
                   activeCategory === i
-                    ? "rgba(255,255,255,0.12)"
+                    ? theme.colors.surfaceHover
                     : "transparent",
                 cursor: "pointer",
                 display: "flex",
@@ -400,9 +403,9 @@ export function EmojiPicker({
                 justifyContent: "center",
                 color:
                   activeCategory === i
-                    ? "rgba(255,255,255,0.9)"
-                    : "rgba(255,255,255,0.4)",
-                transition: "color 0.15s ease, background 0.15s ease",
+                    ? theme.colors.text1
+                    : theme.colors.text3,
+                transition: `color ${motion.fast}ms ease, background ${motion.fast}ms ease`,
               }}
             >
               <Icon size={16} />
@@ -420,7 +423,7 @@ export function EmojiPicker({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "rgba(255,255,255,0.4)",
+              color: theme.colors.text3,
               fontSize: 13,
             }}
           >
@@ -433,7 +436,7 @@ export function EmojiPicker({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "rgba(255,255,255,0.4)",
+              color: theme.colors.text3,
               fontSize: 13,
             }}
           >

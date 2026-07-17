@@ -36,7 +36,7 @@ export default function Poller({ children }: { children: React.ReactNode }) {
         liveUsersLoading: true,
       });
       try {
-        const res = await agent.place.stream.live.getLiveUsers();
+        const res = await agent.place.stream.live.getLiveUsers({ limit: 50 });
         setLiveUsers({
           liveUsers: res.data.streams || [],
           liveUsersLoading: false,

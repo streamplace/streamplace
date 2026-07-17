@@ -42,6 +42,9 @@ export interface StreamplaceState {
   liveUsersLoading: boolean;
   liveUsersError: string | null;
   oauthSession: SessionManager | null | undefined;
+  // Injected by the app: prompt the user to log in (opens the login modal).
+  // Lets components (comments, likes, chat) gate actions behind auth.
+  onNeedsLogin: (() => void) | null;
   handle: string | null;
   chatProfile: PlaceStreamChatProfile.Record | null;
 
@@ -124,6 +127,7 @@ export const makeStreamplaceStore = ({
     liveUsersLoading: true,
     liveUsersError: null,
     oauthSession: null,
+    onNeedsLogin: null,
     handle: null,
     chatProfile: null,
     ingests: null,
@@ -347,6 +351,8 @@ export function useStreamplaceStore<U>(
 export const useUrl = () => useStreamplaceStore((x) => x.url);
 
 export const useDID = () => useStreamplaceStore((x) => x.oauthSession?.did);
+export const useOnNeedsLogin = () =>
+  useStreamplaceStore((x) => x.onNeedsLogin);
 
 export const useHandle = () => useStreamplaceStore((x) => x.handle);
 export const useSetHandle = (): ((handle: string) => void) => {

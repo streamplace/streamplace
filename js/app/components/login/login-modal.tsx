@@ -21,7 +21,7 @@ export default function LoginModal({
   onClose,
   onOpenPdsModal,
 }: LoginModalProps) {
-  const { theme, zero: z } = useTheme();
+  const { theme } = useTheme();
 
   if (!visible) {
     return null;
@@ -42,7 +42,7 @@ export default function LoginModal({
           zero.layout.flex.alignCenter,
           zero.layout.flex.justifyCenter,
           {
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            backgroundColor: theme.colors.overlay,
             position: "absolute",
             top: 0,
             left: 0,
@@ -55,10 +55,17 @@ export default function LoginModal({
       >
         <Pressable
           style={[
-            z.bg.card,
             zero.r.xl,
             zero.p[6],
-            { width: 600, maxWidth: "95%", maxHeight: "85%" },
+            {
+              backgroundColor: theme.colors.surface2,
+              borderWidth: 1,
+              borderColor: theme.colors.borderStrong,
+              width: 600,
+              maxWidth: "95%",
+              maxHeight: "85%",
+              ...theme.shadows.xl,
+            },
           ]}
           onPress={(e) => e.stopPropagation()}
         >
@@ -77,7 +84,7 @@ export default function LoginModal({
               onPress={onClose}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <X color="#888" size={24} />
+              <X color={theme.colors.text3} size={24} />
             </TouchableOpacity>
           </View>
 

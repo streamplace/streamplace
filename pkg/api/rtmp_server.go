@@ -46,6 +46,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	session := &media.RTMPSession{
 		EventChan:   make(chan any, 1024),
 		MediaSigner: mediaSigner,
+		VideoTracks: map[uint8]*format.H264{},
 	}
 	a.rtmpSessionsLock.Lock()
 	a.rtmpSessions[streamer] = session
@@ -66,22 +67,33 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		return err
 	}
 
+	// eRTMP multitrack (OBS "Multitrack Video"): accept any number of H.264
+	// video tracks, each a rendition of the same content. Session-local track
+	// IDs are assigned in wire order (gortmplib sorts tracks by wire track ID).
+	// Audio stays single-track AAC; other codecs are rejected for now.
+	videoTrackCount := 0
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
 		switch track := track.(type) {
 		case *format.H264:
-			session.VideoTrack = track
+			trackID := uint8(videoTrackCount)
+			videoTrackCount++
+			session.VideoTracks[trackID] = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
+				// log.Log(ctx, "got H264", "track", trackID, "len", len(au), "pts", pts, "dts", dts)
 				session.EventChan <- &media.RTMPH264Data{
-					AU:  au,
-					PTS: pts,
-					DTS: dts,
+					TrackID: trackID,
+					AU:      au,
+					PTS:     pts,
+					DTS:     dts,
 				}
 			})
 
 		case *format.MPEG4Audio:
+			if session.AudioTrack != nil {
+				return fmt.Errorf("multitrack audio is not supported (send a single AAC audio track)")
+			}
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
 				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
@@ -92,8 +104,11 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 			})
 
 		default:
-			return fmt.Errorf("unsupported track type: %T", track)
+			return fmt.Errorf("unsupported track type: %T (multitrack ingest supports H.264 video + AAC audio only)", track)
 		}
+	}
+	if videoTrackCount == 0 {
+		return fmt.Errorf("no video track found")
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -114,7 +129,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	g.Go(func() error {
-		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner)
+		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, videoTrackCount)
 	})
 
 	return g.Wait()
@@ -132,9 +147,24 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		return fmt.Errorf("RTMP session not found for streamer %s", streamer)
 	}
 
+	// Video tracks first, in session track-ID order — gortmplib assigns wire
+	// track IDs by slice position, so this keeps relay IDs identical to the
+	// session's (track 0 is written as a legacy tag, 1..N as multitrack).
+	tracks := make([]format.Format, 0, len(session.VideoTracks)+1)
+	for i := 0; i < len(session.VideoTracks); i++ {
+		track, ok := session.VideoTracks[uint8(i)]
+		if !ok {
+			return fmt.Errorf("missing video track %d", i)
+		}
+		tracks = append(tracks, track)
+	}
+	if session.AudioTrack != nil {
+		tracks = append(tracks, session.AudioTrack)
+	}
+
 	w := &gortmplib.Writer{
 		Conn:   sc,
-		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
+		Tracks: tracks,
 	}
 	err := w.Initialize()
 	if err != nil {
@@ -150,7 +180,11 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:
-				err := w.WriteH264(session.VideoTrack, event.PTS, event.DTS, event.AU)
+				track, ok := session.VideoTracks[event.TrackID]
+				if !ok {
+					return fmt.Errorf("unknown video track ID: %d", event.TrackID)
+				}
+				err := w.WriteH264(track, event.PTS, event.DTS, event.AU)
 				if err != nil {
 					return fmt.Errorf("error writing H264: %w", err)
 				}

@@ -106,7 +106,11 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	}
 	var allRenditions renditions.Renditions
 
-	if ss.cli.LivepeerGatewayURL != "" {
+	// eRTMP multitrack sources carry their own client-encoded renditions — the
+	// tracks ARE the rendition ladder, so the node skips transcode rendition
+	// generation for them and just names each source track below.
+	multitrack := len(spseg.Video) > 1
+	if ss.cli.LivepeerGatewayURL != "" && !multitrack {
 		allRenditions, err = renditions.GenerateRenditions(spseg)
 	} else {
 		allRenditions = []renditions.Rendition{}
@@ -120,13 +124,9 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	dur := time.Duration(*spseg.Duration)
 	byteLen := len(notif.Data)
 	bitrate := int(float64(byteLen) / dur.Seconds() * 8)
-	sourceRendition := renditions.Rendition{
-		Name:    "source",
-		Bitrate: bitrate,
-		Width:   spseg.Video[0].Width,
-		Height:  spseg.Video[0].Height,
-	}
-	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
+
+	sourceRenditions := renditions.BuildSourceRenditions(spseg, bitrate)
+	allRenditions = append(sourceRenditions, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
 	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
@@ -307,7 +307,9 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 	ss.UpdateViewCount(ctx)
 
-	if ss.cli.LivepeerGatewayURL != "" {
+	// eRTMP multitrack sources bring their own rendition ladder — no
+	// node-side video transcode for them.
+	if ss.cli.LivepeerGatewayURL != "" && len(spseg.Video) <= 1 {
 		ss.Go(ctx, func() error {
 			start := time.Now()
 			err := ss.Transcode(ctx, spseg, notif.Data)

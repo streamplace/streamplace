@@ -230,11 +230,12 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		}()
 	}
 
-	signerElem, done, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest), onSegment)
-	if err != nil {
-		return fmt.Errorf("build signer element: %w", err)
+	// The signing element is built by the pipeline once matroskademux has
+	// probed the track layout (N video pads for eRTMP multitrack pushes).
+	makeSigner := func(videoTrackCount int) (*gst.Element, <-chan struct{}, error) {
+		return muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, getManifest), onSegment, videoTrackCount)
 	}
-	pipeline, err := buildMKVIngestPipeline(ctx, media, signerElem)
+	pipeline, done, err := buildMKVIngestPipeline(ctx, media, makeSigner)
 	if err != nil {
 		return fmt.Errorf("build pipeline: %w", err)
 	}

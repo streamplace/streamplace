@@ -52,6 +52,7 @@ export function ContextMenu({
   const mode = usePlayerStore((x) => x.mode);
   const vodLevels = usePlayerStore((x) => x.vodLevels);
   const playingVODRendition = usePlayerStore((x) => x.playingVODRendition);
+  const playingLiveRendition = usePlayerStore((x) => x.playingLiveRendition);
   const liveRenditions = useLivestreamStore((x) => x.renditions);
   const qualities = mode === "vod" ? vodLevels : liveRenditions;
 
@@ -253,13 +254,15 @@ export function ContextMenu({
               >
                 <Text>Quality</Text>
                 <Text muted size={isMobile ? "base" : "sm"}>
-                  {quality === "source"
-                    ? mode === "vod"
-                      ? `Auto${playingVODRendition ? ` (${playingVODRendition})` : ""}\n`
-                      : `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
-                    : quality === "audio"
-                      ? `Audio Only\n`
-                      : quality}
+                  {quality === "auto"
+                    ? `Auto${mode !== "vod" && playingLiveRendition ? ` (${playingLiveRendition})` : ""}\n`
+                    : quality === "source"
+                      ? mode === "vod"
+                        ? `Auto${playingVODRendition ? ` (${playingVODRendition})` : ""}\n`
+                        : `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
+                      : quality === "audio"
+                        ? `Audio Only\n`
+                        : quality}
                   {mode !== "vod" && lowLatency ? "Low Latency" : ""}
                 </Text>
               </View>
@@ -270,6 +273,11 @@ export function ContextMenu({
                   value={quality}
                   onValueChange={setQuality}
                 >
+                  {mode !== "vod" && (
+                    <DropdownMenuRadioItem value="auto">
+                      <Text>Auto</Text>
+                    </DropdownMenuRadioItem>
+                  )}
                   <DropdownMenuRadioItem value="source">
                     <Text>Source {resolutionDisplay}</Text>
                   </DropdownMenuRadioItem>

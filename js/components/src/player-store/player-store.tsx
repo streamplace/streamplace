@@ -32,6 +32,9 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     playingVODRendition: null,
     setPlayingVODRendition: (playingVODRendition) =>
       set(() => ({ playingVODRendition })),
+    playingLiveRendition: null,
+    setPlayingLiveRendition: (playingLiveRendition) =>
+      set(() => ({ playingLiveRendition })),
 
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>

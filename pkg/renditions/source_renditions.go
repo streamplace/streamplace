@@ -32,11 +32,14 @@ func BuildSourceRenditions(spseg *placestream.Segment, bitrate int) []Rendition 
 		if rank != 0 {
 			base := fmt.Sprintf("source-%dp", v.Height)
 			name = base
-			if count, used := usedNames[base]; used {
+			if count := usedNames[base]; count > 0 {
 				name = fmt.Sprintf("%s-%d", base, count+1)
 			}
+			// The counter lives on the base name, so a third same-height track
+			// keeps incrementing (source-720p, source-720p-2, source-720p-3) —
+			// keying it on the suffixed name restarts the count each time.
+			usedNames[base]++
 		}
-		usedNames[name] = usedNames[name] + 1
 		r := Rendition{
 			Name:   name,
 			Width:  v.Width,

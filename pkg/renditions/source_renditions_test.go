@@ -45,4 +45,16 @@ func TestBuildSourceRenditions(t *testing.T) {
 		// the second 720p track gets the counter suffix
 		require.Contains(t, names, "source-720p-2")
 	})
+
+	t.Run("third same-height track keeps incrementing", func(t *testing.T) {
+		spseg := &placestream.Segment{Video: []placestream.Segment_Video{vid(1920, 1080), vid(1280, 720), vid(720, 720), vid(640, 720)}}
+		rs := BuildSourceRenditions(spseg, 0)
+		require.Len(t, rs, 4)
+		require.Equal(t, "source", rs[0].Name)
+		names := []string{rs[1].Name, rs[2].Name, rs[3].Name}
+		require.Contains(t, names, "source-720p")
+		require.Contains(t, names, "source-720p-2")
+		// regression: the counter previously restarted, colliding with -2
+		require.Contains(t, names, "source-720p-3")
+	})
 }

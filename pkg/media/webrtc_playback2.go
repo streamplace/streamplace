@@ -79,9 +79,7 @@ func handleRenditionSwapRequest(ctx context.Context, dc *webrtc.DataChannel, dat
 // enqueued but not yet played; the writer goroutine decrements it.
 func pumpSegments(ctx context.Context, mm *MediaManager, user string, initial string, viewer string, swapCh <-chan renditionSwap, latency *atomic.Int64, out chan<- *bus.PacketizedSegment) {
 	current := initial
-	// buffer 2 on join so playback can start instantly; on swap we want the
-	// live edge only, not the new rendition's recent history
-	segChan := mm.bus.SubscribeSegmentBuf(ctx, user, current, 2)
+	segChan := mm.bus.SubscribeSegment(ctx, user, current)
 	defer func() { mm.bus.UnsubscribeSegment(ctx, user, current, segChan) }()
 	forward := func(file *bus.Seg) bool {
 		if !file.Published && viewer != user && !mm.cli.WideOpen {
@@ -114,7 +112,7 @@ func pumpSegments(ctx context.Context, mm *MediaManager, user string, initial st
 			default:
 			}
 			current = sw.name
-			segChan = mm.bus.SubscribeSegmentBuf(ctx, user, current, 0)
+			segChan = mm.bus.SubscribeSegment(ctx, user, current)
 			sw.ack <- nil
 			log.Log(ctx, "switched playback rendition", "user", user, "rendition", sw.name)
 		case file := <-segChan.C:

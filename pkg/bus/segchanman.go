@@ -45,7 +45,9 @@ func (b *Bus) SubscribeSegment(ctx context.Context, user string, rendition strin
 }
 
 // get a channel to subscribe to new segments for a given user and rendition,
-// starting with bufSize cached segments that we already have
+// starting with bufSize cached segments that we already have. The channel is
+// buffered (chanSize) and preloaded with the cached segments, oldest first, so
+// a new player joins with a warmup buffer instead of at the bare live edge.
 func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition string, bufSize int) *SegChan {
 	key := segChanKey(user, rendition)
 	b.segChansMutex.Lock()
@@ -55,17 +57,16 @@ func (b *Bus) SubscribeSegmentBuf(ctx context.Context, user string, rendition st
 		chs = []*SegChan{}
 		b.segChans[key] = chs
 	}
-	ch := make(chan *Seg)
+	ch := make(chan *Seg, chanSize)
 	b.segBufMutex.RLock()
 	defer b.segBufMutex.RUnlock()
 	curBuf, ok := b.segBuf[key]
-	myCh := make(chan *Seg, chanSize)
 	if ok {
 		if bufSize > len(curBuf) {
 			bufSize = len(curBuf)
 		}
 		for i := 0; i < bufSize; i += 1 {
-			myCh <- curBuf[len(curBuf)-bufSize+i]
+			ch <- curBuf[len(curBuf)-bufSize+i]
 		}
 	}
 	segChan := &SegChan{C: ch, Context: ctx}
@@ -94,6 +95,11 @@ func (b *Bus) UnsubscribeSegment(ctx context.Context, user string, rendition str
 	b.segChans[key] = chs
 }
 
+// PublishSegment fans a segment out to every subscriber of the user+rendition
+// and folds it into the replay buffer new subscribers warm up from. Delivery
+// order per subscriber is always publish call order: sends are non-blocking
+// into buffered channels under the publish mutex, with no per-publish
+// goroutines that could complete out of order.
 func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string, seg *Seg) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "PublishSegment")
 	defer span.End()
@@ -117,16 +123,25 @@ func (b *Bus) PublishSegment(ctx context.Context, user string, rendition string,
 		return
 	}
 	for _, ch := range chs {
-		go func(segChan *SegChan) {
+		// Non-blocking under the publish mutex: subscriber channels are
+		// buffered, so delivery order is always publish order. A subscriber a
+		// full buffer behind loses its oldest queued segment instead of the
+		// live edge — with ordered delivery a skip recovers at the next
+		// keyframe, while falling ever further behind does not.
+		select {
+		case ch.C <- seg:
+		default:
 			select {
-			case segChan.C <- seg:
-			case <-segChan.Context.Done():
-				return
-			case <-time.After(1 * time.Minute):
-				log.Warn(ctx, "failed to send segment to channel, timing out", "user", user, "rendition", rendition)
+			case <-ch.C:
+			default:
 			}
-
-		}(ch)
+			select {
+			case ch.C <- seg:
+			default:
+			}
+			spmetrics.SegmentPublishDropped.WithLabelValues(user, rendition).Inc()
+			log.Warn(ctx, "subscriber a full buffer behind, dropped its oldest segment", "user", user, "rendition", rendition)
+		}
 	}
 }
 

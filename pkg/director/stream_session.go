@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
@@ -63,10 +64,19 @@ type StreamSession struct {
 	g          *errgroup.Group
 	started    chan struct{}
 	ctx        context.Context
-	packets    []bus.PacketizedSegment
 	statefulDB *statedb.StatefulDB
 	replicator replication.Replicator
 	atsync     *atproto.ATProtoSynchronizer
+
+	// playbackWorkers holds one ordered packetize+publish queue per rendition.
+	// Packetizing a segment spins up a full gst pipeline (~100-400ms, high
+	// variance); feeding segments to subscribers from per-segment goroutines
+	// let segment N+1 publish before segment N, which WebRTC playback — a
+	// strict arrival-order consumer — showed as frame loss at every keyframe.
+	playbackWorkers   map[string]chan playbackJob
+	playbackWorkersMu sync.Mutex
+	// addToWebRTCFn is a test seam; nil means AddToWebRTC.
+	addToWebRTCFn func(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error
 
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
@@ -274,13 +284,11 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
-	ss.Go(ctx, func() error {
-		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath:  notif.Segment.ID,
-			Data:      notif.Data,
-			Muxl:      notif.Muxl,
-			Published: notif.Metadata.Published,
-		})
+	ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
+		Filepath:  notif.Segment.ID,
+		Data:      notif.Data,
+		Muxl:      notif.Muxl,
+		Published: notif.Metadata.Published,
 	})
 
 	if notif.Local {
@@ -875,22 +883,86 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 		if err != nil {
 			return fmt.Errorf("failed to write transcoded segment file: %w", err)
 		}
-		ss.Go(ctx, func() error {
-			return ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{
-				Filepath: fd.Name(),
-				Data:     seg,
-			})
+		// NOTE: renditions from concurrent Transcode calls can still enqueue
+		// out of segment order (transcode latency varies per segment); the
+		// ordered worker only guarantees publish order == enqueue order.
+		ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{
+			Filepath: fd.Name(),
+			Data:     seg,
 		})
 
 	}
 	return nil
 }
 
-func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
-	ss.Go(ctx, func() error {
-		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
-	})
-	return nil
+// playbackJob is one segment awaiting packetization + publish on its
+// rendition's ordered queue. ctx is the caller's (director) context — it
+// outlives the session's own cancellation so queued segments can still be
+// packetized while the worker drains on shutdown.
+type playbackJob struct {
+	ctx       context.Context
+	spseg     *placestream.Segment
+	rendition string
+	seg       *bus.Seg
+}
+
+// AddPlaybackSegment queues a segment for packetization + publish to playback
+// subscribers. Each rendition has its own queue and worker, so publish order
+// always equals enqueue order and one rendition's backlog never delays
+// another's. A full queue (packetize wedged for dozens of segments) drops the
+// incoming segment rather than blocking the director's segment loop.
+func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) {
+	ss.playbackWorkersMu.Lock()
+	if ss.playbackWorkers == nil {
+		ss.playbackWorkers = map[string]chan playbackJob{}
+	}
+	q, ok := ss.playbackWorkers[rendition]
+	if !ok {
+		q = make(chan playbackJob, 64)
+		ss.playbackWorkers[rendition] = q
+		ss.g.Go(func() error {
+			return ss.playbackWorker(ss.ctx, rendition, q)
+		})
+	}
+	ss.playbackWorkersMu.Unlock()
+	select {
+	case q <- playbackJob{ctx: ctx, spseg: spseg, rendition: rendition, seg: seg}:
+	case <-ss.ctx.Done():
+	default:
+		spmetrics.PlaybackQueueDropped.WithLabelValues(spseg.Creator, rendition).Inc()
+		log.Error(ctx, "playback queue full, dropping segment", "rendition", rendition, "segID", seg.Filepath)
+	}
+}
+
+// playbackWorker packetizes and publishes one rendition's segments one at a
+// time, in queue order. On session teardown it drains the queue before
+// exiting so the stream's tail still publishes.
+func (ss *StreamSession) playbackWorker(ctx context.Context, rendition string, q chan playbackJob) error {
+	for {
+		select {
+		case <-ctx.Done():
+			for {
+				select {
+				case job := <-q:
+					ss.processPlaybackJob(job)
+				default:
+					return nil
+				}
+			}
+		case job := <-q:
+			ss.processPlaybackJob(job)
+		}
+	}
+}
+
+func (ss *StreamSession) processPlaybackJob(job playbackJob) {
+	fn := ss.addToWebRTCFn
+	if fn == nil {
+		fn = ss.AddToWebRTC
+	}
+	if err := fn(job.ctx, job.spseg, job.rendition, job.seg); err != nil {
+		log.Error(job.ctx, "error in playback worker", "error", err, "rendition", job.rendition)
+	}
 }
 
 func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {

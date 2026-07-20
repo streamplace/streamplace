@@ -103,6 +103,11 @@ var SegmentPublishDropped = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "segments dropped for a subscriber whose queue was a full buffer behind",
 }, []string{"streamer", "rendition"})
 
+var PlaybackQueueDropped = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_playback_queue_dropped_total",
+	Help: "playback segments dropped because the session's packetize queue was full",
+}, []string{"streamer", "rendition"})
+
 var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_labeler_firehoses_connected",
 	Help: "number of currently connected labeler firehoses",

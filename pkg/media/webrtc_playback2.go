@@ -151,7 +151,7 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				}
 			}()
 
-			var scalar float64 = 1
+			var scalar float64
 
 			for {
 				select {
@@ -161,63 +161,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					latency -= packet.Duration
 					scalar = getPlaybackRate(latency)
 					log.Debug(ctx, "playback latency", "latency", latency, "scalar", scalar)
-					var videoDur time.Duration
-					var audioDur time.Duration
-					if len(packet.Video) > 0 {
-						videoDur = packet.Duration / time.Duration(len(packet.Video))
-					}
-					if len(packet.Audio) > 0 {
-						audioDur = packet.Duration / time.Duration(len(packet.Audio))
-					}
-					g, _ := errgroup.WithContext(ctx)
-
-					if !audioOnly && videoDur > 0 {
-						g.Go(func() error {
-							ticker := time.NewTicker(time.Duration(float64(videoDur) * (1 / scalar)))
-							defer ticker.Stop()
-							for _, video := range packet.Video {
-								err := videoTrack.WriteSample(media.Sample{Data: video, Duration: videoDur})
-								if err != nil {
-									return fmt.Errorf("failed to write video sample: %w", err)
-								}
-
-								select {
-								case <-ctx.Done():
-									return nil
-								case <-ticker.C:
-									continue
-								}
-							}
-							return nil
-						})
-					} else if !audioOnly {
-						log.Warn(ctx, "no video samples to write")
-					}
-					if audioDur > 0 {
-						g.Go(func() error {
-							ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
-							defer ticker.Stop()
-							for _, audio := range packet.Audio {
-								err := audioTrack.WriteSample(media.Sample{Data: audio, Duration: audioDur})
-								if err != nil {
-									return fmt.Errorf("failed to write audio sample: %w", err)
-								}
-								select {
-								case <-ctx.Done():
-									return nil
-								case <-ticker.C:
-									continue
-								}
-							}
-							return nil
-						})
-
-						if err := g.Wait(); err != nil {
-							log.Error(ctx, "failed to write samples", "error", err)
-							cancel()
-						}
-					} else {
-						log.Warn(ctx, "no audio samples to write")
+					if err := writePacketizedSegment(ctx, packet, videoTrack, audioTrack, audioOnly, scalar); err != nil {
+						log.Error(ctx, "failed to write samples", "error", err)
+						cancel()
 					}
 				}
 			}
@@ -292,4 +238,72 @@ func getPlaybackRate(dur time.Duration) float64 {
 		progress := (float64(dur) - float64(7*time.Second)) / (float64(60*time.Second) - float64(7*time.Second))
 		return 1.0 + (0.5 * progress)
 	}
+}
+
+// sampleTrack is the subset of *webrtc.TrackLocalStaticSample the playback
+// writer needs, abstracted so tests can observe write timing.
+type sampleTrack interface {
+	WriteSample(sample media.Sample) error
+}
+
+// writePacketizedSegment writes one segment's video and audio samples to their
+// tracks, paced by the segment's per-sample durations (sped up by scalar when
+// draining a backlog). It returns only after every sample is written: the
+// caller pulls the next segment the moment it returns, so returning early
+// would interleave two GoPs' frames into one RTP track.
+func writePacketizedSegment(ctx context.Context, packet *bus.PacketizedSegment, videoTrack, audioTrack sampleTrack, audioOnly bool, scalar float64) error {
+	var videoDur time.Duration
+	var audioDur time.Duration
+	if len(packet.Video) > 0 {
+		videoDur = packet.Duration / time.Duration(len(packet.Video))
+	}
+	if len(packet.Audio) > 0 {
+		audioDur = packet.Duration / time.Duration(len(packet.Audio))
+	}
+	g, _ := errgroup.WithContext(ctx)
+
+	if !audioOnly && videoDur > 0 {
+		g.Go(func() error {
+			ticker := time.NewTicker(time.Duration(float64(videoDur) * (1 / scalar)))
+			defer ticker.Stop()
+			for _, video := range packet.Video {
+				err := videoTrack.WriteSample(media.Sample{Data: video, Duration: videoDur})
+				if err != nil {
+					return fmt.Errorf("failed to write video sample: %w", err)
+				}
+
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					continue
+				}
+			}
+			return nil
+		})
+	} else if !audioOnly {
+		log.Warn(ctx, "no video samples to write")
+	}
+	if audioDur > 0 {
+		g.Go(func() error {
+			ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
+			defer ticker.Stop()
+			for _, audio := range packet.Audio {
+				err := audioTrack.WriteSample(media.Sample{Data: audio, Duration: audioDur})
+				if err != nil {
+					return fmt.Errorf("failed to write audio sample: %w", err)
+				}
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-ticker.C:
+					continue
+				}
+			}
+			return nil
+		})
+	} else {
+		log.Warn(ctx, "no audio samples to write")
+	}
+	return g.Wait()
 }

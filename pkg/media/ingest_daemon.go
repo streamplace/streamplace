@@ -296,6 +296,15 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 		_ = proc.Kill()
 	})
 
+	// Same kill semantics as the ban watch above: a newer push for this
+	// streamer replaces this session, and replacement wants the old worker
+	// (and its media connection) dead, not just unconsumed.
+	release := mm.ClaimIngestSession(ms.Streamer(), func(reason string) {
+		log.Warn(ctx, "detached ingest worker: ending stream", "reason", reason, "streamer", ms.Streamer())
+		_ = proc.Kill()
+	})
+	defer release()
+
 	// Refresh the worker's manifest from live model state (pre-live → live), since
 	// it signs with a frozen one otherwise. Fixed start for stable change detection.
 	start := time.Now().UnixMilli()
@@ -473,6 +482,14 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 					log.Warn(wctx, "resumed ingest worker: ending stream", "reason", reason, "streamer", meta.StreamerDID)
 					killWorkerPID(wctx, meta.PID, meta.StreamerDID)
 				})
+				// Re-arm one-session-per-streamer for the resumed worker too (a
+				// metadata-less worker can't be killed by PID, so it can't be
+				// deduped this way).
+				release := mm.ClaimIngestSession(meta.StreamerDID, func(reason string) {
+					log.Warn(wctx, "resumed ingest worker: ending stream", "reason", reason, "streamer", meta.StreamerDID)
+					killWorkerPID(wctx, meta.PID, meta.StreamerDID)
+				})
+				defer release()
 				// Keep refreshing the resumed worker's manifest too (no signer needed —
 				// streamerManifest only uses the model + cli + the sidecar DID).
 				start := time.Now().UnixMilli()

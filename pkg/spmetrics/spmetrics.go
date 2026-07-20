@@ -108,6 +108,11 @@ var PlaybackQueueDropped = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "playback segments dropped because the session's packetize queue was full",
 }, []string{"streamer", "rendition"})
 
+var IngestSessionsReplaced = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_ingest_sessions_replaced_total",
+	Help: "ingest sessions ended because a newer push for the same streamer arrived",
+}, []string{"streamer"})
+
 var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_labeler_firehoses_connected",
 	Help: "number of currently connected labeler firehoses",

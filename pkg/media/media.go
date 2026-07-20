@@ -85,6 +85,12 @@ type MediaManager struct {
 	// the restarted media timeline into the previous session's continuous encoder.
 	// See withIngestSession / feedStreamTranscoder.
 	ingestSessionSeq atomic.Uint64
+
+	// ingestSessions is the registry enforcing one live ingest session per
+	// streamer: a new push for a DID ends the previous session. Keyed by
+	// repoDID. See ingest_session.go.
+	ingestSessions   map[string]*ingestSession
+	ingestSessionsMu sync.Mutex
 }
 
 // nextIngestSession claims a fresh monotonic ingest-session epoch for a new live

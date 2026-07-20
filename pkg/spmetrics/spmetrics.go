@@ -98,6 +98,11 @@ var SegmentSubscriptionsOpen = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Help: "number of open new segment subscriptions",
 }, []string{"streamer", "rendition"})
 
+var SegmentPublishDropped = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_segment_publish_dropped_total",
+	Help: "segments dropped for a subscriber whose queue was a full buffer behind",
+}, []string{"streamer", "rendition"})
+
 var LabelerFirehosesConnected = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name: "streamplace_labeler_firehoses_connected",
 	Help: "number of currently connected labeler firehoses",

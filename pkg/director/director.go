@@ -76,7 +76,6 @@ func (d *Director) Start(ctx context.Context) error {
 					bus:         d.bus,
 					segmentChan: make(chan struct{}),
 					op:          d.op,
-					packets:     make([]bus.PacketizedSegment, 0),
 					started:     make(chan struct{}),
 					statefulDB:  d.statefulDB,
 					replicator:  d.replicator,

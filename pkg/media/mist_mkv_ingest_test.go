@@ -184,7 +184,6 @@ func TestMKVIngestDualVideoTrack(t *testing.T) {
 	t.Logf("dual-video-track stream: %d segments", segs)
 }
 
-
 // TestMKVIngestMistMetadataTrack: MistServer's MKV push declares a
 // live-metadata track (CodecID M_JSON, TrackType 3) as track 1, ahead of the
 // AAC audio and H264 video tracks. It was the initial suspect for the

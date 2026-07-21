@@ -3,6 +3,7 @@ package media
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -27,7 +28,7 @@ func makeNoVUIH264(t *testing.T, frames int) []byte {
 	gstinit.InitGST()
 	ctx := context.Background()
 	pipeline, err := gst.NewPipelineFromString(
-		"videotestsrc num-buffers=60 ! video/x-raw,width=2560,height=1440,framerate=60/1 ! x264enc tune=zerolatency key-int-max=60 ! video/x-h264,stream-format=byte-stream ! appsink name=sink sync=false")
+		fmt.Sprintf("videotestsrc num-buffers=%d ! video/x-raw,width=2560,height=1440,framerate=60/1 ! x264enc tune=zerolatency key-int-max=60 ! video/x-h264,stream-format=byte-stream ! appsink name=sink sync=false", frames))
 	require.NoError(t, err)
 	sinkEle, err := pipeline.GetElementByName("sink")
 	require.NoError(t, err)
@@ -149,4 +150,56 @@ func TestH264TimestamperMaxReorderFramesOverride(t *testing.T) {
 	for i, d := range forced {
 		require.Equal(t, 0.0, d, "frame %d: forced no-reorder must give DTS = PTS", i)
 	}
+}
+
+// makeBFrameH264 encodes a real B-frame stream (bframes=2) whose SPS carries
+// a bitstream_restriction_flag with num_reorder_frames. The override must NOT
+// fire for these streams — they need their SPS-derived reorder window.
+func makeBFrameH264(t *testing.T, frames int) []byte {
+	t.Helper()
+	gstinit.InitGST()
+	ctx := context.Background()
+	pipeline, err := gst.NewPipelineFromString(
+		fmt.Sprintf("videotestsrc num-buffers=%d ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc bframes=2 b-adapt=false key-int-max=30 speed-preset=veryfast ! video/x-h264,stream-format=byte-stream ! appsink name=sink sync=false", frames))
+	require.NoError(t, err)
+	sinkEle, err := pipeline.GetElementByName("sink")
+	require.NoError(t, err)
+	var out bytes.Buffer
+	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &out),
+	})
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NoError(t, <-busErr)
+	require.NotEmpty(t, out.Bytes())
+	return out.Bytes()
+}
+
+// max-reorder-frames=0 must only affect streams whose SPS lacks a
+// bitstream_restriction_flag. B-frame streams with valid VUI (x264 bframes=2)
+// keep their SPS-derived reorder window even with the property set to 0.
+func TestH264TimestamperMaxReorderFramesPreservesBFrames(t *testing.T) {
+	bytestream := makeBFrameH264(t, 90)
+
+	// Without the override: the SPS declares num_reorder_frames, so the
+	// timestamper should reconstruct a nonzero DTS offset (DTS < PTS).
+	auto := timestamperDeltas(t, bytestream, "")
+	require.NotEmpty(t, auto)
+	autoMax := 0.0
+	for _, d := range auto {
+		autoMax = math.Max(autoMax, d)
+	}
+	require.Greater(t, autoMax, 0.0, "B-frame stream has nonzero reorder offset without override")
+
+	// With the override set to 0: B-frame streams with valid VUI must be
+	// untouched — the reorder window stays SPS-derived, not forced to 0.
+	forced := timestamperDeltas(t, bytestream, "max-reorder-frames=0")
+	require.NotEmpty(t, forced)
+	forcedMax := 0.0
+	for _, d := range forced {
+		forcedMax = math.Max(forcedMax, d)
+	}
+	require.Greater(t, forcedMax, 0.0, "B-frame stream with valid VUI must not be overridden by max-reorder-frames=0")
 }

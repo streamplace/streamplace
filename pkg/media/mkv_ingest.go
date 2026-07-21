@@ -99,8 +99,11 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 	// by a guessed framerate) on streams that never actually reorder. That
 	// offset shifts every GoP's presentation past the flat wrap's edit-list
 	// window, and WebRTC packetize dropped the tail of every segment (frame
-	// loss at every keyframe). B-frames are not supported here, so no stream
-	// should ever get a reorder window.
+	// loss at every keyframe). The vendored property only overrides the
+	// reorder window for SPS that lack a bitstream_restriction_flag (the VUI
+	// field carrying num_reorder_frames); B-frame streams with valid VUI are
+	// left untouched and keep their SPS-derived reorder window (see
+	// TestMKVIngestBFramesValidate).
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
 		"demux. ! " + constants.Queue2Big + " ! h264parse ! h264timestamper max-reorder-frames=0 name=videoout",

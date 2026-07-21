@@ -51,7 +51,9 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 	// h264timestamper gets max-reorder-frames=0 (a streamplace vendored
 	// property) for the same reason as in buildMKVIngestPipeline: its SPS
 	// fallback otherwise invents a reorder delay for no-VUI (VideoToolbox)
-	// streams.
+	// streams. The property only overrides the reorder window when the SPS
+	// lacks a bitstream_restriction_flag; B-frame streams with valid VUI
+	// (num_reorder_frames) are untouched.
 	pipelineSlice := []string{
 		"multiqueue name=queue",
 		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper max-reorder-frames=0 ! identity ! queue.sink_0",

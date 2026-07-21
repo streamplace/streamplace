@@ -22,14 +22,9 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	}
 	if shouldRecord {
 		log.Log(ctx, "recording RTMP stream to file", "streamer", ms.Streamer())
-		pr, pw := io.Pipe()
-		input = io.TeeReader(input, pw)
-		go func() {
-			err := mm.dumpToFile(ctx, pr, ms.Streamer(), ".rtmp.mkv")
-			if err != nil {
-				log.Error(ctx, "error dumping to file", "error", err)
-			}
-		}()
+		var finalize func()
+		input, finalize = mm.recordTee(ctx, input, ms.Streamer(), ".rtmp.mkv")
+		defer finalize()
 	} else {
 		log.Log(ctx, "not recording RTMP stream to file", "streamer", ms.Streamer())
 	}
@@ -125,6 +120,38 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 		return nil, err
 	}
 	return pipeline, nil
+}
+
+// debugRecordingFlushTimeout bounds how long ingest teardown waits for a debug
+// recording to finalize — for S3 the commit only happens at Close, so an
+// unbounded wait could wedge teardown while an unwaited exit loses the object.
+const debugRecordingFlushTimeout = 30 * time.Second
+
+// recordTee wires up a debug recording: everything read through the returned
+// reader is teed into an asynchronous dumpToFile. The returned finalize ends
+// the dump (closing the tee's pipe — the dump's io.Copy never sees EOF
+// otherwise, since a TeeReader doesn't propagate one) and waits, bounded, for
+// it to commit. Callers MUST finalize after ingest ends: on the S3 path the
+// object only exists once Close commits the upload, so skipping it (e.g. a
+// worker process exiting) silently loses the recording.
+func (mm *MediaManager) recordTee(ctx context.Context, r io.Reader, user string, filesuffix string) (io.Reader, func()) {
+	pr, pw := io.Pipe()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if err := mm.dumpToFile(ctx, pr, user, filesuffix); err != nil {
+			log.Error(ctx, "error dumping to file", "error", err, "streamer", user)
+		}
+	}()
+	finalize := func() {
+		pw.Close()
+		select {
+		case <-done:
+		case <-time.After(debugRecordingFlushTimeout):
+			log.Error(ctx, "debug recording did not finalize in time", "streamer", user)
+		}
+	}
+	return io.TeeReader(r, pw), finalize
 }
 
 func (mm *MediaManager) dumpToFile(ctx context.Context, r io.Reader, user string, filesuffix string) error {

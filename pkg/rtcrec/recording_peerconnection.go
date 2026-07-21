@@ -3,6 +3,7 @@ package rtcrec
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -13,10 +14,12 @@ import (
 )
 
 type RecordingPeerConnection struct {
-	enabled bool
-	pionpc  *webrtc.PeerConnection
-	file    config.DebugRecordingFile
-	stream  *RecorderStream
+	enabled   bool
+	pionpc    *webrtc.PeerConnection
+	file      config.DebugRecordingFile
+	stream    *RecorderStream
+	closeOnce sync.Once
+	recDone   chan struct{} // closed once the recording file/upload is committed
 }
 
 func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string, pionpc *webrtc.PeerConnection, enabled bool) (PeerConnection, error) {
@@ -43,6 +46,7 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		file:    f,
 		stream:  stream,
 		enabled: enabled,
+		recDone: make(chan struct{}),
 	}, nil
 }
 
@@ -53,13 +57,42 @@ func (pc *RecordingPeerConnection) Do(f func()) {
 }
 
 func (pc *RecordingPeerConnection) Close() error {
-	pc.Do(func() {
+	pc.Do(pc.finishRecording)
+	return pc.pionpc.Close()
+}
+
+// finishRecording drains stragglers, commits the recording (for S3, Close IS
+// the commit), and signals recDone. Idempotent — Close on the disconnect path
+// and FinalizeRecording at worker exit can both trigger it.
+func (pc *RecordingPeerConnection) finishRecording() {
+	pc.closeOnce.Do(func() {
 		// This is sloppy but there might be other goroutines still writing so let's chill for a sec
 		time.Sleep(10 * time.Second)
 		pc.file.Close()
+		close(pc.recDone)
 	})
-	return pc.pionpc.Close()
 }
+
+// FinalizeRecording blocks until the debug recording is committed (bounded).
+// Call it before process exit on paths like the WHIP ingest worker: Close only
+// *starts* the drain+commit on a goroutine, and a process that exits first
+// strands an uncommitted S3 upload — the object never appears. No-op when not
+// recording.
+func (pc *RecordingPeerConnection) FinalizeRecording(ctx context.Context) {
+	if !pc.enabled {
+		return
+	}
+	go pc.finishRecording() // in case nothing called Close (e.g. pipeline error)
+	select {
+	case <-pc.recDone:
+	case <-time.After(recordingFinalizeTimeout):
+		log.Error(ctx, "debug recording did not finalize in time", "file", pc.file.Name())
+	}
+}
+
+// recordingFinalizeTimeout bounds FinalizeRecording: the 10s straggler drain in
+// finishRecording plus generous headroom for the S3 commit.
+const recordingFinalizeTimeout = 40 * time.Second
 
 func (pc *RecordingPeerConnection) CreateAnswer(options *webrtc.AnswerOptions) (webrtc.SessionDescription, error) {
 	now := time.Now()

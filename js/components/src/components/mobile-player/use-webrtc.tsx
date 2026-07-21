@@ -65,11 +65,29 @@ export default function useWebRTC(
   const liveRenditionsRef = useRef(liveRenditions);
   liveRenditionsRef.current = liveRenditions;
 
-  // Leaving auto mode: throw away ABR bookkeeping and the menu readout.
+  // Leaving auto mode: throw away ABR bookkeeping and the menu readout. If
+  // ABR had moved the server to a different rendition, request a switch back
+  // to the now-manually-selected rendition over the data channel — the
+  // connection effect won't re-run (auto and source both map to "source"),
+  // so without this the server keeps streaming the ABR-selected rendition
+  // while the UI shows the manual choice.
   useEffect(() => {
-    if (selectedRendition !== "auto") {
-      abrStateRef.current = null;
-      setPlayingLiveRendition(null);
+    if (selectedRendition === "auto") {
+      return;
+    }
+    abrStateRef.current = null;
+    setPlayingLiveRendition(null);
+    const target =
+      selectedRendition === "source" ? "source" : selectedRendition;
+    if (actualRenditionRef.current !== target) {
+      const channel = renditionChannelRef.current;
+      if (channel?.readyState === "open") {
+        try {
+          channel.send(JSON.stringify({ rendition: target }));
+        } catch (e) {
+          console.warn(`[webrtc-abr] could not send manual switch: ${e}`);
+        }
+      }
     }
   }, [selectedRendition, setPlayingLiveRendition]);
 

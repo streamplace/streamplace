@@ -257,14 +257,16 @@ export function decideRendition(
 
   // 2) Down-switch: the current rendition isn't getting through. Candidates
   //    are strictly below the current rendition — a lossy connection must
-  //    never "down-switch" to a higher rung.
+  //    never "down-switch" to a higher rung. When the current rendition
+  //    isn't in the ladder at all (e.g. an unknown name from the server),
+  //    treat it as the top so every rung is a candidate.
   if (lossy || starving) {
     let candidates: AbrRenditionInfo[];
     if (state.current === "source") {
       candidates = rungs;
     } else {
       const idx = rungs.findIndex((r) => r.name === state.current);
-      candidates = idx > 0 ? rungs.slice(0, idx) : [];
+      candidates = idx > 0 ? rungs.slice(0, idx) : rungs;
     }
     let target: string | null = null;
     if (state.deliveredEma !== null) {

@@ -86,3 +86,26 @@ func TestPumpSegmentsRenditionSwitch(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 	}
 }
+
+func TestValidRenditionName(t *testing.T) {
+	tests := []struct {
+		name string
+		want bool
+	}{
+		{"source", true},
+		{"1080p", true},
+		{"720p", true},
+		{"360p", true},
+		{"240p", true},
+		{"160p", true},
+		{"", false},
+		{"audio", false},
+		{"bogus", false},
+		{"SOURCE", false},
+		{"720p ", false},
+	}
+	for _, tc := range tests {
+		got := validRenditionName(tc.name)
+		require.Equal(t, tc.want, got, "validRenditionName(%q)", tc.name)
+	}
+}

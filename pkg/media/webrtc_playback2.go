@@ -24,6 +24,24 @@ type renditionSwap struct {
 	ack  chan error
 }
 
+// validRenditionName reports whether name is a rendition the playback path
+// could actually be producing for a stream: "source" or one of the
+// configured transcoded rendition names. This is defense-in-depth against
+// typos or arbitrary strings sent over the data channel, which would
+// otherwise subscribe to a bus key that never receives segments and stall
+// playback silently.
+func validRenditionName(name string) bool {
+	if name == "source" {
+		return true
+	}
+	for _, r := range renditions.DesiredRenditions {
+		if r.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 // handleRenditionSwapRequest processes one client's request (over the playback
 // data channel) to switch the rendition being forwarded. Replies on the same
 // channel with {"rendition": ..., "applied": true} or {"error": ...}.
@@ -50,6 +68,10 @@ func handleRenditionSwapRequest(ctx context.Context, dc *webrtc.DataChannel, dat
 	}
 	if req.Rendition == "" || req.Rendition == renditions.AudioRendition.Name {
 		reply(map[string]string{"error": fmt.Sprintf("invalid rendition %q", req.Rendition)})
+		return
+	}
+	if !validRenditionName(req.Rendition) {
+		reply(map[string]string{"error": fmt.Sprintf("unknown rendition %q", req.Rendition)})
 		return
 	}
 	ack := make(chan error, 1)

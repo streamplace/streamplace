@@ -48,9 +48,13 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return nil, fmt.Errorf("failed to add video transceiver: %w", err)
 	}
 
+	// h264timestamper gets max-reorder-frames=0 (a streamplace vendored
+	// property) for the same reason as in buildMKVIngestPipeline: its SPS
+	// fallback otherwise invents a reorder delay for no-VUI (VideoToolbox)
+	// streams.
 	pipelineSlice := []string{
 		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
+		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper max-reorder-frames=0 ! identity ! queue.sink_0",
 		"appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse ! queue.sink_1",
 	}
 

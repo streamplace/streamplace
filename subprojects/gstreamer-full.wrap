@@ -2,3 +2,4 @@
 url = https://gitlab.freedesktop.org/iameli/gstreamer.git
 revision = 627ce52e1735b08ca49ca3a18bce60becd5d1a80
 depth = 1
+patch_directory = gstreamer-full-patches

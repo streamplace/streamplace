@@ -91,9 +91,19 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 	// which downstream makes qtdemux EOS the audio pad early and every segment
 	// fails validation with "no audio in segment". h264timestamper rebuilds
 	// DTS from the H264 picture order count.
+	//
+	// max-reorder-frames=0 (a streamplace vendored property): without it the
+	// element assumes the full DPB size as a reorder delay for any stream
+	// whose SPS lacks VUI parameters — notably VideoToolbox, which writes no
+	// VUI — and mints a spurious constant ctts offset (~0.5s at 60fps, scaled
+	// by a guessed framerate) on streams that never actually reorder. That
+	// offset shifts every GoP's presentation past the flat wrap's edit-list
+	// window, and WebRTC packetize dropped the tail of every segment (frame
+	// loss at every keyframe). B-frames are not supported here, so no stream
+	// should ever get a reorder window.
 	pipelineSlice := []string{
 		"appsrc name=streamsrc ! matroskademux name=demux",
-		"demux. ! " + constants.Queue2Big + " ! h264parse ! h264timestamper name=videoout",
+		"demux. ! " + constants.Queue2Big + " ! h264parse ! h264timestamper max-reorder-frames=0 name=videoout",
 		"demux. ! " + constants.Queue2Big + " ! fdkaacdec ! audioresample ! opusenc name=audioenc",
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))

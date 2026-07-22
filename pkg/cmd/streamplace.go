@@ -198,9 +198,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
-	var noter notifications.FirebaseNotifier
+	var fbNotifier notifications.FirebaseNotifier
 	if cli.FirebaseServiceAccount != "" {
-		noter, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)
+		fbNotifier, err = notifications.MakeFirebaseNotifier(ctx, cli.FirebaseServiceAccount)
 		if err != nil {
 			return err
 		}
@@ -213,10 +213,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
-	state, err := statedb.MakeDB(ctx, cli, noter, mod)
+	// The notifier is assembled after the DB exists, because the Web Push
+	// notifier needs VAPID keys that are persisted in the Config table. The
+	// queue processor nil-checks the notifier, so the brief window is safe.
+	state, err := statedb.MakeDB(ctx, cli, nil, mod)
 	if err != nil {
 		return err
 	}
+
+	// Build the Web Push notifier from VAPID keys generated/stored in the DB.
+	vapidKeys, err := state.EnsureVAPIDKeys(ctx)
+	if err != nil {
+		return err
+	}
+	webNotifier := notifications.NewWebPushNotifier(vapidKeys, "")
+	noter := notifications.NewMultiNotifier(fbNotifier, webNotifier)
+	state.SetNotifier(noter)
 	handle, err := atproto.MakeLexiconRepo(ctx, cli, mod, state)
 	if err != nil {
 		return err

@@ -121,6 +121,7 @@ export const SCREEN_PATHS = {
   WebhooksSettings: "settings/streaming/webhooks",
   RecommendationsSettings: "settings/streaming/recommendations",
   PrivacyCategory: "settings/privacy",
+  NotificationsCategory: "settings/notifications",
   DanmuCategory: "settings/danmu",
   AdvancedCategory: "settings/advanced",
   DeveloperSettings: "settings/developer",

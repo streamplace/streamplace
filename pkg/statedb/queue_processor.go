@@ -185,6 +185,13 @@ type VODProcessor func(ctx context.Context, t VODProcessTask) (cid string, err e
 
 func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = f }
 
+// SetNotifier installs the notification notifier after construction. This is
+// needed because building the Web Push notifier requires VAPID keys, which
+// are stored in the DB — so the DB must exist before the notifier can be
+// fully assembled. The queue processor checks for nil, so a brief window
+// with no notifier is safe.
+func (state *StatefulDB) SetNotifier(n notificationpkg.Notifier) { state.noter = n }
+
 func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
 	var t VODProcessTask
@@ -467,7 +474,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 
 	log.Log(ctx, "found followers", "count", len(followersDIDs))
 
-	notifications, err := state.GetManyNotificationTokens(followersDIDs)
+	notifications, err := state.GetManyNotifications(followersDIDs)
 	if err != nil {
 		return err
 	}
@@ -480,7 +487,11 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				"path": fmt.Sprintf("/%s", lsv.Author.Handle),
 			},
 		}
-		err = state.noter.Blast(ctx, notifications, nb)
+		targets := make([]notificationpkg.NotificationTarget, len(notifications))
+		for i, n := range notifications {
+			targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
+		}
+		err = state.noter.Blast(ctx, targets, nb)
 		if err != nil {
 			log.Error(ctx, "failed to blast notifications", "err", err)
 		} else {

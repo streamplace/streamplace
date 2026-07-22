@@ -91,6 +91,7 @@ developer = Desarrollador
 languages = Idiomas
 privacy-security = Privacidad y Seguridad
 streaming = Transmisión
+notifications = Notificaciones
 
 ## Acciones Comunes
 cancel = Cancelar

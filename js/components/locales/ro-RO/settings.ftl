@@ -51,6 +51,7 @@ developer = Dezvoltator
 languages = Limbi
 privacy-security = Confidențialitate și securitate
 streaming = Streaming
+notifications = Notificări
 
 ## Common Actions
 cancel = Anulare

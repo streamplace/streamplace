@@ -33,6 +33,7 @@ import { DanmuCategorySettings } from "components/settings/danmu-category-settin
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import MultistreamManager from "components/settings/multistream-manager";
+import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
 import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
@@ -368,6 +369,11 @@ function SettingsNavigator() {
         name="PrivacyCategory"
         component={PrivacyCategorySettings}
         options={{ title: "Privacy & Security" }}
+      />
+      <SettingsStack.Screen
+        name="NotificationsCategory"
+        component={NotificationsCategorySettings}
+        options={{ title: "Notifications" }}
       />
       <SettingsStack.Screen
         name="DanmuCategory"

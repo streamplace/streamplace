@@ -90,6 +90,7 @@ developer = 開發者
 languages = 語言
 privacy-security = 隱私與安全
 streaming = 串流
+notifications = 通知
 
 ## 常用動作
 cancel = 取消

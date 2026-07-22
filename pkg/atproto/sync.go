@@ -965,21 +965,25 @@ func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *pl
 	if atsync.Noter == nil || atsync.StatefulDB == nil {
 		return
 	}
-	tokens, err := atsync.StatefulDB.GetManyNotificationTokens([]string{rec.Did})
+	notifications, err := atsync.StatefulDB.GetManyNotifications([]string{rec.Did})
 	if err != nil {
 		log.Error(ctx, "beta invite notification: failed to load tokens", "did", rec.Did, "err", err)
 		return
 	}
-	if len(tokens) == 0 {
+	if len(notifications) == 0 {
 		log.Debug(ctx, "beta invite notification: no device tokens for invitee", "did", rec.Did, "feature", rec.Feature)
 		return
 	}
 	blast := betaInviteBlast(rec.Feature)
-	if err := atsync.Noter.Blast(ctx, tokens, blast); err != nil {
+	targets := make([]notificationpkg.NotificationTarget, len(notifications))
+	for i, n := range notifications {
+		targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
+	}
+	if err := atsync.Noter.Blast(ctx, targets, blast); err != nil {
 		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
 		return
 	}
-	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(tokens))
+	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(notifications))
 }
 
 // betaInviteBlast builds the push payload for a newly-granted beta feature.

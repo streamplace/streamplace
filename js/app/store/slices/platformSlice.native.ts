@@ -14,6 +14,12 @@ export interface PlatformSlice {
   openLoginLink: (url: string) => Promise<void>;
   initPushNotifications: () => Promise<void>;
   registerNotificationToken: () => Promise<void>;
+  // web-only actions; no-ops on native. Present so the shared PlatformSlice
+  // type is identical across platforms and the settings toggle can call
+  // them unconditionally.
+  enableWebNotifications: () => Promise<NotificationPermission>;
+  disableWebNotifications: () => Promise<void>;
+  webNotificationPermission: () => NotificationPermission;
 }
 
 const checkApplicationPermission = async () => {
@@ -170,7 +176,10 @@ export const createPlatformSlice: StateCreator<
         return;
       }
 
-      const body: { token: string; repoDID?: string } = { token };
+      const body: { token: string; type: string; repoDID?: string } = {
+        token,
+        type: "firebase",
+      };
 
       const did = oauthSession?.did;
       if (did) {
@@ -195,5 +204,15 @@ export const createPlatformSlice: StateCreator<
     } catch (e) {
       console.error("registerNotificationToken error", e);
     }
+  },
+  enableWebNotifications: async () => {
+    // web-only; native uses FCM via initPushNotifications
+    return "denied";
+  },
+  disableWebNotifications: async () => {
+    // web-only
+  },
+  webNotificationPermission: () => {
+    return "denied";
   },
 });

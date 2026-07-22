@@ -278,6 +278,14 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 	} else if rec {
 		cfg.Record = true
 		cfg.DataDir = mm.cli.DataDir
+		// The worker writes the recording, so it needs main's S3 destination too —
+		// without it, DebugRecordingCreate inside the worker would silently fall
+		// back to local disk under DataDir. Only sent when recording, to keep the
+		// S3 secret out of handshakes that don't need it.
+		if mm.cli.S3Configured() {
+			s3cfg := mm.cli.S3Config()
+			cfg.S3 = &s3cfg
+		}
 	}
 	// Node transcode signer lets the worker complete to dual-codec itself. If it's
 	// unavailable, the worker emits single-codec (the node doesn't re-transcode the

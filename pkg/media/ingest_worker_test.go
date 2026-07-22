@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/pkg/s3"
 )
 
 // TestWorkerInputDeframes checks the body-deframing the worker applies to the
@@ -212,6 +216,115 @@ func TestRunMP4IngestWorkerRecords(t *testing.T) {
 		got, rerr := os.ReadFile(matches[0])
 		return rerr == nil && bytes.Equal(got, mp4)
 	}, 10*time.Second, 25*time.Millisecond, "worker records the ingest media verbatim")
+}
+
+// fakeS3Server is a minimal path-style S3 endpoint speaking just enough of the
+// multipart-upload protocol for UploadWriter: initiate → upload parts →
+// complete. Completed objects land in objects keyed by "<bucket>/<key>".
+type fakeS3Server struct {
+	mu      sync.Mutex
+	parts   map[string][]byte // "<path>#<partNumber>" → body
+	objects map[string][]byte // completed "<bucket>/<key>" → body
+}
+
+func newFakeS3Server() *fakeS3Server {
+	return &fakeS3Server{parts: map[string][]byte{}, objects: map[string][]byte{}}
+}
+
+func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	path := strings.TrimPrefix(r.URL.Path, "/")
+	q := r.URL.Query()
+	switch {
+	case r.Method == "POST" && q.Has("uploads"):
+		fmt.Fprintf(w, `<InitiateMultipartUploadResult><UploadId>test-upload</UploadId></InitiateMultipartUploadResult>`)
+	case r.Method == "PUT" && q.Has("partNumber"):
+		body, _ := io.ReadAll(r.Body)
+		f.parts[path+"#"+q.Get("partNumber")] = body
+		w.Header().Set("ETag", `"part-`+q.Get("partNumber")+`"`)
+	case r.Method == "POST" && q.Has("uploadId"):
+		var buf []byte
+		for i := 1; ; i++ {
+			part, ok := f.parts[fmt.Sprintf("%s#%d", path, i)]
+			if !ok {
+				break
+			}
+			buf = append(buf, part...)
+		}
+		f.objects[path] = buf
+		fmt.Fprintf(w, `<CompleteMultipartUploadResult><Key>%s</Key></CompleteMultipartUploadResult>`, path)
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+// objectWithPrefix finds a completed object whose key starts with prefix and
+// ends with suffix (the recording's timestamped filename isn't predictable).
+func (f *fakeS3Server) objectWithPrefix(prefix, suffix string) ([]byte, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for path, b := range f.objects {
+		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, suffix) {
+			return b, true
+		}
+	}
+	return nil, false
+}
+
+// TestRunMP4IngestWorkerRecordsToS3 proves the debug recording streams to S3
+// when main hands its S3 config over the handshake (cfg.S3) — the production
+// shape. Without that plumbing the worker's minimal CLI has no S3 fields and
+// DebugRecordingCreate silently falls back to local disk, which is exactly the
+// regression this guards against: recordings must land in the bucket, not under
+// DataDir.
+func TestRunMP4IngestWorkerRecordsToS3(t *testing.T) {
+	ctx := context.Background()
+	ms := newBareSegmentSigner(t)
+
+	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+	require.NoError(t, err)
+	manifest, err := ms.buildManifest(ctx, time.Now().UnixMilli())
+	require.NoError(t, err)
+
+	fake := newFakeS3Server()
+	srv := httptest.NewServer(fake)
+	defer srv.Close()
+
+	dataDir := t.TempDir()
+	cfg := IngestWorkerConfig{
+		StreamerDID:     ms.Streamer(),
+		KeyPEM:          keyPEM,
+		CertPEM:         ms.Cert,
+		Manifest:        manifest,
+		BroadcasterHost: "test.example.com",
+		Record:          true,
+		DataDir:         dataDir,
+		S3: &s3.Config{
+			Endpoint:        srv.URL,
+			Bucket:          "debug-bucket",
+			AccessKeyID:     "test-access",
+			SecretAccessKey: "test-secret",
+			Region:          "auto",
+		},
+	}
+
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
+
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
+
+	// The upload commits asynchronously (the dump goroutine's Close); the object
+	// must appear at debug-bucket/debug-recordings/<did>/<ts>.rtmp.mp4 holding
+	// exactly the ingested media.
+	wantPrefix := "debug-bucket/debug-recordings/" + ms.Streamer() + "/"
+	require.Eventually(t, func() bool {
+		got, ok := fake.objectWithPrefix(wantPrefix, ".rtmp.mp4")
+		return ok && bytes.Equal(got, mp4)
+	}, 10*time.Second, 25*time.Millisecond, "worker streams the recording to the S3 bucket verbatim")
+
+	// And nothing fell back to local disk.
+	matches, _ := filepath.Glob(filepath.Join(dataDir, "debug-recordings", "*", "*"))
+	require.Empty(t, matches, "recording must go to S3, not DataDir")
 }
 
 // TestRunMP4IngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a

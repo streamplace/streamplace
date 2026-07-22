@@ -15,13 +15,15 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// Config holds the configuration for an S3-compatible upload target.
+// Config holds the configuration for an S3-compatible upload target. The json
+// tags exist because it rides the ingest-worker startup handshake (a dedicated
+// pipe fd, never argv/env — it carries the secret key).
 type Config struct {
-	Endpoint        string
-	Bucket          string
-	AccessKeyID     string
-	SecretAccessKey string
-	Region          string
+	Endpoint        string `json:"endpoint,omitempty"`
+	Bucket          string `json:"bucket,omitempty"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
+	Region          string `json:"region,omitempty"`
 }
 
 // Recorder is an optional persistence hook for S3Uploader. RecordStart is

@@ -1440,6 +1440,17 @@ func (cli *CLI) S3Config() s3.Config {
 	}
 }
 
+// SetS3Config applies an s3.Config to the CLI's S3 fields — the inverse of
+// S3Config, for processes (ingest workers) that receive the S3 destination over
+// a handshake instead of from flags.
+func (cli *CLI) SetS3Config(c s3.Config) {
+	cli.S3Endpoint = c.Endpoint
+	cli.S3Bucket = c.Bucket
+	cli.S3AccessKeyID = c.AccessKeyID
+	cli.S3SecretAccessKey = c.SecretAccessKey
+	cli.S3Region = c.Region
+}
+
 // DebugRecordingFile is the write target returned by DebugRecordingCreate: an
 // *os.File on local disk, or an S3 upload that commits on Close. Name() reports
 // the destination (path or object key) for logging.
@@ -1458,7 +1469,11 @@ type DebugRecordingFile interface {
 func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, contentType string, overwrite bool) (DebugRecordingFile, error) {
 	if cli.S3Configured() {
 		key := strings.Join(fpath, "/")
-		return s3.NewUploadWriter(ctx, s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
+		// The recording outlives the ingest session's ctx: Close commits the upload
+		// during teardown, after that ctx is typically cancelled — a cancelled ctx
+		// here would abort the upload and lose the object. Callers bound the commit
+		// with their own finalize waits instead.
+		return s3.NewUploadWriter(context.WithoutCancel(ctx), s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
 	}
 	return cli.DataFileCreate(fpath, overwrite)
 }

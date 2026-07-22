@@ -50,7 +50,7 @@ func (h *manifestHolder) set(b []byte) {
 // approach; the detach/reattach work will revisit how a worker holds keys.
 type IngestWorkerConfig struct {
 	StreamerDID string `json:"streamer_did"`
-	// KeyPEM is the streamer's ES256K signing key in PEM. The MKV/RTMP push path
+	// KeyPEM is the streamer's ES256K signing key in PEM. The Mist-pull/RTMP path
 	// always yields a software key, which is what muxl-sign wants here; it is
 	// forwarded verbatim, no reconstruction.
 	KeyPEM  []byte `json:"key_pem"`
@@ -90,7 +90,7 @@ type IngestWorkerConfig struct {
 	Chunked bool   `json:"chunked,omitempty"`
 
 	// Record, when true, makes the worker write a debug recording of this session
-	// (the MKV/RTMP push body, or the WHIP session) under
+	// (the fMP4 ingest body, or the WHIP session) under
 	// DataDir/debug-recordings/<did>/. main evaluates the per-stream DebugRecording
 	// setting (which needs the DB) and the worker carries it out — so debug
 	// recording keeps working on the isolated paths without main being in the data
@@ -99,9 +99,9 @@ type IngestWorkerConfig struct {
 	Record  bool   `json:"record,omitempty"`
 	DataDir string `json:"data_dir,omitempty"`
 
-	// Transport selects the worker's ingest source: "" / "mkv" reads MKV media
-	// (stdin or InputFD); "whip" makes the worker own the WebRTC PeerConnection,
-	// built from OfferSDP — no media fd to pass.
+	// Transport selects the worker's ingest source: "" / "mp4" reads fragmented
+	// MP4 media (stdin or InputFD); "whip" makes the worker own the WebRTC
+	// PeerConnection, built from OfferSDP — no media fd to pass.
 	Transport string `json:"transport,omitempty"`
 	// OfferSDP is the WHIP client's SDP offer (transport "whip"). The worker
 	// generates the answer and emits it as the first frame (ingestframe.Answer)
@@ -131,7 +131,7 @@ func WorkerInput(cfg IngestWorkerConfig, raw io.Reader) io.Reader {
 // the streamer key PEM + cert straight to muxl-sign, no MediaSigner / model / DB
 // needed. The manifest is read FRESH per GoP from the holder, so a manifest main
 // pushes mid-stream (e.g. pre-live → live) takes effect on the next GoP — the
-// same fresh-per-GoP shape as the in-process signer. Shared by the MKV and WHIP
+// same fresh-per-GoP shape as the in-process signer. Shared by the MP4 and WHIP
 // workers.
 func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSegmentStreamFunc {
 	return func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
@@ -152,7 +152,7 @@ func workerSignStream(cfg IngestWorkerConfig, getManifest func() []byte) SignSeg
 // segment); flush Closes that transcoder so its ~1-GoP tail is framed before the
 // worker exits. The transcoder runs on a non-cancellable context so draining the
 // signer can't kill it early. One process == one session, so the per-DID
-// transcoder-reuse hazard can't arise. Shared by the MKV and WHIP workers.
+// transcoder-reuse hazard can't arise. Shared by the MP4 and WHIP workers.
 func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerConfig, frames FrameWriter) (onSegment func(context.Context, []byte) error, flush func()) {
 	var transcoder *streamTranscoder
 	onSegment = func(_ context.Context, segment []byte) error {
@@ -187,9 +187,9 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 	return onSegment, flush
 }
 
-// RunMKVIngestWorker is the body of the `ingest-worker` subcommand. It reads an
-// MKV stream from stdin, runs the same demux + Opus re-encode + muxl-sign
-// pipeline as the in-process MKVIngest, and emits each signed canonical .m4s
+// RunMP4IngestWorker is the body of the `ingest-worker` subcommand. It reads a
+// fragmented-MP4 stream from stdin, runs the same demux + Opus re-encode + muxl-sign
+// pipeline as the in-process MP4Ingest, and emits each signed canonical .m4s
 // segment to frames; the main process reads those frames and runs ValidateMP4
 // over each, exactly as if onSegment had called it directly.
 //
@@ -197,7 +197,7 @@ func (mm *MediaManager) workerSegmentSink(ctx context.Context, cfg IngestWorkerC
 // caller frames End or Error accordingly. All segment frames are guaranteed
 // flushed before it returns, so a trailing End can never race ahead of the last
 // Segment.
-func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames FrameWriter, getManifest func() []byte) error {
+func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader, frames FrameWriter, getManifest func() []byte) error {
 	gstinit.InitGST()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -224,7 +224,7 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		pr, pw := io.Pipe()
 		media = io.TeeReader(stdin, pw)
 		go func() {
-			if derr := mm.dumpToFile(ctx, pr, cfg.StreamerDID, ".rtmp.mkv"); derr != nil {
+			if derr := mm.dumpToFile(ctx, pr, cfg.StreamerDID, ".rtmp.mp4"); derr != nil {
 				log.Error(ctx, "ingest worker: dump recording to file", "error", derr)
 			}
 		}()
@@ -234,7 +234,7 @@ func RunMKVIngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	if err != nil {
 		return fmt.Errorf("build signer element: %w", err)
 	}
-	pipeline, err := buildMKVIngestPipeline(ctx, media, signerElem)
+	pipeline, err := buildMP4IngestPipeline(ctx, media, signerElem)
 	if err != nil {
 		return fmt.Errorf("build pipeline: %w", err)
 	}

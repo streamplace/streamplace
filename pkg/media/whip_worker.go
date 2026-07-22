@@ -14,7 +14,7 @@ import (
 )
 
 // ServeWHIPIngestWorkerSocket is the WHIP counterpart of
-// ServeMKVIngestWorkerSocket. Unlike MKV there's no socket/fd to pass in: the
+// ServeMP4IngestWorkerSocket. Unlike the fMP4 worker there is no socket/fd to pass in: the
 // worker OWNS the PeerConnection, so it creates it from cfg.OfferSDP (binding its
 // own UDP sockets), generates the SDP answer, and emits it as the FIRST frame on
 // the unix socket — main reads that Answer frame and returns it to the WHIP

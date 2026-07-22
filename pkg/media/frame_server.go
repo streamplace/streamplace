@@ -27,7 +27,7 @@ const workerDrainGrace = 60 * time.Second
 // FrameWriter is the worker's segment sink. Stage 1 uses a direct framed pipe
 // (*ingestframe.Writer); the zero-downtime path uses *frameServer, which buffers
 // across a disconnected main and replays on reconnect. Structurally satisfied by
-// *ingestframe.Writer, so RunMKVIngestWorker is agnostic to which it gets.
+// *ingestframe.Writer, so RunMP4IngestWorker is agnostic to which it gets.
 type FrameWriter interface {
 	Segment(seg []byte) error
 	End() error
@@ -165,15 +165,15 @@ func (s *frameServer) detachConn(conn net.Conn) {
 	}
 }
 
-// ServeMKVIngestWorkerSocket runs the ingest worker, delivering its signed
+// ServeMP4IngestWorkerSocket runs the ingest worker, delivering its signed
 // segments to main over a per-session unix socket at cfg.SocketPath with
 // buffered reconnect — the zero-downtime path. It listens, serves the frame
 // stream (buffering across any main disconnect), runs the ingest, frames a
 // trailing End/Error, then lingers until main has drained the buffer before
 // removing the socket and returning.
-func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader) error {
+func ServeMP4IngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, stdin io.Reader) error {
 	if cfg.SocketPath == "" {
-		return fmt.Errorf("ServeMKVIngestWorkerSocket: empty socket path")
+		return fmt.Errorf("ServeMP4IngestWorkerSocket: empty socket path")
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -192,7 +192,7 @@ func ServeMKVIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig, std
 	manifest := newManifestHolder(cfg.Manifest)
 	go serveFrameSocket(ctx, ln, srv, manifest)
 
-	runErr := RunMKVIngestWorker(ctx, cfg, stdin, srv, manifest.get)
+	runErr := RunMP4IngestWorker(ctx, cfg, stdin, srv, manifest.get)
 	if runErr != nil {
 		_ = srv.Error(runErr.Error())
 	} else {

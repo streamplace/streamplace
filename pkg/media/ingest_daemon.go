@@ -62,7 +62,7 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 	// identifiable in a process listing; key material stays on fd 3.
 	cmd := exec.Command(exe, "ingest-worker", cfg.StreamerDID)
 	setDetached(cmd) // own session, survives a main restart (Linux)
-	// fd 3 = config; fd 4 = the fd-passed media connection (MKV/RTMP). WHIP owns
+	// fd 3 = config; fd 4 = the fd-passed media connection (the Mist fMP4 pull, or an fMP4 push). WHIP owns
 	// its own PeerConnection, so it passes no media fd.
 	cmd.ExtraFiles = []*os.File{cfgR}
 	if media != nil {
@@ -245,7 +245,7 @@ func (mm *MediaManager) ingestWorkerSocketDir() (string, error) {
 	return dir, nil
 }
 
-// MKVIngestDetached is the production zero-downtime entry: main has authed the
+// MP4IngestDetached is the production zero-downtime entry: main has authed the
 // push and hijacked its connection; this fd-passes that connection to a DETACHED
 // worker (own session, survives a main restart) which ingests the media directly
 // and serves signed segments over a per-session unix socket, and then consumes
@@ -256,7 +256,7 @@ func (mm *MediaManager) ingestWorkerSocketDir() (string, error) {
 // breaks the ingest nor loses output: the worker keeps signing into its buffer,
 // and the restarted main rediscovers the socket (DiscoverWorkerSockets) and
 // drains it.
-func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner) error {
+func (mm *MediaManager) MP4IngestDetached(ctx context.Context, conn net.Conn, prebuf []byte, chunked bool, ms MediaSigner) error {
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return err
@@ -285,7 +285,7 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 	if err != nil {
 		return fmt.Errorf("spawn detached worker: %w", err)
 	}
-	spmetrics.IngestWorkerStarts.WithLabelValues("mkv").Inc()
+	spmetrics.IngestWorkerStarts.WithLabelValues("mp4").Inc()
 
 	// Ban / key revocation: the detached worker can't notice it itself (no
 	// bus/model), so main watches and kills it. proc.Kill (not ctx cancel) so the
@@ -301,7 +301,7 @@ func (mm *MediaManager) MKVIngestDetached(ctx context.Context, conn net.Conn, pr
 	start := time.Now().UnixMilli()
 	manifestSource := func() ([]byte, error) { return mm.streamerManifest(ctx, ms.Streamer(), start) }
 	err = mm.ConsumeWorkerSocket(ctx, cfg.SocketPath, ms.Streamer(), mm.validateSegment(ctx), manifestSource)
-	recordWorkerExit("mkv", err, ctx.Err())
+	recordWorkerExit("mp4", err, ctx.Err())
 	// Reap the worker unless we're deliberately leaving it running across a main
 	// restart (ctx cancel). On a clean end OR a crash the worker has exited, so
 	// Wait() clears the zombie; only on main shutdown do we let it stay detached

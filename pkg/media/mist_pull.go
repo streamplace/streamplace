@@ -103,23 +103,28 @@ func tryMistGET(ctx context.Context, hostport, path string) (*net.TCPConn, []byt
 		raw.Close()
 		return nil, nil, false, fmt.Errorf("expected TCP connection, got %T", raw)
 	}
-	// Connection: close — one stream per connection, body runs to EOF (or
+	// A real *http.Request serialized by the stdlib — we only own the conn by
+	// hand (it gets fd-passed to the worker), not the HTTP framing. req.Close
+	// sends Connection: close: one stream per connection, body runs to EOF (or
 	// chunked-EOS) when the Mist stream ends. No keepalive reuse to reason about.
-	req := "GET " + path + " HTTP/1.1\r\n" +
-		"Host: " + hostport + "\r\n" +
-		"User-Agent: streamplace-ingest\r\n" +
-		"Accept: video/mp4\r\n" +
-		"Connection: close\r\n\r\n"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+hostport+path, nil)
+	if err != nil {
+		conn.Close()
+		return nil, nil, false, err
+	}
+	req.Close = true
+	req.Header.Set("User-Agent", "streamplace-ingest")
+	req.Header.Set("Accept", "video/mp4")
 	if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		conn.Close()
 		return nil, nil, false, err
 	}
-	if _, err := io.WriteString(conn, req); err != nil {
+	if err := req.Write(conn); err != nil {
 		conn.Close()
 		return nil, nil, false, err
 	}
 	br := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(br, nil)
+	resp, err := http.ReadResponse(br, req)
 	if err != nil {
 		conn.Close()
 		return nil, nil, false, err

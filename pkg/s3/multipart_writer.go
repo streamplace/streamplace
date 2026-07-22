@@ -37,6 +37,17 @@ const MultipartPartSize = 16 * 1024 * 1024
 // so a 1.5 GB upload dragged on for tens of minutes.
 const multipartUploadConcurrency = 8
 
+// Per-operation deadlines for MultipartWriter's S3 calls. The SDK's default
+// HTTP client has no request timeout, so without these a stalled connection
+// blocks its caller forever — e.g. a debug-recording commit, whose writer
+// deliberately runs on a non-cancellable ctx (config.DebugRecordingCreate) so
+// session teardown can't abort it. Values are far above healthy operation
+// times; only genuine stalls hit them.
+const (
+	s3PartOpTimeout    = 10 * time.Minute // one ≤MultipartPartSize UploadPart
+	s3ControlOpTimeout = 2 * time.Minute  // create/complete/abort/empty-put
+)
+
 // multipartAPI is the subset of *s3.Client that MultipartWriter calls.
 // Pulled out so tests can inject a fake; *s3.Client satisfies it.
 type multipartAPI interface {
@@ -105,7 +116,9 @@ func newMultipartWriter(ctx context.Context, client multipartAPI, bucket, key, c
 	if contentType != "" {
 		in.ContentType = aws.String(contentType)
 	}
-	resp, err := client.CreateMultipartUpload(ctx, in)
+	cctx, cancel := context.WithTimeout(ctx, s3ControlOpTimeout)
+	defer cancel()
+	resp, err := client.CreateMultipartUpload(cctx, in)
 	if err != nil {
 		span.RecordError(err)
 		return nil, fmt.Errorf("create multipart upload s3://%s/%s: %w", bucket, key, err)
@@ -175,6 +188,8 @@ func (w *MultipartWriter) uploadPart(num int32, body []byte) {
 		attribute.Int("part_size_bytes", len(body)),
 	))
 	defer span.End()
+	ctx, cancel := context.WithTimeout(ctx, s3PartOpTimeout)
+	defer cancel()
 	resp, err := w.client.UploadPart(ctx, &s3.UploadPartInput{
 		Bucket:     aws.String(w.bucket),
 		Key:        aws.String(w.key),
@@ -244,6 +259,8 @@ func (w *MultipartWriter) Complete() error {
 		return err
 	}
 	span.SetAttributes(attribute.Int("part_count", len(w.parts)))
+	ctx, cancel := context.WithTimeout(ctx, s3ControlOpTimeout)
+	defer cancel()
 	if len(w.parts) == 0 {
 		// Zero-byte upload: S3 won't accept an empty CompletedMultipartUpload,
 		// so abort and create an empty object via PutObject.
@@ -308,6 +325,8 @@ func (w *MultipartWriter) Abort() error {
 		attribute.Int("parts_pending", len(w.parts)),
 	))
 	defer span.End()
+	ctx, cancel := context.WithTimeout(ctx, s3ControlOpTimeout)
+	defer cancel()
 	_, err := w.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 		Bucket:   aws.String(w.bucket),
 		Key:      aws.String(w.key),

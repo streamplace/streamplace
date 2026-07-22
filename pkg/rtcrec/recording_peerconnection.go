@@ -18,8 +18,9 @@ type RecordingPeerConnection struct {
 	pionpc    *webrtc.PeerConnection
 	file      config.DebugRecordingFile
 	stream    *RecorderStream
+	logCtx    context.Context // for finishRecording's logs (it outlives the session)
 	closeOnce sync.Once
-	recDone   chan struct{} // closed once the recording file/upload is committed
+	recDone   chan struct{} // closed once the finalize ATTEMPT is over — check the logs for commit failures
 }
 
 func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string, pionpc *webrtc.PeerConnection, enabled bool) (PeerConnection, error) {
@@ -46,6 +47,7 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		file:    f,
 		stream:  stream,
 		enabled: enabled,
+		logCtx:  context.WithoutCancel(ctx),
 		recDone: make(chan struct{}),
 	}, nil
 }
@@ -63,21 +65,27 @@ func (pc *RecordingPeerConnection) Close() error {
 
 // finishRecording drains stragglers, commits the recording (for S3, Close IS
 // the commit), and signals recDone. Idempotent — Close on the disconnect path
-// and FinalizeRecording at worker exit can both trigger it.
+// and FinalizeRecording at worker exit can both trigger it. recDone means the
+// attempt finished, not that it succeeded: a failed commit is logged loudly
+// (there is nothing better to do with it at this point — the session is over).
 func (pc *RecordingPeerConnection) finishRecording() {
 	pc.closeOnce.Do(func() {
 		// This is sloppy but there might be other goroutines still writing so let's chill for a sec
 		time.Sleep(10 * time.Second)
-		pc.file.Close()
+		if err := pc.file.Close(); err != nil {
+			log.Error(pc.logCtx, "debug recording commit FAILED; the recording is lost", "file", pc.file.Name(), "error", err)
+		} else {
+			log.Log(pc.logCtx, "debug recording committed", "file", pc.file.Name())
+		}
 		close(pc.recDone)
 	})
 }
 
-// FinalizeRecording blocks until the debug recording is committed (bounded).
-// Call it before process exit on paths like the WHIP ingest worker: Close only
-// *starts* the drain+commit on a goroutine, and a process that exits first
-// strands an uncommitted S3 upload — the object never appears. No-op when not
-// recording.
+// FinalizeRecording blocks until the debug recording's commit attempt finishes
+// (bounded; failures are logged by finishRecording). Call it before process
+// exit on paths like the WHIP ingest worker: Close only *starts* the
+// drain+commit on a goroutine, and a process that exits first strands an
+// uncommitted S3 upload — the object never appears. No-op when not recording.
 func (pc *RecordingPeerConnection) FinalizeRecording(ctx context.Context) {
 	if !pc.enabled {
 		return

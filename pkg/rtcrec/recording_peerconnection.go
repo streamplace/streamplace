@@ -99,8 +99,13 @@ func (pc *RecordingPeerConnection) FinalizeRecording(ctx context.Context) {
 }
 
 // recordingFinalizeTimeout bounds FinalizeRecording: the 10s straggler drain in
-// finishRecording plus generous headroom for the S3 commit.
-const recordingFinalizeTimeout = 40 * time.Second
+// finishRecording plus generous headroom for the S3 commit — enough for a
+// slow-but-working uplink to land any backpressured parts (a post-stream worker
+// lingering is cheap, a lost recording isn't). A genuinely stalled connection
+// is bounded separately by the s3 package's per-operation timeouts; past this
+// window the recording is abandoned and the commit failure logged when those
+// fire.
+const recordingFinalizeTimeout = 5 * time.Minute
 
 func (pc *RecordingPeerConnection) CreateAnswer(options *webrtc.AnswerOptions) (webrtc.SessionDescription, error) {
 	now := time.Now()

@@ -125,7 +125,14 @@ func buildMKVIngestPipeline(ctx context.Context, input io.Reader, signerElem *gs
 // debugRecordingFlushTimeout bounds how long ingest teardown waits for a debug
 // recording to finalize — for S3 the commit only happens at Close, so an
 // unbounded wait could wedge teardown while an unwaited exit loses the object.
-const debugRecordingFlushTimeout = 30 * time.Second
+// Generous on purpose: at teardown there can be up to ~128 MB of backpressured
+// parts still uploading (multipartUploadConcurrency × MultipartPartSize), and a
+// slow-but-working uplink deserves the time to land them — a post-stream worker
+// lingering is cheap, a lost recording isn't. A genuinely stalled connection is
+// bounded separately by the s3 package's per-operation timeouts; past this
+// window the recording is abandoned (logged by the dump goroutine when its op
+// timeouts fire; bucket lifecycle rules should reap the dangling multipart).
+const debugRecordingFlushTimeout = 5 * time.Minute
 
 // recordTee wires up a debug recording: everything read through the returned
 // reader is teed into an asynchronous dumpToFile. The returned finalize ends

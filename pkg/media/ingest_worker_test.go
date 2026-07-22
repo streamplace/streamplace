@@ -327,9 +327,11 @@ func TestRunMKVIngestWorkerRecordsToS3(t *testing.T) {
 		return ok && bytes.Equal(got, mkv)
 	}, 10*time.Second, 25*time.Millisecond, "worker streams the recording to the S3 bucket verbatim")
 
-	// And nothing fell back to local disk.
+	// And the local spool was cleaned up after the commit (the recording spools
+	// to disk while live — durability against a stalled S3 — but a committed
+	// upload leaves nothing behind).
 	matches, _ := filepath.Glob(filepath.Join(dataDir, "debug-recordings", "*", "*"))
-	require.Empty(t, matches, "recording must go to S3, not DataDir")
+	require.Empty(t, matches, "spool removed after S3 commit")
 }
 
 // TestRunMKVIngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a

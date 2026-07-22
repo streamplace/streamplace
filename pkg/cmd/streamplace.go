@@ -562,6 +562,15 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
 
+	// Salvage sweep for debug recordings: uploads any local spools the live
+	// upload path couldn't commit (stalled S3, crashed worker) — including
+	// recordings from before the spool existed — then deletes them locally.
+	if cli.S3Configured() {
+		group.Go(func() error {
+			return cli.DebugRecordingSweeper(ctx)
+		})
+	}
+
 	if cli.LegacySegmentCleaner {
 		group.Go(func() error {
 			return ldb.StartSegmentCleaner(ctx)

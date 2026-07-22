@@ -1193,14 +1193,21 @@ func (cli *CLI) DataFilePath(fpath []string) string {
 	if cli.DataDir == "" {
 		panic("no data dir configured")
 	}
-	// windows does not like colons
-	safe := []string{}
+	fpath = append([]string{cli.DataDir}, sanitizePathParts(fpath)...)
+	fdpath := filepath.Join(fpath...)
+	return fdpath
+}
+
+// sanitizePathParts replaces ":" with "-" in each path component (windows does
+// not like colons). Debug-recording S3 keys use the same sanitization so the
+// bucket layout matches the on-disk layout byte for byte — that's what lets
+// the salvage sweep map a leftover local file straight to its object key.
+func sanitizePathParts(fpath []string) []string {
+	safe := make([]string, 0, len(fpath))
 	for _, p := range fpath {
 		safe = append(safe, strings.ReplaceAll(p, ":", "-"))
 	}
-	fpath = append([]string{cli.DataDir}, safe...)
-	fdpath := filepath.Join(fpath...)
-	return fdpath
+	return safe
 }
 
 // does a file exist in our data dir?
@@ -1460,22 +1467,33 @@ type DebugRecordingFile interface {
 }
 
 // DebugRecordingCreate opens a write target for a debug recording (RTMP/MKV
-// dumps, WHIP rtcrec sessions). When S3 is configured the recording streams to
-// an S3 object at the key formed by joining fpath with "/" (so the bucket
-// mirrors the on-disk debug-recordings/<did>/<file> layout); otherwise it falls
-// back to a local file under DataDir — the dev default. The returned value must
-// be Closed to finalize (Close commits the S3 upload). overwrite only affects
-// the local-disk path (S3 puts always overwrite).
+// dumps, WHIP rtcrec sessions). The recording always lands in a local file
+// under DataDir first — the source of truth. When S3 is configured, a copy
+// also streams best-effort to an object whose key mirrors the on-disk
+// debug-recordings/<did>/<file> layout (same ":"-sanitization); Close commits
+// that upload and removes the local spool on success. Any S3 failure — at
+// open, mid-stream, or at commit — leaves the local file in place for
+// SweepDebugRecordings to upload later, so a stalled or dead S3 never loses a
+// recording. overwrite only affects the local file (S3 puts always overwrite).
 func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, contentType string, overwrite bool) (DebugRecordingFile, error) {
-	if cli.S3Configured() {
-		key := strings.Join(fpath, "/")
-		// The recording outlives the ingest session's ctx: Close commits the upload
-		// during teardown, after that ctx is typically cancelled — a cancelled ctx
-		// here would abort the upload and lose the object. Callers bound the commit
-		// with their own finalize waits instead.
-		return s3.NewUploadWriter(context.WithoutCancel(ctx), s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
+	local, err := cli.DataFileCreate(fpath, overwrite)
+	if err != nil {
+		return nil, err
 	}
-	return cli.DataFileCreate(fpath, overwrite)
+	if !cli.S3Configured() {
+		return local, nil
+	}
+	key := strings.Join(sanitizePathParts(fpath), "/")
+	// The recording outlives the ingest session's ctx: Close commits the upload
+	// during teardown, after that ctx is typically cancelled — a cancelled ctx
+	// here would abort the upload. Callers bound the commit with their own
+	// finalize waits; per-op timeouts in pkg/s3 bound a genuine stall.
+	s3w, err := s3.NewUploadWriter(context.WithoutCancel(ctx), s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
+	if err != nil {
+		log.Error(ctx, "debug recording S3 upload could not start; recording to local spool only", "path", local.Name(), "error", err)
+		return local, nil
+	}
+	return &spooledRecording{ctx: context.WithoutCancel(ctx), local: local, s3w: s3w}, nil
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {

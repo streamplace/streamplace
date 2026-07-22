@@ -379,6 +379,12 @@ func (w *UploadWriter) Write(p []byte) (int, error) { return w.mw.Write(p) }
 // should Close exactly once).
 func (w *UploadWriter) Close() error { return w.mw.Complete() }
 
+// Abort discards the upload instead of committing it — for callers that know
+// the object is no longer wanted, e.g. a spooled debug recording whose S3 copy
+// already failed mid-stream and will be re-uploaded whole from the local spool
+// later. Safe to call after a failed Close.
+func (w *UploadWriter) Abort() error { return w.mw.Abort() }
+
 // Name reports the object key, mirroring *os.File.Name() so callers can log a
 // destination uniformly whether they got a file or an S3 upload.
 func (w *UploadWriter) Name() string { return w.key }

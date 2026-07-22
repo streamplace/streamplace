@@ -282,3 +282,15 @@ func TestMP4IngestBFramesValidate(t *testing.T) {
 	require.True(t, sawReorderOffset, "B-frame stream keeps its real PTS−DTS reorder offsets through ingest")
 	t.Logf("B-frame stream: %d segments, all validated", len(segs))
 }
+
+// TestMP4IngestRejectsMatroskaWithDiagnosis: an MKV stream landing on the
+// fMP4 ingest (a MistServer still running the legacy MKVExec process config)
+// must fail immediately with a message that names the actual problem — not a
+// generic qtdemux parse error on an endless Mist-side restart loop.
+func TestMP4IngestRejectsMatroskaWithDiagnosis(t *testing.T) {
+	mkvish := append(append([]byte{}, matroskaMagic...), make([]byte, 1024)...)
+	_, err := runMP4ThroughIngestWorker(t, mkvish, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Matroska")
+	require.Contains(t, err.Error(), "MKVExec")
+}

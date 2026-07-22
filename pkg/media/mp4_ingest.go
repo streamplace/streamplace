@@ -1,7 +1,10 @@
 package media
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -81,7 +84,36 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 // offset that pushed every GoP's presentation past its segment's declared
 // window and broke WebRTC playback at every keyframe. Real DTS in the
 // container means no reconstruction and no guessing.
+// matroskaMagic is the EBML header every Matroska/WebM stream opens with.
+var matroskaMagic = []byte{0x1A, 0x45, 0xDF, 0xA3}
+
+// rejectMatroska peeks at the ingest stream and fails fast with a diagnosis if
+// it's Matroska. MKV was this pipeline's previous bridge format, so the most
+// likely stray MKV source is a MistServer still running the legacy MKVExec
+// process config (`streamplace live` POSTing MKV to /live on a restart loop) —
+// without the sniff that just looks like qtdemux dying instantly, over and
+// over, which is a miserable thing to debug. Returns a reader that includes
+// the peeked bytes.
+func rejectMatroska(input io.Reader) (io.Reader, error) {
+	br := bufio.NewReader(input)
+	head, err := br.Peek(len(matroskaMagic))
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return br, nil // shorter than the magic; let the pipeline EOS/complain
+		}
+		return nil, fmt.Errorf("peek ingest stream: %w", err)
+	}
+	if bytes.Equal(head, matroskaMagic) {
+		return nil, fmt.Errorf("ingest input is Matroska (MKV), but this node ingests fragmented MP4 — a MistServer running the legacy MKVExec process config is probably still pushing MKV to /live; update its config (see docker/mistserver.json)")
+	}
+	return br, nil
+}
+
 func buildMP4IngestPipeline(ctx context.Context, input io.Reader, signerElem *gst.Element) (*gst.Pipeline, error) {
+	input, err := rejectMatroska(input)
+	if err != nil {
+		return nil, err
+	}
 	// Queue sizing: qtdemux feeds both branches from one thread, and the fMP4
 	// muxer downstream is an aggregator — it consumes NOTHING until every pad
 	// has data. If the video track goes sparse (e.g. MistServer drops all delta

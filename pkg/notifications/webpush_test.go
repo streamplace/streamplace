@@ -110,6 +110,58 @@ func TestMultiNotifierFanout(t *testing.T) {
 	require.Equal(t, []string{"web-1"}, web.seen, "web notifier should only see web targets")
 }
 
+// TestExpiredTokensExtraction confirms that ExpiredTokens walks the
+// MultiNotifier → BlastsError tree and returns the dead subscription tokens
+// so callers can prune them from the DB.
+func TestExpiredTokensExtraction(t *testing.T) {
+	priv, pub, err := webpush.GenerateVAPIDKeys()
+	require.NoError(t, err)
+	notifier := NewWebPushNotifier(VAPIDKeys{PublicKey: pub, PrivateKey: priv}, "mailto:test@example.com")
+
+	// Two web targets: one live, one that returns 410 Gone.
+	var liveSub, deadSub webpush.Subscription
+	_, livePub, err := webpush.GenerateVAPIDKeys()
+	require.NoError(t, err)
+	liveSub.Keys.P256dh = livePub
+	_, deadPub, err := webpush.GenerateVAPIDKeys()
+	require.NoError(t, err)
+	deadSub.Keys.P256dh = deadPub
+
+	mux := http.NewServeMux()
+	liveHits := 0
+	deadHits := 0
+	mux.HandleFunc("/live", func(w http.ResponseWriter, r *http.Request) {
+		liveHits++
+		w.WriteHeader(201)
+	})
+	mux.HandleFunc("/dead", func(w http.ResponseWriter, r *http.Request) {
+		deadHits++
+		w.WriteHeader(410)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	liveSub.Endpoint = srv.URL + "/live"
+	deadSub.Endpoint = srv.URL + "/dead"
+	liveJSON, _ := json.Marshal(liveSub)
+	deadJSON, _ := json.Marshal(deadSub)
+
+	targets := []NotificationTarget{
+		{Token: string(liveJSON), Type: NotificationTypeWeb},
+		{Token: string(deadJSON), Type: NotificationTypeWeb},
+	}
+	// Wrap in a MultiNotifier to test the full error tree the callers see.
+	multi := NewMultiNotifier(notifier)
+	err = multi.Blast(context.Background(), targets, &NotificationBlast{Title: "t", Body: "b"})
+	require.Error(t, err)
+
+	expired := ExpiredTokens(err)
+	require.Len(t, expired, 1, "only the dead subscription should be extracted")
+	require.Equal(t, string(deadJSON), expired[0])
+	require.Equal(t, 1, liveHits)
+	require.Equal(t, 1, deadHits)
+}
+
 // recordingNotifier is a test double that records the tokens it was asked to
 // blast, filtered to a single type.
 type recordingNotifier struct {

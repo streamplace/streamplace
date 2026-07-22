@@ -497,6 +497,15 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 		} else {
 			log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
 		}
+		// Prune web push subscriptions whose endpoints returned 410 Gone /
+		// 404 — they're dead and would just fail again on every future blast.
+		for _, token := range notificationpkg.ExpiredTokens(err) {
+			if delErr := state.DeleteNotification(token); delErr != nil {
+				log.Error(ctx, "failed to prune expired notification", "token", token, "err", delErr)
+			} else {
+				log.Log(ctx, "pruned expired notification", "token", token)
+			}
+		}
 	} else {
 		log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications))
 	}

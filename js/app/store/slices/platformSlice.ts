@@ -145,19 +145,27 @@ export const createPlatformSlice: StateCreator<
         if (existing && existing.endpoint === sub.endpoint) {
           await existing.unsubscribe();
         }
-        // Tell the server to drop the row.
+        // Tell the server to drop the row. Only clear the local token after
+        // the DELETE succeeds — otherwise the toggle shows "off" while the
+        // server keeps pushing to a subscription the user thought they
+        // disabled, with no way to retry.
         if (url) {
-          await fetch(`${url}/api/notification`, {
+          const res = await fetch(`${url}/api/notification`, {
             method: "DELETE",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ token: notificationToken }),
           });
+          if (!res.ok) {
+            throw new Error(`server delete failed: ${res.status}`);
+          }
         }
+        set({ notificationToken: null });
       }
     } catch (e) {
       console.error("disableWebNotifications error", e);
-    } finally {
-      set({ notificationToken: null });
+      // Leave notificationToken set so the toggle stays "on" and the user
+      // can retry. The browser-side unsubscribe may have already succeeded,
+      // but the server row is what matters for stopping future pushes.
     }
   },
   webNotificationPermission: () => {

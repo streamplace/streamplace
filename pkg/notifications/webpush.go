@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -43,6 +44,11 @@ func NewWebPushNotifier(keys VAPIDKeys, subscriber string) *WebPushNotifier {
 // Blast implements Notifier. It fans a push out to every web target in
 // parallel (each subscription is an independent HTTP POST to the browser
 // push service). Firebase targets are ignored.
+//
+// Expired subscriptions (410 Gone / 404) are collected and returned as a
+// *BlastError whose Expired field holds the raw subscription tokens that
+// should be pruned from the DB. Callers can extract them with
+// ExpiredTokens(err).
 func (w *WebPushNotifier) Blast(ctx context.Context, targets []NotificationTarget, blast *NotificationBlast) error {
 	webTargets := make([]NotificationTarget, 0, len(targets))
 	for _, t := range targets {
@@ -65,6 +71,7 @@ func (w *WebPushNotifier) Blast(ctx context.Context, targets []NotificationTarge
 		success int
 		failed  int
 		errs    []error
+		expired []string
 	)
 
 	for _, t := range webTargets {
@@ -77,6 +84,10 @@ func (w *WebPushNotifier) Blast(ctx context.Context, targets []NotificationTarge
 			if err != nil {
 				failed++
 				errs = append(errs, err)
+				var expiredErr *ExpiredSubscriptionError
+				if errors.As(err, &expiredErr) {
+					expired = append(expired, token)
+				}
 				log.Error(ctx, "web push failed", "err", err)
 			} else {
 				success++
@@ -85,14 +96,77 @@ func (w *WebPushNotifier) Blast(ctx context.Context, targets []NotificationTarge
 	}
 	wg.Wait()
 
-	log.Log(ctx, "web push blast complete", "success", success, "failed", failed, "total", len(webTargets))
+	log.Log(ctx, "web push blast complete", "success", success, "failed", failed, "total", len(webTargets), "expired", len(expired))
 	if len(errs) == 0 {
 		return nil
 	}
-	if len(errs) == 1 {
-		return errs[0]
+	return &BlastsError{
+		Errs:    errs,
+		Expired: expired,
 	}
-	return fmt.Errorf("web push blast: %d of %d failed: %v", len(errs), len(webTargets), errs)
+}
+
+// BlastsError wraps the per-target errors from a WebPushNotifier.Blast and
+// exposes the subscription tokens that should be pruned because their
+// endpoints returned 410 Gone / 404.
+type BlastsError struct {
+	// Errs are all per-target errors, including ExpiredSubscriptionErrors.
+	Errs []error
+	// Expired holds the raw subscription tokens (DB primary keys) whose
+	// endpoints are dead and should be deleted.
+	Expired []string
+}
+
+func (e *BlastsError) Error() string {
+	if len(e.Errs) == 1 {
+		return e.Errs[0].Error()
+	}
+	return fmt.Sprintf("web push blast: %d targets failed", len(e.Errs))
+}
+
+// Unwrap returns the wrapped errors so errors.Is / errors.As can traverse them.
+func (e *BlastsError) Unwrap() []error { return e.Errs }
+
+// ExpiredTokens walks an error tree (handling errors.Join, MultiNotifier, and
+// BlastsError wrapping) and returns the raw subscription tokens whose push
+// endpoints returned 410 Gone / 404. Callers should delete these rows from
+// the notifications table so dead subscriptions don't accumulate.
+func ExpiredTokens(err error) []string {
+	if err == nil {
+		return nil
+	}
+	var expired []string
+	// If this node is a BlastsError, take its Expired slice directly and
+	// stop — recursing into its Unwrap() would only re-encounter the same
+	// ExpiredSubscriptionErrors and double-count.
+	var be *BlastsError
+	if errors.As(err, &be) {
+		return be.Expired
+	}
+	// Otherwise traverse children (errors.Join from MultiNotifier, or a
+	// single Unwrap chain) looking for nested BlastsErrors.
+	for _, inner := range errorsUnwrap(err) {
+		expired = append(expired, ExpiredTokens(inner)...)
+	}
+	return expired
+}
+
+// errorsUnwrap returns the direct children of err for tree-walking. Supports
+// errors.Join (Unwrap() []error) and single-wrap (Unwrap() error).
+func errorsUnwrap(err error) []error {
+	// errors.Join / BlastsError expose Unwrap() []error
+	type multiUnwrapper interface{ Unwrap() []error }
+	if mu, ok := err.(multiUnwrapper); ok {
+		return mu.Unwrap()
+	}
+	// standard single-wrap
+	type unwrapper interface{ Unwrap() error }
+	if u, ok := err.(unwrapper); ok {
+		if inner := u.Unwrap(); inner != nil {
+			return []error{inner}
+		}
+	}
+	return nil
 }
 
 // sendOne decrypts the stored subscription JSON and POSTs the encrypted

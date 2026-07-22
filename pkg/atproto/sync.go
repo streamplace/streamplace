@@ -981,9 +981,15 @@ func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *pl
 	}
 	if err := atsync.Noter.Blast(ctx, targets, blast); err != nil {
 		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
-		return
+	} else {
+		log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(notifications))
 	}
-	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(notifications))
+	// Prune dead web push subscriptions so they don't accumulate.
+	for _, token := range notificationpkg.ExpiredTokens(err) {
+		if delErr := atsync.StatefulDB.DeleteNotification(token); delErr != nil {
+			log.Error(ctx, "beta invite notification: failed to prune expired", "token", token, "err", delErr)
+		}
+	}
 }
 
 // betaInviteBlast builds the push payload for a newly-granted beta feature.

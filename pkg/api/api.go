@@ -645,7 +645,10 @@ func (a *StreamplaceAPI) HandleVapidPublicKey(ctx context.Context) http.HandlerF
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if _, err := w.Write([]byte(`{"publicKey":"` + keys.PublicKey + `"}`)); err != nil {
+		resp := struct {
+			PublicKey string `json:"publicKey"`
+		}{PublicKey: keys.PublicKey}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
 			log.Error(ctx, "error writing vapid public key", "error", err)
 		}
 	}

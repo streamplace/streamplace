@@ -2,7 +2,7 @@ package notifications
 
 import (
 	"context"
-	"fmt"
+	"errors"
 )
 
 // MultiNotifier fans a single blast out to every transport it wraps. It
@@ -42,11 +42,7 @@ func (m *MultiNotifier) Blast(ctx context.Context, targets []NotificationTarget,
 			errs = append(errs, err)
 		}
 	}
-	if len(errs) == 1 {
-		return errs[0]
-	}
-	if len(errs) > 1 {
-		return fmt.Errorf("multi-notifier: %d transports failed: %v", len(errs), errs)
-	}
-	return nil
+	// errors.Join preserves the tree so callers can errors.As into the
+	// individual transport errors (e.g. to extract expired web tokens).
+	return errors.Join(errs...)
 }

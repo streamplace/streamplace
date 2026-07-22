@@ -46,16 +46,20 @@ export function NotificationsCategorySettings() {
     ? permission === "granted" && !!notificationToken
     : permission === "granted";
 
-  // Re-check permission when the screen gains focus (the user may have
-  // changed it in browser settings).
-  const [refreshKey, setRefreshKey] = useState(0);
+  // Re-check permission when the browser's permission state changes (e.g. the
+  // user toggled it in browser settings while the app is open).
+  const [, forceRender] = useState(0);
   useEffect(() => {
-    if (!isWeb) return;
-    const interval = setInterval(() => setRefreshKey((k) => k + 1), 1000);
-    return () => clearInterval(interval);
+    if (!isWeb || typeof navigator.permissions === "undefined") return;
+    let status: PermissionStatus | undefined;
+    navigator.permissions.query({ name: "notifications" }).then((s) => {
+      status = s;
+      s.onchange = () => forceRender((k) => k + 1);
+    });
+    return () => {
+      if (status) status.onchange = null;
+    };
   }, [isWeb]);
-  // touch refreshKey so the linter doesn't complain and the re-render happens
-  void refreshKey;
 
   const handleToggle = async (value: boolean) => {
     if (busy) return;

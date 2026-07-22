@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
-	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/log"
+	notificationpkg "stream.place/streamplace/pkg/notifications"
 )
 
 // vapidConfigKey is the Config-table key under which the VAPID keypair is

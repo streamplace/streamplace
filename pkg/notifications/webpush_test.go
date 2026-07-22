@@ -8,8 +8,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	webpush "github.com/SherClockHolmes/webpush-go"
+	"github.com/stretchr/testify/require"
 )
 
 // TestWebPushNotifierBlast verifies that the WebPushNotifier:

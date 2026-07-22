@@ -57,20 +57,20 @@ import (
 )
 
 type StreamplaceAPI struct {
-	CLI              *config.CLI
-	Model            model.Model
-	StatefulDB       *statedb.StatefulDB
-	LocalDB          localdb.LocalDB
-	Updater          *Updater
-	Signer           *eip712.EIP712Signer
-	Mimes            map[string]string
-	Notifier          notifications.Notifier
-	MediaManager     *media.MediaManager
-	MediaSigner      media.MediaSigner
-	UploadManager    *upload.Manager
-	PlaybackStore    blob.Store
-	ViewLog          *viewlog.Writer
-	XRPCServer       *spxrpc.Server
+	CLI           *config.CLI
+	Model         model.Model
+	StatefulDB    *statedb.StatefulDB
+	LocalDB       localdb.LocalDB
+	Updater       *Updater
+	Signer        *eip712.EIP712Signer
+	Mimes         map[string]string
+	Notifier      notifications.Notifier
+	MediaManager  *media.MediaManager
+	MediaSigner   media.MediaSigner
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+	XRPCServer    *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -108,7 +108,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		Model:            mod,
 		StatefulDB:       statefulDB,
 		Updater:          updater,
-		Notifier:          noter,
+		Notifier:         noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
 		UploadManager:    um,

@@ -15,7 +15,7 @@ import (
 )
 
 // TestWorkerServesFramesOverSocket drives the zero-downtime transport end-to-end
-// with a REAL ingest: ServeMKVIngestWorkerSocket runs the full mux+sign+transcode
+// with a REAL ingest: ServeMP4IngestWorkerSocket runs the full mux+sign+transcode
 // pipeline and serves the resulting signed dual-codec segments over a unix
 // socket; a client connects and reads them through to a clean End. This proves
 // the socket path carries real signed media (the frameServer reconnect tests
@@ -40,10 +40,10 @@ func TestWorkerServesFramesOverSocket(t *testing.T) {
 		SocketPath:      sock,
 	}
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
 	serveDone := make(chan error, 1)
-	go func() { serveDone <- ServeMKVIngestWorkerSocket(ctx, cfg, bytes.NewReader(mkv)) }()
+	go func() { serveDone <- ServeMP4IngestWorkerSocket(ctx, cfg, bytes.NewReader(mp4)) }()
 
 	// Connect once the worker's listener is up (retry the dial briefly).
 	var conn net.Conn
@@ -85,7 +85,7 @@ func TestWorkerServesFramesOverSocket(t *testing.T) {
 	case serveErr := <-serveDone:
 		require.NoError(t, serveErr)
 	case <-time.After(30 * time.Second):
-		t.Fatal("ServeMKVIngestWorkerSocket did not return after the stream drained")
+		t.Fatal("ServeMP4IngestWorkerSocket did not return after the stream drained")
 	}
 	t.Logf("worker served %d signed segments + End over the socket", segs)
 }

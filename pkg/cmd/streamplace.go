@@ -866,8 +866,8 @@ func makeStreamCommand(build *config.BuildFlags) *urfavecli.Command {
 }
 
 // makeIngestWorkerCommand is the per-stream isolated ingest worker (Stage 1:
-// MKV/RTMP push). The node spawns it; it is not meant for direct use. It reads
-// the config handshake from fd 3, the MKV media from stdin, runs the mux + sign
+// fMP4 / Mist pull). The node spawns it; it is not meant for direct use. It reads
+// the config handshake from fd 3, the fragmented-MP4 media from stdin, runs the mux + sign
 // pipeline, and writes signed canonical .m4s frames to fd 4 — dedicated fds so
 // stray stdout/stderr can't corrupt the frame stream. A clean run ends with an
 // End frame; a fatal error emits an Error frame before exiting non-zero.
@@ -920,7 +920,7 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 					defer f.Close()
 					raw = f
 				}
-				return media.ServeMKVIngestWorkerSocket(ctx, cfg, media.WorkerInput(cfg, raw))
+				return media.ServeMP4IngestWorkerSocket(ctx, cfg, media.WorkerInput(cfg, raw))
 			}
 
 			framesFile := os.NewFile(4, "ingest-frames")
@@ -933,7 +933,7 @@ func makeIngestWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 			// This fd-4 path has no back-channel for manifest updates, so the
 			// manifest stays whatever main built at spawn. It's not used in prod
 			// (api requires a hijackable connection); kept for the worker self-test.
-			if err := media.RunMKVIngestWorker(ctx, cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
+			if err := media.RunMP4IngestWorker(ctx, cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
 				_ = frames.Error(err.Error())
 				return err
 			}
@@ -995,7 +995,7 @@ func makeRTMPPushWorkerCommand(build *config.BuildFlags) *urfavecli.Command {
 func makeLiveCommand(build *config.BuildFlags) *urfavecli.Command {
 	cli := config.CLI{Build: build}
 	liveCmd := cli.NewCommand("live")
-	liveCmd.Usage = "start live stream"
+	liveCmd.Usage = "start live stream (pipe fragmented MP4 to stdin)"
 	liveCmd.ArgsUsage = "[stream-key]"
 	liveCmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
 		args := cmd.Args()

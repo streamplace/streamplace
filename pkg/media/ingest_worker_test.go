@@ -29,7 +29,7 @@ import (
 // fd-passed push connection: prebuf (bytes main read past the headers) is
 // prepended, and a chunked transfer-encoding is decoded back to the raw media.
 func TestWorkerInputDeframes(t *testing.T) {
-	payload := []byte("the-actual-media-bytes-pretend-this-is-mkv-data")
+	payload := []byte("the-actual-media-bytes-pretend-this-is-mp4-data")
 	// A textbook chunked body: one chunk then the zero terminator.
 	body := []byte(fmt.Sprintf("%x\r\n%s\r\n0\r\n\r\n", len(payload), payload))
 
@@ -45,18 +45,15 @@ func TestWorkerInputDeframes(t *testing.T) {
 	require.Equal(t, payload, got)
 }
 
-// makeH264AACMKV builds a clean, single-track, streamable H264+AAC MKV from an
-// H264+Opus MP4 fixture (video passed through, audio transcoded Opus→AAC). The
-// repo's only AAC fixture (sample-stream.mkv) carries four audio tracks, which
-// the single-audio ingest pipeline leaves three of unlinked — wedging
-// matroskademux with no EOS. This produces exactly the 1-video-1-audio AAC MKV
-// the RTMP push path actually delivers.
-func makeH264AACMKV(t *testing.T, ctx context.Context, srcMP4 string) []byte {
+// makeH264AACFMP4 builds a clean, 1-video-1-audio fragmented H264+AAC MP4 from
+// an H264+Opus MP4 fixture (video passed through, audio transcoded Opus→AAC) —
+// exactly the shape MistServer's live .mp4 output delivers for an RTMP push.
+func makeH264AACFMP4(t *testing.T, ctx context.Context, srcMP4 string) []byte {
 	t.Helper()
 	gstinit.InitGST()
 	desc := strings.Join([]string{
 		"filesrc location=" + srcMP4 + " ! qtdemux name=d",
-		"d. ! queue ! h264parse ! matroskamux name=mux streamable=true ! appsink name=sink",
+		"d. ! queue ! h264parse ! mp4mux name=mux fragment-duration=500 ! appsink name=sink",
 		"d. ! queue ! opusdec ! audioconvert ! audioresample ! fdkaacenc ! aacparse ! mux.",
 	}, "\n")
 	pipeline, err := gst.NewPipelineFromString(desc)
@@ -73,23 +70,21 @@ func makeH264AACMKV(t *testing.T, ctx context.Context, srcMP4 string) []byte {
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
 	require.NoError(t, pipeline.SetState(gst.StatePlaying))
 	defer func() { _ = pipeline.SetState(gst.StateNull) }()
-	require.NoError(t, <-busErr, "remux to H264+AAC MKV")
-	require.NotEmpty(t, buf.Bytes(), "remux produced an MKV")
+	require.NoError(t, <-busErr, "remux to fragmented H264+AAC MP4")
+	require.NotEmpty(t, buf.Bytes(), "remux produced an fMP4")
 	return buf.Bytes()
 }
 
-// makeAudioOnlyAACMKV synthesizes an AAC-audio-only streamable MKV — the
+// makeAudioOnlyAACFMP4 synthesizes an AAC-audio-only fragmented MP4 — the
 // canonical WEDGE input for watchdog/containment tests. The ingest pipeline
-// hardwires a video and an audio branch; with no video track, matroskademux
-// never creates a video pad, the fMP4 aggregator's video pad never sees data
-// OR EOS, and the pipeline hangs forever with no frames and no EOS — a true
-// native wedge that no queue sizing can fix. (The 4-audio sample-stream.mkv
-// previously used for this stopped wedging once the ingest branches moved to
-// Queue2Big: its wedge was really the 1s default-queue interleave deadlock.)
-func makeAudioOnlyAACMKV(t *testing.T, ctx context.Context, seconds int) []byte {
+// hardwires a video and an audio branch; with no video track, qtdemux never
+// creates a video pad, the fMP4 aggregator's video pad never sees data OR
+// EOS, and the pipeline hangs forever with no frames and no EOS — a true
+// native wedge that no queue sizing can fix.
+func makeAudioOnlyAACFMP4(t *testing.T, ctx context.Context, seconds int) []byte {
 	t.Helper()
 	gstinit.InitGST()
-	desc := fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! matroskamux streamable=true ! appsink name=sink", seconds*47)
+	desc := fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mp4mux fragment-duration=500 ! appsink name=sink", seconds*47)
 	pipeline, err := gst.NewPipelineFromString(desc)
 	require.NoError(t, err)
 
@@ -104,18 +99,18 @@ func makeAudioOnlyAACMKV(t *testing.T, ctx context.Context, seconds int) []byte 
 	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
 	require.NoError(t, pipeline.SetState(gst.StatePlaying))
 	defer func() { _ = pipeline.SetState(gst.StateNull) }()
-	require.NoError(t, <-busErr, "synthesize audio-only MKV")
+	require.NoError(t, <-busErr, "synthesize audio-only fMP4")
 	require.NotEmpty(t, buf.Bytes())
 	return buf.Bytes()
 }
 
-// TestRunMKVIngestWorkerProducesValidSignedFrames drives the isolated ingest
-// worker's core directly (no subprocess): feed it an H264+AAC MKV, collect the
+// TestRunMP4IngestWorkerProducesValidSignedFrames drives the isolated ingest
+// worker's core directly (no subprocess): feed it an H264+AAC fMP4, collect the
 // framed output, and verify every emitted segment is a valid signed canonical
 // .m4s. This is the contract the supervisor relies on — frames it can hand
 // straight to ValidateMP4. (The real subprocess spawn + fault injection is
 // Stage 3.)
-func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
+func TestRunMP4IngestWorkerProducesValidSignedFrames(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
 
@@ -136,13 +131,13 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 		BroadcasterHost: "test.example.com",
 	}
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
-	// All frame writes complete before RunMKVIngestWorker returns (it waits on
+	// All frame writes complete before RunMP4IngestWorker returns (it waits on
 	// the signer drain), so reading the buffer single-threaded afterwards is safe.
 	var buf bytes.Buffer
 	frames := ingestframe.NewWriter(&buf)
-	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), frames, func() []byte { return cfg.Manifest }))
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), frames, func() []byte { return cfg.Manifest }))
 
 	r := ingestframe.NewReader(&buf)
 	var segs int
@@ -179,12 +174,12 @@ func TestRunMKVIngestWorkerProducesValidSignedFrames(t *testing.T) {
 	t.Logf("worker emitted %d valid dual-codec segments", segs)
 }
 
-// TestRunMKVIngestWorkerRecords proves debug recording works INSIDE the worker:
+// TestRunMP4IngestWorkerRecords proves debug recording works INSIDE the worker:
 // with cfg.Record set and a DataDir handed over, the worker tees its ingest
-// media to debug-recordings/<did>/<ts>.rtmp.mkv. This is what keeps debug
+// media to debug-recordings/<did>/<ts>.rtmp.mp4. This is what keeps debug
 // recording working on the isolated paths where main is out of the data path
 // (it can't tee the bytes itself), so main decides and the worker records.
-func TestRunMKVIngestWorkerRecords(t *testing.T) {
+func TestRunMP4IngestWorkerRecords(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
 
@@ -204,22 +199,22 @@ func TestRunMKVIngestWorkerRecords(t *testing.T) {
 		DataDir:         dataDir,
 	}
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
 	// Frames are irrelevant here (recording is on the input side); discard them.
-	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
-	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mkv and
+	// The recording lands at debug-recordings/<sanitized-did>/<ts>.rtmp.mp4 and
 	// must contain exactly the media the worker ingested. The dump goroutine
 	// flushes asynchronously, so allow it a moment to finish the last write.
-	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.rtmp.mkv")
+	glob := filepath.Join(dataDir, "debug-recordings", "*", "*.rtmp.mp4")
 	require.Eventually(t, func() bool {
 		matches, _ := filepath.Glob(glob)
 		if len(matches) != 1 {
 			return false
 		}
 		got, rerr := os.ReadFile(matches[0])
-		return rerr == nil && bytes.Equal(got, mkv)
+		return rerr == nil && bytes.Equal(got, mp4)
 	}, 10*time.Second, 25*time.Millisecond, "worker records the ingest media verbatim")
 }
 
@@ -277,13 +272,13 @@ func (f *fakeS3Server) objectWithPrefix(prefix, suffix string) ([]byte, bool) {
 	return nil, false
 }
 
-// TestRunMKVIngestWorkerRecordsToS3 proves the debug recording streams to S3
+// TestRunMP4IngestWorkerRecordsToS3 proves the debug recording streams to S3
 // when main hands its S3 config over the handshake (cfg.S3) — the production
 // shape. Without that plumbing the worker's minimal CLI has no S3 fields and
 // DebugRecordingCreate silently falls back to local disk, which is exactly the
 // regression this guards against: recordings must land in the bucket, not under
 // DataDir.
-func TestRunMKVIngestWorkerRecordsToS3(t *testing.T) {
+func TestRunMP4IngestWorkerRecordsToS3(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
 
@@ -314,17 +309,17 @@ func TestRunMKVIngestWorkerRecordsToS3(t *testing.T) {
 		},
 	}
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
-	require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
+	require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest }))
 
 	// The upload commits asynchronously (the dump goroutine's Close); the object
-	// must appear at debug-bucket/debug-recordings/<did>/<ts>.rtmp.mkv holding
+	// must appear at debug-bucket/debug-recordings/<did>/<ts>.rtmp.mp4 holding
 	// exactly the ingested media.
 	wantPrefix := "debug-bucket/debug-recordings/" + ms.Streamer() + "/"
 	require.Eventually(t, func() bool {
-		got, ok := fake.objectWithPrefix(wantPrefix, ".rtmp.mkv")
-		return ok && bytes.Equal(got, mkv)
+		got, ok := fake.objectWithPrefix(wantPrefix, ".rtmp.mp4")
+		return ok && bytes.Equal(got, mp4)
 	}, 10*time.Second, 25*time.Millisecond, "worker streams the recording to the S3 bucket verbatim")
 
 	// And nothing fell back to local disk.
@@ -332,14 +327,14 @@ func TestRunMKVIngestWorkerRecordsToS3(t *testing.T) {
 	require.Empty(t, matches, "recording must go to S3, not DataDir")
 }
 
-// TestRunMKVIngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a
+// TestRunMP4IngestWorkerSelfWatchdog proves the worker's OWN watchdog contains a
 // wedge. This is the only wedge containment on the detached/WHIP paths, where
 // main can't kill a detached worker — so the worker has to notice it's stuck and
-// exit itself. An audio-only MKV starves the muxer's video pad of both data and
+// exit itself. An audio-only fMP4 starves the muxer's video pad of both data and
 // EOS, so the pipeline wedges with no frames; the watchdog must tear it down
 // and return rather than hang forever. (The fd-4 path's supervisor-side
-// watchdog is covered separately by TestMKVIngestIsolatedWedgeContained.)
-func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
+// watchdog is covered separately by TestMP4IngestIsolatedWedgeContained.)
+func TestRunMP4IngestWorkerSelfWatchdog(t *testing.T) {
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 3 * time.Second
 	defer func() { ingestWorkerWatchdog = old }()
@@ -358,12 +353,12 @@ func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 		BroadcasterHost: "test.example.com",
 	}
 
-	wedge := makeAudioOnlyAACMKV(t, ctx, 5)
+	wedge := makeAudioOnlyAACFMP4(t, ctx, 5)
 
 	start := time.Now()
 	done := make(chan error, 1)
 	go func() {
-		done <- RunMKVIngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest })
+		done <- RunMP4IngestWorker(ctx, cfg, bytes.NewReader(wedge), ingestframe.NewWriter(io.Discard), func() []byte { return cfg.Manifest })
 	}()
 	select {
 	case <-done:
@@ -371,16 +366,16 @@ func TestRunMKVIngestWorkerSelfWatchdog(t *testing.T) {
 		require.Less(t, elapsed, 25*time.Second, "watchdog bounded the wedge")
 		t.Logf("worker self-terminated on wedge in %s", elapsed.Round(time.Second))
 	case <-time.After(30 * time.Second):
-		t.Fatal("worker-side watchdog did not contain the wedge (RunMKVIngestWorker hung)")
+		t.Fatal("worker-side watchdog did not contain the wedge (RunMP4IngestWorker hung)")
 	}
 }
 
-// TestRunMKVIngestWorkerSignsWithSuppliedManifest is the core of the pre-live →
+// TestRunMP4IngestWorkerSignsWithSuppliedManifest is the core of the pre-live →
 // live fix: the worker signs each GoP with whatever the manifest getter returns,
 // NOT a frozen one. Two runs of the same media differ only in the getter — a
 // pre-live manifest yields unpublished segments; a live manifest (the same plus
 // a c2pa.published action, as main would push on go-live) yields published ones.
-func TestRunMKVIngestWorkerSignsWithSuppliedManifest(t *testing.T) {
+func TestRunMP4IngestWorkerSignsWithSuppliedManifest(t *testing.T) {
 	ctx := context.Background()
 	ms := newBareSegmentSigner(t)
 	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
@@ -398,11 +393,11 @@ func TestRunMKVIngestWorkerSignsWithSuppliedManifest(t *testing.T) {
 		[]byte(`{"action":"c2pa.created"},{"action":"c2pa.published"}`), 1)
 	require.NotEqual(t, string(prelive), string(live), "the live manifest must add c2pa.published")
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
 	firstSegmentPublished := func(manifest []byte) bool {
 		var buf bytes.Buffer
-		require.NoError(t, RunMKVIngestWorker(ctx, cfg, bytes.NewReader(mkv),
+		require.NoError(t, RunMP4IngestWorker(ctx, cfg, bytes.NewReader(mp4),
 			ingestframe.NewWriter(&buf), func() []byte { return manifest }))
 		r := ingestframe.NewReader(&buf)
 		typ, payload, rerr := r.ReadFrame()

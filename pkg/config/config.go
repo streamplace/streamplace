@@ -1032,8 +1032,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 		})
 		cmd.Flags = append(cmd.Flags, &urfavecli.IntFlag{
 			Name:        "mist-http-port",
-			Usage:       "MistServer HTTP port (internal use only)",
-			Value:       18080,
+			Usage:       "MistServer HTTP port (internal use only) — ingest pulls Mist's live fMP4 output from this port, so it must match the running Mist config (docker/mistserver.json uses 28080, the default here)",
+			Value:       28080,
 			Destination: &cli.MistHTTPPort,
 			Sources:     urfavecli.EnvVars("SP_MIST_HTTP_PORT"),
 		})

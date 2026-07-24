@@ -138,6 +138,53 @@ func TestMKVIngestSparseVideoNoWedge(t *testing.T) {
 // the same bytes with the 30-byte M_JSON TrackEntry stripped; tail135 = from
 // 135s (~5s before the keyframe-only transition); full = the whole capture.
 
+// makeDualVideoAACMKV synthesizes an MKV with TWO H264 video tracks plus 48kHz
+// AAC — the shape a multitrack-video (enhanced broadcasting) stream takes once
+// MistServer repackages it for the node's MKV push.
+func makeDualVideoAACMKV(t *testing.T, ctx context.Context, seconds int) []byte {
+	t.Helper()
+	gstinit.InitGST()
+	desc := strings.Join([]string{
+		"matroskamux name=mux streamable=true ! appsink name=sink",
+		fmt.Sprintf("videotestsrc num-buffers=%d pattern=smpte ! video/x-raw,width=640,height=360,framerate=30/1 ! x264enc key-int-max=30 tune=zerolatency speed-preset=ultrafast ! h264parse ! mux.", seconds*30),
+		fmt.Sprintf("videotestsrc num-buffers=%d pattern=ball ! video/x-raw,width=320,height=180,framerate=30/1 ! x264enc key-int-max=30 tune=zerolatency speed-preset=ultrafast ! h264parse ! mux.", seconds*30),
+		fmt.Sprintf("audiotestsrc num-buffers=%d samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! fdkaacenc ! aacparse ! mux.", seconds*47),
+	}, "\n")
+	pipeline, err := gst.NewPipelineFromString(desc)
+	require.NoError(t, err)
+
+	sinkEle, err := pipeline.GetElementByName("sink")
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	app.SinkFromElement(sinkEle).SetCallbacks(&app.SinkCallbacks{
+		NewSampleFunc: WriterNewSample(ctx, &buf),
+	})
+
+	busErr := make(chan error, 1)
+	go func() { busErr <- HandleBusMessages(ctx, pipeline) }()
+	require.NoError(t, pipeline.SetState(gst.StatePlaying))
+	defer func() { _ = pipeline.SetState(gst.StateNull) }()
+	require.NoError(t, <-busErr, "synthesize dual-video MKV")
+	require.NotEmpty(t, buf.Bytes())
+	return buf.Bytes()
+}
+
+// TestMKVIngestDualVideoTrack probes what today's single-video-branch ingest
+// pipeline does with a multitrack-video (enhanced broadcasting) MKV. Until
+// multitrack ingest is actually built, a dual-track push must at least not
+// wedge or kill the session: the second video track should be ignored and the
+// first one segmented like any other stream.
+func TestMKVIngestDualVideoTrack(t *testing.T) {
+	ctx := context.Background()
+	mkv := makeDualVideoAACMKV(t, ctx, 10)
+
+	segs, err := runMKVThroughIngestWorker(t, mkv, true)
+	require.NoError(t, err, "dual-video-track stream ingests without a pipeline error")
+	require.GreaterOrEqual(t, segs, 5, "dual-video-track stream emits its ~1s GoP segments")
+	t.Logf("dual-video-track stream: %d segments", segs)
+}
+
+
 // TestMKVIngestMistMetadataTrack: MistServer's MKV push declares a
 // live-metadata track (CodecID M_JSON, TrackType 3) as track 1, ahead of the
 // AAC audio and H264 video tracks. It was the initial suspect for the

@@ -31,6 +31,12 @@ func (mm *MediaManager) MKVIngest(ctx context.Context, input io.Reader, ms Media
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	release := mm.ClaimIngestSession(ms.Streamer(), func(reason string) {
+		log.Warn(ctx, "ending ingest session", "reason", reason, "streamer", ms.Streamer())
+		cancel()
+	})
+	defer release()
+
 	signer, err := mm.SegmentAndSignElem(ctx, ms)
 	if err != nil {
 		return err

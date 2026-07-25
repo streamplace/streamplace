@@ -5,12 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
+	"stream.place/streamplace/pkg/log"
 )
 
 func SendStreamReceived(ctx context.Context, w *discordtypes.Webhook, streamerDID string) error {
@@ -28,6 +28,8 @@ func SendStreamReceived(ctx context.Context, w *discordtypes.Webhook, streamerDI
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
+	log.Log(ctx, "sending stream.received to discord", "streamerDID", streamerDID, "webhook_url", w.URL)
+
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -41,11 +43,12 @@ func SendStreamReceived(ctx context.Context, w *discordtypes.Webhook, streamerDI
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, err := io.ReadAll(resp.Body)
+		body, err := readResponseBody(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
-		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, string(body))
+		log.Error(ctx, "stream.received webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
+		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, body)
 	}
 
 	return nil

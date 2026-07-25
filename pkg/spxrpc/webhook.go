@@ -44,7 +44,7 @@ func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context, input
 	// Create webhook
 	err = s.statefulDB.CreateWebhook(webhook)
 	if err != nil {
-		log.Error(ctx, "failed to create webhook", "err", err)
+		log.Error(ctx, "failed to create webhook in database", "err", err, "url", input.Url, "events", input.Events)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to create webhook")
 	}
 
@@ -82,9 +82,12 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 		}
 	}
 
-	// Build filters
+	// Build filters. The generated stub can't distinguish an absent `active`
+	// param from an explicit active=false (both arrive as false), so filtering
+	// only applies when active=true. Omitting the param or passing
+	// active=false returns all webhooks regardless of status.
 	filters := make(map[string]interface{})
-	if !active {
+	if active {
 		filters["active"] = active
 	}
 

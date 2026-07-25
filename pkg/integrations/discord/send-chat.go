@@ -51,7 +51,7 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	log.Warn(ctx, "sending chat to discord", "payload", string(jsonPayload))
+	log.Warn(ctx, "sending chat to discord", "payload", string(jsonPayload), "webhook_url", w.URL)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -71,10 +71,9 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 	}
 
 	if resp.StatusCode != 204 {
+		log.Error(ctx, "chat webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", string(body))
 		return fmt.Errorf("failed to send chat to discord: %s", string(body))
 	}
-
-	log.Warn(ctx, "chat sent to discord", "payload", string(body))
 
 	return nil
 }

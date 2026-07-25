@@ -44,7 +44,7 @@ func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context, input
 	// Create webhook
 	err = s.statefulDB.CreateWebhook(webhook)
 	if err != nil {
-		log.Error(ctx, "failed to create webhook", "err", err)
+		log.Error(ctx, "failed to create webhook in database", "err", err, "url", input.Url, "events", input.Events)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to create webhook")
 	}
 
@@ -83,9 +83,12 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 	}
 
 	// Build filters
+	// active defaults to true (show all active webhooks). When the client
+	// explicitly passes active=false, we filter to show inactive webhooks.
+	// When active=true, we show only active webhooks.
 	filters := make(map[string]interface{})
-	if !active {
-		filters["active"] = active
+	if active {
+		filters["active"] = true
 	}
 
 	// Get webhooks

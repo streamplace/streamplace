@@ -1059,16 +1059,28 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 
 var StreamplaceSchemePrefix = "streamplace://"
 
+// OwnPublicURL is the URL this process's own public listener answers on.
+//
+// With --secure we terminate TLS ourselves: the real handler is on HTTPSAddr
+// and the HTTPAddr listener only serves 307 redirects to it (ServeHTTPRedirect),
+// so http://<HTTPAddr> is not an address anything can actually be fetched from
+// — a websocket dial there gets the redirect instead of a 101 upgrade.
+// --behind-https-proxy is the opposite case: the proxy terminates TLS and we
+// really do serve the handler as plain HTTP on HTTPAddr, so only cli.Secure
+// flips this.
 func (cli *CLI) OwnPublicURL() string {
 	//  No errors because we know it's valid from AddrFlag
-	host, port, _ := net.SplitHostPort(cli.HTTPAddr)
+	addr, scheme := cli.HTTPAddr, "http"
+	if cli.Secure {
+		addr, scheme = cli.HTTPSAddr, "https"
+	}
+	host, port, _ := net.SplitHostPort(addr)
 
 	ip := net.ParseIP(host)
 	if host == "" || ip.IsUnspecified() {
 		host = "127.0.0.1"
 	}
-	addr := net.JoinHostPort(host, port)
-	return fmt.Sprintf("http://%s", addr)
+	return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, port))
 }
 
 func (cli *CLI) OwnInternalURL() string {

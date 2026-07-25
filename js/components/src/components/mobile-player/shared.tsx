@@ -45,10 +45,13 @@ export function srcToUrl(
     }
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {
-      if (props.selectedRendition === "auto") {
-        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
+      if (
+        props.selectedRendition &&
+        props.selectedRendition !== "auto" &&
+        props.selectedRendition !== "source"
+      ) {
+        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}&rendition=${props.selectedRendition}`;
       } else {
-        // todo: re-implement track selection here
         outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
       }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {

@@ -14,6 +14,7 @@ import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
 export default function useWebRTC(
   streamer: string,
+  rendition: string,
 ): [MediaStream | null, boolean] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [stuck, setStuck] = useState<boolean>(false);
@@ -73,6 +74,7 @@ export default function useWebRTC(
         agent,
         isOwnStream,
         playbackWorkerUrl,
+        rendition,
       );
     });
 
@@ -111,7 +113,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl]);
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
   return [mediaStream, stuck];
 }
 
@@ -134,6 +136,7 @@ export async function negotiateConnectionWithClientOffer(
   agent?: StreamplaceAgent,
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
+  rendition?: string,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -173,6 +176,7 @@ export async function negotiateConnectionWithClientOffer(
         agent,
         isOwnStream,
         playbackWorkerUrl,
+        rendition,
       );
       let text = new TextDecoder().decode(response);
       if ((peerConnection.connectionState as string) === "closed") {
@@ -285,6 +289,7 @@ async function postSDPOffer(
   agent?: StreamplaceAgent,
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
+  rendition?: string,
 ) {
   if (!agent) {
     throw new Error("No agent found");
@@ -300,7 +305,7 @@ async function postSDPOffer(
     data as any,
     {
       params: {
-        rendition: "source",
+        rendition: rendition || "source",
         streamer: streamer,
       },
     },

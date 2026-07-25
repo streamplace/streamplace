@@ -84,6 +84,17 @@ func (s *Server) HandleGetLivePlaylist(c echo.Context) error {
 	// Sub-playlist + segment URLs carry the resolved DID, so follow-up requests
 	// skip handle resolution and stay stable across a session.
 	track := c.QueryParam("track")
+	rendition := c.QueryParam("rendition")
+
+	// rendition=audio requests the primary audio track's media playlist
+	// directly, skipping the master playlist so the player never loads video.
+	if track == "" && rendition == "audio" {
+		track = w.PrimaryAudioTrackID()
+		if track == "" {
+			return echo.NewHTTPError(http.StatusNotFound, "NoAudioTrack")
+		}
+	}
+
 	var body string
 	if track == "" {
 		body = w.MasterPlaylist(func(tid string) string {

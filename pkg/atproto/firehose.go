@@ -47,7 +47,7 @@ type ATProtoSynchronizer struct {
 	CLI                *config.CLI
 	Model              model.Model
 	StatefulDB         *statedb.StatefulDB
-	Noter              notificationpkg.FirebaseNotifier
+	Noter              notificationpkg.Notifier
 	Bus                *bus.Bus
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory

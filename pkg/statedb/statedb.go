@@ -30,7 +30,7 @@ type StatefulDB struct {
 	CLI   *config.CLI
 	Type  DBType
 	locks *NamedLocks
-	noter notificationpkg.FirebaseNotifier
+	noter notificationpkg.Notifier
 	model model.Model
 	// pokeQueue is used to wake up the queue processor when a new task is enqueued
 	pokeQueue chan struct{}
@@ -76,7 +76,7 @@ var StatefulDBModels = []any{
 var NoPostgresDatabaseCode = "3D000"
 
 // Stateful database for storing private streamplace state
-func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.FirebaseNotifier, model model.Model) (*StatefulDB, error) {
+func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier, model model.Model) (*StatefulDB, error) {
 	dbURL := cli.DBURL
 	log.Log(ctx, "starting stateful database", "dbURL", redactDBURL(dbURL))
 	var dial gorm.Dialector

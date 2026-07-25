@@ -53,6 +53,7 @@ developer = 开发者
 languages = 语言
 privacy-security = 隐私与安全
 streaming = 串流
+notifications = 通知
 
 ## Common Actions
 cancel = 取消

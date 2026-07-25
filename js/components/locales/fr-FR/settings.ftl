@@ -89,6 +89,7 @@ developer = Développeur
 languages = Langues
 privacy-security = Confidentialité et Sécurité
 streaming = Diffusion
+notifications = Notifications
 
 ## Actions Courantes
 cancel = Annuler

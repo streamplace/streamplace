@@ -444,15 +444,15 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return
 		}
-		if a.FirebaseNotifier == nil {
-			errors.WriteHTTPInternalServerError(w, "firebase notifier not initialized", nil)
+		if a.Notifier == nil {
+			errors.WriteHTTPInternalServerError(w, "notifier not initialized", nil)
 			return
 		}
-		tokens := []string{}
-		for _, not := range notifications {
-			tokens = append(tokens, not.Token)
+		targets := make([]notificationpkg.NotificationTarget, len(notifications))
+		for i, not := range notifications {
+			targets[i] = notificationpkg.NotificationTarget{Token: not.Token, Type: not.Type}
 		}
-		err = a.FirebaseNotifier.Blast(ctx, tokens, &payload)
+		err = a.Notifier.Blast(ctx, targets, &payload)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to blast notifications", err)
 			return

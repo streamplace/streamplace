@@ -69,6 +69,17 @@ export const createPlatformSlice: StateCreator<
     }
     try {
       await navigator.serviceWorker.register("/sw.js");
+      // Restore an existing PushSubscription into the store. The browser
+      // keeps subscriptions across reloads (and the server still has the
+      // row), but the Zustand store isn't persisted — so without this the
+      // toggle would show "off" after a reload even though the user is
+      // still subscribed. This mirrors the native path, where the FCM token
+      // is re-acquired on startup.
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        set({ notificationToken: JSON.stringify(existing) });
+      }
     } catch (e) {
       console.log("service worker registration failed", e);
     }

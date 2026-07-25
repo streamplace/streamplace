@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 )
 
@@ -16,7 +16,7 @@ type Follow struct {
 	CreatedAt  time.Time
 }
 
-func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow *bsky.GraphFollow) error {
+func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow appbsky.GraphFollow) error {
 	at, err := aqtime.FromString(follow.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to parse follow createdAt: %w", err)
@@ -57,4 +57,29 @@ func (m *DBModel) GetUserFollowingUser(ctx context.Context, userDID, subjectDID 
 		return nil, nil
 	}
 	return &follow, result.Error
+}
+
+type followerCountRow struct {
+	SubjectDID string
+	Count      int
+}
+
+func (m *DBModel) CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error) {
+	if len(dids) == 0 {
+		return map[string]int{}, nil
+	}
+	var rows []followerCountRow
+	err := m.DB.Table("follows").
+		Select("subject_did, COUNT(*) as count").
+		Where("subject_did IN ?", dids).
+		Group("subject_did").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[string]int, len(rows))
+	for _, r := range rows {
+		counts[r.SubjectDID] = r.Count
+	}
+	return counts, nil
 }

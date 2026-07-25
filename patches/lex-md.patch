@@ -1,0 +1,1150 @@
+diff --git a/dist/types.d.ts b/dist/types.d.ts
+index 2111f9b8f7c7002d92827847358fbc928d3dd50c..f3799aa2aafb096a2e2cf7ff33bfb725e74aadc7 100644
+--- a/dist/types.d.ts
++++ b/dist/types.d.ts
+@@ -15356,7 +15356,7 @@ export declare const lexUserType: z.ZodType<{
+     key?: string | undefined;
+ }>;
+ export type LexUserType = z.infer<typeof lexUserType>;
+-export declare const lexiconDoc: z.ZodEffects<z.ZodObject<{
++export declare const lexiconDoc: z.ZodEffects<z.ZodEffects<z.ZodObject<{
+     lexicon: z.ZodLiteral<1>;
+     id: z.ZodEffects<z.ZodString, string, string>;
+     revision: z.ZodOptional<z.ZodNumber>;
+@@ -21728,7 +21728,1070 @@ export declare const lexiconDoc: z.ZodEffects<z.ZodObject<{
+     }>;
+     description?: string | undefined;
+     revision?: number | undefined;
+-}>;
++}>, {
++    lexicon: 1;
++    id: string;
++    defs: Record<string, {
++        type: "boolean";
++        default?: boolean | undefined;
++        description?: string | undefined;
++        const?: boolean | undefined;
++    } | {
++        type: "integer";
++        default?: number | undefined;
++        minimum?: number | undefined;
++        maximum?: number | undefined;
++        description?: string | undefined;
++        enum?: number[] | undefined;
++        const?: number | undefined;
++    } | {
++        type: "string";
++        default?: string | undefined;
++        description?: string | undefined;
++        minLength?: number | undefined;
++        maxLength?: number | undefined;
++        enum?: string[] | undefined;
++        const?: string | undefined;
++        format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++        minGraphemes?: number | undefined;
++        maxGraphemes?: number | undefined;
++        knownValues?: string[] | undefined;
++    } | {
++        type: "unknown";
++        description?: string | undefined;
++    } | {
++        type: "bytes";
++        description?: string | undefined;
++        minLength?: number | undefined;
++        maxLength?: number | undefined;
++    } | {
++        type: "cid-link";
++        description?: string | undefined;
++    } | {
++        type: "blob";
++        description?: string | undefined;
++        maxSize?: number | undefined;
++        accept?: string[] | undefined;
++    } | {
++        type: "array";
++        items: {
++            type: "boolean";
++            default?: boolean | undefined;
++            description?: string | undefined;
++            const?: boolean | undefined;
++        } | {
++            type: "integer";
++            default?: number | undefined;
++            minimum?: number | undefined;
++            maximum?: number | undefined;
++            description?: string | undefined;
++            enum?: number[] | undefined;
++            const?: number | undefined;
++        } | {
++            type: "string";
++            default?: string | undefined;
++            description?: string | undefined;
++            minLength?: number | undefined;
++            maxLength?: number | undefined;
++            enum?: string[] | undefined;
++            const?: string | undefined;
++            format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++            minGraphemes?: number | undefined;
++            maxGraphemes?: number | undefined;
++            knownValues?: string[] | undefined;
++        } | {
++            type: "unknown";
++            description?: string | undefined;
++        } | {
++            type: "bytes";
++            description?: string | undefined;
++            minLength?: number | undefined;
++            maxLength?: number | undefined;
++        } | {
++            type: "cid-link";
++            description?: string | undefined;
++        } | {
++            type: "ref";
++            ref: string;
++            description?: string | undefined;
++        } | {
++            type: "union";
++            refs: string[];
++            description?: string | undefined;
++            closed?: boolean | undefined;
++        } | {
++            type: "blob";
++            description?: string | undefined;
++            maxSize?: number | undefined;
++            accept?: string[] | undefined;
++        };
++        description?: string | undefined;
++        minLength?: number | undefined;
++        maxLength?: number | undefined;
++    } | {
++        type: "token";
++        description?: string | undefined;
++    } | {
++        type: "object";
++        properties: Record<string, {
++            type: "boolean";
++            default?: boolean | undefined;
++            description?: string | undefined;
++            const?: boolean | undefined;
++        } | {
++            type: "integer";
++            default?: number | undefined;
++            minimum?: number | undefined;
++            maximum?: number | undefined;
++            description?: string | undefined;
++            enum?: number[] | undefined;
++            const?: number | undefined;
++        } | {
++            type: "string";
++            default?: string | undefined;
++            description?: string | undefined;
++            minLength?: number | undefined;
++            maxLength?: number | undefined;
++            enum?: string[] | undefined;
++            const?: string | undefined;
++            format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++            minGraphemes?: number | undefined;
++            maxGraphemes?: number | undefined;
++            knownValues?: string[] | undefined;
++        } | {
++            type: "unknown";
++            description?: string | undefined;
++        } | {
++            type: "bytes";
++            description?: string | undefined;
++            minLength?: number | undefined;
++            maxLength?: number | undefined;
++        } | {
++            type: "cid-link";
++            description?: string | undefined;
++        } | {
++            type: "ref";
++            ref: string;
++            description?: string | undefined;
++        } | {
++            type: "union";
++            refs: string[];
++            description?: string | undefined;
++            closed?: boolean | undefined;
++        } | {
++            type: "blob";
++            description?: string | undefined;
++            maxSize?: number | undefined;
++            accept?: string[] | undefined;
++        } | {
++            type: "array";
++            items: {
++                type: "boolean";
++                default?: boolean | undefined;
++                description?: string | undefined;
++                const?: boolean | undefined;
++            } | {
++                type: "integer";
++                default?: number | undefined;
++                minimum?: number | undefined;
++                maximum?: number | undefined;
++                description?: string | undefined;
++                enum?: number[] | undefined;
++                const?: number | undefined;
++            } | {
++                type: "string";
++                default?: string | undefined;
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++                enum?: string[] | undefined;
++                const?: string | undefined;
++                format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                minGraphemes?: number | undefined;
++                maxGraphemes?: number | undefined;
++                knownValues?: string[] | undefined;
++            } | {
++                type: "unknown";
++                description?: string | undefined;
++            } | {
++                type: "bytes";
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            } | {
++                type: "cid-link";
++                description?: string | undefined;
++            } | {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "blob";
++                description?: string | undefined;
++                maxSize?: number | undefined;
++                accept?: string[] | undefined;
++            };
++            description?: string | undefined;
++            minLength?: number | undefined;
++            maxLength?: number | undefined;
++        }>;
++        required?: string[] | undefined;
++        description?: string | undefined;
++        nullable?: string[] | undefined;
++    } | {
++        type: "query";
++        description?: string | undefined;
++        output?: {
++            encoding: string;
++            description?: string | undefined;
++            schema?: {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "object";
++                properties: Record<string, {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                } | {
++                    type: "bytes";
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                } | {
++                    type: "cid-link";
++                    description?: string | undefined;
++                } | {
++                    type: "ref";
++                    ref: string;
++                    description?: string | undefined;
++                } | {
++                    type: "union";
++                    refs: string[];
++                    description?: string | undefined;
++                    closed?: boolean | undefined;
++                } | {
++                    type: "blob";
++                    description?: string | undefined;
++                    maxSize?: number | undefined;
++                    accept?: string[] | undefined;
++                } | {
++                    type: "array";
++                    items: {
++                        type: "boolean";
++                        default?: boolean | undefined;
++                        description?: string | undefined;
++                        const?: boolean | undefined;
++                    } | {
++                        type: "integer";
++                        default?: number | undefined;
++                        minimum?: number | undefined;
++                        maximum?: number | undefined;
++                        description?: string | undefined;
++                        enum?: number[] | undefined;
++                        const?: number | undefined;
++                    } | {
++                        type: "string";
++                        default?: string | undefined;
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                        enum?: string[] | undefined;
++                        const?: string | undefined;
++                        format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                        minGraphemes?: number | undefined;
++                        maxGraphemes?: number | undefined;
++                        knownValues?: string[] | undefined;
++                    } | {
++                        type: "unknown";
++                        description?: string | undefined;
++                    } | {
++                        type: "bytes";
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                    } | {
++                        type: "cid-link";
++                        description?: string | undefined;
++                    } | {
++                        type: "ref";
++                        ref: string;
++                        description?: string | undefined;
++                    } | {
++                        type: "union";
++                        refs: string[];
++                        description?: string | undefined;
++                        closed?: boolean | undefined;
++                    } | {
++                        type: "blob";
++                        description?: string | undefined;
++                        maxSize?: number | undefined;
++                        accept?: string[] | undefined;
++                    };
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                }>;
++                required?: string[] | undefined;
++                description?: string | undefined;
++                nullable?: string[] | undefined;
++            } | undefined;
++        } | undefined;
++        parameters?: {
++            type: "params";
++            properties: Record<string, {
++                type: "boolean";
++                default?: boolean | undefined;
++                description?: string | undefined;
++                const?: boolean | undefined;
++            } | {
++                type: "integer";
++                default?: number | undefined;
++                minimum?: number | undefined;
++                maximum?: number | undefined;
++                description?: string | undefined;
++                enum?: number[] | undefined;
++                const?: number | undefined;
++            } | {
++                type: "string";
++                default?: string | undefined;
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++                enum?: string[] | undefined;
++                const?: string | undefined;
++                format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                minGraphemes?: number | undefined;
++                maxGraphemes?: number | undefined;
++                knownValues?: string[] | undefined;
++            } | {
++                type: "unknown";
++                description?: string | undefined;
++            } | {
++                type: "array";
++                items: {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                };
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            }>;
++            required?: string[] | undefined;
++            description?: string | undefined;
++        } | undefined;
++        errors?: {
++            name: string;
++            description?: string | undefined;
++        }[] | undefined;
++    } | {
++        type: "procedure";
++        input?: {
++            encoding: string;
++            description?: string | undefined;
++            schema?: {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "object";
++                properties: Record<string, {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                } | {
++                    type: "bytes";
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                } | {
++                    type: "cid-link";
++                    description?: string | undefined;
++                } | {
++                    type: "ref";
++                    ref: string;
++                    description?: string | undefined;
++                } | {
++                    type: "union";
++                    refs: string[];
++                    description?: string | undefined;
++                    closed?: boolean | undefined;
++                } | {
++                    type: "blob";
++                    description?: string | undefined;
++                    maxSize?: number | undefined;
++                    accept?: string[] | undefined;
++                } | {
++                    type: "array";
++                    items: {
++                        type: "boolean";
++                        default?: boolean | undefined;
++                        description?: string | undefined;
++                        const?: boolean | undefined;
++                    } | {
++                        type: "integer";
++                        default?: number | undefined;
++                        minimum?: number | undefined;
++                        maximum?: number | undefined;
++                        description?: string | undefined;
++                        enum?: number[] | undefined;
++                        const?: number | undefined;
++                    } | {
++                        type: "string";
++                        default?: string | undefined;
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                        enum?: string[] | undefined;
++                        const?: string | undefined;
++                        format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                        minGraphemes?: number | undefined;
++                        maxGraphemes?: number | undefined;
++                        knownValues?: string[] | undefined;
++                    } | {
++                        type: "unknown";
++                        description?: string | undefined;
++                    } | {
++                        type: "bytes";
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                    } | {
++                        type: "cid-link";
++                        description?: string | undefined;
++                    } | {
++                        type: "ref";
++                        ref: string;
++                        description?: string | undefined;
++                    } | {
++                        type: "union";
++                        refs: string[];
++                        description?: string | undefined;
++                        closed?: boolean | undefined;
++                    } | {
++                        type: "blob";
++                        description?: string | undefined;
++                        maxSize?: number | undefined;
++                        accept?: string[] | undefined;
++                    };
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                }>;
++                required?: string[] | undefined;
++                description?: string | undefined;
++                nullable?: string[] | undefined;
++            } | undefined;
++        } | undefined;
++        description?: string | undefined;
++        output?: {
++            encoding: string;
++            description?: string | undefined;
++            schema?: {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "object";
++                properties: Record<string, {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                } | {
++                    type: "bytes";
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                } | {
++                    type: "cid-link";
++                    description?: string | undefined;
++                } | {
++                    type: "ref";
++                    ref: string;
++                    description?: string | undefined;
++                } | {
++                    type: "union";
++                    refs: string[];
++                    description?: string | undefined;
++                    closed?: boolean | undefined;
++                } | {
++                    type: "blob";
++                    description?: string | undefined;
++                    maxSize?: number | undefined;
++                    accept?: string[] | undefined;
++                } | {
++                    type: "array";
++                    items: {
++                        type: "boolean";
++                        default?: boolean | undefined;
++                        description?: string | undefined;
++                        const?: boolean | undefined;
++                    } | {
++                        type: "integer";
++                        default?: number | undefined;
++                        minimum?: number | undefined;
++                        maximum?: number | undefined;
++                        description?: string | undefined;
++                        enum?: number[] | undefined;
++                        const?: number | undefined;
++                    } | {
++                        type: "string";
++                        default?: string | undefined;
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                        enum?: string[] | undefined;
++                        const?: string | undefined;
++                        format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                        minGraphemes?: number | undefined;
++                        maxGraphemes?: number | undefined;
++                        knownValues?: string[] | undefined;
++                    } | {
++                        type: "unknown";
++                        description?: string | undefined;
++                    } | {
++                        type: "bytes";
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                    } | {
++                        type: "cid-link";
++                        description?: string | undefined;
++                    } | {
++                        type: "ref";
++                        ref: string;
++                        description?: string | undefined;
++                    } | {
++                        type: "union";
++                        refs: string[];
++                        description?: string | undefined;
++                        closed?: boolean | undefined;
++                    } | {
++                        type: "blob";
++                        description?: string | undefined;
++                        maxSize?: number | undefined;
++                        accept?: string[] | undefined;
++                    };
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                }>;
++                required?: string[] | undefined;
++                description?: string | undefined;
++                nullable?: string[] | undefined;
++            } | undefined;
++        } | undefined;
++        parameters?: {
++            type: "params";
++            properties: Record<string, {
++                type: "boolean";
++                default?: boolean | undefined;
++                description?: string | undefined;
++                const?: boolean | undefined;
++            } | {
++                type: "integer";
++                default?: number | undefined;
++                minimum?: number | undefined;
++                maximum?: number | undefined;
++                description?: string | undefined;
++                enum?: number[] | undefined;
++                const?: number | undefined;
++            } | {
++                type: "string";
++                default?: string | undefined;
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++                enum?: string[] | undefined;
++                const?: string | undefined;
++                format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                minGraphemes?: number | undefined;
++                maxGraphemes?: number | undefined;
++                knownValues?: string[] | undefined;
++            } | {
++                type: "unknown";
++                description?: string | undefined;
++            } | {
++                type: "array";
++                items: {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                };
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            }>;
++            required?: string[] | undefined;
++            description?: string | undefined;
++        } | undefined;
++        errors?: {
++            name: string;
++            description?: string | undefined;
++        }[] | undefined;
++    } | {
++        type: "subscription";
++        message?: {
++            description?: string | undefined;
++            schema?: {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "object";
++                properties: Record<string, {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                } | {
++                    type: "bytes";
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                } | {
++                    type: "cid-link";
++                    description?: string | undefined;
++                } | {
++                    type: "ref";
++                    ref: string;
++                    description?: string | undefined;
++                } | {
++                    type: "union";
++                    refs: string[];
++                    description?: string | undefined;
++                    closed?: boolean | undefined;
++                } | {
++                    type: "blob";
++                    description?: string | undefined;
++                    maxSize?: number | undefined;
++                    accept?: string[] | undefined;
++                } | {
++                    type: "array";
++                    items: {
++                        type: "boolean";
++                        default?: boolean | undefined;
++                        description?: string | undefined;
++                        const?: boolean | undefined;
++                    } | {
++                        type: "integer";
++                        default?: number | undefined;
++                        minimum?: number | undefined;
++                        maximum?: number | undefined;
++                        description?: string | undefined;
++                        enum?: number[] | undefined;
++                        const?: number | undefined;
++                    } | {
++                        type: "string";
++                        default?: string | undefined;
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                        enum?: string[] | undefined;
++                        const?: string | undefined;
++                        format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                        minGraphemes?: number | undefined;
++                        maxGraphemes?: number | undefined;
++                        knownValues?: string[] | undefined;
++                    } | {
++                        type: "unknown";
++                        description?: string | undefined;
++                    } | {
++                        type: "bytes";
++                        description?: string | undefined;
++                        minLength?: number | undefined;
++                        maxLength?: number | undefined;
++                    } | {
++                        type: "cid-link";
++                        description?: string | undefined;
++                    } | {
++                        type: "ref";
++                        ref: string;
++                        description?: string | undefined;
++                    } | {
++                        type: "union";
++                        refs: string[];
++                        description?: string | undefined;
++                        closed?: boolean | undefined;
++                    } | {
++                        type: "blob";
++                        description?: string | undefined;
++                        maxSize?: number | undefined;
++                        accept?: string[] | undefined;
++                    };
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                }>;
++                required?: string[] | undefined;
++                description?: string | undefined;
++                nullable?: string[] | undefined;
++            } | undefined;
++        } | undefined;
++        description?: string | undefined;
++        parameters?: {
++            type: "params";
++            properties: Record<string, {
++                type: "boolean";
++                default?: boolean | undefined;
++                description?: string | undefined;
++                const?: boolean | undefined;
++            } | {
++                type: "integer";
++                default?: number | undefined;
++                minimum?: number | undefined;
++                maximum?: number | undefined;
++                description?: string | undefined;
++                enum?: number[] | undefined;
++                const?: number | undefined;
++            } | {
++                type: "string";
++                default?: string | undefined;
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++                enum?: string[] | undefined;
++                const?: string | undefined;
++                format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                minGraphemes?: number | undefined;
++                maxGraphemes?: number | undefined;
++                knownValues?: string[] | undefined;
++            } | {
++                type: "unknown";
++                description?: string | undefined;
++            } | {
++                type: "array";
++                items: {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                };
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            }>;
++            required?: string[] | undefined;
++            description?: string | undefined;
++        } | undefined;
++        errors?: {
++            name: string;
++            description?: string | undefined;
++        }[] | undefined;
++    } | {
++        type: "record";
++        record: {
++            type: "object";
++            properties: Record<string, {
++                type: "boolean";
++                default?: boolean | undefined;
++                description?: string | undefined;
++                const?: boolean | undefined;
++            } | {
++                type: "integer";
++                default?: number | undefined;
++                minimum?: number | undefined;
++                maximum?: number | undefined;
++                description?: string | undefined;
++                enum?: number[] | undefined;
++                const?: number | undefined;
++            } | {
++                type: "string";
++                default?: string | undefined;
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++                enum?: string[] | undefined;
++                const?: string | undefined;
++                format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                minGraphemes?: number | undefined;
++                maxGraphemes?: number | undefined;
++                knownValues?: string[] | undefined;
++            } | {
++                type: "unknown";
++                description?: string | undefined;
++            } | {
++                type: "bytes";
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            } | {
++                type: "cid-link";
++                description?: string | undefined;
++            } | {
++                type: "ref";
++                ref: string;
++                description?: string | undefined;
++            } | {
++                type: "union";
++                refs: string[];
++                description?: string | undefined;
++                closed?: boolean | undefined;
++            } | {
++                type: "blob";
++                description?: string | undefined;
++                maxSize?: number | undefined;
++                accept?: string[] | undefined;
++            } | {
++                type: "array";
++                items: {
++                    type: "boolean";
++                    default?: boolean | undefined;
++                    description?: string | undefined;
++                    const?: boolean | undefined;
++                } | {
++                    type: "integer";
++                    default?: number | undefined;
++                    minimum?: number | undefined;
++                    maximum?: number | undefined;
++                    description?: string | undefined;
++                    enum?: number[] | undefined;
++                    const?: number | undefined;
++                } | {
++                    type: "string";
++                    default?: string | undefined;
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                    enum?: string[] | undefined;
++                    const?: string | undefined;
++                    format?: "language" | "datetime" | "uri" | "at-uri" | "did" | "handle" | "at-identifier" | "nsid" | "cid" | "tid" | "record-key" | undefined;
++                    minGraphemes?: number | undefined;
++                    maxGraphemes?: number | undefined;
++                    knownValues?: string[] | undefined;
++                } | {
++                    type: "unknown";
++                    description?: string | undefined;
++                } | {
++                    type: "bytes";
++                    description?: string | undefined;
++                    minLength?: number | undefined;
++                    maxLength?: number | undefined;
++                } | {
++                    type: "cid-link";
++                    description?: string | undefined;
++                } | {
++                    type: "ref";
++                    ref: string;
++                    description?: string | undefined;
++                } | {
++                    type: "union";
++                    refs: string[];
++                    description?: string | undefined;
++                    closed?: boolean | undefined;
++                } | {
++                    type: "blob";
++                    description?: string | undefined;
++                    maxSize?: number | undefined;
++                    accept?: string[] | undefined;
++                };
++                description?: string | undefined;
++                minLength?: number | undefined;
++                maxLength?: number | undefined;
++            }>;
++            required?: string[] | undefined;
++            description?: string | undefined;
++            nullable?: string[] | undefined;
++        };
++        description?: string | undefined;
++        key?: string | undefined;
++    }>;
++    description?: string | undefined;
++    revision?: number | undefined;
++}, unknown>;
+ export type LexiconDoc = z.infer<typeof lexiconDoc>;
+ export declare function isValidLexiconDoc(v: unknown): v is LexiconDoc;
+ export declare function isObj<V>(v: V): v is V & object;
+diff --git a/dist/types.d.ts.map b/dist/types.d.ts.map
+index 9a00a7d4126555679844f286808bdf09bff3f76c..72576c23f564d3d236bc96360a79672f354647fd 100644
+--- a/dist/types.d.ts.map
++++ b/dist/types.d.ts.map
+@@ -1 +1 @@
+-{"version":3,"file":"types.d.ts","sourceRoot":"","sources":["../src/types.ts"],"names":[],"mappings":"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;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAQd,CAAC;AACZ,MAAM,MAAM,YAAY,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,YAAY,CAAC,CAAC;AAExD,eAAO,MAAM,gBAAgB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EASlB,CAAC;AACZ,MAAM,MAAM,gBAAgB,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,gBAAgB,CAAC,CAAC;AAEhE,eAAO,MAAM,mBAAmB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAQrB,CAAC;AACZ,MAAM,MAAM,mBAAmB,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,mBAAmB,CAAC,CAAC;AAKtE,eAAO,MAAM,SAAS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAOX,CAAC;AACZ,MAAM,MAAM,SAAS,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,SAAS,CAAC,CAAC;AASlD,eAAO,MAAM,WAAW;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAyFvB,CAAC;AACF,MAAM,MAAM,WAAW,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,WAAW,CAAC,CAAC;AAEtD,eAAO,MAAM,UAAU;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EA2BnB,CAAC;AACL,MAAM,MAAM,UAAU,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,UAAU,CAAC,CAAC;AAKpD,wBAAgB,iBAAiB,CAAC,CAAC,EAAE,OAAO,GAAG,CAAC,IAAI,UAAU,CAE7D;AAED,wBAAgB,KAAK,CAAC,CAAC,EAAE,CAAC,EAAE,CAAC,GAAG,CAAC,IAAI,CAAC,GAAG,MAAM,CAE9C;AAED,MAAM,MAAM,mBAAmB,GAAG;IAAE,KAAK,EAAE,MAAM,CAAA;CAAE,CAAC;AACpD,wBAAgB,qBAAqB,CAAC,CAAC,EAAE,OAAO,GAAG,CAAC,IAAI,mBAAmB,CAE1E;AAED,wBAAgB,eAAe,CAAC,CAAC,EAAE,OAAO,GAAG,UAAU,CAGtD;AAED,MAAM,MAAM,gBAAgB,CAAC,CAAC,GAAG,OAAO,IACpC;IACE,OAAO,EAAE,IAAI,CAAC;IACd,KAAK,EAAE,CAAC,CAAC;CACV,GACD;IACE,OAAO,EAAE,KAAK,CAAC;IACf,KAAK,EAAE,eAAe,CAAC;CACxB,CAAC;AAEN,qBAAa,eAAgB,SAAQ,KAAK;CAAG;AAC7C,qBAAa,mBAAoB,SAAQ,KAAK;CAAG;AACjD,qBAAa,uBAAwB,SAAQ,KAAK;CAAG"}
+\ No newline at end of file
++{"version":3,"file":"types.d.ts","sourceRoot":"","sources":["../src/types.ts"],"names":[],"mappings":"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;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAQd,CAAC;AACZ,MAAM,MAAM,YAAY,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,YAAY,CAAC,CAAC;AAExD,eAAO,MAAM,gBAAgB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EASlB,CAAC;AACZ,MAAM,MAAM,gBAAgB,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,gBAAgB,CAAC,CAAC;AAEhE,eAAO,MAAM,mBAAmB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAQrB,CAAC;AACZ,MAAM,MAAM,mBAAmB,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,mBAAmB,CAAC,CAAC;AAKtE,eAAO,MAAM,SAAS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAOX,CAAC;AACZ,MAAM,MAAM,SAAS,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,SAAS,CAAC,CAAC;AASlD,eAAO,MAAM,WAAW;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAyFvB,CAAC;AACF,MAAM,MAAM,WAAW,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,WAAW,CAAC,CAAC;AAEtD,eAAO,MAAM,UAAU;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;WAwCtB,CAAC;AACF,MAAM,MAAM,UAAU,GAAG,CAAC,CAAC,KAAK,CAAC,OAAO,UAAU,CAAC,CAAC;AAKpD,wBAAgB,iBAAiB,CAAC,CAAC,EAAE,OAAO,GAAG,CAAC,IAAI,UAAU,CAE7D;AAED,wBAAgB,KAAK,CAAC,CAAC,EAAE,CAAC,EAAE,CAAC,GAAG,CAAC,IAAI,CAAC,GAAG,MAAM,CAE9C;AAED,MAAM,MAAM,mBAAmB,GAAG;IAAE,KAAK,EAAE,MAAM,CAAA;CAAE,CAAC;AACpD,wBAAgB,qBAAqB,CAAC,CAAC,EAAE,OAAO,GAAG,CAAC,IAAI,mBAAmB,CAE1E;AAED,wBAAgB,eAAe,CAAC,CAAC,EAAE,OAAO,GAAG,UAAU,CAGtD;AAED,MAAM,MAAM,gBAAgB,CAAC,CAAC,GAAG,OAAO,IACpC;IACE,OAAO,EAAE,IAAI,CAAC;IACd,KAAK,EAAE,CAAC,CAAC;CACV,GACD;IACE,OAAO,EAAE,KAAK,CAAC;IACf,KAAK,EAAE,eAAe,CAAC;CACxB,CAAC;AAEN,qBAAa,eAAgB,SAAQ,KAAK;CAAG;AAC7C,qBAAa,mBAAoB,SAAQ,KAAK;CAAG;AACjD,qBAAa,uBAAwB,SAAQ,KAAK;CAAG"}
+\ No newline at end of file
+diff --git a/dist/types.js b/dist/types.js
+index cdb0e9410b18b46e888e65229ec7daaea0ceba43..017f3b564569a6684035ed57607266bdc06f2fc7 100644
+--- a/dist/types.js
++++ b/dist/types.js
+@@ -1,4 +1,15 @@
+ // Taken from https://github.com/bluesky-social/atproto/blob/main/packages/lexicon/src/types.ts
++var __rest = (this && this.__rest) || function (s, e) {
++    var t = {};
++    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
++        t[p] = s[p];
++    if (s != null && typeof Object.getOwnPropertySymbols === "function")
++        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
++            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
++                t[p[i]] = s[p[i]];
++        }
++    return t;
++};
+ import { z } from "zod";
+ import { NSID } from "@atproto/syntax";
+ import { requiredPropertiesRefinement } from "./util.js";
+@@ -316,7 +327,17 @@ export const lexUserType = z.custom((val) => {
+         fatal: true,
+     };
+ });
+-export const lexiconDoc = z
++export const lexiconDoc = z.preprocess((val) => {
++    // Lexicons vendored from the network (e.g. by `lex install`) are atproto
++    // records and carry a top-level `$type: "com.atproto.lexicon.schema"`;
++    // it's not part of the lexicon document schema itself, so drop it before
++    // strict validation.
++    if (isObj(val) && "$type" in val) {
++        const _a = val, { $type } = _a, rest = __rest(_a, ["$type"]);
++        return rest;
++    }
++    return val;
++}, z
+     .object({
+     lexicon: z.literal(1),
+     id: z.string().refine((v) => NSID.isValid(v), {
+@@ -341,7 +362,7 @@ export const lexiconDoc = z
+             });
+         }
+     }
+-});
++}));
+ // helpers
+ // =
+ export function isValidLexiconDoc(v) {
+diff --git a/dist/types.js.map b/dist/types.js.map
+index 183d7448c96a140cb1aab12d4642cbb0ae823de5..a9266f583796712486d91ddf92c0086230970cf2 100644
+--- a/dist/types.js.map
++++ b/dist/types.js.map
+@@ -1 +1 @@
+-{"version":3,"file":"types.js","sourceRoot":"","sources":["../src/types.ts"],"names":[],"mappings":"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"}
+\ No newline at end of file
++{"version":3,"file":"types.js","sourceRoot":"","sources":["../src/types.ts"],"names":[],"mappings":"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"}

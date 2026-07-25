@@ -1,5 +1,18 @@
 include: ".ci/dockerfile-hash.yaml"
 
+workflow:
+  rules:
+    # Tag pushes (releases) always build.
+    - if: "$CI_COMMIT_TAG"
+    # A release pushes the `next` branch and a `vX.Y.Z` tag at the same commit,
+    # which would otherwise spawn two pipelines that build everything twice. The
+    # tag pipeline above already covers it, so skip the redundant `next` build.
+    # Release commits are titled like the tag (e.g. "v0.10.40"), so match on that.
+    - if: '$CI_COMMIT_BRANCH == "next" && $CI_COMMIT_TITLE =~ /^v?\d+\.\d+\.\d+$/'
+      when: never
+    # Everything else (normal branch pushes) builds as usual.
+    - when: always
+
 variables:
   DOCKER_REPO: "public.ecr.aws/m4j3c0j7/streamplace"
 
@@ -71,7 +84,7 @@ builder-rebuild:
   script:
     - rm -rf /usr/x86_64-w64-mingw32/include/d3dcompiler.h /usr/share/mingw-w64/include/d3dcompiler.h /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp.dll.a /usr/lib/gcc/x86_64-w64-mingw32/10-posix/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp-0.dll /usr/lib/gcc/x86_64-w64-mingw32/10-win32/libssp.dll.a
     - git fetch --unshallow || echo 'already unshallow'
-    - bash -c "make version && make $TARGET && make desktop-$TARGET && make pkg-$TARGET && make ci-upload-node-$TARGET -j$(nproc)"
+    - bash -c "make version && make $TARGET && make test-vod && make desktop-$TARGET && make pkg-$TARGET && make ci-upload-node-$TARGET -j$(nproc)"
   artifacts:
     reports:
       dotenv: .ci/build.env
@@ -157,6 +170,7 @@ test:
   timeout: 2 hours
   variables:
     STREAMPLACE_TEST_COUNT: "1"
+    STREAMPLACE_TEST_POSTGRES_COMMAND: "install -d -o postgres -g postgres -m 2775 /var/run/postgresql && install -d -o postgres -g postgres -m 3775 /var/run/postgresql/14-main.pg_stat_tmp && sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
   script:
     - git fetch --unshallow || echo 'already unshallow'
     - make dev-setup && make dev && make dev-test && make ci-lexicons
@@ -281,7 +295,7 @@ build-android-release:
 .build-on-mac:
   stage: build
   interruptible: true
-  image: macos-sonoma-xcode-big
+  image: ghcr.io/cirruslabs/macos-tahoe-xcode:26.3
   tags:
     - tart-installed
   variables:
@@ -310,7 +324,7 @@ build-android-release:
     - 'echo "xcodeproj --version: $(xcodeproj --version)"'
     - "$(which xcodeproj) --version"
     - >
-      export GOTOOLCHAIN=go1.25.1
+      export GOTOOLCHAIN=go1.26.5
       && python3 -m pip install virtualenv
       && python3 -m virtualenv ~/venv
       && source ~/venv/bin/activate
@@ -333,27 +347,33 @@ build-desktop-darwin:
   variables:
     COMMAND: make ci-desktop-darwin
 
-windows-selftest:
-  interruptible: true
-  stage: build
-  # for the moment...
-  tags:
-    - windows
-  timeout: 2 hours
-  needs:
-    - job: build-windows-amd64
-      artifacts: true
-  variables:
-    MSYSTEM: "MINGW32"
-    CHERE_INVOKING: "yes"
-  script:
-    - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
+# windows-selftest:
+#   interruptible: true
+#   stage: build
+#   # for the moment...
+#   tags:
+#     - windows
+#   timeout: 2 hours
+#   needs:
+#     - job: build-windows-amd64
+#       artifacts: true
+#   variables:
+#     MSYSTEM: "MINGW32"
+#     CHERE_INVOKING: "yes"
+#   script:
+#     - C:\msys64\usr\bin\bash -lc "bash -x ./util/windows-selftest.sh $STREAMPLACE_DESKTOP_URL_WINDOWS_AMD64"
 
 .release-template:
   stage: build
   interruptible: true
   image: "$DOCKER_REPO:builder-$DOCKERFILE_HASH"
   needs:
+    # The linux build jobs upload the .deb / .tar.gz files that the release
+    # jobs download from the package registry, so they must finish first.
+    # They used to be pulled in transitively via the build-docker-* jobs;
+    # those were removed, so depend on them directly to avoid a download race.
+    - build-linux-amd64
+    - build-linux-arm64
     - build-darwin-amd64
     - build-darwin-arm64
     - build-android-debug

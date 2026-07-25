@@ -1,21 +1,18 @@
 import { Agent } from "@atproto/api";
-import { schemas as parentSchemas } from "@atproto/api/dist/client/lexicons";
-import { SessionManager } from "@atproto/api/dist/session-manager";
-import { Lexicons } from "@atproto/lexicon";
-import { PlaceNS } from "./lexicons";
-import { schemas as appSchemas } from "./lexicons/lexicons";
+import { Client } from "@atproto/lex";
 
 export class StreamplaceAgent extends Agent {
-  place = new PlaceNS(this);
-  lex: Lexicons;
+  // The @atproto/lex client for Streamplace (place.stream.* / games.*) XRPC and
+  // records. It rides on the same session/fetchHandler as the @atproto/api Agent,
+  // which we keep for OAuth and Bluesky (app.bsky.*) reads.
+  client: Client;
 
-  constructor(options: string | URL | SessionManager) {
+  constructor(options: ConstructorParameters<typeof Agent>[0]) {
     super(options);
 
-    const streamplaceSchemas = appSchemas.filter((x) =>
-      x.id.startsWith("place.stream"),
-    );
-
-    this.lex = new Lexicons([...parentSchemas, ...streamplaceSchemas]);
+    this.client = new Client({
+      did: this.did as `did:${string}:${string}` | undefined,
+      fetchHandler: this.fetchHandler,
+    });
   }
 }

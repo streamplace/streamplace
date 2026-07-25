@@ -3,6 +3,7 @@ import {
   borders,
   Button,
   Dashboard,
+  useLivestream,
   useLivestreamStore,
   usePlayerStore,
   useProfile,
@@ -15,6 +16,7 @@ import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
+import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
@@ -81,6 +83,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
   const ingestStarted = usePlayerStore((x) => x.ingestStarted);
   const emojiData = useEmojiData();
+  const livestream = useLivestream();
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";
@@ -112,8 +115,10 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
     | "excellent"
     | "good"
     | "poor"
-    | "offline" => {
+    | "offline"
+    | "pre-live" => {
     if (!isLive) return "offline";
+    if (!livestream) return "pre-live";
     switch (segmentTiming.connectionQuality) {
       case "good":
         return "excellent";
@@ -124,7 +129,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
       default:
         return "offline";
     }
-  }, [isLive, segmentTiming.connectionQuality]);
+  }, [isLive, livestream, segmentTiming.connectionQuality]);
 
   // Calculate messages per minute
   const messagesPerMinute = useMemo((): number => {
@@ -155,7 +160,6 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
               streamTitle={
                 profile?.displayName || profile?.handle || "Live Stream"
               }
-              viewers={viewers || 0}
               uptime={getUptime()}
               bitrate={getBitrate()}
               timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
@@ -207,6 +211,14 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 isConnected={isConnected}
                 messagesPerMinute={messagesPerMinute}
                 emojiData={emojiData}
+                emojiPicker={(isOpen, onClose, onSelect) => (
+                  <EmojiPicker
+                    isOpen={isOpen}
+                    onClose={onClose}
+                    onSelect={onSelect}
+                    customEmoji={[]}
+                  />
+                )}
               />
             </View>
             <View
@@ -235,7 +247,6 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
             streamTitle={
               profile?.displayName || profile?.handle || "Live Stream"
             }
-            viewers={viewers || 0}
             uptime={getUptime()}
             bitrate={getBitrate()}
             timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}

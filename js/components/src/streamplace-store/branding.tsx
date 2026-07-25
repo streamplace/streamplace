@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { place } from "streamplace";
 import storage from "../storage";
 import {
   getStreamplaceStoreFromContext,
@@ -25,8 +26,89 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
   });
 };
 
+const PropsInHeader = [
+  "siteTitle",
+  "siteDescription",
+  "primaryColor",
+  "accentColor",
+  "defaultStreamer",
+  "mainLogo",
+  "favicon",
+  "sidebarBg",
+  "legalLinks",
+];
+
+function getMetaContent(key: string): BrandingAsset | null {
+  if (typeof window === "undefined" || !window.document) return null;
+  const meta = document.querySelector(`meta[name="internal-brand:${key}`);
+  if (meta && meta.getAttribute("content")) {
+    let content = meta.getAttribute("content");
+    if (content) return JSON.parse(content) as BrandingAsset;
+  }
+
+  return null;
+}
+
 // hook to fetch broadcaster DID (unauthenticated)
 export function useFetchBroadcasterDID() {
+  const streamplaceAgent = usePossiblyUnauthedPDSAgent();
+  const store = getStreamplaceStoreFromContext();
+
+  // prefetch from meta records, if on web
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.document) {
+      try {
+        const metaRecords = PropsInHeader.reduce(
+          (acc, key) => {
+            const meta = document.querySelector(
+              `meta[name="internal-brand:${key}`,
+            );
+            // hrmmmmmmmmmmmm
+            if (meta && meta.getAttribute("content")) {
+              let content = meta.getAttribute("content");
+              if (content) acc[key] = JSON.parse(content) as BrandingAsset;
+            }
+            return acc;
+          },
+          {} as Record<string, BrandingAsset>,
+        );
+
+        console.log("Found meta records for broadcaster DID:", metaRecords);
+        // filter out all non-text values, can get on second fetch?
+        for (const key of Object.keys(metaRecords)) {
+          if (metaRecords[key].mimeType != "text/plain") {
+            delete metaRecords[key];
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to parse broadcaster DID from meta tags", e);
+      }
+    }
+  }, []);
+
+  return useCallback(async () => {
+    try {
+      if (!streamplaceAgent) {
+        throw new Error("Streamplace agent not available");
+      }
+      const result = await streamplaceAgent.client.call(
+        place.stream.broadcast.getBroadcaster,
+      );
+      store.setState({ broadcasterDID: result.broadcaster });
+      if (result.server) {
+        store.setState({ serverDID: result.server });
+      }
+      if (result.admins) {
+        store.setState({ adminDIDs: result.admins });
+      }
+    } catch (err) {
+      console.error("Failed to fetch broadcaster DID:", err);
+    }
+  }, [streamplaceAgent, store]);
+}
+
+// hook to fetch client-facing env config from the server
+export function useFetchEnvConfig() {
   const streamplaceAgent = usePossiblyUnauthedPDSAgent();
   const store = getStreamplaceStoreFromContext();
 
@@ -35,17 +117,15 @@ export function useFetchBroadcasterDID() {
       if (!streamplaceAgent) {
         throw new Error("Streamplace agent not available");
       }
-      const result =
-        await streamplaceAgent.place.stream.broadcast.getBroadcaster();
-      store.setState({ broadcasterDID: result.data.broadcaster });
-      if (result.data.server) {
-        store.setState({ serverDID: result.data.server });
+      const result = await streamplaceAgent.client.call(
+        place.stream.config.getEnv,
+      );
+      if (result.playbackWorkerUrl) {
+        store.setState({ playbackWorkerUrl: result.playbackWorkerUrl });
       }
-      if (result.data.admins) {
-        store.setState({ adminDIDs: result.data.admins });
-      }
+      store.setState({ gamesEnabled: result.gamesEnabled ?? false });
     } catch (err) {
-      console.error("Failed to fetch broadcaster DID:", err);
+      console.error("Failed to fetch env config:", err);
     }
   }, [streamplaceAgent, store]);
 }
@@ -89,10 +169,13 @@ export function useFetchBranding() {
         if (!streamplaceAgent) {
           throw new Error("Streamplace agent not available");
         }
-        const res = await streamplaceAgent.place.stream.branding.getBranding({
-          broadcaster: broadcasterDID,
-        });
-        const assets = res.data.assets;
+        const res = await streamplaceAgent.client.call(
+          place.stream.branding.getBranding,
+          {
+            broadcaster: broadcasterDID as any,
+          },
+        );
+        const assets = res.assets;
 
         // convert assets array to keyed object and fetch blob data
         const brandingMap: Record<string, BrandingAsset> = {};
@@ -140,7 +223,11 @@ export function useFetchBranding() {
 
 // hook to get a specific branding asset by key
 export function useBrandingAsset(key: string): BrandingAsset | undefined {
-  return useStreamplaceStore((state) => state.branding?.[key]);
+  return (
+    useStreamplaceStore((state) => state.branding?.[key]) ||
+    getMetaContent(key) ||
+    undefined
+  );
 }
 
 // convenience hook for main logo

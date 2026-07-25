@@ -25,6 +25,18 @@ endif
 BUILDDIR?=build-$(BUILDOS)-$(BUILDARCH)
 PKG_CONFIG_PATH=$(shell pwd)/$(BUILDDIR)/lib/pkgconfig:$(shell pwd)/$(BUILDDIR)/lib/gstreamer-1.0/pkgconfig:$(shell pwd)/$(BUILDDIR)/meson-uninstalled
 
+# Sentinel file that records when lexicons were last built
+LEXICON_STAMP := .build/lexicon-stamp
+
+# Find all files in the lexicons/ directory
+LEXICON_SOURCES := $(shell find lexicons -type f)
+
+# The stamp file depends on all lexicon sources.
+# It only rebuilds when any source is newer than the stamp.
+$(LEXICON_STAMP): $(LEXICON_SOURCES)
+	$(MAKE) lexicons
+	touch $(LEXICON_STAMP)
+
 .PHONY: version
 version:
 	@go run ./pkg/config/git/git.go -v \
@@ -260,6 +272,14 @@ static-test:
 	&& PKG_CONFIG_PATH=$(shell realpath $(BUILDDIR)/meson-uninstalled) \
 	bash -euo pipefail -c "go test -p 1 -timeout 300s ./pkg/... -v | tee /dev/stderr | go-junit-report -out test.xml"
 
+# Run `streamplace vod-test` against a known set of fixture VODs using
+# the static binary at ./build-linux-amd64/streamplace. Skips cleanly
+# on cross-compiled targets where the amd64 binary can't run on the
+# build host. Driven by hack/test-vod.sh.
+.PHONY: test-vod
+test-vod:
+	bash hack/test-vod.sh
+
 #   _____  ________      __
 #  |  __ \|  ____\ \    / /
 #  | |  | | |__   \ \  / /
@@ -274,7 +294,7 @@ dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
 
 .PHONY: dev
-dev: app-cached
+dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
@@ -339,6 +359,7 @@ fix:
 	pnpm run fix
 	gofmt -w .
 	cargo fix --allow-dirty
+	go mod tidy
 
 .PHONY: golangci-lint
 golangci-lint:
@@ -358,37 +379,32 @@ golangci-lint:
 lexicons:
 	$(MAKE) go-lexicons \
 	&& $(MAKE) js-lexicons \
-	&& $(MAKE) md-lexicons \
-	&& make fix
+	&& $(MAKE) md-lexicons
+
+# glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
+# It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
+# using the glex runtime (github.com/streamplace/glex/runtime) for the data model.
+GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
-	rm -rf ./pkg/streamplace \
-	&& mkdir -p ./pkg/streamplace \
-	&& rm -rf ./pkg/streamplace/cbor_gen.go \
-	&& $(MAKE) lexgen \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
-	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace -type f) \
-	&& go run ./pkg/gen/gen.go \
-	&& $(MAKE) lexgen \
-	&& find . | grep bak$$ | xargs rm \
-	&& rm -rf api
+	go tool github.com/streamplace/glex/cmd/glex install \
+	&& go tool github.com/streamplace/glex/cmd/glex build \
+		--lexicons-dir lexicons \
+		--output-dir pkg \
+		--module-path stream.place/streamplace/pkg \
+		--gen-server spxrpc \
+		lexicons
 
 .PHONY: js-lexicons
 js-lexicons:
-	node_modules/.bin/lex gen-api ./js/streamplace/src/lexicons $$(find ./lexicons -type f -name '*.json') --yes \
-		&& rm -rf ./js/streamplace/src/lexicons/types/com ./js/streamplace/src/lexicons/types/app \
-		&& sed -i.bak "s/^..port.*app\/bsky.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/^..port.*com\/atproto.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/\(..port .*\)\.js\(.*\)/\1\2/g" $$(find ./js/streamplace/src/lexicons -type f) \
- 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
-		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
-			echo 'import { ComAtprotoSyncGetRepo, AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoSyncListReposComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
-		done \
-		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
-		&& find . | grep bak$$ | xargs rm
+	pnpm exec lex install \
+	&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
+	&& pnpm exec lex build \
+		--lexicons lexicons \
+		--out js/streamplace/src/lexicons \
+		--clear --index-file --no-pretty \
+		--exclude place.stream.live.subscribeSegments
 
 .PHONY: md-lexicons
 md-lexicons:
@@ -396,44 +412,12 @@ md-lexicons:
 	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
-		subprojects/atproto/lexicons \
+		./lexicons \
 		js/docs/src/content/docs/lex-reference/openapi.json \
 	&& ls -R .build/temp \
 	&& cp -rf .build/temp/place/stream/* js/docs/src/content/docs/lex-reference/ \
 	&& rm -rf .build/temp \
-	&& $(MAKE) fix
-
-.PHONY: lexgen
-lexgen:
-	$(MAKE) lexgen-types
-	$(MAKE) lexgen-server
-
-.PHONY: lexgen-types
-lexgen-types:
-	go run github.com/bluesky-social/indigo/cmd/lexgen \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		lexicons/place/stream \
-		./subprojects/atproto/lexicons
-
-.PHONY: lexgen-server
-lexgen-server:
-	mkdir -p ./pkg/spxrpc \
-	&& go run github.com/bluesky-social/indigo/cmd/lexgen \
-		--gen-server \
-		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
-		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \
-		--types-import com.atproto:github.com/bluesky-social/indigo/api/atproto \
-		--types-import chat.bsky:github.com/bluesky-social/indigo/api/chat \
-		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		--package spxrpc \
-		lexicons/place/stream \
-		lexicons/app/bsky \
-		lexicons/com/atproto
+	&& find js/docs/src/content/docs/lex-reference -type f  | xargs pnpm exec prettier --write --ignore-unknown
 
 .PHONY: ci-lexicons
 ci-lexicons:
@@ -744,6 +728,8 @@ golangci-lint-container: docker-build-builder
 		tail -f /dev/null
 	podman exec golangci-lint mkdir -p js/app/dist
 	podman exec golangci-lint touch js/app/dist/index.html
+	podman exec golangci-lint mkdir -p .build
+	podman exec golangci-lint touch .build/lexicon-stamp
 	podman exec golangci-lint make dev
 
 # runs a command in the build container, building if necessary
@@ -751,9 +737,10 @@ IN_CONTAINER_CMD?=echo 'usage: make in-container IN_CONTAINER_CMD=\"<command>\"'
 DOCKER_BIN?=podman
 DOCKER_REF?=dist.stream.place/streamplace/streamplace:$(BUILDER_TARGET)
 DOCKER_OPTS?=
+DOCKER_PWD_MOUNT_PATH?=$$(pwd)
 .PHONY: in-container
 in-container: docker-build-builder
-	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$$(pwd) -w $$(pwd) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
+	$(DOCKER_BIN) run $(DOCKER_OPTS) -v $$(pwd):$(DOCKER_PWD_MOUNT_PATH) -w $(DOCKER_PWD_MOUNT_PATH) --rm $(DOCKER_REF) bash -c "$(IN_CONTAINER_CMD)"
 
 .PHONY: docker-shell
 docker-shell:

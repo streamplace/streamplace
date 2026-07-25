@@ -164,3 +164,165 @@ saving = Salvando...
 go-to-dashboard = Ir para o Painel
 need-setup-live-dashboard = Você precisa configurar uma transmissão ao vivo no painel primeiro
 no-languages-found = Nenhum idioma encontrado
+backup-save = Salvar configurações de backup
+backup-saving = Salvando configurações de backup...
+backup-secret-key-set-placeholder = (Senha já definida)
+backup-error-invalid-endpoint = Deve ser um nome de domínio válido
+backup-error-invalid-bucket = Deve conter apenas letras minúsculas, números, pontos e hifens
+backup-error-invalid-segment-duration = Deve estar entre 1 e 60 segundos
+backup-error-load-failed = Falha ao carregar as configurações de armazenamento
+backup-error-update-failed = Falha ao atualizar o status do backup
+backup-error-save-failed = Falha ao salvar as configurações de armazenamento
+backup-error-missing-secret = Não é possível atualizar as configurações do S3 sem a chave secreta. Por favor, insira-a novamente.
+backup-segment-duration-placeholder = 6
+
+## Backup Settings
+backup = Backup
+backup-enabled = S3 Backup
+backup-enabled-description = Fazer backup automaticamente das gravações em armazenamento compatível com S3
+backup-connection-url = URL de conexão
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = Endpoint
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = Bucket
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = Chave de acesso
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = Chave secreta
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+show-password-in-url = Mostrar senha na URL
+show-password-in-url-description = Exibir a chave secreta na URL de conexão (se inserida)
+
+## Recommendations
+recommendations-to-others = Recomendações para outros
+recommendations-description = Compartilhe até 8 streamers que você recomenda aos seus espectadores
+no-recommendations-yet = Nenhuma recomendação configurada ainda
+
+## Multistreaming
+multistream = Multitransmissão
+multistream-targets = Destinos de multitransmissão
+multistream-description = Envie automaticamente suas transmissões ao vivo do Streamplace para outros serviços como Twitch ou YouTube.
+create-multistream-target = Criar destino de multitransmissão
+untitled-multistream-target = Destino sem título
+failed-load-multistream-targets = Falha ao carregar os destinos de multitransmissão. Por favor, tente novamente.
+failed-toggle-multistream-target = Falha ao alternar o destino de multitransmissão. Por favor, tente novamente.
+no-multistream-targets-yet = Nenhum destino ainda!
+multistream-targets-count = { $count ->
+    [one] { $count } destino
+    [many] { $count } destinos
+   *[other] { $count } destinos
+}
+multistream-delete-target-confirmation = Tem certeza de que deseja excluir "{ $target }"?
+this-action-cannot-be-undone = Esta ação não pode ser desfeita.
+rtmp-target-name = Destino RTMP
+rtmp-target-url = URL RTMP
+rtmp-target-name-placeholder = Meu destino de multitransmissão
+multistream-create-target = Criar destino
+multistream-edit-target = Editar destino
+created = criado
+status = status
+
+## Branding Administration
+branding = Identidade visual
+branding-admin = Administração de identidade visual
+branding-admin-description = Personalize sua instância do Streamplace. As configurações podem levar algumas horas para se propagar.
+branding-login-required = Faça login para gerenciar a identidade visual
+branding-configuration = Configuração
+branding-text-settings = Configurações de texto
+branding-colors = Cores
+branding-legal-links = Links legais
+branding-images = Imagens
+
+## Branding Fields
+branding-broadcaster-did = DID do transmissor
+branding-broadcaster-did-description = Deixe vazio para usar o padrão do servidor
+branding-site-title = Título do site
+branding-site-title-placeholder = Digite o novo título do site
+branding-site-description = Descrição do site
+branding-site-description-placeholder = Digite a descrição do site
+branding-default-streamer = Streamer padrão
+branding-default-streamer-none = Nenhum
+branding-default-streamer-placeholder = did:plc:...
+branding-clear-default-streamer = Limpar streamer padrão
+branding-primary-color = Cor principal
+branding-primary-color-placeholder = #6366f1
+branding-accent-color = Cor de destaque
+branding-accent-color-placeholder = #8b5cf6
+branding-main-logo = Logo principal
+branding-main-logo-description = SVG, PNG ou JPEG (máx. 500KB)
+branding-favicon = Favicon
+branding-favicon-description = SVG, PNG ou ICO (máx. 100KB)
+branding-sidebar-bg = Imagem de fundo da barra lateral
+branding-sidebar-bg-description = SVG, PNG ou JPEG (máx. 500kb) - aparece alinhada na parte inferior da barra lateral, largura total. Faça upload de uma imagem com opacidade para melhores resultados, pois atualmente não há uma opção de opacidade separada.
+branding-current = Atual: { $value }
+branding-dimensions = { $height } x { $width }
+
+## Branding Actions
+branding-upload-logo = Enviar logo
+branding-delete-logo = Excluir logo
+branding-upload-favicon = Enviar favicon
+branding-delete-favicon = Excluir favicon
+branding-upload-background = Enviar plano de fundo
+branding-delete-background = Excluir plano de fundo
+branding-web-only = O upload de imagens só está disponível na web.
+
+## Branding Legal Links
+refresh-branding = Atualizar recursos de identidade visual
+branding-add-legal-link = Adicionar link legal
+branding-edit-legal-link = Editar link legal
+branding-legal-link-text-placeholder = Texto do link (ex., Política de Privacidade)
+branding-legal-link-url-placeholder = URL (ex., https://exemplo.com/privacidade)
+add = Adicionar
+active = Ativo
+optional = opcional
+
+## Branding Toast Messages
+branding-not-authenticated = Faça login primeiro
+branding-empty-value = Por favor, insira um valor
+branding-update-success = { $key } atualizado com sucesso
+branding-upload-success = { $key } enviado com sucesso
+branding-delete-success = { $key } excluído com sucesso
+branding-upload-failed = Falha ao enviar
+branding-delete-failed = Falha ao excluir
+branding-not-available = O upload de arquivos só está disponível na web
+
+## Navigation Categories (About Page)
+node-legal-documents = Documentos específicos do transmissor
+
+## Badges
+badges = Emblemas
+badges-cosmetic-section = Emblemas cosméticos
+badges-empty-state = Você ainda não recebeu nenhum emblema.
+badges-failed-load = Falha ao carregar emblemas
+badges-failed-update = Falha ao atualizar a seleção de emblemas
+badges-issued-by = Emitido por { $issuer }
+badges-streamer-section = Emblemas do streamer
+
+## Issue Badges
+issue-badges = Emitir emblemas
+issue-badges-back-to-definitions = Definições de emblemas
+issue-badges-badge-name = Nome do emblema
+issue-badges-badge-name-placeholder = ex. VIP, Apoiador
+issue-badges-badge-type = Tipo de emblema
+issue-badges-choose-image = Escolher imagem
+issue-badges-create-definition = Criar definição de emblema
+issue-badges-create-definition-description = Defina um novo tipo de emblema que pode ser emitido para espectadores
+issue-badges-create-definition-subtitle = Defina um novo tipo de emblema
+issue-badges-definition-created = Definição de emblema criada
+issue-badges-description-optional = Descrição (opcional)
+issue-badges-description-placeholder = Descrição opcional para este emblema
+issue-badges-failed-create = Falha ao criar a definição de emblema
+issue-badges-failed-issue = Falha ao emitir o emblema
+issue-badges-failed-load = Falha ao carregar as definições de emblemas
+issue-badges-image-optional = Imagem (opcional)
+issue-badges-image-too-large = A imagem deve ter menos de 256KB
+issue-badges-image-web-only = O upload de imagens só está disponível na web
+issue-badges-issue-badge = Emitir emblema
+issue-badges-issue-badge-description = Emita o emblema "{ $name }" para um espectador pelo seu DID
+issue-badges-issued = Emblema emitido
+issue-badges-issued-to = Emitido para { $did }
+issue-badges-manage-description = Crie definições de emblemas e emita-os para espectadores
+issue-badges-recipient-did = DID do destinatário
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = Toque para emitir
+issue-badges-your-definitions = Suas definições de emblemas

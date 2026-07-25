@@ -73,7 +73,8 @@ const viewVariants = cva("", {
 });
 
 export interface ViewProps
-  extends Omit<RNViewProps, "style">,
+  extends
+    Omit<RNViewProps, "style">,
     Omit<VariantProps<typeof viewVariants>, "flex"> {
   // Style props
   style?: ViewStyle | ViewStyle[];

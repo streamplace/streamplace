@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.ingest.defs",
+  "defs": {
+    "ingest": {
+      "type": "object",
+      "description": "An ingest URL for a Streamplace station.",
+      "required": ["type", "url"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The type of ingest endpoint, currently 'rtmp' and 'whip' are supported."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL of the ingest endpoint."
+        }
+      }
+    }
+  }
+}

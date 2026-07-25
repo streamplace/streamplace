@@ -13,8 +13,7 @@ description: Reference for the place.stream.metadata.configuration lexicon
 
 **Type:** `record`
 
-Default metadata record for livestream including content warnings, rights, and
-distribution policy
+Default metadata record for livestream including content warnings, rights, and distribution policy
 
 **Record Key:** `literal:self`
 

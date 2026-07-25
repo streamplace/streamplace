@@ -9,12 +9,12 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { PlaceStreamMultistreamDefs } from "streamplace";
+import { place } from "streamplace";
 
 const { flex, p, gap, layout, bg, borders, text, r } = zero;
 
 interface MultistreamTargetViewHydrated
-  extends PlaceStreamMultistreamDefs.TargetView {
+  extends place.stream.multistream.defs.TargetView {
   record: any;
 }
 
@@ -51,10 +51,11 @@ export default function MultistreamStatus() {
 
     try {
       setLoading(true);
-      const targetViews = await agent.place.stream.multistream.listTargets({
-        limit: 50,
-      });
-      setTargets(targetViews.data.targets as MultistreamTargetViewHydrated[]);
+      const targetViews = await agent.client.call(
+        place.stream.multistream.listTargets,
+        { limit: 50 },
+      );
+      setTargets(targetViews.targets as MultistreamTargetViewHydrated[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
       setTargets([]);
@@ -68,7 +69,7 @@ export default function MultistreamStatus() {
       if (!agent) return;
       try {
         setTogglingTargets((prev) => new Set(prev).add(target.uri));
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             ...target.record,
             active: newActiveState,

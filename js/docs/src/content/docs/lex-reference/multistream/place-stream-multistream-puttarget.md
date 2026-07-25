@@ -34,8 +34,7 @@ Update an existing target for rebroadcasting a Streamplace stream.
 - **Encoding:** `application/json`
 - **Schema:**
 
-**Schema Type:**
-[`place.stream.multistream.defs#targetView`](/lex-reference/place-stream-multistream-defs#targetview)
+**Schema Type:** [`place.stream.multistream.defs#targetView`](/lex-reference/place-stream-multistream-defs#targetview)
 
 **Possible Errors:**
 

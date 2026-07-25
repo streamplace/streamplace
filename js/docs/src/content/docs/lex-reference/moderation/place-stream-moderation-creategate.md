@@ -13,9 +13,7 @@ description: Reference for the place.stream.moderation.createGate lexicon
 
 **Type:** `procedure`
 
-Create a gate (hide message) on behalf of a streamer. Requires 'hide'
-permission. Creates a place.stream.chat.gate record in the streamer's
-repository.
+Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission. Creates a place.stream.chat.gate record in the streamer's repository.
 
 **Parameters:** _(None defined)_
 
@@ -46,10 +44,8 @@ repository.
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
-- `Forbidden`: The caller does not have permission to hide messages for this
-  streamer.
-- `SessionNotFound`: The streamer's OAuth session could not be found or is
-  invalid.
+- `Forbidden`: The caller does not have permission to hide messages for this streamer.
+- `SessionNotFound`: The streamer's OAuth session could not be found or is invalid.
 
 ---
 

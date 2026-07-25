@@ -1,6 +1,6 @@
 import { type LucideProps } from "lucide-react-native";
 import React from "react";
-import { useTheme } from "../../lib/theme";
+import { useTheme } from "../../lib/theme/theme";
 
 // Simple icon wrapper that integrates with theme
 export interface IconProps {

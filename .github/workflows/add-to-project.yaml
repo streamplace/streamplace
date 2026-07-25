@@ -8,7 +8,7 @@ on:
 jobs:
   add-to-project:
     name: add-to-project
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: actions/add-to-project@v1.0.2
         with:

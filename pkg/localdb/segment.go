@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type SegmentMediadataVideo struct {
@@ -138,8 +138,8 @@ func (c ContentWarningsSlice) Value() (driver.Value, error) {
 type Segment struct {
 	ID                 string               `json:"id"                   gorm:"primaryKey"`
 	SigningKeyDID      string               `json:"signingKeyDID"        gorm:"column:signing_key_did"`
-	StartTime          time.Time            `json:"startTime"            gorm:"index:latest_segments,priority:2;index:start_time"`
-	RepoDID            string               `json:"repoDID"              gorm:"index:latest_segments,priority:1;column:repo_did"`
+	StartTime          time.Time            `json:"startTime"            gorm:"index:latest_segments,priority:2;index:start_time;index:latest_segments_published,priority:2"`
+	RepoDID            string               `json:"repoDID"              gorm:"index:latest_segments,priority:1;column:repo_did;index:latest_segments_published,priority:1"`
 	Title              string               `json:"title"`
 	Size               int                  `json:"size"                gorm:"column:size"`
 	MediaData          *SegmentMediaData    `json:"mediaData,omitempty"`
@@ -147,9 +147,10 @@ type Segment struct {
 	ContentRights      *ContentRights       `json:"contentRights,omitempty"`
 	DistributionPolicy *DistributionPolicy  `json:"distributionPolicy,omitempty"`
 	DeleteAfter        *time.Time           `json:"deleteAfter,omitempty" gorm:"column:delete_after;index:delete_after"`
+	Published          bool                 `json:"published"            gorm:"column:published;index:latest_segments_published,priority:3"`
 }
 
-func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
+func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 	aqt := aqtime.FromTime(s.StartTime)
 	if s.MediaData == nil {
 		return nil, fmt.Errorf("media data is nil")
@@ -164,9 +165,9 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	sizei64 := int64(s.Size)
 
 	// Convert model metadata to streamplace metadata
-	var contentRights *streamplace.MetadataContentRights
+	var contentRights *placestream.MetadataContentRights
 	if s.ContentRights != nil {
-		contentRights = &streamplace.MetadataContentRights{
+		contentRights = &placestream.MetadataContentRights{
 			CopyrightNotice: s.ContentRights.CopyrightNotice,
 			CopyrightYear:   s.ContentRights.CopyrightYear,
 			Creator:         s.ContentRights.Creator,
@@ -175,21 +176,21 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 		}
 	}
 
-	var contentWarnings *streamplace.MetadataContentWarnings
+	var contentWarnings *placestream.MetadataContentWarnings
 	if len(s.ContentWarnings) > 0 {
-		contentWarnings = &streamplace.MetadataContentWarnings{
+		contentWarnings = &placestream.MetadataContentWarnings{
 			Warnings: []string(s.ContentWarnings),
 		}
 	}
 
-	var distributionPolicy *streamplace.MetadataDistributionPolicy
+	var distributionPolicy *placestream.MetadataDistributionPolicy
 	if s.DistributionPolicy != nil && s.DistributionPolicy.DeleteAfterSeconds != nil {
-		distributionPolicy = &streamplace.MetadataDistributionPolicy{
+		distributionPolicy = &placestream.MetadataDistributionPolicy{
 			DeleteAfter: s.DistributionPolicy.DeleteAfterSeconds,
 		}
 	}
 
-	return &streamplace.Segment{
+	return &placestream.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,
 		Id:                 s.ID,
@@ -200,19 +201,19 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 		ContentRights:      contentRights,
 		ContentWarnings:    contentWarnings,
 		DistributionPolicy: distributionPolicy,
-		Video: []*streamplace.Segment_Video{
+		Video: []placestream.Segment_Video{
 			{
 				Codec:  "h264",
 				Width:  int64(s.MediaData.Video[0].Width),
 				Height: int64(s.MediaData.Video[0].Height),
-				Framerate: &streamplace.Segment_Framerate{
+				Framerate: &placestream.Segment_Framerate{
 					Num: int64(s.MediaData.Video[0].FPSNum),
 					Den: int64(s.MediaData.Video[0].FPSDen),
 				},
 				Bframes: &s.MediaData.Video[0].BFrames,
 			},
 		},
-		Audio: []*streamplace.Segment_Audio{
+		Audio: []placestream.Segment_Audio{
 			{
 				Codec:    "opus",
 				Rate:     int64(s.MediaData.Audio[0].Rate),
@@ -238,7 +239,7 @@ func (m *LocalDatabase) MostRecentSegments() ([]Segment, error) {
 
 	err := m.DB.Table("segments").
 		Select("segments.*").
-		Where("start_time > ?", thirtySecondsAgo.UTC()).
+		Where("start_time > ? AND published = ?", thirtySecondsAgo.UTC(), true).
 		Order("start_time DESC").
 		Find(&segments).Error
 	if err != nil {
@@ -270,7 +271,7 @@ func (m *LocalDatabase) MostRecentSegments() ([]Segment, error) {
 
 func (m *LocalDatabase) LatestSegmentForUser(user string) (*Segment, error) {
 	var seg Segment
-	err := m.DB.Model(Segment{}).Where("repo_did = ?", user).Order("start_time DESC").First(&seg).Error
+	err := m.DB.Model(Segment{}).Where("repo_did = ? AND published = ?", user, true).Order("start_time DESC").First(&seg).Error
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +289,7 @@ func (m *LocalDatabase) FilterLiveRepoDIDs(repoDIDs []string) ([]string, error) 
 
 	err := m.DB.Table("segments").
 		Select("DISTINCT repo_did").
-		Where("repo_did IN ? AND start_time > ?", repoDIDs, thirtySecondsAgo.UTC()).
+		Where("repo_did IN ? AND start_time > ? AND published = ?", repoDIDs, thirtySecondsAgo.UTC(), true).
 		Pluck("repo_did", &liveDIDs).Error
 
 	if err != nil {
@@ -298,7 +299,7 @@ func (m *LocalDatabase) FilterLiveRepoDIDs(repoDIDs []string) ([]string, error) 
 	return liveDIDs, nil
 }
 
-func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error) {
+func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, includeUnpublished bool, before *time.Time, after *time.Time) ([]Segment, error) {
 	var segs []Segment
 	if before == nil {
 		later := time.Now().Add(1000 * time.Hour)
@@ -308,7 +309,11 @@ func (m *LocalDatabase) LatestSegmentsForUser(user string, limit int, before *ti
 		earlier := time.Time{}
 		after = &earlier
 	}
-	err := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ? AND start_time > ?", user, before.UTC(), after.UTC()).Order("start_time DESC").Limit(limit).Find(&segs).Error
+	query := m.DB.Model(Segment{}).Where("repo_did = ? AND start_time < ? AND start_time > ?", user, before.UTC(), after.UTC())
+	if !includeUnpublished {
+		query = query.Where("published = ?", true)
+	}
+	err := query.Order("start_time DESC").Limit(limit).Find(&segs).Error
 	if err != nil {
 		return nil, err
 	}

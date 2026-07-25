@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.ingest.getIngestUrls",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get ingest URLs for a Streamplace station.",
+      "parameters": {
+        "type": "params",
+        "properties": {}
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["ingests"],
+          "properties": {
+            "ingests": {
+              "type": "array",
+              "items": {
+                "type": "union",
+                "refs": ["place.stream.ingest.defs#ingest"]
+              }
+            }
+          }
+        }
+      },
+      "errors": []
+    }
+  }
+}

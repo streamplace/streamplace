@@ -48,6 +48,15 @@ var LeakReportMutex sync.Mutex
 var LeakDoneCh = make(chan struct{})
 
 func TestMain(m *testing.M) {
+	// When the parent test re-execs us as an isolated ingest worker (mirroring the
+	// `streamplace ingest-worker` subcommand), act as that worker and exit — before
+	// any leak-tracer setup, so the child stays a clean media pipeline.
+	if len(os.Args) > 1 && os.Args[1] == "ingest-worker" {
+		os.Exit(runIngestWorkerHelper())
+	}
+	if len(os.Args) > 1 && os.Args[1] == "rtmp-push-worker" {
+		os.Exit(runRTMPPushWorkerHelper())
+	}
 	if os.Getenv(IgnoreLeaks) != "" {
 		gstinit.InitGST()
 		os.Exit(m.Run())
@@ -108,7 +117,24 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Often the GC is instance, but sometimes it takes a while. So, we retry a few times
+func parseLeakReport() int {
+	LeakReportMutex.Lock()
+	// the typefind stuff is intentionally kept around, i guess. and each has one cap, so:
+	typeFindCount := 0
+	for _, line := range LeakReport {
+		if strings.Contains(line, "GstTypeFindFactory") {
+			typeFindCount += 1
+		}
+	}
+	finalCount := len(LeakReport) - (typeFindCount * 2)
+	if finalCount < 0 {
+		finalCount = 0
+	}
+	LeakReportMutex.Unlock()
+	return finalCount
+}
+
+// Often the GC is instant, but sometimes it takes a while. So, we retry a few times
 // with exponential backoff, giving the GC more time to do its thing.
 func getLeakCount(t *testing.T) int {
 	ticker := backoff.NewTicker(backoff.NewExponentialBackOff())
@@ -168,9 +194,7 @@ func getLeakCountInner(t *testing.T) int {
 
 	<-LeakDoneCh
 
-	LeakReportMutex.Lock()
-	after := len(LeakReport)
-	LeakReportMutex.Unlock()
+	after := parseLeakReport()
 	return after
 }
 
@@ -180,12 +204,8 @@ func checkGStreamerLeaks(t *testing.T, expected int) {
 	}
 	leaks := getLeakCount(t)
 	if leaks > expected {
-		LeakReportMutex.Lock()
-		for _, l := range LeakReport {
-			fmt.Println(l)
-		}
-		LeakReportMutex.Unlock()
-		require.Equal(t, expected, len(LeakReport), "Leaks found")
+		count := parseLeakReport()
+		require.Equal(t, expected, count, "Leaks found")
 	}
 }
 

@@ -13,7 +13,7 @@ description: Reference for the place.stream.richtext.facet lexicon
 
 **Type:** `object`
 
-Annotation of a sub-string within rich text.
+Annotation of a sub-string within rich text in a livestream chat message.
 
 **Properties:**
 
@@ -33,7 +33,7 @@ Annotation of a sub-string within rich text.
   "defs": {
     "main": {
       "type": "object",
-      "description": "Annotation of a sub-string within rich text.",
+      "description": "Annotation of a sub-string within rich text in a livestream chat message.",
       "required": ["index", "features"],
       "properties": {
         "index": {

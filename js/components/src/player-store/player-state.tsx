@@ -8,6 +8,8 @@ export enum PlayerProtocol {
   PROGRESSIVE_WEBM = "progressive-webm",
 }
 
+export type PlayerMode = "live" | "vod";
+
 export enum PlayerStatus {
   START = "start",
   PLAYING = "playing",
@@ -27,22 +29,30 @@ export enum IngestMediaSource {
 
 export interface PlayerState {
   id: string;
+  mode: PlayerMode;
+  setMode: (mode: PlayerMode) => void;
+  duration: number;
+  setDuration: (duration: number) => void;
+  bufferedEnd: number;
+  setBufferedEnd: (bufferedEnd: number) => void;
   selectedRendition: string;
   setSelectedRendition: (rendition: string) => void;
+
+  /** Quality levels parsed from HLS manifest (VOD only) */
+  vodLevels: Array<{ name: string }>;
+  setVodLevels: (levels: Array<{ name: string }>) => void;
+
+  /** Actual rendition name currently playing when in auto/source mode (web HLS only) */
+  playingVODRendition: string | null;
+  setPlayingVODRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 
-  /** Source */
+  /** Source (streamer did) */
   src: string;
 
   /** Function to set the source URL */
   setSrc: (src: string) => void;
-
-  /** Flag indicating if ingest (stream input) is currently starting */
-  ingestStarting: boolean;
-
-  /** Function to set the ingestStarting flag */
-  setIngestStarting: (ingestStarting: boolean) => void;
 
   /** Flag indicating if ingest is live */
   ingestLive: boolean;
@@ -62,6 +72,9 @@ export interface PlayerState {
 
   ingestAutoStart?: boolean;
   setIngestAutoStart?: (autoStart: boolean) => void;
+
+  /**  stop ingest process, again with a slight delay to allow UI to update */
+  stopIngest: () => void;
 
   /** Timestamp (number) when ingest started, or null if not started */
   ingestStarted: number | null;
@@ -87,7 +100,9 @@ export interface PlayerState {
   /** Function to set the current playback time */
   setPlayTime: (playTime: number) => void;
 
-  /** Flag indicating if player is in offline state */
+  /** Seek the video element to a specific time */
+  seekTo: (time: number) => void;
+
   /** Reference to the video element for direct manipulation (used for PiP) */
   videoRef:
     | React.MutableRefObject<HTMLVideoElement | null>
@@ -107,6 +122,9 @@ export interface PlayerState {
   pipAction: (() => void) | undefined;
   /** Function to set the Picture-in-Picture action */
   setPipAction: (action: (() => void) | undefined) => void;
+
+  togglePlayPause: () => void;
+  setTogglePlayPause: (fn: () => void) => void;
 
   /** Player element width (CSS value or number) */
   playerWidth?: string | number;

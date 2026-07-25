@@ -20,6 +20,69 @@ import (
 )
 
 var OID_SECP256K1 asn1.ObjectIdentifier = []int{1, 3, 132, 0, 10}
+var OID_EC_PUBLIC_KEY asn1.ObjectIdentifier = []int{1, 2, 840, 10045, 2, 1}
+
+// MarshalES256KPrivateKeyPEM emits a PKCS#8 PEM encoding of the secp256k1
+// private key inside the given signer. Output matches what
+// `openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp256k1`
+// produces and what muxl-sign's k256::SecretKey::from_pkcs8_pem expects.
+func MarshalES256KPrivateKeyPEM(signer gocrypto.Signer) ([]byte, error) {
+	priv, ok := signer.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("expected *ecdsa.PrivateKey, got %T", signer)
+	}
+
+	// 32-byte big-endian scalar, left-padded. ecdsa.PrivateKey.Bytes would be
+	// the stdlib way, but it rejects non-NIST curves like secp256k1.
+	privBytes := crypto.FromECDSA(priv)
+
+	pubBytes := elliptic.Marshal(crypto.S256(), priv.PublicKey.X, priv.PublicKey.Y) //nolint:all
+
+	ecPriv := ecPrivateKey{
+		Version:    1,
+		PrivateKey: privBytes,
+		PublicKey:  asn1.BitString{Bytes: pubBytes, BitLength: len(pubBytes) * 8},
+	}
+	ecPrivBytes, err := asn1.Marshal(ecPriv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal ECPrivateKey: %w", err)
+	}
+
+	paramBytes, err := asn1.Marshal(OID_SECP256K1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal secp256k1 OID: %w", err)
+	}
+
+	wrapper := pkcs8PrivateKey{
+		Version: 0,
+		Algo: pkix.AlgorithmIdentifier{
+			Algorithm:  OID_EC_PUBLIC_KEY,
+			Parameters: asn1.RawValue{FullBytes: paramBytes},
+		},
+		PrivateKey: ecPrivBytes,
+	}
+	derBytes, err := asn1.Marshal(wrapper)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal PKCS#8: %w", err)
+	}
+
+	return pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: derBytes}), nil
+}
+
+// PKCS#8 PrivateKeyInfo (RFC 5208).
+type pkcs8PrivateKey struct {
+	Version    int
+	Algo       pkix.AlgorithmIdentifier
+	PrivateKey []byte
+}
+
+// SEC1 ECPrivateKey (RFC 5915). Parameters omitted because PKCS#8 already
+// carries them.
+type ecPrivateKey struct {
+	Version    int
+	PrivateKey []byte
+	PublicKey  asn1.BitString `asn1:"explicit,optional,tag:1"`
+}
 
 // uses Go code to generate a es256p cert, then rewrites and resigns it into an es256k cert
 func GenerateES256KCert(signer gocrypto.Signer) ([]byte, error) {

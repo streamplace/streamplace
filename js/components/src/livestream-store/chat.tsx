@@ -1,10 +1,6 @@
 import { ComAtprotoModerationCreateReport, RichText } from "@atproto/api";
 import { useCallback } from "react";
-import {
-  ChatMessageViewHydrated,
-  PlaceStreamChatMessage,
-  PlaceStreamDefs,
-} from "streamplace";
+import { ChatMessageViewHydrated, place } from "streamplace";
 import { useChatProfile, useDID, useHandle } from "../streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { LivestreamState } from "./livestream-state";
@@ -18,6 +14,32 @@ export const useSetReplyToMessage = () => {
   return useCallback(
     (message: ChatMessageViewHydrated | null) => {
       store.setState({ replyToMessage: message });
+    },
+    [store],
+  );
+};
+
+export const useChatDraft = () =>
+  useLivestreamStore((state) => state.chatDraft);
+
+export const useSetChatDraft = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (draft: string) => {
+      store.setState({ chatDraft: draft });
+    },
+    [store],
+  );
+};
+
+export const useBadgeSlots = () =>
+  useLivestreamStore((state) => state.badgeSlots);
+
+export const useSetBadgeSlots = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (slots: NonNullable<LivestreamState["badgeSlots"]> | null) => {
+      store.setState({ badgeSlots: slots });
     },
     [store],
   );
@@ -88,12 +110,12 @@ export const useCreateChatMessage = () => {
       );
     });
 
-    const record: PlaceStreamChatMessage.Record = {
+    const record = {
       $type: "place.stream.chat.message",
       text: msg.text,
       createdAt: new Date().toISOString(),
       streamer: streamerProfile.did,
-      facets: rt.facets as PlaceStreamChatMessage.Record["facets"],
+      facets: rt.facets,
       ...(msg.reply
         ? {
             reply: {
@@ -108,28 +130,52 @@ export const useCreateChatMessage = () => {
             },
           }
         : {}),
-    };
+    } as unknown as place.stream.chat.message.Main;
 
     const localChat: ChatMessageViewHydrated = {
-      uri: `local-${Date.now()}`,
+      uri: `local-${Date.now()}` as any,
       cid: "",
       author: {
-        did: userDID,
-        handle: userHandle || userDID,
+        did: userDID as any,
+        handle: (userHandle || userDID) as any,
       },
       record: record,
-      indexedAt: new Date().toISOString(),
+      indexedAt: new Date().toISOString() as any,
       chatProfile: chatProfile || undefined,
     };
 
     state = reduceChat(state, [localChat], [], []);
     store.setState(state);
 
-    await pdsAgent.com.atproto.repo.createRecord({
-      repo: userDID,
-      collection: "place.stream.chat.message",
-      record,
-    });
+    try {
+      await pdsAgent.com.atproto.repo.createRecord({
+        repo: userDID,
+        collection: "place.stream.chat.message",
+        record,
+      });
+    } catch (err) {
+      // Remove the optimistic message if the server call fails
+      const currentState = store.getState();
+      const updatedIndex = { ...currentState.chatIndex };
+      for (const [key, existingMsg] of Object.entries(updatedIndex)) {
+        if (existingMsg.uri === localChat.uri) {
+          delete updatedIndex[key];
+          break;
+        }
+      }
+      store.setState({
+        ...currentState,
+        chatIndex: updatedIndex,
+        chat: Object.keys(updatedIndex)
+          .sort((a, b) => {
+            const aTime = parseInt(a.split("-")[0], 10);
+            const bTime = parseInt(b.split("-")[0], 10);
+            return bTime - aTime;
+          })
+          .map((key) => updatedIndex[key]),
+      });
+      throw err;
+    }
   };
 };
 
@@ -153,6 +199,18 @@ export const useDeleteChatMessage = () => {
       rkey: rkey,
     });
   };
+};
+
+export const useAddSystemMessage = () => {
+  const store = getStoreFromContext();
+  return useCallback(
+    (message: ChatMessageViewHydrated) => {
+      const state = store.getState();
+      const newState = reduceChat(state, [message], []);
+      store.setState(newState);
+    },
+    [store],
+  );
 };
 
 const buildSortedChatList = (
@@ -196,7 +254,7 @@ const profileIsDifferent = (
 export const reduceChatIncremental = (
   state: LivestreamState,
   newMessages: ChatMessageViewHydrated[],
-  blocks: PlaceStreamDefs.BlockView[],
+  blocks: place.stream.defs.BlockView[],
   hideUris: string[] = [],
 ): LivestreamState => {
   if (
@@ -425,3 +483,79 @@ export const useReportChatMessage = () => {
 };
 
 export const reduceChat = reduceChatIncremental;
+
+export const usePinChatMessage = () => {
+  const agent = usePDSAgent();
+  const store = getStoreFromContext();
+
+  return async (
+    messageUri: string,
+    streamerDID: string,
+    expiresAt?: string,
+  ) => {
+    if (!agent || !agent.did) {
+      throw new Error("No PDS agent or user DID found");
+    }
+
+    // If streamer, create directly
+    if (agent.did === streamerDID) {
+      const record = {
+        $type: "place.stream.chat.pinnedRecord",
+        pinnedMessage: messageUri,
+        createdAt: new Date().toISOString(),
+        ...(expiresAt ? { expiresAt } : {}),
+      };
+
+      const result = await agent.com.atproto.repo.createRecord({
+        repo: streamerDID,
+        collection: "place.stream.chat.pinnedRecord",
+        record,
+      });
+      return result;
+    }
+
+    // Otherwise, use delegated moderation endpoint
+    const result = await agent.client.call(place.stream.moderation.createPin, {
+      streamer: streamerDID,
+      messageUri,
+      ...(expiresAt ? { expiresAt } : {}),
+    } as any);
+    return result;
+  };
+};
+
+export const useUnpinChatMessage = () => {
+  const agent = usePDSAgent();
+  const store = getStoreFromContext();
+
+  return async (pinUri: string, streamerDID: string) => {
+    if (!agent || !agent.did) {
+      throw new Error("No PDS agent or user DID found");
+    }
+
+    // If streamer, delete directly
+    if (agent.did === streamerDID) {
+      const rkey = pinUri.split("/").pop();
+      if (!rkey) {
+        throw new Error("Invalid pin URI");
+      }
+
+      await agent.com.atproto.repo.deleteRecord({
+        repo: streamerDID,
+        collection: "place.stream.chat.pinnedRecord",
+        rkey,
+      });
+      // Optimistically clear the pinned comment
+      store.setState({ pinnedComment: null });
+      return;
+    }
+
+    // Otherwise, use delegated moderation endpoint
+    await agent.client.call(place.stream.moderation.deletePin, {
+      streamer: streamerDID,
+      pinUri,
+    } as any);
+    // Optimistically clear the pinned comment
+    store.setState({ pinnedComment: null });
+  };
+};

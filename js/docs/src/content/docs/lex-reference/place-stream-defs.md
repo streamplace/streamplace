@@ -53,6 +53,39 @@ description: Reference for the place.stream.defs lexicon
 
 ---
 
+<a name="activitygame"></a>
+
+### `activityGame`
+
+**Type:** `object`
+
+A game from the gamesgamesgamesgames catalog, identified by its AT URI.
+
+**Properties:**
+
+| Name   | Type     | Req'd | Description                      | Constraints      |
+| ------ | -------- | ----- | -------------------------------- | ---------------- |
+| `uri`  | `string` | ✅    |                                  | Format: `at-uri` |
+| `name` | `string` | ❌    | Cached display name of the game. |                  |
+
+---
+
+<a name="activitylabel"></a>
+
+### `activityLabel`
+
+**Type:** `object`
+
+A non-game activity with a well-known label.
+
+**Properties:**
+
+| Name    | Type     | Req'd | Description | Constraints                                                                                                                                            |
+| ------- | -------- | ----- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `label` | `string` | ✅    |             | Known Values: `events`, `just_chatting`, `podcasting`, `music`, `art`, `software_dev`, `cooking`, `miniatures`, `makers_crafting`, `fitness`, `sports` |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -105,6 +138,44 @@ description: Reference for the place.stream.defs lexicon
       "properties": {
         "name": {
           "type": "string"
+        }
+      }
+    },
+    "activityGame": {
+      "type": "object",
+      "description": "A game from the gamesgamesgamesgames catalog, identified by its AT URI.",
+      "required": ["uri"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "name": {
+          "type": "string",
+          "description": "Cached display name of the game."
+        }
+      }
+    },
+    "activityLabel": {
+      "type": "object",
+      "description": "A non-game activity with a well-known label.",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "knownValues": [
+            "events",
+            "just_chatting",
+            "podcasting",
+            "music",
+            "art",
+            "software_dev",
+            "cooking",
+            "miniatures",
+            "makers_crafting",
+            "fitness",
+            "sports"
+          ]
         }
       }
     }

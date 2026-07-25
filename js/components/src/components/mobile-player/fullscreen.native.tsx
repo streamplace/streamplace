@@ -15,6 +15,7 @@ import {
   usePlayerStore,
   VideoRetry,
 } from "../..";
+import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video.native";
 
 // Standard 16:9 video aspect ratio
@@ -166,6 +167,7 @@ export function Fullscreen(props: {
             objectFit={props.objectFit}
             pictureInPictureEnabled={props.pictureInPictureEnabled}
           />
+          <AudioOnlyOverlay />
           <DanmuOverlay
             enabled={danmuEnabled}
             opacity={danmuOpacity}
@@ -188,6 +190,7 @@ export function Fullscreen(props: {
           pictureInPictureEnabled={props.pictureInPictureEnabled}
         />
       </VideoRetry>
+      <AudioOnlyOverlay />
       <DanmuOverlay
         enabled={danmuEnabled}
         opacity={danmuOpacity}

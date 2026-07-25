@@ -86,7 +86,13 @@ Update an existing webhook configuration.
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["chat", "livestream", "follow", "mention"]
+                "enum": [
+                  "chat",
+                  "livestream",
+                  "follow",
+                  "mention",
+                  "stream.received"
+                ]
               },
               "description": "The types of events this webhook should receive."
             },

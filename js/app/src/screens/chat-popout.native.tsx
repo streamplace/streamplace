@@ -4,6 +4,7 @@ import {
   ChatBox,
   LivestreamProvider,
   PlayerProvider,
+  StreamNotificationProvider,
   Text,
   useKeyboard,
   useLivestreamInfo,
@@ -171,7 +172,9 @@ export function PopoutChatInner({ user }: { user: string }) {
           </View>
         </View>
         <View style={[zero.flex.values[1], zero.p[4]]}>
-          <Chat />
+          <StreamNotificationProvider position="top">
+            <Chat />
+          </StreamNotificationProvider>
           {profile && <ChatBox emojiData={emojiData} isPopout={true} />}
         </View>
       </View>

@@ -12,35 +12,33 @@ import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
 import { Platform } from "react-native";
 import { AppStore } from "store";
-import {
-  PlaceStreamChatProfile,
-  PlaceStreamKey,
-  PlaceStreamLivestream,
-  PlaceStreamServerSettings,
-  StreamplaceAgent,
-} from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
+import clearQueryParams from "utils/clear-query-params";
 import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
-import createOAuthClient, {
-  StreamplaceOAuthClient,
-} from "../../features/bluesky/oauthClient";
+import createOAuthClient from "../../features/bluesky/oauthClient";
+import { OAuthClient } from "../../features/bluesky/oauthClientImport";
+import { withoutBlueskyScopes } from "../../features/bluesky/scopes";
 import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 
 type NewLivestream = {
   loading: boolean;
   error: string | null;
-  record: PlaceStreamLivestream.Record | null;
+  record: place.stream.livestream.Main | null;
 };
 
 export interface BlueskySlice {
   authStatus: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
   oauthSession?: null | OAuthSession;
+  // granted OAuth scope of the current session (from /oauth/introspect);
+  // null means unknown, which is treated as a full grant
+  sessionScope: null | string;
   pdsAgent: null | StreamplaceAgent;
   anonPDSAgent: null | StreamplaceAgent;
   profiles: { [key: string]: ProfileViewDetailed };
   profileCache: { [key: string]: ProfileViewDetailed };
-  client: null | StreamplaceOAuthClient;
+  client: null | OAuthClient;
   loginState: {
     loading: boolean;
     error: null | string;
@@ -62,9 +60,9 @@ export interface BlueskySlice {
   chatProfile: {
     loading: boolean;
     error: null | string;
-    profile: null | PlaceStreamChatProfile.Record;
+    profile: null | place.stream.chat.profile.Main;
   };
-  serverSettings: null | PlaceStreamServerSettings.Record;
+  serverSettings: null | place.stream.server.settings.Main;
   returnRoute: null | { name: string; params?: any };
   notification: {
     message: string;
@@ -77,7 +75,9 @@ export interface BlueskySlice {
   login: (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
+    options?: { blueskyPermissions?: boolean },
   ) => Promise<void>;
+  refreshSessionScope: () => Promise<void>;
   logout: () => Promise<void>;
   getProfile: (actor: string) => Promise<void>;
   getProfiles: (actors: string[]) => Promise<void>;
@@ -103,8 +103,15 @@ export interface BlueskySlice {
   createLivestreamRecord: (
     title: string,
     customThumbnail?: Blob,
+    activity?: place.stream.livestream.Main["activity"],
+    tags?: string[],
   ) => Promise<void>;
-  updateLivestreamRecord: (title: string, livestream: any) => Promise<void>;
+  updateLivestreamRecord: (
+    title: string,
+    livestream: any,
+    activity?: place.stream.livestream.Main["activity"],
+    tags?: string[],
+  ) => Promise<void>;
   getChatProfileRecordFromPDS: () => Promise<void>;
   createChatProfileRecord: (
     red: number,
@@ -114,24 +121,10 @@ export interface BlueskySlice {
   followUser: (subjectDID: string) => Promise<void>;
   unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
-  createServerSettingsRecord: (debugRecording: boolean) => Promise<void>;
+  createServerSettingsRecord: (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => Promise<void>;
 }
-
-const clearQueryParams = () => {
-  if (Platform.OS !== "web") {
-    return;
-  }
-  const u = new URL(document.location.href);
-  const params = new URLSearchParams(u.search);
-  if (u.search === "") {
-    return;
-  }
-  params.delete("iss");
-  params.delete("state");
-  params.delete("code");
-  u.search = params.toString();
-  window.history.replaceState(null, "", u.toString());
-};
 
 const uploadThumbnail = async (
   handle: string,
@@ -182,6 +175,7 @@ export const createBlueskySlice: StateCreator<
   authStatus: "start",
   oauthState: null,
   oauthSession: undefined,
+  sessionScope: null,
   pdsAgent: null,
   anonPDSAgent: null,
   profiles: {},
@@ -217,6 +211,7 @@ export const createBlueskySlice: StateCreator<
   notification: null,
 
   clearNotification: () => {
+    clearQueryParams();
     set({ notification: null });
   },
 
@@ -254,6 +249,7 @@ export const createBlueskySlice: StateCreator<
   loadOAuthClient: async () => {
     set({ authStatus: "start" });
     try {
+      console.log("loadOAuthClient");
       const streamplaceUrl = get().url;
       const client = await createOAuthClient(streamplaceUrl);
       const anonPDSAgent = new StreamplaceAgent(streamplaceUrl);
@@ -294,6 +290,7 @@ export const createBlueskySlice: StateCreator<
           pdsAgent: new StreamplaceAgent(session),
           anonPDSAgent,
         });
+        void (get() as BlueskySlice).refreshSessionScope();
       } else {
         set({
           oauthSession: session,
@@ -322,9 +319,35 @@ export const createBlueskySlice: StateCreator<
     });
   },
 
+  refreshSessionScope: async () => {
+    const session = (get() as BlueskySlice).oauthSession;
+    if (!session) {
+      set({ sessionScope: null });
+      return;
+    }
+    try {
+      const res = await session.fetchHandler("/oauth/introspect", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error(`introspection failed with status ${res.status}`);
+      }
+      const data = await res.json();
+      set({
+        sessionScope:
+          data?.active && typeof data.scope === "string" ? data.scope : null,
+      });
+    } catch (error) {
+      // older servers don't serve /oauth/introspect; treat scope as unknown
+      console.error("failed to introspect oauth session", error);
+      set({ sessionScope: null });
+    }
+  },
+
   login: async (
     handle: string,
     openLoginLink: (url: string) => Promise<void>,
+    options?: { blueskyPermissions?: boolean },
   ) => {
     console.log("Logging in");
     set({
@@ -341,7 +364,14 @@ export const createBlueskySlice: StateCreator<
         throw new Error("No client");
       }
       console.log("Authorizing");
-      const u = await updatedState.client.authorize(handle, {});
+      const authorizeOptions: { scope?: string } = {};
+      if (options?.blueskyPermissions === false) {
+        const fullScope = updatedState.client.clientMetadata.scope;
+        if (fullScope) {
+          authorizeOptions.scope = withoutBlueskyScopes(fullScope);
+        }
+      }
+      const u = await updatedState.client.authorize(handle, authorizeOptions);
       if (
         typeof document !== "undefined" &&
         document.location.href.startsWith("http://127.0.0.1")
@@ -386,6 +416,7 @@ export const createBlueskySlice: StateCreator<
     set({
       oauthSession: null,
       pdsAgent: null,
+      sessionScope: null,
       authStatus: "loggedOut",
     });
   },
@@ -467,6 +498,7 @@ export const createBlueskySlice: StateCreator<
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",
         });
+        void (get() as BlueskySlice).refreshSessionScope();
       } catch (e) {
         let message = e.message;
         while (e.cause) {
@@ -627,17 +659,14 @@ export const createBlueskySlice: StateCreator<
         platform = "Windows";
       }
 
-      const record: PlaceStreamKey.Record = {
+      const record: place.stream.key.Main = {
         $type: "place.stream.key",
         signingKey: keypair.did(),
         createdAt: new Date().toISOString(),
         createdBy: "Streamplace on " + platform,
-      };
-      await state.pdsAgent.com.atproto.repo.createRecord({
-        repo: did,
-        collection: "place.stream.key",
-        record,
-      });
+      } as any;
+      const { $type: _keyType, ...keyRecordInput } = record;
+      await state.pdsAgent.client.create(place.stream.key, keyRecordInput);
       if (store) {
         await storage.setItem(STORED_KEY_KEY, JSON.stringify(newKey));
       }
@@ -675,9 +704,8 @@ export const createBlueskySlice: StateCreator<
       if (!profile) {
         throw new Error("No profile");
       }
-      const result = await state.pdsAgent.com.atproto.repo.listRecords({
-        repo: did,
-        collection: "place.stream.key",
+      const result = await state.pdsAgent.client.list(place.stream.key, {
+        repo: did as any,
         limit: 100,
       });
       console.log(result);
@@ -685,7 +713,7 @@ export const createBlueskySlice: StateCreator<
         streamKeysResponse: {
           loading: false,
           error: null,
-          records: result.data,
+          records: result as any,
         },
       });
     } catch (error) {
@@ -715,10 +743,8 @@ export const createBlueskySlice: StateCreator<
       if (!profile) {
         throw new Error("No profile");
       }
-      await state.pdsAgent.com.atproto.repo.deleteRecord({
-        repo: did,
-        collection: "place.stream.key",
-        rkey,
+      await state.pdsAgent.client.delete(place.stream.key, {
+        rkey: rkey as any,
       });
       let records = state.streamKeysResponse.records
         ? state.streamKeysResponse.records.records.filter(
@@ -769,7 +795,12 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  createLivestreamRecord: async (title: string, customThumbnail?: Blob) => {
+  createLivestreamRecord: async (
+    title: string,
+    customThumbnail?: Blob,
+    activity?: place.stream.livestream.Main["activity"],
+    tags?: string[],
+  ) => {
     set({
       newLivestream: {
         loading: true,
@@ -858,7 +889,7 @@ export const createBlueskySlice: StateCreator<
         );
       }
 
-      const record: PlaceStreamLivestream.Record = {
+      const record: place.stream.livestream.Main = {
         $type: "place.stream.livestream",
         title: title,
         url: streamplaceUrl,
@@ -868,13 +899,15 @@ export const createBlueskySlice: StateCreator<
           cid: newPost.cid,
         },
         thumb: thumbnail,
-      };
+        activity,
+        tags: tags && tags.length > 0 ? tags : undefined,
+      } as any;
 
-      await state.pdsAgent.com.atproto.repo.createRecord({
-        repo: did,
-        collection: "place.stream.livestream",
-        record,
-      });
+      const { $type: _lsType, ...livestreamRecordInput } = record;
+      await state.pdsAgent.client.create(
+        place.stream.livestream,
+        livestreamRecordInput,
+      );
       set({
         newLivestream: {
           loading: false,
@@ -894,7 +927,12 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  updateLivestreamRecord: async (title: string, livestream: any) => {
+  updateLivestreamRecord: async (
+    title: string,
+    livestream: any,
+    activity?: place.stream.livestream.Main["activity"],
+    tags?: string[],
+  ) => {
     set({
       newLivestream: {
         loading: true,
@@ -924,7 +962,7 @@ export const createBlueskySlice: StateCreator<
       }
 
       let rkey = oldRecord.uri.split("/").pop();
-      let oldRecordValue: PlaceStreamLivestream.Record = oldRecord.record;
+      let oldRecordValue: place.stream.livestream.Main = oldRecord.record;
 
       if (!rkey) {
         throw new Error("No rkey?");
@@ -933,20 +971,22 @@ export const createBlueskySlice: StateCreator<
       console.log("Updating rkey", rkey);
 
       const streamplaceUrl = get().url;
-      const record: PlaceStreamLivestream.Record = {
+      const record: place.stream.livestream.Main = {
         $type: "place.stream.livestream",
         title: title,
         url: streamplaceUrl,
         createdAt: new Date().toISOString(),
         post: oldRecordValue.post,
-      };
+        activity,
+        tags: tags && tags.length > 0 ? tags : undefined,
+      } as any;
 
-      await state.pdsAgent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.livestream",
-        rkey,
-        record,
-      });
+      const { $type: _lsType, ...livestreamRecordInput } = record;
+      await state.pdsAgent.client.put(
+        place.stream.livestream,
+        livestreamRecordInput,
+        { rkey: rkey as any },
+      );
       set({
         newLivestream: {
           loading: false,
@@ -987,25 +1027,18 @@ export const createBlueskySlice: StateCreator<
       if (!state.pdsAgent) {
         throw new Error("No agent");
       }
-      const res = await state.pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: "place.stream.chat.profile",
-        rkey: "self",
-      });
-      if (!res.success) {
-        throw new Error("Failed to get chat profile record");
-      }
+      const res = await state.pdsAgent.client.get(place.stream.chat.profile);
 
-      if (PlaceStreamChatProfile.isRecord(res.data.value)) {
+      if (place.stream.chat.profile.$isTypeOf(res.value)) {
         set({
           chatProfile: {
             loading: false,
             error: null,
-            profile: res.data.value,
+            profile: res.value,
           },
         });
       } else {
-        console.log("not a record", res.data.value);
+        console.log("not a record", res.value);
       }
     } catch (error) {
       console.error("getChatProfileRecordFromPDS error", error);
@@ -1034,24 +1067,22 @@ export const createBlueskySlice: StateCreator<
         throw new Error("No profile");
       }
 
-      const chatProfile: PlaceStreamChatProfile.Record = {
+      const existingProfile = (get() as BlueskySlice).chatProfile?.profile;
+      const chatProfile: place.stream.chat.profile.Main = {
+        ...existingProfile,
         $type: "place.stream.chat.profile",
         color: {
           red: red,
           green: green,
           blue: blue,
         },
-      };
+      } as any;
 
-      const res = await state.pdsAgent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.chat.profile",
-        record: chatProfile,
-        rkey: "self",
-      });
-      if (!res.success) {
-        throw new Error("Failed to create chat profile record");
-      }
+      const { $type: _cpType, ...chatProfileInput } = chatProfile;
+      await state.pdsAgent.client.put(
+        place.stream.chat.profile,
+        chatProfileInput,
+      );
       set({
         chatProfile: {
           loading: false,
@@ -1142,28 +1173,28 @@ export const createBlueskySlice: StateCreator<
       }
       const streamplaceUrl = get().url;
       const u = new URL(streamplaceUrl);
-      const res = await state.pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: "place.stream.server.settings",
-        rkey: u.host,
-      });
-      if (!res.success) {
-        throw new Error("Failed to get chat profile record");
-      }
+      const res = await state.pdsAgent.client.get(
+        place.stream.server.settings,
+        {
+          rkey: u.host,
+        },
+      );
 
-      if (PlaceStreamServerSettings.isRecord(res.data.value)) {
+      if (place.stream.server.settings.$isTypeOf(res.value)) {
         set({
-          serverSettings: res.data.value as PlaceStreamServerSettings.Record,
+          serverSettings: res.value as place.stream.server.settings.Main,
         });
       } else {
-        console.log("not a record", res.data.value);
+        console.log("not a record", res.value);
       }
     } catch (error) {
       console.error("getServerSettingsFromPDS rejected", error);
     }
   },
 
-  createServerSettingsRecord: async (debugRecording: boolean) => {
+  createServerSettingsRecord: async (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => {
     try {
       const state = get() as BlueskySlice;
       if (!state.pdsAgent) {
@@ -1179,20 +1210,20 @@ export const createBlueskySlice: StateCreator<
       }
       const streamplaceUrl = get().url;
       const u = new URL(streamplaceUrl);
-      const serverSettings: PlaceStreamServerSettings.Record = {
+      // Merge the patch onto the current record so toggling one flag doesn't
+      // clobber the others (the record holds several independent settings).
+      const serverSettings: place.stream.server.settings.Main = {
+        ...(state.serverSettings ?? {}),
         $type: "place.stream.server.settings",
-        debugRecording: debugRecording,
-      };
+        ...patch,
+      } as any;
 
-      const res = await state.pdsAgent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.server.settings",
-        record: serverSettings,
-        rkey: u.host,
-      });
-      if (!res.success) {
-        throw new Error("Failed to create server settings record");
-      }
+      const { $type: _ssType, ...serverSettingsInput } = serverSettings;
+      await state.pdsAgent.client.put(
+        place.stream.server.settings,
+        serverSettingsInput,
+        { rkey: u.host },
+      );
       set({
         serverSettings: serverSettings,
       });

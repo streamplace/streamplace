@@ -5,17 +5,20 @@ import {
   Code,
   Row,
   Text,
+  useStreamplaceStore,
   useTheme,
   useToast,
   View,
   zero,
 } from "@streamplace/components";
+import useGetIngests from "@streamplace/components/src/streamplace-store/ingest";
 import Loading from "components/loading/loading";
 import { Clipboard, ClipboardCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView, TextInput } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
+import { place } from "streamplace";
 
 const FormRow = ({ children }: { children: React.ReactNode }) => {
   return (
@@ -42,18 +45,31 @@ const Content = ({ children }: { children: React.ReactNode }) => {
 };
 
 export function StreamKeyScreen() {
-  const [protocol, setProtocol] = useState<"whip" | "rtmp">("rtmp");
+  const [ingest, setIngest] = useState<place.stream.ingest.defs.Ingest | null>(
+    null,
+  );
   const isReady = useIsReady();
   const userProfile = useUserProfile();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const route = useRoute();
   const url = useStore((state) => state.url);
+  const ingests = useStreamplaceStore((state) => state.ingests);
+  const getIngests = useGetIngests();
+  useEffect(() => {
+    getIngests();
+  }, []);
 
   useEffect(() => {
     if (isReady && !userProfile) {
       openLoginModal({ name: route.name, params: route.params });
     }
   }, [isReady, userProfile, openLoginModal, route.name, route.params]);
+
+  useEffect(() => {
+    if (ingests && ingests.length > 0 && !ingest) {
+      setIngest(ingests[0]);
+    }
+  }, [ingests, ingest]);
 
   if (!isReady) {
     return <Loading />;
@@ -63,36 +79,30 @@ export function StreamKeyScreen() {
     return <Loading />;
   }
 
+  if (!ingests) {
+    return <Loading />;
+  }
+
   return (
     <ScrollView>
       <View flex={1} align="center" justify="start" padding="md" fullWidth>
         <View fullWidth style={{ maxWidth: 600 }}>
           <FormRow>
-            <Button
-              width="min"
-              variant={protocol !== "rtmp" ? "secondary" : "primary"}
-              onPress={() => setProtocol("rtmp")}
-              style={{
-                borderTopRightRadius: "0px",
-                borderBottomRightRadius: "0px",
-              }}
-            >
-              RTMP
-            </Button>
-            <Button
-              width="min"
-              variant={protocol !== "whip" ? "secondary" : "primary"}
-              onPress={() => setProtocol("whip")}
-              style={{
-                borderTopLeftRadius: "0px",
-                borderBottomLeftRadius: "0px",
-              }}
-            >
-              WHIP
-            </Button>
+            {ingests.map((ing, i) => (
+              <Button
+                width="min"
+                key={i}
+                variant={ingest !== ing ? "secondary" : "primary"}
+                onPress={() => setIngest(ing)}
+              >
+                {ing.type.toUpperCase()}
+              </Button>
+            ))}
           </FormRow>
-          {protocol === "whip" && <WHIPDescription url={url} />}
-          {protocol === "rtmp" && <RTMPDescription url={url} />}
+          {ingest?.type === "whip" && <WHIPDescription url={ingest.url} />}
+          {ingest?.type.startsWith("rtmp") && (
+            <RTMPDescription url={ingest.url} />
+          )}
           <FormRow>
             <Label>Output Settings</Label>
             <Content>
@@ -168,9 +178,6 @@ export function WHIPDescription({ url }: { url: string }) {
 }
 
 export function RTMPDescription({ url }: { url: string }) {
-  const u = new URL(url);
-  const rtmpUrl = `rtmps://${u.host}:1935/live`;
-
   return (
     <>
       <FormRow>
@@ -183,7 +190,7 @@ export function RTMPDescription({ url }: { url: string }) {
         <Label>Server</Label>
         <Content>
           <TextInput
-            value={rtmpUrl}
+            value={url}
             readOnly={true}
             style={[
               {

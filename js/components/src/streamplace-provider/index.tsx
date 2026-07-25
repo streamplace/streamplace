@@ -1,9 +1,11 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useEffect, useRef } from "react";
+import { ProfileCacheProvider } from "../context/profile-cache";
 import { useDocumentTitle } from "../hooks";
 import {
   useBrandingAutoFetch,
   useFetchBroadcasterDID,
+  useFetchEnvConfig,
   useGetChatProfile,
 } from "../streamplace-store";
 import { makeStreamplaceStore } from "../streamplace-store/streamplace-store";
@@ -32,23 +34,27 @@ export function StreamplaceProvider({
 
   return (
     <StreamplaceContext.Provider value={{ store: store }}>
-      <BrandingFetcher>
-        <ChatProfileCreator oauthSession={oauthSession}>
-          <Poller>{children}</Poller>
-        </ChatProfileCreator>
-      </BrandingFetcher>
+      <ProfileCacheProvider>
+        <BrandingFetcher>
+          <ChatProfileCreator oauthSession={oauthSession}>
+            <Poller>{children}</Poller>
+          </ChatProfileCreator>
+        </BrandingFetcher>
+      </ProfileCacheProvider>
     </StreamplaceContext.Provider>
   );
 }
 
 export function BrandingFetcher({ children }: { children: React.ReactNode }) {
   const fetchBroadcasterDID = useFetchBroadcasterDID();
+  const fetchEnvConfig = useFetchEnvConfig();
   useBrandingAutoFetch();
   useDocumentTitle();
 
   useEffect(() => {
     fetchBroadcasterDID();
-  }, [fetchBroadcasterDID]);
+    fetchEnvConfig();
+  }, [fetchBroadcasterDID, fetchEnvConfig]);
 
   return <>{children}</>;
 }

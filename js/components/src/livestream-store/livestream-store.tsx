@@ -17,6 +17,8 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     segment: null,
     renditions: [],
     replyToMessage: null,
+    chatDraft: "",
+    badgeSlots: null,
     streamKey: null,
     setStreamKey: (sk) => set({ streamKey: sk }),
     authors: {},
@@ -27,8 +29,11 @@ export const makeLivestreamStore = (): StoreApi<LivestreamState> => {
     setActiveTeleportUri: (uri) => set({ activeTeleportUri: uri }),
     websocketConnected: false,
     hasReceivedSegment: false,
+    pinnedComment: null,
     moderationPermissions: [],
     setModerationPermissions: (perms) => set({ moderationPermissions: perms }),
+    localLivestreamURI: null,
+    setLocalLivestreamURI: (uri) => set({ localLivestreamURI: uri }),
   }));
 };
 
@@ -49,6 +54,22 @@ export function useLivestreamStore<U>(
   return useStore(store, selector);
 }
 
+// A shared, never-populated store used as a fallback so the optional hook
+// below can call useStore unconditionally even when no LivestreamProvider is
+// mounted (e.g. when the player is in "vod" mode).
+const emptyLivestreamStore = makeLivestreamStore();
+
+// Like useLivestreamStore, but reads against an empty store instead of
+// throwing when there's no LivestreamProvider in the tree. Useful for
+// mode-generic hooks (see useTitle) that may run outside a livestream context.
+export function useLivestreamStoreOptional<U>(
+  selector: (state: LivestreamState) => U,
+): U {
+  const context = useContext(LivestreamContext);
+  const store = context?.store ?? emptyLivestreamStore;
+  return useStore(store, selector);
+}
+
 export const useHandleWebsocketMessages = () => {
   const store = getStoreFromContext();
   return (messages: any[]) => {
@@ -58,11 +79,20 @@ export const useHandleWebsocketMessages = () => {
 
 export const useChat = () => useLivestreamStore((x) => x.chat);
 
+export const usePinnedComment = () =>
+  useLivestreamStore((x) => x.pinnedComment);
+
 export const useProfile = () => useLivestreamStore((x) => x.profile);
 
 export const useViewers = () => useLivestreamStore((x) => x.viewers);
 
-export const useLivestream = () => useLivestreamStore((x) => x.livestream);
+export const useLivestream = (includeEnded: boolean = false) =>
+  useLivestreamStore((x) => {
+    const ls = x.livestream;
+    if (!ls) return null;
+    if (!includeEnded && ls.record.endedAt !== undefined) return null;
+    return ls;
+  });
 
 export const useSegment = () => useLivestreamStore((x) => x.segment);
 

@@ -60,3 +60,19 @@ viewer-count = { $count ->
     [1] 1 位觀眾
    *[other] { $count } 位觀眾
 }
+
+## PDS Host Selector
+pds-selector-title = 初次接觸 Atmosphere？
+pds-selector-description = 您需要選擇一個 PDS（個人資料伺服器）來存取 Atmosphere 上的應用程式，例如 Bluesky、Tangled 和 Spark。
+pds-selector-custom-label = 其他 PDS
+pds-selector-custom-description = 輸入您自己的 PDS 主機網址
+pds-selector-custom-url-label = 自訂 PDS 網址
+pds-selector-custom-url-placeholder = https://pds.example.com
+pds-selector-learn-more = 了解更多關於自行架設的資訊
+pds-selector-info = 每個主機都有自己的政策和可靠性標準。您的 ATProto 資料存放在您選擇的主機上，您可以之後進行遷移。注意：Streamplace 有自己的審核規則——無論您選擇哪個主機，都可能被 Streamplace 封禁。
+pds-selector-read-policies = 在繼續之前，請閱讀 { $label } 的<tosLink>服務條款</tosLink>和<privacyLink>隱私政策</privacyLink>。
+pds-selector-handle-policy-checkbox = 我已閱讀並同意<policyLink>識別碼政策</policyLink>
+
+## Login
+login-show-live-on-bluesky = 在 Bluesky 上顯示我的直播狀態
+login-show-live-on-bluesky-description = 直播時為您的 Bluesky 頭像加上紅色 LIVE 圓環，並允許 Streamplace 代您發布直播公告。取消勾選即可在不授予任何 Bluesky 帳號存取權限的情況下登入。

@@ -15,7 +15,8 @@ rcodesign sign \
   "$1"
 rm -f "$CERTIFICATE_FILE"
 
-if [[ "$APPLE_CODESIGN_API_KEY:-" != "" ]]; then
+if [[ "${APPLE_CODESIGN_API_KEY:-}" != "" ]]; then
+  ls -alhs "$APPLE_CODESIGN_API_KEY"
   zip "$1.zip" "$1"
   rcodesign notary-submit --api-key-file "$APPLE_CODESIGN_API_KEY" "$1.zip"
 fi

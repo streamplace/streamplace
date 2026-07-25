@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/log"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 var defaultBrandingAssets = map[string]struct {
@@ -38,7 +38,7 @@ func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) st
 	return s.cli.BroadcasterHost
 }
 
-func (s *Server) getBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
+func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
@@ -61,19 +61,19 @@ func (s *Server) handlePlaceStreamBrandingGetBlob(ctx context.Context, broadcast
 // HandlePlaceStreamBrandingGetBlobDirect is the exported version for direct calls
 func (s *Server) HandlePlaceStreamBrandingGetBlobDirect(ctx context.Context, broadcasterDID string, key string) (io.Reader, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
-	data, _, _, _, err := s.getBrandingBlob(ctx, broadcasterID, key)
+	data, _, _, _, err := s.GetBrandingBlob(ctx, broadcasterID, key)
 	if err != nil {
 		return nil, err
 	}
 	return bytes.NewReader(data), nil
 }
 
-func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+func (s *Server) handlePlaceStreamBrandingGetBranding(ctx context.Context, broadcasterDID string) (*placestream.BrandingGetBranding_Output, error) {
 	return s.HandlePlaceStreamBrandingGetBrandingDirect(ctx, broadcasterDID)
 }
 
 // HandlePlaceStreamBrandingGetBrandingDirect is the exported version for direct calls
-func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestreamtypes.BrandingGetBranding_Output, error) {
+func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context, broadcasterDID string) (*placestream.BrandingGetBranding_Output, error) {
 	broadcasterID := s.getBroadcasterID(ctx, broadcasterDID)
 
 	// get all keys from database
@@ -92,14 +92,14 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	}
 
 	// build output
-	assets := make([]*placestreamtypes.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
+	assets := make([]placestream.BrandingGetBranding_BrandingAsset, 0, len(allKeys))
 	for key := range allKeys {
-		data, mimeType, width, height, err := s.getBrandingBlob(ctx, broadcasterID, key)
+		data, mimeType, width, height, err := s.GetBrandingBlob(ctx, broadcasterID, key)
 		if err != nil {
 			continue // skip if error
 		}
 
-		asset := &placestreamtypes.BrandingGetBranding_BrandingAsset{
+		asset := &placestream.BrandingGetBranding_BrandingAsset{
 			Key:      key,
 			MimeType: mimeType,
 		}
@@ -123,10 +123,10 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 			asset.Url = &url
 		}
 
-		assets = append(assets, asset)
+		assets = append(assets, *asset)
 	}
 
-	return &placestreamtypes.BrandingGetBranding_Output{
+	return &placestream.BrandingGetBranding_Output{
 		Assets: assets,
 	}, nil
 }
@@ -140,7 +140,7 @@ func (s *Server) isAdminDID(did string) bool {
 	return false
 }
 
-func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestreamtypes.BrandingUpdateBlob_Input) (*placestreamtypes.BrandingUpdateBlob_Output, error) {
+func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error) {
 	// check authentication
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
@@ -194,12 +194,12 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to store branding blob")
 	}
 
-	return &placestreamtypes.BrandingUpdateBlob_Output{
+	return &placestream.BrandingUpdateBlob_Output{
 		Success: true,
 	}, nil
 }
 
-func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestreamtypes.BrandingDeleteBlob_Input) (*placestreamtypes.BrandingDeleteBlob_Output, error) {
+func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input *placestream.BrandingDeleteBlob_Input) (*placestream.BrandingDeleteBlob_Output, error) {
 	// check authentication
 	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
@@ -227,7 +227,7 @@ func (s *Server) handlePlaceStreamBrandingDeleteBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to delete branding blob")
 	}
 
-	return &placestreamtypes.BrandingDeleteBlob_Output{
+	return &placestream.BrandingDeleteBlob_Output{
 		Success: true,
 	}, nil
 }
@@ -238,7 +238,7 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 
 	broadcasterID := s.cli.BroadcasterHost
 	log.Log(ctx, "fetching favicon", "broadcasterID", broadcasterID)
-	data, mimeType, _, _, err := s.getBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, "did:web:"+broadcasterID, "favicon")
 
 	if err != nil || data == nil {
 		log.Log(ctx, "using fallback favicon", "err", err, "data_nil", data == nil)

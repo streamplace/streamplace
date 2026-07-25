@@ -1,6 +1,5 @@
-import { DrawerNavigationState, ParamListBase } from "@react-navigation/native";
 import { Text, useTheme, zero } from "@streamplace/components";
-import { useAQLinkHref } from "components/aqlink";
+import { LinkParams } from "components/aqlink";
 import React, { ReactNode, useState } from "react";
 import {
   GestureResponderEvent,
@@ -11,6 +10,8 @@ import {
   ViewStyle,
 } from "react-native";
 
+const DEFAULT_ROUTE: LinkParams = { screen: "HomeMain", params: undefined };
+
 export default function SidebarItem({
   icon,
   label,
@@ -20,6 +21,7 @@ export default function SidebarItem({
   route,
   style = null,
   tint = "rgba(189, 110, 134)",
+  href,
 }: {
   icon:
     | React.ComponentType<any>
@@ -29,18 +31,15 @@ export default function SidebarItem({
   collapsed: boolean;
   active: boolean;
   onPress: (event: GestureResponderEvent) => void;
-  route?: DrawerNavigationState<ParamListBase>["routes"][number];
+  route?: LinkParams;
   style?:
     | StyleProp<ViewStyle>
     | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
   tint: string;
+  href: string;
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const theme = useTheme();
-  const { href } = useAQLinkHref({
-    screen: route?.name || "Home",
-    params: route?.params as any,
-  });
 
   // Handle different icon types - component, JSX element, or function returning JSX
   const renderIcon = () => {
@@ -91,7 +90,7 @@ export default function SidebarItem({
       role="link"
       accessibilityLabel={typeof label === "string" ? label : "Link to " + href}
       // @ts-ignore This makes it render as <a> on web!
-      href={route ? href : undefined}
+      href={href}
     >
       <View
         style={[

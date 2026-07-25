@@ -1,7 +1,10 @@
+import { PlayerMode } from "../../player-store/player-state";
+
 export type PlayerProps = {
   name: string;
   playerId?: string;
   src: string;
+  mode?: PlayerMode;
   muted: boolean;
   telemetry: boolean;
   fullscreen: boolean;

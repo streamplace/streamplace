@@ -1,0 +1,51 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.startLivestream",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Create a new place.stream.livestream record, automatically populating a thumbnail and creating a Bluesky post and whatnot. You can do this manually by creating a record but this method can work better for mobile livestreaming and such.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["streamer", "livestream"],
+          "properties": {
+            "livestream": {
+              "type": "ref",
+              "ref": "place.stream.livestream"
+            },
+            "streamer": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the streamer."
+            },
+            "createBlueskyPost": {
+              "type": "boolean",
+              "description": "Whether to create a Bluesky post announcing the livestream."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri", "cid"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "format": "uri",
+              "description": "The URI of the livestream record."
+            },
+            "cid": {
+              "type": "string",
+              "format": "cid",
+              "description": "The CID of the livestream record."
+            }
+          }
+        }
+      }
+    }
+  }
+}

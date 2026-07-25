@@ -11,8 +11,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(test)'] }
 
 [dependencies]
 anyhow = "1.0.40"
-c2pa = { git = "https://github.com/hyphacoop/c2pa-rs.git", rev = "1b84d40219b27340a30fc309250e774e8a7b7761", features = [
-  "openssl",
+c2pa = { git = "https://github.com/streamplace/c2pa-rs.git", rev = "f23cfd398aac79f06cc7114baa633096189d5a37", default-features = false, features = [
+  "rust_native_crypto",
   "file_io",
   "json_schema",
 ] }

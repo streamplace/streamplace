@@ -1,0 +1,118 @@
+package media
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"os"
+
+	"github.com/pion/webrtc/v4"
+	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/rtcrec"
+)
+
+// ServeWHIPIngestWorkerSocket is the WHIP counterpart of
+// ServeMP4IngestWorkerSocket. Unlike the fMP4 worker there is no socket/fd to pass in: the
+// worker OWNS the PeerConnection, so it creates it from cfg.OfferSDP (binding its
+// own UDP sockets), generates the SDP answer, and emits it as the FIRST frame on
+// the unix socket — main reads that Answer frame and returns it to the WHIP
+// client, then keeps reading the signed dual-codec segments. The worker is
+// detached, so the WebRTC session (and the buffered segment stream) survive a
+// main restart.
+func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) error {
+	if cfg.SocketPath == "" {
+		return fmt.Errorf("ServeWHIPIngestWorkerSocket: empty socket path")
+	}
+	if cfg.OfferSDP == "" {
+		return fmt.Errorf("ServeWHIPIngestWorkerSocket: empty offer")
+	}
+	gstinit.InitGST()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	_ = os.Remove(cfg.SocketPath) // clear any stale socket from a prior worker
+	ln, err := net.Listen("unix", cfg.SocketPath)
+	if err != nil {
+		return fmt.Errorf("listen %s: %w", cfg.SocketPath, err)
+	}
+	defer func() {
+		ln.Close()
+		removeWorkerFiles(cfg.SocketPath)
+	}()
+
+	srv := newFrameServer(workerFrameBuffer)
+	manifest := newManifestHolder(cfg.Manifest)
+	go serveFrameSocket(ctx, ln, srv, manifest)
+
+	// finish flushes the trailing End/Error, waits for main to drain the buffer
+	// (incl. the Answer), then closes the connection for a clean EOF.
+	finish := func(runErr error) error {
+		if runErr != nil {
+			_ = srv.Error(runErr.Error())
+		} else {
+			_ = srv.End()
+		}
+		srv.waitDrained(ctx, workerDrainGrace)
+		srv.closeConn()
+		return runErr
+	}
+
+	mm := &MediaManager{cli: cfg.workerCLI()}
+
+	// The worker owns the PeerConnection (its own UDP sockets), built with the
+	// same codec/interceptor setup as the in-process server. Debug recording is
+	// decided by main (cfg.Record) and written by the worker (S3 or cfg.DataDir).
+	api, webrtcConfig, err := newWebRTCAPI()
+	if err != nil {
+		return finish(fmt.Errorf("webrtc api: %w", err))
+	}
+	pionpc, err := api.NewPeerConnection(webrtcConfig)
+	if err != nil {
+		return finish(fmt.Errorf("peer connection: %w", err))
+	}
+	pc, err := rtcrec.NewRecordingPeerConnection(ctx, *mm.cli, cfg.StreamerDID, pionpc, cfg.Record)
+	if err != nil {
+		return finish(fmt.Errorf("peer connection wrapper: %w", err))
+	}
+
+	// Self-watchdog: a connected-but-silent publisher (or a wedged pipeline) that
+	// stops producing frames tears the worker down so the fault stays contained.
+	// The clock to the first segment starts at the answer (kick below), after ICE
+	// negotiation; a pre-answer hang is bounded by main's whipAnswerTimeout.
+	wd := newWorkerWatchdog(ctx, ingestWorkerWatchdog, cancel, cfg.StreamerDID)
+	defer wd.stop()
+
+	onSegment, flush := mm.workerSegmentSink(ctx, cfg, wd.wrap(srv))
+	signerElem, signerDone, err := muxlSignSegmentElem(ctx, mm.cli, workerSignStream(cfg, manifest.get), onSegment)
+	if err != nil {
+		return finish(fmt.Errorf("build signer element: %w", err))
+	}
+
+	offer := &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: cfg.OfferSDP}
+	streamDone := make(chan error, 1)
+	answer, err := mm.webRTCIngestPipeline(ctx, cancel, offer, pc, signerElem, nil, streamDone)
+	if err != nil {
+		return finish(fmt.Errorf("webrtc ingest: %w", err))
+	}
+
+	// Hand the answer back to main FIRST; the segment frames stream behind it.
+	if aerr := srv.Answer(answer.SDP); aerr != nil {
+		log.Error(ctx, "whip worker: frame answer", "error", aerr)
+	}
+	wd.kick() // negotiation done + answer sent; start the first-segment clock here
+
+	// Streaming runs until the peer disconnects / errors; webRTCIngestPipeline
+	// cancels ctx then, which drains the signer. Wait for that, flush the
+	// transcoder tail, then finish.
+	streamErr := <-streamDone
+	cancel()
+	<-signerDone
+	flush()
+	// The recording commits asynchronously after pc.Close (drain sleep + S3
+	// commit); wait for it, or this process exits and the object never appears.
+	if rpc, ok := pc.(*rtcrec.RecordingPeerConnection); ok {
+		rpc.FinalizeRecording(ctx)
+	}
+	return finish(streamErr)
+}

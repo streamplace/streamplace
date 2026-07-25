@@ -17,15 +17,16 @@ type LocalDB interface {
 	CreateSegment(segment *Segment) error
 	MostRecentSegments() ([]Segment, error)
 	LatestSegmentForUser(user string) (*Segment, error)
-	LatestSegmentsForUser(user string, limit int, before *time.Time, after *time.Time) ([]Segment, error)
+	LatestSegmentsForUser(user string, limit int, includeUnpublished bool, before *time.Time, after *time.Time) ([]Segment, error)
 	FilterLiveRepoDIDs(repoDIDs []string) ([]string, error)
-	CreateThumbnail(thumb *Thumbnail) error
-	LatestThumbnailForUser(user string) (*Thumbnail, error)
 	GetSegment(id string) (*Segment, error)
 	GetExpiredSegments(ctx context.Context) ([]Segment, error)
 	DeleteSegment(ctx context.Context, id string) error
 	StartSegmentCleaner(ctx context.Context) error
 	SegmentCleaner(ctx context.Context) error
+	GetViewLogSalt(date string) ([]byte, error)
+	PutViewLogSalt(date string, salt []byte) error
+	DeleteViewLogSaltsBefore(date string) error
 }
 
 type LocalDatabase struct {
@@ -70,11 +71,19 @@ func MakeDB(dbURL string) (LocalDB, error) {
 	sqlDB.SetMaxOpenConns(1)
 	for _, model := range []any{
 		Segment{},
-		Thumbnail{},
+		ViewLogSalt{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {
 			return nil, err
+		}
+	}
+	// Thumbnails used to live in this table but are now served from the
+	// filesystem (see config.ThumbnailFilePath). Drop the legacy table so it
+	// stops bloating the database.
+	if db.Migrator().HasTable("thumbnails") {
+		if err := db.Migrator().DropTable("thumbnails"); err != nil {
+			return nil, fmt.Errorf("error dropping legacy thumbnails table: %w", err)
 		}
 	}
 	return &LocalDatabase{DB: db}, nil

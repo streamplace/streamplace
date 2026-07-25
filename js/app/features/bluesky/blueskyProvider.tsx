@@ -1,7 +1,8 @@
 import { useNavigation } from "@react-navigation/native";
 import { storage } from "@streamplace/components";
-import { useURL } from "expo-linking";
+import { useLinkingURL } from "expo-linking";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useOAuthSession, useUserProfile } from "store/hooks";
 import { navigateToRoute } from "utils/navigation";
@@ -23,8 +24,13 @@ export default function BlueskyProvider({
     loadOAuthClient();
 
     // load return route from storage on mount
+    if (Platform.OS !== "web") {
+      return;
+    }
     storage.getItem("returnRoute").then((stored) => {
       if (stored) {
+        // if we're on native, delete it as we don't close the app during sign in
+        if (Platform.OS !== "web") storage.removeItem("returnRoute");
         try {
           const route = JSON.parse(stored);
           console.log("Loaded returnRoute from storage:", route);
@@ -63,7 +69,7 @@ export default function BlueskyProvider({
   }, [authStatus, lastAuthStatus, returnRoute]);
 
   const [lastLink, setLastLink] = useState<string | null>(null);
-  const url = useURL();
+  const url = useLinkingURL();
 
   useEffect(() => {
     if (url !== lastLink && url) {
@@ -82,7 +88,8 @@ export default function BlueskyProvider({
     if (
       lastAuthStatus !== "loggedIn" &&
       authStatus === "loggedIn" &&
-      returnRoute
+      returnRoute &&
+      Platform.OS === "web"
     ) {
       console.log(
         "Login successful, navigating back to returnRoute:",

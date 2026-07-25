@@ -196,6 +196,7 @@ export default function () {
       plugins: [
         withAndroidProfileable,
         "expo-video",
+        "expo-image",
         "expo-web-browser",
         "expo-screen-orientation",
         streamplaceReactNativeWebRTC,
@@ -232,11 +233,19 @@ export default function () {
           {
             ios: {
               useFrameworks: "static",
+              forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
+              // useful if you can't get forceStaticLinking to work
+              //buildReactNativeFromSource: true,
             },
             // uncomment to test OTA updates to http://localhost:8080
             // android: {
             //   usesCleartextTraffic: true,
             // },
+            android: {
+              packagingOptions: {
+                pickFirst: ["**/libcrypto.so"],
+              },
+            },
           },
         ],
         [
@@ -265,7 +274,7 @@ export default function () {
         ...(enableSentry
           ? [
               [
-                "@sentry/react-native/expo",
+                "@sentry/react-native",
                 {
                   url: "https://sentry.io/",
                   project: process.env["SP_SENTRY_APP"] || "app",
@@ -275,9 +284,6 @@ export default function () {
             ]
           : []),
       ],
-      experiments: {
-        typedRoutes: true,
-      },
       updates: isProd
         ? {
             url: `https://stream.place/api/manifest`,

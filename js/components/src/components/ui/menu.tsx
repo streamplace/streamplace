@@ -1,10 +1,4 @@
-import {
-  Children,
-  cloneElement,
-  forwardRef,
-  isValidElement,
-  ReactNode,
-} from "react";
+import { forwardRef, ReactNode } from "react";
 import { Animated, Platform, View, ViewStyle } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
@@ -28,7 +22,7 @@ import {
   px,
   py,
 } from "../../lib/theme/atoms";
-import { mergeStyles, useTheme } from "../../ui";
+import { hexToRgba, mergeStyles, useTheme } from "../../ui";
 import { Text } from "./text";
 
 export interface MenuContainerProps {
@@ -59,7 +53,7 @@ export const MenuGroup = forwardRef<View, MenuGroupProps>(
       <View
         ref={ref}
         style={[
-          { backgroundColor: theme.colors.muted + "c0" },
+          { backgroundColor: hexToRgba(theme.colors.muted, 0.75) },
           Platform.OS === "web" ? [px[1], py[1]] : p[1],
           gap.all[1],
           { borderRadius: borderRadius.lg },
@@ -285,63 +279,63 @@ export const MenuInfo = forwardRef<View, MenuInfoProps>(
   },
 );
 
-export interface MenuDraggableGroupProps {
-  children: ReactNode;
-  onMove: (fromIndex: number, toIndex: number) => void;
-  onDragEnd: (fromIndex: number, toIndex: number) => void;
-  dragHandle?: ReactNode;
-  style?: ViewStyle;
-}
+// export interface MenuDraggableGroupProps {
+//   children: ReactNode;
+//   onMove: (fromIndex: number, toIndex: number) => void;
+//   onDragEnd: (fromIndex: number, toIndex: number) => void;
+//   dragHandle?: ReactNode;
+//   style?: ViewStyle;
+// }
 
-export const MenuDraggableGroup = forwardRef<View, MenuDraggableGroupProps>(
-  ({ children, onMove, onDragEnd, dragHandle, style }, ref) => {
-    const { theme } = useTheme();
+// export const MenuDraggableGroup = forwardRef<View, MenuDraggableGroupProps>(
+//   ({ children, onMove, onDragEnd, dragHandle, style }, ref) => {
+//     const { theme } = useTheme();
 
-    const childrenArray = Children.toArray(children);
-    const draggableItems = childrenArray.filter(
-      (child) =>
-        isValidElement(child) &&
-        (child.type === MenuItem || child.type === MenuSeparator),
-    );
+//     const childrenArray = Children.toArray(children);
+//     const draggableItems = childrenArray.filter(
+//       (child) =>
+//         isValidElement(child) &&
+//         (child.type === MenuItem || child.type === MenuSeparator),
+//     );
 
-    let itemIndex = 0;
-    const enhancedChildren = Children.map(children, (child) => {
-      if (isValidElement(child)) {
-        if (child.type === MenuItem) {
-          const currentIndex = itemIndex;
-          itemIndex++;
+//     let itemIndex = 0;
+//     const enhancedChildren = Children.map(children, (child) => {
+//       if (isValidElement(child)) {
+//         if (child.type === MenuItem) {
+//           const currentIndex = itemIndex;
+//           itemIndex++;
 
-          return cloneElement(child, {
-            draggable: true,
-            dragHandle: dragHandle || child.props.dragHandle,
-            _dragIndex: currentIndex,
-            _dragTotalItems: draggableItems.filter(
-              (c) => isValidElement(c) && c.type === MenuItem,
-            ).length,
-            _onDragMove: onMove,
-            _onDragEnd: onDragEnd,
-          } as any);
-        }
-        if (child.type === MenuSeparator) {
-          return child;
-        }
-      }
-      return child;
-    });
+//           return cloneElement(child, {
+//             draggable: true,
+//             dragHandle: dragHandle || (child && child.props.dragHandle),
+//             _dragIndex: currentIndex,
+//             _dragTotalItems: draggableItems.filter(
+//               (c) => isValidElement(c) && c.type === MenuItem,
+//             ).length,
+//             _onDragMove: onMove,
+//             _onDragEnd: onDragEnd,
+//           } as any);
+//         }
+//         if (child.type === MenuSeparator) {
+//           return child;
+//         }
+//       }
+//       return child;
+//     });
 
-    return (
-      <View
-        ref={ref}
-        style={[
-          { backgroundColor: theme.colors.muted + "c0" },
-          Platform.OS === "web" ? [px[1], py[1]] : p[1],
-          gap.all[1],
-          { borderRadius: borderRadius.lg },
-          style,
-        ]}
-      >
-        {enhancedChildren}
-      </View>
-    );
-  },
-);
+//     return (
+//       <View
+//         ref={ref}
+//         style={[
+//           { backgroundColor: theme.colors.muted + "c0" },
+//           Platform.OS === "web" ? [px[1], py[1]] : p[1],
+//           gap.all[1],
+//           { borderRadius: borderRadius.lg },
+//           style,
+//         ]}
+//       >
+//         {enhancedChildren}
+//       </View>
+//     );
+//   },
+// );

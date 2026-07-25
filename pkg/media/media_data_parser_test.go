@@ -16,6 +16,9 @@ func TestMediaDataParser(t *testing.T) {
 		remote.RemoteFixture("d63d26050db9a60c0944b4c2e2b1d052c4350a2a8a877324c7b0b7e7a0c1ae27/bframe-false-positive.mp4"),
 		getFixture("sample-segment.mp4"),
 		remote.RemoteFixture("604bebf51c97f27aa07a8952462ac9885dd963f7a88375154217f59db32e1573/2025-11-18T01-10-56-292Z-signed-segment.mp4"),
+		remote.RemoteFixture("1083078df7b88bf2b658a9895f54a733879a665e8b8748706ab1a0f7ab15efdb/2026-04-11T22-15-30-041Z-muxl_segment_input.fmp4"),
+		remote.RemoteFixture("82d20ee62b02f1c3a727b3001f1fa939afb757f9f205fa438d7b5753e1253eef/2026-04-11T22-39-41-861Z-packetize-input-019d7eb3-6f24-776c-ba1b-2f909a2379d7.mp4"),
+		remote.RemoteFixture("45c56c6e95c5babfaa86f1d07e94e0c54faefc8e4d334995d2fd5fcc9dbb4de2/segment-with-edit-list-bug.mp4"),
 	}
 	withNoGSTLeaks(t, func() {
 		for _, segment := range segmentsWithoutBFrames {

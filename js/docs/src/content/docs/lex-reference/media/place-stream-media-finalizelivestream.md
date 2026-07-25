@@ -1,0 +1,104 @@
+---
+title: place.stream.media.finalizeLivestream
+description: Reference for the place.stream.media.finalizeLivestream lexicon
+---
+
+**Lexicon Version:** 1
+
+## Definitions
+
+<a name="main"></a>
+
+### `main`
+
+**Type:** `procedure`
+
+Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.
+
+**Parameters:** _(None defined)_
+
+**Input:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name         | Type     | Req'd | Description                                                                                                 | Constraints      |
+| ------------ | -------- | ----- | ----------------------------------------------------------------------------------------------------------- | ---------------- |
+| `livestream` | `string` | ✅    | AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user. | Format: `at-uri` |
+
+**Output:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name       | Type     | Req'd | Description                                                                                                                                                                                         | Constraints |
+| ---------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `uploadId` | `string` | ✅    | Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus.                                                        |             |
+| `draftUri` | `string` | ✅    | The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft. |             |
+
+**Possible Errors:**
+
+- `LivestreamNotFound`: No livestream with the given URI is known, or it does not belong to the authenticated user.
+- `NoRecording`: The livestream has no recorded MUXL segments to finalize (recording was not enabled, or none completed).
+
+---
+
+## Lexicon Source
+
+```json
+{
+  "lexicon": 1,
+  "id": "place.stream.media.finalizeLivestream",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Turn a finished livestream into a VOD. The server concatenates the MUXL segments it recorded for the livestream into a single content blob, derives the playback sidecars, and publishes the place.stream.media.track records. Processing completes server-side and creates a draft VOD; the client does not need to poll or publish — the user publishes the draft later via place.stream.vod.publishDraft. Returns the draft's ats:// URI so the client can navigate to it, alongside an uploadId for backwards compatibility.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["livestream"],
+          "properties": {
+            "livestream": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT-URI of the place.stream.livestream record to finalize into a VOD. Must belong to the authenticated user."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uploadId", "draftUri"],
+          "properties": {
+            "uploadId": {
+              "type": "string",
+              "description": "Identifier for the finalize job. Retained for backwards compatibility; the draft flow no longer requires the client to poll getUploadStatus."
+            },
+            "draftUri": {
+              "type": "string",
+              "description": "The ats:// URI of the draft VOD created for this finalize. The draft reaches status 'ready' when processing completes; the user publishes it from the Drafts tab via place.stream.vod.publishDraft."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "LivestreamNotFound",
+          "description": "No livestream with the given URI is known, or it does not belong to the authenticated user."
+        },
+        {
+          "name": "NoRecording",
+          "description": "The livestream has no recorded MUXL segments to finalize (recording was not enabled, or none completed)."
+        }
+      ]
+    }
+  }
+}
+```

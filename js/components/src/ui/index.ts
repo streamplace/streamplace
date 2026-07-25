@@ -58,6 +58,7 @@ export {
 // Export ZeroCSS utility functions
 export {
   debounce,
+  hexToRgba,
   mergeStyles,
   platformStyle,
   responsiveValue,

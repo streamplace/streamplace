@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -11,11 +10,9 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/pion/webrtc/v4"
-	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/spmetrics"
 )
 
 func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string, error) {
@@ -28,7 +25,7 @@ func (a *StreamplaceAPI) NormalizeUser(ctx context.Context, user string) (string
 		return user, nil
 	}
 	// only other allowed case is a bluesky handle
-	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user, a.Model)
+	repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, user)
 	if err != nil {
 		return "", err
 	}
@@ -54,14 +51,9 @@ func (a *StreamplaceAPI) HandleWebRTCPlayback(ctx context.Context) httprouter.Ha
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		var answer *webrtc.SessionDescription
-		if a.CLI.NewWebRTCPlayback {
-			answer, err = a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer)
-		} else {
-			answer, err = a.MediaManager.WebRTCPlayback(ctx, user, rendition, &offer)
-		}
+		answer, err := a.MediaManager.WebRTCPlayback2(ctx, user, rendition, &offer, "")
 		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "error playing back", err)
+			errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error playing back: %s", err.Error()), err)
 			return
 		}
 		w.WriteHeader(201)
@@ -113,15 +105,30 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 			return
 		}
 		offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(body)}
-		pc, err := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "unable to create peer connection", err)
-			return
-		}
-		answer, err := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "error playing back", err)
-			return
+
+		// Isolated WHIP: a detached worker owns the PeerConnection (and survives a
+		// main restart), returning the SDP answer over its frame socket.
+		// --isolated-ingest is forced off where unsupported (see runMain), so the
+		// flag alone gates this.
+		var answerSDP string
+		if a.CLI.IsolatedIngest {
+			answerSDP, err = a.MediaManager.WHIPIngestDetached(ctx, offer.SDP, mediaSigner)
+			if err != nil {
+				errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", err.Error()), err)
+				return
+			}
+		} else {
+			pc, pcErr := a.MediaManager.NewPeerConnection(ctx, mediaSigner.Streamer())
+			if pcErr != nil {
+				errors.WriteHTTPInternalServerError(w, "unable to create peer connection", pcErr)
+				return
+			}
+			answer, ingestErr := a.MediaManager.WebRTCIngest(ctx, &offer, mediaSigner, pc, make(chan error, 1))
+			if ingestErr != nil {
+				errors.WriteHTTPInternalServerError(w, fmt.Sprintf("error ingesting: %s", ingestErr.Error()), ingestErr)
+				return
+			}
+			answerSDP = answer.SDP
 		}
 		host := r.Host
 		if host == "" {
@@ -135,7 +142,7 @@ func (a *StreamplaceAPI) HandleWebRTCIngest(ctx context.Context) httprouter.Hand
 		log.Log(ctx, "location", "location", location)
 		w.Header().Set("Location", location)
 		w.WriteHeader(201)
-		if _, err := w.Write([]byte(answer.SDP)); err != nil {
+		if _, err := w.Write([]byte(answerSDP)); err != nil {
 			log.Error(ctx, "error writing response", "error", err)
 		}
 	}
@@ -177,91 +184,14 @@ func NoCache(h httprouter.Handle) httprouter.Handle {
 	}
 }
 
-const SessionExpireTime = 30 * time.Second
-
-func (a *StreamplaceAPI) SessionSeen(ctx context.Context, user string, session string) {
-	now := time.Now()
-	go func() {
-		a.sessionsLock.Lock()
-		defer a.sessionsLock.Unlock()
-		if _, ok := a.sessions[user]; !ok {
-			a.sessions[user] = map[string]time.Time{}
-		}
-		if _, ok := a.sessions[user][session]; !ok {
-			log.Warn(ctx, "ViewerInc", "user", user, "session", session)
-			spmetrics.ViewerInc(user, "hls")
-			a.Bus.IncrementViewerCount(user, "local")
-		}
-		a.sessions[user][session] = now
-	}()
-}
-
-func (a *StreamplaceAPI) ExpireSessions(ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(5 * time.Second):
-			a.sessionsLock.Lock()
-			for user, sessions := range a.sessions {
-				for session, seen := range sessions {
-					if time.Since(seen) > SessionExpireTime {
-						delete(sessions, session)
-						spmetrics.ViewerDec(user, "hls")
-						a.Bus.DecrementViewerCount(user, "local")
-					}
-				}
-			}
-			a.sessionsLock.Unlock()
-		}
-	}
-}
-
-func (a *StreamplaceAPI) HandleHLSPlayback(ctx context.Context) httprouter.Handle {
-	return NoCache(func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		file := p.ByName("file")
-		if file == "" {
-			errors.WriteHTTPBadRequest(w, "file required", nil)
-			return
-		}
-		m3u8, err := a.Director.GetM3U8(ctx, user)
-		if err != nil {
-			errors.WriteHTTPNotFound(w, "could not get m3u8", err)
-			return
-		}
-		session := r.URL.Query().Get("session")
-		rendition := r.URL.Query().Get("rendition")
-		buf, err := m3u8.GetFile(file, session, rendition)
-		if err != nil {
-			errors.WriteHTTPNotFound(w, "segment not found", err)
-			return
-		}
-
-		if strings.HasSuffix(file, ".m3u8") {
-			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
-		} else {
-			if session != "" {
-				a.SessionSeen(ctx, user, session)
-			}
-			w.Header().Set("Content-Type", "video/mp2t")
-		}
-
-		http.ServeContent(w, r, file, time.Now(), bytes.NewReader(buf))
-	})
-}
+// thumbnailMaxAge is how stale a thumbnail may be before we treat the user as
+// offline and stop serving it. It must comfortably exceed thumbnailInterval (the
+// rate at which live thumbnails are refreshed) to avoid flickering mid-stream.
+const thumbnailMaxAge = 24 * time.Hour
 
 func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+		ctx = log.WithLogValues(r.Context(), "func", "HandleThumbnailPlayback")
 		user := p.ByName("user")
 		if user == "" {
 			errors.WriteHTTPBadRequest(w, "user required", nil)
@@ -272,21 +202,19 @@ func (a *StreamplaceAPI) HandleThumbnailPlayback(ctx context.Context) httprouter
 			errors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		thumb, err := a.LocalDB.LatestThumbnailForUser(user)
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not query thumbnail", err)
+		fpath := a.CLI.ThumbnailFilePath(user)
+		mt, ok := a.CLI.ThumbnailModTime(user)
+		if !ok {
+			errors.WriteHTTPNotFound(w, "thumbnail not found", nil)
 			return
 		}
-		if thumb == nil {
-			errors.WriteHTTPNotFound(w, "thumbnail not found", err)
+		// A thumbnail that hasn't been refreshed recently means the user is no
+		// longer live, so don't serve a stale preview. WideOpen (dev) skips this.
+		if !a.CLI.WideOpen && time.Since(mt) > thumbnailMaxAge {
+			errors.WriteHTTPNotFound(w, "no recent thumbnail", nil)
 			return
 		}
-		aqt := aqtime.FromTime(thumb.Segment.StartTime)
-		fpath, err := a.CLI.SegmentFilePath(user, fmt.Sprintf("%s.%s", aqt.String(), thumb.Format))
-		if err != nil {
-			errors.WriteHTTPInternalServerError(w, "could not get segment file path", err)
-			return
-		}
+		log.Debug(ctx, "serving thumbnail", "fpath", fpath)
 		http.ServeFile(w, r, fpath)
 	}
 }

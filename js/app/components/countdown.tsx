@@ -1,4 +1,5 @@
 import { Text, zero } from "@streamplace/components";
+import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import * as chrono from "chrono-node";
 import { useEffect, useState } from "react";
 import { View, useWindowDimensions } from "react-native";
@@ -96,7 +97,7 @@ export function Countdown({ from, to, small }: CountdownProps) {
   ];
 
   const timeTextStyle = [
-    { fontFamily: "monospace" },
+    { fontFamily: fontFamilies.monoRegular },
     small ? { fontSize: 18 } : { fontSize: 128 },
     small ? { lineHeight: 24 } : { lineHeight: 40 },
   ];

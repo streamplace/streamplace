@@ -1,0 +1,52 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.vod.publishDraft",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Promote a ready draft VOD to a public place.stream.video record. The server carries over source and durationMs from the draft, backfills a generated thumbnail if the draft has none, writes the video record via putRecord, then deletes the draft.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri"],
+          "properties": {
+            "uri": {
+              "type": "string",
+              "description": "The ats:// URI of the draft to publish. Must have status 'ready'."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["videoUri", "videoCid"],
+          "properties": {
+            "videoUri": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT-URI of the created place.stream.video record."
+            },
+            "videoCid": {
+              "type": "string",
+              "format": "cid",
+              "description": "CID of the created place.stream.video record."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "NotFound",
+          "description": "No draft exists with the given URI for the authenticated user."
+        },
+        {
+          "name": "NotReady",
+          "description": "The draft is not ready to publish (status is 'processing' or 'error')."
+        }
+      ]
+    }
+  }
+}

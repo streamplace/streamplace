@@ -1,11 +1,13 @@
 import {
   Text,
   View,
+  useMuted,
   usePlayerStore,
   useSetMuted,
   zero,
 } from "@streamplace/components";
 import { VolumeX } from "lucide-react-native";
+import { useEffect } from "react";
 import { Pressable } from "react-native";
 
 const { layout, h, w, p, px } = zero;
@@ -13,9 +15,17 @@ const { layout, h, w, p, px } = zero;
 export function MuteOverlay() {
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuted = useSetMuted();
+  const isMuted = useMuted();
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
 
-  if (!muteWasForced) return null;
+  // let's switch muteWasForced to false if the user unmutes lol
+  useEffect(() => {
+    if (!isMuted && muteWasForced) {
+      setMuteWasForced(false);
+    }
+  }, [isMuted, muteWasForced, setMuteWasForced]);
+
+  if (!muteWasForced || !isMuted) return null;
 
   return (
     <View
@@ -25,6 +35,7 @@ export function MuteOverlay() {
         h.percent[100],
         w.percent[100],
       ]}
+      pointerEvents="box-none"
     >
       <Pressable
         onPress={() => {

@@ -7,7 +7,9 @@ ENV TARGETARCH $TARGETARCH
 ARG DOCKERFILE_HASH
 ENV DOCKERFILE_HASH $DOCKERFILE_HASH
 
-ENV GO_VERSION 1.25.1
+# You'll probably need to bump golangci-lint if you bump go
+ENV GO_VERSION 1.26.5
+ENV GOLANGCI_LINT_VERSION 2.12.2
 ENV NODE_VERSION 22.15.0
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -74,6 +76,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh \
   && rustup target add x86_64-pc-windows-gnu \
   && rustup target add x86_64-apple-darwin \
   && rustup target add aarch64-apple-darwin \
+  && rustup target add wasm32-wasip1 \
+  && rustup target add wasm32-unknown-unknown \
   && rm rustup.sh
 
 RUN go env -w GOTOOLCHAIN=go$GO_VERSION
@@ -89,10 +93,10 @@ RUN go env -w GOTOOLCHAIN=go$GO_VERSION
 #   && cd .. \
 #   && rm -rf streamplace
 
-RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v2.5.0/golangci-lint-2.5.0-linux-amd64.tar.gz -o golangci-lint.tar.gz \
+RUN curl -L https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz -o golangci-lint.tar.gz \
   && tar -xf golangci-lint.tar.gz \
-  && mv golangci-lint-2.5.0-linux-amd64/golangci-lint /usr/local/bin/ \
-  && rm -rf golangci-lint.tar.gz golangci-lint-2.5.0-linux-amd64
+  && mv golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint /usr/local/bin/ \
+  && rm -rf golangci-lint.tar.gz golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64
 
 RUN gem install fpm
 ENV APTLY_VERSION 1.6.2
@@ -102,7 +106,7 @@ RUN curl --fail -L https://github.com/aptly-dev/aptly/releases/download/v${APTLY
   && rm -rf aptly.zip aptly_${APTLY_VERSION}_linux_amd64
 
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=false
-ENV STREAMPLACE_TEST_POSTGRES_COMMAND="sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
+ENV STREAMPLACE_TEST_POSTGRES_COMMAND="install -d -o postgres -g postgres -m 3775 /var/run/postgresql/14-main.pg_stat_tmp && sudo -u postgres /usr/lib/postgresql/14/bin/postgres -D /etc/postgresql/14/main/"
 ENV STREAMPLACE_TEST_POSTGRES_URL="postgresql://postgres:postgres@localhost:5432/streamplace"
 # allow all postgres connections
 RUN bash -c 'echo -en "local   all             postgres                                peer\nhost    all             all             0.0.0.0/0            trust\n" > /etc/postgresql/14/main/pg_hba.conf'

@@ -1,0 +1,60 @@
+---
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+interface Props {
+  searchPlaceholder?: string;
+}
+---
+
+<div class="helpdesk">
+
+  <h2>How can we help?</h2>
+  <p>Search the knowledge base, or check out topics below.</p>
+
+  <CardGrid>
+    <Card title="Getting Started" icon="rocket">
+      <p>New to Streamplace? Start here to set up your first stream.</p>
+      <ul>
+        <li><a href="/docs/guides/start-streaming/quick-start">Quick start guide</a></li>
+        <li><a href="/docs/guides/start-streaming/obs">Stream with OBS</a></li>
+      </ul>
+    </Card>
+
+    <Card title="Developers & Self-Hosters" icon="laptop">
+      <p>Building with Streamplace or running your own node?</p>
+      <ul>
+        <li><a href="/docs/developers">Developer documentation</a></li>
+      </ul>
+    </Card>
+  </CardGrid>
+</div>
+
+<style>
+  .helpdesk {
+    margin: 0 auto;
+  }
+
+  .helpdesk-search {
+    margin-bottom: 2rem;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1.125rem;
+    border: 2px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    background: var(--sl-color-bg);
+    color: var(--sl-color-text);
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--sl-color-accent);
+  }
+
+  .helpdesk h2 {
+    margin-bottom: 1.5rem;
+  }
+</style>

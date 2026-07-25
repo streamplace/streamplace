@@ -1,6 +1,7 @@
 import { Text } from "@streamplace/components";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Platform, TouchableOpacity, View } from "react-native";
+import { Platform, TouchableOpacity, View } from "react-native";
 import { ThumbnailSelectorProps } from "./shared";
 
 export default function ThumbnailSelector({
@@ -243,7 +244,7 @@ export default function ThumbnailSelector({
                 borderRadius: 8,
               },
             ]}
-            resizeMode="cover"
+            contentFit="cover"
           />
           <TouchableOpacity
             style={[

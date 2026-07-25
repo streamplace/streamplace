@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	glex "github.com/streamplace/glex/runtime"
+
+	"stream.place/streamplace/pkg/comatproto"
 
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
@@ -88,13 +90,34 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 			return nil, err
 		}
 		return &out, nil
-
 	}
 
+	if s.isServerPDS(ctx) {
+		collections, err := atproto.ServerRepoListCollections(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list server repo collections: %w", err)
+		}
+		didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.ServerHost, atproto.ServerPubMultibase))
+		if err != nil {
+			return nil, fmt.Errorf("marshal did doc: %w", err)
+		}
+		return &comatproto.RepoDescribeRepo_Output{
+			Handle:          s.cli.ServerDID(),
+			Did:             s.cli.ServerDID(),
+			DidDoc:          didDoc,
+			Collections:     collections,
+			HandleIsCorrect: true,
+		}, nil
+	}
+
+	didDoc, err := glex.Unknown(atproto.DIDDoc(s.cli.BroadcasterHost, atproto.LexiconPubMultibase))
+	if err != nil {
+		return nil, fmt.Errorf("marshal did doc: %w", err)
+	}
 	return &comatproto.RepoDescribeRepo_Output{
-		Handle: s.cli.MyDID(),
-		Did:    s.cli.MyDID(),
-		DidDoc: atproto.DIDDoc(s.cli.BroadcasterHost),
+		Handle: s.cli.BroadcasterDID(),
+		Did:    s.cli.BroadcasterDID(),
+		DidDoc: didDoc,
 		Collections: []string{
 			"com.atproto.lexicon.schema",
 		},
@@ -102,7 +125,7 @@ func (s *Server) handleComAtprotoRepoDescribeRepo(ctx context.Context, repo stri
 	}, nil
 }
 
-func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse *bool) (*comatproto.RepoListRecords_Output, error) {
+func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection string, cursor string, limit int, repo string, reverse bool) (*comatproto.RepoListRecords_Output, error) {
 	isLocal, svc, err := s.isLocalPDS(ctx, repo)
 	if err != nil {
 		return nil, fmt.Errorf("error checking for local PDS: %w", err)
@@ -117,9 +140,7 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		if limit != 0 {
 			params["limit"] = limit
 		}
-		if reverse != nil {
-			params["reverse"] = *reverse
-		}
+		params["reverse"] = reverse
 		params["repo"] = repo
 
 		err = makeUnauthenticatedRequest(ctx, svc, "com.atproto.repo.listRecords", params, &out)
@@ -130,7 +151,10 @@ func (s *Server) handleComAtprotoRepoListRecords(ctx context.Context, collection
 		return &out, nil
 	}
 
-	return atproto.LexiconRepoListRecords(ctx, collection, cursor, limit, repo, reverse)
+	if s.isServerPDS(ctx) {
+		return atproto.ServerRepoListRecords(ctx, collection, cursor, limit, repo, &reverse)
+	}
+	return atproto.LexiconRepoListRecords(ctx, collection, cursor, limit, repo, &reverse)
 }
 
 func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, collection string, repo string, rkey string) (*comatproto.RepoGetRecord_Output, error) {
@@ -156,5 +180,20 @@ func (s *Server) handleComAtprotoRepoGetRecord(ctx context.Context, c string, co
 		return &out, nil
 	}
 
+	if s.isServerPDS(ctx) {
+		return atproto.ServerRepoGetRecord(ctx, repo, collection, rkey)
+	}
 	return atproto.LexiconRepoGetRecord(ctx, repo, collection, rkey)
+}
+
+func (s *Server) handleComAtprotoRepoCreateRecord(ctx context.Context, body *comatproto.RepoCreateRecord_Input) (*comatproto.RepoCreateRecord_Output, error) {
+	return nil, echo.NewHTTPError(501, "not implemented")
+}
+
+func (s *Server) handleComAtprotoRepoDeleteRecord(ctx context.Context, body *comatproto.RepoDeleteRecord_Input) (*comatproto.RepoDeleteRecord_Output, error) {
+	return nil, echo.NewHTTPError(501, "not implemented")
+}
+
+func (s *Server) handleComAtprotoRepoPutRecord(ctx context.Context, body *comatproto.RepoPutRecord_Input) (*comatproto.RepoPutRecord_Output, error) {
+	return nil, echo.NewHTTPError(501, "not implemented")
 }

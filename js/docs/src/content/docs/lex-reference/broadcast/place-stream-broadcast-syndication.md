@@ -13,8 +13,7 @@ description: Reference for the place.stream.broadcast.syndication lexicon
 
 **Type:** `record`
 
-Record created by a Streamplace broadcaster to indicate that they will be
-replicating a livestream. NYI
+Record created by a Streamplace broadcaster to indicate that they will be replicating a livestream. NYI
 
 **Record Key:** `tid`
 

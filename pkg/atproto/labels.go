@@ -3,7 +3,7 @@ package atproto
 import (
 	"strings"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 const (
@@ -44,6 +44,9 @@ const (
 	LabelRumor             = "rumor"
 	LabelMisleading        = "misleading"
 	LabelInauthentic       = "inauthentic"
+
+	// Streamplace-specific labels
+	LabelNoViewers = "!no-viewers"
 )
 
 var bannedLabels = map[string]bool{
@@ -85,6 +88,20 @@ func IsBanned(labels ...*comatproto.LabelDefs_Label) bool {
 			continue
 		}
 		if bannedLabels[l.Val] {
+			return true
+		}
+	}
+	return false
+}
+
+// IsViewerBanned returns true if the DID should be excluded from view count
+// aggregation. This includes all standard banned labels plus !no-viewers.
+func IsViewerBanned(labels ...*comatproto.LabelDefs_Label) bool {
+	for _, l := range labels {
+		if !strings.HasPrefix(l.Uri, "did:") {
+			continue
+		}
+		if bannedLabels[l.Val] || l.Val == LabelNoViewers {
 			return true
 		}
 	}

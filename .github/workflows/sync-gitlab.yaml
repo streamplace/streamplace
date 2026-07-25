@@ -4,7 +4,7 @@ on: push
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - uses: keninkujovic/gitlab-sync@2.0.0
         with:

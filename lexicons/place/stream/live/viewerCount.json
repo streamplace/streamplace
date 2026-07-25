@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.live.viewerCount",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "Current viewer count for a livestream on a particular server. Record keys are streamer_did::server_did by convention.",
+      "record": {
+        "type": "object",
+        "required": ["streamer", "server", "count"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the streamer to teleport to."
+          },
+          "server": {
+            "type": "string",
+            "format": "did",
+            "description": "The DID of the server to get the view count for."
+          },
+          "count": {
+            "type": "integer",
+            "description": "The current view count for the livestream."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "The time the view count was last updated."
+          }
+        }
+      }
+    }
+  }
+}

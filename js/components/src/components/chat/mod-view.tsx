@@ -17,6 +17,7 @@ import { ChatMessageViewHydrated } from "streamplace";
 import {
   useDeleteChatMessage,
   useLivestreamStore,
+  usePinChatMessage,
 } from "../../livestream-store";
 import { useStreamplaceStore } from "../../streamplace-store";
 import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
@@ -25,6 +26,9 @@ import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   layout,
   ResponsiveDropdownMenuContent,
@@ -55,6 +59,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   let [messageRemoved, setMessageRemoved] = useState(false);
   let { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
   let { createHideChat, isLoading: isHideLoading } = useCreateHideChatRecord();
+  const pinChatMessage = usePinChatMessage();
 
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
@@ -91,9 +96,8 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
     message &&
     agent?.did &&
     ((modPermissions.canHide && message.author.did !== streamerDID) ||
-      (modPermissions.canBan &&
-        message.author.did !== agent.did &&
-        message.author.did !== streamerDID))
+      (modPermissions.canPin && message.author.did !== streamerDID) ||
+      modPermissions.canBan)
   );
 
   return (
@@ -124,6 +128,7 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
               setMessageRemoved={setMessageRemoved}
               createHideChat={createHideChat}
               createBlock={createBlock}
+              pinChatMessage={pinChatMessage}
               toast={toast}
               setReportModalOpen={setReportModalOpen}
               setReportSubject={setReportSubject}
@@ -148,6 +153,11 @@ interface ModViewContentProps {
   setMessageRemoved: (removed: boolean) => void;
   createHideChat: (uri: string, streamerDID?: string) => Promise<any>;
   createBlock: (did: string, streamerDID?: string) => Promise<any>;
+  pinChatMessage: (
+    messageUri: string,
+    streamerDID: string,
+    expiresAt?: string,
+  ) => Promise<any>;
   toast: ReturnType<typeof useToast>;
   setReportModalOpen: (open: boolean) => void;
   setReportSubject: (subject: any) => void;
@@ -166,6 +176,7 @@ function ModViewContent({
   setMessageRemoved,
   createHideChat,
   createBlock,
+  pinChatMessage,
   toast,
   setReportModalOpen,
   setReportSubject,
@@ -222,6 +233,74 @@ function ModViewContent({
                     : "Hide this message"}
               </Text>
             </DropdownMenuItem>
+          )}
+          {modPermissions.canPin && (
+            <DropdownMenuGroup key="pin-actions">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger
+                  subMenuTitle="Pin message"
+                  style={{ padding: 0, margin: 0 }}
+                >
+                  <Text color="primary">Pin this message</Text>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuGroup title="Pin duration">
+                    <DropdownMenuItem
+                      onPress={() => {
+                        if (!streamerDID) return;
+                        pinChatMessage(message.uri, streamerDID)
+                          .then(() => {
+                            toast.show("Comment pinned", "", { duration: 3 });
+                            onOpenChange?.(false);
+                          })
+                          .catch((e) => {
+                            toast.show(
+                              "Error pinning comment",
+                              e instanceof Error ? e.message : "Failed to pin",
+                              { duration: 5 },
+                            );
+                          });
+                      }}
+                    >
+                      <Text color="primary">Until stream end</Text>
+                    </DropdownMenuItem>
+                    {[5, 10, 15, 30, 60].map((minutes) => (
+                      <DropdownMenuItem
+                        key={minutes}
+                        onPress={() => {
+                          if (!streamerDID) return;
+                          const expiresAt = new Date(
+                            Date.now() + minutes * 60 * 1000,
+                          );
+                          pinChatMessage(
+                            message.uri,
+                            streamerDID,
+                            expiresAt.toISOString(),
+                          )
+                            .then(() => {
+                              toast.show("Comment pinned", "", { duration: 3 });
+                              onOpenChange?.(false);
+                            })
+                            .catch((e) => {
+                              toast.show(
+                                "Error pinning comment",
+                                e instanceof Error
+                                  ? e.message
+                                  : "Failed to pin",
+                                { duration: 5 },
+                              );
+                            });
+                        }}
+                      >
+                        <Text color="primary">
+                          {minutes < 60 ? `${minutes} min` : "1 hour"}
+                        </Text>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuGroup>
           )}
           {modPermissions.canBan &&
             agent?.did &&

@@ -1,0 +1,300 @@
+# Settings Page Translations - Chinese (Simplified)
+
+## App Version
+app-version = Streamplace v{ $version }
+download-new-update = 下载新更新
+check-for-updates = 检查更新
+
+bundled-runtype = 捆绑版
+ota-runtype = 空中下载 (OTA)
+recovery-runtype = 复原模式
+
+modal-latest-version = 您正在使用最新版本。
+modal-no-update-available = 您已经在使用最新版本的 Streamplace，太棒了！
+modal-update-available-title = 有可用更新
+modal-update-available-description = 新版本的 Streamplace 已准备好下载
+modal-update-failed = 更新检查失败。您可能需要透过 { $store } 更新应用程序。
+modal-update-failed-title = 更新失败
+modal-update-failed-description = 更新检查失败。您可能需要透过 { $store } 更新应用程序。
+button-reload-app-on-update = 套用更新 (将重新加载应用程序)
+
+## Custom Node Settings
+use-custom-node = 使用自定义节点
+default-url = 默认：{ $url }
+enter-custom-node-url = 输入自定义节点网址
+save-button = 保存
+
+## Language Settings
+language-selection = 语言
+language-selection-description = 选择您偏好的语言
+input-search-languages = 搜索语言...
+help-translate = 帮助我们翻译 Streamplace
+help-translate-description = 我们正在寻找志愿者协助将 Streamplace 翻译成更多语言。如果您有兴趣，请在 Discord 或 GitHub 上与我们联系！
+currently-translating = 翻译正在进行中
+currently-translating-description = 应用程序的某些部分可能看起来不完整。感谢您的耐心等待！
+
+## Debug Recording
+debug-recording-title = 允许 { $host } 录制您的直播串流以进行除错和服务改善
+debug-recording-description = 可选项
+
+## Key Management
+manage-keys = 管理密钥
+
+## Settings Page Specific
+settings-title = 设置
+error = 错误
+
+## Navigation Categories
+about = 关于
+account = 帐户
+advanced = 高级
+danmu = 弹幕
+developer = 开发者
+languages = 语言
+privacy-security = 隐私与安全
+streaming = 串流
+
+## Common Actions
+cancel = 取消
+create = 创建
+delete = 删除
+refresh = 刷新
+save-button = 保存
+sign-in = 登录
+update = 更新
+log-out = 登出
+optional = 选填
+
+## Account Settings
+account-greeting = 嗨，@{ $handle }。
+edit-profile-bluesky = 在 Bluesky 编辑个人数据
+change-name-color = 更改名称颜色
+
+## Key Management
+key-management = 密钥管理
+key-manager = 密钥管理器
+manage-keys = 管理密钥
+your-stream-pubkeys = 您的串流公开密钥
+no-keys = 尚未设置密钥
+pubkey-description = 公开密钥与串流密钥 (用于串流软件) 配对以签署和验证您的串流
+keys-count = { $count } 个密钥
+
+## Backup Settings
+backup = 备份
+backup-enabled = S3 备份
+backup-enabled-description = 自动将录影备份到兼容 S3 的存储
+backup-connection-url = 连接网址
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = 终端
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = 存储桶
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = 访问密钥
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = 秘密密钥
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = 地区
+backup-region-placeholder = us-east-1
+backup-test-connection = 测试连接
+backup-testing-connection = 正在测试连接...
+backup-connection-successful = 连接成功
+backup-connection-failed = 连接失败
+show-password-in-url = 在网址中显示密码
+show-password-in-url-description = 在连接网址中显示秘密密钥 (若有)
+requested-seconds-per-segment = 每段秒数
+requested-seconds-per-segment-description = 设置每段秒数，以请求服务器使用
+
+
+## Recommendations
+recommendations = 推荐主播
+manage-recommendations = 管理推荐主播
+recommendations-to-others = 向他人推荐主播
+recommendations-description = 向您的观众推荐最多 8 位主播
+no-recommendations-yet = 尚未配置推荐
+add-recommendation = 添加推荐
+streamer-did = 主播 DID
+recommendations-count = { $count } 位推荐主播
+
+## Webhook Management
+webhooks = Webhooks
+webhook-integrations = Webhook 集成
+webhook-integrations-description = 连接外部服务以即时接收有关您串流的更新
+create-webhook = 创建 Webhook
+edit-webhook = 编辑 Webhook
+delete-webhook = 删除 Webhook
+no-webhooks-yet = 尚未设置 Webhook
+failed-load-webhooks = 加载 Webhook 失败
+webhook-will-no-longer-receive-events = 此 Webhook 将不再接收事件
+create-first-webhook-description = 创建您的第一个 Webhook 以开始接收串流事件
+example-captain-hook = Hook 船长
+webhooks-count = { $count } 个 Webhook
+
+## Webhook Events
+activates-on = 触发于：
+events = 事件
+events-livestream = 直播串流事件
+events-chat = 聊天事件
+untitled-webhook = 未命名的 Webhook
+inactive = 停用
+active = 活动
+
+## Multistreaming
+multistream = 多重串流
+multistream-targets = 多重串流目标
+multistream-description = 自动将您的 Streamplace 直播推送到 Twitch 或 YouTube 等其他直播平台。
+create-multistream-target = 创建多重串流目标
+untitled-multistream-target = 未命名目标
+failed-load-multistream-targets = 加载多重串流目标失败。请重试。
+failed-toggle-multistream-target = 切换多重串流目标失败。请重试。
+failed-delete-multistream-target = 删除多重串流目标失败。请重试。
+no-multistream-targets-yet = 还没有目标！
+multistream-targets-count = { $count } 个目标
+multistream-delete-target-confirmation = 您确定要删除“{ $target }”吗？
+this-action-cannot-be-undone = 此操作无法撤销。
+rtmp-target-name = RTMP 目标
+rtmp-target-url = RTMP 网址
+rtmp-target-name-placeholder = 我的多重串流目标
+multistream-create-target = 创建目标
+multistream-edit-target = 编辑目标
+created = 创建于
+status = 状态
+
+## Debug Recording
+debug-recording = 调试录制
+
+## Danmu Settings
+danmu = 弹幕
+danmu-enabled = 启用弹幕
+danmu-enabled-description = 将即时聊天消息以浮动评论的形式显示在您的屏幕上
+danmu-opacity = 不透明度
+danmu-speed = 速度
+danmu-lane-count = 轨道数量
+danmu-max-messages = 最大消息数
+
+## General
+app-version-description = 当前没有可用的更新
+confirm-delete = 您确定要删除吗？
+action-cannot-be-undone = 此操作无法撤销
+name-optional = 名称 (选填)
+deleting = 正在删除...
+saving = 正在保存...
+go-to-dashboard = 前往仪表板
+need-setup-live-dashboard = 需要先设置串流吗？请访问直播仪表板
+no-languages-found = 找不到语言
+
+## Branding Administration
+branding = 品牌
+branding-admin = 品牌管理
+branding-admin-description = 自定义您的 Streamplace 实例。请注意，设置可能需要几小时才能生效。
+branding-login-required = 请登录以管理品牌
+branding-configuration = 配置
+branding-text-settings = 文字设置
+branding-colors = 颜色
+branding-legal-links = 法律链接
+branding-images = 图像
+
+## Branding Fields
+branding-broadcaster-did = 主播 DID
+branding-broadcaster-did-description = 留空以使用服务器默认值
+branding-site-title = 网站标题
+branding-site-title-placeholder = 输入新网站标题
+branding-site-description = 网站描述
+branding-site-description-placeholder = 输入网站描述
+branding-default-streamer = 默认主播
+branding-default-streamer-none = 无
+branding-default-streamer-placeholder = did:plc:...
+branding-clear-default-streamer = 清除默认主播
+branding-primary-color = 首要颜色
+branding-primary-color-placeholder = #6366f1
+branding-accent-color = 强调色
+branding-accent-color-placeholder = #8b5cf6
+branding-main-logo = 主标志
+branding-main-logo-description = SVG、PNG 或 JPEG (最大 500KB)
+branding-favicon = 网站图标
+branding-favicon-description = SVG、PNG 或 ICO (最大 100KB)
+branding-sidebar-bg = 侧边栏背景图片
+branding-sidebar-bg-description = SVG、PNG 或 JPEG (最大 500KB)——显示在侧边栏底部，全宽显示。为了获得最佳效果，请上传一张带有透明度的图片，因为目前没有单独的透明度选项。
+branding-current = 当前：{ $value }
+branding-dimensions = { $height } x { $width }
+
+## Branding Actions
+branding-upload-logo = 上传标志
+branding-delete-logo = 删除标志
+branding-upload-favicon = 上传网站图标
+branding-delete-favicon = 删除网站图标
+branding-upload-background = 上传背景
+branding-delete-background = 删除背景
+branding-web-only = 图像上传仅在网页端可用。
+
+## Branding Legal Links
+refresh-branding = 更新品牌资源
+branding-add-legal-link = 添加法律链接
+branding-edit-legal-link = 编辑法律链接
+branding-legal-link-text-placeholder = 链接文本 (例如：隐私政策)
+branding-legal-link-url-placeholder = 网址 (例如：https://example.com/privacy)
+add = 添加
+edit = 编辑
+
+## Branding Toast Messages
+branding-not-authenticated = 请先登录
+branding-empty-value = 请输入一个数值
+branding-update-success = { $key } 更新成功
+branding-upload-success = { $key } 上传成功
+branding-delete-success = { $key } 删除成功
+branding-upload-failed = 上传失败
+branding-delete-failed = 删除失败
+branding-not-available = 文件上传仅在网页版上可用
+
+## Navigation Categories (About Page)
+node-legal-documents = 主播专属文档
+
+backup-save = 保存备份设置
+backup-saving = 正在保存备份设置...
+backup-secret-key-set-placeholder = (密码已设置)
+backup-error-invalid-endpoint = 必须是有效的域名
+backup-error-invalid-bucket = 必须只包含小写字母、数字、点和连字符
+backup-error-invalid-segment-duration = 必须在 1 到 60 秒之间
+backup-error-load-failed = 加载存储设置失败
+backup-error-update-failed = 更新备份状态失败
+backup-error-save-failed = 保存存储设置失败
+backup-error-missing-secret = 没有秘密密钥时无法更新 S3 设置。请重新输入。
+backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = 必须是格式为 s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket 的有效 S3 网址
+
+## 徽章
+badges = 徽章
+badges-cosmetic-section = 装饰性徽章
+badges-empty-state = 您还没有获得任何徽章。
+badges-failed-load = 加载徽章失败
+badges-failed-update = 更新徽章选择失败
+badges-issued-by = 由 { $issuer } 颁发
+badges-streamer-section = 主播徽章
+
+## 颁发徽章
+issue-badges = 颁发徽章
+issue-badges-back-to-definitions = 徽章定义
+issue-badges-badge-name = 徽章名称
+issue-badges-badge-name-placeholder = 例如 VIP、支持者
+issue-badges-badge-type = 徽章类型
+issue-badges-choose-image = 选择图片
+issue-badges-create-definition = 创建徽章定义
+issue-badges-create-definition-description = 定义可颁发给观众的新徽章类型
+issue-badges-create-definition-subtitle = 定义新徽章类型
+issue-badges-definition-created = 徽章定义已创建
+issue-badges-description-optional = 描述（可选）
+issue-badges-description-placeholder = 此徽章的可选描述
+issue-badges-failed-create = 创建徽章定义失败
+issue-badges-failed-issue = 颁发徽章失败
+issue-badges-failed-load = 加载徽章定义失败
+issue-badges-image-optional = 图片（可选）
+issue-badges-image-too-large = 图片必须小于 256KB
+issue-badges-image-web-only = 图片上传仅在网页版可用
+issue-badges-issue-badge = 颁发徽章
+issue-badges-issue-badge-description = 通过 DID 将"{ $name }"徽章颁发给观众
+issue-badges-issued = 徽章已颁发
+issue-badges-issued-to = 已颁发给 { $did }
+issue-badges-manage-description = 创建徽章定义并颁发给观众
+issue-badges-recipient-did = 收件人 DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = 点击颁发
+issue-badges-your-definitions = 您的徽章定义

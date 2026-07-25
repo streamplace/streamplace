@@ -1,21 +1,38 @@
-import { Text, useStreamplaceStore, zero } from "@streamplace/components";
+import {
+  ACTIVITY_LABEL_DISPLAY,
+  Text,
+  useStreamplaceStore,
+  zero,
+} from "@streamplace/components";
 import AQLink from "components/aqlink";
 import Container from "components/container";
 import ErrorBox from "components/error/error";
 import StreamCardHorizontal, { StreamCardSize } from "components/home/cards";
 import LiveDot from "components/home/live-dot";
 import Loading from "components/loading/loading";
+import PullToRefreshScrollView from "components/pull-to-refresh";
 import Title from "components/title";
+import { Image } from "expo-image";
 import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
-import {
-  Image,
-  RefreshControl,
-  ScrollView,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { PlaceStreamLivestream } from "streamplace";
+import { Platform, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { place } from "streamplace";
+
+function getStreamActivity(
+  record: place.stream.livestream.Main,
+): string | undefined {
+  if (!record.activity) return undefined;
+  if (record.activity.$type === "place.stream.defs#activityGame") {
+    const game = record.activity as place.stream.defs.ActivityGame;
+    return game.name ?? undefined;
+  }
+  if (record.activity.$type === "place.stream.defs#activityLabel") {
+    const label = record.activity as place.stream.defs.ActivityLabel;
+    return ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label;
+  }
+  return undefined;
+}
 
 // as we're not using a specific grid library these are necessary
 // to constrain the cards
@@ -36,9 +53,9 @@ type StreamRecord = {
 
 // Function to generate mock data for testing purposes
 function generateMockSegments(count: number): {
-  streams: PlaceStreamLivestream.LivestreamView[];
+  streams: place.stream.livestream.LivestreamView[];
 } {
-  const mockSegments: PlaceStreamLivestream.LivestreamView[] = [];
+  const mockSegments: place.stream.livestream.LivestreamView[] = [];
   const baseDid = "did:plc:mockmockmockmockmockmockmockmockmock";
 
   for (let i = 0; i < count; i++) {
@@ -51,14 +68,14 @@ function generateMockSegments(count: number): {
         $type: "place.stream.livestream",
         createdAt: new Date().toISOString(),
         title: `Mock Stream ${i + 1}`,
-      } as PlaceStreamLivestream.Record,
+      } as place.stream.livestream.Main,
       author: {
         did: did,
         handle: handle,
       },
       indexedAt: new Date().toISOString(),
       viewerCount: { count: Math.floor(Math.random() * 1000) },
-    });
+    } as any);
   }
   return { streams: mockSegments };
 }
@@ -90,11 +107,13 @@ function HomeScreenItem({
   size,
   avatarUrl,
   horizontal = false,
+  showAvatar = true,
 }: {
-  item: PlaceStreamLivestream.LivestreamView;
+  item: place.stream.livestream.LivestreamView;
   size: StreamCardSize;
   avatarUrl?: string;
   horizontal?: boolean;
+  showAvatar?: boolean;
 }) {
   const user = item.author.handle || item.author.did;
   return (
@@ -112,13 +131,18 @@ function HomeScreenItem({
       <StreamCardHorizontal
         size={size}
         title={
-          (item.record as PlaceStreamLivestream.Record).title || "A livestream!"
+          (item.record as place.stream.livestream.Main).title || "A livestream!"
         }
         horizontal={horizontal}
+        showAvatar={showAvatar}
         thumbnailUrl={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
         avatarUrl={avatarUrl}
         streamerName={user}
         category={[]}
+        activity={getStreamActivity(
+          item.record as place.stream.livestream.Main,
+        )}
+        tags={(item.record as place.stream.livestream.Main).tags ?? []}
         viewers={item.viewerCount?.count}
         isLive={true}
       />
@@ -153,6 +177,7 @@ export default function HomeScreen({
 }: {
   contentContainerStyle?: any;
 }) {
+  const safeAreaInsets = useSafeAreaInsets();
   const liveUsers = useStreamplaceStore((state) => state.liveUsers);
   const setLiveUsers = useStreamplaceStore((state) => state.setLiveUsers);
   const refreshLiveUsers = () => setLiveUsers({ liveUsersRefresh: Date.now() });
@@ -193,6 +218,8 @@ export default function HomeScreen({
   let cols = getHomeScreenCols(width);
   let size = getHomeScreenItemSize(width);
 
+  // Use horizontal (SBS) layout for all items on single-column breakpoint
+  const useHorizontalAll = cols === 1;
   // Only use horizontal layout for first card when we have enough columns (3+)
   const useHorizontalFirst = cols >= 3;
   const firstRowCols = useHorizontalFirst ? cols - 1 : cols;
@@ -200,26 +227,20 @@ export default function HomeScreen({
   const firstRowItems = segments.slice(0, firstRowCols);
   let cutSegs = segments.slice(firstRowCols);
 
-  // fill in null data to pad out the list for grid display
-  let segs: (PlaceStreamLivestream.LivestreamView | null)[] = cutSegs.concat(
-    Array((cols - (segments.length % cols)) % cols).fill(null),
-  );
-  if (cutSegs.length === 0 && segs.every((s) => s === null) && cols > 0) {
-    // ensure segs is not just [null] if segments is empty
-    segs = [];
+  let rows: (place.stream.livestream.LivestreamView | null)[][] = [];
+
+  if (!useHorizontalAll) {
+    for (let i = 0; i < cutSegs.length; i += cols) {
+      let row = cutSegs.slice(i, i + cols);
+      if (i + cols >= cutSegs.length && row.length < cols) {
+        const paddingNeeded = cols - row.length;
+        row = [...row, ...Array(paddingNeeded).fill(null)];
+      }
+      rows.push(row);
+    }
   }
 
-  // assemble rows
-  const rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
-  for (let i = 0; i < cutSegs.length; i += cols) {
-    let row = cutSegs.slice(i, i + cols);
-    // pad the last row with nulls if it's not full
-    if (i + cols >= cutSegs.length && row.length < cols) {
-      const paddingNeeded = cols - row.length;
-      row = [...row, ...Array(paddingNeeded).fill(null)];
-    }
-    rows.push(row);
-  }
+  const indicatorTop = safeAreaInsets.top;
 
   return (
     <>
@@ -250,21 +271,21 @@ export default function HomeScreen({
           </Container>
         </View>
       )}
-      <ScrollView
-        style={{
-          minHeight: "80%",
-          width: "100%",
+      <PullToRefreshScrollView
+        style={[
+          {
+            minHeight: "100%",
+            width: "100%",
+          },
+          Platform.OS === "ios" ? zero.pt[24] : zero.pt[0],
+        ]}
+        contentContainerStyle={contentContainerStyle}
+        refreshing={manualRefresh}
+        onRefresh={() => {
+          refreshLiveUsers();
+          setManualRefresh(true);
         }}
-        contentContainerStyle={contentContainerStyle} // Apply passed contentContainerStyle
-        refreshControl={
-          <RefreshControl
-            refreshing={manualRefresh}
-            onRefresh={() => {
-              refreshLiveUsers();
-              setManualRefresh(true);
-            }}
-          />
-        }
+        indicatorTop={indicatorTop}
       >
         <Container>
           {segments.length > 0 && (
@@ -306,15 +327,28 @@ export default function HomeScreen({
               <Text style={{ marginTop: 8 }}>Check back later?</Text>
             </View>
           )}
-          {firstRowItems.length > 0 && (
+          {useHorizontalAll
+            ? segments.map((item) => (
+                <View
+                  key={item.cid}
+                  style={{ width: "100%", marginBottom: 12 }}
+                >
+                  <HomeScreenItem
+                    item={item}
+                    size={size}
+                    avatarUrl={avis[item.author.did]?.avatar}
+                    horizontal={true}
+                    showAvatar={false}
+                  />
+                </View>
+              ))
+            : null}
+
+          {!useHorizontalAll && firstRowItems.length > 0 && (
             <View
               style={[
                 { flexDirection: "row" },
-                {
-                  gap: 24,
-                  marginBottom: 24,
-                  width: "100%",
-                },
+                { gap: 24, marginBottom: 24, width: "100%" },
               ]}
             >
               {firstRowItems.map((item, itemIndex) => (
@@ -335,10 +369,10 @@ export default function HomeScreen({
                     size={size}
                     avatarUrl={avis[item.author.did]?.avatar}
                     horizontal={itemIndex == 0 && useHorizontalFirst}
+                    showAvatar={true}
                   />
                 </View>
               ))}
-              {/* Pad the first row to match the column count */}
               {Array(
                 useHorizontalFirst
                   ? cols - firstRowItems.length - 1
@@ -353,7 +387,7 @@ export default function HomeScreen({
             </View>
           )}
 
-          {segments.length > 0 && (
+          {!useHorizontalAll && segments.length > 0 && (
             <View>
               {rows.map((row, rowIndex) => (
                 <View
@@ -373,6 +407,8 @@ export default function HomeScreen({
                           item={item}
                           size={size}
                           avatarUrl={avis[item.author.did]?.avatar}
+                          horizontal={false}
+                          showAvatar={true}
                         />
                       </View>
                     ) : (
@@ -389,7 +425,15 @@ export default function HomeScreen({
             </View>
           )}
         </Container>
-      </ScrollView>
+        <View
+          style={{
+            height:
+              Platform.OS !== "web"
+                ? 64 + safeAreaInsets.bottom
+                : safeAreaInsets.bottom,
+          }}
+        />
+      </PullToRefreshScrollView>
     </>
   );
 }

@@ -1,21 +1,13 @@
-import { Play } from "lucide-react-native";
 import { useEffect } from "react";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import {
-  KeepAwake,
-  Loader,
-  PlayerStatus,
-  usePlayerStore,
-  useTheme,
-} from "../../..";
+import { KeepAwake, Loader, PlayerStatus, usePlayerStore } from "../../..";
 
 export function ViewerLoadingOverlay() {
   const status = usePlayerStore((x) => x.status);
-  const { theme, zero: zt } = useTheme();
   const opacity = useSharedValue(0);
 
   useEffect(() => {
@@ -26,23 +18,16 @@ export function ViewerLoadingOverlay() {
     }
   }, [status, opacity]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   if (status === PlayerStatus.PLAYING) {
     return <KeepAwake />;
   }
 
-  if (status === PlayerStatus.SUSPEND) {
-    return null; // No overlay when stopped
-  }
-
-  let spinner = <Loader size="large" />;
-  if (status === PlayerStatus.PAUSE) {
-    spinner = <Play size="$12" color={theme.colors.foreground} />;
+  if (status === PlayerStatus.SUSPEND || status === PlayerStatus.PAUSE) {
+    return null;
   }
 
   return (
@@ -54,12 +39,12 @@ export function ViewerLoadingOverlay() {
           height: "100%",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "rgba(0,0,0,0.3)",
+          pointerEvents: "none",
         },
         animatedStyle,
       ]}
     >
-      {spinner}
+      <Loader size="large" />
     </Animated.View>
   );
 }

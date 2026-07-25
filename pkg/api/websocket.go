@@ -3,20 +3,22 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
 
-	bsky "github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/julienschmidt/httprouter"
+	"stream.place/streamplace/pkg/appbsky"
 
+	"stream.place/streamplace/pkg/atproto"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // todo: does this mean a whole message has to fit within the buffer?
@@ -141,7 +143,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					send(msg)
 				case <-ticker.C:
 					count := a.Bus.GetViewerCount(repoDID)
-					bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+					bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 					if err != nil {
 						log.Error(ctx, "could not marshal view count", "error", err)
 						continue
@@ -192,30 +194,38 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			initialBurst <- spSeg
+			outRs := placestream.Defs_Renditions{
+				LexiconTypeID: "place.stream.defs#renditions",
+				Renditions:    []placestream.Defs_Rendition{},
+			}
 			if a.CLI.LivepeerGatewayURL != "" {
-				renditions, err := renditions.GenerateRenditions(spSeg)
+				videoRenditions, err := renditions.GenerateRenditions(spSeg)
 				if err != nil {
 					log.Error(ctx, "could not generate renditions", "error", err)
 					return
 				}
-				outRs := streamplace.Defs_Renditions{
-					LexiconTypeID: "place.stream.defs#renditions",
-				}
-				outRs.Renditions = []*streamplace.Defs_Rendition{}
-				for _, r := range renditions {
-					outRs.Renditions = append(outRs.Renditions, &streamplace.Defs_Rendition{
+				for _, r := range videoRenditions {
+					outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
 						LexiconTypeID: "place.stream.defs#rendition",
 						Name:          r.Name,
 					})
 				}
-				initialBurst <- outRs
 			}
+			outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
+				LexiconTypeID: "place.stream.defs#rendition",
+				Name:          renditions.AudioRendition.Name,
+			})
+			initialBurst <- outRs
 		}()
 
 		go func() {
 			ls, err := a.Model.GetLatestLivestreamForRepo(repoDID)
 			if err != nil {
 				log.Error(ctx, "could not get latest livestream", "error", err)
+				return
+			}
+			if ls == nil {
+				log.Error(ctx, "no livestream found", "repoDID", repoDID)
 				return
 			}
 			lsv, err := ls.ToLivestreamView()
@@ -228,7 +238,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 		go func() {
 			count := a.Bus.GetViewerCount(repoDID)
-			initialBurst <- streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
+			initialBurst <- placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"}
 		}()
 
 		go func() {
@@ -237,8 +247,74 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get chat messages", "error", err)
 				return
 			}
+
+			// Add mod badges to messages
+			issuerDID := fmt.Sprintf("did:web:%s", a.CLI.BroadcasterHost)
 			for _, message := range messages {
+				err := atproto.AddModBadgeIfApplicable(ctx, &message, repoDID, issuerDID, a.Model)
+				if err != nil {
+					log.Error(ctx, "failed to add mod badge to message", "error", err)
+				}
+				if message.Author.Handle == "" || message.Author.Handle == "handle.invalid" {
+					message.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, message.Author.Did)
+				}
 				initialBurst <- message
+			}
+		}()
+
+		// get the latest active pinned message for the repo
+		go func() {
+			pin, err := a.Model.GetActivePinnedRecord(ctx, repoDID)
+			if err != nil {
+				log.Error(ctx, "could not get pinned record", "error", err)
+				return
+			}
+			if pin != nil {
+				prv, err := pin.ToStreamplacePinnedRecordView()
+				if err != nil {
+					log.Error(ctx, "could not convert pinned record to streamplace view", "error", err)
+					return
+				}
+				// look up the original message, pinner
+				msg, err := a.Model.GetChatMessage(prv.Record.PinnedMessage)
+				if err != nil {
+					log.Error(ctx, "failed to get pinned message", err)
+					return
+				}
+				// if the message was deleted, treat as no pinned message
+				if msg != nil && msg.DeletedAt != nil {
+					log.Log(ctx, "pinned message was deleted, skipping", "uri", msg.URI)
+					return
+				}
+				// if no pinned by, use the repo owner as the pinner
+				if prv.Record.PinnedBy == nil {
+					prv.Record.PinnedBy = &repoDID
+				}
+				profile, err := a.Model.GetChatProfile(ctx, *prv.Record.PinnedBy)
+				if err != nil {
+					log.Error(ctx, "failed to get chat profile", err)
+					return
+				}
+				if msg != nil {
+					msgView, err := msg.ToStreamplaceMessageView()
+					if err != nil {
+						log.Error(ctx, "failed to convert chat message: %w", err)
+						return
+					}
+					if msgView.Author.Handle == "" || msgView.Author.Handle == "handle.invalid" {
+						msgView.Author.Handle = a.ATSync.ResolveAuthorHandle(ctx, msgView.Author.Did)
+					}
+					prv.Message = msgView
+				}
+				if profile != nil {
+					profileView, err := profile.ToStreamplaceChatProfile()
+					if err != nil {
+						log.Error(ctx, "failed to convert chat profile: %w", err)
+						return
+					}
+					prv.PinnedBy = &profileView
+				}
+				initialBurst <- prv
 			}
 		}()
 
@@ -253,12 +329,13 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				tp := teleports[0]
 				if tp.Repo == nil {
 					log.Error(ctx, "teleportee repo is nil", "uri", tp.URI)
+					return
 				}
 				viewerCount := a.Bus.GetViewerCount(tp.RepoDID)
-				arrivalMsg := streamplace.Livestream_TeleportArrival{
+				arrivalMsg := placestream.Livestream_TeleportArrival{
 					LexiconTypeID: "place.stream.livestream#teleportArrival",
 					TeleportUri:   tp.URI,
-					Source: &bsky.ActorDefs_ProfileViewBasic{
+					Source: appbsky.ActorDefs_ProfileViewBasic{
 						Did:    tp.RepoDID,
 						Handle: tp.Repo.Handle,
 					},
@@ -271,7 +348,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				if err == nil && chatProfile != nil {
 					spcp, err := chatProfile.ToStreamplaceChatProfile()
 					if err == nil {
-						arrivalMsg.ChatProfile = spcp
+						arrivalMsg.ChatProfile = &spcp
 					}
 				}
 

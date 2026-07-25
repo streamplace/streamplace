@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	_ "golang.org/x/image/webp"
 	"hash/fnv"
 	"image"
 	"image/color"
@@ -20,8 +21,6 @@ import (
 
 	"golang.org/x/image/draw"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/patrickmn/go-cache"
 	"github.com/tdewolff/canvas"
@@ -89,8 +88,6 @@ const (
 	maxDescriptionLength = 120
 	descriptionTruncate  = 117
 )
-
-var ErrUserNotFound = errors.New("user not found")
 
 // blendWithBackground creates a pseudo-transparent color by blending the given color with the background
 // alpha should be between 0.0 (fully background) and 1.0 (fully foreground color)
@@ -235,7 +232,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	handle = username
 	description = "Live streaming platform for creators and their communities."
 
-	profileData, err := s.fetchUserProfile(ctx, username)
+	profileData, err := s.ATSync.FetchUserProfile(ctx, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch profile, because %w", err)
 	} else if profileData != nil {
@@ -281,7 +278,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 			streamplaceChatProfile, err := chatProfile.ToStreamplaceChatProfile()
 			if err != nil {
 				log.Warn(ctx, "failed to decode chat profile", "did", userDID, "error", err)
-			} else if streamplaceChatProfile != nil && streamplaceChatProfile.Color != nil {
+			} else if streamplaceChatProfile.Color != nil {
 				userColor = color.RGBA{
 					R: uint8(streamplaceChatProfile.Color.Red),
 					G: uint8(streamplaceChatProfile.Color.Green),
@@ -512,36 +509,4 @@ func getAtkinsonBold() ([]byte, error) {
 	}
 
 	return data, nil
-}
-
-func (s *Server) fetchUserProfile(ctx context.Context, username string) (*bsky.ActorDefs_ProfileViewDetailed, error) {
-	// Use ATSync to resolve username to DID, then fetch full profile from Bluesky
-	var actor string
-
-	// First try to resolve via internal DB
-	repo, err := s.ATSync.Model.GetRepoByHandleOrDID(username)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
-	} else if repo != nil {
-		// Use the DID as it's the most reliable identifier
-		actor = repo.DID
-	} else {
-		return nil, fmt.Errorf("no repo found for username: %s (%w)", username, ErrUserNotFound)
-	}
-
-	// Fetch full profile from Bluesky public API
-	client := &xrpc.Client{
-		Host: "https://public.api.bsky.app",
-	}
-
-	profile, err := bsky.ActorGetProfile(ctx, client, actor)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch profile from Bluesky for '%s': %w", actor, err)
-	}
-
-	if profile == nil {
-		return nil, fmt.Errorf("received nil profile from Bluesky API for '%s'", actor)
-	}
-
-	return profile, nil
 }

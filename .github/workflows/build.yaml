@@ -19,8 +19,8 @@ jobs:
         include:
           - name: linux-amd64
             cmd: >-
-              make linux-amd64 && make static-test && make check && make
-              ci-lexicons
+              make linux-amd64 && make test-vod && make static-test && make
+              check && make ci-lexicons
           - name: linux-arm64
             cmd: "make linux-arm64"
           - name: windows-amd64
@@ -54,7 +54,7 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
-          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
+          make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Publish Test Report
         if: matrix.name == 'linux-amd64' && (success() || failure())
@@ -105,9 +105,9 @@ jobs:
             cmd: make && make test && make check
             xcode-version: "16.4"
           - name: ios
-            runs-on: macos-15
+            runs-on: macos-26
             cmd: make ios
-            xcode-version: "16.4"
+            xcode-version: "26.3"
           - name: darwin-amd64
             runs-on: macos-15-intel
             cmd: make
@@ -135,10 +135,13 @@ jobs:
         run: |
           npm install -g corepack@latest \
           && corepack enable \
-          && export GOTOOLCHAIN=go1.25.1 \
-          && brew install go \
+          && export GOTOOLCHAIN=go1.26.5 \
+          && brew install go llvm \
+          && rustup target add wasm32-wasip1 \
+          && rustup target add wasm32-unknown-unknown \
           && python -m pip install virtualenv \
           && python -m virtualenv ~/venv \
           && source ~/venv/bin/activate \
           && python -m pip install meson \
+          && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}

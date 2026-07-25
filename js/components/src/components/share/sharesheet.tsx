@@ -16,24 +16,38 @@ import {
   Text,
 } from "../ui";
 
-export interface ShareSheetProps {
-  onShare?: (action: string, success: boolean) => void;
+// ShareTarget lets a caller (e.g. a VOD) override what gets shared. Without
+// it, ShareSheet falls back to the current livestream's URLs.
+export interface ShareTarget {
+  /** Canonical page URL to share / copy. */
+  url: string;
+  /** Embed page URL used for the iframe src + "Copy Embed URL". */
+  embedUrl: string;
+  /** Message used for Bluesky / native share (the URL is appended). */
+  message?: string;
 }
 
-export function ShareSheet({ onShare }: ShareSheetProps = {}) {
+export interface ShareSheetProps {
+  onShare?: (action: string, success: boolean) => void;
+  target?: ShareTarget;
+}
+
+export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
   const profile = useLivestreamStore((x) => x.profile);
   const [isCopying, setIsCopying] = useState(false);
   const url = useUrl();
 
   // Get the current stream URL
   const getStreamUrl = useCallback(() => {
+    if (target) return target.url;
     return url + (profile ? `/${formatHandle(profile)}` : "");
-  }, [profile]);
+  }, [target, url, profile]);
 
   // Get the embed URL
   const getEmbedUrl = useCallback(() => {
+    if (target) return target.embedUrl;
     return url + (profile ? `/embed/${formatHandle(profile)}` : "");
-  }, [profile]);
+  }, [target, url, profile]);
 
   // Get embed code
   const getEmbedCode = useCallback(() => {
@@ -64,20 +78,22 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
   // Share to Bluesky
   const shareToBluesky = useCallback(() => {
     const streamUrl = getStreamUrl();
-    const text =
-      profile && profile.handle
+    const text = target?.message
+      ? `${target.message} ${streamUrl}`
+      : profile && profile.handle
         ? `Check out @${profile.handle} live on Streamplace! ${streamUrl}`
         : `Check out this stream on Streamplace! ${streamUrl}`;
     const blueskyUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(text)}`;
     Linking.openURL(blueskyUrl);
     onShare?.("share_bluesky", true);
-  }, [profile, getStreamUrl, onShare]);
+  }, [profile, getStreamUrl, onShare, target]);
 
   // Native share (mobile)
   const nativeShare = useCallback(async () => {
     const streamUrl = getStreamUrl();
-    const text =
-      profile && profile.handle
+    const text = target?.message
+      ? target.message
+      : profile && profile.handle
         ? `Check out @${profile.handle} live on Streamplace!`
         : `Check out this stream on Streamplace!`;
 
@@ -94,7 +110,7 @@ export function ShareSheet({ onShare }: ShareSheetProps = {}) {
         onShare?.("share_native", false);
       }
     }
-  }, [profile, getStreamUrl, onShare]);
+  }, [profile, getStreamUrl, onShare, target]);
 
   return (
     <DropdownMenu>

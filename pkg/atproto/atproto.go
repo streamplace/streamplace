@@ -7,8 +7,8 @@ import (
 	"net"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	_ "github.com/bluesky-social/indigo/api/bsky"
+	"github.com/patrickmn/go-cache"
+
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/repo"
@@ -16,16 +16,19 @@ import (
 	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
 
-func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+var handleCache = cache.New(1*time.Hour, 10*time.Minute)
+
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
-	repo, err := mod.GetRepoByHandleOrDID(handle)
+	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
@@ -33,7 +36,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 		return repo, nil
 	}
 
-	return atsync.SyncBlueskyRepo(ctx, handle, mod)
+	return atsync.SyncBlueskyRepo(ctx, handle, atsync.Model)
 }
 
 type mstNode struct {
@@ -182,6 +185,22 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 	return id, nil
 }
 
+func (atsync *ATProtoSynchronizer) ResolveAuthorHandle(ctx context.Context, did string) string {
+	if cached, ok := handleCache.Get(did); ok {
+		return cached.(string)
+	}
+	ident, err := atsync.resolveIdent(ctx, did, true)
+	if err != nil {
+		log.Warn(ctx, "failed to resolve author handle", "did", did, "err", err)
+		return ""
+	}
+	handle := ident.Handle.String()
+	if handle != "" {
+		handleCache.SetDefault(did, handle)
+	}
+	return handle
+}
+
 func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {
 	if atsync.PLCDirectory == nil {
 		atsync.PLCDirectory = CustomDirectory(atsync.CLI.PLCURL)
@@ -224,7 +243,7 @@ func CustomDirectory(plcURL string) identity.Directory {
 	return &base
 }
 
-func DIDDoc(host string) map[string]any {
+func DIDDoc(host string, pubMultibase string) map[string]any {
 	return map[string]any{
 		"@context": []string{
 			"https://www.w3.org/ns/did/v1",
@@ -250,7 +269,7 @@ func DIDDoc(host string) map[string]any {
 				"id":                 fmt.Sprintf("did:web:%s#atproto", host),
 				"type":               "Multikey",
 				"controller":         fmt.Sprintf("did:web:%s", host),
-				"publicKeyMultibase": LexiconPubMultibase,
+				"publicKeyMultibase": pubMultibase,
 			},
 		},
 	}

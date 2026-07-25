@@ -1,8 +1,30 @@
-import { PlayerUI, Text, useTheme, zero } from "@streamplace/components";
+import { LiquidGlassView } from "@callstack/liquid-glass";
+import {
+  hexToRgba,
+  PlayerUI,
+  Text,
+  useTheme,
+  zero,
+} from "@streamplace/components";
+import { Image } from "expo-image";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
-import { Image, Platform, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, View } from "react-native";
 
 export type StreamCardSize = "xs" | "sm" | "md" | "lg" | "xl";
+
+const displayTag = (tag: string): string => {
+  // could be top level but we want to make sure RN polyfill runs first
+  const langNames = new Intl.DisplayNames(["en"], { type: "language" });
+  if (tag.startsWith("lang:")) {
+    try {
+      return langNames.of(tag.slice(5)) ?? tag;
+    } catch {
+      return tag;
+    }
+  }
+  return tag;
+};
 
 interface StreamCardProps {
   size?: StreamCardSize;
@@ -13,41 +35,80 @@ interface StreamCardProps {
   streamerName?: string;
   viewers?: number;
   category: string[];
+  activity?: string;
+  tags?: string[];
   isLive?: boolean;
+  showAvatar?: boolean;
 }
 
 const StreamCard = ({
   size = "sm",
   horizontal = false,
+  showAvatar = true,
   thumbnailUrl,
   avatarUrl,
   title,
   streamerName,
   viewers = 0,
   category = [],
+  activity,
+  tags = [],
   isLive = true,
 }: StreamCardProps) => {
   const layoutHorizontal = horizontal;
+  const inMobileMode = horizontal && !showAvatar;
   const { url } = useStreamplaceNode();
   const { theme } = useTheme();
   const isWeb = Platform.OS === "web";
 
+  const tagItems = tags.length > 0 ? tags : category;
+  const tagsKey = tagItems.join(",");
+
+  const [rowWidth, setRowWidth] = useState(0);
+  const [itemWidths, setItemWidths] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    setItemWidths({});
+  }, [activity, tagsKey]);
+
+  const visibleTagCount = useMemo(() => {
+    if (rowWidth === 0) return tagItems.length;
+    const activityW = activity ? (itemWidths["activity"] ?? 0) : 0;
+    let used = activityW;
+    let count = 0;
+    for (let i = 0; i < tagItems.length; i++) {
+      const w = itemWidths[`tag-${i}`];
+      if (w === undefined) {
+        count++;
+        continue;
+      }
+      const gap = used > 0 ? 6 : 0;
+      if (used + gap + w <= rowWidth) {
+        used += gap + w;
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [rowWidth, itemWidths, tagItems, activity]);
+
   // Define dynamic styles
   const borderRadius = 12;
-  const contentPadding = 12;
+  const contentPaddingHoriz = 12;
+  const contentPaddingVertical = 2.65;
   const avatarSize = 40;
-  const livePillHeight = 30;
-  const livePillPaddingHorizontal = 4;
-  const categoryPillHeight = 16;
-  const categoryPillPaddingHorizontal = 4;
+  const livePillHeight = inMobileMode ? 20 : 30;
+  const livePillPaddingHorizontal = inMobileMode ? 2 : 4;
 
-  const verticalContentSectionHeight = avatarSize + 2 * contentPadding;
-  const horizontalContentSectionWidth = avatarSize * 2 + contentPadding;
+  const contentSectionHeight = avatarSize + 2 * contentPaddingVertical;
+  const contentSectionWidth = avatarSize * 2 + contentPaddingHoriz;
 
   return (
-    <View
+    <LiquidGlassView
+      interactive
       style={[
-        zero.flex.values[1],
+        inMobileMode ? { alignSelf: "stretch" } : zero.flex.values[1],
         {
           borderCurve: "continuous",
           backgroundColor: theme.colors.muted,
@@ -65,9 +126,14 @@ const StreamCard = ({
         style={[
           {
             flex: layoutHorizontal ? 0 : undefined,
-            minWidth: layoutHorizontal ? "63%" : "100%",
+            minWidth: layoutHorizontal
+              ? inMobileMode
+                ? "40%"
+                : "63%"
+              : "100%",
+            maxWidth: layoutHorizontal ? "40%" : undefined,
             // native seems to be unable to adjust widths properly?
-            maxHeight: !isWeb ? "76.5%" : "100%",
+            maxHeight: !isWeb ? (inMobileMode ? "100%" : "76.5%") : "100%",
             position: "relative",
             alignSelf: layoutHorizontal ? "auto" : "center",
             backgroundColor: theme.colors.card,
@@ -75,21 +141,21 @@ const StreamCard = ({
         ]}
       >
         <Image
-          source={{ uri: `${url}/${thumbnailUrl}`, width: 160, height: 90 }}
+          source={{ uri: `${url}/${thumbnailUrl}` }}
           style={{
             width: "100%",
             height: "100%",
             aspectRatio: 16 / 9,
           }}
-          resizeMode="contain"
+          contentFit="contain"
         />
         {isLive && (
           <View
             style={[
               {
                 position: "absolute",
-                top: contentPadding,
-                right: contentPadding,
+                top: contentPaddingVertical * 2,
+                right: contentPaddingVertical * 2,
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 borderRadius: 999,
                 borderWidth: 1,
@@ -98,75 +164,84 @@ const StreamCard = ({
                 height: livePillHeight,
                 alignItems: "center",
                 justifyContent: "center",
-                gap: 4,
+                gap: 0,
                 flexDirection: "row",
               },
             ]}
           >
-            <PlayerUI.DehydratedViewers viewers={viewers} />
+            <PlayerUI.DehydratedViewers
+              viewers={viewers}
+              size={inMobileMode ? "sm" : "md"}
+            />
           </View>
         )}
       </View>
 
-      {/* Content Section */}
+      {/* Content */}
       <View
         style={[
           {
-            padding: contentPadding,
+            paddingHorizontal: contentPaddingHoriz,
+            paddingVertical: contentPaddingVertical,
             alignItems: layoutHorizontal ? "flex-start" : "center",
             justifyContent: "flex-end",
-            gap: contentPadding,
-            width: layoutHorizontal ? horizontalContentSectionWidth : "auto",
+            gap: contentPaddingHoriz,
+            width: layoutHorizontal ? contentSectionWidth : "auto",
             flex: 1,
             flexDirection: layoutHorizontal ? "column" : "row",
           },
         ]}
       >
         {/* Avatar */}
-        <View
-          style={[
-            {
-              width: avatarSize,
-              height: avatarSize,
-              borderRadius: avatarSize / 2,
-              overflow: "hidden",
-              flexShrink: 0,
-            },
-          ]}
-        >
-          {/* dynamically switching between these src crashes android */}
-          {avatarUrl && (
-            <View style={[zero.flex.values[1]]} key="avatar">
-              <Image
-                key="avatar"
-                source={{
-                  uri: avatarUrl,
-                }}
-                style={{ width: "100%", height: "100%" }}
-                resizeMode="cover"
-              />
-            </View>
-          )}
-          {!avatarUrl && (
-            <View key="avatar-placeholder">
-              <Image
-                key="avatar"
-                source={require("./../../assets/images/goose.png")}
-                style={{ width: "100%", height: "100%" }}
-                resizeMode="cover"
-              />
-            </View>
-          )}
-        </View>
+        {showAvatar && (
+          <View
+            style={[
+              {
+                width: avatarSize,
+                height: avatarSize,
+                marginVertical: layoutHorizontal
+                  ? 0
+                  : contentPaddingVertical * 4,
+                borderRadius: avatarSize / 2,
+                overflow: "hidden",
+                flexShrink: 0,
+              },
+            ]}
+          >
+            {/* dynamically switching between these src crashes android */}
+            {avatarUrl && (
+              <View style={[zero.flex.values[1]]} key="avatar">
+                <Image
+                  key="avatar"
+                  source={{
+                    uri: avatarUrl,
+                  }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              </View>
+            )}
+            {!avatarUrl && (
+              <View key="avatar-placeholder">
+                <Image
+                  key="avatar"
+                  source={require("./../../assets/images/goose.png")}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                />
+              </View>
+            )}
+          </View>
+        )}
 
-        {/* Text Content */}
+        {/* Text content */}
         <View
           style={[
             zero.flex.values[1],
-            { justifyContent: "space-around" },
+            { justifyContent: "center" },
             { alignItems: "flex-start" },
             {
-              gap: contentPadding / 4,
+              gap: contentPaddingHoriz / 4,
               width: layoutHorizontal ? "100%" : 0,
               minHeight: 0,
               zIndex: 12,
@@ -180,6 +255,7 @@ const StreamCard = ({
                   lineHeight: 16,
                 },
               ]}
+              size={showAvatar ? "base" : "base"}
               numberOfLines={1}
               ellipsizeMode="tail"
             >
@@ -201,44 +277,80 @@ const StreamCard = ({
               @{streamerName}
             </Text>
           )}
-          {category.length > 0 && (
+          {((activity && category.length > 0) || tags.length > 0) && (
             <View
-              style={[
-                {
-                  flexWrap: "wrap",
-                  gap: 4,
-                  alignItems: "center",
-                  flexDirection: "row",
-                },
-              ]}
+              style={{
+                flexWrap: inMobileMode ? "wrap" : "nowrap",
+                gap: inMobileMode ? 4 : 8,
+                alignItems: "center",
+                alignSelf: "stretch",
+                flexDirection: "row",
+                overflow: "hidden",
+                maxHeight: inMobileMode ? 40 : undefined,
+              }}
+              onLayout={(e) => {
+                const width = e.nativeEvent?.layout?.width;
+                if (!width) {
+                  return;
+                }
+                setRowWidth(width);
+              }}
             >
-              {category.map((cat, index) => (
+              {activity && (
+                <Text
+                  size="sm"
+                  style={{ flexShrink: 0 }}
+                  color={hexToRgba(theme.colors.accentForeground, 0.85)}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  onLayout={(e) => {
+                    const width = e.nativeEvent?.layout?.width;
+                    if (!width) {
+                      return;
+                    }
+                    setItemWidths((prev) => ({
+                      ...prev,
+                      activity: width,
+                    }));
+                  }}
+                >
+                  {activity}
+                </Text>
+              )}
+              {(inMobileMode
+                ? tagItems
+                : tagItems.slice(0, visibleTagCount)
+              ).map((cat, index) => (
                 <View
                   key={index}
                   style={[
+                    zero.r.full,
                     {
-                      backgroundColor: "rgba(0, 0, 0, 0.75)",
-                      borderRadius: 999,
-                      paddingHorizontal: categoryPillPaddingHorizontal,
-                      height: categoryPillHeight,
-                      alignSelf: "flex-start",
-                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: theme.colors.border,
+                      backgroundColor: hexToRgba(theme.colors.secondary, 0.3),
+                      paddingHorizontal: 8,
+                      flexShrink: 0,
                     },
                   ]}
+                  onLayout={(e) => {
+                    const width = e.nativeEvent?.layout?.width;
+                    if (!width) {
+                      return;
+                    }
+                    setItemWidths((prev) => ({
+                      ...prev,
+                      [`tag-${index}`]: width,
+                    }));
+                  }}
                 >
                   <Text
-                    style={[
-                      {
-                        fontSize: 12,
-                        color: "rgba(255, 255, 255, 0.75)",
-                        fontWeight: "400",
-                        paddingHorizontal: 3,
-                      },
-                    ]}
+                    size={inMobileMode ? "xs" : "sm"}
+                    color={hexToRgba(theme.colors.primaryForeground, 0.85)}
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {cat}
+                    {displayTag(cat)}
                   </Text>
                 </View>
               ))}
@@ -246,7 +358,7 @@ const StreamCard = ({
           )}
         </View>
       </View>
-    </View>
+    </LiquidGlassView>
   );
 };
 

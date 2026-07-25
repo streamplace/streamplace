@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/moderation"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Livestream struct {
@@ -25,20 +26,24 @@ type Livestream struct {
 	PostURI    string    `json:"postURI" gorm:"column:post_uri;index:idx_post_uri"`
 }
 
-func (ls *Livestream) ToLivestreamView() (*streamplace.Livestream_LivestreamView, error) {
-	rec, err := lexutil.CborDecodeValue(*ls.Livestream)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+func (ls *Livestream) ToLivestreamView() (*placestream.Livestream_LivestreamView, error) {
+	if ls == nil || ls.Livestream == nil {
+		return nil, fmt.Errorf("livestream record is nil")
 	}
-	postView := streamplace.Livestream_LivestreamView{
+	var rec placestream.Livestream
+	if err := glex.DecodeCBOR(*ls.Livestream, &rec); err != nil {
+		return nil, fmt.Errorf("error decoding livestream record: %w", err)
+	}
+	rec.Tags = moderation.FilterTags(rec.Tags)
+	postView := placestream.Livestream_LivestreamView{
 		LexiconTypeID: "place.stream.livestream#livestreamView",
 		Cid:           ls.CID,
 		Uri:           ls.URI,
-		Author: &bsky.ActorDefs_ProfileViewBasic{
+		Author: appbsky.ActorDefs_ProfileViewBasic{
 			Did:    ls.RepoDID,
 			Handle: ls.Repo.Handle,
 		},
-		Record:    &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:    &glex.LexiconTypeDecoder{Val: &rec},
 		IndexedAt: time.Now().Format(time.RFC3339),
 	}
 	return &postView, nil
@@ -52,6 +57,22 @@ func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
 	}).Create(ls).Error
 }
 
+func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {
+	var livestream Livestream
+	err := m.DB.
+		Preload("Repo").
+		Preload("Post").
+		Where("uri = ?", uri).
+		First(&livestream).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving livestream by uri: %w", err)
+	}
+	return &livestream, nil
+}
+
 // GetLatestLivestreamForRepo returns the most recent livestream for a given repo DID
 func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error) {
 	var livestream Livestream
@@ -61,6 +82,9 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 		Where("repo_did = ?", repoDID).
 		Order("created_at DESC").
 		First(&livestream).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving latest livestream: %w", err)
 	}

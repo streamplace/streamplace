@@ -19,16 +19,21 @@ Record announcing a livestream is happening
 
 **Record Properties:**
 
-| Name                   | Type                                                                                                                                   | Req'd | Description                                                                                                                              | Constraints                                   |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `title`                | `string`                                                                                                                               | ✅    | The title of the livestream, as it will be announced to followers.                                                                       | Max Length: 1400<br/>Max Graphemes: 140       |
-| `url`                  | `string`                                                                                                                               | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.         | Format: `uri`                                 |
-| `createdAt`            | `string`                                                                                                                               | ✅    | Client-declared timestamp when this livestream started.                                                                                  | Format: `datetime`                            |
-| `post`                 | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined) | ❌    | The post that announced this livestream.                                                                                                 |                                               |
-| `agent`                | `string`                                                                                                                               | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS |                                               |
-| `canonicalUrl`         | `string`                                                                                                                               | ❌    | The primary URL where this livestream can be viewed, if available.                                                                       | Format: `uri`                                 |
-| `thumb`                | `blob`                                                                                                                                 | ❌    |                                                                                                                                          | Accept: `image/*`<br/>Max Size: 1000000 bytes |
-| `notificationSettings` | [`place.stream.livestream#notificationSettings`](/lex-reference/place-stream-livestream#notificationsettings)                          | ❌    |                                                                                                                                          |                                               |
+| Name                   | Type                                                                                                                                                                                                            | Req'd | Description                                                                                                                                                                                       | Constraints                                   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `title`                | `string`                                                                                                                                                                                                        | ✅    | The title of the livestream, as it will be announced to followers.                                                                                                                                | Max Length: 1400<br/>Max Graphemes: 140       |
+| `url`                  | `string`                                                                                                                                                                                                        | ❌    | The URL where this stream can be found. This is primarily a hint for other Streamplace nodes to locate and replicate the stream.                                                                  | Format: `uri`                                 |
+| `createdAt`            | `string`                                                                                                                                                                                                        | ✅    | Client-declared timestamp when this livestream started.                                                                                                                                           | Format: `datetime`                            |
+| `lastSeenAt`           | `string`                                                                                                                                                                                                        | ❌    | Client-declared timestamp when this livestream was last seen by the Streamplace station.                                                                                                          | Format: `datetime`                            |
+| `endedAt`              | `string`                                                                                                                                                                                                        | ❌    | Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again.                                                                                       | Format: `datetime`                            |
+| `idleTimeoutSeconds`   | `integer`                                                                                                                                                                                                       | ❌    | Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout.                                                                                         |                                               |
+| `post`                 | [`com.atproto.repo.strongRef`](https://github.com/bluesky-social/atproto/tree/main/lexicons/com/atproto/repo/strongref.json#undefined)                                                                          | ❌    | The post that announced this livestream.                                                                                                                                                          |                                               |
+| `agent`                | `string`                                                                                                                                                                                                        | ❌    | The source of the livestream, if available, in a User Agent format: `<product> / <product-version> <comment>` e.g. Streamplace/0.7.5 iOS                                                          |                                               |
+| `canonicalUrl`         | `string`                                                                                                                                                                                                        | ❌    | The primary URL where this livestream can be viewed, if available.                                                                                                                                | Format: `uri`                                 |
+| `thumb`                | `blob`                                                                                                                                                                                                          | ❌    |                                                                                                                                                                                                   | Accept: `image/*`<br/>Max Size: 1000000 bytes |
+| `notificationSettings` | [`place.stream.livestream#notificationSettings`](/lex-reference/place-stream-livestream#notificationsettings)                                                                                                   | ❌    |                                                                                                                                                                                                   |                                               |
+| `activity`             | Union of:<br/>&nbsp;&nbsp;[`place.stream.defs#activityGame`](/lex-reference/place-stream-defs#activitygame)<br/>&nbsp;&nbsp;[`place.stream.defs#activityLabel`](/lex-reference/place-stream-defs#activitylabel) | ❌    | The game or activity being streamed.                                                                                                                                                              |                                               |
+| `tags`                 | Array of `string`                                                                                                                                                                                               | ❌    | Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language). | Max Items: 10                                 |
 
 ---
 
@@ -120,9 +125,9 @@ Record announcing a livestream is happening
 
 **Properties:**
 
-| Name         | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Req'd | Description | Constraints |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
-| `livestream` | Union of:<br/>&nbsp;&nbsp;[`#livestreamView`](#livestreamview)<br/>&nbsp;&nbsp;[`#viewerCount`](#viewercount)<br/>&nbsp;&nbsp;[`#teleportArrival`](#teleportarrival)<br/>&nbsp;&nbsp;[`#teleportCanceled`](#teleportcanceled)<br/>&nbsp;&nbsp;[`place.stream.defs#blockView`](/lex-reference/place-stream-defs#blockview)<br/>&nbsp;&nbsp;[`place.stream.defs#renditions`](/lex-reference/place-stream-defs#renditions)<br/>&nbsp;&nbsp;[`place.stream.defs#rendition`](/lex-reference/place-stream-defs#rendition)<br/>&nbsp;&nbsp;[`place.stream.chat.defs#messageView`](/lex-reference/place-stream-chat-defs#messageview) | ✅    |             |             |
+| Name         | Type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Req'd | Description | Constraints |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----------- | ----------- |
+| `livestream` | Union of:<br/>&nbsp;&nbsp;[`#livestreamView`](#livestreamview)<br/>&nbsp;&nbsp;[`#viewerCount`](#viewercount)<br/>&nbsp;&nbsp;[`#teleportArrival`](#teleportarrival)<br/>&nbsp;&nbsp;[`#teleportCanceled`](#teleportcanceled)<br/>&nbsp;&nbsp;[`place.stream.defs#blockView`](/lex-reference/place-stream-defs#blockview)<br/>&nbsp;&nbsp;[`place.stream.defs#renditions`](/lex-reference/place-stream-defs#renditions)<br/>&nbsp;&nbsp;[`place.stream.defs#rendition`](/lex-reference/place-stream-defs#rendition)<br/>&nbsp;&nbsp;[`place.stream.chat.defs#messageView`](/lex-reference/place-stream-chat-defs#messageview)<br/>&nbsp;&nbsp;[`place.stream.chat.defs#pinnedRecordView`](/lex-reference/place-stream-chat-defs#pinnedrecordview) | ✅    |             |             |
 
 ---
 
@@ -157,6 +162,20 @@ Record announcing a livestream is happening
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
           },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream was last seen by the Streamplace station."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "description": "Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout."
+          },
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
@@ -179,6 +198,24 @@ Record announcing a livestream is happening
           "notificationSettings": {
             "type": "ref",
             "ref": "place.stream.livestream#notificationSettings"
+          },
+          "activity": {
+            "type": "union",
+            "description": "The game or activity being streamed.",
+            "refs": [
+              "place.stream.defs#activityGame",
+              "place.stream.defs#activityLabel"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "description": "Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 640,
+              "maxGraphemes": 64
+            }
           }
         }
       }
@@ -292,7 +329,8 @@ Record announcing a livestream is happening
             "place.stream.defs#blockView",
             "place.stream.defs#renditions",
             "place.stream.defs#rendition",
-            "place.stream.chat.defs#messageView"
+            "place.stream.chat.defs#messageView",
+            "place.stream.chat.defs#pinnedRecordView"
           ]
         }
       }

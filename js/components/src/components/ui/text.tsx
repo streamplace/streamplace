@@ -61,7 +61,8 @@ const textVariants = cva("", {
 });
 
 export interface TextProps
-  extends Omit<TextPrimitiveProps, "variant" | "size" | "weight" | "color">,
+  extends
+    Omit<TextPrimitiveProps, "variant" | "size" | "weight" | "color">,
     Omit<VariantProps<typeof textVariants>, "color"> {
   // Override color to accept hex values and custom strings
   color?:
@@ -174,11 +175,14 @@ export const Text = forwardRef<any, TextProps>(
       Array.isArray(style) ? style : [style || undefined]
     ).filter((s) => s !== undefined);
 
+    const finalWeight = bold ? "bold" : (weight ?? undefined);
+
     return (
       <TextPrimitive.Root
         ref={ref}
         variant={variant || "body1"}
         size={size || "base"}
+        weight={finalWeight}
         color={finalColor || "default"}
         align={finalAlign}
         transform={finalTransform}

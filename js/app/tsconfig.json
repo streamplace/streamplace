@@ -2,7 +2,11 @@
   "extends": "./tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "rootDir": ".."
+    "rootDir": "..",
+    // js/app compiles the ESM `streamplace` package (and its ESM-only
+    // `@atproto/lex` dep) from source; bundler resolution reads their exports
+    // maps and .js->.ts import extensions without CJS/ESM interop errors.
+    "moduleResolution": "bundler"
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx"]
 }

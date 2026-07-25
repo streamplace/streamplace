@@ -18,7 +18,7 @@ import {
 } from "./tokens";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ToastProvider } from "../../components/ui";
+import { ToastProvider } from "../../components/ui/toast";
 
 // Import pairify function for generating theme tokens
 function pairify<T extends Record<string, any>>(
@@ -475,13 +475,20 @@ export function ThemeProvider({
     ],
   );
 
+  const parentTheme = useContext(ThemeContext);
+  const isRoot = !parentTheme;
+
   return (
     <ThemeContext.Provider value={value}>
-      <GestureHandlerRootView>
-        {children}
-        <PortalHost />
-        <ToastProvider />
-      </GestureHandlerRootView>
+      {isRoot ? (
+        <GestureHandlerRootView>
+          {children}
+          <PortalHost />
+          <ToastProvider />
+        </GestureHandlerRootView>
+      ) : (
+        children
+      )}
     </ThemeContext.Provider>
   );
 }

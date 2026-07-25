@@ -8,7 +8,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { Volume2, VolumeX } from "lucide-react-native";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -26,8 +26,20 @@ export function VolumeSlider() {
 
   const fadeAnim = useSharedValue(0);
   const widthAnim = useSharedValue(0);
+  const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fadeOut = useCallback(() => {
+    fadeAnim.value = withTiming(0, { duration: 400 });
+    widthAnim.value = withTiming(0, { duration: 400 });
+  }, [fadeAnim, widthAnim]);
+
+  const scheduleFadeOut = useCallback(() => {
+    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    fadeOutTimer.current = setTimeout(fadeOut, 1500);
+  }, [fadeOut]);
 
   const onVolumeHover = useCallback(() => {
+    if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
     fadeAnim.value = withTiming(1, { duration: 200 });
     widthAnim.value = withTiming(200, { duration: 200 });
   }, [fadeAnim, widthAnim]);
@@ -44,11 +56,13 @@ export function VolumeSlider() {
     width: widthAnim.value,
   }));
 
-  // Convert volume (0-1) to percentage (0-100) for slider
-  const sliderValue = (muted ? 0 : volume) * 100;
+  // Convert logarithmic volume (0-1) to linear slider value (0-100)
+  const sliderValue = muted ? 0 : Math.round(Math.pow(volume, 0.5) * 100);
+
   return (
     <View
       onPointerEnter={onVolumeHover}
+      onPointerLeave={fadeOut}
       style={[layout.flex.row, layout.flex.alignCenter, { height: 50 }]}
     >
       <Pressable onPress={handleMuteToggle} style={[p[2], r[1]]}>
@@ -69,13 +83,15 @@ export function VolumeSlider() {
           min={0}
           max={100} // Slider max value is 100 for percentage
           onValueChange={(vals) => {
-            const newVolume = vals[0] / 100; // Convert back to 0-1 range
+            // Convert back to logarithmic volume
+            const newVolume = Math.pow(vals[0] / 100, 2);
             setVolume(newVolume);
             if (newVolume === 0) {
               setMuted(true);
             } else {
               setMuted(false);
             }
+            scheduleFadeOut();
           }}
           asChild
         >

@@ -74,7 +74,7 @@ export const DropdownMenuSubTrigger = forwardRef<
     inset?: boolean;
     children?: React.ReactNode;
   }
->(({ inset, children, subMenuTitle, ...props }, ref) => {
+>(({ inset, children, subMenuTitle, style, ...props }, ref) => {
   const { icons } = useTheme();
   const { open } = DropdownMenuPrimitive.useSubContext();
   const Icon =
@@ -96,6 +96,7 @@ export const DropdownMenuSubTrigger = forwardRef<
             layout.flex.alignCenter,
             p[2],
             pr[8],
+            style,
           ]}
         >
           {children}
@@ -381,7 +382,6 @@ export const DropdownMenuCheckboxItem = forwardRef<
   }
 >(({ children, checked, ...props }, ref) => {
   const { theme } = useTheme();
-
   return (
     <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
@@ -402,9 +402,9 @@ export const DropdownMenuCheckboxItem = forwardRef<
       >
         {children}
         <View style={[pl[1], layout.position.absolute, right[1]]}>
-          <DropdownMenuPrimitive.ItemIndicator>
+          {checked && (
             <Check size={14} strokeWidth={3} color={theme.colors.foreground} />
-          </DropdownMenuPrimitive.ItemIndicator>
+          )}
         </View>
       </View>
     </DropdownMenuPrimitive.CheckboxItem>
@@ -508,15 +508,28 @@ export function DropdownMenuShortcut(props: any) {
 
 export const DropdownMenuGroup = forwardRef<
   any,
-  { inset?: boolean; title?: string; children: ReactNode }
+  { inset?: boolean; title?: string; description?: string; children: ReactNode }
 >((props, ref) => {
   const { theme } = useTheme();
-  const { inset, title, children, ...rest } = props;
+  const { inset, title, children, description, ...rest } = props;
   return (
-    <View style={[pt[2], inset && gap[2]]} ref={ref} {...rest}>
+    <View style={[inset && gap[2]]} ref={ref} {...rest}>
       {title && (
-        <Text style={[{ color: theme.colors.textMuted }, pb[1], pl[2]]}>
+        <Text
+          style={[
+            { color: theme.colors.text },
+            description ? pt[1] : py[1],
+            pl[2],
+          ]}
+        >
           {title}
+        </Text>
+      )}
+      {description && (
+        <Text
+          style={[{ color: theme.colors.textMuted }, pb[2], pl[2], fontSize.sm]}
+        >
+          {description}
         </Text>
       )}
       <View

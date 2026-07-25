@@ -65,7 +65,7 @@ func SetColorLogger(color string) {
 	// set global logger with custom options
 	slog.SetDefault(slog.New(
 		tint.NewHandler(realStderr, &tint.Options{
-			Level: slog.LevelDebug,
+			Level: slog.LevelInfo,
 			ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 				if a.Key != "time" {
 					return a
@@ -155,6 +155,10 @@ func (m metadata) Flat() []any {
 
 // Return a new context, adding in the provided values to the logging metadata
 func WithLogValues(ctx context.Context, args ...string) context.Context {
+	// _, debugOk := ctx.Value(clogDebugKey).(map[string]map[string]int)
+	// if !debugOk {
+	// 	fmt.Printf("!!! warning, got WithLogValues without debug key in context, this will never work (usually this means you used context.Background() instead of passing it through from somewhere) args=%+v\n", args)
+	// }
 	oldMetadata, _ := ctx.Value(clogContextKey).(metadata)
 	// No previous logging found, set up a new map
 	if oldMetadata == nil {

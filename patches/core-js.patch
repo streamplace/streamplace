@@ -1,0 +1,14 @@
+diff --git a/internals/make-built-in.js b/internals/make-built-in.js
+index 5743098512709bd30083b9c1c7c2b4271a248238..edd8cbfd0a59ad050435642bf57ebb0305545ab5 100644
+--- a/internals/make-built-in.js
++++ b/internals/make-built-in.js
+@@ -50,6 +50,6 @@ var makeBuiltIn = module.exports = function (value, name, options) {
+ 
+ // add fake Function#toString for correct work wrapped methods / constructors with methods like LoDash isNative
+ // eslint-disable-next-line no-extend-native -- required
+-Function.prototype.toString = makeBuiltIn(function toString() {
+-  return isCallable(this) && getInternalState(this).source || inspectSource(this);
+-}, 'toString');
++// Function.prototype.toString = makeBuiltIn(function toString() {
++//   return isCallable(this) && getInternalState(this).source || inspectSource(this);
++// }, 'toString');

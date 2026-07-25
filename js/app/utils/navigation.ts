@@ -2,7 +2,7 @@
  * Navigator structure mapping - defines which routes belong to which parent navigators
  */
 const NAVIGATOR_STRUCTURE: Record<string, string[]> = {
-  Home: ["StreamList", "Stream"],
+  Home: ["HomeMain", "Stream"],
   Settings: [
     "MainSettings",
     "AboutCategory",

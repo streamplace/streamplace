@@ -51,6 +51,23 @@ A webhook configuration for receiving Streamplace events.
 
 ---
 
+<a name="storage"></a>
+
+### `storage`
+
+**Type:** `object`
+
+S3 storage configuration for backups.
+
+**Properties:**
+
+| Name       | Type      | Req'd | Description                                                                                   | Constraints |
+| ---------- | --------- | ----- | --------------------------------------------------------------------------------------------- | ----------- |
+| `url`      | `string`  | ✅    | S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:\*\*\*@endpoint/bucket |             |
+| `isActive` | `boolean` | ✅    | Whether backup storage is currently active.                                                   |             |
+
+---
+
 ## Lexicon Source
 
 ```json
@@ -76,7 +93,13 @@ A webhook configuration for receiving Streamplace events.
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["chat", "livestream", "follow", "mention"]
+            "enum": [
+              "chat",
+              "livestream",
+              "follow",
+              "mention",
+              "stream.received"
+            ]
           },
           "description": "The types of events this webhook should receive."
         },
@@ -155,6 +178,21 @@ A webhook configuration for receiving Streamplace events.
           "type": "string",
           "maxLength": 100,
           "description": "Text to replace with."
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "description": "S3 storage configuration for backups.",
+      "required": ["url", "isActive"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "S3 storage URL with masked secret key in format: s3+https://ACCESS_KEY:***@endpoint/bucket"
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Whether backup storage is currently active."
         }
       }
     }

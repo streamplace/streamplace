@@ -1,7 +1,7 @@
-import { View } from "react-native";
-import { Main } from "streamplace/src/lexicons/types/place/stream/richtext/facet";
+import { Platform, View } from "react-native";
+import { place } from "streamplace";
 import { SystemMessageType } from "../../lib/system-messages";
-import { colors, flex, gap, layout, ml, pb, pl, px, w } from "../../ui";
+import { bg, colors, flex, gap, layout, ml, pb, pl, px, r, w } from "../../ui";
 import { Code, Text } from "../ui/text";
 import { RichTextMessage } from "./chat-message";
 
@@ -9,7 +9,7 @@ interface SystemMessageProps {
   variant: SystemMessageType;
   title: string;
   timestamp: Date;
-  facets?: Main[];
+  facets?: place.stream.richtext.facet.Main[];
 }
 
 export function SystemMessage({
@@ -18,9 +18,23 @@ export function SystemMessage({
   timestamp,
   facets,
 }: SystemMessageProps) {
+  const isError = variant === SystemMessageType.command_error;
+
   return (
-    <View style={[w.percent[100], px[2], pb[2]]}>
-      <Code color="muted" tracking="widest" style={[pl[12], ml[1]]}>
+    <View
+      style={[
+        w.percent[100],
+        Platform.OS === "web" && px[2],
+        pb[2],
+        isError && bg.red[950],
+        isError && r.md,
+      ]}
+    >
+      <Code
+        color="muted"
+        tracking="widest"
+        style={[Platform.OS === "web" ? pl[12] : pl[11], ml[1]]}
+      >
         SYSTEM MESSAGE
       </Code>
       <View style={[gap.all[2], layout.flex.row]}>

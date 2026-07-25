@@ -1,6 +1,7 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -8,19 +9,46 @@ import (
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 // take in a segment and return a bunch of packets suitable for webrtc
-func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error) {
+func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
+	uu, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate UUID: %w", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
+
+	// WebRTC playback needs Opus. From a dual-codec segment select video+Opus
+	// and present it as a flat MP4, so the demux below yields exactly one
+	// (Opus) audio pad for opusparse — no extra AAC pad to strand.
+	if len(seg.Muxl) > 0 {
+		opusM4s, err := filterSegmentToCodec(ctx, seg.Muxl, true)
+		if err != nil {
+			return nil, fmt.Errorf("select opus audio: %w", err)
+		}
+		var flat bytes.Buffer
+		if err := muxl.RunMuxlWrap(ctx, bytes.NewReader(opusM4s), "flat", &flat); err != nil {
+			return nil, fmt.Errorf("wrap opus segment: %w", err)
+		}
+		seg = &bus.Seg{Filepath: seg.Filepath, Data: flat.Bytes(), Muxl: opusM4s}
+	}
+
+	cli.DumpDebugSegment(ctx, fmt.Sprintf("packetize-input-%s.mp4", uu.String()), bytes.NewReader(seg.Data))
+
 	pipelineSlice := []string{
-		"h264parse name=videoparse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink",
-		"opusparse name=audioparse ! appsink sync=false name=audioappsink",
+		fmt.Sprintf("%s name=videoparse ! h264parse ! video/x-h264,stream-format=byte-stream ! appsink sync=false name=videoappsink", constants.Queue2Big),
+		fmt.Sprintf("%s name=audioparse ! opusparse ! appsink sync=false name=audioappsink", constants.Queue2Big),
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -137,6 +165,7 @@ func Packetize(ctx context.Context, seg *bus.Seg) (*bus.PacketizedSegment, error
 			}
 
 			samples := buffer.Bytes()
+			// log.Warn(ctx, "audioappsink NewSampleFunc", "sample", len(samples))
 
 			audioOutput = append(audioOutput, samples)
 

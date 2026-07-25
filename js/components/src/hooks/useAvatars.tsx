@@ -1,44 +1,21 @@
-import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePDSAgent } from "../streamplace-store/xrpc";
+import { AppBskyActorDefs } from "@atproto/api";
+import { useEffect, useMemo } from "react";
+import { useProfileCache } from "../context/profile-cache";
 
 export function useAvatars(
   dids: string[],
-): Record<string, ProfileViewDetailed> {
-  let agent = usePDSAgent();
-  const [profiles, setProfiles] = useState<Record<string, ProfileViewDetailed>>(
-    {},
-  );
-  const inFlight = useRef<Set<string>>(new Set());
-
-  const missingDids = useMemo(
-    () =>
-      dids.filter((did) => !(did in profiles) && !inFlight.current.has(did)),
-    [dids, profiles],
-  );
+): Record<string, AppBskyActorDefs.ProfileViewDetailed> {
+  const { profiles, requestProfiles } = useProfileCache();
 
   useEffect(() => {
-    if (missingDids.length === 0 || !agent) return;
-    const toFetch = missingDids.slice(0, 25);
-    toFetch.forEach((did) => inFlight.current.add(did));
+    requestProfiles(dids);
+  }, [dids, requestProfiles]);
 
-    const fetchProfiles = async () => {
-      try {
-        const result = await agent.getProfiles({ actors: toFetch });
-        const newProfiles: Record<string, ProfileViewDetailed> = {};
-        result.data.profiles.forEach((p) => {
-          newProfiles[p.did] = p;
-        });
-        setProfiles((prev) => ({ ...prev, ...newProfiles }));
-      } catch (e) {
-        console.error("Failed to fetch profiles", e);
-      } finally {
-        toFetch.forEach((did) => inFlight.current.delete(did));
-      }
-    };
-
-    fetchProfiles();
-  }, [missingDids, agent]);
-
-  return profiles;
+  return useMemo(
+    () =>
+      Object.fromEntries(
+        dids.filter((d) => d in profiles).map((d) => [d, profiles[d]]),
+      ),
+    [dids, profiles],
+  );
 }

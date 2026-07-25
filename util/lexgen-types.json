@@ -28,5 +28,11 @@
     "prefix": "place.stream",
     "outdir": "./pkg/streamplace",
     "import": "stream.place/streamplace"
+  },
+  {
+    "package": "gamesgamesgamesgames",
+    "prefix": "games.gamesgamesgamesgames",
+    "outdir": "./pkg/gamesgamesgamesgames",
+    "import": "stream.place/streamplace/pkg/gamesgamesgamesgames"
   }
 ]

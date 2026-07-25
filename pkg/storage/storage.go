@@ -49,11 +49,14 @@ func StartSegmentCleaner(ctx context.Context, localDB localdb.LocalDB, cli *conf
 
 func deleteSegment(ctx context.Context, localDB localdb.LocalDB, cli *config.CLI, seg localdb.Segment) error {
 	if time.Since(seg.StartTime) < moderationRetention {
-		log.Debug(ctx, "Skipping deletion of segment", "id", seg.ID, "time since start", time.Since(seg.StartTime))
+		log.Debug(ctx, "Skipping deletion of segment for moderation retention", "id", seg.ID, "time since start", time.Since(seg.StartTime))
 		return nil
 	}
 	aqt := aqtime.FromTime(seg.StartTime)
-	fpath, err := cli.SegmentFilePath(seg.RepoDID, fmt.Sprintf("%s.%s", aqt.FileSafeString(), "mp4"))
+	// Segments are archived as .m4s (see distributeSegment); this used to say
+	// "mp4" (a leftover from presentation-MP4 days), so os.Remove always missed
+	// the real file and the .m4s bytes leaked on disk forever.
+	fpath, err := cli.SegmentFilePath(seg.RepoDID, fmt.Sprintf("%s.%s", aqt.FileSafeString(), "m4s"))
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,38 +19,25 @@ import (
 	"stream.place/streamplace/pkg/media"
 )
 
-func WHIP(args []string) error {
-	fs := flag.NewFlagSet("whip", flag.ExitOnError)
-	streamKey := fs.String("stream-key", "", "stream key")
-	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
-	viewers := fs.Int("viewers", 0, "number of viewers to simulate per stream")
-	duration := fs.Duration("duration", 0, "duration of the stream")
-	file := fs.String("file", "", "file to stream (needs to be an MP4 containing H264 video and Opus audio)")
-	endpoint := fs.String("endpoint", "http://127.0.0.1:38080", "endpoint to send the WHIP request to")
-	freezeAfter := fs.Duration("freeze-after", 0, "freeze the stream after the given duration")
-	err := fs.Parse(args)
-	if *file == "" {
+func WHIP(ctx context.Context, streamKey string, count int, viewers int, duration time.Duration, file string, endpoint string, freezeAfter time.Duration) error {
+	if file == "" {
 		return fmt.Errorf("file is required")
-	}
-	if err != nil {
-		return err
 	}
 	gstinit.InitGST()
 
-	ctx := context.Background()
-	if *duration > 0 {
+	if duration > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, *duration)
+		ctx, cancel = context.WithTimeout(ctx, duration)
 		defer cancel()
 	}
 
 	w := &WHIPClient{
-		StreamKey:   *streamKey,
-		File:        *file,
-		Endpoint:    *endpoint,
-		Count:       *count,
-		FreezeAfter: *freezeAfter,
-		Viewers:     *viewers,
+		StreamKey:   streamKey,
+		File:        file,
+		Endpoint:    endpoint,
+		Count:       count,
+		FreezeAfter: freezeAfter,
+		Viewers:     viewers,
 	}
 
 	return w.WHIP(ctx)
@@ -88,8 +74,13 @@ func (w *WHIPClient) WHIP(ctx context.Context) error {
 		"filesrc name=filesrc ! qtdemux name=demux",
 		"demux.video_0 ! tee name=video_tee",
 		"demux.audio_0 ! tee name=audio_tee",
-		"video_tee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! appsink name=videoappsink",
-		"audio_tee. ! queue ! opusparse ! appsink name=audioappsink",
+		// sync=true (the default) is load-bearing here, unlike every other
+		// appsink in the tree: these sinks are what pace the file at realtime
+		// so it plays as a live stream — WriteSample pushes to WebRTC
+		// immediately, so without clock sync the whole file would blast
+		// through in one burst.
+		"video_tee. ! queue ! h264parse config-interval=-1 ! video/x-h264,stream-format=byte-stream ! appsink sync=true name=videoappsink",
+		"audio_tee. ! queue ! opusparse ! appsink sync=true name=audioappsink",
 		// "matroskamux name=mux ! fakesink name=fakesink sync=true",
 		// "video_tee. ! mux.video_0",
 		// "audio_tee. ! mux.audio_0",

@@ -13,9 +13,7 @@ description: Reference for the place.stream.moderation.updateLivestream lexicon
 
 **Type:** `procedure`
 
-Update livestream metadata on behalf of a streamer. Requires 'livestream.manage'
-permission. Updates a place.stream.livestream record in the streamer's
-repository.
+Update livestream metadata on behalf of a streamer. Requires 'livestream.manage' permission. Updates a place.stream.livestream record in the streamer's repository.
 
 **Parameters:** _(None defined)_
 
@@ -47,10 +45,8 @@ repository.
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
-- `Forbidden`: The caller does not have permission to update livestream metadata
-  for this streamer.
-- `SessionNotFound`: The streamer's OAuth session could not be found or is
-  invalid.
+- `Forbidden`: The caller does not have permission to update livestream metadata for this streamer.
+- `SessionNotFound`: The streamer's OAuth session could not be found or is invalid.
 - `RecordNotFound`: The specified livestream record does not exist.
 
 ---

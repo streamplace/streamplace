@@ -1,4 +1,10 @@
-import { MenuContainer, MenuGroup, View, zero } from "@streamplace/components";
+import {
+  MenuContainer,
+  MenuGroup,
+  useBetaStatus,
+  View,
+  zero,
+} from "@streamplace/components";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView } from "react-native";
@@ -18,6 +24,12 @@ export function PrivacyCategorySettings() {
     (state) => state.createServerSettingsRecord,
   );
   const debugRecordingOn = serverSettings?.debugRecording === true;
+  // Defaults on (unlike debugRecording): only an explicit `false` turns it off.
+  const livestreamRecordingOn = serverSettings?.livestreamRecording !== false;
+  // The livestream-recording toggle is only meaningful for accounts in the VOD
+  // beta — the node won't record anyone else regardless of this flag — so we
+  // only surface it to them.
+  const { status: vodBetaStatus } = useBetaStatus("vod");
 
   useEffect(() => {
     if (isReady) {
@@ -38,13 +50,19 @@ export function PrivacyCategorySettings() {
                 description={t("debug-recording-description")}
                 value={debugRecordingOn}
                 onValueChange={(value) => {
-                  if (value === true) {
-                    createServerSettingsRecord(true);
-                  } else {
-                    createServerSettingsRecord(false);
-                  }
+                  createServerSettingsRecord({ debugRecording: value });
                 }}
               />
+              {vodBetaStatus === "granted" && (
+                <SettingToggle
+                  title={t("livestream-recording-title", { host: u.host })}
+                  description={t("livestream-recording-description")}
+                  value={livestreamRecordingOn}
+                  onValueChange={(value) => {
+                    createServerSettingsRecord({ livestreamRecording: value });
+                  }}
+                />
+              )}
             </MenuGroup>
           </MenuContainer>
         </View>

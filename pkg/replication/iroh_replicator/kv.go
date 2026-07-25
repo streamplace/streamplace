@@ -19,8 +19,8 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 type IrohSwarm struct {
@@ -121,7 +121,7 @@ func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte,
 	return &swarm, nil
 }
 
-func (swarm *IrohSwarm) BuildOriginRecord(origin *streamplace.BroadcastOrigin) error {
+func (swarm *IrohSwarm) BuildOriginRecord(origin *placestream.BroadcastOrigin) error {
 	origin.IrohTicket = &swarm.NodeTicket
 	return nil
 }
@@ -259,7 +259,7 @@ func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
 	}
 	for _, view := range originViews {
-		err = swarm.handleOriginMessage(ctx, view)
+		err = swarm.handleOriginMessage(ctx, &view)
 		if err != nil {
 			log.Error(ctx, "could not check origin", "error", err)
 		}
@@ -270,7 +270,7 @@ func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-busCh:
-			if view, ok := msg.(*streamplace.BroadcastDefs_BroadcastOriginView); ok {
+			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
 				log.Debug(ctx, "got broadcast origin view", "view", view)
 				err = swarm.handleOriginMessage(ctx, view)
 				if err != nil {
@@ -315,8 +315,8 @@ func (swarm *IrohSwarm) startViewerCountSubscribe(ctx context.Context) error {
 	}
 }
 
-func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *streamplace.BroadcastDefs_BroadcastOriginView) error {
-	origin, ok := view.Record.Val.(*streamplace.BroadcastOrigin)
+func (swarm *IrohSwarm) handleOriginMessage(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {
+	origin, ok := view.Record.Val.(*placestream.BroadcastOrigin)
 	if !ok {
 		return fmt.Errorf("record is not a BroadcastOrigin")
 	}
@@ -445,7 +445,10 @@ func (swarm *IrohSwarm) SendSegment(ctx context.Context, not *media.NewSegmentNo
 	go func() {
 		spmetrics.SendSegmentCalls.Inc()
 		defer spmetrics.SendSegmentCalls.Dec()
-		err = swarm.Node.SendSegment(not.Segment.RepoDID, not.Data)
+		// Ship the bare canonical MUXL segment (blindly concatenatable, no
+		// presentation header) — smaller than the flat MP4 and the canonical
+		// form. The receiving node re-validates it verbatim via ValidateMP4.
+		err = swarm.Node.SendSegment(not.Segment.RepoDID, not.Muxl)
 		if err != nil {
 			log.Error(ctx, "could not send segment to swarm", "error", err)
 		}

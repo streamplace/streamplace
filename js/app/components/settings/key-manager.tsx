@@ -10,10 +10,11 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useKeyRecords } from "store/hooks";
-import { PlaceStreamKey } from "streamplace";
+import { place } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 
 import { Text, zero } from "@streamplace/components";
+import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { X } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 
@@ -23,7 +24,7 @@ function KeyRow({
   deleteKeyRecord,
   isDeleting,
 }: {
-  keyRecord: PlaceStreamKey.Record;
+  keyRecord: place.stream.key.Main;
   rkey: string;
   deleteKeyRecord: (rkey: string) => void;
   isDeleting: boolean;
@@ -46,7 +47,7 @@ function KeyRow({
           <Text
             style={[
               {
-                fontFamily: "monospace",
+                fontFamily: fontFamilies.monoRegular,
                 fontSize: 12,
                 color: "#fff",
               },

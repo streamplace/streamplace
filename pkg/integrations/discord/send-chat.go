@@ -12,12 +12,12 @@ import (
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
-func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *streamplace.ChatDefs_MessageView) error {
+func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *placestream.ChatDefs_MessageView) error {
 
-	msg, ok := scm.Record.Val.(*streamplace.ChatMessage)
+	msg, ok := scm.Record.Val.(*placestream.ChatMessage)
 	if !ok {
 		return fmt.Errorf("failed to cast chat message to streamplace chat message")
 	}

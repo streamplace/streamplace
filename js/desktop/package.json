@@ -1,7 +1,7 @@
 {
   "name": "streamplace-desktop",
   "productName": "streamplace-desktop",
-  "version": "0.9.0",
+  "version": "0.11.12",
   "description": "Streamplace Desktop Application",
   "main": ".webpack/main",
   "scripts": {
@@ -48,7 +48,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@atproto/crypto": "^0.4.4",
+    "@atproto/crypto": "^0.4.5",
     "electron-squirrel-startup": "^1.0.1",
     "source-map-support": "^0.5.21",
     "update-electron-app": "^3.0.0",

@@ -13,8 +13,7 @@ description: Reference for the place.stream.moderation.createBlock lexicon
 
 **Type:** `procedure`
 
-Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates
-an app.bsky.graph.block record in the streamer's repository.
+Create a block (ban) on behalf of a streamer. Requires 'ban' permission. Creates an app.bsky.graph.block record in the streamer's repository.
 
 **Parameters:** _(None defined)_
 
@@ -46,10 +45,8 @@ an app.bsky.graph.block record in the streamer's repository.
 **Possible Errors:**
 
 - `Unauthorized`: The request lacks valid authentication credentials.
-- `Forbidden`: The caller does not have permission to create blocks for this
-  streamer.
-- `SessionNotFound`: The streamer's OAuth session could not be found or is
-  invalid.
+- `Forbidden`: The caller does not have permission to create blocks for this streamer.
+- `SessionNotFound`: The streamer's OAuth session could not be found or is invalid.
 
 ---
 

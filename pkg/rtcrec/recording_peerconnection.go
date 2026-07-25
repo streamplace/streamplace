@@ -3,7 +3,7 @@ package rtcrec
 import (
 	"context"
 	"fmt"
-	"os"
+	"sync"
 	"time"
 
 	"github.com/pion/rtcp"
@@ -14,10 +14,13 @@ import (
 )
 
 type RecordingPeerConnection struct {
-	enabled bool
-	pionpc  *webrtc.PeerConnection
-	file    *os.File
-	stream  *RecorderStream
+	enabled   bool
+	pionpc    *webrtc.PeerConnection
+	file      config.DebugRecordingFile
+	stream    *RecorderStream
+	logCtx    context.Context // for finishRecording's logs (it outlives the session)
+	closeOnce sync.Once
+	recDone   chan struct{} // closed once the finalize ATTEMPT is over — check the logs for commit failures
 }
 
 func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string, pionpc *webrtc.PeerConnection, enabled bool) (PeerConnection, error) {
@@ -28,9 +31,11 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		}, nil
 	}
 	aqt := aqtime.FromTime(time.Now())
-	f, err := cli.DataFileCreate([]string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, true)
+	// Streams to S3 when configured (production), else a local file under DataDir
+	// (dev). Close (after the drain delay below) finalizes either target.
+	f, err := cli.DebugRecordingCreate(ctx, []string{"debug-recordings", user, fmt.Sprintf("%s.rtcrec.cbor", aqt.FileSafeString())}, "application/cbor", true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create data file: %w", err)
+		return nil, fmt.Errorf("failed to create debug recording: %w", err)
 	}
 	log.Log(ctx, "logging webrtc session to file", "file", f.Name())
 	stream, err := MakeWebRTCEncoder(f)
@@ -42,6 +47,8 @@ func NewRecordingPeerConnection(ctx context.Context, cli config.CLI, user string
 		file:    f,
 		stream:  stream,
 		enabled: enabled,
+		logCtx:  context.WithoutCancel(ctx),
+		recDone: make(chan struct{}),
 	}, nil
 }
 
@@ -52,13 +59,53 @@ func (pc *RecordingPeerConnection) Do(f func()) {
 }
 
 func (pc *RecordingPeerConnection) Close() error {
-	pc.Do(func() {
-		// This is sloppy but there might be other goroutines still writing so let's chill for a sec
-		time.Sleep(10 * time.Second)
-		pc.file.Close()
-	})
+	pc.Do(pc.finishRecording)
 	return pc.pionpc.Close()
 }
+
+// finishRecording drains stragglers, commits the recording (for S3, Close IS
+// the commit), and signals recDone. Idempotent — Close on the disconnect path
+// and FinalizeRecording at worker exit can both trigger it. recDone means the
+// attempt finished, not that it succeeded: a failed commit is logged loudly
+// (there is nothing better to do with it at this point — the session is over).
+func (pc *RecordingPeerConnection) finishRecording() {
+	pc.closeOnce.Do(func() {
+		// This is sloppy but there might be other goroutines still writing so let's chill for a sec
+		time.Sleep(10 * time.Second)
+		if err := pc.file.Close(); err != nil {
+			log.Error(pc.logCtx, "debug recording commit FAILED; the recording is lost", "file", pc.file.Name(), "error", err)
+		} else {
+			log.Log(pc.logCtx, "debug recording committed", "file", pc.file.Name())
+		}
+		close(pc.recDone)
+	})
+}
+
+// FinalizeRecording blocks until the debug recording's commit attempt finishes
+// (bounded; failures are logged by finishRecording). Call it before process
+// exit on paths like the WHIP ingest worker: Close only *starts* the
+// drain+commit on a goroutine, and a process that exits first strands an
+// uncommitted S3 upload — the object never appears. No-op when not recording.
+func (pc *RecordingPeerConnection) FinalizeRecording(ctx context.Context) {
+	if !pc.enabled {
+		return
+	}
+	go pc.finishRecording() // in case nothing called Close (e.g. pipeline error)
+	select {
+	case <-pc.recDone:
+	case <-time.After(recordingFinalizeTimeout):
+		log.Error(ctx, "debug recording did not finalize in time", "file", pc.file.Name())
+	}
+}
+
+// recordingFinalizeTimeout bounds FinalizeRecording: the 10s straggler drain in
+// finishRecording plus generous headroom for the S3 commit — enough for a
+// slow-but-working uplink to land any backpressured parts (a post-stream worker
+// lingering is cheap, a lost recording isn't). A genuinely stalled connection
+// is bounded separately by the s3 package's per-operation timeouts; past this
+// window the recording is abandoned and the commit failure logged when those
+// fire.
+const recordingFinalizeTimeout = 5 * time.Minute
 
 func (pc *RecordingPeerConnection) CreateAnswer(options *webrtc.AnswerOptions) (webrtc.SessionDescription, error) {
 	now := time.Now()

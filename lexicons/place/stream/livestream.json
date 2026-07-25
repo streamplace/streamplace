@@ -26,6 +26,20 @@
             "format": "datetime",
             "description": "Client-declared timestamp when this livestream started."
           },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream was last seen by the Streamplace station."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Client-declared timestamp when this livestream ended. Ended livestreams are not supposed to start up again."
+          },
+          "idleTimeoutSeconds": {
+            "type": "integer",
+            "description": "Time in seconds after which this livestream should be automatically ended if idle. Zero means no timeout."
+          },
           "post": {
             "type": "ref",
             "ref": "com.atproto.repo.strongRef",
@@ -48,6 +62,24 @@
           "notificationSettings": {
             "type": "ref",
             "ref": "place.stream.livestream#notificationSettings"
+          },
+          "activity": {
+            "type": "union",
+            "description": "The game or activity being streamed.",
+            "refs": [
+              "place.stream.defs#activityGame",
+              "place.stream.defs#activityLabel"
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "description": "Freeform tags for this stream. Each tag must be alphanumeric (a-z, A-Z, 0-9) plus colon. Tags with colons indicate a specific tag group (e.g. 'lang:en' indicates the stream's primary language).",
+            "maxLength": 10,
+            "items": {
+              "type": "string",
+              "maxLength": 640,
+              "maxGraphemes": 64
+            }
           }
         }
       }
@@ -148,7 +180,8 @@
             "place.stream.defs#blockView",
             "place.stream.defs#renditions",
             "place.stream.defs#rendition",
-            "place.stream.chat.defs#messageView"
+            "place.stream.chat.defs#messageView",
+            "place.stream.chat.defs#pinnedRecordView"
           ]
         }
       }

@@ -143,16 +143,12 @@ export function useCurrentPlayerRendition(): [
  * Hook to get the ingest state of the current player
  */
 export function useCurrentPlayerIngest(): {
-  starting: boolean;
-  setStarting: (starting: boolean) => void;
   connectionState: RTCPeerConnectionState | null;
   setConnectionState: (state: RTCPeerConnectionState | null) => void;
   startedTimestamp: number | null;
   setStartedTimestamp: (timestamp: number | null) => void;
 } {
   return useCurrentPlayerStore((state) => ({
-    starting: state.ingestStarting,
-    setStarting: state.setIngestStarting,
     connectionState: state.ingestConnectionState,
     setConnectionState: state.setIngestConnectionState,
     startedTimestamp: state.ingestStarted,

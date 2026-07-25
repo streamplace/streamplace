@@ -1,0 +1,15 @@
+{
+  "name": "@streamplace/playback-router",
+  "version": "0.11.0",
+  "private": true,
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "start": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241205.0",
+    "typescript": "~5.3.3",
+    "wrangler": "^4.77.0"
+  }
+}

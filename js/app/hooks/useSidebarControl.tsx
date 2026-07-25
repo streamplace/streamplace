@@ -13,7 +13,7 @@ import {
 } from "store/hooks";
 
 // Returns *true* if the screen is > 1024px
-function useIsLargeScreen() {
+export function useIsLargeScreen() {
   const { width } = useWindowDimensions();
   // gtMd breakpoint
   return width >= 980 + 1;

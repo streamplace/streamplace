@@ -1,4 +1,4 @@
-import { PlaceStreamMetadataConfiguration } from "streamplace";
+import { place } from "streamplace";
 import {
   ContentMetadataResult,
   useDID,
@@ -19,13 +19,12 @@ export const useGetBroadcasterDID = () => {
       throw new Error("No PDS agent or DID available");
     }
 
-    const result = await pdsAgent.place.stream.broadcast.getBroadcaster();
-    if (!result.success) {
-      throw new Error("Failed to get broadcaster DID");
-    }
-    setBroadcasterDID(result.data.broadcaster);
-    if (result.data.server) {
-      setServerDID(result.data.server);
+    const result = await pdsAgent.client.call(
+      place.stream.broadcast.getBroadcaster,
+    );
+    setBroadcasterDID(result.broadcaster);
+    if (result.server) {
+      setServerDID(result.server);
     } else {
       setServerDID(null);
     }
@@ -37,24 +36,23 @@ export const useSaveContentMetadata = () => {
   const did = useDID();
   const setContentMetadata = useSetContentMetadata();
 
-  return async (metadataRecord: PlaceStreamMetadataConfiguration.Record) => {
+  return async (metadataRecord: place.stream.metadata.configuration.Main) => {
     if (!pdsAgent || !did) {
       throw new Error("No PDS agent or DID available");
     }
 
     try {
       // Try to update existing record first
-      const result = await (pdsAgent as any).com.atproto.repo.putRecord({
-        repo: did,
-        collection: "place.stream.metadata.configuration",
-        rkey: "self",
-        record: metadataRecord,
-      });
+      const result = await pdsAgent.client.put(
+        place.stream.metadata.configuration,
+        metadataRecord,
+        { repo: did as any, rkey: "self" },
+      );
 
       const contentMetadata: ContentMetadataResult = {
         record: metadataRecord as any,
-        uri: result.data.uri,
-        cid: result.data.cid || "",
+        uri: result.uri,
+        cid: result.cid || "",
         rkey: "self",
       };
 
@@ -69,19 +67,16 @@ export const useSaveContentMetadata = () => {
           error.message?.includes("mst: not found") ||
           (error as any)?.status === 404)
       ) {
-        const createResult = await (
-          pdsAgent as any
-        ).com.atproto.repo.createRecord({
-          repo: did,
-          collection: "place.stream.metadata.configuration",
-          rkey: "self",
-          record: metadataRecord,
-        });
+        const createResult = await pdsAgent.client.create(
+          place.stream.metadata.configuration,
+          metadataRecord,
+          { repo: did as any, rkey: "self" },
+        );
 
         const contentMetadata: ContentMetadataResult = {
           record: metadataRecord as any,
-          uri: createResult.data.uri,
-          cid: createResult.data.cid || "",
+          uri: createResult.uri,
+          cid: createResult.cid || "",
           rkey: "self",
         };
 
@@ -110,20 +105,18 @@ export const useGetContentMetadata = () => {
     }
 
     try {
-      const result = await (pdsAgent as any).com.atproto.repo.getRecord({
-        repo: targetDid,
-        collection: "place.stream.metadata.configuration",
-        rkey: params?.rkey || "self",
-      });
-
-      if (!result.success) {
-        throw new Error("Failed to get content metadata record");
-      }
+      const result = await pdsAgent.client.get(
+        place.stream.metadata.configuration,
+        {
+          repo: targetDid as any,
+          rkey: (params?.rkey || "self") as "self",
+        },
+      );
 
       const contentMetadata: ContentMetadataResult = {
-        record: result.data.value,
-        uri: result.data.uri,
-        cid: result.data.cid || "",
+        record: result.value,
+        uri: result.uri,
+        cid: result.cid || "",
       };
 
       setContentMetadata(contentMetadata);

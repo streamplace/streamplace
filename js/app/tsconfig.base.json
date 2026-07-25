@@ -2,6 +2,18 @@
   "compilerOptions": {
     "baseUrl": ".",
     "rootDir": ".",
+    // The workspaces that consume the (now ESM) `streamplace` package and its
+    // ESM-only `@atproto/lex` dep set `moduleResolution: bundler` in their own
+    // tsconfig (js/app, js/components). Under bundler, tsc enforces each
+    // package's `exports` map, so a few workspace/vendor packages that only
+    // export `.` need a paths alias for the historical deep imports that
+    // Metro/web bundlers still resolve at runtime. See the lex codegen migration.
+    "paths": {
+      "@streamplace/components/src/*": ["../components/src/*"],
+      "@atproto/oauth-client/dist/*": [
+        "../../node_modules/@atproto/oauth-client/dist/*"
+      ]
+    },
     "importHelpers": true,
     "allowJs": false,
     "allowSyntheticDefaultImports": true,

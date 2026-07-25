@@ -28,7 +28,8 @@ Get a specific branding asset blob by key.
 - **Description:** Raw blob data with appropriate content-type
 - **Schema:**
 
-_Schema not defined._ **Possible Errors:**
+_Schema not defined._
+**Possible Errors:**
 
 - `BrandingNotFound`: The requested branding asset does not exist
 

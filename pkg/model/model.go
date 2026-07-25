@@ -7,15 +7,15 @@ import (
 	"path/filepath"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/plugin/prometheus"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type DBModel struct {
@@ -44,19 +44,21 @@ type Model interface {
 	GetSigningKeyByRKey(ctx context.Context, rkey string) (*SigningKey, error)
 	GetSigningKeysForRepo(repoDID string) ([]SigningKey, error)
 
-	CreateFollow(ctx context.Context, userDID, rev string, follow *bsky.GraphFollow) error
+	CreateFollow(ctx context.Context, userDID, rev string, follow appbsky.GraphFollow) error
 	GetUserFollowing(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowers(ctx context.Context, userDID string) ([]Follow, error)
 	GetUserFollowingUser(ctx context.Context, userDID, subjectDID string) (*Follow, error)
+	CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
 	ListFeedPostsByType(feedType string, limit int, after int64) ([]FeedPost, error)
 	GetFeedPost(uri string) (*FeedPost, error)
-	GetReplies(repoDID string) ([]*bsky.FeedDefs_PostView, error)
+	GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
+	GetLivestream(uri string) (*Livestream, error)
 	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
 	GetLivestreamByPostURI(postURI string) (*Livestream, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)
@@ -75,7 +77,7 @@ type Model interface {
 	DeleteBlock(ctx context.Context, rkey string) error
 
 	CreateChatMessage(ctx context.Context, message *ChatMessage) error
-	MostRecentChatMessages(repoDID string) ([]*streamplace.ChatDefs_MessageView, error)
+	MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 
@@ -83,6 +85,12 @@ type Model interface {
 	DeleteGate(ctx context.Context, rkey string) error
 	GetGate(ctx context.Context, rkey string) (*Gate, error)
 	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
+
+	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
+	DeletePinnedRecord(ctx context.Context, uri string) error
+	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
+	GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error)
+	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error)
 
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
@@ -95,28 +103,89 @@ type Model interface {
 	GetLabeler(did string) (*Labeler, error)
 	UpdateLabelerCursor(did string, cursor int64) error
 
+	GetRelayCursor(host string) (*RelayCursor, error)
+	UpsertRelayCursor(host string, cursor int64) error
+
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 
-	UpdateBroadcastOrigin(ctx context.Context, origin *streamplace.BroadcastOrigin, aturi syntax.ATURI) error
-	GetRecentBroadcastOrigins(ctx context.Context) ([]*streamplace.BroadcastDefs_BroadcastOriginView, error)
+	UpdateBroadcastOrigin(ctx context.Context, origin placestream.BroadcastOrigin, aturi syntax.ATURI) error
+	GetRecentBroadcastOrigins(ctx context.Context) ([]placestream.BroadcastDefs_BroadcastOriginView, error)
 
 	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
-	CreateModerationDelegation(ctx context.Context, rec *streamplace.ModerationPermission, aturi syntax.ATURI) error
+	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error
 	DeleteModerationDelegation(ctx context.Context, rkey string) error
-	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*streamplace.ModerationDefs_PermissionView, error)
-	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
-	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
-	GetStreamerModerators(ctx context.Context, streamerDID string) ([]*streamplace.ModerationDefs_PermissionView, error)
+	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error)
+	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
+	GetModeratorDelegations(ctx context.Context, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
+	GetStreamerModerators(ctx context.Context, streamerDID string) ([]placestream.ModerationDefs_PermissionView, error)
 
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
+
+	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
+	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error)
+
+	UpsertBadgeDef(ctx context.Context, def *BadgeDef) error
+	DeleteBadgeDef(ctx context.Context, uri string) error
+	GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, error)
+	UpsertBadgeIssuance(ctx context.Context, issuance *BadgeIssuance) error
+	DeleteBadgeIssuance(ctx context.Context, uri string) error
+	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
+	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
+
+	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error
+	DeleteVideo(ctx context.Context, uri string) error
+	GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error)
+	GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error)
+
+	UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error
+	DeleteMediaTrack(ctx context.Context, uri string) error
+	GetMediaTrackByURI(ctx context.Context, uri string) (*placestream.MediaTrack, error)
+	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
+
+	UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error
+	DeleteMediaOrigin(ctx context.Context, uri string) error
+	GetMediaOriginByURI(ctx context.Context, uri string) (placestream.MediaOrigin, error)
+	GetMediaOriginsByBlob(ctx context.Context, blob string) ([]*MediaOrigin, error)
+
+	UpsertBetaInvite(ctx context.Context, rec placestream.BetaInvite, aturi syntax.ATURI) error
+	DeleteBetaInvite(ctx context.Context, uri string) error
+	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
+	UpsertBetaRequest(ctx context.Context, rec placestream.BetaRequest, aturi syntax.ATURI) error
+	DeleteBetaRequest(ctx context.Context, uri string) error
+	HasBetaRequest(ctx context.Context, subjectDID, feature string) (bool, error)
+
+	UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error
+	DeleteMediaViewCount(ctx context.Context, uri string) error
+	GetMediaViewCountByURI(ctx context.Context, uri string) (*placestream.MediaViewCount, error)
+	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
+	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
+
+	CreateVodComment(ctx context.Context, comment *VodComment) error
+	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error
+	GetVodComment(uri string) (*VodComment, error)
+	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error)
+
+	CreateLike(ctx context.Context, like *Like) error
+	DeleteLike(ctx context.Context, uri string) error
+	GetLike(uri string) (*Like, error)
+	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error)
+	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error)
+	GetLikeCount(ctx context.Context, subject string) (int64, error)
+
+	CreateVodGate(ctx context.Context, gate *VodGate) error
+	DeleteVodGate(ctx context.Context, rkey string) error
+	GetVodGate(ctx context.Context, rkey string) (*VodGate, error)
+	GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error)
 }
 
-var DBRevision = 2
+// DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
+// WHICH ALSO SHOULD NOT HAPPEN
+var DBRevision = 4
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL
@@ -175,14 +244,28 @@ func MakeDB(dbURL string) (Model, error) {
 		ChatMessage{},
 		ChatProfile{},
 		Gate{},
+		PinnedRecord{},
 		ServerSettings{},
 		Labeler{},
+		RelayCursor{},
 		Label{},
 		BroadcastOrigin{},
 		MetadataConfiguration{},
 		Teleport{},
 		ModerationDelegation{},
 		Recommendation{},
+		BskyProfile{},
+		BadgeDef{},
+		BadgeIssuance{},
+		Video{},
+		MediaTrack{},
+		MediaOrigin{},
+		MediaViewCount{},
+		BetaInvite{},
+		BetaRequest{},
+		VodComment{},
+		Like{},
+		VodGate{},
 	} {
 		err = db.AutoMigrate(model)
 		if err != nil {

@@ -159,3 +159,161 @@ saving = 儲存中...
 go-to-dashboard = 前往控制台
 need-setup-live-dashboard = 您需要先在控制台中設定直播串流
 no-languages-found = 找不到語言
+backup-save = 儲存備份設定
+backup-saving = 正在儲存備份設定...
+backup-secret-key-set-placeholder = (密碼已設定)
+backup-error-invalid-endpoint = 必須是有效的網域名稱
+backup-error-invalid-bucket = 只能包含小寫字母、數字、點和連字號
+backup-error-invalid-segment-duration = 必須介於 1 到 60 秒之間
+backup-error-load-failed = 無法載入儲存設定
+backup-error-update-failed = 更新備份狀態失敗
+backup-error-save-failed = 儲存設定失敗
+backup-error-missing-secret = 無法在沒有金鑰的情況下更新 S3 設定。請重新輸入。
+backup-segment-duration-placeholder = 6
+
+## 備份設定
+backup = 備份
+backup-enabled = S3 備份
+backup-enabled-description = 自動將錄影備份到相容 S3 的儲存空間
+backup-connection-url = 連線網址
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = 端點
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = 儲存桶
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = 存取金鑰
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = 秘密金鑰
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+show-password-in-url = 在網址中顯示密碼
+show-password-in-url-description = 在連線網址中顯示秘密金鑰（若已輸入）
+
+## 推薦主播
+recommendations-to-others = 向他人推薦主播
+recommendations-description = 向您的觀眾推薦最多 8 位主播
+no-recommendations-yet = 尚未設定推薦
+
+## 多重串流
+multistream = 多重串流
+multistream-targets = 多重串流目標
+multistream-description = 自動將您的 Streamplace 直播推送到 Twitch 或 YouTube 等其他直播平台。
+create-multistream-target = 建立多重串流目標
+untitled-multistream-target = 未命名目標
+failed-load-multistream-targets = 載入多重串流目標失敗。請重試。
+failed-toggle-multistream-target = 切換多重串流目標失敗。請重試。
+no-multistream-targets-yet = 還沒有目標！
+multistream-targets-count = { $count } 個目標
+multistream-delete-target-confirmation = 您確定要刪除「{ $target }」嗎？
+this-action-cannot-be-undone = 此動作無法復原。
+rtmp-target-name = RTMP 目標
+rtmp-target-url = RTMP 網址
+rtmp-target-name-placeholder = 我的多重串流目標
+multistream-create-target = 建立目標
+multistream-edit-target = 編輯目標
+created = 建立於
+status = 狀態
+
+## 品牌識別管理
+branding = 品牌識別
+branding-admin = 品牌識別管理
+branding-admin-description = 自訂您的 Streamplace 執行個體。請注意，設定可能需要幾小時才能生效。
+branding-login-required = 請登入以管理品牌識別
+branding-configuration = 設定
+branding-text-settings = 文字設定
+branding-colors = 顏色
+branding-legal-links = 法律連結
+branding-images = 圖像
+
+## 品牌識別欄位
+branding-broadcaster-did = 主播 DID
+branding-broadcaster-did-description = 留空以使用伺服器預設值
+branding-site-title = 網站標題
+branding-site-title-placeholder = 輸入新網站標題
+branding-site-description = 網站描述
+branding-site-description-placeholder = 輸入網站描述
+branding-default-streamer = 預設主播
+branding-default-streamer-none = 無
+branding-default-streamer-placeholder = did:plc:...
+branding-clear-default-streamer = 清除預設主播
+branding-primary-color = 主要顏色
+branding-primary-color-placeholder = #6366f1
+branding-accent-color = 強調色
+branding-accent-color-placeholder = #8b5cf6
+branding-main-logo = 主標誌
+branding-main-logo-description = SVG、PNG 或 JPEG（最大 500KB）
+branding-favicon = 網站圖示
+branding-favicon-description = SVG、PNG 或 ICO（最大 100KB）
+branding-sidebar-bg = 側邊欄背景圖片
+branding-sidebar-bg-description = SVG、PNG 或 JPEG（最大 500KB）——顯示在側邊欄底部，全寬顯示。為了最佳效果，請上傳帶有透明度的圖片，因為目前沒有單獨的透明度選項。
+branding-current = 目前：{ $value }
+branding-dimensions = { $height } x { $width }
+
+## 品牌識別動作
+branding-upload-logo = 上傳標誌
+branding-delete-logo = 刪除標誌
+branding-upload-favicon = 上傳網站圖示
+branding-delete-favicon = 刪除網站圖示
+branding-upload-background = 上傳背景
+branding-delete-background = 刪除背景
+branding-web-only = 圖片上傳僅在網頁版可用。
+
+## 品牌識別法律連結
+refresh-branding = 更新品牌識別資源
+branding-add-legal-link = 新增法律連結
+branding-edit-legal-link = 編輯法律連結
+branding-legal-link-text-placeholder = 連結文字（例如：隱私政策）
+branding-legal-link-url-placeholder = 網址（例如：https://example.com/privacy）
+add = 新增
+active = 啟用
+optional = 選填
+
+## 品牌識別提示訊息
+branding-not-authenticated = 請先登入
+branding-empty-value = 請輸入一個值
+branding-update-success = { $key } 更新成功
+branding-upload-success = { $key } 上傳成功
+branding-delete-success = { $key } 刪除成功
+branding-upload-failed = 上傳失敗
+branding-delete-failed = 刪除失敗
+branding-not-available = 檔案上傳僅在網頁版可用
+
+## 導航類別（關於頁面）
+node-legal-documents = 主播專屬文件
+
+## 徽章
+badges = 徽章
+badges-cosmetic-section = 裝飾性徽章
+badges-empty-state = 您尚未獲得任何徽章。
+badges-failed-load = 載入徽章失敗
+badges-failed-update = 更新徽章選擇失敗
+badges-issued-by = 由 { $issuer } 頒發
+badges-streamer-section = 主播徽章
+
+## 頒發徽章
+issue-badges = 頒發徽章
+issue-badges-back-to-definitions = 徽章定義
+issue-badges-badge-name = 徽章名稱
+issue-badges-badge-name-placeholder = 例如 VIP、支持者
+issue-badges-badge-type = 徽章類型
+issue-badges-choose-image = 選擇圖片
+issue-badges-create-definition = 建立徽章定義
+issue-badges-create-definition-description = 定義可頒發給觀眾的新徽章類型
+issue-badges-create-definition-subtitle = 定義新徽章類型
+issue-badges-definition-created = 徽章定義已建立
+issue-badges-description-optional = 描述（選填）
+issue-badges-description-placeholder = 此徽章的選填描述
+issue-badges-failed-create = 建立徽章定義失敗
+issue-badges-failed-issue = 頒發徽章失敗
+issue-badges-failed-load = 載入徽章定義失敗
+issue-badges-image-optional = 圖片（選填）
+issue-badges-image-too-large = 圖片必須小於 256KB
+issue-badges-image-web-only = 圖片上傳僅在網頁版可用
+issue-badges-issue-badge = 頒發徽章
+issue-badges-issue-badge-description = 透過 DID 將「{ $name }」徽章頒發給觀眾
+issue-badges-issued = 徽章已頒發
+issue-badges-issued-to = 已頒發給 { $did }
+issue-badges-manage-description = 建立徽章定義並頒發給觀眾
+issue-badges-recipient-did = 收件者 DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = 點擊頒發
+issue-badges-your-definitions = 您的徽章定義

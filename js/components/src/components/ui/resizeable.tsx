@@ -7,12 +7,14 @@ import {
   Pressable,
 } from "react-native-gesture-handler";
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardSlide } from "../../hooks";
@@ -23,6 +25,11 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
+const TIMING_CONFIG = {
+  duration: 400,
+  easing: Easing.out(Easing.quad),
+};
+
 type ResizableChatSheetProps = {
   startingPercentage?: number;
   isPlayerRatioGreater: boolean;
@@ -30,8 +37,6 @@ type ResizableChatSheetProps = {
   children?: React.ReactNode;
   renderAbove?: (isCollapsed: boolean) => React.ReactNode;
 };
-
-const SPRING_CONFIG = { damping: 20, stiffness: 100 };
 
 export function Resizable({
   startingPercentage,
@@ -56,7 +61,7 @@ export function Resizable({
       const targetHeight = startingPercentage
         ? startingPercentage * SCREEN_HEIGHT
         : MIN_HEIGHT;
-      sheetHeight.value = withSpring(targetHeight, SPRING_CONFIG);
+      sheetHeight.value = withTiming(targetHeight, TIMING_CONFIG);
       setIsCollapsed(targetHeight < COLLAPSE_HEIGHT);
     }, 1000);
   }, []);
@@ -73,7 +78,7 @@ export function Resizable({
 
       const nowCollapsed = newHeight < COLLAPSE_HEIGHT;
       if (nowCollapsed && !wasCollapsed.value) {
-        sheetHeight.value = withSpring(MIN_HEIGHT, SPRING_CONFIG);
+        sheetHeight.value = withTiming(MIN_HEIGHT, TIMING_CONFIG);
         wasCollapsed.value = true;
         runOnJS(setIsCollapsed)(true);
       } else if (!nowCollapsed && wasCollapsed.value) {
@@ -139,8 +144,8 @@ export function Resizable({
           onPress={() => {
             const isCurrentlyCollapsed = sheetHeight.value === MIN_HEIGHT;
             sheetHeight.value = isCurrentlyCollapsed
-              ? withSpring(MAX_HEIGHT, SPRING_CONFIG)
-              : withSpring(MIN_HEIGHT, SPRING_CONFIG);
+              ? withTiming(MAX_HEIGHT, TIMING_CONFIG)
+              : withTiming(MIN_HEIGHT, TIMING_CONFIG);
             setIsCollapsed(!isCurrentlyCollapsed);
           }}
         >

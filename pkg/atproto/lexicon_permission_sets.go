@@ -8,6 +8,14 @@ import (
 	"github.com/bluesky-social/indigo/atproto/lexicon"
 )
 
+// Scope values for acting on the user's Bluesky account. Users may decline
+// these at login, so anything that needs one must check the session's
+// granted scope and degrade gracefully.
+const (
+	ScopeBskyPostCreate  = "repo?collection=app.bsky.feed.post&action=create"
+	ScopeBskyActorStatus = "repo?collection=app.bsky.actor.status"
+)
+
 func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]*lexicon.SchemaFile, error) {
 	recordLexicons := []*lexicon.SchemaFile{}
 	for _, lex := range lexs {
@@ -27,10 +35,11 @@ func generatePermissionSets(ctx context.Context, lexs []*lexicon.SchemaFile) ([]
 	allCollectionStrings := []string{
 		"atproto",
 		"blob:*/*",
-		"repo?collection=app.bsky.feed.post&action=create",
-		"repo?collection=app.bsky.actor.status",
+		ScopeBskyPostCreate,
+		ScopeBskyActorStatus,
 		"repo?collection=app.bsky.graph.block",
 		"repo?collection=app.bsky.graph.follow",
+		"repo?collection=app.bsky.actor.profile",
 		"rpc:app.bsky.actor.getProfile?aud=did:web:api.bsky.app%23bsky_appview",
 		"rpc:app.bsky.actor.getProfiles?aud=did:web:api.bsky.app%23bsky_appview",
 		"include:place.stream.authFull",

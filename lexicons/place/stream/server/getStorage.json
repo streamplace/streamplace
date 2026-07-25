@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.getStorage",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get S3 storage configuration (with masked secret key).",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "storage": {
+              "type": "ref",
+              "ref": "place.stream.server.defs#storage"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,12 +1,15 @@
 import { useNavigation } from "@react-navigation/native";
 import {
   ContentWarningBadge,
+  PlayerStatus,
   PlayerUI,
   Slider,
   Text,
   Toast,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useCameraToggle,
+  useLivestream,
   useLivestreamInfo,
   useLivestreamStore,
   useMuted,
@@ -22,6 +25,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { px, py } from "@streamplace/components/src/ui";
+import { Image } from "expo-image";
 import {
   ChevronLeft,
   ChevronRight,
@@ -33,10 +37,11 @@ import {
   VolumeX,
 } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Image, Platform, Pressable } from "react-native";
+import { Platform, Pressable } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   runOnJS,
+  SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -52,36 +57,52 @@ export function MobileUi({
   showChat,
   hideMobileChat,
   embed = false,
+  sharedFadeOpacity,
 }: {
   setShowChat?: (show: boolean) => void;
   showChat?: boolean;
   hideMobileChat?: boolean;
   embed?: boolean;
+  sharedFadeOpacity?: SharedValue<number>;
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
   const {
     ingest,
-    profile,
     title,
     setTitle,
     showCountdown,
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    ingestStarting,
-    setIngestStarting,
     toggleGoLive,
+    toggleStopStream,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
   const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
 
+  const mode = usePlayerStore((state) => state.mode);
   const muteWasForced = usePlayerStore((state) => state.muteWasForced);
   const setMuteWasForced = usePlayerStore((state) => state.setMuteWasForced);
+  const [playerIsReady, setPlayerIsReady] = useState(false);
+  const playerStatusReady = usePlayerStore(
+    (state) => state.status === PlayerStatus.PLAYING,
+  );
+  useEffect(() => {
+    if (playerIsReady) return;
+    if (playerStatusReady) {
+      setPlayerIsReady(true);
+    } else {
+      const handle = setTimeout(() => {
+        setPlayerIsReady(true);
+      }, 5000);
+      return () => clearTimeout(handle);
+    }
+  }, [playerStatusReady]);
   const muted = useMuted();
   const setMuted = useSetMuted();
+  const ls = useLivestream();
 
   const { shouldShowFloatingMetrics, shouldShowChatSidePanel, chatPanelWidth } =
     useResponsiveLayout();
@@ -89,27 +110,24 @@ export function MobileUi({
   const [showLoading, setShowLoading] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (ingestStarting) {
-        setIngestStarting(false);
-      }
-    };
-  }, [ingestStarting, setIngestStarting]);
-
-  useEffect(() => {
     if (recordSubmitted) setShowLoading(false);
   }, [recordSubmitted]);
 
-  const isSelfAndNotLive = ingest === "new";
-  const isLive = ingest !== null && ingest !== "new";
+  const isPortrait = !shouldShowChatSidePanel;
+  const isSelfAndNotLive = ingest !== null && ls === null;
+  const isSelfAndLive = ingest !== null && ls !== null;
 
   const FADE_OUT_DELAY = 4000;
-  const fadeOpacity = useSharedValue(1);
+  const internalFadeOpacity = useSharedValue(1);
+  const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
     fadeOpacity.value = withTiming(1, { duration: 200 });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
+    if (selectedRendition === "audio") return;
+    if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
     }, FADE_OUT_DELAY);
@@ -135,16 +153,25 @@ export function MobileUi({
   };
 
   const animatedFadeStyle = useAnimatedStyle(() => ({
-    opacity:
-      shouldShowFloatingMetrics || showChat === undefined
-        ? 1
-        : fadeOpacity.value,
+    opacity: fadeOpacity.value,
+    transform: isPortrait ? [{ translateY: (fadeOpacity.value - 1) * 40 }] : [],
   }));
 
   const hover = Gesture.Hover().onChange(onPlayerHover);
   const pan = Gesture.Pan().onChange(onPlayerHover);
   const tap = Gesture.Tap().onEnd(onPlayerHover);
-
+  let chatSection: React.ReactNode = null;
+  if (
+    mode !== "vod" &&
+    !hideMobileChat &&
+    !isSelfAndNotLive &&
+    playerIsReady &&
+    isPortrait
+  ) {
+    chatSection = (
+      <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+    );
+  }
   const combined = Gesture.Race(hover, pan, tap);
   return (
     <>
@@ -163,7 +190,10 @@ export function MobileUi({
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>
               <SafeAreaView
-                edges={["top"]}
+                // VOD's container already insets the video below the notch, so
+                // the controls only need the small style padding; live fills
+                // the window and clears the notch with the top edge inset.
+                edges={mode === "vod" ? [] : ["top"]}
                 style={[
                   px[2],
                   py[2],
@@ -178,8 +208,6 @@ export function MobileUi({
                 >
                   <LeftControlsPanel
                     navigation={navigation}
-                    profile={profile}
-                    avatars={avatars}
                     muted={muted}
                     setMuted={setMuted}
                     muteWasForced={muteWasForced}
@@ -191,38 +219,37 @@ export function MobileUi({
                 <View
                   style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
                 >
-                  {shouldShowFloatingMetrics && (
-                    <View>
-                      <View
-                        style={[
-                          {
-                            padding: 9,
-                            backgroundColor: "rgba(90,90,90, 0.3)",
-                            borderRadius: 12,
-                          },
-                          r[2],
-                        ]}
-                      >
-                        <PlayerUI.Viewers />
-                      </View>
+                  <View>
+                    <View
+                      style={[
+                        {
+                          padding: 9,
+                          backgroundColor: "rgba(90,90,90, 0.3)",
+                          borderRadius: 12,
+                        },
+                        r[2],
+                      ]}
+                    >
+                      <PlayerUI.Viewers />
                     </View>
-                  )}
+                  </View>
 
                   <RightControlsPanel
                     ingest={ingest}
                     doSetIngestCamera={doSetIngestCamera}
                     shouldShowChatSidePanel={shouldShowChatSidePanel}
+                    isPortrait={!shouldShowChatSidePanel}
                     showChat={showChat}
                     setShowChat={setShowChat}
                   />
                 </View>
               </SafeAreaView>
 
-              {shouldShowFloatingMetrics && isLive && (
+              {shouldShowFloatingMetrics && isSelfAndLive && (
                 <View
                   style={[
                     layout.position.absolute,
-                    position.top[28],
+                    position.top[32],
                     position.left[0],
                     position.right[0],
                     layout.flex.column,
@@ -230,7 +257,7 @@ export function MobileUi({
                   ]}
                 >
                   <PlayerUI.MetricsPanel
-                    showMetrics={isLive || isSelfAndNotLive}
+                    showMetrics={shouldShowFloatingMetrics}
                   />
                 </View>
               )}
@@ -239,8 +266,8 @@ export function MobileUi({
               <PlayerUI.InputPanel
                 title={title}
                 setTitle={setTitle}
-                ingestStarting={ingestStarting}
                 toggleGoLive={toggleGoLive}
+                isLive={isSelfAndLive}
               />
             )}
 
@@ -273,30 +300,43 @@ export function MobileUi({
           <PlayerUI.AutoplayButton />
         </View>
       </GestureDetector>
-      {showChat === undefined && ingest !== "new" && (
-        <MobileChatPanel isPlayerRatioGreater={isPlayerRatioGreater} />
+      {/* VOD scrub/play controls live OUTSIDE the gesture detector so the seek
+          bar's own pan gesture isn't swallowed by the overlay's tap/pan Race.
+          They still fade with the rest of the UI via the shared opacity. */}
+      {mode === "vod" && (
+        <Animated.View
+          style={[
+            { position: "absolute", bottom: 8, left: 0, right: 0 },
+            animatedFadeStyle,
+          ]}
+          // Let taps on empty space fall through to the overlay's tap-to-reveal
+          // gesture; only the controls themselves capture touches.
+          pointerEvents="box-none"
+        >
+          <PlayerUI.SeekBar />
+          <PlayerUI.VodControls />
+        </Animated.View>
       )}
+      {chatSection}
     </>
   );
 }
 
 function LeftControlsPanel({
   navigation,
-  profile,
-  avatars,
   muted,
   setMuted,
   muteWasForced,
   setMuteWasForced,
 }: {
   navigation: any;
-  profile: any;
-  avatars: any;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   muteWasForced: boolean;
   setMuteWasForced: (forced: boolean) => void;
 }) {
+  const profile = useAuthor();
+  const avatar = useAvatar();
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
   const contentWarnings =
@@ -322,33 +362,29 @@ function LeftControlsPanel({
             onPress={() => {
               navigation.canGoBack()
                 ? navigation.goBack()
-                : navigation.navigate("Home", {
-                    screen: "StreamList",
-                  });
+                : navigation.navigate("MainTabs" as any, { screen: "HomeTab" });
             }}
           >
             <ChevronLeft color="white" />
           </Pressable>
           <Image
             source={
-              profile?.did
-                ? { url: avatars[profile?.did]?.avatar }
-                : require("assets/images/goose.png")
+              avatar ? { uri: avatar } : require("assets/images/goose.png")
             }
-            width={32}
-            height={32}
+            key={profile?.did}
             style={[
               {
                 width: 36,
                 height: 36,
-                backgroundColor: "green",
               },
               { borderRadius: 999 },
               borders.width.thin,
               borders.color.gray[700],
             ]}
           />
-          <Text>{profile?.handle}</Text>
+          <Text numberOfLines={1} ellipsizeMode="tail">
+            {profile?.handle}
+          </Text>
         </View>
       </View>
 
@@ -400,12 +436,14 @@ function RightControlsPanel({
   ingest,
   doSetIngestCamera,
   shouldShowChatSidePanel,
+  isPortrait,
   showChat,
   setShowChat,
 }: {
   ingest: string | null;
   doSetIngestCamera: () => void;
   shouldShowChatSidePanel: boolean;
+  isPortrait: boolean;
   showChat?: boolean;
   setShowChat?: (show: boolean) => void;
 }) {
@@ -452,12 +490,10 @@ function RightControlsPanel({
             paddingVertical: 2.25 * 4,
           },
           zero.r[2],
-          showChat === undefined
-            ? zero.layout.flex.column
-            : zero.layout.flex.row,
+          isPortrait ? zero.layout.flex.column : zero.layout.flex.row,
           zero.layout.flex.center,
           zero.gap.all[4],
-          showChat === undefined ? zero.px[2] : zero.px[3],
+          isPortrait ? zero.px[2] : zero.px[3],
           zero.layout.position.relative,
         ]}
       >
@@ -468,6 +504,7 @@ function RightControlsPanel({
             <Pressable onPress={doSetIngestCamera}>
               <SwitchCamera color={theme.colors.foreground} size={20} />
             </Pressable>
+            {Platform.OS === "web" && <PlayerUI.StreamContextMenu />}
           </>
         )}
         {Platform.OS === "web" ? (
@@ -495,7 +532,7 @@ function RightControlsPanel({
         ) : (
           <View
             style={[
-              showChat === undefined
+              isPortrait
                 ? { flexDirection: "column-reverse" }
                 : { flexDirection: "row" },
               zero.layout.flex.center,
@@ -515,7 +552,11 @@ function RightControlsPanel({
                 )}
               </Pressable>
             )}
-            <PlayerUI.ContextMenu />
+            {ingest === null ? (
+              <PlayerUI.ContextMenu />
+            ) : (
+              <PlayerUI.StreamContextMenu />
+            )}
           </View>
         )}
         {shouldShowChatSidePanel && setShowChat && (

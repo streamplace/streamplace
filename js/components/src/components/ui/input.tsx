@@ -25,7 +25,8 @@ const inputVariants = cva("", {
 });
 
 export interface InputProps
-  extends Omit<InputPrimitiveProps, "style" | "error">,
+  extends
+    Omit<InputPrimitiveProps, "style" | "error">,
     VariantProps<typeof inputVariants> {
   label?: string;
   description?: string;
@@ -68,8 +69,7 @@ export const Input = forwardRef<any, InputProps>(
           case "underlined":
             return [
               zt.bg.transparent,
-              zt.border.bottom.default,
-              { borderRadius: 0, paddingHorizontal: 0 },
+              { borderRadius: 0, paddingHorizontal: 0, borderWidth: 0 },
             ];
           default:
             return [zt.bg.background, zt.border.default];

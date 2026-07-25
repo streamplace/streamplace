@@ -60,3 +60,19 @@ viewer-count = { $count ->
     [1] 1 espectador
    *[other] { $count } espectadores
 }
+
+## PDS Host Selector
+pds-selector-title = Novo no Atmosphere?
+pds-selector-description = Você precisará selecionar um PDS (Servidor de Dados Pessoal) para acessar apps no Atmosphere, como Bluesky, Tangled e Spark.
+pds-selector-custom-label = Outro PDS
+pds-selector-custom-description = Digite a URL do seu próprio host PDS
+pds-selector-custom-url-label = URL do PDS personalizado
+pds-selector-custom-url-placeholder = https://pds.exemplo.com
+pds-selector-learn-more = Saiba mais sobre auto-hospedagem
+pds-selector-info = Cada host tem suas próprias políticas e padrões de confiabilidade. Seus dados ATProto ficam no host que você escolher e você pode migrar depois. Nota: O Streamplace tem suas próprias regras de moderação — você pode ser banido do Streamplace independentemente do host escolhido.
+pds-selector-read-policies = Leia os <tosLink>Termos de Serviço</tosLink> e a <privacyLink>Política de Privacidade</privacyLink> de { $label } antes de continuar.
+pds-selector-handle-policy-checkbox = Li e concordo com a <policyLink>política de identificadores</policyLink>
+
+## Login
+login-show-live-on-bluesky = Mostrar quando estou ao vivo no Bluesky
+login-show-live-on-bluesky-description = Adiciona o anel vermelho LIVE ao seu avatar do Bluesky enquanto você transmite e permite que o Streamplace publique anúncios por você. Desmarque para entrar sem conceder nenhum acesso à sua conta do Bluesky.

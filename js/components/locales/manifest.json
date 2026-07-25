@@ -1,5 +1,13 @@
 {
-  "supportedLocales": ["en-US", "pt-BR", "es-ES", "zh-Hant", "fr-FR"],
+  "supportedLocales": [
+    "en-US",
+    "pt-BR",
+    "es-ES",
+    "zh-Hant",
+    "fr-FR",
+    "zh-Hans",
+    "ro-RO"
+  ],
   "fallbackChain": ["en-US"],
   "languages": {
     "en-US": {
@@ -31,6 +39,18 @@
       "name": "French",
       "nativeName": "Français",
       "flag": "🇫🇷"
+    },
+    "zh-Hans": {
+      "code": "zh-Hans",
+      "name": "Chinese (Simplified)",
+      "nativeName": "简体中文",
+      "flag": "汉"
+    },
+    "ro-RO": {
+      "code": "ro-RO",
+      "name": "Romanian",
+      "nativeName": "Română",
+      "flag": "🇷🇴"
     }
   }
 }

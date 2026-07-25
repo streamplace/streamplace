@@ -4,11 +4,13 @@ import {
   useLivestream,
   zero,
 } from "@streamplace/components";
+import ActivityPicker from "components/activity-picker";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useStore } from "store";
 import { useNewLivestream, useUserProfile } from "store/hooks";
+import type { place } from "streamplace";
 
 export default function UpdateLivestream() {
   const updateLivestreamRecord = useStore(
@@ -18,14 +20,26 @@ export default function UpdateLivestream() {
   // Note: Toast functionality removed, would need simple alert replacement
   const userIsLive = useLiveUser();
   const [title, setTitle] = useState("");
+  const [activity, setActivity] = useState<
+    place.stream.livestream.Main["activity"] | undefined
+  >(undefined);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(false);
   const profile = useUserProfile();
   const livestream = useLivestream();
   const newLivestream = useNewLivestream();
 
   useEffect(() => {
+    if (livestream?.record) {
+      const rec = livestream.record as place.stream.livestream.Main;
+      setActivity(rec.activity as place.stream.livestream.Main["activity"]);
+      setTags(rec.tags ?? []);
+    }
+  }, [livestream?.uri]);
+
+  useEffect(() => {
     if (newLivestream?.record) {
-      // Would show toast: "Livestream title updated" with newLivestream.record.title
       setTitle("");
     }
   }, [newLivestream?.record]);
@@ -41,7 +55,7 @@ export default function UpdateLivestream() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await updateLivestreamRecord(title, livestream);
+      await updateLivestreamRecord(title, livestream, activity, tags);
     } catch (error) {
       console.error("Error updating livestream:", error);
       // Would show toast: "Error updating livestream"
@@ -125,6 +139,83 @@ export default function UpdateLivestream() {
                 ]}
                 multiline
               />
+            </View>
+          </View>
+
+          <View
+            style={[
+              { flexDirection: "row" },
+              { alignItems: "flex-start" },
+              { width: "100%" },
+            ]}
+          >
+            <Text style={[{ paddingTop: 8, minWidth: 100, textAlign: "left" }]}>
+              Activity
+            </Text>
+            <View style={zero.flex.values[1]}>
+              <ActivityPicker value={activity} onChange={setActivity} />
+            </View>
+          </View>
+
+          <View
+            style={[
+              { flexDirection: "row" },
+              { alignItems: "flex-start" },
+              { width: "100%" },
+            ]}
+          >
+            <Text style={[{ paddingTop: 8, minWidth: 100, textAlign: "left" }]}>
+              Tags
+            </Text>
+            <View style={[zero.flex.values[1], { gap: 8 }]}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {tags.map((tag) => (
+                  <Pressable
+                    key={tag}
+                    onPress={() => setTags(tags.filter((t) => t !== tag))}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      backgroundColor: "#e8f0fe",
+                      borderRadius: 16,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      gap: 4,
+                    }}
+                  >
+                    <Text style={{ color: "#0066cc", fontSize: 13 }}>
+                      {tag}
+                    </Text>
+                    <Text
+                      style={{ color: "#0066cc", fontSize: 14, lineHeight: 16 }}
+                    >
+                      ×
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              {tags.length < 10 && (
+                <TextInput
+                  value={tagInput}
+                  onChangeText={(v) =>
+                    setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
+                  }
+                  placeholder="Add a tag, press Enter"
+                  onSubmitEditing={() => {
+                    const trimmed = tagInput.trim();
+                    if (trimmed && !tags.includes(trimmed)) {
+                      setTags([...tags, trimmed]);
+                    }
+                    setTagInput("");
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "#ccc",
+                    borderRadius: 8,
+                    padding: 10,
+                  }}
+                />
+              )}
             </View>
           </View>
 

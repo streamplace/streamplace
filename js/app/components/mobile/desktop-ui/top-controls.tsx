@@ -4,20 +4,22 @@ import {
   PlayerUI,
   Text,
   View,
-  useAvatars,
+  useAuthor,
+  useAvatar,
   useCameraToggle,
-  useLivestreamInfo,
   useLivestreamStore,
+  useTitle,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import { ChevronLeft, MessageSquare, SwitchCamera } from "lucide-react-native";
 import {
-  Image,
   Linking,
   Platform,
   Pressable,
   useWindowDimensions,
 } from "react-native";
+import { convertNavigationParams } from "../../../src/navigation-helper";
 import { LiveBubble } from "./live-bubble";
 
 const { borders, colors, gap, layout, p, px, py, r, text } = zero;
@@ -40,12 +42,14 @@ export function TopControlBar({
   embedded = false,
 }: TopControlBarProps) {
   const navigation = useNavigation();
-  const { profile } = useLivestreamInfo();
+  const profile = useAuthor();
   const { doSetIngestCamera } = useCameraToggle();
-  const avatars = useAvatars(profile?.did && embedded ? [profile?.did] : []);
+  const avatar = useAvatar();
   const { width } = useWindowDimensions();
   const isTinyScreen = width < 450;
   const isSmallScreen = width < 600;
+
+  const title = useTitle();
 
   // Get content warnings from segment
   const segment = useLivestreamStore((x) => x.segment);
@@ -65,9 +69,14 @@ export function TopControlBar({
           {Platform.OS !== "web" && !embedded && (
             <Pressable
               onPress={() => {
-                navigation.canGoBack()
-                  ? navigation.goBack()
-                  : navigation.navigate("Home", { screen: "StreamList" });
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  const params = convertNavigationParams({
+                    screen: "HomeMain",
+                  });
+                  navigation.navigate(params.screen as any, params.params);
+                }
               }}
               style={[p[2], r[1]]}
             >
@@ -81,8 +90,8 @@ export function TopControlBar({
               >
                 <Image
                   source={
-                    profile?.did
-                      ? { uri: avatars[profile?.did]?.avatar }
+                    avatar
+                      ? { uri: avatar }
                       : require("assets/images/goose.png")
                   }
                   style={[
@@ -97,13 +106,9 @@ export function TopControlBar({
                   ]}
                 />
 
-                <View style={[layout.flex.column, gap.all[1]]}>
-                  <Text
-                    style={[text.white, { fontSize: 16, fontWeight: "600" }]}
-                  >
-                    {profile?.handle}
-                  </Text>
-                  {!offline && <LiveBubble />}
+                <View style={[layout.flex.column]}>
+                  <Text weight="semibold">{title}</Text>
+                  <Text leading="tight">{profile?.handle}</Text>
                 </View>
               </View>
             </View>

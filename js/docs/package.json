@@ -1,7 +1,7 @@
 {
   "name": "streamplace-docs",
   "type": "module",
-  "version": "0.9.8",
+  "version": "0.11.18",
   "scripts": {
     "dev": "astro dev --host 0.0.0.0 --port 38082",
     "start": "astro dev --host 0.0.0.0 --port 38082",
@@ -15,8 +15,14 @@
     "@streamplace/app": "workspace:*",
     "astro": "^5.6.1",
     "sharp": "^0.32.5",
+    "starlight-links-validator": "^0.19.2",
     "starlight-openapi": "^0.17.0",
     "starlight-openapi-rapidoc": "^0.8.1-beta",
+    "starlight-sidebar-swipe": "^0.1.1",
     "streamplace": "workspace:*"
-  }
+  },
+  "devDependencies": {
+    "starlight-sidebar-topics": "^0.6.2"
+  },
+  "private": true
 }

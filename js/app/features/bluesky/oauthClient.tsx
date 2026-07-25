@@ -1,20 +1,16 @@
+import Constants from "expo-constants";
+import { Platform } from "react-native";
 import {
   ClientMetadata,
   clientMetadataSchema,
-  ReactNativeOAuthClient,
-} from "@streamplace/atproto-oauth-client-react-native";
-import Constants from "expo-constants";
-import { Platform } from "react-native";
+  OAuthClient,
+} from "./oauthClientImport";
 import { StreamplaceOAuthResolver } from "./oauthResolver";
-
-export type StreamplaceOAuthClient = Omit<
-  ReactNativeOAuthClient,
-  "keyset" | "serverFactory" | "jwks"
->;
 
 export default async function createOAuthClient(
   streamplaceUrl: string,
-): Promise<StreamplaceOAuthClient> {
+): Promise<OAuthClient> {
+  console.log("createOAuthClient", streamplaceUrl);
   if (!streamplaceUrl) {
     throw new Error("streamplaceUrl is required");
   }
@@ -84,7 +80,7 @@ export default async function createOAuthClient(
     console.error("error parsing client metadata", e, meta);
     throw e;
   }
-  const client = new ReactNativeOAuthClient({
+  const client = new OAuthClient({
     fetch: async (input, init) => {
       // Normalize input to a Request object
       let request: Request;

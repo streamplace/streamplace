@@ -1,4 +1,4 @@
-import { PlaceStreamChatProfile } from "streamplace";
+import { place } from "streamplace";
 import {
   getStreamplaceStoreFromContext,
   useDID,
@@ -16,25 +16,29 @@ export function useGetChatProfile() {
     if (!did || !pdsAgent) {
       throw new Error("No DID or PDS agent");
     }
-    let res;
+    let res: any;
+    let notFound = false;
     try {
-      res = await pdsAgent.com.atproto.repo.getRecord({
-        repo: did,
-        collection: "place.stream.chat.profile",
+      res = await pdsAgent.client.get(place.stream.chat.profile, {
+        repo: did as any,
         rkey: "self",
       });
     } catch (e) {
-      console.error(
-        "Failed to get chat profile record, attempting creation",
-        e,
-      );
+      // if the record is a 400 with "Record not found", then we want to create an empty chat profile
+      if (
+        e.error.status === 400 &&
+        e.error.data?.error.includes("Record not found")
+      ) {
+        notFound = true;
+      } else {
+        console.error("Failed to get chat profile record", e);
+      }
     }
-    if (!res || !res.success) {
+    if (notFound || !res) {
       try {
         await createEmptyChatProfile();
-        res = await pdsAgent.com.atproto.repo.getRecord({
-          repo: did,
-          collection: "place.stream.chat.profile",
+        res = await pdsAgent.client.get(place.stream.chat.profile, {
+          repo: did as any,
           rkey: "self",
         });
       } catch (e) {
@@ -42,10 +46,16 @@ export function useGetChatProfile() {
       }
     }
 
-    if (PlaceStreamChatProfile.isRecord(res.data.value)) {
-      store.setState({ chatProfile: res.data.value });
+    // if no response, assume some fluke happened and just return without setting state
+    if (res === undefined) {
+      console.error("No response from get or create chat profile");
+      return;
+    }
+
+    if (place.stream.chat.profile.$isTypeOf(res.value)) {
+      store.setState({ chatProfile: res.value });
     } else {
-      console.log("not a record", res.data.value);
+      console.log("not a record", res.value);
     }
   };
 }
@@ -58,19 +68,14 @@ export function useCreateEmptyChatProfile() {
     if (!did || !pdsAgent) {
       throw new Error("No DID or PDS agent");
     }
-    const res = await pdsAgent.com.atproto.repo.putRecord({
-      repo: did,
-      collection: "place.stream.chat.profile",
-      rkey: "self",
-      record: {
-        $type: "place.stream.chat.profile",
+    await pdsAgent.client.put(
+      place.stream.chat.profile,
+      {
         color:
           DEFAULT_COLORS[Math.floor(Math.random() * DEFAULT_COLORS.length)],
       },
-    });
-    if (!res.success) {
-      throw new Error("Failed to create empty chat profile record");
-    }
+      { repo: did as any, rkey: "self" },
+    );
   };
 }
 
@@ -98,7 +103,7 @@ export function useChatProfile() {
   return useStreamplaceStore((x) => x.chatProfile);
 }
 
-const DEFAULT_COLORS: PlaceStreamChatProfile.Color[] = [
+const DEFAULT_COLORS: place.stream.chat.profile.Color[] = [
   { red: 244, green: 67, blue: 54 },
   { red: 233, green: 30, blue: 99 },
   { red: 156, green: 39, blue: 176 },

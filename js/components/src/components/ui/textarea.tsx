@@ -40,6 +40,8 @@ const Textarea = React.forwardRef<TextInput, TextInputProps>(
           { borderRadius: 10 },
           style,
         ]}
+        autoComplete={props.autoComplete || "off"}
+        textContentType={props.textContentType || "none"}
         multiline={multiline}
         numberOfLines={numberOfLines}
         textAlignVertical="top"

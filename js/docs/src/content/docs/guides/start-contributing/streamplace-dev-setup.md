@@ -57,7 +57,7 @@ exclusively backend changes — and you want to launch the node with the embedde
 frontend, you can override the pertinent command line argument:
 
 ```shell
-make dev && ./build-darwin-arm64/streamplace --dev-frontend-proxy=""
+make dev && ./build-darwin-arm64/streamplace --dev-frontend-proxy=false
 ```
 
 If you're using a proxy server, you may want to set your tunnel URL as the

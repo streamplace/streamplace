@@ -36,12 +36,15 @@ currently-translating-description = Some parts of the app may look incomplete. T
 ## Debug Recording
 debug-recording-title = Allow { $host } to record your livestream for debugging and improving the service
 debug-recording-description = Optional
+livestream-recording-title = Record my livestreams into VODs on { $host }
+livestream-recording-description = When enabled, your livestreams are saved so you can finalize and publish them as videos
 
 ## Key Management
 manage-keys = Manage Keys
 
 ## Settings Page Specific
 settings-title = Settings
+error = Error
 
 ## Navigation Categories
 about = About
@@ -81,6 +84,32 @@ keys-count = { $count ->
    *[other] { $count } keys
 }
 
+## Backup Settings
+backup = Backup
+backup-enabled = S3 Backup
+backup-enabled-description = Automatically backup recordings to S3-compatible storage
+backup-connection-url = Connection URL
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = Endpoint
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = Bucket
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = Access Key
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = Secret Key
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = Region
+backup-region-placeholder = us-east-1
+backup-test-connection = Test Connection
+backup-testing-connection = Testing connection...
+backup-connection-successful = Connection successful
+backup-connection-failed = Failed to connect
+show-password-in-url = Show password in URL
+show-password-in-url-description = Display the secret key in the connection URL (if input)
+requested-seconds-per-segment = Seconds per segment
+requested-seconds-per-segment-description = Set the seconds per segment you wish to request the server use
+
+
 ## Recommendations
 recommendations = Recommendations
 manage-recommendations = Manage Recommendations
@@ -116,6 +145,7 @@ activates-on = Activates on:
 events = Events
 events-livestream = Livestream Events
 events-chat = Chat Events
+events-stream-received = Stream Received Events
 untitled-webhook = Untitled Webhook
 inactive = Inactive
 active = Active
@@ -232,3 +262,54 @@ branding-not-available = File uploads are only available on web
 
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
+
+backup-save = Save backup settings
+backup-saving = Saving backup settings...
+backup-secret-key-set-placeholder = (Password already set)
+backup-error-invalid-endpoint = Must be a valid domain name
+backup-error-invalid-bucket = Must contain only lowercase letters, numbers, dots, and hyphens
+backup-error-invalid-segment-duration = Must be between 1 and 60 seconds
+backup-error-load-failed = Failed to load storage settings
+backup-error-update-failed = Failed to update backup status
+backup-error-save-failed = Failed to save storage settings
+backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
+backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket
+
+## Badges
+badges = Badges
+badges-cosmetic-section = Cosmetic Badges
+badges-empty-state = You haven't been issued any badges yet.
+badges-failed-load = Failed to load badges
+badges-failed-update = Failed to update badge selection
+badges-issued-by = Issued by { $issuer }
+badges-streamer-section = Streamer Badges
+
+## Issue Badges
+issue-badges = Issue Badges
+issue-badges-back-to-definitions = Badge Definitions
+issue-badges-badge-name = Badge Name
+issue-badges-badge-name-placeholder = e.g. VIP, Supporter
+issue-badges-badge-type = Badge Type
+issue-badges-choose-image = Choose Image
+issue-badges-create-definition = Create Badge Definition
+issue-badges-create-definition-description = Define a new badge type that can be issued to viewers
+issue-badges-create-definition-subtitle = Define a new badge type
+issue-badges-definition-created = Badge definition created
+issue-badges-description-optional = Description (optional)
+issue-badges-description-placeholder = Optional description for this badge
+issue-badges-failed-create = Failed to create badge definition
+issue-badges-failed-issue = Failed to issue badge
+issue-badges-failed-load = Failed to load badge definitions
+issue-badges-image-optional = Image (optional)
+issue-badges-image-too-large = Image must be under 256KB
+issue-badges-image-web-only = Image upload is only available on web
+issue-badges-issue-badge = Issue Badge
+issue-badges-issue-badge-description = Issue the "{ $name }" badge to a viewer by their DID
+issue-badges-issued = Badge issued
+issue-badges-issued-to = Issued to { $did }
+issue-badges-manage-description = Create badge definitions and issue them to viewers
+issue-badges-recipient-did = Recipient DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = Tap to issue
+issue-badges-your-definitions = Your Badge Definitions

@@ -13,6 +13,7 @@ import Reanimated, {
 } from "react-native-reanimated";
 import { ChatMessageViewHydrated } from "streamplace";
 import {
+  ErrorBoundary,
   getSystemMessageType,
   SystemMessage,
   SystemMessageType,
@@ -26,6 +27,7 @@ import {
 import { bg, flex, layout, mr, px, py } from "../../lib/theme/atoms";
 import { RenderChatMessage } from "./chat-message";
 import { ModView } from "./mod-view";
+import { ProfileCardProvider } from "./user-profile-card";
 
 function RightAction(prog: SharedValue<number>, drag: SharedValue<number>) {
   const styleAnimation = useAnimatedStyle(() => {
@@ -245,15 +247,23 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
 export function Chat({
   shownMessages = SHOWN_MSGS,
   style: propsStyle,
+  reverse = false,
+  hideAfter,
   ...props
 }: ComponentProps<typeof View> & {
   shownMessages?: number;
   style?: ComponentProps<typeof View>["style"];
+  reverse?: boolean;
+  hideAfter?: number;
 }) {
   const { theme } = useTheme();
   const chat = useChat();
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
+  const latestMessageTime = chat?.[0]
+    ? new Date(chat[0].record.createdAt).getTime()
+    : null;
 
   // Animation for scroll-to-bottom button
   const buttonOpacity = useSharedValue(0);
@@ -261,7 +271,7 @@ export function Chat({
 
   useEffect(() => {
     buttonOpacity.value = withTiming(isScrolledUp ? 1 : 0, { duration: 200 });
-    buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 20, {
+    buttonTranslateY.value = withTiming(isScrolledUp ? 0 : 50, {
       duration: 200,
     });
   }, [isScrolledUp]);
@@ -273,6 +283,10 @@ export function Chat({
 
   const scrollToBottom = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   const handleScroll = (event: any) => {
@@ -290,6 +304,26 @@ export function Chat({
     }
   };
 
+  useEffect(() => {
+    if (!hideAfter || hideAfter <= 0) return;
+
+    const referenceTime = latestMessageTime ?? Date.now();
+    const delay = referenceTime + hideAfter * 1000 - Date.now();
+
+    if (delay <= 0) {
+      setIsVisible(false);
+      return;
+    }
+
+    setIsVisible(true);
+    const timer = setTimeout(() => {
+      setIsVisible(false);
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [hideAfter, latestMessageTime]);
+
+  if (!isVisible) return null;
+
   if (!chat)
     return (
       <View style={[flex.shrink[1], { minWidth: 0, maxWidth: "100%" }]}>
@@ -300,7 +334,7 @@ export function Chat({
   return (
     <View
       style={[
-        flex.shrink[1],
+        flex.values[1],
         {
           minWidth: 0,
           maxWidth: "100%",
@@ -309,25 +343,31 @@ export function Chat({
         },
       ].concat(propsStyle || [])}
     >
-      <FlatList
-        ref={flatListRef}
-        style={[
-          flex.grow[1],
-          flex.shrink[1],
-          { minWidth: 0, maxWidth: "100%" },
-        ]}
-        data={chat.slice(0, shownMessages)}
-        inverted={true}
-        keyExtractor={keyExtractor}
-        renderItem={({ item, index }) => <ChatLine item={item} />}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        initialNumToRender={10}
-        updateCellsBatchingPeriod={50}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        nestedScrollEnabled={true}
-      />
+      <ProfileCardProvider>
+        <FlatList
+          ref={flatListRef}
+          style={[
+            flex.grow[1],
+            flex.shrink[1],
+            { minWidth: 0, maxWidth: "100%" },
+          ]}
+          data={chat.slice(0, shownMessages)}
+          inverted={!reverse}
+          keyExtractor={keyExtractor}
+          renderItem={({ item, index }) => (
+            <ErrorBoundary>
+              <ChatLine item={item} />
+            </ErrorBoundary>
+          )}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          initialNumToRender={10}
+          updateCellsBatchingPeriod={50}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          nestedScrollEnabled={true}
+        />
+      </ProfileCardProvider>
       <Reanimated.View
         style={[
           {
@@ -342,10 +382,10 @@ export function Chat({
         ]}
       >
         <Pressable
-          onPress={scrollToBottom}
+          onPress={reverse ? scrollToTop : scrollToBottom}
           style={[
             {
-              pointerEvents: "auto",
+              pointerEvents: isScrolledUp ? "auto" : "none",
               backgroundColor: theme.colors.primary,
               opacity: 0.9,
               borderRadius: 20,
@@ -363,7 +403,9 @@ export function Chat({
           ]}
         >
           <ChevronDown size={24} style={{ marginTop: 2 }} color="white" />
-          <Text style={[mr[1]]}>Scroll to bottom</Text>
+          <Text style={[mr[1]]}>
+            {reverse ? "Scroll to top" : "Scroll to bottom"}
+          </Text>
         </Pressable>
       </Reanimated.View>
       <ModView />

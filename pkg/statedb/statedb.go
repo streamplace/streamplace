@@ -37,7 +37,20 @@ type StatefulDB struct {
 	// pgLockConn is used to hold a connection to the database for locking
 	pgLockConn   *gorm.DB
 	pgLockConnMu sync.Mutex
-	op           *oatproxy.OATProxy
+	OATProxy     *oatproxy.OATProxy
+	// vodProcessor runs the gstreamer + muxl + S3 pipeline for a VOD
+	// upload task. Installed via SetVODProcessor at bootstrap so
+	// pkg/statedb doesn't have to depend on the gstreamer-heavy pkg/vod.
+	vodProcessor VODProcessor
+	// viewCountAggregator collapses a window of view-log files into
+	// place.stream.media.viewCount records. Installed via
+	// SetViewCountAggregator at bootstrap so pkg/statedb doesn't have
+	// to depend on the blob.Store-heavy pkg/viewlog.
+	viewCountAggregator ViewCountAggregator
+	// livestreamVODFinalizer concatenates a finished livestream's recorded
+	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
+	// bootstrap, same indirection as vodProcessor.
+	livestreamVODFinalizer LivestreamVODFinalizer
 }
 
 // list tables here so we can migrate them
@@ -53,6 +66,11 @@ var StatefulDBModels = []any{
 	MultistreamEvent{},
 	BrandingBlob{},
 	ModerationAuditLog{},
+	Storage{},
+	BroadcastOrigin{},
+	S3Segment{},
+	Upload{},
+	DraftVideo{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

@@ -1,4 +1,5 @@
-import { Pressable, ScrollView } from "react-native";
+import { useEffect, useRef } from "react";
+import { Platform, Pressable, ScrollView } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Text, View } from "../..";
 import { bg, layout, left, right } from "../../lib/theme/atoms";
@@ -19,6 +20,17 @@ export function MentionSuggestions({
   }
 
   const authorHandles = Array.from(authors.keys());
+  const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const el = itemRefs.current.get(highlightedIndex);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+  }, [highlightedIndex]);
+
   return (
     <View
       style={[
@@ -43,6 +55,10 @@ export function MentionSuggestions({
             <Pressable
               key={handle}
               onPress={() => onSelect(handle)}
+              ref={(ref) => {
+                const el = ref as unknown as HTMLElement;
+                if (el) itemRefs.current.set(index, el);
+              }}
               style={[
                 {
                   padding: 8,

@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/base64"
+	"net/url"
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
 
@@ -25,7 +27,23 @@ func startTelemetry(ctx context.Context, endpoint string) error {
 }
 
 func newTracerProvider(ctx context.Context, endpoint string) (*trace.TracerProvider, error) {
-	exp, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpointURL(endpoint))
+	parsedURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []otlptracehttp.Option{otlptracehttp.WithEndpointURL(endpoint)}
+
+	if parsedURL.User != nil {
+		username := parsedURL.User.Username()
+		password, _ := parsedURL.User.Password()
+		encoded := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		opts = append(opts, otlptracehttp.WithHeaders(map[string]string{
+			"Authorization": "Basic " + encoded,
+		}))
+	}
+
+	exp, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

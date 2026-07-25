@@ -1,6 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import React, { forwardRef, useMemo } from "react";
-import { ActivityIndicator } from "react-native";
+import { ActivityIndicator, Pressable } from "react-native";
 import { useTheme } from "../../lib/theme/theme";
 import * as zero from "../../ui";
 import { ButtonPrimitive, ButtonPrimitiveProps } from "./primitives/button";
@@ -33,8 +33,10 @@ const buttonVariants = cva("", {
 });
 
 export interface ButtonProps
-  extends Omit<ButtonPrimitiveProps, "children">,
+  extends
+    Omit<ButtonPrimitiveProps, "children">,
     VariantProps<typeof buttonVariants> {
+  href?: string; // For web support
   children?: React.ReactNode;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
@@ -49,6 +51,7 @@ export const Button = forwardRef<any, ButtonProps>(
     {
       variant = "primary",
       size = "md",
+      href,
       children,
       leftIcon,
       rightIcon,
@@ -218,50 +221,61 @@ export const Button = forwardRef<any, ButtonProps>(
         return { width };
       }
     }, [width]);
-
+    // if href, wrap in pressable that renders as <a> on web
+    let Wrapper = React.Fragment;
+    let wrapperProps = {};
+    if (href) {
+      Wrapper = Pressable;
+      wrapperProps = {
+        href,
+        as: "a",
+      };
+    }
     return (
-      <ButtonPrimitive.Root
-        ref={ref}
-        disabled={disabled || loading}
-        style={[buttonStyle, sizeStyles.button, widthStyle, style]}
-        hoverStyle={hoverStyle}
-        {...props}
-      >
-        <ButtonPrimitive.Content style={sizeStyles.inner}>
-          {loading && !leftIcon ? (
-            <ButtonPrimitive.Icon position="left">
-              <ActivityIndicator size={spinnerSize} color={spinnerColor} />
-            </ButtonPrimitive.Icon>
-          ) : leftIcon ? (
-            <ButtonPrimitive.Icon position="left">
-              {leftIcon}
-            </ButtonPrimitive.Icon>
-          ) : null}
+      <Wrapper>
+        <ButtonPrimitive.Root
+          ref={ref}
+          disabled={disabled || loading}
+          style={[buttonStyle, sizeStyles.button, widthStyle, style]}
+          hoverStyle={hoverStyle}
+          {...props}
+        >
+          <ButtonPrimitive.Content style={sizeStyles.inner}>
+            {loading && !leftIcon ? (
+              <ButtonPrimitive.Icon position="left">
+                <ActivityIndicator size={spinnerSize} color={spinnerColor} />
+              </ButtonPrimitive.Icon>
+            ) : leftIcon ? (
+              <ButtonPrimitive.Icon position="left">
+                {leftIcon}
+              </ButtonPrimitive.Icon>
+            ) : null}
 
-          {typeof children === "string" ? (
-            <TextPrimitive.Root style={[textStyle as any, sizeStyles.text]}>
-              {loading && loadingText ? loadingText : children}
-            </TextPrimitive.Root>
-          ) : loading && loadingText ? (
-            loadingText
-          ) : (
-            children
-          )}
+            {typeof children === "string" ? (
+              <TextPrimitive.Root style={[textStyle as any, sizeStyles.text]}>
+                {loading && loadingText ? loadingText : children}
+              </TextPrimitive.Root>
+            ) : loading && loadingText ? (
+              loadingText
+            ) : (
+              children
+            )}
 
-          {loading && rightIcon ? (
-            <ButtonPrimitive.Icon position="right">
-              <ActivityIndicator size={spinnerSize} color={spinnerColor} />
-            </ButtonPrimitive.Icon>
-          ) : rightIcon ? (
-            <ButtonPrimitive.Icon
-              position="right"
-              style={{ width: iconSize, height: iconSize }}
-            >
-              {rightIcon}
-            </ButtonPrimitive.Icon>
-          ) : null}
-        </ButtonPrimitive.Content>
-      </ButtonPrimitive.Root>
+            {loading && rightIcon ? (
+              <ButtonPrimitive.Icon position="right">
+                <ActivityIndicator size={spinnerSize} color={spinnerColor} />
+              </ButtonPrimitive.Icon>
+            ) : rightIcon ? (
+              <ButtonPrimitive.Icon
+                position="right"
+                style={{ width: iconSize, height: iconSize }}
+              >
+                {rightIcon}
+              </ButtonPrimitive.Icon>
+            ) : null}
+          </ButtonPrimitive.Content>
+        </ButtonPrimitive.Root>
+      </Wrapper>
     );
   },
 );

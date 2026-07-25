@@ -1,4 +1,4 @@
-import { AlertCircle, Car, Radio, Users } from "lucide-react-native";
+import { AlertCircle, Radio } from "lucide-react-native";
 import { Pressable, Text, View } from "react-native";
 import * as zero from "../../ui";
 
@@ -8,7 +8,7 @@ interface MetricItemProps {
   icon: any;
   label: string;
   value: string;
-  status?: "good" | "warning" | "error";
+  status?: "good" | "warning" | "error" | "pre-live";
 }
 
 function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {
@@ -36,7 +36,7 @@ function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {
 }
 
 interface StatusIndicatorProps {
-  status: "excellent" | "good" | "poor" | "offline";
+  status: "excellent" | "good" | "poor" | "offline" | "pre-live";
   isLive: boolean;
 }
 
@@ -44,6 +44,8 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   const getStatusColor = () => {
     if (!isLive) return bg.gray[500];
     switch (status) {
+      case "pre-live":
+        return bg.blue[500];
       case "excellent":
         return bg.green[500];
       case "good":
@@ -60,6 +62,8 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
   const getStatusText = () => {
     if (!isLive) return "OFFLINE";
     switch (status) {
+      case "pre-live":
+        return "NOT LIVE";
       case "excellent":
         return "EXCELLENT";
       case "good":
@@ -98,11 +102,10 @@ function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
 interface HeaderProps {
   isLive: boolean;
   streamTitle?: string;
-  viewers?: number;
   uptime?: string;
   bitrate?: string;
   timeBetweenSegments?: number;
-  connectionStatus?: "excellent" | "good" | "poor" | "offline";
+  connectionStatus?: "excellent" | "good" | "poor" | "offline" | "pre-live";
   problemsCount?: number;
   onProblemsPress?: () => void;
 }
@@ -110,7 +113,6 @@ interface HeaderProps {
 export default function Header({
   isLive,
   streamTitle = "Live Stream",
-  viewers = 0,
   uptime = "00:00:00",
   bitrate = "0 mbps",
   timeBetweenSegments = 0,
@@ -179,17 +181,6 @@ export default function Header({
 
       {/* Right side - Stream metrics */}
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[6]]}>
-        {isLive && (
-          <>
-            <MetricItem
-              icon={Users}
-              label="Viewers"
-              value={viewers.toLocaleString()}
-            />
-            <MetricItem icon={Car} label="Bitrate" value={bitrate} />
-          </>
-        )}
-
         {!isLive && (
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
             <Radio size={16} color="#6b7280" />

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,27 +14,16 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-func WHEP(args []string) error {
-	fs := flag.NewFlagSet("whep", flag.ExitOnError)
-	count := fs.Int("count", 1, "number of concurrent streams (for load testing)")
-	duration := fs.Duration("duration", 0, "stop after this long")
-	endpoint := fs.String("endpoint", "", "endpoint to send the WHEP request to")
-	err := fs.Parse(args)
-
-	if err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-	if *duration > 0 {
+func WHEP(ctx context.Context, count int, duration time.Duration, endpoint string) error {
+	if duration > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, *duration)
+		ctx, cancel = context.WithTimeout(ctx, duration)
 		defer cancel()
 	}
 
 	w := &WHEPClient{
-		Endpoint: *endpoint,
-		Count:    *count,
+		Endpoint: endpoint,
+		Count:    count,
 	}
 
 	return w.WHEP(ctx)

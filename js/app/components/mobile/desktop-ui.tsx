@@ -1,4 +1,5 @@
 import {
+  PlayerStatus,
   PlayerUI,
   PortalHost,
   Toast,
@@ -10,6 +11,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { AnimatedGradient } from "components/ui/gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -25,6 +27,7 @@ import {
   MuteOverlay,
   TopControlBar,
 } from "./desktop-ui/index";
+import { PlayPauseIndicator } from "./desktop-ui/play-pause-indicator";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
 const { h, layout, position, w, px, py, r, p } = zero;
@@ -54,8 +57,6 @@ export function DesktopUi({
     setShowCountdown,
     recordSubmitted,
     setRecordSubmitted,
-    ingestStarting,
-    setIngestStarting,
     toggleGoLive,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
@@ -71,6 +72,9 @@ export function DesktopUi({
   const embedded = usePlayerStore((state) => state.embedded);
 
   const fullscreen = usePlayerStore((state) => state.fullscreen);
+  const setFullscreen = usePlayerStore((state) => state.setFullscreen);
+  const selectedRendition = usePlayerStore((state) => state.selectedRendition);
+  const status = usePlayerStore((state) => state.status);
 
   const safeAreaInsets = embedded
     ? { ...originalSafeAreaInsets, top: 0 }
@@ -93,11 +97,15 @@ export function DesktopUi({
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     setIsControlsVisible(true);
 
+    if (selectedRendition === "audio") return;
+    if (ingest !== null) return;
+    if (status === PlayerStatus.PAUSE) return;
+
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: 400 });
       setIsControlsVisible(false);
     }, FADE_OUT_DELAY);
-  }, [fadeOpacity]);
+  }, [fadeOpacity, selectedRendition, ingest, status]);
 
   const onPlayerHover = useCallback(() => {
     resetFadeTimer();
@@ -107,16 +115,17 @@ export function DesktopUi({
     if (setIsChatOpen) setIsChatOpen(!isChatOpen);
   }, []);
 
+  const toggleFullscreen = useCallback(() => {
+    setFullscreen(!fullscreen);
+  }, [fullscreen, setFullscreen]);
+
   useEffect(() => {
     resetFadeTimer();
 
     return () => {
       if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
-      if (ingestStarting) {
-        setIngestStarting(false);
-      }
     };
-  }, [ingestStarting, setIngestStarting, resetFadeTimer]);
+  }, [resetFadeTimer]);
 
   const animatedFadeStyle = useAnimatedStyle(() => ({
     opacity: shouldShowFloatingMetrics ? 1 : fadeOpacity.value,
@@ -159,24 +168,68 @@ export function DesktopUi({
     };
   }, [videoRef]);
 
+  // Keyboard shortcuts (F for fullscreen)
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "f" || e.key === "F") {
+        // are we in an input/textarea or contenteditable element?
+        const activeEl = document.activeElement;
+        const isInput =
+          activeEl &&
+          (activeEl.tagName === "INPUT" ||
+            activeEl.tagName === "TEXTAREA" ||
+            (activeEl as HTMLElement).isContentEditable);
+        if (isInput) return;
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [toggleFullscreen]);
+
   const handlePip = useCallback(() => {
     if (pipAction) pipAction();
   }, [pipAction]);
 
   const hover = Gesture.Hover().onChange((_) => runOnJS(onPlayerHover)());
 
+  const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
+
+  const handleSingleClick = useCallback(() => {
+    togglePlayPause();
+  }, [togglePlayPause]);
+
+  const handleDoubleClick = useCallback(() => {
+    toggleFullscreen();
+  }, [toggleFullscreen]);
+
+  const singleTap = Gesture.Tap().onEnd(() => runOnJS(handleSingleClick)());
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => runOnJS(handleDoubleClick)());
+
+  const tap = Gesture.Exclusive(doubleTap, singleTap);
+  const hoverAndTap = Gesture.Race(hover, tap);
+
   const portalContainerID = "desktop-ui-dropdown-portal-" + playerId;
 
   return (
     <>
-      <GestureDetector gesture={hover}>
+      <GestureDetector gesture={hoverAndTap}>
         <View
           style={[layout.position.absolute, h.percent[100], w.percent[100]]}
           collapsable={false}
         >
-          <MuteOverlay />
-          <PlayerUI.AutoplayButton />
           <PlayerUI.ViewerLoadingOverlay />
+          <PlayPauseIndicator />
           <Animated.View
             style={[
               layout.position.absolute,
@@ -223,37 +276,12 @@ export function DesktopUi({
             </View>
           )}
 
-          <Animated.View
-            style={[
-              layout.position.absolute,
-              position.bottom[0],
-              w.percent[100],
-              {
-                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                paddingHorizontal: 16,
-                paddingVertical: 2,
-                paddingBottom: 2,
-              },
-              animatedFadeStyle,
-            ]}
-          >
-            <BottomControlBar
-              ingest={ingest}
-              pipSupported={pipSupported}
-              pipActive={pipActive}
-              onHandlePip={handlePip}
-              dropdownPortalContainer={fullscreen && portalContainerID}
-              showChat={isChatOpen || false}
-              setShowChat={setIsChatOpen || undefined}
-            />
-          </Animated.View>
-
           {isSelfAndNotLive && (
             <PlayerUI.InputPanel
               title={title}
               setTitle={setTitle}
-              ingestStarting={ingestStarting}
               toggleGoLive={toggleGoLive}
+              isLive={isActivelyLive}
             />
           )}
 
@@ -294,6 +322,34 @@ export function DesktopUi({
           )}
         </View>
       </GestureDetector>
+      <MuteOverlay />
+      <Animated.View
+        style={[
+          layout.position.absolute,
+          position.bottom[0],
+          w.percent[100],
+          { zIndex: 999 },
+          animatedFadeStyle,
+          // no clickthrough
+          { pointerEvents: isControlsVisible ? "auto" : "none" },
+        ]}
+      >
+        <AnimatedGradient
+          fromColor="#00000080"
+          toColor="#000000"
+          opacityColor1={0}
+        >
+          <BottomControlBar
+            ingest={ingest}
+            pipSupported={pipSupported}
+            pipActive={pipActive}
+            onHandlePip={handlePip}
+            dropdownPortalContainer={fullscreen && portalContainerID}
+            showChat={isChatOpen || false}
+            setShowChat={setIsChatOpen || undefined}
+          />
+        </AnimatedGradient>
+      </Animated.View>
       {fullscreen && <PortalHost name={portalContainerID} />}
     </>
   );

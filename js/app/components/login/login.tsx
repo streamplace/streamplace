@@ -4,6 +4,7 @@ import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { isValidScreenName } from "src/linking-config";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 import { navigateToRoute } from "../../utils/navigation";
@@ -27,15 +28,23 @@ export default function Login() {
 
   // check for stored return route on mount
   useEffect(() => {
+    if (Platform.OS !== "web") return;
     storage.getItem("returnRoute").then((stored) => {
       if (stored) {
         try {
           const route = JSON.parse(stored);
           console.log("Login page - found stored returnRoute:", route);
-          setLocalReturnRoute(route);
-          storage.removeItem("returnRoute");
-          closeLoginModal();
-          navigateToRoute(navigation, route);
+
+          // validate that the screen name is valid
+          if (route?.name && isValidScreenName(route.name)) {
+            setLocalReturnRoute(route);
+            storage.removeItem("returnRoute");
+            closeLoginModal();
+            navigateToRoute(navigation, route);
+          } else {
+            console.warn("Invalid screen name in returnRoute:", route?.name);
+            setLocalReturnRoute(null);
+          }
         } catch (e) {
           console.error("Failed to parse returnRoute from storage", e);
           setLocalReturnRoute(null);
@@ -62,16 +71,18 @@ export default function Login() {
 
   if (userProfile) {
     // if return route is set, go there
-    if (localReturnRoute) {
-      <Redirect
-        to={{ screen: localReturnRoute.name, params: localReturnRoute.params }}
-      />;
+    if (localReturnRoute && isValidScreenName(localReturnRoute.name)) {
+      return (
+        <Redirect
+          to={{
+            // @ts-ignore checked above
+            screen: localReturnRoute.name,
+            params: localReturnRoute.params,
+          }}
+        />
+      );
     }
-    return (
-      <Redirect
-        to={{ screen: "Settings", params: { screen: "AccountCategory" } }}
-      />
-    );
+    return <Redirect to={{ screen: "AccountCategory", params: {} }} />;
   }
 
   return (

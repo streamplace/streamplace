@@ -18,9 +18,9 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/spmetrics"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 const SegmentsInFlight = 2
@@ -57,7 +57,7 @@ func NewLivepeerSession(ctx context.Context, cli *config.CLI, did string, gatewa
 	}, nil
 }
 
-func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *streamplace.Segment, rs renditions.Renditions) ([][]byte, error) {
+func (ls *LivepeerSession) PostSegmentToGateway(ctx context.Context, buf []byte, spseg *placestream.Segment, rs renditions.Renditions) ([][]byte, error) {
 	ctx = log.WithLogValues(ctx, "func", "PostSegmentToGateway")
 	lpProfiles := rs.ToLivepeerProfiles()
 	sessionIDRen := fmt.Sprintf("%s-%dren", ls.SessionID, len(rs))

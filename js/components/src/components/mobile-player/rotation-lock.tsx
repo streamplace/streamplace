@@ -64,12 +64,12 @@ export const RotationProvider: React.FC<RotationProviderProps> = ({
     try {
       await ScreenOrientation.unlockAsync();
       await ScreenOrientation.lockAsync(
-        ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT,
+        ScreenOrientation.OrientationLock.LANDSCAPE_LEFT,
       );
       setIsLocked(true);
 
       // set current orientation to landscape right
-      setCurrentOrientation(ScreenOrientation.Orientation.LANDSCAPE_RIGHT);
+      setCurrentOrientation(ScreenOrientation.Orientation.LANDSCAPE_LEFT);
 
       if (__DEV__) {
         console.log("📲 Manual landscape");

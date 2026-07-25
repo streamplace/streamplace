@@ -179,8 +179,14 @@ ffmpeg_proj = subproject(
   default_options: ffmpeg_opts,
 )
 avformat = ffmpeg_proj.get_variable('libavformat_dep')
+avcodec = ffmpeg_proj.get_variable('libavcodec_dep')
 avfilter = ffmpeg_proj.get_variable('libavfilter_dep')
-streamplace_deps += [avformat, avfilter]
+avutil = ffmpeg_proj.get_variable('libavutil_dep')
+streamplace_deps += [avformat, avfilter, avcodec]
+meson.override_dependency('libavcodec', avcodec)
+meson.override_dependency('libavfilter', avfilter)
+meson.override_dependency('libavformat', avformat)
+meson.override_dependency('libavutil', avutil)
 
 gstreamer_proj = subproject(
   'gstreamer-full',
@@ -194,11 +200,6 @@ streamplace_deps += [
   dependency('gstreamer-pbutils-1.0'),
   dependency('libffi'),
 ]
-
-atproto = subproject(
-  'atproto',
-  default_options: {},
-)
 
 if get_option('default_library') == 'static'
   gst_full_dep = gstreamer_proj.get_variable('gst_full_dep')

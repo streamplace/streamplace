@@ -1,11 +1,15 @@
 import {
   Button,
+  Checkbox,
   Input,
   Loader,
   Text,
+  Tooltip,
   useTheme,
+  useTranslation,
   zero,
 } from "@streamplace/components";
+import { Image } from "expo-image";
 import useActorTypeahead from "hooks/useActorTypeahead";
 import {
   ArrowRightToLine,
@@ -14,7 +18,7 @@ import {
   Info,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Linking, Platform, Pressable, View } from "react-native";
+import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
 
@@ -30,12 +34,14 @@ export default function LoginForm({
   onOpenPdsModal,
 }: LoginFormProps) {
   const { theme } = useTheme();
+  const { t } = useTranslation("common");
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
   const loginState = useLogin();
   const [handle, setHandle] = useState("");
   const [imageLoading, setImageLoading] = useState(false);
+  const [blueskyPermissions, setBlueskyPermissions] = useState(true);
   const { actors } = useActorTypeahead(handle);
 
   const filteredActors = useMemo(
@@ -70,7 +76,7 @@ export default function LoginForm({
     }
     let clean = handle;
     if (handle.startsWith("@")) clean = handle.slice(1);
-    loginAction(clean, openLoginLink);
+    loginAction(clean, openLoginLink, { blueskyPermissions });
   };
 
   const acceptSuggestion = () => {
@@ -274,12 +280,89 @@ export default function LoginForm({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholderTextColor="#666"
+            placeholderTextColor={theme.colors.textMuted}
             containerStyle={{
               paddingLeft: 46,
             }}
           />
         </View>
+      </View>
+
+      <View
+        style={[
+          zero.layout.flex.row,
+          zero.gap.all[3],
+          zero.mb[4],
+          { alignItems: "center" },
+        ]}
+      >
+        {/* preview of the Bluesky LIVE ring the user gets while streaming */}
+        <View style={{ alignItems: "center", width: 56 }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 999,
+              borderWidth: 2.5,
+              borderColor: blueskyPermissions ? "red" : theme.colors.border,
+              padding: 2,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            {avatarUri ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={{ width: "100%", height: "100%", borderRadius: 999 }}
+              />
+            ) : (
+              <View
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: 999,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  backgroundColor: theme.colors.muted,
+                }}
+              >
+                <AtSign size={22} color="#eee" />
+              </View>
+            )}
+          </View>
+          <View
+            style={{
+              marginTop: -8,
+              backgroundColor: "red",
+              borderRadius: 4,
+              paddingHorizontal: 4,
+              paddingVertical: 1,
+              opacity: blueskyPermissions ? 1 : 0,
+            }}
+          >
+            <Text
+              style={{
+                color: "white",
+                fontSize: 9,
+                fontWeight: "700",
+                letterSpacing: 0.5,
+              }}
+            >
+              LIVE
+            </Text>
+          </View>
+        </View>
+        <Tooltip
+          content={t("login-show-live-on-bluesky-description")}
+          position="top"
+          style={{ flex: 1 }}
+        >
+          <Checkbox
+            checked={blueskyPermissions}
+            onCheckedChange={setBlueskyPermissions}
+            label={t("login-show-live-on-bluesky")}
+          />
+        </Tooltip>
       </View>
 
       <View

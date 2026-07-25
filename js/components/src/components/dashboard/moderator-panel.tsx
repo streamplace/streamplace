@@ -372,6 +372,7 @@ function AddModeratorDialog({
     ban: false,
     hide: false,
     "livestream.manage": false,
+    "message.pin": false,
   });
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
@@ -380,7 +381,12 @@ function AddModeratorDialog({
   useEffect(() => {
     if (!visible) {
       setModeratorDID("");
-      setPermissions({ ban: false, hide: false, "livestream.manage": false });
+      setPermissions({
+        ban: false,
+        hide: false,
+        "livestream.manage": false,
+        "message.pin": false,
+      });
       setError(null);
     }
   }, [visible]);
@@ -401,7 +407,12 @@ function AddModeratorDialog({
 
     const selectedPermissions = Object.entries(permissions)
       .filter(([_, enabled]) => enabled)
-      .map(([perm]) => perm) as ("ban" | "hide" | "livestream.manage")[];
+      .map(([perm]) => perm) as (
+      | "ban"
+      | "hide"
+      | "livestream.manage"
+      | "message.pin"
+    )[];
 
     if (selectedPermissions.length === 0) {
       setError("Please select at least one permission");
@@ -582,6 +593,53 @@ function AddModeratorDialog({
               </Text>
               <Text style={[textStyle.gray[400], { fontSize: 12 }]}>
                 Update stream title
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              setPermissions((p) => ({
+                ...p,
+                "message.pin": !p["message.pin"],
+              }))
+            }
+            style={[
+              layout.flex.row,
+              layout.flex.alignCenter,
+              p[3],
+              r.md,
+              bg.neutral[800],
+              borders.width.thin,
+              borders.color.neutral[700],
+            ]}
+          >
+            <View
+              style={[
+                {
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                },
+                borders.width.thin,
+                borders.color.neutral[600],
+                permissions["message.pin"] ? bg.blue[600] : bg.neutral[900],
+                layout.flex.center,
+                { marginRight: 12 },
+              ]}
+            >
+              {permissions["message.pin"] && (
+                <Text style={[textStyle.white, { fontSize: 12 }]}>✓</Text>
+              )}
+            </View>
+            <View>
+              <Text
+                style={[textStyle.white, { fontSize: 14, fontWeight: "500" }]}
+              >
+                Pin Messages
+              </Text>
+              <Text style={[textStyle.gray[400], { fontSize: 12 }]}>
+                Pin and unpin chat messages
               </Text>
             </View>
           </Pressable>

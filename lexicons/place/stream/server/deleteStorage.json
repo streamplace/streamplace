@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.server.deleteStorage",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Delete S3 storage configuration.",
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["success"],
+          "properties": {
+            "success": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

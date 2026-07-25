@@ -1,7 +1,8 @@
 import { useRootContext } from "@rn-primitives/dropdown-menu";
+import { Image } from "expo-image";
 import { Cog } from "lucide-react-native";
 import { useState } from "react";
-import { Image, Linking, Platform, Pressable, View } from "react-native";
+import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -12,8 +13,10 @@ import {
   ContentWarnings,
   formatHandle,
   formatHandleWithAt,
-  useAvatars,
-  useLivestreamInfo,
+  useAuthor,
+  useAvatar,
+  useStreamplaceStore,
+  useTitle,
   zero,
 } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
@@ -46,7 +49,11 @@ export function ContextMenu({
   const th = useTheme();
   const quality = usePlayerStore((x) => x.selectedRendition);
   const setQuality = usePlayerStore((x) => x.setSelectedRendition);
-  const qualities = useLivestreamStore((x) => x.renditions);
+  const mode = usePlayerStore((x) => x.mode);
+  const vodLevels = usePlayerStore((x) => x.vodLevels);
+  const playingVODRendition = usePlayerStore((x) => x.playingVODRendition);
+  const liveRenditions = useLivestreamStore((x) => x.renditions);
+  const qualities = mode === "vod" ? vodLevels : liveRenditions;
 
   const protocol = usePlayerStore((x) => x.protocol);
   const setProtocol = usePlayerStore((x) => x.setProtocol);
@@ -58,10 +65,41 @@ export function ContextMenu({
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
 
-  const { profile } = useLivestreamInfo();
+  const isDevModeOn = useStreamplaceStore((x) => x.danmuUnlocked);
 
-  const avatars = useAvatars(profile?.did ? [profile?.did] : []);
-  const ls = useLivestreamStore((x) => x.livestream);
+  const latestSegment = useLivestreamStore((x) => x.segment);
+  // get highest height x width rendition for video
+  const videoRendition = latestSegment?.video?.reduce((prev, current) => {
+    const prevPixels = prev.width * prev.height;
+    const currentPixels = current.width * current.height;
+    return currentPixels > prevPixels ? current : prev;
+  }, latestSegment?.video?.[0]);
+  const highestLength = videoRendition
+    ? videoRendition.height < videoRendition.width
+      ? videoRendition.height
+      : videoRendition?.width
+    : 0;
+
+  // ugh i hate this
+  const frames = videoRendition?.framerate as
+    | { num: number; den: number }
+    | undefined;
+  let fps =
+    frames?.num && frames?.den
+      ? Math.round((frames.num / frames.den) * 100) / 100
+      : 0;
+
+  if (!isDevModeOn && latestSegment?.video?.length) {
+    fps = Math.round(fps);
+  }
+
+  const resolutionDisplay = highestLength
+    ? `(${highestLength}p${fps > 0 ? fps : ""})`
+    : "(Original Quality)";
+
+  const profile = useAuthor();
+
+  const avatar = useAvatar();
   const segment = useLivestreamStore((x) => x.segment);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -121,14 +159,14 @@ export function ContextMenu({
                 { flex: 1, minWidth: 0 },
               ]}
             >
-              {profile?.did && avatars[profile?.did]?.avatar && (
+              {avatar && (
                 <Image
                   key="avatar"
                   source={{
-                    uri: avatars[profile?.did]?.avatar,
+                    uri: avatar,
                   }}
                   style={{ width: 42, height: 42, borderRadius: 999 }}
-                  resizeMode="cover"
+                  contentFit="cover"
                 />
               )}
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -159,7 +197,7 @@ export function ContextMenu({
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
-                  {ls?.record.title || "Stream Title"}
+                  {useTitle()}
                 </Text>
               </View>
             </View>
@@ -215,8 +253,14 @@ export function ContextMenu({
               >
                 <Text>Quality</Text>
                 <Text muted size={isMobile ? "base" : "sm"}>
-                  {quality === "source" ? "Source" : quality},{" "}
-                  {lowLatency ? "Low Latency" : ""}
+                  {quality === "source"
+                    ? mode === "vod"
+                      ? `Auto${playingVODRendition ? ` (${playingVODRendition})` : ""}\n`
+                      : `Source${resolutionDisplay ? " " + resolutionDisplay + "\n" : ", "}`
+                    : quality === "audio"
+                      ? `Audio Only\n`
+                      : quality}
+                  {mode !== "vod" && lowLatency ? "Low Latency" : ""}
                 </Text>
               </View>
             </DropdownMenuSubTrigger>
@@ -227,24 +271,28 @@ export function ContextMenu({
                   onValueChange={setQuality}
                 >
                   <DropdownMenuRadioItem value="source">
-                    <Text>Source (Original Quality)</Text>
+                    <Text>Source {resolutionDisplay}</Text>
                   </DropdownMenuRadioItem>
                   {qualities.map((r) => (
                     <DropdownMenuRadioItem key={r.name} value={r.name}>
-                      <Text>{r.name}</Text>
+                      <Text>{r.name === "audio" ? "Audio Only" : r.name}</Text>
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuGroup>
-              <DropdownMenuGroup>
-                <DropdownMenuCheckboxItem
-                  checked={lowLatency}
-                  onCheckedChange={() => setLowLatency(!lowLatency)}
-                >
-                  <Text>Low Latency</Text>
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuGroup>
-              <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
+              {mode !== "vod" && (
+                <>
+                  <DropdownMenuGroup>
+                    <DropdownMenuCheckboxItem
+                      checked={lowLatency}
+                      onCheckedChange={() => setLowLatency(!lowLatency)}
+                    >
+                      <Text>Low Latency</Text>
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuInfo description="Reduces the delay between video and chat for a more real-time experience." />
+                </>
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         </DropdownMenuGroup>

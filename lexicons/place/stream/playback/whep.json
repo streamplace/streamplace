@@ -1,0 +1,36 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.playback.whep",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Play a stream over WebRTC using WHEP.",
+      "parameters": {
+        "type": "params",
+        "required": ["streamer", "rendition"],
+        "properties": {
+          "streamer": {
+            "type": "string",
+            "description": "The DID of the streamer to play."
+          },
+          "rendition": {
+            "type": "string",
+            "description": "The rendition of the stream to play."
+          }
+        }
+      },
+      "input": {
+        "encoding": "*/*"
+      },
+      "output": {
+        "encoding": "*/*"
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "This user may not play this stream."
+        }
+      ]
+    }
+  }
+}

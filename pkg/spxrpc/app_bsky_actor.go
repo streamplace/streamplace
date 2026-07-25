@@ -2,31 +2,61 @@ package spxrpc
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
-	appbskytypes "github.com/bluesky-social/indigo/api/bsky"
-	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	appbskytypes "stream.place/streamplace/pkg/appbsky"
 )
 
+func bskyCDNURL(kind, did, cid string) *string {
+	ret := fmt.Sprintf("https://cdn.bsky.app/img/%s/plain/%s/%s@jpeg", kind, did, cid)
+	return &ret
+}
+
 func (s *Server) handleAppBskyActorGetProfile(ctx context.Context, actor string) (*appbskytypes.ActorDefs_ProfileViewDetailed, error) {
-	session, client := oatproxy.GetOAuthSession(ctx)
+	session, _ := oatproxy.GetOAuthSession(ctx)
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session not found")
 	}
 
-	// in case the end user doesn't have a default fallback client in the pds
-	client.SetHeaders(map[string]string{
-		"Atproto-Proxy": "did:web:api.bsky.app#bsky_appview",
-	})
-
-	// brief check to make sure we can actually do stuff
-	var out appbskytypes.ActorDefs_ProfileViewDetailed
-	err := client.Do(ctx, xrpc.Query, "application/json", "app.bsky.actor.getProfile", map[string]any{"actor": actor}, nil, &out)
+	repo, err := s.ATSync.SyncBlueskyRepoCached(ctx, actor)
 	if err != nil {
 		return nil, err
 	}
 
-	return &out, nil
+	if session.DID != repo.DID {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "this endpoint only implemented for the current user")
+	}
+
+	profile, err := s.model.GetBskyProfile(ctx, repo.DID, false)
+	if err != nil {
+		return nil, err
+	}
+
+	// user valid but we couldn't find their bsky profile, return a minimum thing
+	if profile == nil {
+		return &appbskytypes.ActorDefs_ProfileViewDetailed{
+			Did:    repo.DID,
+			Handle: repo.Handle,
+		}, nil
+	}
+
+	out := &appbskytypes.ActorDefs_ProfileViewDetailed{
+		Did:         repo.DID,
+		Handle:      repo.Handle,
+		DisplayName: profile.DisplayName,
+		Description: profile.Description,
+	}
+
+	if profile.Banner != nil {
+		out.Banner = bskyCDNURL("banner", repo.DID, profile.Banner.Ref.String())
+	}
+
+	if profile.Avatar != nil {
+		out.Avatar = bskyCDNURL("avatar", repo.DID, profile.Avatar.Ref.String())
+	}
+
+	return out, nil
 }

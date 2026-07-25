@@ -1,5 +1,6 @@
 import { Text } from "@streamplace/components";
-import { Image, View } from "react-native";
+import { Image } from "expo-image";
+import { View } from "react-native";
 
 interface UserAvatarProps {
   src?: string | null;
@@ -34,7 +35,7 @@ export function UserAvatar({
           source={{ uri: src }}
           style={{ width: "100%", height: "100%" }}
           accessibilityLabel="User avatar"
-          resizeMode="cover"
+          contentFit="cover"
         />
       ) : (
         <Text style={[{ fontSize: size * 0.5, color: "#fff" }]}>🐟</Text>

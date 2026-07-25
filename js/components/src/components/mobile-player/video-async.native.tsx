@@ -40,8 +40,11 @@ export default function VideoNative(props?: {
   objectFit?: "contain" | "cover";
   pictureInPictureEnabled?: boolean;
 }) {
-  const protocol = usePlayerStore((x) => x.protocol);
+  const inProto = usePlayerStore((x) => x.protocol);
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+  const src = usePlayerStore((x) => x.src);
   const ingest = usePlayerStore((x) => x.ingestConnectionState) != null;
+  const { protocol } = srcToUrl({ src, selectedRendition }, inProto);
 
   return (
     <View>
@@ -68,6 +71,7 @@ export function NativeVideo(props?: {
 }) {
   const videoRef = useRef<VideoView | null>(null);
   const protocol = usePlayerStore((x) => x.protocol);
+  const mode = usePlayerStore((x) => x.mode);
 
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
@@ -76,12 +80,19 @@ export function NativeVideo(props?: {
   const muted = useMuted();
   const volume = useEffectiveVolume();
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
-  const fullscreen = usePlayerStore((x) => x.fullscreen);
   const playerEvent = usePlayerStore((x) => x.playerEvent);
   const spurl = useStreamplaceStore((x) => x.url);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
   const setPlayerHeight = usePlayerStore((x) => x.setPlayerHeight);
+  const setPlayTime = usePlayerStore((x) => x.setPlayTime);
+  const setDuration = usePlayerStore((x) => x.setDuration);
+  const setBufferedEnd = usePlayerStore((x) => x.setBufferedEnd);
+  const playTime = usePlayerStore((x) => x.playTime);
+  const setTogglePlayPause = usePlayerStore((x) => x.setTogglePlayPause);
+  const status = usePlayerStore((x) => x.status);
+  const statusRef = useRef(status);
+  const lastReportedTimeRef = useRef(0);
 
   // State for live dimensions
   const [dimensions, setDimensions] = useState<{
@@ -91,6 +102,9 @@ export function NativeVideo(props?: {
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
+    if (dimensions.width === width && dimensions.height === height) {
+      return;
+    }
     setDimensions({ width, height });
     setPlayerWidth(width);
     setPlayerHeight(height);
@@ -102,16 +116,15 @@ export function NativeVideo(props?: {
     };
   }, [setStatus]);
 
-  const player = useVideoPlayer(url, (player) => {
-    player.addListener("playingChange", (newIsPlaying) => {
-      console.log("playingChange", newIsPlaying);
-      if (newIsPlaying) {
+  const player = useVideoPlayer({ uri: url, contentType: "hls" }, (player) => {
+    player.addListener("playingChange", ({ isPlaying }) => {
+      if (isPlaying) {
         setStatus(PlayerStatus.PLAYING);
       } else {
         setStatus(PlayerStatus.WAITING);
       }
     });
-    player.loop = true;
+    player.loop = mode !== "vod";
     player.muted = muted;
     player.play();
   });
@@ -123,6 +136,51 @@ export function NativeVideo(props?: {
   useEffect(() => {
     player.volume = volume;
   }, [volume, player]);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
+    player.loop = mode !== "vod";
+  }, [player, mode]);
+
+  useEffect(() => {
+    setTogglePlayPause(() => {
+      if (statusRef.current === PlayerStatus.PLAYING) {
+        player.pause();
+      } else {
+        player.play();
+      }
+    });
+    return () => setTogglePlayPause(() => {});
+  }, [player, setTogglePlayPause]);
+
+  useEffect(() => {
+    if (mode !== "vod") return;
+    const interval = setInterval(() => {
+      const currentTime = player.currentTime;
+      const duration = player.duration;
+      lastReportedTimeRef.current = currentTime;
+      setPlayTime(currentTime);
+      if (isFinite(duration) && duration > 0) {
+        setDuration(duration);
+      }
+      const buffered = (player as any).bufferedPosition;
+      if (typeof buffered === "number" && buffered > 0) {
+        setBufferedEnd(buffered);
+      }
+    }, 250);
+    return () => clearInterval(interval);
+  }, [mode, player, setPlayTime, setDuration, setBufferedEnd]);
+
+  useEffect(() => {
+    if (mode !== "vod") return;
+    const diff = Math.abs(playTime - lastReportedTimeRef.current);
+    if (diff > 1.0) {
+      player.seekBy(playTime - player.currentTime);
+    }
+  }, [playTime, mode, player]);
 
   useEffect(() => {
     const subs = (
@@ -138,14 +196,16 @@ export function NativeVideo(props?: {
       return player.addListener(evType, (...args) => {
         const now = new Date();
         console.log("video native event", evType);
+        if (evType === "statusChange") {
+          console.log("player.status", ...args, { url });
+        }
         playerEvent(spurl, now.toISOString(), evType, { args: args });
       });
     });
 
     subs.push(
-      player.addListener("playingChange", (newIsPlaying) => {
-        console.log("playingChange", newIsPlaying);
-        if (newIsPlaying) {
+      player.addListener("playingChange", ({ isPlaying }) => {
+        if (isPlaying) {
           setStatus(PlayerStatus.PLAYING);
         } else {
           setStatus(PlayerStatus.WAITING);
@@ -165,8 +225,9 @@ export function NativeVideo(props?: {
       <VideoView
         ref={videoRef}
         player={player}
-        allowsFullscreen
-        nativeControls={fullscreen}
+        // Always off — we render our own controls (MobileUi / DesktopUi). Even
+        // briefly enabling them flashes expo-video's native control overlay.
+        nativeControls={false}
         onFullscreenEnter={() => {
           setFullscreen(true);
         }}
@@ -175,6 +236,11 @@ export function NativeVideo(props?: {
         }}
         allowsPictureInPicture={props?.pictureInPictureEnabled !== false}
         onLayout={handleLayout}
+        style={{
+          minWidth: "100%",
+          minHeight: "100%",
+          flex: 1,
+        }}
       />
     </>
   );
@@ -186,11 +252,7 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const { url } = srcToUrl(
-    { src: src, selectedRendition },
-    PlayerProtocol.WEBRTC,
-  );
-  const [stream, stuck] = useWebRTC(url);
+  const [stream, stuck] = useWebRTC(src);
   const status = usePlayerStore((x) => x.status);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);
@@ -285,9 +347,9 @@ export function NativeWHEP(props?: {
 export function NativeIngestPlayer(props?: {
   objectFit?: "contain" | "cover";
 }) {
-  const ingestStarting = useIngestPlayerStore((x) => x.ingestStarting);
   const ingestMediaSource = useIngestPlayerStore((x) => x.ingestMediaSource);
   const ingestAutoStart = useIngestPlayerStore((x) => x.ingestAutoStart);
+  const setIngestLive = useIngestPlayerStore((x) => x.setIngestLive);
   const setStatus = useIngestPlayerStore((x) => x.setStatus);
   const setVideoRef = usePlayerStore((x) => x.setVideoRef);
 
@@ -315,10 +377,13 @@ export function NativeIngestPlayer(props?: {
   const localMediaStream = lms;
 
   useEffect(() => {
+    let acquiredStream: WebRTCMediaStream | null = null;
+
     if (ingestMediaSource === IngestMediaSource.DISPLAY) {
       mediaDevices
         .getDisplayMedia()
         .then((stream: WebRTCMediaStream) => {
+          acquiredStream = stream;
           console.log("display media", stream);
           setLocalMediaStream(stream);
         })
@@ -344,6 +409,7 @@ export function NativeIngestPlayer(props?: {
           },
         })
         .then((stream: WebRTCMediaStream) => {
+          acquiredStream = stream;
           setLocalMediaStream(stream);
 
           let errs: string[] = [];
@@ -374,20 +440,29 @@ export function NativeIngestPlayer(props?: {
           );
         });
     }
+
+    return () => {
+      if (acquiredStream) {
+        acquiredStream.getTracks().forEach((track) => track.stop());
+      }
+      setLocalMediaStream(null);
+    };
   }, [ingestMediaSource, ingestCamera]);
 
   useEffect(() => {
-    if (!ingestStarting && !ingestAutoStart) {
-      setRemoteMediaStream(null);
-      return;
+    if (localMediaStream) {
+      setIngestLive(true);
     }
+  }, [localMediaStream]);
+
+  useEffect(() => {
     if (!localMediaStream) {
       return;
     }
     console.log("setting remote media stream", localMediaStream);
     // @ts-expect-error: WebRTCMediaStream may not have all MediaStream properties, but is compatible for our use
     setRemoteMediaStream(localMediaStream);
-  }, [localMediaStream, ingestStarting, ingestAutoStart, setRemoteMediaStream]);
+  }, [localMediaStream, ingestAutoStart, setRemoteMediaStream]);
 
   if (!localMediaStream) {
     return null;

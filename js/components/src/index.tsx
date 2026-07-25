@@ -6,6 +6,10 @@ export * from "./livestream-store";
 export * from "./player-store";
 export * from "./streamplace-provider";
 export * from "./streamplace-store";
+export * from "./video-provider";
+export * from "./video-store";
+
+export { ErrorBoundary } from "./components/error-boundary";
 
 export {
   PlayerProvider,
@@ -70,3 +74,18 @@ export type { AQStorage } from "./storage/storage.shared";
 
 // Content metadata components
 export * from "./components/content-metadata";
+
+// Shared metadata constants
+export {
+  ACTIVITY_LABELS,
+  ACTIVITY_LABEL_DISPLAY,
+  formatActivity,
+} from "./lib/metadata-constants";
+
+// VOD components and interaction hooks
+export * from "./components/vod/like-button";
+export * from "./components/vod/vod-comments";
+export * from "./components/vod/vod-mobile-metadata";
+export * from "./components/vod/vod-player";
+export * from "./components/vod/vod-section";
+export * from "./vod-store/vod-interactions";

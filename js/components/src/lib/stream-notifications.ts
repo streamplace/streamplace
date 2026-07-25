@@ -1,8 +1,36 @@
 import React from "react";
+import { PinnedRecordViewHydrated } from "streamplace";
 import { streamNotification } from "../components/stream-notification";
+import { PinnedCommentNotification } from "../components/stream-notification/pin-notification";
 import { TeleportNotification } from "../components/stream-notification/teleport-notification";
 
 export const StreamNotifications = {
+  pinnedComment: (params: {
+    pinnedComment: PinnedRecordViewHydrated;
+    onDismiss?: (reason?: "user" | "auto") => void;
+    onUnpin?: () => void;
+  }) => {
+    streamNotification.show({
+      id: "pinned-comment",
+      render: (isExiting, onDismiss) => {
+        return React.createElement(PinnedCommentNotification, {
+          pinnedComment: params.pinnedComment,
+          onDismiss: () => onDismiss("user"),
+          onUnpin: () => {
+            params.onUnpin?.();
+            onDismiss("user");
+          },
+        });
+      },
+      duration: 0, // manually dismissed or auto-dismissed by TTL
+      onDismiss: params.onDismiss,
+    });
+  },
+
+  pinnedCommentDismiss: () => {
+    streamNotification.hide("pinned-comment");
+  },
+
   teleport: (params: {
     targetHandle: string;
     targetDID: string;

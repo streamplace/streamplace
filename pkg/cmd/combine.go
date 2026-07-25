@@ -12,61 +12,45 @@ import (
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/muxl"
 )
 
-func Combine(ctx context.Context, build *config.BuildFlags, allArgs []string) error {
+func Combine(ctx context.Context, cli *config.CLI, debugDir string, outFile string, inputs []string) error {
 	gstinit.InitGST()
-	cli := &config.CLI{Build: build}
-	fs := cli.NewFlagSet("streamplace combine")
-	debugDir := fs.String("debug-dir", "", "directory to write debug files to")
 
-	err := cli.Parse(fs, allArgs)
-	if err != nil {
-		return err
-	}
-	if *debugDir != "" {
-		err := os.MkdirAll(*debugDir, 0755)
+	if debugDir != "" {
+		err := os.MkdirAll(debugDir, 0755)
 		if err != nil {
 			return fmt.Errorf("failed to create debug directory: %w", err)
 		}
 	}
-	log.Debug(context.Background(), "combine command: starting", "args", fs.Args())
 	ctx = log.WithDebugValue(ctx, cli.Debug)
-	cryptoSigner, err := createSigner(ctx, cli)
-	if err != nil {
-		return err
-	}
-	ms, err := media.MakeMediaSigner(ctx, cli, "combine", cryptoSigner, nil)
-	if err != nil {
-		return err
-	}
-	args := fs.Args()
-	outFile := args[0]
-	inputs := args[1:]
 	log.Log(ctx, "combining segments", "outFile", outFile, "inputs", inputs)
+
 	outFd, err := os.Create(outFile)
 	if err != nil {
 		return err
 	}
 	defer outFd.Close()
-	inputFds := make([]io.ReadSeeker, len(inputs))
-	for i, input := range inputs {
+
+	readers := make([]io.Reader, 0, len(inputs))
+	for _, input := range inputs {
 		fd, err := os.Open(input)
 		if err != nil {
 			return err
 		}
 		defer fd.Close()
-		inputFds[i] = fd
+		readers = append(readers, fd)
 	}
-	err = media.CombineSegments(ctx, inputFds, ms, outFd)
-	if err != nil {
-		return err
+
+	// Inputs are canonical MUXL segments; concatenated they wrap straight into
+	// a flat MP4 — one synthesized ftyp+moov over every segment, each segment's
+	// signature preserved verbatim. No remux, no re-signing.
+	if err := muxl.RunMuxlWrap(ctx, io.MultiReader(readers...), "flat", outFd); err != nil {
+		return fmt.Errorf("failed to combine segments: %w", err)
 	}
-	err = CheckCombined(ctx, cli, outFd, *debugDir)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return CheckCombined(ctx, cli, outFd, debugDir)
 }
 
 func CheckCombined(ctx context.Context, cli *config.CLI, inFD io.ReadWriteSeeker, debugDir string) error {

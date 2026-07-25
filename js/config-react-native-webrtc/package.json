@@ -1,6 +1,6 @@
 {
   "name": "@streamplace/config-react-native-webrtc",
-  "version": "0.9.0",
+  "version": "0.11.0",
   "description": "react-native-webrtc config mod with some changes to make it useful for streamplace",
   "scripts": {
     "prepare": "tsc -p tsconfig.json",
@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "10.0.0",
-    "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#6b8472a771ac47f89217d327058a8a4124a6ae56",
+    "react-native-webrtc": "git+https://github.com/streamplace/react-native-webrtc.git#74fa32266e3a2fee180f5e01bb8753af2a92d9d3",
     "rtcaudiodevice": "git+https://github.com/streamplace/RTCAudioDevice.git#918e08a0f6f0818fb495a0db0b696b44d11d1336"
   },
   "devDependencies": {

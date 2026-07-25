@@ -1,6 +1,6 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
-import { PlaceStreamChatProfile, PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
@@ -27,9 +27,9 @@ export interface ContentMetadataResult {
 
 export interface StreamplaceState {
   url: string;
-  liveUsers: PlaceStreamLivestream.LivestreamView[] | null;
+  liveUsers: place.stream.livestream.LivestreamView[] | null;
   setLiveUsers: (opts: {
-    liveUsers?: PlaceStreamLivestream.LivestreamView[];
+    liveUsers?: place.stream.livestream.LivestreamView[];
     liveUsersLoading?: boolean;
     liveUsersError?: string | null;
     liveUsersRefresh?: number;
@@ -39,7 +39,10 @@ export interface StreamplaceState {
   liveUsersError: string | null;
   oauthSession: SessionManager | null | undefined;
   handle: string | null;
-  chatProfile: PlaceStreamChatProfile.Record | null;
+  chatProfile: place.stream.chat.profile.Main | null;
+
+  ingests: place.stream.ingest.defs.Ingest[] | null;
+  setIngests: (ingests: place.stream.ingest.defs.Ingest[] | null) => void;
 
   // Content metadata state
   contentMetadata: ContentMetadataResult | null;
@@ -51,6 +54,12 @@ export interface StreamplaceState {
   setServerDID: (serverDID: string | null) => void;
   adminDIDs: string[];
   setAdminDIDs: (adminDIDs: string[]) => void;
+
+  playbackWorkerUrl: string | null;
+  setPlaybackWorkerUrl: (url: string | null) => void;
+
+  gamesEnabled: boolean;
+  setGamesEnabled: (enabled: boolean) => void;
 
   // Branding state
   branding: Record<string, BrandingAsset> | null;
@@ -98,7 +107,7 @@ export const makeStreamplaceStore = ({
     url,
     liveUsers: null,
     setLiveUsers: (opts: {
-      liveUsers?: PlaceStreamLivestream.LivestreamView[];
+      liveUsers?: place.stream.livestream.LivestreamView[];
       liveUsersLoading?: boolean;
       liveUsersError?: string | null;
       liveUsersRefresh?: number;
@@ -113,7 +122,9 @@ export const makeStreamplaceStore = ({
     oauthSession: null,
     handle: null,
     chatProfile: null,
-
+    ingests: null,
+    setIngests: (ingests: place.stream.ingest.defs.Ingest[] | null) =>
+      set({ ingests: ingests }),
     broadcasterDID: null,
     setBroadcasterDID: (broadcasterDID: string | null) =>
       set({ broadcasterDID }),
@@ -121,6 +132,13 @@ export const makeStreamplaceStore = ({
     setServerDID: (serverDID: string | null) => set({ serverDID }),
     adminDIDs: [],
     setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
+
+    playbackWorkerUrl: null,
+    setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>
+      set({ playbackWorkerUrl }),
+
+    gamesEnabled: false,
+    setGamesEnabled: (gamesEnabled: boolean) => set({ gamesEnabled }),
 
     // Content metadata
     contentMetadata: null,
@@ -409,5 +427,3 @@ export const useDanmuSettings = () => {
     setDanmuMaxMessages,
   };
 };
-
-export { useCreateStreamRecord, useUpdateStreamRecord } from "./stream";

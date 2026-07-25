@@ -1,0 +1,54 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.game.search",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Search for games and other entities via the games.gamesgamesgamesgames catalog. Proxied from the configured games API.",
+      "parameters": {
+        "type": "params",
+        "required": ["q"],
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["results"],
+          "properties": {
+            "cursor": { "type": "string" },
+            "totalResults": { "type": "integer" },
+            "results": {
+              "type": "array",
+              "items": {
+                "type": "union",
+                "refs": [
+                  "games.gamesgamesgamesgames.defs#gameSummaryView",
+                  "games.gamesgamesgamesgames.defs#profileSummaryView",
+                  "games.gamesgamesgamesgames.defs#platformSummaryView",
+                  "games.gamesgamesgamesgames.defs#collectionSummaryView",
+                  "games.gamesgamesgamesgames.defs#engineSummaryView"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

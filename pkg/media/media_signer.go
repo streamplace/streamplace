@@ -6,35 +6,45 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"stream.place/streamplace/pkg/aqio"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
-	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
-	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/spmetrics"
+	"stream.place/streamplace/pkg/muxl"
 )
 
+var signerTracer = otel.Tracer("signer")
+
 type MediaSigner interface {
-	SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error)
+	// SignSegmentStream streams an fMP4 input through muxl-sign's per-segment
+	// signer, emitting one signed-segment event per GoP on eventCh. The
+	// segment bytes routed in each event are bare canonical .m4s
+	// ([c2pa-uuid][muxl-uuid][moof][mdat] per track) — no flat wrapper.
+	SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error
 	Pub() aqpub.Pub
 	Streamer() string
 	DID() string
-	SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error
 }
 
 var DoReplay = false
+
+// Manifester builds the C2PA manifest JSON SignSegmentStream embeds in each
+// signed GoP. Production uses *ManifestBuilder (model-driven); tests can plug
+// in a stub to drive mid-stream manifest changes.
+type Manifester interface {
+	BuildManifest(ctx context.Context, streamerName string, start int64) ([]byte, error)
+}
 
 type MediaSignerLocal struct {
 	StreamerName     string
@@ -43,7 +53,7 @@ type MediaSignerLocal struct {
 	Cert             []byte
 	TAURL            string
 	did              string
-	manifestBuilder  *ManifestBuilder
+	manifestBuilder  Manifester
 	PrebuiltManifest []byte // Optional: use this manifest instead of building one
 	sigs             [][]byte
 }
@@ -78,7 +88,7 @@ func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, sign
 		TAURL:           cli.TAURL,
 		AQPub:           pub,
 		did:             did.DIDKey(),
-		manifestBuilder: NewManifestBuilder(model),
+		manifestBuilder: NewManifestBuilder(model, cli),
 	}, nil
 }
 
@@ -86,174 +96,91 @@ func (ms *MediaSignerLocal) Streamer() string {
 	return ms.StreamerName
 }
 
-func (ms *MediaSignerLocal) SignMP4(ctx context.Context, input io.ReadSeeker, start int64) ([]byte, error) {
-	startTime := time.Now()
-	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
-	defer span.End()
-
-	// Build manifest with metadata from database
-	var manifestBs []byte
-	var err error
-	if len(ms.PrebuiltManifest) > 0 {
-		// Use prebuilt manifest (from external signing subprocess)
-		manifestBs = ms.PrebuiltManifest
-		log.Debug(ctx, "SignMP4: using prebuilt manifest", "manifestLength", len(manifestBs))
-	} else if ms.manifestBuilder != nil {
-		ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_BuildManifest")
-		manifestBs, err = ms.manifestBuilder.BuildManifest(ctx, ms.StreamerName, start)
-		if err != nil {
-			span.End()
-			return nil, fmt.Errorf("failed to build manifest: %w", err)
-		}
-		span.End()
-	} else {
-		// This should NOT happen in production - manifestBuilder should always be initialized
-		log.Warn(ctx, "SignMP4: manifestBuilder is nil, using fallback manifest - this indicates model was not passed to MakeMediaSigner", "streamer", ms.StreamerName)
-		// Fallback to basic manifest without metadata
-		ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_BasicManifest")
+// buildManifest produces the C2PA manifest JSON for this signer: a prebuilt
+// manifest if set, else the model-driven ManifestBuilder, else a minimal
+// fallback. `start` seeds the cawg.metadata/dc:date — for the streaming
+// signer that's a stream-level placeholder the wasm overwrites per segment.
+func (ms *MediaSignerLocal) buildManifest(ctx context.Context, start int64) ([]byte, error) {
+	switch {
+	case len(ms.PrebuiltManifest) > 0:
+		return ms.PrebuiltManifest, nil
+	case ms.manifestBuilder != nil:
+		return ms.manifestBuilder.BuildManifest(ctx, ms.StreamerName, start)
+	default:
+		log.Warn(ctx, "manifestBuilder is nil, using fallback manifest - this indicates model was not passed to MakeMediaSigner", "streamer", ms.StreamerName)
 		title := "livestream"
-		startTime := aqtime.FromMillis(start).String()
+		ts := aqtime.FromMillis(start).String()
 		mani := obj{
-			"title": fmt.Sprintf("Livestream Segment at %s", startTime),
+			"title": fmt.Sprintf("Livestream Segment at %s", ts),
 			"assertions": []obj{
 				{
 					"label": "c2pa.actions",
 					"data": obj{
 						"actions": []obj{
-							{
-								"action": "c2pa.created",
-								"when":   startTime,
-							},
-							{
-								"action": "c2pa.published",
-								"when":   startTime,
-							},
+							{"action": "c2pa.created", "when": ts},
+							{"action": "c2pa.published", "when": ts},
 						},
 					},
 				},
 				{
 					"label": "cawg.metadata",
 					"data": obj{
-						"@context": obj{
-							"dc": "http://purl.org/dc/elements/1.1/",
-						},
+						"@context":   obj{"dc": "http://purl.org/dc/elements/1.1/"},
 						"dc:creator": ms.StreamerName,
 						"dc:title":   title,
-						"dc:date":    startTime,
+						"dc:date":    ts,
 					},
 				},
 			},
 		}
-		manifestBs, err = json.Marshal(mani)
-		if err != nil {
-			span.End()
-			return nil, fmt.Errorf("failed to marshal basic manifest: %w", err)
-		}
-		span.End()
+		return json.Marshal(mani)
 	}
-
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
-	var manifest c2patypes.ManifestDefinition
-	err = json.Unmarshal(manifestBs, &manifest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal manifest: %w", err)
-	}
-	span.End()
-
-	bs, err := io.ReadAll(input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read input: %w", err)
-	}
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
-	rustCallbackSigner := &RustCallbackSigner{
-		Signer: ms.Signer,
-	}
-	bs, err = iroh_streamplace.Sign(string(manifestBs), c2patypes.NewReader(aqio.NewReadWriteSeeker(bs)), base64.StdEncoding.EncodeToString(ms.Cert), rustCallbackSigner)
-	if err != nil {
-		return nil, err
-	}
-	span.End()
-
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
-	defer ctx.Done()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get output bytes: %w", err)
-	}
-	span.End()
-	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return bs, nil
 }
 
-func (ms *MediaSignerLocal) SignConcatMP4(ctx context.Context, input io.ReadSeeker, ingredients []io.ReadSeeker, output io.ReadWriteSeeker) error {
-	startTime := time.Now()
-	ctx, span := otel.Tracer("signer").Start(ctx, "SignMP4")
+// SignSegmentStream streams an fMP4 input through muxl-sign's per-segment
+// signer, emitting one signed-segment event per GoP on eventCh.
+//
+// The manifest is fetched FRESH from buildManifest once per GoP via muxl's
+// host_get_manifest callback, so connection-lifetime fields (livestream
+// EndedAt → c2pa.published, title, metadata config) update mid-stream without
+// needing to terminate the RTMP session. Before this, the manifest was sealed
+// at connection start and a pre-live → live transition stayed invisible until
+// the streamer reconnected.
+//
+// muxl-sign stamps each segment's signing time into cawg.metadata/dc:date as
+// it signs. Signing backend: an *ecdsa.PrivateKey is marshaled to PEM and
+// signed in-wasm, otherwise the host-callback path keeps the key out of the
+// sandbox.
+func (ms *MediaSignerLocal) SignSegmentStream(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error {
+	ctx, span := signerTracer.Start(ctx, "SignSegmentStream", trace.WithAttributes(
+		attribute.String("streamer", ms.StreamerName),
+	))
 	defer span.End()
-	// for _, ingredient := range ingredients {
-	// 	_, err := iroh_streamplace.GetManifestAndCert(c2patypes.NewReader(aqio.NewReadWriteSeeker(ingredient)))
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-	// title := "livestream"
-	mani := obj{
-		"title": "Livestream Clip",
-		// "assertions": []obj{
-		// 	{
-		// 		"label": "c2pa.actions",
-		// 		"data": obj{
-		// 			"actions": []obj{
-		// 				{"action": "c2pa.created"},
-		// 				{"action": "c2pa.published"},
-		// 			},
-		// 		},
-		// 	},
-		// 	{
-		// 		"label": StreamplaceMetadata,
-		// 		"data": obj{
-		// 			"@context": obj{
-		// 				"dc": "http://purl.org/dc/elements/1.1/",
-		// 			},
-		// 			"dc:creator": ms.StreamerName,
-		// 			"dc:title":   []string{title},
-		// 			"dc:date":    []string{aqtime.FromMillis(start).String()},
-		// 		},
-		// 	},
-		// },
-	}
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_MarshalManifest")
-	manifestBs, err := json.Marshal(mani)
-	if err != nil {
-		return fmt.Errorf("failed to marshal manifest: %w", err)
-	}
-	var manifest c2patypes.ManifestDefinition
-	err = json.Unmarshal(manifestBs, &manifest)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal manifest: %w", err)
-	}
-	span.End()
 
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_Sign")
-	rustCallbackSigner := &RustCallbackSigner{
-		Signer: ms.Signer,
+	// One callback shared by both kinds — track and wrapper manifests are the
+	// same JSON in Streamplace today, so a single buildManifest call per GoP
+	// covers both. If they ever diverge we split this in two.
+	fetchManifest := func() ([]byte, error) {
+		return ms.buildManifest(ctx, time.Now().UnixMilli())
 	}
-	many := c2patypes.NewManyStreams()
-	for _, ingredient := range ingredients {
-		many.AddStream(ingredient)
+	in := muxl.SignerInput{
+		CertPEM:           ms.Cert,
+		TrackManifestFn:   fetchManifest,
+		WrapperManifestFn: fetchManifest,
 	}
-	err = iroh_streamplace.SignWithIngredients(string(manifestBs), c2patypes.NewReader(input), base64.StdEncoding.EncodeToString(ms.Cert), many, rustCallbackSigner, c2patypes.NewWriter(output))
-	if err != nil {
-		return err
+	if _, ok := ms.Signer.(*ecdsa.PrivateKey); ok {
+		keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
+		if err != nil {
+			return fmt.Errorf("failed to marshal signing key: %w", err)
+		}
+		in.KeyPEM = keyPEM
+		span.SetAttributes(attribute.String("backend", "pem"))
+	} else {
+		in.Sign = muxl.SignerToCallback(ms.Signer, 32)
+		span.SetAttributes(attribute.String("backend", "host-callback"))
 	}
-	span.End()
 
-	ctx, span = otel.Tracer("signer").Start(ctx, "SignMP4_OutputBytes")
-	defer ctx.Done()
-	if err != nil {
-		return fmt.Errorf("failed to get output bytes: %w", err)
-	}
-	span.End()
-	spmetrics.SigningDuration.WithLabelValues(ms.StreamerName).Observe(float64(time.Since(startTime).Milliseconds()))
-	return nil
+	return muxl.RunMuxlSignSegment(ctx, input, in, nil, nil, eventCh)
 }
 
 // don't call externally! this is used as a callback for the rust library

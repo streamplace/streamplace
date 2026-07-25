@@ -1,7 +1,11 @@
 package bus
 
 import (
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
 type Message any
@@ -24,6 +28,11 @@ type Bus struct {
 	viewerCounts             map[string]map[string]int
 	viewerCountsMutex        sync.RWMutex
 	viewerCountSubscriptions []chan ViewerCountUpdate
+
+	// federatedViewCounts stores reported view counts from remote servers.
+	// Key: "{streamerDID}:{serverDID}", Value: int (count).
+	// 2min TTL so stale servers drop off (records update every ~30s).
+	federatedViewCounts *cache.Cache
 }
 
 func NewBus() *Bus {
@@ -33,6 +42,7 @@ func NewBus() *Bus {
 		segBuf:                   make(map[string][]*Seg),
 		viewerCounts:             make(map[string]map[string]int),
 		viewerCountSubscriptions: []chan ViewerCountUpdate{},
+		federatedViewCounts:      cache.New(2*time.Minute, 4*time.Minute),
 	}
 }
 
@@ -95,15 +105,30 @@ func (b *Bus) Publish(user string, msg Message) {
 func (b *Bus) GetViewerCount(user string) int {
 	b.viewerCountsMutex.RLock()
 	defer b.viewerCountsMutex.RUnlock()
-	streamerCounts, ok := b.viewerCounts[user]
-	if !ok {
-		return 0
-	}
+	// Local viewer counts (from HLS connections on this node)
 	count := 0
-	for _, viewers := range streamerCounts {
-		count += viewers
+	if streamerCounts, ok := b.viewerCounts[user]; ok {
+		for _, viewers := range streamerCounts {
+			count += viewers
+		}
+	}
+	// Federated view counts (reported by remote servers via atproto)
+	prefix := user + ":"
+	for k, v := range b.federatedViewCounts.Items() {
+		if strings.HasPrefix(k, prefix) && !v.Expired() {
+			if c, ok := v.Object.(int); ok {
+				count += c
+			}
+		}
 	}
 	return count
+}
+
+// SetFederatedViewCount stores a view count reported by a remote server.
+// The count will expire after 2 minutes if not refreshed.
+func (b *Bus) SetFederatedViewCount(streamer string, server string, count int) {
+	key := streamer + ":" + server
+	b.federatedViewCounts.SetDefault(key, count)
 }
 
 func (b *Bus) SetViewerCount(user string, origin string, count int) {

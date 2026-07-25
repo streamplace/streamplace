@@ -2,6 +2,8 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig, passthroughImageService } from "astro/config";
 import starlightOpenAPI, { openAPISidebarGroups } from "starlight-openapi";
+import starlightSidebarSwipe from "starlight-sidebar-swipe";
+import starlightSidebarTopics from "starlight-sidebar-topics";
 
 // https://astro.build/config
 export default defineConfig({
@@ -32,9 +34,11 @@ export default defineConfig({
       },
       favicon: "/favicon.ico",
       plugins: [
+        //starlightLinksValidator(),
+        starlightSidebarSwipe(),
         starlightOpenAPI([
           {
-            base: "api",
+            base: "/api",
             label: "Related XRPC API endpoints",
             schema: "./src/content/docs/lex-reference/openapi.json", // or your json generated from swagger
             sidebar: {
@@ -45,48 +49,75 @@ export default defineConfig({
             },
           },
         ]),
-      ],
-      sidebar: [
-        { label: "← Back to Streamplace", link: "/back-to-home" },
-        {
-          label: "How Streamplace Works (Blog)",
-          link: "https://blog.stream.place/",
-          attrs: { target: "_blank" },
-        },
-        {
-          label: "Guides",
-          items: [
+        starlightSidebarTopics(
+          [
             {
-              label: "Start Streaming",
-              autogenerate: { directory: "guides/start-streaming" },
+              label: "For Streamers & Viewers",
+              link: "/",
+              icon: "open-book",
+              items: [
+                {
+                  label: "Start Streaming",
+                  autogenerate: { directory: "guides/start-streaming" },
+                },
+                {
+                  label: "Features",
+                  autogenerate: { directory: "features" },
+                },
+              ],
             },
             {
-              label: "Installing Streamplace",
-              autogenerate: { directory: "guides/installing" },
+              label: "For Developers",
+              link: "/developers/",
+              icon: "seti:config",
+              id: "developers",
+              items: [
+                {
+                  label: "Start Contributing",
+                  autogenerate: { directory: "guides/start-contributing" },
+                },
+                {
+                  label: "Installing Streamplace",
+                  autogenerate: { directory: "guides/installing" },
+                },
+                {
+                  label: "Features (Dev)",
+                  autogenerate: { directory: "features-dev" },
+                },
+                {
+                  label: "Video Metadata",
+                  autogenerate: { directory: "video-metadata" },
+                },
+                {
+                  label: "Components",
+                  autogenerate: { directory: "components" },
+                },
+                {
+                  label: "Localize Streamplace",
+                  autogenerate: { directory: "guides/localizing" },
+                },
+              ],
             },
             {
-              label: "Start Contributing",
-              autogenerate: { directory: "guides/start-contributing" },
+              label: "API Reference",
+              link: "/reference/",
+              icon: "seti:json",
+              id: "ref",
+              items: [
+                {
+                  label: "Lexicon Reference",
+                  autogenerate: { directory: "lex-reference" },
+                },
+                ...openAPISidebarGroups,
+              ],
             },
           ],
-        },
-        {
-          label: "Features",
-          autogenerate: { directory: "features" },
-        },
-        {
-          label: "Video Metadata",
-          autogenerate: { directory: "video-metadata" },
-        },
-        {
-          label: "Components",
-          autogenerate: { directory: "components" },
-        },
-        {
-          label: "Lexicon Reference",
-          autogenerate: { directory: "lex-reference" },
-        },
-        ...openAPISidebarGroups,
+          {
+            topics: {
+              ref: ["/api", "/api/**/*"],
+            },
+          },
+        ),
       ],
     }),
   ],

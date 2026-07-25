@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Block struct {
@@ -22,27 +22,23 @@ type Block struct {
 	CreatedAt  time.Time
 }
 
-func (b *Block) ToStreamplaceBlock() (*streamplace.Defs_BlockView, error) {
+func (b *Block) ToStreamplaceBlock() (placestream.Defs_BlockView, error) {
 	if b == nil {
-		return nil, fmt.Errorf("block is nil")
+		return placestream.Defs_BlockView{}, fmt.Errorf("block is nil")
 	}
 	if b.Repo == nil {
-		return nil, fmt.Errorf("block repo is nil")
+		return placestream.Defs_BlockView{}, fmt.Errorf("block repo is nil")
 	}
 	if b.Record == nil {
-		return nil, fmt.Errorf("block record is nil")
+		return placestream.Defs_BlockView{}, fmt.Errorf("block record is nil")
 	}
-	rec, err := lexutil.CborDecodeValue(b.Record)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
+	var block appbsky.GraphBlock
+	if err := glex.DecodeCBOR(b.Record, &block); err != nil {
+		return placestream.Defs_BlockView{}, fmt.Errorf("error decoding block record: %w", err)
 	}
-	block, ok := rec.(*bsky.GraphBlock)
-	if !ok {
-		return nil, fmt.Errorf("record is not a GraphBlock")
-	}
-	return &streamplace.Defs_BlockView{
+	return placestream.Defs_BlockView{
 		LexiconTypeID: "place.stream.defs#blockView",
-		Blocker: &bsky.ActorDefs_ProfileViewBasic{
+		Blocker: appbsky.ActorDefs_ProfileViewBasic{
 			Did:    b.RepoDID,
 			Handle: b.Repo.Handle,
 		},

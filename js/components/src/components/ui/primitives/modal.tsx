@@ -13,6 +13,7 @@ import {
   View,
   ViewProps,
 } from "react-native";
+import { useTheme } from "../../../lib/theme/theme";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -200,14 +201,15 @@ export interface ModalHeaderProps extends ViewProps {
 
 export const ModalHeader = forwardRef<View, ModalHeaderProps>(
   ({ children, withBorder = false, style, ...props }, ref) => {
+    const { theme } = useTheme();
+    const borderStyle = withBorder
+      ? { borderBottomWidth: 1, borderBottomColor: theme.colors.border }
+      : null;
+
     return (
       <View
         ref={ref}
-        style={[
-          primitiveStyles.header,
-          withBorder && primitiveStyles.headerBorder,
-          style,
-        ]}
+        style={[primitiveStyles.header, borderStyle, style]}
         {...props}
       >
         {children}
@@ -269,12 +271,17 @@ export const ModalFooter = forwardRef<View, ModalFooterProps>(
     },
     ref,
   ) => {
+    const { theme } = useTheme();
+    const borderStyle = withBorder
+      ? { borderTopWidth: 1, borderTopColor: theme.colors.border }
+      : null;
+
     return (
       <View
         ref={ref}
         style={[
           primitiveStyles.footer,
-          withBorder && primitiveStyles.footerBorder,
+          borderStyle,
           {
             flexDirection: direction,
             justifyContent: justify,
@@ -386,10 +393,6 @@ const primitiveStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  headerBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
   body: {
     flex: 1,
     paddingHorizontal: 16,
@@ -401,10 +404,6 @@ const primitiveStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-  },
-  footerBorder: {
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
   },
 });
 

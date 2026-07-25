@@ -5,15 +5,17 @@ import {
   useLivestream,
   useLivestreamStore,
   usePlayerStore,
+  useSegmentTiming,
   zero,
 } from "@streamplace/components";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
+import { Image } from "expo-image";
 import { Eye, EyeOff, Signal, Wifi, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Image, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { useLiveUser } from "../../hooks/useLiveUser";
-import { useSegmentTiming } from "../../hooks/useSegmentTiming";
 import StreamScreen from "./live-selector";
 
 const { flex, bg, r, borders, layout, p, text, w, h, mt } = zero;
@@ -22,6 +24,52 @@ interface StreamMonitorProps {
   userProfile?: any;
   isLive?: boolean;
   videoRef?: any;
+}
+
+function PreviewOverlay() {
+  // const opacity = useSharedValue(1);
+
+  // useEffect(() => {
+  //   opacity.value = withRepeat(withTiming(0.8, { duration: 1500 }), -1, true);
+  // }, [opacity]);
+
+  // const animatedStyle = useAnimatedStyle(() => ({
+  //   opacity: opacity.value,
+  // }));
+
+  return (
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: "flex-start",
+        alignItems: "flex-start",
+        pointerEvents: "none",
+      }}
+    >
+      <Animated.Text
+        style={[
+          // animatedStyle,
+          {
+            paddingLeft: 16,
+            paddingTop: 16,
+            fontSize: 32,
+            fontWeight: "800",
+            color: "white",
+            letterSpacing: 4,
+            textShadowColor: "rgba(0, 0, 0, 0.9)",
+            textShadowOffset: { width: 0, height: 2 },
+            textShadowRadius: 8,
+          },
+        ]}
+      >
+        PREVIEW (NOT LIVE)
+      </Animated.Text>
+    </View>
+  );
 }
 
 export default function StreamMonitor({
@@ -33,7 +81,7 @@ export default function StreamMonitor({
   const isUserLive = useLiveUser();
   const profile = useLivestreamStore((x) => x.profile);
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  const ls = useLivestream();
+  let ls = useLivestream();
   const segmentTiming = useSegmentTiming();
 
   // Use hook data primarily, fallback to props
@@ -61,6 +109,7 @@ export default function StreamMonitor({
   // Connection quality indicator
   const getConnectionIcon = () => {
     if (!isLive) return null;
+    if (!ls) return <Wifi size={16} color="#3b82f6" />;
 
     switch (segmentTiming.connectionQuality) {
       case "good":
@@ -76,6 +125,7 @@ export default function StreamMonitor({
 
   const getConnectionColor = () => {
     if (!isLive) return "red";
+    if (!ls) return "blue";
 
     switch (segmentTiming.connectionQuality) {
       case "good":
@@ -88,6 +138,39 @@ export default function StreamMonitor({
         return "red";
     }
   };
+
+  const getStreamStatus = () => {
+    if (!isLive) return "OFFLINE";
+    if (!ls) return "NOT LIVE";
+    return "LIVE";
+  };
+
+  const getStreamTitle = () => {
+    if (!ls) {
+      return (
+        <Text
+          style={[
+            text.white,
+            { fontSize: 14, fontWeight: "400", fontStyle: "italic" },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          Stream not live yet. Press "Announce Livestream" to start!
+        </Text>
+      );
+    }
+    return (
+      <Text
+        style={[text.white, { fontSize: 18, fontWeight: "600" }]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {ls?.record.title || "Stream Title"}
+      </Text>
+    );
+  };
+
   return (
     <View
       style={[
@@ -104,15 +187,20 @@ export default function StreamMonitor({
       <View style={[flex.values[1], layout.flex.center, bg.neutral[900]]}>
         {isLive && userProfile ? (
           isStreamVisible ? (
-            <Player
-              src={userProfile.did}
-              name={userProfile.handle}
-              muted={true}
+            <View
+              style={{ position: "relative", width: "100%", height: "100%" }}
             >
-              <DesktopUi />
-              <PlayerUI.ViewerLoadingOverlay />
-              <OfflineCounter isMobile={true} />
-            </Player>
+              <Player
+                src={userProfile.did}
+                name={userProfile.handle}
+                muted={true}
+              >
+                <DesktopUi />
+                <PlayerUI.ViewerLoadingOverlay />
+                <OfflineCounter isMobile={true} />
+              </Player>
+              {!ls && <PreviewOverlay />}
+            </View>
           ) : (
             <View
               style={[
@@ -122,10 +210,10 @@ export default function StreamMonitor({
             >
               <Image
                 source={{ uri: currentThumbnail || thumbnails }}
+                contentFit="contain"
                 style={{
                   width: "100%",
                   height: "100%",
-                  resizeMode: "contain",
                 }}
               />
               <View
@@ -166,15 +254,7 @@ export default function StreamMonitor({
             { flex: 1, minWidth: 0, gap: 12 },
           ]}
         >
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text
-              style={[text.white, { fontSize: 18, fontWeight: "600" }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {ls?.record.title || "Stream Title"}
-            </Text>
-          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>{getStreamTitle()}</View>
           <View
             style={[
               layout.flex.row,
@@ -209,7 +289,7 @@ export default function StreamMonitor({
               ]}
             />
             <Text style={[text.gray[400], { fontSize: 14 }]}>
-              {isLive ? "LIVE" : "OFFLINE"}
+              {getStreamStatus()}
             </Text>
           </View>
         </View>

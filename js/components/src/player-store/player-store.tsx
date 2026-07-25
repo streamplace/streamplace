@@ -3,6 +3,7 @@ import { useContext, useEffect, useState } from "react";
 import { ChatMessageViewHydrated } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import { useLivestreamStore } from "../livestream-store";
+import storage from "../storage";
 import { useStreamplaceStore } from "../streamplace-store";
 import { PlayerContext } from "./context";
 import {
@@ -13,24 +14,47 @@ import {
   PlayerStatus,
 } from "./player-state";
 
+const PROTOCOL_STORAGE_KEY = "player-protocol";
+
 export type PlayerStore = StoreApi<PlayerState>;
 
 export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
-  return createStore<PlayerState>()((set) => ({
+  const store = createStore<PlayerState>()((set) => ({
     id: id || Math.random().toString(36).slice(8),
+    mode: "live",
+    setMode: (mode) => set(() => ({ mode })),
+    duration: 0,
+    setDuration: (duration) => set(() => ({ duration })),
+    bufferedEnd: 0,
+    setBufferedEnd: (bufferedEnd) => set(() => ({ bufferedEnd })),
+    vodLevels: [],
+    setVodLevels: (vodLevels) => set(() => ({ vodLevels })),
+    playingVODRendition: null,
+    setPlayingVODRendition: (playingVODRendition) =>
+      set(() => ({ playingVODRendition })),
+
     selectedRendition: "source",
     setSelectedRendition: (rendition: string) =>
-      set((state) => ({ ...state, selectedRendition: rendition })),
+      set((state) => {
+        if (rendition === "audio" && state.controlsTimeout) {
+          clearTimeout(state.controlsTimeout);
+          return {
+            ...state,
+            selectedRendition: rendition,
+            showControls: true,
+            controlsTimeout: undefined,
+          };
+        }
+        return { ...state, selectedRendition: rendition };
+      }),
     protocol: PlayerProtocol.WEBRTC,
-    setProtocol: (protocol: PlayerProtocol) =>
-      set((state) => ({ ...state, protocol: protocol })),
+    setProtocol: (protocol: PlayerProtocol) => {
+      storage.setItem(PROTOCOL_STORAGE_KEY, protocol).catch(console.error);
+      set((state) => ({ ...state, protocol: protocol }));
+    },
 
     src: "",
     setSrc: (src: string) => set(() => ({ src })),
-
-    ingestStarting: false,
-    setIngestStarting: (ingestStarting: boolean) =>
-      set(() => ({ ingestStarting })),
 
     ingestMediaSource: undefined,
     setIngestMediaSource: (ingestMediaSource: IngestMediaSource | undefined) =>
@@ -45,13 +69,30 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       ingestConnectionState: RTCPeerConnectionState | null,
     ) => set(() => ({ ingestConnectionState })),
 
-    ingestAutoStart: false,
+    ingestAutoStart: true,
     setIngestAutoStart: (ingestAutoStart: boolean) =>
       set(() => ({ ingestAutoStart })),
 
     ingestStarted: null,
     setIngestStarted: (timestamp: number | null) =>
       set(() => ({ ingestStarted: timestamp })),
+
+    stopIngest: () => {
+      (set(() => ({
+        ingestLive: false,
+        ingestConnectionState: "new",
+        ingestStarted: null,
+      })),
+        setTimeout(
+          () =>
+            set(() => ({
+              ingestLive: false,
+              ingestConnectionState: "new",
+              ingestStarted: null,
+            })),
+          200,
+        ));
+    },
 
     fullscreen: false,
     setFullscreen: (isFullscreen: boolean) =>
@@ -62,6 +103,14 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     playTime: 0,
     setPlayTime: (playTime: number) => set(() => ({ playTime })),
+    seekTo: (time: number) =>
+      set((state) => {
+        const ref = state.videoRef;
+        if (ref && typeof ref === "object" && "current" in ref && ref.current) {
+          ref.current.currentTime = time;
+        }
+        return { playTime: time };
+      }),
 
     videoRef: undefined,
     setVideoRef: (
@@ -79,6 +128,20 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
     pipAction: undefined,
     setPipAction: (action: (() => void) | undefined) =>
       set(() => ({ pipAction: action })),
+
+    togglePlayPause: () =>
+      set((state) => {
+        const ref = state.videoRef;
+        if (ref && typeof ref === "object" && "current" in ref && ref.current) {
+          if (ref.current.paused) {
+            ref.current.play();
+          } else {
+            ref.current.pause();
+          }
+        }
+        return {};
+      }),
+    setTogglePlayPause: (fn) => set(() => ({ togglePlayPause: fn })),
 
     // Player element width/height setters for global sync
     playerWidth: undefined,
@@ -154,9 +217,11 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
 
     setUserInteraction: () =>
       set((p) => {
-        // controls timeout
         if (p.controlsTimeout) {
           clearTimeout(p.controlsTimeout);
+        }
+        if (p.selectedRendition === "audio") {
+          return { showControls: true, controlsTimeout: undefined };
         }
         let controlsTimeout = setTimeout(() => p.setShowControls(false), 1000);
         return { showControls: true, controlsTimeout };
@@ -179,6 +244,23 @@ export const makePlayerStore = (id?: string): StoreApi<PlayerState> => {
       subject: ComAtprotoModerationCreateReport.InputSchema["subject"] | null,
     ) => set(() => ({ reportSubject: subject })),
   }));
+
+  // Load persisted protocol from storage asynchronously
+  (async () => {
+    try {
+      const storedProtocol = await storage.getItem(PROTOCOL_STORAGE_KEY);
+      if (
+        storedProtocol &&
+        Object.values(PlayerProtocol).includes(storedProtocol as PlayerProtocol)
+      ) {
+        store.setState({ protocol: storedProtocol as PlayerProtocol });
+      }
+    } catch (error) {
+      console.error("Failed to load player protocol from storage:", error);
+    }
+  })();
+
+  return store;
 };
 
 export function usePlayerContext() {

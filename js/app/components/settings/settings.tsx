@@ -15,7 +15,9 @@ import {
   SettingsNavigationItem,
   SettingsRowItem,
 } from "components/settings/components/settings-navigation-item";
+import { ImageBackground } from "expo-image";
 import {
+  Award,
   Brush,
   Globe,
   Info,
@@ -25,9 +27,9 @@ import {
   User2,
   Video,
 } from "lucide-react-native";
-import { ImageBackground, ScrollView } from "react-native";
+import { ScrollView } from "react-native";
 
-import { useNavigationState } from "@react-navigation/native";
+import { LiquidGlassView } from "@callstack/liquid-glass";
 import Mu from "components/mobile/desktop-ui/mu";
 import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
@@ -38,15 +40,6 @@ export function Settings() {
   const userProfile = useUserProfile();
   const danmuUnlocked = useDanmuUnlocked();
   const openLoginModal = useStore((state) => state.openLoginModal);
-
-  // get the deepest active route for nested navigators
-  const currentRoute = useNavigationState((state) => {
-    let route: any = state.routes[state.index];
-    while (route.state?.index !== undefined) {
-      route = route.state.routes[route.state.index];
-    }
-    return { name: route.name, params: route.params };
-  });
 
   const adminDids = useStreamplaceStore((state) => state.adminDIDs);
   const did = useDID();
@@ -72,15 +65,24 @@ export function Settings() {
                       zero.py[2],
                     ]}
                   >
-                    <ImageBackground
-                      source={{ uri: userProfile.avatar }}
+                    <LiquidGlassView
+                      interactive
                       style={{
                         width: 48,
                         height: 48,
                         borderRadius: 24,
-                        overflow: "hidden",
                       }}
-                    />
+                    >
+                      <ImageBackground
+                        source={{ uri: userProfile.avatar }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 24,
+                          overflow: "hidden",
+                        }}
+                      />
+                    </LiquidGlassView>
                     <View style={{ flex: 1 }}>
                       <Text size="2xl" leading="tight">
                         @{userProfile.handle}
@@ -147,6 +149,12 @@ export function Settings() {
                   title={t("danmu")}
                   screen="DanmuCategory"
                   icon={Mu as any}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("issue-badges")}
+                  screen="BadgeIssuer"
+                  icon={Award}
                 />
               </MenuGroup>
             )}

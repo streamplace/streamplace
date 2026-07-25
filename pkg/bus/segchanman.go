@@ -14,8 +14,10 @@ import (
 
 type Seg struct {
 	Filepath       string
-	Data           []byte
+	Data           []byte // presentation flat MP4
+	Muxl           []byte // bare canonical .m4s (blindly concatenatable)
 	PacketizedData *PacketizedSegment
+	Published      bool
 }
 
 type PacketizedSegment struct {

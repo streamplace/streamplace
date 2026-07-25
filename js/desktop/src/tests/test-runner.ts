@@ -71,6 +71,7 @@ export default async function runTests(
                 SP_HTTP_INTERNAL_ADDR: `127.0.0.1:${randomPort()}`,
                 SP_RTMP_ADDR: `127.0.0.1:${randomPort()}`,
                 SP_DATA_DIR: tmpDir,
+                SP_NO_FIREHOSE: "true",
               };
             }
             if (test.setup) {

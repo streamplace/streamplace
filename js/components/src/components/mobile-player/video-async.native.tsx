@@ -252,7 +252,7 @@ export function NativeWHEP(props?: {
 }) {
   const selectedRendition = usePlayerStore((x) => x.selectedRendition);
   const src = usePlayerStore((x) => x.src);
-  const [stream, stuck] = useWebRTC(src);
+  const [stream, stuck] = useWebRTC(src, selectedRendition);
   const status = usePlayerStore((x) => x.status);
 
   const setPlayerWidth = usePlayerStore((x) => x.setPlayerWidth);

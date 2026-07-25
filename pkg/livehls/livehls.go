@@ -255,6 +255,26 @@ func (w *Writer) SegmentData(trackID string, seq uint64) []byte {
 	return nil
 }
 
+// PrimaryAudioTrackID returns the track ID of the primary audio track,
+// preferring AAC (broadest HLS support) over other codecs. Returns ""
+// if no audio track exists. The selection mirrors MasterPlaylist's logic.
+func (w *Writer) PrimaryAudioTrackID() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	primaryAudio := ""
+	for _, tid := range w.order {
+		if t := w.tracks[tid]; t != nil && t.Type == "audio" {
+			if primaryAudio == "" {
+				primaryAudio = tid
+			}
+			if strings.HasPrefix(t.Codec, "mp4a") {
+				return tid
+			}
+		}
+	}
+	return primaryAudio
+}
+
 // MediaPlaylist renders the live HLS media playlist for trackID. initURL is
 // the EXT-X-MAP target (the per-track init); segURI maps a segment's
 // media-sequence number to its URI. Returns "" for an unknown track.

@@ -108,9 +108,11 @@ export const createPlatformSlice: StateCreator<
         applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
       });
       const subJSON = JSON.stringify(subscription);
-      set({ notificationToken: subJSON });
 
-      // Register the subscription with the backend.
+      // Register the subscription with the backend. Only commit the token to
+      // the store after a confirmed successful POST — otherwise the toggle
+      // shows "on" while the server has no subscription row, and the user
+      // believes they're subscribed when they aren't.
       const { oauthSession } = get();
       const body: { token: string; type: string; repoDID?: string } = {
         token: subJSON,
@@ -124,6 +126,10 @@ export const createPlatformSlice: StateCreator<
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        throw new Error(`server registration failed: ${res.status}`);
+      }
+      set({ notificationToken: subJSON });
       console.log("web notification registration status:", res.status);
       return permission;
     } catch (e) {

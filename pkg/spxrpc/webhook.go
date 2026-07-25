@@ -82,13 +82,13 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 		}
 	}
 
-	// Build filters
-	// active defaults to true (show all active webhooks). When the client
-	// explicitly passes active=false, we filter to show inactive webhooks.
-	// When active=true, we show only active webhooks.
+	// Build filters. The generated stub can't distinguish an absent `active`
+	// param from an explicit active=false (both arrive as false), so filtering
+	// only applies when active=true. Omitting the param or passing
+	// active=false returns all webhooks regardless of status.
 	filters := make(map[string]interface{})
 	if active {
-		filters["active"] = true
+		filters["active"] = active
 	}
 
 	// Get webhooks

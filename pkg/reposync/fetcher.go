@@ -28,7 +28,14 @@ var ErrBlockMismatch = errors.New("block bytes do not match requested CID")
 
 // DefaultChunkSize is how many CIDs [XRPCBlockFetcher] asks for per
 // com.atproto.sync.getBlocks call.
-const DefaultChunkSize = 100
+//
+// 20 is not a round number by accident: getBlocks takes its CIDs as repeated
+// query parameters, and the reference PDS parses query strings with express's
+// qs, whose default arrayLimit is 20. Ask for 21 CIDs at once and the array
+// silently becomes an object, which the PDS then rejects with
+// "cids/0 must be a cid string". TestIntegrationResumeOverNetwork probes this
+// boundary against a real PDS.
+const DefaultChunkSize = 20
 
 // BlockFetcher retrieves repo blocks by CID.
 //

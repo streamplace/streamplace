@@ -1383,6 +1383,8 @@ github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507 h1:e8M3qPLr37Nx
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507/go.mod h1:Pm2I1+iDXn/hLbF7XCg/DsZi6uDCiOo7hZGWprSM7k0=
 github.com/streamplace/muxl/go v0.3.4 h1:M/G8CRKjAmfsyWtolLziUtNrNtS3lJFq/H6IhnY1yBo=
 github.com/streamplace/muxl/go v0.3.4/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
+github.com/streamplace/muxl/go v0.3.5-0.20260726020638-c7539b84f0b1 h1:Jqr7+PhzDQ6pz41vAvelmLuoen2mevs9KB6xUG2ogGE=
+github.com/streamplace/muxl/go v0.3.5-0.20260726020638-c7539b84f0b1/go.mod h1:aCyYTW3o6c1Kush9UJ/Yv6EYMUbj8l8GTD7cHKcSxw8=
 github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b h1:eWbwCtBbMyrDTHLYIold07OR2hmvzXsbAUxi57ElMLk=
 github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b/go.mod h1:wpY+T/wE00jrUhgh2dKXbbE91D36u86KGlENK/hWFkE=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

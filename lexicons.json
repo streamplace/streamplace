@@ -24,6 +24,8 @@
     "com.atproto.repo.uploadBlob",
     "com.atproto.server.createSession",
     "com.atproto.server.describeServer",
+    "com.atproto.sync.getBlocks",
+    "com.atproto.sync.getLatestCommit",
     "com.atproto.sync.getRecord",
     "com.atproto.sync.getRepo",
     "com.atproto.sync.listRepos",
@@ -187,6 +189,14 @@
     "com.atproto.server.describeServer": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.server.describeServer",
       "cid": "bafyreidjve4qbhebxzppq23ogsto6luddd63mmn7a57rmml6qi3yf7n3ee"
+    },
+    "com.atproto.sync.getBlocks": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getBlocks",
+      "cid": "bafyreie5jvieoangaotlziavns65njosj5pklfqv6u5psgtkhdgmk25lpa"
+    },
+    "com.atproto.sync.getLatestCommit": {
+      "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getLatestCommit",
+      "cid": "bafyreifewzvfus7z6rnmtv74lpulhldvikqmhzepwqdlaqmhllgyg4oejq"
     },
     "com.atproto.sync.getRecord": {
       "uri": "at://did:plc:6msi3pj7krzih5qxqtryxlzw/com.atproto.lexicon.schema/com.atproto.sync.getRecord",

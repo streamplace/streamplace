@@ -690,6 +690,87 @@ func ServerRepoGetRepo(ctx context.Context, since string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// ServerRepoLatestCommit returns the server repo's current commit CID and its
+// revision, backing com.atproto.sync.getLatestCommit.
+//
+// Both values come out of a single delta session so they can never be torn:
+// the session's base CID *is* the commit the repo was opened at, and the rev is
+// read off that same commit. Reading the head and the rev through two separate
+// calls would let a concurrent CommitServerRepoRecord slip between them and
+// hand a peer a (cid, rev) pair that never existed -- which a verifying client
+// like pkg/reposync rejects outright.
+func ServerRepoLatestCommit(ctx context.Context) (cid.Cid, string, error) {
+	serverRepoLock.Lock()
+	defer serverRepoLock.Unlock()
+
+	r, ses, err := OpenServerRepo(ctx)
+	if err != nil {
+		return cid.Undef, "", fmt.Errorf("ServerRepoLatestCommit: %w", err)
+	}
+	return ses.BaseCid(), r.SignedCommit().Rev, nil
+}
+
+// ServerRepoGetBlocks returns the requested blocks of the server repo as a
+// rootless CARv1, backing com.atproto.sync.getBlocks.
+func ServerRepoGetBlocks(ctx context.Context, cids []cid.Cid) ([]byte, error) {
+	serverRepoLock.Lock()
+	defer serverRepoLock.Unlock()
+
+	_, ses, err := OpenServerRepo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("ServerRepoGetBlocks: %w", err)
+	}
+	return getBlocksCAR(ctx, ses, cids)
+}
+
+// ErrBlockNotFound reports that a block asked for by CID is not in the repo's
+// store. It maps to the BlockNotFound error of com.atproto.sync.getBlocks.
+//
+// Omitting the block from the response instead would be worse than useless: a
+// walker cannot distinguish "you don't have it" from "I mis-parsed the CAR",
+// and pkg/reposync treats any missing block as a hard error anyway.
+var ErrBlockNotFound = errors.New("BlockNotFound")
+
+// getBlocksCAR writes cids out of ses as a CARv1 with an EMPTY roots list.
+//
+// Rootless is the shape com.atproto.sync.getBlocks is specified to return (and
+// what the reference PDS returns): the response is a bag of blocks, not a DAG
+// with an entry point. Note that go-car's NewCarReader refuses to parse such a
+// CAR -- consumers need raw car.ReadHeader, which is what pkg/reposync does.
+//
+// Duplicate CIDs are written once. A CID that isn't in the store fails the
+// whole request with ErrBlockNotFound.
+func getBlocksCAR(ctx context.Context, ses *carstore.DeltaSession, cids []cid.Cid) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	hb, err := cbor.DumpObject(&car.CarHeader{
+		Roots:   []cid.Cid{},
+		Version: 1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getBlocksCAR: failed to dump car header: %w", err)
+	}
+	if _, err := carstore.LdWrite(buf, hb); err != nil {
+		return nil, err
+	}
+
+	seen := make(map[cid.Cid]struct{}, len(cids))
+	for _, c := range cids {
+		if _, ok := seen[c]; ok {
+			continue
+		}
+		seen[c] = struct{}{}
+		raw, err := getBlock(ctx, ses, c)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrBlockNotFound, c.String())
+		}
+		if _, err := carstore.LdWrite(buf, c.Bytes(), raw); err != nil {
+			return nil, err
+		}
+	}
+
+	return buf.Bytes(), nil
+}
+
 func getBlock(ctx context.Context, ses *carstore.DeltaSession, c cid.Cid) ([]byte, error) {
 	b, err := ses.Get(ctx, c)
 	if err != nil {

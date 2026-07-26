@@ -3,6 +3,7 @@ package spxrpc
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/bluesky-social/indigo/events"
 	"github.com/gorilla/websocket"
+	"github.com/ipfs/go-cid"
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/log"
@@ -56,6 +58,93 @@ func (s *Server) handleComAtprotoSyncGetRecord(ctx context.Context, collection s
 		return bytes.NewReader(bs), nil
 	}
 	bs, err := atproto.LexiconRepoMerkleProof(ctx, collection, rkey)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(bs), nil
+}
+
+// maxGetBlocksCIDs caps how many blocks one com.atproto.sync.getBlocks request
+// may ask for. Every CID costs a store lookup and a copy into the response, so
+// an uncapped list is a free amplification lever for an anonymous caller.
+//
+// 100 is comfortably above what any sane client sends: getBlocks passes CIDs as
+// repeated query params, and the reference PDS effectively tops out at 20
+// because of its query parser (see reposync.DefaultChunkSize), so this bound
+// only ever fires on abuse.
+const maxGetBlocksCIDs = 100
+
+// handleComAtprotoSyncGetLatestCommit reports the head commit of this node's
+// repo, so peers can anchor a verified MST walk (pkg/reposync) instead of
+// downloading the whole repo as a CAR.
+func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context, did string) (*comatproto.SyncGetLatestCommit_Output, error) {
+	var (
+		commit cid.Cid
+		rev    string
+		err    error
+	)
+	if s.isServerPDS(ctx) {
+		if did != atproto.ServerRepo.RepoDid() {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
+		}
+		commit, rev, err = atproto.ServerRepoLatestCommit(ctx)
+	} else {
+		if did != atproto.LexiconRepo.RepoDid() {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
+		}
+		commit, rev, err = atproto.LexiconRepoLatestCommit(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &comatproto.SyncGetLatestCommit_Output{
+		Cid: commit.String(),
+		Rev: rev,
+	}, nil
+}
+
+// handleComAtprotoSyncGetBlocks serves individual repo blocks (commit, MST
+// nodes, records) as a rootless CARv1. Together with getLatestCommit this is
+// what makes a streamplace node walkable by a verifying peer.
+//
+// Public, like the rest of sync.*: everything here is already published in the
+// signed repo.
+func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context, cids []string, did string) (io.Reader, error) {
+	if len(cids) > maxGetBlocksCIDs {
+		return nil, echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("InvalidRequest: at most %d cids per request, got %d", maxGetBlocksCIDs, len(cids)))
+	}
+	want := make([]cid.Cid, 0, len(cids))
+	for _, str := range cids {
+		c, err := cid.Decode(str)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest,
+				fmt.Sprintf("InvalidRequest: undecodable cid %q", str))
+		}
+		want = append(want, c)
+	}
+
+	var (
+		bs  []byte
+		err error
+	)
+	if s.isServerPDS(ctx) {
+		if did != atproto.ServerRepo.RepoDid() {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
+		}
+		bs, err = atproto.ServerRepoGetBlocks(ctx, want)
+	} else {
+		if did != atproto.LexiconRepo.RepoDid() {
+			return nil, echo.NewHTTPError(http.StatusNotFound, "RepoNotFound")
+		}
+		bs, err = atproto.LexiconRepoGetBlocks(ctx, want)
+	}
+	if errors.Is(err, atproto.ErrBlockNotFound) {
+		// Fail the whole request rather than returning a partial bag: a
+		// silently short response is indistinguishable from a truncated
+		// one to the client.
+		return nil, echo.NewHTTPError(http.StatusNotFound, "BlockNotFound")
+	}
 	if err != nil {
 		return nil, err
 	}

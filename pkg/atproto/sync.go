@@ -566,6 +566,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+
+			// A teleport is our version of a "raid": it sends the source
+			// streamer's viewers to the target. Unlike a raid, though, it
+			// previously left the source stream live — so viewers could just
+			// navigate back. End the source streamer's livestream here (the
+			// same record update place.stream.live.stopLivestream performs,
+			// setting endedAt so the streamer returns to "pre-live"), now
+			// that viewers have been sent over. Best-effort: a failure only
+			// logs and never blocks the arrival notification.
+			atsync.endLivestreamForTeleport(ctx, userDID)
 		})
 
 	case *placestream.Key:

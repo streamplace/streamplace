@@ -148,6 +148,7 @@ type Model interface {
 	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
 
 	UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error
+	UpsertOwnMediaOrigin(ctx context.Context, serverDID, blobCID string, size int64, mimeType string) error
 	DeleteMediaOrigin(ctx context.Context, uri string) error
 	GetMediaOriginByURI(ctx context.Context, uri string) (placestream.MediaOrigin, error)
 	GetMediaOriginsByBlob(ctx context.Context, blob string) ([]*MediaOrigin, error)

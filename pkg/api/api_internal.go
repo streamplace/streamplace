@@ -115,6 +115,11 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// store and attest to it via place.stream.media.origin.
 	router.POST("/vod-transfer", a.HandleVODTransfer(ctx))
 
+	// Rebuild the local media.origin index from our own server repo, for
+	// blobs we host but never indexed (a dropped firehose event, or a
+	// --secure node whose self-subscription never connected).
+	router.POST("/reindex-origins", a.HandleReindexOrigins(ctx))
+
 	router.Handler("GET", "/metrics", promhttp.Handler())
 
 	// Legacy disk-served HLS (ffconcat -> latest.mp4 -> segment/:file, all reading

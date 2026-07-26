@@ -1,19 +1,17 @@
 package atproto
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
-	"github.com/ipfs/go-cid"
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/comatproto"
@@ -32,16 +30,16 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
-	if repo != nil {
+	// An empty Version means the row is a placeholder written at the start of a
+	// backfill that never finished, so the repo is only partially indexed. Fall
+	// through and sync it again -- unless the backfill that wrote it is still
+	// running in this process, in which case the placeholder is exactly what
+	// the caller should see (records being indexed right now call back in here).
+	if repo != nil && (repo.Version != "" || syncInFlight(repo.DID)) {
 		return repo, nil
 	}
 
 	return atsync.SyncBlueskyRepo(ctx, handle, atsync.Model)
-}
-
-type mstNode struct {
-	rkey       syntax.RecordKey
-	collection syntax.NSID
 }
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
@@ -56,14 +54,25 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	handleLock.Lock()
 	defer handleLock.Unlock()
 
-	rev := ""
+	// Tell re-entrant callers (handleCreateUpdate syncs the repos it sees
+	// records from) that this DID's placeholder row is being filled in right
+	// now, so they take the placeholder instead of recursing into the per-DID
+	// lock we are holding.
+	defer markSyncInFlight(ident.DID.String())()
+
 	oldRepo, err := mod.GetRepo(ident.DID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
 	}
-	if oldRepo != nil {
+	if oldRepo != nil && oldRepo.Version != "" {
 		log.Log(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
 		return oldRepo, nil
+	}
+	if oldRepo != nil {
+		// A placeholder from a backfill that never finished: the repo is
+		// half-indexed, so sync it again rather than leaving it that way
+		// forever. The placeholder row is already there, don't rewrite it.
+		log.Log(ctx, "found incomplete DID record, re-syncing", "did", oldRepo.DID)
 	} else {
 		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
 		// any new follows and such from this user while we're syncing, which can take a long time
@@ -84,7 +93,6 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
-	pdsLock := pdsLocks.GetLock(ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host:   ident.PDSEndpoint(),
 		Client: &aqhttp.Client,
@@ -92,73 +100,22 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	if xrpcc.Host == "" {
 		return nil, fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
 	}
-	pdsLock.Lock()
-	repoBytes, err := SyncGetRepo(ctx, &xrpcc, ident.DID.String(), rev)
-	pdsLock.Unlock()
+
+	rev, rootCID, err := atsync.backfillRepo(ctx, ident, &xrpcc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch repo for %s from PDS %s: %w", ident.DID.String(), xrpcc.Host, err)
-	}
-
-	// uncomment for saving new test cases:
-
-	// timestamp := time.Now().Unix()
-	// filename := fmt.Sprintf("%d.base64", timestamp)
-	// encodedBytes := base64.URLEncoding.EncodeToString(repoBytes)
-	// err = os.WriteFile(filename, []byte(encodedBytes), 0644)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to write encoded repo bytes to file: %w", err)
-	// }
-
-	log.Debug(ctx, "got diff", "bytes", len(repoBytes))
-
-	r, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(repoBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repo CAR data for %s: %w", ident.DID.String(), err)
-	}
-	// extract DID from repo commit
-	sc := r.SignedCommit()
-	signerDID, err := syntax.ParseDID(sc.Did)
-	if err != nil {
-		return nil, fmt.Errorf("invalid DID in repo commit for %s: %w", ident.DID.String(), err)
-	}
-	if signerDID != ident.DID {
-		return nil, fmt.Errorf("signer DID %s does not match identity %s", signerDID, ident.DID.String())
-	}
-
-	err = r.ForEach(ctx, "", func(k string, v cid.Cid) error {
-		nsid, rkey, err := syntax.ParseRepoPath(k)
-		if err != nil {
-			log.Warn(ctx, "failed to parse repo path", "k", k, "err", err)
-			return fmt.Errorf("could not parse repo path %s: %w", k, err)
-		}
-		_, bs, err := r.GetRecordBytes(ctx, k)
-		if err != nil {
-			log.Warn(ctx, "failed to get record bytes", "k", k, "rkey", rkey, "err", err)
-			return fmt.Errorf("could not retrieve record bytes for %s (rkey: %s): %w", k, rkey, err)
-		}
-		log.Debug(ctx, "record type", "key", k, "type", nsid.String())
-
-		err = atsync.handleCreateUpdate(ctx, signerDID.String(), rkey, bs, v.String(), nsid, false, true)
-		if err != nil {
-			log.Warn(ctx, "failed to handle create update", "err", err)
-			// invalid CBOR and stuff should get ignored, so
-			// return fmt.Errorf("failed to process record update for %s (type: %s): %w", k, nsid.String(), err)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to iterate over repo: %w", err)
+		return nil, err
 	}
 
 	newRepo := model.Repo{
 		DID:     ident.DID.String(),
 		PDS:     ident.PDSEndpoint(),
-		Version: sc.Rev,
+		Version: rev,
+		RootCID: rootCID,
 		Handle:  ident.Handle.String(),
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update DID record for %s: %w", sc.Did, err)
+		return nil, fmt.Errorf("failed to update DID record for %s: %w", ident.DID.String(), err)
 	}
 	err = atsync.StatefulDB.AddRepo(ident.DID.String())
 	if err != nil {
@@ -166,6 +123,37 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	}
 
 	return &newRepo, nil
+}
+
+// syncsInFlight holds the DIDs whose backfill is running in this process right
+// now. A placeholder repo row (empty Version) otherwise means "incomplete,
+// re-sync me", which would be wrong -- and, since indexing a record can call
+// back into SyncBlueskyRepoCached for the same DID, deadlock on the per-DID
+// lock -- while the backfill that wrote it is still going.
+var syncsInFlight = struct {
+	sync.Mutex
+	dids map[string]int
+}{dids: map[string]int{}}
+
+func markSyncInFlight(did string) func() {
+	syncsInFlight.Lock()
+	syncsInFlight.dids[did]++
+	syncsInFlight.Unlock()
+	return func() {
+		syncsInFlight.Lock()
+		defer syncsInFlight.Unlock()
+		if syncsInFlight.dids[did] <= 1 {
+			delete(syncsInFlight.dids, did)
+			return
+		}
+		syncsInFlight.dids[did]--
+	}
+}
+
+func syncInFlight(did string) bool {
+	syncsInFlight.Lock()
+	defer syncsInFlight.Unlock()
+	return syncsInFlight.dids[did] > 0
 }
 
 func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did string) (*identity.Identity, error) {
@@ -177,6 +165,18 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 		DID:    id.DID.String(),
 		PDS:    id.PDSEndpoint(),
 		Handle: id.Handle.String(),
+	}
+	// UpdateRepo writes every column, so carry the sync state over: blanking
+	// Version here would mark the repo as never-backfilled and (now that an
+	// empty Version means "re-sync me") make every identity event trigger a
+	// pointless full re-index.
+	oldRepo, err := atsync.Model.GetRepo(id.DID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repo: %w", err)
+	}
+	if oldRepo != nil {
+		newRepo.Version = oldRepo.Version
+		newRepo.RootCID = oldRepo.RootCID
 	}
 	err = atsync.Model.UpdateRepo(&newRepo)
 	if err != nil {

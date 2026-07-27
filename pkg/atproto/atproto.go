@@ -17,6 +17,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/reposync"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
@@ -109,7 +110,11 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
 	}
 
-	rev, rootCID, err := atsync.backfillRepo(ctx, ident, &xrpcc)
+	// First contact is shallow: everything this node indexes, but only the last
+	// [InitialWindow] of the collections that can hold years of records. The
+	// account is servable in seconds; the sweep deepens its history afterwards.
+	floor := reposync.TIDForTime(time.Now().Add(-InitialWindow))
+	result, err := atsync.backfillRepo(ctx, ident, &xrpcc, floor)
 	if err != nil {
 		if parked := parkTerminalRepo(ctx, mod, ident.DID.String(), err); parked != nil {
 			return nil, parked
@@ -120,12 +125,14 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	// A completed backfill proves the account is fine, so Status goes back to
 	// empty -- UpdateRepo writes every column, so this happens by construction.
 	newRepo := model.Repo{
-		DID:     ident.DID.String(),
-		PDS:     ident.PDSEndpoint(),
-		Version: rev,
-		RootCID: rootCID,
-		Handle:  ident.Handle.String(),
-		Status:  model.RepoStatusOK,
+		DID:           ident.DID.String(),
+		PDS:           ident.PDSEndpoint(),
+		Version:       result.Rev,
+		RootCID:       result.RootCID,
+		Handle:        ident.Handle.String(),
+		Status:        model.RepoStatusOK,
+		BackfillFloor: result.Floor,
+		BackfillDone:  result.Done,
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
@@ -137,6 +144,82 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	}
 
 	return &newRepo, nil
+}
+
+// DeepenRepo walks one more window of history for a repo whose recent records
+// are already indexed, and reports whether that repo is now complete.
+//
+// Each call reaches one rung further back down [backfillSpans] and advances the
+// row's watermark; the sweep calls it repeatedly, round-robin across repos, so
+// that every account reaches a week of history before any account reaches a
+// month. The records it re-emits from the window boundary are absorbed by the
+// idempotent indexer.
+//
+// It never writes a placeholder row and never blanks Version, so a repo stays
+// served -- and stays out of the wedge path -- for the entire time its history
+// is being filled in.
+func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (bool, error) {
+	repo, err := atsync.Model.GetRepo(did)
+	if err != nil {
+		return false, fmt.Errorf("failed to get repo for %s: %w", did, err)
+	}
+	switch {
+	case repo == nil:
+		return false, fmt.Errorf("no repo row for %s", did)
+	case repo.TerminalStatus():
+		// The account is gone; whatever we indexed is all there will be.
+		return true, nil
+	case repo.BackfillDone:
+		return true, nil
+	case repo.Version == "":
+		// Never synced (or wedged): that is the shallow phase's job, and doing
+		// it here would skip the full collections entirely.
+		return false, fmt.Errorf("repo %s has no completed sync to deepen", did)
+	}
+
+	// The same lock a full sync takes, so the two cannot walk one repo at once.
+	// Nothing re-enters it: indexing a record calls SyncBlueskyRepoCached, which
+	// short-circuits on the Version this row already has.
+	handleLock := handleLocks.GetLock(did)
+	handleLock.Lock()
+	defer handleLock.Unlock()
+
+	ident, err := atsync.resolveIdent(ctx, did, true)
+	if err != nil {
+		return false, fmt.Errorf("failed to resolve %s: %w", did, err)
+	}
+	xrpcc := xrpc.Client{Host: ident.PDSEndpoint(), Client: &aqhttp.Client}
+	if xrpcc.Host == "" {
+		return false, fmt.Errorf("no PDS endpoint found for %s", did)
+	}
+
+	window := nextBackfillWindow(repo.BackfillFloor, time.Now())
+	ctx = log.WithLogValues(ctx, "did", did)
+	log.Debug(ctx, "walking a history window", "floor", repo.BackfillFloor, "to", window.Lo, "genesis", window.Genesis)
+
+	rev, root, err := atsync.walkBackfill(ctx, ident, &xrpcc, windowRanges(window.Lo, window.Hi))
+	if err != nil && isMethodNotSupported(err) {
+		// No windowed walk to be had from this host. The full-CAR fallback reads
+		// the entire repo, so one of those finishes the job for good.
+		log.Warn(ctx, "host does not support sync.getBlocks, deepening with a full getRepo",
+			"pds", xrpcc.Host, "err", err)
+		// The legacy path has no verified MST root to record.
+		root = ""
+		rev, err = atsync.legacyBackfill(ctx, ident, &xrpcc)
+		window = backfillWindow{Genesis: true}
+	}
+	if err != nil {
+		if parked := parkTerminalRepo(ctx, atsync.Model, did, err); parked != nil {
+			return false, parked
+		}
+		return false, err
+	}
+
+	if err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis); err != nil {
+		return false, fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
+	}
+	log.Log(ctx, "deepened repo history", "rev", rev, "floor", window.Lo, "done", window.Genesis)
+	return window.Genesis, nil
 }
 
 // syncsInFlight holds the DIDs whose backfill is running in this process right
@@ -195,6 +278,10 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 		// account came back, and blanking it here would put every deactivated
 		// repo back in the boot-time sync sweep.
 		newRepo.Status = oldRepo.Status
+		// And for the backfill watermark: losing it would make the sweep walk
+		// this repo's whole history again from the top of the ladder.
+		newRepo.BackfillFloor = oldRepo.BackfillFloor
+		newRepo.BackfillDone = oldRepo.BackfillDone
 	}
 	err = atsync.Model.UpdateRepo(&newRepo)
 	if err != nil {

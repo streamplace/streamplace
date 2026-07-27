@@ -160,6 +160,36 @@ func ratelimited(reset time.Time) error {
 	})
 }
 
+// TestErrForLog: the retry warning is the one line an operator sees when a host
+// is throttling a walk, and for the commonest case -- a 429 with an HTML body --
+// indigo's JSON decoder failure was burying the status code in parser trivia.
+func TestErrForLog(t *testing.T) {
+	// The genuine article, straight off the wire.
+	sr := buildSignedRepo(t, testDID, exactnessPaths())
+	host := newFakeHost(sr)
+	host.blocksFailures = []failure{htmlThrottled}
+	client := host.start(t)
+	f := &XRPCBlockFetcher{Client: client, DID: testDID, Retry: RetryPolicy{MaxAttempts: 1}}
+	_, err := f.GetBlocks(context.Background(), []cid.Cid{sr.root})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to decode xrpc error message",
+		"fixture no longer produces the shape under test")
+	require.Equal(t, "HTTP 429 (undecodable error body)", errForLog(err))
+
+	// A host that answered properly keeps its whole message.
+	proper := xrpcErr(http.StatusTooManyRequests, "RateLimitExceeded", "Rate Limit Exceeded")
+	require.Equal(t, proper, errForLog(proper))
+	// So does anything that never reached a host.
+	plain := fmt.Errorf("dialing: %w", syscall.ECONNREFUSED)
+	require.Equal(t, plain, errForLog(plain))
+	// And a 502 from a load balancer gets the same treatment as the 429.
+	gateway := fmt.Errorf("getBlocks: %w", &xrpc.Error{
+		StatusCode: http.StatusBadGateway,
+		Wrapped:    fmt.Errorf("failed to decode xrpc error message: %w", errors.New("invalid character '<'")),
+	})
+	require.Equal(t, "HTTP 502 (undecodable error body)", errForLog(gateway))
+}
+
 // TestXRPCBlockFetcherRetries drives the retry loop through the real getBlocks
 // path against an HTTP host that fails on a script.
 func TestXRPCBlockFetcherRetries(t *testing.T) {

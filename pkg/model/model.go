@@ -38,6 +38,7 @@ type Model interface {
 	GetAllRepos() ([]Repo, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
+	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error
 	SetRepoStatus(ctx context.Context, did string, status string) error
 	TerminalRepoDIDs(ctx context.Context) ([]string, error)
 

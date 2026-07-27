@@ -239,10 +239,10 @@ func TestMigrateSkipsTerminalRepos(t *testing.T) {
 	require.NoError(t, atsync.StatefulDB.AddRepo(did))
 
 	// Control: unparked, this DID resolves nowhere, so the sweep fails on it.
-	require.Error(t, atsync.Migrate(ctx), "the only repo in the sweep should have failed")
+	require.Error(t, atsync.Sweep(ctx), "the only repo in the sweep should have failed")
 
 	require.NoError(t, mod.SetRepoStatus(ctx, did, model.RepoStatusDeactivated))
-	require.NoError(t, atsync.Migrate(ctx), "a terminal repo should never be dialed")
+	require.NoError(t, atsync.Sweep(ctx), "a terminal repo should never be dialed")
 }
 
 // TestReviveRepo: a commit proves the account is back.

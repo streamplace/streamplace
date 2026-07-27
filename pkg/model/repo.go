@@ -27,6 +27,14 @@ type Repo struct {
 	RootCID string `json:"rootCid"`
 	// Status is one of the RepoStatus* constants; empty for a normal account.
 	Status string `gorm:"column:status" json:"status,omitempty"`
+	// BackfillFloor is a TID watermark for the collections a backfill reads by
+	// time window (chat messages, feed posts): their history is contiguously
+	// indexed from this TID up to now. Empty means no window has been recorded
+	// -- either nothing is synced yet, or the row predates the watermark.
+	BackfillFloor string `gorm:"column:backfill_floor" json:"backfillFloor,omitempty"`
+	// BackfillDone reports that those windowed collections are indexed all the
+	// way back to the start of the repo, so there is no history left to fetch.
+	BackfillDone bool `gorm:"column:backfill_done" json:"backfillDone,omitempty"`
 }
 
 // TerminalStatus reports whether this repo is in an account state no amount of
@@ -103,6 +111,26 @@ func (m *DBModel) UpdateRepo(repo *Repo) error {
 // touching the sync state in the rest of the row.
 func (m *DBModel) SetRepoStatus(ctx context.Context, did string, status string) error {
 	return m.DB.WithContext(ctx).Model(&Repo{}).Where("did = ?", did).Update("status", status).Error
+}
+
+// AdvanceRepoBackfill records the outcome of one deepening window: the repo is
+// now indexed from floor forward (empty floor meaning all the way back), at the
+// revision that window was read at.
+//
+// It writes exactly those four columns rather than the whole row, so a
+// concurrent handle change or status update cannot be rolled back by a sweep
+// that read the row minutes ago. Select names the fields explicitly, which is
+// also what makes the zero values -- an empty floor, a false flag -- get
+// written instead of skipped.
+func (m *DBModel) AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error {
+	return m.DB.WithContext(ctx).Model(&Repo{}).Where("did = ?", did).
+		Select("Version", "RootCID", "BackfillFloor", "BackfillDone").
+		Updates(Repo{
+			Version:       version,
+			RootCID:       rootCID,
+			BackfillFloor: floor,
+			BackfillDone:  done,
+		}).Error
 }
 
 // TerminalRepoDIDs lists the repos parked in a terminal account state, so the

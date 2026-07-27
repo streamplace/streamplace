@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"strings"
 	"syscall"
 	"time"
 
@@ -108,7 +109,7 @@ func (p RetryPolicy) do(ctx context.Context, what string, fn func() error) error
 			return fmt.Errorf("giving up after %d attempts: %w", attempt, err)
 		}
 		d := p.delay(attempt, err)
-		log.Warn(ctx, "retrying transient xrpc failure", "call", what, "attempt", attempt, "wait", d, "err", err)
+		log.Warn(ctx, "retrying transient xrpc failure", "call", what, "attempt", attempt, "wait", d, "err", errForLog(err))
 		if serr := sleepCtx(ctx, d); serr != nil {
 			return fmt.Errorf("aborted after %d attempts: %w", attempt, errors.Join(err, serr))
 		}
@@ -128,6 +129,39 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	case <-t.C:
 		return nil
 	}
+}
+
+// errForLog renders a retryable failure for the warning line above.
+//
+// It exists for one shape: a host that throttles or 502s us with an HTML error
+// page. indigo tries to JSON-decode every non-200 body, so what surfaces is
+// `XRPC ERROR 429: failed to decode xrpc error message: invalid character '<'
+// looking for beginning of value` -- forty characters of JSON parser trivia in
+// front of the one fact that matters, repeated for every retry of every walk.
+// Say "HTTP 429 (undecodable error body)" instead. Only this log line is
+// compressed; the error returned to the caller keeps the whole chain.
+func errForLog(err error) any {
+	var xe *xrpc.Error
+	if !errors.As(err, &xe) || xe.StatusCode == 0 || !isUndecodableBody(xe.Wrapped) {
+		return err
+	}
+	return fmt.Sprintf("HTTP %d (undecodable error body)", xe.StatusCode)
+}
+
+// undecodableBodyPrefix is indigo's wrapper around a response body that is not
+// the JSON error object the lexicon promises.
+const undecodableBodyPrefix = "failed to decode xrpc error message"
+
+func isUndecodableBody(err error) bool {
+	if err == nil {
+		return false
+	}
+	var xe *xrpc.XRPCError
+	if errors.As(err, &xe) {
+		// A decoded (if empty) error object: the host answered properly.
+		return false
+	}
+	return strings.HasPrefix(err.Error(), undecodableBodyPrefix)
 }
 
 // isRetryable reports whether err is the kind of failure that is likely to go

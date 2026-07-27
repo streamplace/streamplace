@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/reposync"
@@ -25,13 +26,41 @@ import (
 // records live in one contiguous key range.
 const placeStreamPrefix = "place.stream."
 
+// windowedCollections are the collections a backfill reads by time window
+// instead of all at once.
+//
+// Their rkeys are TIDs, so their keys sort chronologically and "the last day of
+// chat" is a key range (see [reposync.TIDForTime]). They are also the two
+// collections whose volume decides how long a first sync takes: an account with
+// years of Bluesky posts and streamplace chat has tens of thousands of records
+// there and a few dozen everywhere else.
+//
+// Windowing changes when a record is indexed, never whether: the ladder of
+// windows in [nextBackfillWindow] bottoms out at the start of the collection,
+// and until it does the repo row says so. A record whose rkey is not a TID is
+// not skipped either -- the windows are key ranges, so it simply arrives with
+// whichever window its rkey sorts into.
+//
+// Every entry must be a collection [backfillRanges] would otherwise walk whole
+// -- either under place.stream. or in [CollectionFilter]. TestBackfillRanges
+// checks that.
+var windowedCollections = []string{
+	constants.PLACE_STREAM_CHAT_MESSAGE,
+	constants.APP_BSKY_FEED_POST,
+}
+
 // backfillRanges is the set of MST key ranges a backfill walks: everything
 // under place.stream., plus one range per non-streamplace collection the
 // firehose accepts.
 //
 // It is derived from CollectionFilter at runtime so the backfill and the
 // firehose can never drift apart about which records this node indexes.
-func backfillRanges() []reposync.KeyRange {
+//
+// floor is a TID watermark for the windowed collections: those are walked only
+// from floor forward, with the rest of their key space cut out of the ranges
+// that would otherwise cover it. An empty floor means "from the beginning",
+// which is every range whole.
+func backfillRanges(floor string) []reposync.KeyRange {
 	ranges := []reposync.KeyRange{reposync.PrefixRange(placeStreamPrefix)}
 	for _, nsid := range CollectionFilter {
 		if strings.HasPrefix(nsid, placeStreamPrefix) {
@@ -41,47 +70,188 @@ func backfillRanges() []reposync.KeyRange {
 		// "app.bsky.feed.postgate".
 		ranges = append(ranges, reposync.PrefixRange(nsid+"/"))
 	}
+	if floor == "" {
+		return ranges
+	}
+	for _, nsid := range windowedCollections {
+		whole := reposync.PrefixRange(nsid + "/")
+		kept := make([]reposync.KeyRange, 0, len(ranges)+1)
+		for _, r := range ranges {
+			kept = append(kept, subtractRange(r, whole)...)
+		}
+		ranges = append(kept, reposync.KeyRange{Lo: []byte(nsid + "/" + floor), Hi: whole.Hi})
+	}
 	return ranges
 }
 
-// backfillRepo indexes every record we care about from ident's repo. It returns
-// the repo revision the index is now consistent with, and the MST root CID that
-// revision committed to (empty if the fallback path was used, which never sees
-// a verified root).
+// windowRanges covers [lo, hi) of every windowed collection and nothing else.
+// It is what a deepening step walks. An empty lo starts at the first key of
+// each collection; an empty hi runs to the last.
+func windowRanges(lo, hi string) []reposync.KeyRange {
+	out := make([]reposync.KeyRange, 0, len(windowedCollections))
+	for _, nsid := range windowedCollections {
+		r := reposync.PrefixRange(nsid + "/")
+		if lo != "" {
+			r.Lo = []byte(nsid + "/" + lo)
+		}
+		if hi != "" {
+			r.Hi = []byte(nsid + "/" + hi)
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// subtractRange returns r with cut removed: r itself when they do not overlap,
+// the pieces of r on either side of cut when they do, and nothing when cut
+// swallows r. Empty pieces are dropped, because a zero-width range is not a
+// range the walker will accept.
+func subtractRange(r, cut reposync.KeyRange) []reposync.KeyRange {
+	if !rangesOverlap(r, cut) {
+		return []reposync.KeyRange{r}
+	}
+	var out []reposync.KeyRange
+	if bytes.Compare(r.Lo, cut.Lo) < 0 {
+		out = append(out, reposync.KeyRange{Lo: r.Lo, Hi: cut.Lo})
+	}
+	if cut.Hi != nil && (r.Hi == nil || bytes.Compare(cut.Hi, r.Hi) < 0) {
+		out = append(out, reposync.KeyRange{Lo: cut.Hi, Hi: r.Hi})
+	}
+	return out
+}
+
+func rangesOverlap(a, b reposync.KeyRange) bool {
+	if a.Hi != nil && bytes.Compare(b.Lo, a.Hi) >= 0 {
+		return false
+	}
+	if b.Hi != nil && bytes.Compare(a.Lo, b.Hi) >= 0 {
+		return false
+	}
+	return true
+}
+
+// InitialWindow is how much history a first sync reads from the windowed
+// collections. It is the whole cost difference between meeting an account and
+// serving it: everything else in the repo is configuration-sized.
+const InitialWindow = 24 * time.Hour
+
+// backfillSpans is the ladder of windows the deepening sweep walks, each one
+// reaching further back than the last. After the last rung the next window runs
+// to the start of the collection, and the repo is complete.
+//
+// Spans are wall-clock ages, not window widths: a repo at the 7d rung has
+// everything from seven days ago forward, and its next window is
+// [30d ago, 7d ago).
+var backfillSpans = []time.Duration{
+	InitialWindow,
+	7 * 24 * time.Hour,
+	30 * 24 * time.Hour,
+	180 * 24 * time.Hour,
+}
+
+// backfillWindow is one step of the ladder: the slice of the windowed
+// collections a deepening walk should read next.
+type backfillWindow struct {
+	// Lo and Hi are TID bounds, empty meaning the start/end of the collection.
+	Lo string
+	Hi string
+	// Genesis reports that this window reaches the start of the collection, so
+	// a repo that finishes it has no history left to fetch.
+	Genesis bool
+	// Horizon is the wall-clock instant Lo encodes, for logging. Zero for a
+	// genesis window, which has no horizon.
+	Horizon time.Time
+}
+
+// nextBackfillWindow picks the next deepening window for a repo whose windowed
+// collections are synced from floor forward.
+//
+// Which rung of the ladder a repo is on is read off the age of its floor rather
+// than stored: a floor is a timestamp, and "how far back does this repo go" is
+// the only thing that matters. That keeps the watermark a single self-describing
+// column, and makes a row written by an older build (or a hand-edited one) land
+// on a sensible rung by itself.
+//
+// An empty floor means nothing has been recorded, which is both a repo that has
+// never been synced and every row written before this code existed: those start
+// at the top of the ladder, with a window that is open-ended above.
+func nextBackfillWindow(floor string, now time.Time) backfillWindow {
+	window := func(span time.Duration, hi string) backfillWindow {
+		horizon := now.Add(-span)
+		return backfillWindow{Lo: reposync.TIDForTime(horizon), Hi: hi, Horizon: horizon}
+	}
+	if floor == "" {
+		return window(backfillSpans[0], "")
+	}
+	floorTime, err := reposync.TimeForTID(floor)
+	if err != nil {
+		// Not a timestamp we can place on the ladder. One genesis-bounded
+		// window finishes the repo off rather than looping on it forever.
+		return backfillWindow{Hi: floor, Genesis: true}
+	}
+	age := now.Sub(floorTime)
+	for _, span := range backfillSpans {
+		if span > age {
+			return window(span, floor)
+		}
+	}
+	return backfillWindow{Hi: floor, Genesis: true}
+}
+
+// backfillResult is what a completed backfill knows about the repo it read.
+type backfillResult struct {
+	// Rev is the repo revision the index is now consistent with.
+	Rev string
+	// RootCID is the MST root that revision committed to, empty if the fallback
+	// path was used, which never sees a verified root.
+	RootCID string
+	// Floor is the TID watermark for the windowed collections: their history is
+	// synced from here forward. Empty means from the start of the collection.
+	Floor string
+	// Done reports that the windowed collections need no further deepening.
+	Done bool
+}
+
+// backfillRepo indexes every record we care about from ident's repo.
+//
+// floor windows the high-volume collections: only their history from that TID
+// forward is read, which is what makes first contact with a busy account cost
+// seconds instead of minutes. An empty floor reads everything.
 //
 // The fast path walks only the subtrees holding records we index. Hosts that do
 // not implement com.atproto.sync.getBlocks fall back to downloading the whole
-// repo as a CAR.
-func (atsync *ATProtoSynchronizer) backfillRepo(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client) (string, string, error) {
-	rev, root, err := atsync.walkBackfill(ctx, ident, xrpcc)
+// repo as a CAR -- which reads all of it, window or no window, so such a repo
+// comes back complete.
+func (atsync *ATProtoSynchronizer) backfillRepo(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client, floor string) (backfillResult, error) {
+	rev, root, err := atsync.walkBackfill(ctx, ident, xrpcc, backfillRanges(floor))
 	if err == nil {
-		return rev, root, nil
+		return backfillResult{Rev: rev, RootCID: root, Floor: floor, Done: floor == ""}, nil
 	}
 	if isStaleWalkError(err) {
 		// walkBackfill already exhausted its restart-from-a-new-head budget
 		// on this. isMethodNotSupported is written not to claim these either,
 		// but say it once here rather than depend on that ordering: answering
 		// "the repo moved" with a full getRepo download would be absurd.
-		return "", "", err
+		return backfillResult{}, err
 	}
 	if !isMethodNotSupported(err) {
 		// Anything else -- a bad signature, a malformed tree, a network
 		// failure -- must propagate. Falling back on a verification failure
 		// would make the verification decorative.
-		return "", "", err
+		return backfillResult{}, err
 	}
 	log.Warn(ctx, "host does not support sync.getBlocks, falling back to full getRepo",
 		"pds", xrpcc.Host, "did", ident.DID.String(), "err", err)
 	rev, err = atsync.legacyBackfill(ctx, ident, xrpcc)
 	if err != nil {
-		return "", "", err
+		return backfillResult{}, err
 	}
-	return rev, "", nil
+	return backfillResult{Rev: rev, Done: true}, nil
 }
 
-// walkBackfill does a verified, prefix-bounded walk of the remote repo, handing
+// walkBackfill does a verified, range-bounded walk of the remote repo, handing
 // every record in range to the same indexing path the firehose uses.
-func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client) (string, string, error) {
+func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client, ranges []reposync.KeyRange) (string, string, error) {
 	did := ident.DID.String()
 
 	dir := atsync.PLCDirectory
@@ -116,7 +286,7 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 	walk := func(ctx context.Context, root cid.Cid) error {
 		records = 0
 		walker := &reposync.Walker{Fetcher: fetcher}
-		err := walker.WalkRanges(ctx, root, backfillRanges(), func(path string, rcid cid.Cid, rec []byte) error {
+		err := walker.WalkRanges(ctx, root, ranges, func(path string, rcid cid.Cid, rec []byte) error {
 			nsid, rkey, err := syntax.ParseRepoPath(path)
 			if err != nil {
 				log.Warn(ctx, "failed to parse repo path", "k", path, "err", err)

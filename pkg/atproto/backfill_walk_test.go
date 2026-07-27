@@ -80,7 +80,7 @@ func TestBackfillWalk(t *testing.T) {
 		}
 		var got []string
 		walker := &reposync.Walker{Fetcher: fetcher}
-		err = walker.WalkRanges(ctx, h.Root, backfillRanges(), func(path string, rcid cid.Cid, rec []byte) error {
+		err = walker.WalkRanges(ctx, h.Root, backfillRanges(""), func(path string, rcid cid.Cid, rec []byte) error {
 			got = append(got, path)
 			return nil
 		})
@@ -236,10 +236,10 @@ func TestBackfillFallsBackToGetRepo(t *testing.T) {
 	ident, err := atsync.resolveIdent(ctx, user.DID, false)
 	require.NoError(t, err)
 
-	var rev, root string
+	var result backfillResult
 	err = untilNoErrors(t, func() error {
 		var err error
-		rev, root, err = atsync.backfillRepo(ctx, ident, &xrpc.Client{Host: proxy.URL, Client: &aqhttp.Client})
+		result, err = atsync.backfillRepo(ctx, ident, &xrpc.Client{Host: proxy.URL, Client: &aqhttp.Client}, reposync.TIDForTime(time.Now().Add(-InitialWindow)))
 		if err != nil {
 			return err
 		}
@@ -253,8 +253,10 @@ func TestBackfillFallsBackToGetRepo(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err, "backfill should have fallen back to getRepo")
-	require.NotEmpty(t, rev, "the legacy path still reports the commit rev")
-	require.Empty(t, root, "the legacy path has no verified MST root to record")
+	require.NotEmpty(t, result.Rev, "the legacy path still reports the commit rev")
+	require.Empty(t, result.RootCID, "the legacy path has no verified MST root to record")
+	require.Empty(t, result.Floor, "a full CAR download ignores the window")
+	require.True(t, result.Done, "a full CAR download leaves no history to deepen")
 }
 
 func TestIsMethodNotSupported(t *testing.T) {
@@ -554,8 +556,23 @@ func testHead(t *testing.T, rev string) *reposync.Head {
 	return &reposync.Head{Rev: rev, Root: root}
 }
 
+// inRanges is the walker's own containment test, spelled out here so these
+// tests check the ranges rather than trusting the code that builds them.
+func inRanges(ranges []reposync.KeyRange, key string) bool {
+	for _, r := range ranges {
+		if r.Lo != nil && key < string(r.Lo) {
+			continue
+		}
+		if r.Hi != nil && key >= string(r.Hi) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 func TestBackfillRanges(t *testing.T) {
-	ranges := backfillRanges()
+	ranges := backfillRanges("")
 	// One for place.stream., plus one per non-streamplace collection the
 	// firehose accepts.
 	want := 1
@@ -566,18 +583,7 @@ func TestBackfillRanges(t *testing.T) {
 	}
 	require.Len(t, ranges, want)
 
-	inRange := func(key string) bool {
-		for _, r := range ranges {
-			if r.Lo != nil && key < string(r.Lo) {
-				continue
-			}
-			if r.Hi != nil && key >= string(r.Hi) {
-				continue
-			}
-			return true
-		}
-		return false
-	}
+	inRange := func(key string) bool { return inRanges(ranges, key) }
 	require.True(t, inRange("place.stream.chat.message/3l"))
 	require.True(t, inRange("place.stream.live.recommendations/self"))
 	require.True(t, inRange("app.bsky.actor.profile/self"))
@@ -588,6 +594,158 @@ func TestBackfillRanges(t *testing.T) {
 	require.False(t, inRange("place.strea.thing/3l"))
 	require.False(t, inRange("place.streamx.thing/3l"))
 	require.False(t, inRange("zzz.example.thing/3l"))
+
+	// Every windowed collection has to be one this node walks in the first
+	// place, or windowing it would widen the sweep instead of narrowing it.
+	for _, nsid := range windowedCollections {
+		require.True(t, inRange(nsid+"/3l"), "windowed collection %s is not in the full ranges", nsid)
+	}
+}
+
+// TestBackfillRangesWindowed: with a floor, the high-volume collections are cut
+// down to their recent history and everything else stays whole -- including the
+// records that sort on either side of the hole cut out of place.stream.
+func TestBackfillRangesWindowed(t *testing.T) {
+	floor := reposync.TIDForTime(time.Now().Add(-24 * time.Hour))
+	older := reposync.TIDForTime(time.Now().Add(-48 * time.Hour))
+	newer := reposync.TIDForTime(time.Now().Add(-time.Hour))
+	ranges := backfillRanges(floor)
+	inRange := func(key string) bool { return inRanges(ranges, key) }
+
+	// The windowed collections keep only what is at or after the floor.
+	require.True(t, inRange("place.stream.chat.message/"+floor))
+	require.True(t, inRange("place.stream.chat.message/"+newer))
+	require.False(t, inRange("place.stream.chat.message/"+older))
+	require.True(t, inRange("app.bsky.feed.post/"+newer))
+	require.False(t, inRange("app.bsky.feed.post/"+older))
+	// A windowed collection is still walked exhaustively, just not all at once:
+	// a non-TID rkey lands in whichever window its bytes fall into ("self"
+	// sorts above every TID minted this century, so it comes in the first one)
+	// and the windows together cover the whole collection either way.
+	require.True(t, inRange("place.stream.chat.message/self"))
+	require.False(t, inRange("place.stream.chat.message/!oldest"))
+
+	// Everything else is untouched, on both sides of the hole in place.stream.
+	require.True(t, inRange("place.stream.chat.gate/3l"))       // sorts before chat.message
+	require.True(t, inRange("place.stream.chat.profile/self"))  // sorts after
+	require.True(t, inRange("place.stream.live.livestream/3l")) // sorts after
+	require.True(t, inRange("app.bsky.actor.profile/self"))
+	require.True(t, inRange("app.bsky.graph.follow/3l"))
+	// And the ranges are still bounded where they were.
+	require.False(t, inRange("app.bsky.feed.postgate/3l"))
+	require.False(t, inRange("app.bsky.actor.status/3l"))
+	require.False(t, inRange("zzz.example.thing/3l"))
+
+	// The walker rejects an inverted or empty range outright, and windowing is
+	// the only thing in here that builds a range out of two different strings.
+	for _, r := range ranges {
+		require.NotNil(t, r.Hi, "no unbounded range should come out of here: %s", r)
+		require.Less(t, string(r.Lo), string(r.Hi), "inverted range %s", r)
+	}
+	// Cutting two collections down to a window turns two whole ranges into a
+	// bounded piece each, plus the pieces left on either side of the hole in
+	// place.stream.
+	require.Len(t, ranges, len(backfillRanges(""))+len(windowedCollections))
+}
+
+// TestWindowRanges: a deepening step reads the windowed collections and nothing
+// else.
+func TestWindowRanges(t *testing.T) {
+	lo := reposync.TIDForTime(time.Now().Add(-7 * 24 * time.Hour))
+	hi := reposync.TIDForTime(time.Now().Add(-24 * time.Hour))
+	ranges := windowRanges(lo, hi)
+	require.Len(t, ranges, len(windowedCollections))
+	inRange := func(key string) bool { return inRanges(ranges, key) }
+
+	mid := reposync.TIDForTime(time.Now().Add(-3 * 24 * time.Hour))
+	require.True(t, inRange("place.stream.chat.message/"+mid))
+	require.True(t, inRange("app.bsky.feed.post/"+mid))
+	require.False(t, inRange("place.stream.chat.message/"+hi), "the floor is exclusive above")
+	require.False(t, inRange("place.stream.chat.message/"+reposync.TIDForTime(time.Now().Add(-30*24*time.Hour))))
+	// Nothing outside the windowed collections is read again.
+	require.False(t, inRange("place.stream.chat.profile/self"))
+	require.False(t, inRange("app.bsky.actor.profile/self"))
+
+	// The genesis window: open below, so it sweeps up everything left,
+	// including rkeys that are not TIDs at all.
+	last := windowRanges("", hi)
+	require.True(t, inRanges(last, "place.stream.chat.message/!oldest"))
+	require.True(t, inRanges(last, "place.stream.chat.message/"+reposync.TIDForTime(time.Unix(0, 0))))
+	require.False(t, inRanges(last, "place.stream.chat.message/"+hi))
+	require.False(t, inRanges(last, "place.stream.chat.gate/3l"))
+}
+
+// TestNextBackfillWindow walks the ladder a repo climbs down, checking that
+// each window abuts the last one (no gap, so no record can be skipped) and that
+// it terminates.
+func TestNextBackfillWindow(t *testing.T) {
+	now := time.Now()
+
+	// Nothing recorded: start at the top, open-ended above.
+	first := nextBackfillWindow("", now)
+	require.Equal(t, reposync.TIDForTime(now.Add(-InitialWindow)), first.Lo)
+	require.Empty(t, first.Hi, "a first window has no upper bound")
+	require.False(t, first.Genesis)
+
+	// Then each rung, with the floor aging as if the previous window had just
+	// finished. Every window starts where the last one ended.
+	floor := first.Lo
+	var spans []time.Duration
+	for range len(backfillSpans) + 4 {
+		win := nextBackfillWindow(floor, now)
+		require.Equal(t, floor, win.Hi, "a window must pick up exactly where the last one stopped")
+		if win.Genesis {
+			require.Empty(t, win.Lo, "the last window runs to the start of the collection")
+			break
+		}
+		require.Less(t, win.Lo, win.Hi, "windows must not be inverted")
+		spans = append(spans, now.Sub(win.Horizon).Round(time.Hour))
+		floor = win.Lo
+	}
+	require.Equal(t, []time.Duration{
+		7 * 24 * time.Hour,
+		30 * 24 * time.Hour,
+		180 * 24 * time.Hour,
+	}, spans, "the ladder after the initial window")
+	require.True(t, nextBackfillWindow(floor, now).Genesis, "the ladder terminates")
+
+	// A floor much older than the whole ladder goes straight to the end.
+	ancient := reposync.TIDForTime(now.Add(-5 * 365 * 24 * time.Hour))
+	require.True(t, nextBackfillWindow(ancient, now).Genesis)
+
+	// A floor from the future (clock skew, a hand-edited row) still produces a
+	// usable window rather than an inverted one.
+	future := reposync.TIDForTime(now.Add(time.Hour))
+	skewed := nextBackfillWindow(future, now)
+	require.Less(t, skewed.Lo, skewed.Hi)
+
+	// A watermark that is not a TID at all: one final window, and done.
+	require.True(t, nextBackfillWindow("not-a-tid", now).Genesis)
+}
+
+func TestSubtractRange(t *testing.T) {
+	r := func(lo, hi string) reposync.KeyRange {
+		out := reposync.KeyRange{Lo: []byte(lo)}
+		if hi != "" {
+			out.Hi = []byte(hi)
+		}
+		return out
+	}
+	str := func(ranges []reposync.KeyRange) []string {
+		out := []string{}
+		for _, x := range ranges {
+			out = append(out, string(x.Lo)+".."+string(x.Hi))
+		}
+		return out
+	}
+
+	require.Equal(t, []string{"a..b"}, str(subtractRange(r("a", "b"), r("c", "d"))), "disjoint")
+	require.Equal(t, []string{"a..b"}, str(subtractRange(r("a", "b"), r("b", "d"))), "abutting")
+	require.Equal(t, []string{"a..c", "d..z"}, str(subtractRange(r("a", "z"), r("c", "d"))), "a hole")
+	require.Equal(t, []string{"d..z"}, str(subtractRange(r("a", "z"), r("a", "d"))), "cut off the front")
+	require.Equal(t, []string{"a..d"}, str(subtractRange(r("a", "z"), r("d", "z"))), "cut off the back")
+	require.Empty(t, subtractRange(r("a", "z"), r("a", "z")), "cut swallows the range")
+	require.Empty(t, subtractRange(r("b", "c"), r("a", "z")), "cut swallows the range")
 }
 
 func backfillTestSynchronizer(t *testing.T, dev *devenv.DevEnv) (*ATProtoSynchronizer, model.Model) {

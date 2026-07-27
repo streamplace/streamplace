@@ -23,7 +23,7 @@ type LiveTeleport struct {
 	// durationSeconds: The time limit in seconds for the teleport. If not set, the teleport is permanent. Must be at least 60 seconds, and no more than 32,400 seconds (9 hours).
 	DurationSeconds *int64 `json:"durationSeconds,omitempty"`
 	// livestream: The source livestream this teleport is sending viewers away from. When the teleport fires, this is the livestream that gets ended (the same update place.stream.live.stopLivestream performs), so the source streamer returns to pre-live. Teleports without an origin livestream are treated as a no-op.
-	Livestream comatproto.RepoStrongRef `json:"livestream"`
+	Livestream *comatproto.RepoStrongRef `json:"livestream,omitempty"`
 	// startsAt: The time the teleport becomes active.
 	StartsAt string `json:"startsAt"`
 	// streamer: The DID of the streamer to teleport to.

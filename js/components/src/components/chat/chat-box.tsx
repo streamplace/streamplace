@@ -182,7 +182,7 @@ export function ChatBox({
       userDID,
       targetHandle,
       countdownSeconds,
-      linfo ? { uri: linfo.uri, cid: linfo.cid } : { uri: "", cid: "" },
+      linfo ? { uri: linfo.uri, cid: linfo.cid } : undefined,
       setActiveTeleportUri,
     );
 

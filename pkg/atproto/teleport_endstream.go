@@ -42,17 +42,16 @@ import (
 // arrival notification (the caller publishes that before invoking this). It is a
 // no-op when there is no stored session, no origin livestream strongRef, the
 // referenced record is gone, or the livestream is already ended.
-func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context, repoDID string, livestreamRef comatproto.RepoStrongRef) {
-	ctx = log.WithLogValues(ctx, "func", "endLivestreamForTeleport", "repoDID", repoDID, "livestreamUri", livestreamRef.Uri)
-
-	// A teleport without an origin livestream strongRef (e.g. a record from
-	// before the field existed) cannot be tied to a specific stream. Rather
-	// than guess via "latest livestream" — which can terminate an unrelated,
-	// newer broadcast — treat it as a no-op.
-	if livestreamRef.Uri == "" {
-		log.Debug(ctx, "teleport has no origin livestream strongRef, skipping stream-end")
+func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context, repoDID string, livestreamRef *comatproto.RepoStrongRef) {
+	// A teleport without an origin livestream strongRef (the field is
+	// optional, and records from before it existed won't have one) cannot be
+	// tied to a specific stream. Rather than guess via "latest livestream" —
+	// which can terminate an unrelated, newer broadcast — treat it as a no-op.
+	if livestreamRef == nil || livestreamRef.Uri == "" {
+		log.Debug(ctx, "teleport has no origin livestream strongRef, skipping stream-end", "repoDID", repoDID)
 		return
 	}
+	ctx = log.WithLogValues(ctx, "func", "endLivestreamForTeleport", "repoDID", repoDID, "livestreamUri", livestreamRef.Uri)
 
 	// A teleport record can arrive before the streamer has ever logged in to
 	// this node (e.g. multi-node setups). Without a stored session we have no
@@ -84,7 +83,7 @@ func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context,
 		return
 	}
 
-	if err := atsync.endReferencedLivestream(ctx, repoDID, livestreamRef, client); err != nil {
+	if err := atsync.endReferencedLivestream(ctx, repoDID, *livestreamRef, client); err != nil {
 		log.Error(ctx, "failed to end livestream for teleport", "err", err)
 		return
 	}

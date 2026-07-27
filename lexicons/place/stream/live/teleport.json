@@ -8,7 +8,7 @@
       "description": "Record defining a 'teleport', that is active during a certain time.",
       "record": {
         "type": "object",
-        "required": ["streamer", "startsAt", "livestream"],
+        "required": ["streamer", "startsAt"],
         "properties": {
           "streamer": {
             "type": "string",

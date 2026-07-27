@@ -104,30 +104,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
-	var allRenditions renditions.Renditions
-
-	if ss.cli.LivepeerGatewayURL != "" {
-		allRenditions, err = renditions.GenerateRenditions(spseg)
-	} else {
-		allRenditions = []renditions.Rendition{}
-	}
-	if err != nil {
-		return err
-	}
-	if spseg.Duration == nil {
-		return fmt.Errorf("segment duration is required to calculate bitrate")
-	}
-	dur := time.Duration(*spseg.Duration)
-	byteLen := len(notif.Data)
-	bitrate := int(float64(byteLen) / dur.Seconds() * 8)
-	sourceRendition := renditions.Rendition{
-		Name:    "source",
-		Bitrate: bitrate,
-		Width:   spseg.Video[0].Width,
-		Height:  spseg.Video[0].Height,
-	}
-	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
-	allRenditions = append(allRenditions, renditions.AudioRendition)
 
 	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
 
@@ -169,9 +145,6 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 		case <-time.After(ss.cli.StreamSessionTimeout):
 			log.Log(ctx, "stream session timeout, shutting down", "timeout", ss.cli.StreamSessionTimeout)
 			spmetrics.StreamSessions.WithLabelValues(notif.Segment.RepoDID).Dec()
-			for _, r := range allRenditions {
-				ss.bus.EndSession(ctx, spseg.Creator, r.Name)
-			}
 			// Signal background workers to stop
 			if notif.Local {
 				ss.Go(ctx, func() error {

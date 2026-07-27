@@ -23,8 +23,6 @@ type Bus struct {
 	clients                  map[string][]Subscription
 	segChans                 map[string][]*SegChan
 	segChansMutex            sync.Mutex
-	segBuf                   map[string][]*Seg
-	segBufMutex              sync.RWMutex
 	viewerCounts             map[string]map[string]int
 	viewerCountsMutex        sync.RWMutex
 	viewerCountSubscriptions []chan ViewerCountUpdate
@@ -39,7 +37,6 @@ func NewBus() *Bus {
 	return &Bus{
 		clients:                  make(map[string][]Subscription),
 		segChans:                 make(map[string][]*SegChan),
-		segBuf:                   make(map[string][]*Seg),
 		viewerCounts:             make(map[string]map[string]int),
 		viewerCountSubscriptions: []chan ViewerCountUpdate{},
 		federatedViewCounts:      cache.New(2*time.Minute, 4*time.Minute),

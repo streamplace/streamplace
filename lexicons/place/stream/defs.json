@@ -30,7 +30,13 @@
       "type": "object",
       "required": ["name"],
       "properties": {
-        "name": { "type": "string" }
+        "name": { "type": "string" },
+        "bitrate": {
+          "type": "integer",
+          "description": "Nominal video bitrate in bits per second."
+        },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" }
       }
     },
     "activityGame": {

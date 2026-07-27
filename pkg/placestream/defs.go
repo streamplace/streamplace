@@ -97,7 +97,11 @@ func (t *Defs_BlockView) UnmarshalCBOR(r io.Reader) error {
 // Defs_Rendition is a "rendition" in the place.stream.defs schema.
 type Defs_Rendition struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	Name          string `json:"name"`
+	// bitrate: Nominal video bitrate in bits per second.
+	Bitrate *int64 `json:"bitrate,omitempty"`
+	Height  *int64 `json:"height,omitempty"`
+	Name    string `json:"name"`
+	Width   *int64 `json:"width,omitempty"`
 }
 
 // RecordTypeID implements glex.Record.

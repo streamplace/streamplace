@@ -10,7 +10,21 @@ import {
   useStreamKey,
   useStreamplaceStore,
 } from "../..";
+import { useLivestreamStore } from "../../livestream-store";
+import {
+  AbrSample,
+  AbrState,
+  addAbrSample,
+  createAbrState,
+  decideRendition,
+  syncAbrState,
+} from "./webrtc-abr";
 import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
+
+/** How long to wait for the server to ack a rendition switch request. */
+const SWITCH_ACK_TIMEOUT_MS = 5000;
+/** After a rejected/timed-out switch, stop trying for this long. */
+const SWITCH_FAILURE_SUPPRESS_MS = 5 * 60_000;
 
 export default function useWebRTC(
   streamer: string,
@@ -25,6 +39,41 @@ export default function useWebRTC(
   const playbackWorkerUrl = useStreamplaceStore(
     (state) => state.playbackWorkerUrl,
   );
+  const selectedRendition = usePlayerStore((x) => x.selectedRendition);
+  const setPlayingLiveRendition = usePlayerStore(
+    (x) => x.setPlayingLiveRendition,
+  );
+  const liveRenditions = useLivestreamStore((x) => x.renditions);
+
+  // In "auto" mode we always connect at source and the ABR controller then
+  // switches renditions in-session over the "rendition" data channel. If the
+  // channel never works (older server), we simply stay on source — the
+  // highest quality — rather than reconnecting.
+  const abrStateRef = useRef<AbrState | null>(null);
+  const renditionChannelRef = useRef<RTCDataChannel | null>(null);
+  const pendingSwitchRef = useRef<{
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const rendition = selectedRendition === "auto" ? "source" : selectedRendition;
+  // The rendition the server is actually sending right now: the connected
+  // rendition, updated on every applied in-session switch.
+  const actualRenditionRef = useRef<string>(rendition);
+
+  // Refs so the connection effect's interval always sees fresh values without
+  // needing them in its dependency list (which would force a reconnect).
+  const autoModeRef = useRef(selectedRendition === "auto");
+  autoModeRef.current = selectedRendition === "auto";
+  const liveRenditionsRef = useRef(liveRenditions);
+  liveRenditionsRef.current = liveRenditions;
+
+  // Leaving auto mode: throw away ABR bookkeeping and the menu readout.
+  useEffect(() => {
+    if (selectedRendition !== "auto") {
+      abrStateRef.current = null;
+      setPlayingLiveRendition(null);
+    }
+  }, [selectedRendition, setPlayingLiveRendition]);
+
   const isOwnStream = !!(
     myDID &&
     (streamer === myDID || streamer === myHandle)
@@ -78,11 +127,77 @@ export default function useWebRTC(
       );
     });
 
+    // A new connection means we're back at the connected rendition; get the
+    // ABR controller and the menu readout back in sync with reality.
+    actualRenditionRef.current = rendition;
+    const abr = abrStateRef.current;
+    if (abr && abr.current !== rendition) {
+      syncAbrState(abr, rendition, Date.now());
+    }
+    if (autoModeRef.current) {
+      setPlayingLiveRendition(rendition);
+    }
+    if (pendingSwitchRef.current) {
+      clearTimeout(pendingSwitchRef.current.timer);
+      pendingSwitchRef.current = null;
+    }
+
+    // Channel used to ask the server to switch renditions in-session. On
+    // older servers it may open but never answer; requests then time out
+    // and we stay on the current rendition.
+    const renditionChannel = peerConnection.createDataChannel("rendition");
+    renditionChannelRef.current = renditionChannel;
+    renditionChannel.addEventListener("message", (event) => {
+      let msg: any;
+      try {
+        msg = JSON.parse(
+          typeof event.data === "string"
+            ? event.data
+            : new TextDecoder().decode(event.data),
+        );
+      } catch {
+        return;
+      }
+      if (msg.applied && typeof msg.rendition === "string") {
+        actualRenditionRef.current = msg.rendition;
+        setPlayingLiveRendition(msg.rendition);
+        const abr = abrStateRef.current;
+        if (abr && abr.current !== msg.rendition) {
+          // e.g. a late ack after we already gave up on the request
+          syncAbrState(abr, msg.rendition, Date.now());
+        }
+        console.log(`[webrtc-abr] now playing ${msg.rendition}`);
+      } else if (msg.error) {
+        console.warn(`[webrtc-abr] rendition switch rejected: ${msg.error}`);
+        const abr = abrStateRef.current;
+        if (abr) {
+          syncAbrState(
+            abr,
+            actualRenditionRef.current,
+            Date.now(),
+            SWITCH_FAILURE_SUPPRESS_MS,
+          );
+        }
+      } else {
+        return;
+      }
+      if (pendingSwitchRef.current) {
+        clearTimeout(pendingSwitchRef.current.timer);
+        pendingSwitchRef.current = null;
+      }
+    });
+    renditionChannel.addEventListener("close", () => {
+      if (renditionChannelRef.current === renditionChannel) {
+        renditionChannelRef.current = null;
+      }
+    });
+
     let lastFramesReceived = 0;
     let lastAudioFramesReceived = 0;
 
     const handle = setInterval(async () => {
       const stats = await peerConnection.getStats();
+      let abrSample: AbrSample | null = null;
       stats.forEach((stat) => {
         const mediaType = stat.mediaType /* web */ ?? stat.kind; /* native */
         if (stat.type === "inbound-rtp" && mediaType === "audio") {
@@ -102,8 +217,59 @@ export default function useWebRTC(
             setStatus(PlayerStatus.PLAYING);
             setStuck(false);
           }
+          abrSample = {
+            at: Date.now(),
+            bytesReceived: stat.bytesReceived ?? 0,
+            packetsReceived: stat.packetsReceived ?? 0,
+            packetsLost: stat.packetsLost ?? 0,
+          };
         }
       });
+      if (autoModeRef.current && abrSample) {
+        const now = Date.now();
+        const abr = (abrStateRef.current ??= createAbrState(
+          actualRenditionRef.current,
+          now,
+        ));
+        addAbrSample(abr, abrSample);
+        const channel = renditionChannelRef.current;
+        if (!pendingSwitchRef.current && channel?.readyState === "open") {
+          const next = decideRendition(abr, liveRenditionsRef.current, now);
+          if (next && next !== actualRenditionRef.current) {
+            console.log(
+              `[webrtc-abr] requesting switch ${actualRenditionRef.current} -> ${next}`,
+            );
+            pendingSwitchRef.current = {
+              timer: setTimeout(() => {
+                pendingSwitchRef.current = null;
+                const stale = abrStateRef.current;
+                if (stale) {
+                  syncAbrState(
+                    stale,
+                    actualRenditionRef.current,
+                    Date.now(),
+                    SWITCH_FAILURE_SUPPRESS_MS,
+                  );
+                }
+                console.warn("[webrtc-abr] rendition switch timed out");
+              }, SWITCH_ACK_TIMEOUT_MS),
+            };
+            try {
+              channel.send(JSON.stringify({ rendition: next }));
+            } catch (e) {
+              console.warn(`[webrtc-abr] could not send switch request: ${e}`);
+              clearTimeout(pendingSwitchRef.current.timer);
+              pendingSwitchRef.current = null;
+              syncAbrState(
+                abr,
+                actualRenditionRef.current,
+                Date.now(),
+                SWITCH_FAILURE_SUPPRESS_MS,
+              );
+            }
+          }
+        }
+      }
       if (Date.now() - lastChange.current > 2000) {
         setStuck(true);
       }
@@ -111,6 +277,7 @@ export default function useWebRTC(
 
     return () => {
       clearInterval(handle);
+      renditionChannelRef.current = null;
       peerConnection.close();
     };
   }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);

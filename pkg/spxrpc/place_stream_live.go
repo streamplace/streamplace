@@ -352,7 +352,7 @@ func (s *Server) handlePlaceStreamLiveSubscribeSegments(c echo.Context) error {
 	defer cancel()
 	go func() {
 
-		segChan := s.bus.SubscribeSegmentBuf(ctx, user, "source", 2)
+		segChan := s.bus.SubscribeSegment(ctx, user, "source")
 		defer s.bus.UnsubscribeSegment(ctx, user, "source", segChan)
 		for {
 			select {

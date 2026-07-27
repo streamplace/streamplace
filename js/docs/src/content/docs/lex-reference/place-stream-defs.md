@@ -47,9 +47,12 @@ description: Reference for the place.stream.defs lexicon
 
 **Properties:**
 
-| Name   | Type     | Req'd | Description | Constraints |
-| ------ | -------- | ----- | ----------- | ----------- |
-| `name` | `string` | ✅    |             |             |
+| Name      | Type      | Req'd | Description                               | Constraints |
+| --------- | --------- | ----- | ----------------------------------------- | ----------- |
+| `name`    | `string`  | ✅    |                                           |             |
+| `bitrate` | `integer` | ❌    | Nominal video bitrate in bits per second. |             |
+| `width`   | `integer` | ❌    |                                           |             |
+| `height`  | `integer` | ❌    |                                           |             |
 
 ---
 
@@ -138,6 +141,16 @@ A non-game activity with a well-known label.
       "properties": {
         "name": {
           "type": "string"
+        },
+        "bitrate": {
+          "type": "integer",
+          "description": "Nominal video bitrate in bits per second."
+        },
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
         }
       }
     },

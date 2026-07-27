@@ -205,9 +205,15 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				for _, r := range videoRenditions {
+					bitrate := int64(r.Bitrate)
+					width := r.Width
+					height := r.Height
 					outRs.Renditions = append(outRs.Renditions, placestream.Defs_Rendition{
 						LexiconTypeID: "place.stream.defs#rendition",
 						Name:          r.Name,
+						Bitrate:       &bitrate,
+						Width:         &width,
+						Height:        &height,
 					})
 				}
 			}

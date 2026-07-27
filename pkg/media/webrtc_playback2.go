@@ -2,8 +2,10 @@ package media
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +16,136 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/renditions"
 )
+
+const renditionDataChannelLabel = "rendition"
+
+type renditionSwap struct {
+	name string
+	ack  chan error
+}
+
+// validRenditionName reports whether name is a rendition the playback path
+// could actually be producing for a stream: "source" or one of the
+// configured transcoded rendition names. This is defense-in-depth against
+// typos or arbitrary strings sent over the data channel, which would
+// otherwise subscribe to a bus key that never receives segments and stall
+// playback silently.
+func validRenditionName(name string) bool {
+	if name == "source" {
+		return true
+	}
+	for _, r := range renditions.DesiredRenditions {
+		if r.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// handleRenditionSwapRequest processes one client's request (over the playback
+// data channel) to switch the rendition being forwarded. Replies on the same
+// channel with {"rendition": ..., "applied": true} or {"error": ...}.
+func handleRenditionSwapRequest(ctx context.Context, dc *webrtc.DataChannel, data []byte, audioOnly bool, swapCh chan<- renditionSwap) {
+	reply := func(v any) {
+		bs, err := json.Marshal(v)
+		if err != nil {
+			return
+		}
+		if err := dc.SendText(string(bs)); err != nil {
+			log.Warn(ctx, "could not send rendition swap reply", "error", err)
+		}
+	}
+	var req struct {
+		Rendition string `json:"rendition"`
+	}
+	if err := json.Unmarshal(data, &req); err != nil {
+		reply(map[string]string{"error": fmt.Sprintf("invalid rendition request: %s", err)})
+		return
+	}
+	if audioOnly {
+		reply(map[string]string{"error": "cannot switch rendition on an audio-only session"})
+		return
+	}
+	if req.Rendition == "" || req.Rendition == renditions.AudioRendition.Name {
+		reply(map[string]string{"error": fmt.Sprintf("invalid rendition %q", req.Rendition)})
+		return
+	}
+	if !validRenditionName(req.Rendition) {
+		reply(map[string]string{"error": fmt.Sprintf("unknown rendition %q", req.Rendition)})
+		return
+	}
+	ack := make(chan error, 1)
+	select {
+	case swapCh <- renditionSwap{name: req.Rendition, ack: ack}:
+	case <-ctx.Done():
+		return
+	}
+	select {
+	case err := <-ack:
+		if err != nil {
+			reply(map[string]string{"error": err.Error()})
+		} else {
+			reply(map[string]any{"rendition": req.Rendition, "applied": true})
+		}
+	case <-time.After(5 * time.Second):
+		reply(map[string]string{"error": "rendition switch timed out"})
+	case <-ctx.Done():
+	}
+}
+
+// pumpSegments forwards packetized segments from the bus to out for the
+// duration of the context, starting with rendition `initial`. Requests on
+// swapCh switch the subscription to another rendition at the next segment
+// boundary — every rendition segment starts on a keyframe, so the receiver's
+// decoder sees a clean splice on the same RTP stream. latency counts media
+// enqueued but not yet played; the writer goroutine decrements it.
+func pumpSegments(ctx context.Context, mm *MediaManager, user string, initial string, viewer string, swapCh <-chan renditionSwap, latency *atomic.Int64, out chan<- *bus.PacketizedSegment) {
+	current := initial
+	// buffer 2 on join so playback can start instantly; on swap we want the
+	// live edge only, not the new rendition's recent history
+	segChan := mm.bus.SubscribeSegmentBuf(ctx, user, current, 2)
+	defer func() { mm.bus.UnsubscribeSegment(ctx, user, current, segChan) }()
+	forward := func(file *bus.Seg) bool {
+		if !file.Published && viewer != user && !mm.cli.WideOpen {
+			log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
+			return true
+		}
+		latency.Add(int64(file.PacketizedData.Duration))
+		select {
+		case out <- file.PacketizedData:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug(ctx, "exiting segment reader")
+			return
+		case sw := <-swapCh:
+			mm.bus.UnsubscribeSegment(ctx, user, current, segChan)
+			// forward any in-flight segment of the old rendition so playback
+			// stays continuous across the splice
+			select {
+			case file := <-segChan.C:
+				if !forward(file) {
+					sw.ack <- ctx.Err()
+					return
+				}
+			default:
+			}
+			current = sw.name
+			segChan = mm.bus.SubscribeSegmentBuf(ctx, user, current, 0)
+			sw.ack <- nil
+			log.Log(ctx, "switched playback rendition", "user", user, "rendition", sw.name)
+		case file := <-segChan.C:
+			if !forward(file) {
+				return
+			}
+		}
+	}
+}
 
 // This function remains in scope for the duration of a single users' playback
 func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendition string, offer *webrtc.SessionDescription, viewer string) (*webrtc.SessionDescription, error) {
@@ -59,6 +191,18 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 			log.Log(ctx, "cannot close peerConnection: %v\n", cErr)
 		}
 	}
+
+	// In-session rendition switching: the client opens a "rendition" data
+	// channel; requests on it are applied by the segment reader goroutine.
+	swapCh := make(chan renditionSwap, 1)
+	peerConnection.OnDataChannel(func(dc *webrtc.DataChannel) {
+		if dc.Label() != renditionDataChannelLabel {
+			return
+		}
+		dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+			handleRenditionSwapRequest(ctx, dc, msg.Data, audioOnly, swapCh)
+		})
+	})
 
 	// Set the remote SessionDescription
 	if err = peerConnection.SetRemoteDescription(*offer); err != nil {
@@ -116,32 +260,14 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 		defer cancel()
 		defer markDone()
 
-		latency := time.Duration(0)
+		var latency atomic.Int64
 
 		packetQueue := make(chan *bus.PacketizedSegment, 1024)
-		go func() {
-			busRendition := rendition
-			if audioOnly {
-				busRendition = "source"
-			}
-			segChan := mm.bus.SubscribeSegmentBuf(ctx, user, busRendition, 2)
-			defer mm.bus.UnsubscribeSegment(ctx, user, busRendition, segChan)
-			for {
-				select {
-				case <-ctx.Done():
-					log.Debug(ctx, "exiting segment reader")
-					return
-				case file := <-segChan.C:
-					log.Debug(ctx, "got segment", "file", file.Filepath)
-					if !file.Published && viewer != user && !mm.cli.WideOpen {
-						log.Warn(ctx, "segment is not published and viewer is not the user", "viewer", viewer, "user", user)
-						continue
-					}
-					latency += file.PacketizedData.Duration
-					packetQueue <- file.PacketizedData
-				}
-			}
-		}()
+		busRendition := rendition
+		if audioOnly {
+			busRendition = "source"
+		}
+		go pumpSegments(ctx, mm, user, busRendition, viewer, swapCh, &latency, packetQueue)
 
 		go func() {
 			go func() {
@@ -158,9 +284,9 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 				case <-ctx.Done():
 					return
 				case packet := <-packetQueue:
-					latency -= packet.Duration
-					scalar = getPlaybackRate(latency)
-					log.Debug(ctx, "playback latency", "latency", latency, "scalar", scalar)
+					latency.Add(-int64(packet.Duration))
+					scalar = getPlaybackRate(time.Duration(latency.Load()))
+					log.Debug(ctx, "playback latency", "latency", time.Duration(latency.Load()), "scalar", scalar)
 					var videoDur time.Duration
 					var audioDur time.Duration
 					if len(packet.Video) > 0 {

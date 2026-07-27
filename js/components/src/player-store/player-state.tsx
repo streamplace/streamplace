@@ -45,6 +45,10 @@ export interface PlayerState {
   /** Actual rendition name currently playing when in auto/source mode (web HLS only) */
   playingVODRendition: string | null;
   setPlayingVODRendition: (name: string | null) => void;
+
+  /** Actual rendition name currently playing in WebRTC auto mode */
+  playingLiveRendition: string | null;
+  setPlayingLiveRendition: (name: string | null) => void;
   protocol: PlayerProtocol;
   setProtocol: (protocol: PlayerProtocol) => void;
 

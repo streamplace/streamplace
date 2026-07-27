@@ -25,12 +25,20 @@ export async function createTeleport(
   userDID: string,
   targetHandle: string,
   countdownSeconds: number,
+  livestream: { uri: string; cid: string },
   setActiveTeleportUri?: (uri: string | null) => void,
 ): Promise<{ success: boolean; error?: string }> {
   if (countdownSeconds < 5 || countdownSeconds > 300) {
     return {
       success: false,
       error: "Countdown must be between 5 seconds and 5 minutes",
+    };
+  }
+
+  if (!livestream?.uri || !livestream?.cid) {
+    return {
+      success: false,
+      error: "No active livestream to teleport from",
     };
   }
 
@@ -62,6 +70,10 @@ export async function createTeleport(
       {
         streamer: targetDID as any,
         startsAt: startsAt as any,
+        livestream: {
+          uri: livestream.uri,
+          cid: livestream.cid,
+        } as any,
       },
       { repo: userDID as any },
     );
@@ -82,6 +94,7 @@ export async function createTeleport(
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
+  getLivestream: () => { uri: string; cid: string } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
   onOpenModal?: () => void,
 ) {
@@ -131,6 +144,14 @@ export function registerTeleportCommand(
       countdownSeconds = parsedDuration;
     }
 
+    const livestream = getLivestream();
+    if (!livestream?.uri || !livestream?.cid) {
+      return {
+        handled: true,
+        error: "No active livestream to teleport from",
+      };
+    }
+
     let targetDID: string;
     try {
       const resolution = await pdsAgent.resolveHandle({
@@ -161,6 +182,10 @@ export function registerTeleportCommand(
         {
           streamer: targetDID as any,
           startsAt: startsAt as any,
+          livestream: {
+            uri: livestream.uri,
+            cid: livestream.cid,
+          } as any,
         },
         { repo: userDID as any },
       );

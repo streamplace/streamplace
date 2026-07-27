@@ -573,9 +573,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// navigate back. End the source streamer's livestream here (the
 			// same record update place.stream.live.stopLivestream performs,
 			// setting endedAt so the streamer returns to "pre-live"), now
-			// that viewers have been sent over. Best-effort: a failure only
-			// logs and never blocks the arrival notification.
-			atsync.endLivestreamForTeleport(ctx, userDID)
+			// that viewers have been sent over. The exact stream to end is
+			// pinned by the teleport record's `livestream` strongRef, so a
+			// newer stream the streamer may have started in the meantime is
+			// never terminated by mistake. Best-effort: a failure only logs
+			// and never blocks the arrival notification.
+			atsync.endLivestreamForTeleport(ctx, userDID, rec.Livestream)
 		})
 
 	case *placestream.Key:

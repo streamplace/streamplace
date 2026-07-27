@@ -82,6 +82,9 @@ type XRPCBlockFetcher struct {
 	// ChunkSize caps how many CIDs go into a single getBlocks request.
 	// Zero means [DefaultChunkSize].
 	ChunkSize int
+	// Retry bounds how hard each getBlocks call is retried after a transient
+	// failure. The zero value means the package defaults.
+	Retry RetryPolicy
 }
 
 var _ BlockFetcher = (*XRPCBlockFetcher)(nil)
@@ -103,7 +106,16 @@ func (f *XRPCBlockFetcher) GetBlocks(ctx context.Context, cids []cid.Cid) (map[c
 		for i, c := range batch {
 			strs[i] = c.String()
 		}
-		raw, err := indigoat.SyncGetBlocks(ctx, f.Client, strs, f.DID)
+		// Retried as a unit: a walk of a big repo makes hundreds of these calls
+		// in a row, so a single 429 from a busy PDS must not end it. Parsing
+		// happens outside the retry -- a CAR we cannot read is not transient.
+		var raw []byte
+		what := fmt.Sprintf("com.atproto.sync.getBlocks %s (%d cids)", f.DID, len(strs))
+		err := f.Retry.do(ctx, what, func() error {
+			var err error
+			raw, err = indigoat.SyncGetBlocks(ctx, f.Client, strs, f.DID)
+			return err
+		})
 		if err != nil {
 			return nil, fmt.Errorf("com.atproto.sync.getBlocks for %s (%d cids): %w", f.DID, len(strs), err)
 		}

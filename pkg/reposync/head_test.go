@@ -86,6 +86,37 @@ type fakeHost struct {
 	tamper map[cid.Cid]bool
 	// requests counts getBlocks calls.
 	requests int
+	// latestRequests counts getLatestCommit calls.
+	latestRequests int
+	// blocksFailures is popped once per getBlocks call: while it is non-empty
+	// the request is answered with that failure instead of a CAR. This is how
+	// the retry tests script a flaky host.
+	blocksFailures []failure
+	// latestFailures does the same for getLatestCommit.
+	latestFailures []failure
+}
+
+// failure is one scripted error response.
+type failure struct {
+	status int
+	body   string
+	header map[string]string
+}
+
+// pop takes the next scripted failure off script, writes it, and reports
+// whether it did anything.
+func pop(script *[]failure, w http.ResponseWriter) bool {
+	if len(*script) == 0 {
+		return false
+	}
+	f := (*script)[0]
+	*script = (*script)[1:]
+	for k, v := range f.header {
+		w.Header().Set(k, v)
+	}
+	w.WriteHeader(f.status)
+	_, _ = w.Write([]byte(f.body))
+	return true
 }
 
 func newFakeHost(sr *signedRepo) *fakeHost {
@@ -102,11 +133,18 @@ func (h *fakeHost) start(t *testing.T) *xrpc.Client {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/xrpc/com.atproto.sync.getLatestCommit", func(w http.ResponseWriter, r *http.Request) {
+		h.latestRequests++
+		if pop(&h.latestFailures, w) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"cid": h.head.String(), "rev": h.rev})
 	})
 	mux.HandleFunc("/xrpc/com.atproto.sync.getBlocks", func(w http.ResponseWriter, r *http.Request) {
 		h.requests++
+		if pop(&h.blocksFailures, w) {
+			return
+		}
 		buf := new(bytes.Buffer)
 		// Real getBlocks responses carry an empty roots list.
 		if err := car.WriteHeader(&car.CarHeader{Roots: nil, Version: 1}, buf); err != nil {

@@ -38,6 +38,22 @@
 //   - Deletions are not observable from a single walk; a caller detects them by
 //     diffing two walks (see [Walker.CollectPrefix] and [DiffCollections]).
 //
+// # Transient failures
+//
+// Walking a large repo is hundreds of sequential getBlocks calls, so a single
+// rate limit or restarting host must not end it: [XRPCBlockFetcher] and
+// [FetchVerifiedHead] retry 429s, 5xx and dropped connections with a jittered
+// exponential backoff ([RetryPolicy]). Everything else -- 4xx, verification
+// failures, a cancelled context -- fails immediately.
+//
+// One 4xx in particular is worth knowing about: a walk pins a root and then
+// reads it over many round trips, while the host garbage-collects blocks that
+// only superseded commits referenced. A repo that commits mid-walk can leave
+// blocks unfetchable ([ErrMissingBlock], or a host-specific BlockNotFound /
+// "Could not find cids"). Retrying cannot help; the caller has to re-read the
+// head and walk the new tree, reusing its [CachedFetcher] so the second pass
+// only pays for what changed.
+//
 // # Resuming
 //
 // A [Frontier] is the complete state of an in-progress walk and is JSON

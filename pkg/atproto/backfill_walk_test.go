@@ -16,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	"github.com/multiformats/go-multihash"
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/appbsky"
@@ -280,7 +281,7 @@ func TestIsMethodNotSupported(t *testing.T) {
 			"doubly wrapped 404 with body",
 			fmt.Errorf("walking: %w", fmt.Errorf("getBlocks: %w", &xrpc.Error{
 				StatusCode: http.StatusNotFound,
-				Wrapped:    &xrpc.XRPCError{ErrStr: "NotFound", Message: "no such route"},
+				Wrapped:    &xrpc.XRPCError{ErrStr: "MethodNotImplemented", Message: "no such route"},
 			})),
 			true,
 		},
@@ -288,6 +289,37 @@ func TestIsMethodNotSupported(t *testing.T) {
 			"MethodNotImplemented error name",
 			fmt.Errorf("getLatestCommit: %w", &xrpc.XRPCError{ErrStr: "MethodNotImplemented", Message: "nope"}),
 			true,
+		},
+		{
+			// The whole point of looking at the error name: streamplace's own
+			// getBlocks answers 404 BlockNotFound for a block it no longer
+			// has. That host implements the method; falling back to a full
+			// getRepo download because of it would be a disaster.
+			"404 BlockNotFound",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusNotFound,
+				Wrapped:    &xrpc.XRPCError{ErrStr: "BlockNotFound", Message: "bafyreib2"},
+			}),
+			false,
+		},
+		{
+			// Same thing as it actually arrives from spxrpc, where echo's
+			// default error handler puts the name in "message" and leaves
+			// "error" empty.
+			"404 BlockNotFound with the name only in the message",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusNotFound,
+				Wrapped:    &xrpc.XRPCError{Message: "BlockNotFound"},
+			}),
+			false,
+		},
+		{
+			"404 RepoNotFound",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusNotFound,
+				Wrapped:    &xrpc.XRPCError{Message: "RepoNotFound"},
+			}),
+			false,
 		},
 		{
 			"400 InvalidRequest",
@@ -305,6 +337,11 @@ func TestIsMethodNotSupported(t *testing.T) {
 			}),
 			false,
 		},
+		{
+			"429",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{StatusCode: http.StatusTooManyRequests}),
+			false,
+		},
 		{"block mismatch", fmt.Errorf("fetching: %w", reposync.ErrBlockMismatch), false},
 		{"missing block", fmt.Errorf("fetching: %w", reposync.ErrMissingBlock), false},
 		{"canceled", fmt.Errorf("walking: %w", context.Canceled), false},
@@ -314,6 +351,207 @@ func TestIsMethodNotSupported(t *testing.T) {
 			require.Equal(t, tc.want, isMethodNotSupported(tc.err))
 		})
 	}
+}
+
+func TestIsStaleWalkError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{
+			// Our own client-side check, which is what fires when a host
+			// answers with a short bag of blocks instead of an error.
+			"missing block, as the walker wraps it",
+			fmt.Errorf("failed to walk repo: %w", fmt.Errorf("fetching 3 MST nodes: %w", reposync.ErrMissingBlock)),
+			true,
+		},
+		{
+			// The TypeScript PDS shape, seen from both a bsky.network
+			// mothership and a self-hosted instance.
+			"400 Could not find cids",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusBadRequest,
+				Wrapped:    &xrpc.XRPCError{ErrStr: "InvalidRequest", Message: "Could not find cids: bafyreib2"},
+			}),
+			true,
+		},
+		{
+			"404 BlockNotFound",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusNotFound,
+				Wrapped:    &xrpc.XRPCError{ErrStr: "BlockNotFound", Message: "bafyreib2"},
+			}),
+			true,
+		},
+		{
+			"404 BlockNotFound from spxrpc, name in the message",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusNotFound,
+				Wrapped:    &xrpc.XRPCError{Message: "BlockNotFound"},
+			}),
+			true,
+		},
+		{
+			"a different InvalidRequest",
+			fmt.Errorf("getBlocks: %w", &xrpc.Error{
+				StatusCode: http.StatusBadRequest,
+				Wrapped:    &xrpc.XRPCError{ErrStr: "InvalidRequest", Message: "cids/0 must be a cid string"},
+			}),
+			false,
+		},
+		{
+			"RepoNotFound",
+			fmt.Errorf("getLatestCommit: %w", &xrpc.Error{
+				StatusCode: http.StatusBadRequest,
+				Wrapped:    &xrpc.XRPCError{ErrStr: "RepoNotFound", Message: "could not find repo"},
+			}),
+			false,
+		},
+		{"throttled", fmt.Errorf("getBlocks: %w", &xrpc.Error{StatusCode: http.StatusTooManyRequests}), false},
+		{"tampered block", fmt.Errorf("walking: %w", reposync.ErrBlockMismatch), false},
+		{"malformed tree", fmt.Errorf("walking: %w", reposync.ErrInvalidNode), false},
+		{"plain error", errors.New("connection refused"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, isStaleWalkError(tc.err))
+		})
+	}
+}
+
+// TestWalkWithHeadRetry covers the live-repo race: the PDS garbage-collects the
+// blocks of a commit we pinned, and the fix is to re-read the head rather than
+// to fail. Staging that against a real PDS would mean making it GC mid-walk, so
+// the head fetch and the walk are scripted here instead.
+func TestWalkWithHeadRetry(t *testing.T) {
+	ctx := context.Background()
+	// A missing block, wrapped the way walkBackfill wraps it.
+	gone := fmt.Errorf("failed to walk repo for did:plc:x from PDS https://pds: %w",
+		fmt.Errorf("fetching 12 MST nodes: %w", reposync.ErrMissingBlock))
+
+	t.Run("restarts from the new head", func(t *testing.T) {
+		heads := []*reposync.Head{testHead(t, "3laaa"), testHead(t, "3lbbb")}
+		fetches := 0
+		fetchHead := func(context.Context) (*reposync.Head, error) {
+			h := heads[min(fetches, len(heads)-1)]
+			fetches++
+			return h, nil
+		}
+		var walked []cid.Cid
+		walk := func(_ context.Context, root cid.Cid) error {
+			walked = append(walked, root)
+			if len(walked) == 1 {
+				return gone
+			}
+			return nil
+		}
+
+		head, err := walkWithHeadRetry(ctx, 3, time.Millisecond, fetchHead, walk)
+		require.NoError(t, err)
+		require.Equal(t, heads[1], head, "the completed walk was against the new head")
+		require.Equal(t, []cid.Cid{heads[0].Root, heads[1].Root}, walked)
+		require.Equal(t, 2, fetches)
+	})
+
+	t.Run("a head that did not move means the repo really is incomplete", func(t *testing.T) {
+		// Never paper over a repo we could not read: the alternative is
+		// recording a Version whose records we know we are missing.
+		head := testHead(t, "3laaa")
+		fetches := 0
+		fetchHead := func(context.Context) (*reposync.Head, error) {
+			fetches++
+			return head, nil
+		}
+		walks := 0
+		walk := func(context.Context, cid.Cid) error {
+			walks++
+			return gone
+		}
+
+		_, err := walkWithHeadRetry(ctx, 3, time.Millisecond, fetchHead, walk)
+		require.Error(t, err)
+		require.ErrorIs(t, err, reposync.ErrMissingBlock)
+		require.Contains(t, err.Error(), "still the head")
+		require.Equal(t, 1, walks, "no point walking the same tree again")
+		require.Equal(t, 2, fetches)
+	})
+
+	t.Run("anything else fails immediately", func(t *testing.T) {
+		fetches := 0
+		fetchHead := func(context.Context) (*reposync.Head, error) {
+			fetches++
+			return testHead(t, "3laaa"), nil
+		}
+		walks := 0
+		bad := fmt.Errorf("walking: %w", reposync.ErrBlockMismatch)
+		walk := func(context.Context, cid.Cid) error {
+			walks++
+			return bad
+		}
+
+		_, err := walkWithHeadRetry(ctx, 3, time.Millisecond, fetchHead, walk)
+		require.ErrorIs(t, err, reposync.ErrBlockMismatch)
+		require.Equal(t, 1, walks)
+		require.Equal(t, 1, fetches, "a verification failure is not worth a new head")
+	})
+
+	t.Run("a repo that keeps moving exhausts the budget", func(t *testing.T) {
+		fetches := 0
+		fetchHead := func(context.Context) (*reposync.Head, error) {
+			fetches++
+			return testHead(t, fmt.Sprintf("3l%03d", fetches)), nil
+		}
+		walks := 0
+		walk := func(context.Context, cid.Cid) error {
+			walks++
+			return gone
+		}
+
+		_, err := walkWithHeadRetry(ctx, 3, time.Millisecond, fetchHead, walk)
+		require.Error(t, err)
+		require.ErrorIs(t, err, reposync.ErrMissingBlock)
+		require.Contains(t, err.Error(), "gave up after 3 walk attempts")
+		require.Equal(t, 3, walks)
+	})
+
+	t.Run("the first head fetch failing is just an error", func(t *testing.T) {
+		boom := errors.New("no such host")
+		walks := 0
+		_, err := walkWithHeadRetry(ctx,
+			3, time.Millisecond,
+			func(context.Context) (*reposync.Head, error) { return nil, boom },
+			func(context.Context, cid.Cid) error { walks++; return nil },
+		)
+		require.ErrorIs(t, err, boom)
+		require.Zero(t, walks)
+	})
+
+	t.Run("cancellation during the backoff returns promptly", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			cancel()
+		}()
+		start := time.Now()
+		_, err := walkWithHeadRetry(ctx,
+			3, 30*time.Second,
+			func(context.Context) (*reposync.Head, error) { return testHead(t, "3laaa"), nil },
+			func(context.Context, cid.Cid) error { return gone },
+		)
+		require.Error(t, err)
+		require.Less(t, time.Since(start), 5*time.Second)
+		require.ErrorIs(t, err, context.Canceled)
+		require.ErrorIs(t, err, reposync.ErrMissingBlock, "the walk failure is kept too")
+	})
+}
+
+// testHead fabricates a head at a given rev; only Rev and Root are consulted.
+func testHead(t *testing.T, rev string) *reposync.Head {
+	t.Helper()
+	root, err := cid.NewPrefixV1(cid.DagCBOR, multihash.SHA2_256).Sum([]byte("root:" + rev))
+	require.NoError(t, err)
+	return &reposync.Head{Rev: rev, Root: root}
 }
 
 func TestBackfillRanges(t *testing.T) {

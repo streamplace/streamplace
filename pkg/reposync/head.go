@@ -34,13 +34,29 @@ type Head struct {
 // structure, DID, rev and signature against the account's atproto signing key
 // from dir. On success, nothing the host says about the repo below Head.Root can
 // be forged.
-func FetchVerifiedHead(ctx context.Context, client *xrpc.Client, f BlockFetcher, dir identity.Directory, did string) (*Head, error) {
+//
+// At most one retry policy may be given; it applies to the getLatestCommit call
+// (the block fetch carries its own). Omitting it uses the package defaults.
+func FetchVerifiedHead(ctx context.Context, client *xrpc.Client, f BlockFetcher, dir identity.Directory, did string, retry ...RetryPolicy) (*Head, error) {
+	if len(retry) > 1 {
+		return nil, fmt.Errorf("at most one retry policy, got %d", len(retry))
+	}
+	var policy RetryPolicy
+	if len(retry) == 1 {
+		policy = retry[0]
+	}
+
 	parsedDID, err := syntax.ParseDID(did)
 	if err != nil {
 		return nil, fmt.Errorf("invalid did %q: %w", did, err)
 	}
 
-	latest, err := indigoat.SyncGetLatestCommit(ctx, client, did)
+	var latest *indigoat.SyncGetLatestCommit_Output
+	err = policy.do(ctx, "com.atproto.sync.getLatestCommit "+did, func() error {
+		var err error
+		latest, err = indigoat.SyncGetLatestCommit(ctx, client, did)
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("com.atproto.sync.getLatestCommit for %s: %w", did, err)
 	}

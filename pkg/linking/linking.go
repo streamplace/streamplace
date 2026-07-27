@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 
 	"golang.org/x/net/html"
 	"stream.place/streamplace/pkg/config"
@@ -54,6 +55,31 @@ var BrandingAssetList = [...]string{
 	"favicon",
 	"sidebarBg",
 	"legalLinks",
+}
+
+// atTags returns meta tags implementing the at-tags proposal
+// (https://tangled.org/chrisshank.com/at-tags), which maps web pages back to
+// atproto identities and records via <meta name="at:*"> tags in the page
+// <head>:
+//
+//   - at:canonical — the AT URI of the record this page canonically maps to
+//     (pass "" to omit, e.g. for pages that don't represent a record)
+//   - at:author    — the atproto identity of the page's author, as an
+//     at://<did> URI (pass "" to omit)
+//   - at:me        — the identity of the overall website, i.e. this node's
+//     did:web, when a broadcaster host is configured
+func (l *Linker) atTags(canonicalURI string, authorDID string) []MetaTag {
+	tags := make([]MetaTag, 0, 3)
+	if strings.HasPrefix(canonicalURI, "at://") {
+		tags = append(tags, MetaTag{Type: "name", Key: "at:canonical", Content: canonicalURI})
+	}
+	if authorDID != "" {
+		tags = append(tags, MetaTag{Type: "name", Key: "at:author", Content: "at://" + authorDID})
+	}
+	if l.cli != nil && l.cli.BroadcasterHost != "" {
+		tags = append(tags, MetaTag{Type: "name", Key: "at:me", Content: "at://did:web:" + l.cli.BroadcasterHost})
+	}
+	return tags
 }
 
 // fetch branding assets for a given broadcaster DID
@@ -169,6 +195,10 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 		Content: fmt.Sprintf("%s%s", titleStr, brandingTitle),
 	})
 
+	// at-tags: this page canonically maps to the livestream record, authored
+	// by the streamer
+	metaTags = append(metaTags, l.atTags(lsv.Uri, lsv.Author.Did)...)
+
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     fmt.Sprintf("%s%s", titleStr, brandingTitle),
 		Metas:     metaTags,
@@ -269,6 +299,10 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 		MetaTag{Type: "name", Key: "twitter:title", Content: title},
 	)
 
+	// at-tags: this page canonically maps to the place.stream.video record,
+	// authored by the streamer
+	metaTags = append(metaTags, l.atTags(vv.Uri, authorDid)...)
+
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     title,
 		Metas:     metaTags,
@@ -342,6 +376,10 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		Key:     "twitter:title",
 		Content: brandingTitle,
 	})
+
+	// at-tags: the site itself is identified by this node's did:web; there's
+	// no single author or canonical record for the front page
+	metaTags = append(metaTags, l.atTags("", "")...)
 
 	return l.GenerateHTML(ctx, &PageConfig{
 		Title:     brandingTitle,

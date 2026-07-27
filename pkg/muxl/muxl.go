@@ -158,6 +158,42 @@ func RunMuxlUnwrapEvents(ctx context.Context, input io.Reader, eventCh chan *Mux
 	return eng.UnwrapEvents(ctx, input, eventCh)
 }
 
+// RunMuxlReadSegments reads count canonical segments out of a stored MUXL
+// wrapper, starting at offset bytes into its canonical-segment stream, and
+// returns them verbatim.
+//
+// offset is fragment-relative — the offset a Metafile segment records — NOT an
+// absolute offset into the blob. muxl resolves the container framing itself
+// (for the flat-MP4 VOD shape, [flat-header][fragments], that means skipping
+// the synthesized header), so callers index fragments and never add a header
+// size of their own. An offset that misses a segment boundary is an error
+// rather than a read of whatever bytes happen to be there.
+//
+// No length is passed: muxl derives each segment's extent from its own uuid
+// boundaries. src is read through a random-access handle, so only the
+// requested segments' bytes are fetched — one GoP out of a multi-gigabyte VOD
+// costs a few small reads (range GETs against an S3-backed blob).
+func RunMuxlReadSegments(ctx context.Context, src io.ReaderAt, size, offset int64, count int) ([]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.ReadSegments(ctx, src, size, offset, count)
+}
+
+// RunMuxlReadSegmentsAtFileOffset is RunMuxlReadSegments for an index whose
+// offsets are absolute positions in the blob rather than fragment-relative —
+// the legacy [init][segments] shape, whose Metafile offsets already count the
+// leading init (see Metafile.FlatHeaderSize). muxl adds nothing to the offset
+// but still derives segment extents and rejects a bad one.
+func RunMuxlReadSegmentsAtFileOffset(ctx context.Context, src io.ReaderAt, size, offset int64, count int) ([]byte, error) {
+	eng, err := getEngine()
+	if err != nil {
+		return nil, err
+	}
+	return eng.ReadSegments(ctx, src, size, offset, count, upstream.WithFileOffset())
+}
+
 // RunMuxlSegmenterEvents segments an fMP4 stream into per-GoP canonical MUXL
 // events (unsigned).
 func RunMuxlSegmenterEvents(ctx context.Context, input io.Reader, eventCh chan *MuxlEvent) error {

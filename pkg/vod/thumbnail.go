@@ -13,6 +13,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/muxl"
 )
 
 // thumbnailFormat / thumbnailMimeType are the encoding used for the
@@ -76,8 +77,25 @@ func generateThumbnail(ctx context.Context, store blob.Store, cid string, meta *
 		return nil, fmt.Errorf("open content blob: %w", err)
 	}
 	defer content.Close()
-	segBytes := make([]byte, seg.Size)
-	if _, err := io.ReadFull(io.NewSectionReader(content, seg.Offset, seg.Size), segBytes); err != nil {
+	// Hand muxl the random-access handle and the segment's index coordinates
+	// and let it produce the bytes, rather than slicing the blob here. Doing
+	// it by hand meant adding Metafile.FlatHeaderSize to reach the fragments
+	// past a flat blob's synthesized header, and omitting it read a header's
+	// worth of the wrong bytes — which a decoder reports only as "this file is
+	// invalid and cannot be played". muxl owns the layout it synthesized, so
+	// it owns the arithmetic, derives the segment's extent from its own
+	// boundaries, and errors loudly on an offset that misses one.
+	//
+	// Which coordinate space the offsets are in is the metafile's to declare:
+	// FlatHeaderSize is set for the [flat-header][fragments] shape, whose
+	// offsets are fragment-relative, and zero for legacy [init][segments]
+	// blobs, whose offsets are already absolute.
+	readSegments := muxl.RunMuxlReadSegments
+	if meta.FlatHeaderSize == 0 {
+		readSegments = muxl.RunMuxlReadSegmentsAtFileOffset
+	}
+	segBytes, err := readSegments(ctx, content, content.Size(), seg.Offset, 1)
+	if err != nil {
 		return nil, fmt.Errorf("read segment bytes: %w", err)
 	}
 	// Timing breadcrumb: blob read vs. render (flatten + decode, logged

@@ -115,16 +115,6 @@
     "stream": {
       "debug": 5,
       "name": "stream",
-      "processes": [
-        {
-          "debug": 5,
-          "exec": "streamplace live $wildcard",
-          "exit_unmask": false,
-          "inconsequential": false,
-          "process": "MKVExec",
-          "restart_type": "fixed"
-        }
-      ],
       "source": "push://",
       "stop_sessions": false,
       "tags": []

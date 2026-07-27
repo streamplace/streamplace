@@ -225,19 +225,12 @@ func (w *Webhook) ToLexicon() (placestream.ServerDefs_Webhook, error) {
 
 // FromLexiconInput converts a placestream.ServerCreateWebhook_Input to a database Webhook
 func WebhookFromLexiconInput(input placestream.ServerCreateWebhook_Input, userDID, id string) (*Webhook, error) {
-	// Debug log the raw input
-	fmt.Printf("DEBUG: WebhookFromLexiconInput input.Events: %+v (type: %T)\n", input.Events, input.Events)
-	for i, event := range input.Events {
-		fmt.Printf("DEBUG: Event[%d]: %q (type: %T)\n", i, event, event)
-	}
-
 	var eventsJSON json.RawMessage
 	if len(input.Events) > 0 {
 		jsonBytes, err := json.Marshal(input.Events)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal events: %w", err)
 		}
-		fmt.Printf("DEBUG: Marshaled events JSON: %q\n", string(jsonBytes))
 		eventsJSON = json.RawMessage(jsonBytes)
 	} else {
 		// Default to empty array if no events provided

@@ -74,6 +74,19 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		return fmt.Errorf("publish origin: %w", err)
 	}
 
+	// The commit above reaches the local index by federating back to us over
+	// the firehose, which is a single point of failure: miss that one event and
+	// the video plays fine by direct link but never shows up in any listing,
+	// with nothing to reconcile it later. Index it directly as well. Not fatal
+	// — a VOD that published its records but lost a race with the indexer is
+	// still a successful VOD, and the firehose upsert (or a reindex) converges
+	// it. Idempotent either way, keyed by URI.
+	if p.state != nil {
+		if err := p.state.IndexOwnMediaOrigin(ctx, p.cid, p.size, p.mimeType); err != nil {
+			log.Error(ctx, "failed to index own media.origin locally", "cid", p.cid, "error", err)
+		}
+	}
+
 	// Serialize the probe so publishDraft can publish the track records later
 	// without re-probing the blob.
 	probeJSON, err := marshalProbe(p.probe)

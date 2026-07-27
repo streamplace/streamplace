@@ -8,7 +8,9 @@ import (
 )
 
 func Live(streamKey string, httpInternalAddr string) error {
-	// Create the URL for the live stream endpoint
+	// Live POSTs a fragmented-MP4 stream from stdin to the node's /live ingest
+	// route. (The Mist ingest bridge no longer uses this — the node pulls Mist's
+	// fMP4 output directly; see MistPullIngest.)
 	url := fmt.Sprintf("http://%s/live/%s", httpInternalAddr, streamKey)
 
 	// Create a new HTTP request with POST method
@@ -18,7 +20,7 @@ func Live(streamKey string, httpInternalAddr string) error {
 	}
 
 	// Set appropriate headers if needed
-	req.Header.Set("Content-Type", "video/x-matroska") // Assuming MKV format, adjust if needed
+	req.Header.Set("Content-Type", "video/mp4") // fragmented MP4 from stdin
 
 	// Create HTTP client and send the request
 	client := &http.Client{}

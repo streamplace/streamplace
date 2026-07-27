@@ -25,7 +25,7 @@ Streamplace is a video streaming service built on top of the AT Protocol (Authen
 
 ## Step 2: Get your stream key
 
-1. Click **Live Dashboard** (or go to [stream.place/dashboard](https://stream.place/dashboard))
+1. Click **Live Dashboard** (or go to [stream.place/live](https://stream.place/live))
 2. Click **Stream from OBS**
 3. Click **Generate Stream Key**
 4. Your key is copied to clipboard automatically

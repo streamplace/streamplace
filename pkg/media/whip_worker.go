@@ -7,14 +7,13 @@ import (
 	"os"
 
 	"github.com/pion/webrtc/v4"
-	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/rtcrec"
 )
 
 // ServeWHIPIngestWorkerSocket is the WHIP counterpart of
-// ServeMKVIngestWorkerSocket. Unlike MKV there's no socket/fd to pass in: the
+// ServeMP4IngestWorkerSocket. Unlike the fMP4 worker there is no socket/fd to pass in: the
 // worker OWNS the PeerConnection, so it creates it from cfg.OfferSDP (binding its
 // own UDP sockets), generates the SDP answer, and emits it as the FIRST frame on
 // the unix socket — main reads that Answer frame and returns it to the WHIP
@@ -59,11 +58,11 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 		return runErr
 	}
 
-	mm := &MediaManager{cli: &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}}
+	mm := &MediaManager{cli: cfg.workerCLI()}
 
 	// The worker owns the PeerConnection (its own UDP sockets), built with the
 	// same codec/interceptor setup as the in-process server. Debug recording is
-	// decided by main (cfg.Record) and written by the worker under cfg.DataDir.
+	// decided by main (cfg.Record) and written by the worker (S3 or cfg.DataDir).
 	api, webrtcConfig, err := newWebRTCAPI()
 	if err != nil {
 		return finish(fmt.Errorf("webrtc api: %w", err))
@@ -110,5 +109,10 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	cancel()
 	<-signerDone
 	flush()
+	// The recording commits asynchronously after pc.Close (drain sleep + S3
+	// commit); wait for it, or this process exits and the object never appears.
+	if rpc, ok := pc.(*rtcrec.RecordingPeerConnection); ok {
+		rpc.FinalizeRecording(ctx)
+	}
 	return finish(streamErr)
 }

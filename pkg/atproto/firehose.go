@@ -3,6 +3,7 @@ package atproto
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -47,7 +48,7 @@ type ATProtoSynchronizer struct {
 	CLI                *config.CLI
 	Model              model.Model
 	StatefulDB         *statedb.StatefulDB
-	Noter              notificationpkg.FirebaseNotifier
+	Noter              notificationpkg.Notifier
 	Bus                *bus.Bus
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory
@@ -268,10 +269,23 @@ func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay strin
 	// single-node (ServerHost == BroadcasterHost) deployment gets for free.
 	// gorilla/websocket pulls the "Host" header out and uses it as the
 	// HTTP Host while still dialing the loopback address in u.
-	if relay == atsync.selfRelayURL() && atsync.CLI.ServerHost != "" {
+	isSelf := relay == atsync.selfRelayURL()
+	if isSelf && atsync.CLI.ServerHost != "" {
 		header.Set("Host", atsync.CLI.ServerHost)
 	}
-	con, _, err := websocket.DefaultDialer.Dial(u.String(), header)
+
+	dialer := websocket.DefaultDialer
+	if isSelf && u.Scheme == "wss" {
+		// Under --secure the self-subscription dials wss://127.0.0.1:<https-port>,
+		// but our cert is issued for ServerHost, not for the loopback IP we dial
+		// (and in dev it's frequently self-signed on top of that), so verification
+		// would fail on hostname every time. Skipping it is not a trust decision:
+		// the peer on the other end of this loopback socket is this same process.
+		d := *websocket.DefaultDialer
+		d.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		dialer = &d
+	}
+	con, _, err := dialer.Dial(u.String(), header)
 	if err != nil {
 		return fmt.Errorf("subscribing to firehose failed (dialing): %w", err)
 	}

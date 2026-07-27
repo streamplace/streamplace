@@ -13,4 +13,5 @@ export const initialState: PlatformState = {
 export type RegisterNotificationTokenBody = {
   token: string;
   repoDID?: string;
+  type?: "firebase" | "web";
 };

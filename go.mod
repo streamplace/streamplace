@@ -18,6 +18,7 @@ require (
 	firebase.google.com/go/v4 v4.14.1
 	github.com/99designs/gqlgen v0.17.64
 	github.com/NYTimes/gziphandler v1.1.1
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/ThalesGroup/crypto11 v0.0.0-00010101000000-000000000000
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/aws/aws-sdk-go-v2 v1.41.4

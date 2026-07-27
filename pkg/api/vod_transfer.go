@@ -11,10 +11,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"stream.place/streamplace/pkg/comatproto"
 
-	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -117,19 +115,7 @@ func (a *StreamplaceAPI) HandleVODTransfer(ctx context.Context) httprouter.Handl
 // back. The rkey is the blob CID by convention, and the authority is our
 // ServerDID — the same (server_did, blob) key getVideoList filters on.
 func (a *StreamplaceAPI) indexOwnMediaOrigin(ctx context.Context, contentCID string, size int64) error {
-	aturi, err := syntax.ParseATURI(fmt.Sprintf(
-		"at://%s/%s/%s", a.CLI.ServerDID(), constants.PLACE_STREAM_MEDIA_ORIGIN, contentCID,
-	))
-	if err != nil {
-		return fmt.Errorf("build origin uri: %w", err)
-	}
-	rec := placestream.MediaOrigin{
-		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
-		Blob:          contentCID,
-		Size:          size,
-		MimeType:      "video/mp4",
-	}
-	return a.Model.UpsertMediaOrigin(ctx, rec, aturi)
+	return a.Model.UpsertOwnMediaOrigin(ctx, a.CLI.ServerDID(), contentCID, size, "video/mp4")
 }
 
 // resolveVideoContentBlob walks a place.stream.video record in the local

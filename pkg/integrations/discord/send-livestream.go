@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -93,7 +92,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload))
+	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload), "webhook_url", w.URL)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -108,11 +107,12 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, err := io.ReadAll(resp.Body)
+		body, err := readResponseBody(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
-		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, string(body))
+		log.Error(ctx, "livestream webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
+		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, body)
 	}
 
 	return nil

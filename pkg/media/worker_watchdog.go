@@ -15,7 +15,7 @@ import (
 // fires onWedge — the worker's context cancel — tearing the pipeline down so the
 // process exits and the fault stays contained to this subprocess.
 //
-// This is the worker-side counterpart to MKVIngestIsolated's main-side watchdog,
+// This is the worker-side counterpart to MP4IngestIsolated's main-side watchdog,
 // and the ONLY wedge containment on the detached and WHIP paths: those workers
 // are detached (not tied to main's context), so main can't kill a stuck one —
 // the worker has to notice and exit itself.

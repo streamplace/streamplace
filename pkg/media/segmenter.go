@@ -244,7 +244,7 @@ func SegmentUnsigned(ctx context.Context, cli *config.CLI, streamer string, inpu
 	}
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
 	if err != nil {
-		return fmt.Errorf("error creating MKVIngest pipeline: %w", err)
+		return fmt.Errorf("error creating SegmentUnsigned pipeline: %w", err)
 	}
 
 	srcele, err := pipeline.GetElementByName("appsrc")

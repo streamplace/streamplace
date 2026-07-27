@@ -234,6 +234,7 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 WebhooksSettings: SCREEN_PATHS.WebhooksSettings,
                 RecommendationsSettings: SCREEN_PATHS.RecommendationsSettings,
                 PrivacyCategory: SCREEN_PATHS.PrivacyCategory,
+                NotificationsCategory: SCREEN_PATHS.NotificationsCategory,
                 DanmuCategory: SCREEN_PATHS.DanmuCategory,
                 AdvancedCategory: SCREEN_PATHS.AdvancedCategory,
                 MultistreamCategory: SCREEN_PATHS.MultistreamCategory,

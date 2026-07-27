@@ -71,7 +71,7 @@ require (
 	github.com/streamplace/atmoq/go v0.0.4-0.20260701223355-13757de4ae08
 	github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c
 	github.com/streamplace/glex v0.0.0-20260716203108-f73ed7cc31c9
-	github.com/streamplace/muxl/go v0.3.5-0.20260726020638-c7539b84f0b1
+	github.com/streamplace/muxl/go v0.3.5
 	github.com/streamplace/oatproxy v0.0.0-20260710202406-60d97b9d780b
 	github.com/stretchr/testify v1.11.1
 	github.com/tdewolff/canvas v0.0.0-20250728095813-50d4cb1eee71
@@ -103,7 +103,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-isatty v0.0.20
-	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	gorm.io/gorm v1.26.1
 )
 
@@ -361,7 +361,7 @@ require (
 	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.6 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/kolesa-team/go-webp v1.0.5 // indirect
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.14 // indirect

@@ -13,6 +13,7 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
+	"stream.place/streamplace/test/remote"
 )
 
 // TestGenerateThumbnailFlatBlob drives the production thumbnail step against a
@@ -28,10 +29,7 @@ import (
 //
 // Point SP_THUMBNAIL_BLOB at a blobs/<cid>.mp4-shaped file to run it.
 func TestGenerateThumbnailFlatBlob(t *testing.T) {
-	path := os.Getenv("SP_THUMBNAIL_BLOB")
-	if path == "" {
-		t.Skip("set SP_THUMBNAIL_BLOB to a finalized VOD content blob")
-	}
+	path := remote.RemoteFixture("db1aef16dc0c302e25ecef5a90d1338d9207078948b3379c9e22ec5a8239dc8f/thumbnail-test.mp4")
 	warmGST()
 
 	ctx, cancel := context.WithCancel(context.Background())

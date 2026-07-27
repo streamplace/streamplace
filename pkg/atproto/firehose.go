@@ -472,6 +472,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "failed to get repo", "err", err)
 			continue
 		}
+		atsync.reviveRepo(ctx, r)
 		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
 		ek := repomgr.EventKind(op.Action)
@@ -694,6 +695,25 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "unexpected record op kind")
 		}
 	}
+}
+
+// reviveRepo un-parks a repo we had written off. A commit event is proof the
+// account is back -- a deactivated, suspended, or deleted repo cannot write --
+// so the terminal status goes away and the ordinary wedge logic (an empty
+// Version means "backfill me") takes it from there.
+//
+// It is called from the commit path with the row that path already loaded, so
+// the common case costs one comparison and no query at all.
+func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo) {
+	if !r.TerminalStatus() {
+		return
+	}
+	log.Log(ctx, "repo committed while parked, clearing terminal status", "did", r.DID, "status", r.Status)
+	if err := atsync.Model.SetRepoStatus(ctx, r.DID, model.RepoStatusOK); err != nil {
+		log.Error(ctx, "failed to clear repo status", "did", r.DID, "err", err)
+		return
+	}
+	r.Status = model.RepoStatusOK
 }
 
 func (atsync *ATProtoSynchronizer) handleIdentityEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Identity) {

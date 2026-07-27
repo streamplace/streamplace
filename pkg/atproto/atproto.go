@@ -30,6 +30,14 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, ha
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repo for %s: %w", handle, err)
 	}
+	// A terminal account status -- deactivated, deleted, taken down -- means
+	// syncing is pointless until the account comes back, which the firehose
+	// tells us about by clearing the status. Hand back what we have rather than
+	// asking a PDS a question we know the answer to.
+	if repo != nil && repo.TerminalStatus() {
+		log.Debug(ctx, "skipping sync of repo in terminal state", "did", repo.DID, "status", repo.Status)
+		return repo, nil
+	}
 	// An empty Version means the row is a placeholder written at the start of a
 	// backfill that never finished, so the repo is only partially indexed. Fall
 	// through and sync it again -- unless the backfill that wrote it is still
@@ -103,15 +111,21 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 
 	rev, rootCID, err := atsync.backfillRepo(ctx, ident, &xrpcc)
 	if err != nil {
+		if parked := parkTerminalRepo(ctx, mod, ident.DID.String(), err); parked != nil {
+			return nil, parked
+		}
 		return nil, err
 	}
 
+	// A completed backfill proves the account is fine, so Status goes back to
+	// empty -- UpdateRepo writes every column, so this happens by construction.
 	newRepo := model.Repo{
 		DID:     ident.DID.String(),
 		PDS:     ident.PDSEndpoint(),
 		Version: rev,
 		RootCID: rootCID,
 		Handle:  ident.Handle.String(),
+		Status:  model.RepoStatusOK,
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
@@ -177,6 +191,10 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 	if oldRepo != nil {
 		newRepo.Version = oldRepo.Version
 		newRepo.RootCID = oldRepo.RootCID
+		// Same reasoning for Status: an identity event is not evidence the
+		// account came back, and blanking it here would put every deactivated
+		// repo back in the boot-time sync sweep.
+		newRepo.Status = oldRepo.Status
 	}
 	err = atsync.Model.UpdateRepo(&newRepo)
 	if err != nil {

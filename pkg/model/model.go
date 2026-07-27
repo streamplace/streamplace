@@ -38,6 +38,8 @@ type Model interface {
 	GetAllRepos() ([]Repo, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
+	SetRepoStatus(ctx context.Context, did string, status string) error
+	TerminalRepoDIDs(ctx context.Context) ([]string, error)
 
 	UpdateSigningKey(key *SigningKey) error
 	GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error)

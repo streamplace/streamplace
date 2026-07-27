@@ -48,7 +48,7 @@ func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
 }
 
 func (m *DBModel) CreateFeedPost(ctx context.Context, post *FeedPost) error {
-	return m.DB.Create(post).Error
+	return createOrVerify(ctx, m, post, map[string]any{"uri": post.URI})
 }
 
 func (m *DBModel) ListFeedPosts() ([]FeedPost, error) {

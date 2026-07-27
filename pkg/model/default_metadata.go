@@ -24,6 +24,8 @@ func (m *MetadataConfiguration) ToStreamplaceMetadataConfiguration() (placestrea
 	return sdm, nil
 }
 
+// CreateMetadataConfiguration stores a repo's metadata configuration. One row
+// per repo, no CID column: Save is already redelivery-safe. See CreateChatProfile.
 func (m *DBModel) CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error {
 	err := m.DB.Save(metadata).Error
 	if err != nil {

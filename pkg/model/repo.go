@@ -1,9 +1,22 @@
 package model
 
 import (
+	"context"
 	"errors"
 
 	"gorm.io/gorm"
+)
+
+// Account lifecycle states a repo row can be parked in. Anything other than
+// RepoStatusOK is terminal: the account is gone, hidden, or turned off, so
+// retrying its backfill on every boot only burns requests. A live commit on the
+// firehose is what proves the account is back and clears it.
+const (
+	RepoStatusOK          = ""
+	RepoStatusDeactivated = "deactivated"
+	RepoStatusNotFound    = "notfound"
+	RepoStatusTakendown   = "takendown"
+	RepoStatusSuspended   = "suspended"
 )
 
 type Repo struct {
@@ -12,6 +25,14 @@ type Repo struct {
 	PDS     string `json:"pds"`
 	Version string `json:"version"`
 	RootCID string `json:"rootCid"`
+	// Status is one of the RepoStatus* constants; empty for a normal account.
+	Status string `gorm:"column:status" json:"status,omitempty"`
+}
+
+// TerminalStatus reports whether this repo is in an account state no amount of
+// retrying will get us past.
+func (r *Repo) TerminalStatus() bool {
+	return r != nil && r.Status != RepoStatusOK
 }
 
 func (Repo) TableName() string {
@@ -76,6 +97,25 @@ func (m *DBModel) GetRepoByHandleOrDID(arg string) (*Repo, error) {
 
 func (m *DBModel) UpdateRepo(repo *Repo) error {
 	return m.DB.Save(repo).Error
+}
+
+// SetRepoStatus parks (or un-parks) a repo's account lifecycle state without
+// touching the sync state in the rest of the row.
+func (m *DBModel) SetRepoStatus(ctx context.Context, did string, status string) error {
+	return m.DB.WithContext(ctx).Model(&Repo{}).Where("did = ?", did).Update("status", status).Error
+}
+
+// TerminalRepoDIDs lists the repos parked in a terminal account state, so the
+// boot-time sync sweep can skip them in one query instead of failing on each.
+func (m *DBModel) TerminalRepoDIDs(ctx context.Context) ([]string, error) {
+	var dids []string
+	err := m.DB.WithContext(ctx).Model(&Repo{}).
+		Where("status IS NOT NULL AND status != ?", RepoStatusOK).
+		Pluck("did", &dids).Error
+	if err != nil {
+		return nil, err
+	}
+	return dids, nil
 }
 
 func (m *DBModel) SearchReposByHandle(query string, limit int) ([]Repo, error) {

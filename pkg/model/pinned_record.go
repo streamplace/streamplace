@@ -56,7 +56,7 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (placestream.ChatDefs_Pin
 	return rec, nil
 }
 func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error {
-	return m.DB.Create(pin).Error
+	return createOrVerify(ctx, m, pin, map[string]any{"uri": pin.Uri})
 }
 
 func (m *DBModel) GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error) {

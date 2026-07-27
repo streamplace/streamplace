@@ -267,6 +267,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Noter:      noter,
 		Bus:        b,
 	}
+	// Sync every repo we know about, once per boot. Nothing below depends on it
+	// having finished: it is a repair sweep for repos left half-indexed by a
+	// previous run, and the firehose keeps them current afterwards.
 	err = atsync.Migrate(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to migrate: %w", err)
@@ -334,11 +337,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Public:             cli.PublicOAuth,
 	})
 	state.OATProxy = op
-
-	err = atsync.Migrate(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to migrate: %w", err)
-	}
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {

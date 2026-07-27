@@ -12,7 +12,20 @@ import (
 )
 
 func (atsync *ATProtoSynchronizer) Migrate(ctx context.Context) error {
+	// Accounts that are deactivated, deleted, or taken down fail their backfill
+	// the same way on every boot forever. One query up front keeps them out of
+	// the sweep entirely, instead of one logged failure each.
+	terminalDIDs, err := atsync.Model.TerminalRepoDIDs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list repos in terminal states: %w", err)
+	}
+	terminal := make(map[string]struct{}, len(terminalDIDs))
+	for _, did := range terminalDIDs {
+		terminal[did] = struct{}{}
+	}
+
 	var allDIDs []string
+	skipped := 0
 	offset := 0
 	for {
 		repos, err := atsync.StatefulDB.ListRepos(100, offset)
@@ -23,11 +36,18 @@ func (atsync *ATProtoSynchronizer) Migrate(ctx context.Context) error {
 			break
 		}
 		for _, repo := range repos {
+			if _, ok := terminal[repo.DID]; ok {
+				skipped++
+				continue
+			}
 			allDIDs = append(allDIDs, repo.DID)
 		}
 		offset += len(repos)
 	}
 
+	if skipped > 0 {
+		log.Log(ctx, "skipping repos with terminal status", "skipped", skipped)
+	}
 	log.Log(ctx, "starting migration sync", "totalRepos", len(allDIDs))
 
 	g, ctx := errgroup.WithContext(ctx)

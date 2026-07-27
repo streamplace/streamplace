@@ -16,6 +16,7 @@ import (
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/reposync"
 )
 
@@ -378,6 +379,63 @@ func isLexiconErrorName(s string) bool {
 		return false
 	}
 	return true
+}
+
+// TerminalRepoError is a backfill failure that retrying cannot fix, because the
+// account itself is deactivated, deleted, suspended, or taken down. Callers
+// record Status on the repo row and stop; the firehose clears it if the account
+// comes back.
+type TerminalRepoError struct {
+	// Status is a model.RepoStatus* value.
+	Status string
+	Err    error
+}
+
+func (e *TerminalRepoError) Error() string {
+	return fmt.Sprintf("repo is %s: %v", e.Status, e.Err)
+}
+
+func (e *TerminalRepoError) Unwrap() error { return e.Err }
+
+// repoStatusFromError maps the account-lifecycle errors an atproto host returns
+// onto a [model.Repo] status, or "" for anything worth retrying.
+//
+// Only named lexicon errors count. A DNS failure, a timeout, an SSRF block or a
+// 500 says nothing about the account -- parking a repo as "notfound" because its
+// PDS was briefly unreachable would take it out of the index until it happened
+// to commit again.
+func repoStatusFromError(err error) string {
+	switch xrpcErrorName(err) {
+	case "RepoDeactivated":
+		return model.RepoStatusDeactivated
+	case "RepoNotFound":
+		return model.RepoStatusNotFound
+	case "RepoTakendown":
+		return model.RepoStatusTakendown
+	case "RepoSuspended":
+		return model.RepoStatusSuspended
+	}
+	return ""
+}
+
+// parkTerminalRepo records a terminal account state on the repo row so that the
+// boot-time sweep and every cached lookup stop asking about it.
+//
+// It returns the error the caller should return -- a [TerminalRepoError] if the
+// failure was terminal, or nil if it was not, in which case the caller keeps its
+// own error. Version and RootCID are deliberately left as they are: whatever we
+// managed to index of this repo before it went away stays valid and stays
+// served.
+func parkTerminalRepo(ctx context.Context, mod model.Model, did string, err error) error {
+	status := repoStatusFromError(err)
+	if status == model.RepoStatusOK {
+		return nil
+	}
+	log.Log(ctx, "repo is in a terminal account state", "did", did, "status", status, "err", err)
+	if serr := mod.SetRepoStatus(ctx, did, status); serr != nil {
+		return fmt.Errorf("failed to record %s status for %s: %w", status, did, serr)
+	}
+	return &TerminalRepoError{Status: status, Err: err}
 }
 
 // isMethodNotSupported reports whether err means "this host does not implement

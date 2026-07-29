@@ -52,7 +52,7 @@ func (m *DBModel) GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, er
 	}
 	lexs := make([]*comatproto.LabelDefs_Label, len(labels))
 	for i, l := range labels {
-		lex, err := l.ToLexicon()
+		lex, err := l.ToRecord()
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +61,7 @@ func (m *DBModel) GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, er
 	return lexs, nil
 }
 
-func (l Label) ToLexicon() (*comatproto.LabelDefs_Label, error) {
+func (l Label) ToRecord() (*comatproto.LabelDefs_Label, error) {
 	r := bytes.NewReader(l.Record)
 	var lex comatproto.LabelDefs_Label
 	err := lex.UnmarshalCBOR(r)

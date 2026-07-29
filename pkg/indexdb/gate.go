@@ -18,7 +18,7 @@ type Gate struct {
 	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
-func (g *Gate) ToStreamplaceGate() (placestream.ChatGate, error) {
+func (g *Gate) ToRecord() (placestream.ChatGate, error) {
 	return placestream.ChatGate{
 		LexiconTypeID: "place.stream.chat.gate",
 		HiddenMessage: g.HiddenMessage,

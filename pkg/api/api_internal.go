@@ -293,7 +293,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPNotFound(w, "segment not found", nil)
 			return
 		}
-		spSeg, err := segment.ToStreamplaceSegment()
+		spSeg, err := segment.ToRecord()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to convert segment to streamplace segment", err)
 			return
@@ -404,7 +404,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to get chat posts", err)
 			return
 		}
-		spmsg, err := msg.ToStreamplaceMessageView()
+		spmsg, err := msg.ToMessageView()
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to convert chat message to streamplace message view", err)
 			return

@@ -196,8 +196,8 @@ func TestWebhookConversionFunctions(t *testing.T) {
 		retrievedWebhook, err := state.GetWebhook("test-webhook-id", "did:web:example.com")
 		require.NoError(t, err)
 
-		// Test ToLexicon conversion
-		lexiconWebhook, err := retrievedWebhook.ToLexicon()
+		// Test ToServerWebhook conversion
+		lexiconWebhook, err := retrievedWebhook.ToServerWebhook()
 		require.NoError(t, err)
 		require.Equal(t, "test-webhook-id", lexiconWebhook.Id)
 		require.Equal(t, "https://example.com/webhook", lexiconWebhook.Url)

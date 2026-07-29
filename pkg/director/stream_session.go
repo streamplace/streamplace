@@ -100,7 +100,7 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	ss.ctx = ctx
 	log.Log(ctx, "starting stream session")
 	defer cancel()
-	spseg, err := notif.Segment.ToStreamplaceSegment()
+	spseg, err := notif.Segment.ToRecord()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
@@ -240,7 +240,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	if err != nil {
 		return fmt.Errorf("could not add segment to database: %w", err)
 	}
-	spseg, err := notif.Segment.ToStreamplaceSegment()
+	spseg, err := notif.Segment.ToRecord()
 	if err != nil {
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
@@ -355,7 +355,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 				return fmt.Errorf("failed to get chat profile: %w", err)
 			}
 			if cp != nil {
-				spcp, err := cp.ToStreamplaceChatProfile()
+				spcp, err := cp.ToRecord()
 				if err != nil {
 					return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
 				}

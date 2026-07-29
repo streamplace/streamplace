@@ -55,11 +55,11 @@ func (c *VodComment) author() appbsky.ActorDefs_ProfileViewBasic {
 	return author
 }
 
-// ToStreamplaceCommentViewBasic builds the non-recursive parent view used for
+// ToCommentViewBasic builds the non-recursive parent view used for
 // a comment's replyTo. It deliberately carries no replyTo of its own, which is
 // what keeps the thread flattened to a single hop (and keeps the lexicon — and
 // the OpenAPI schema generated from it — free of a self-referential cycle).
-func (c *VodComment) ToStreamplaceCommentViewBasic() (placestream.VodDefs_CommentViewBasic, error) {
+func (c *VodComment) ToCommentViewBasic() (placestream.VodDefs_CommentViewBasic, error) {
 	record, err := c.decodeRecord()
 	if err != nil {
 		return placestream.VodDefs_CommentViewBasic{}, err
@@ -75,7 +75,7 @@ func (c *VodComment) ToStreamplaceCommentViewBasic() (placestream.VodDefs_Commen
 	}, nil
 }
 
-func (c *VodComment) ToStreamplaceCommentView() (placestream.VodDefs_CommentView, error) {
+func (c *VodComment) ToCommentView() (placestream.VodDefs_CommentView, error) {
 	record, err := c.decodeRecord()
 	if err != nil {
 		return placestream.VodDefs_CommentView{}, err
@@ -89,7 +89,7 @@ func (c *VodComment) ToStreamplaceCommentView() (placestream.VodDefs_CommentView
 		LikeCount: 0,
 	}
 	if c.ReplyTo != nil {
-		replyTo, err := c.ReplyTo.ToStreamplaceCommentViewBasic()
+		replyTo, err := c.ReplyTo.ToCommentViewBasic()
 		if err != nil {
 			return placestream.VodDefs_CommentView{}, fmt.Errorf("error converting reply to comment view: %w", err)
 		}
@@ -162,7 +162,7 @@ func (m *DBModel) GetCommentsForVideo(ctx context.Context, videoURI string, limi
 	}
 	spcomments := []placestream.VodDefs_CommentView{}
 	for _, c := range dbcomments {
-		spcomment, err := c.ToStreamplaceCommentView()
+		spcomment, err := c.ToCommentView()
 		if err != nil {
 			return nil, nil, fmt.Errorf("error converting comment to view: %w", err)
 		}

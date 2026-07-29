@@ -188,7 +188,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				log.Error(ctx, "could not get replies", "error", err)
 				return
 			}
-			spSeg, err := seg.ToStreamplaceSegment()
+			spSeg, err := seg.ToRecord()
 			if err != nil {
 				log.Error(ctx, "could not convert segment to streamplace segment", "error", err)
 				return
@@ -270,7 +270,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				return
 			}
 			if pin != nil {
-				prv, err := pin.ToStreamplacePinnedRecordView()
+				prv, err := pin.ToPinnedRecordView()
 				if err != nil {
 					log.Error(ctx, "could not convert pinned record to streamplace view", "error", err)
 					return
@@ -296,7 +296,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					return
 				}
 				if msg != nil {
-					msgView, err := msg.ToStreamplaceMessageView()
+					msgView, err := msg.ToMessageView()
 					if err != nil {
 						log.Error(ctx, "failed to convert chat message: %w", err)
 						return
@@ -307,7 +307,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					prv.Message = msgView
 				}
 				if profile != nil {
-					profileView, err := profile.ToStreamplaceChatProfile()
+					profileView, err := profile.ToRecord()
 					if err != nil {
 						log.Error(ctx, "failed to convert chat profile: %w", err)
 						return
@@ -346,7 +346,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				// get the source chat profile
 				chatProfile, err := a.Model.GetChatProfile(ctx, tp.RepoDID)
 				if err == nil && chatProfile != nil {
-					spcp, err := chatProfile.ToStreamplaceChatProfile()
+					spcp, err := chatProfile.ToRecord()
 					if err == nil {
 						arrivalMsg.ChatProfile = &spcp
 					}

@@ -49,7 +49,7 @@ func (s *Server) handlePlaceStreamServerCreateWebhook(ctx context.Context, input
 	}
 
 	// Convert to API response
-	apiWebhook, err := webhook.ToLexicon()
+	apiWebhook, err := webhook.ToServerWebhook()
 	if err != nil {
 		log.Error(ctx, "failed to convert webhook to API format", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to format webhook response")
@@ -126,7 +126,7 @@ func (s *Server) handlePlaceStreamServerListWebhooks(ctx context.Context, active
 	// Convert to API format
 	apiWebhooks := make([]placestream.ServerDefs_Webhook, len(webhooks))
 	for i, webhook := range webhooks {
-		apiWebhook, err := webhook.ToLexicon()
+		apiWebhook, err := webhook.ToServerWebhook()
 		if err != nil {
 			log.Error(ctx, "failed to convert webhook to API format", "err", err)
 			continue
@@ -158,7 +158,7 @@ func (s *Server) handlePlaceStreamServerGetWebhook(ctx context.Context, id strin
 	}
 
 	// Convert to API format
-	apiWebhook, err := webhook.ToLexicon()
+	apiWebhook, err := webhook.ToServerWebhook()
 	if err != nil {
 		log.Error(ctx, "failed to convert webhook to API format", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to format webhook response")
@@ -240,7 +240,7 @@ func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context, input
 	}
 
 	// Convert to API format
-	apiWebhook, err := webhook.ToLexicon()
+	apiWebhook, err := webhook.ToServerWebhook()
 	if err != nil {
 		log.Error(ctx, "failed to convert webhook to API format", "err", err)
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to format webhook response")

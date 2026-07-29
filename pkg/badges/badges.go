@@ -51,7 +51,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	if err != nil || chatProfile == nil {
 		return badges, nil
 	}
-	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
+	spChatProfile, err := chatProfile.ToRecord()
 
 	if err != nil {
 		return badges, nil

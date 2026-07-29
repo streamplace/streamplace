@@ -16,7 +16,7 @@ type MetadataConfiguration struct {
 	Record  *[]byte
 }
 
-func (m *MetadataConfiguration) ToStreamplaceMetadataConfiguration() (placestream.MetadataConfiguration, error) {
+func (m *MetadataConfiguration) ToRecord() (placestream.MetadataConfiguration, error) {
 	var sdm placestream.MetadataConfiguration
 	if err := glex.DecodeCBOR(*m.Record, &sdm); err != nil {
 		return placestream.MetadataConfiguration{}, fmt.Errorf("error decoding metadata configuration: %w", err)

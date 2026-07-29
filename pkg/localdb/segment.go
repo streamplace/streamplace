@@ -150,7 +150,7 @@ type Segment struct {
 	Published          bool                 `json:"published"            gorm:"column:published;index:latest_segments_published,priority:3"`
 }
 
-func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
+func (s *Segment) ToRecord() (*placestream.Segment, error) {
 	aqt := aqtime.FromTime(s.StartTime)
 	if s.MediaData == nil {
 		return nil, fmt.Errorf("media data is nil")

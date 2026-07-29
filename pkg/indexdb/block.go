@@ -22,7 +22,7 @@ type Block struct {
 	CreatedAt  time.Time
 }
 
-func (b *Block) ToStreamplaceBlock() (placestream.Defs_BlockView, error) {
+func (b *Block) ToBlockView() (placestream.Defs_BlockView, error) {
 	if b == nil {
 		return placestream.Defs_BlockView{}, fmt.Errorf("block is nil")
 	}

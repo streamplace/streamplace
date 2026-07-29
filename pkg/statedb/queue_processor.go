@@ -516,7 +516,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 		log.Error(ctx, "failed to get livestream webhooks", "err", err)
 	} else {
 		for _, w := range webhooks {
-			lexiconWebhook, err := w.ToLexicon()
+			lexiconWebhook, err := w.ToServerWebhook()
 			if err != nil {
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue
@@ -553,7 +553,7 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 		return fmt.Errorf("failed to get stream.received webhooks: %w", err)
 	}
 	for _, w := range webhooks {
-		lexiconWebhook, err := w.ToLexicon()
+		lexiconWebhook, err := w.ToServerWebhook()
 		if err != nil {
 			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 			continue
@@ -595,7 +595,7 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 		log.Error(ctx, "failed to get chat webhooks", "err", err)
 	} else {
 		for _, w := range webhooks {
-			lexiconWebhook, err := w.ToLexicon()
+			lexiconWebhook, err := w.ToServerWebhook()
 			if err != nil {
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue

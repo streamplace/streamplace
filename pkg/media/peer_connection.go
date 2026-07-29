@@ -14,7 +14,7 @@ func (mm *MediaManager) shouldRecord(ctx context.Context, user string) (bool, er
 		return false, err
 	}
 	if settings != nil {
-		spsettings, err := settings.ToStreamplaceServerSettings()
+		spsettings, err := settings.ToRecord()
 		if err != nil {
 			return false, err
 		}

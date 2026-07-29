@@ -25,8 +25,8 @@ func (ServerSettings) TableName() string {
 	return "server_settings"
 }
 
-// ToStreamplaceServerSettings converts the model to a streamplace ServerSettings
-func (m *ServerSettings) ToStreamplaceServerSettings() (placestream.ServerSettings, error) {
+// ToRecord converts the model to a streamplace ServerSettings
+func (m *ServerSettings) ToRecord() (placestream.ServerSettings, error) {
 	if m.Record == nil {
 		return placestream.ServerSettings{}, fmt.Errorf("no record data")
 	}

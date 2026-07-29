@@ -26,7 +26,7 @@ type FeedPost struct {
 	IndexedAt        *time.Time `json:"indexedAt,omitempty" gorm:"column:indexed_at"`
 }
 
-func (fp *FeedPost) ToBskyPostView() (appbsky.FeedDefs_PostView, error) {
+func (fp *FeedPost) ToPostView() (appbsky.FeedDefs_PostView, error) {
 	rec, err := glex.CborDecodeValue(*fp.FeedPost)
 	if err != nil {
 		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error decoding feed post: %w", err)
@@ -102,7 +102,7 @@ func (m *DBModel) GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error
 	}
 	bskyPosts := []appbsky.FeedDefs_PostView{}
 	for _, post := range posts {
-		bskyPost, err := post.ToBskyPostView()
+		bskyPost, err := post.ToPostView()
 		if err != nil {
 			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 		}
@@ -133,7 +133,7 @@ func (m *DBModel) GetLatestLivestream(repoDID string) (appbsky.FeedDefs_PostView
 		return appbsky.FeedDefs_PostView{}, nil
 	}
 
-	view, err := posts[0].ToBskyPostView()
+	view, err := posts[0].ToPostView()
 	if err != nil {
 		return appbsky.FeedDefs_PostView{}, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 	}

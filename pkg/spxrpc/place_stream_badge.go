@@ -59,7 +59,7 @@ func (s *Server) handlePlaceStreamBadgeGetIssuedBadges(ctx context.Context, stre
 		log.Error(ctx, "failed to get chat profile", "err", err)
 	}
 	if chatProfile != nil {
-		spcp, err := chatProfile.ToStreamplaceChatProfile()
+		spcp, err := chatProfile.ToRecord()
 		if err == nil && spcp.Badges != nil {
 			for _, sel := range spcp.Badges.Streamer {
 				if sel.Badge.Uri != "" {

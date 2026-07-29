@@ -25,7 +25,7 @@ type Like struct {
 	CreatedAt time.Time  `json:"createdAt"      gorm:"column:created_at"`
 }
 
-func (l *Like) ToStreamplaceLikeView() (placestream.GetLikes_LikeView, error) {
+func (l *Like) ToLikeView() (placestream.GetLikes_LikeView, error) {
 	// The likes table doesn't store record bytes; synthesize the record from
 	// the indexed columns.
 	rec := &placestream.Like{Subject: l.Subject, CreatedAt: l.CreatedAt.Format(time.RFC3339)}
@@ -108,7 +108,7 @@ func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit 
 	}
 	views := []placestream.GetLikes_LikeView{}
 	for _, l := range dblikes {
-		view, err := l.ToStreamplaceLikeView()
+		view, err := l.ToLikeView()
 		if err != nil {
 			return nil, 0, nil, err
 		}

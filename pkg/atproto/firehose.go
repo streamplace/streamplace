@@ -569,7 +569,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 					log.Error(ctx, "failed to delete chat message", "err", err)
 					continue
 				}
-				mv, err := msg.ToStreamplaceMessageView()
+				mv, err := msg.ToMessageView()
 				if err != nil {
 					log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 					continue

@@ -80,7 +80,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil || block == nil {
 			return fmt.Errorf("failed to get block after we just saved it?!: %w", err)
 		}
-		streamplaceBlock, err := block.ToStreamplaceBlock()
+		streamplaceBlock, err := block.ToBlockView()
 		if err != nil {
 			return fmt.Errorf("failed to convert block to streamplace block: %w", err)
 		}
@@ -159,7 +159,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to retrieve just-saved chat message", "err", err)
 			return nil
 		}
-		scm, err := mcm.ToStreamplaceMessageView()
+		scm, err := mcm.ToMessageView()
 		if err != nil {
 			log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 			return nil
@@ -216,7 +216,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to get gate after we just saved it?!: %w", err)
 		}
-		streamplaceGate, err := gate.ToStreamplaceGate()
+		streamplaceGate, err := gate.ToRecord()
 		if err != nil {
 			return fmt.Errorf("failed to convert gate to streamplace gate: %w", err)
 		}
@@ -275,7 +275,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
 		}
-		pinnedView, err := pin.ToStreamplacePinnedRecordView()
+		pinnedView, err := pin.ToPinnedRecordView()
 		if err != nil {
 			return fmt.Errorf("failed to convert pinned record: %w", err)
 		}
@@ -289,14 +289,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to get chat profile: %w", err)
 		}
 		if msg != nil {
-			msgView, err := msg.ToStreamplaceMessageView()
+			msgView, err := msg.ToMessageView()
 			if err != nil {
 				return fmt.Errorf("failed to convert chat message: %w", err)
 			}
 			pinnedView.Message = msgView
 		}
 		if profile != nil {
-			profileView, err := profile.ToStreamplaceChatProfile()
+			profileView, err := profile.ToRecord()
 			if err != nil {
 				return fmt.Errorf("failed to convert chat profile: %w", err)
 			}
@@ -420,7 +420,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				log.Error(ctx, "failed to create feed post", "err", err)
 			}
-			postView, err := fp.ToBskyPostView()
+			postView, err := fp.ToPostView()
 			if err != nil {
 				log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
 			}
@@ -559,7 +559,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// get the source chat profile
 			chatProfile, err := atsync.Model.GetChatProfile(ctx, userDID)
 			if err == nil && chatProfile != nil {
-				spcp, err := chatProfile.ToStreamplaceChatProfile()
+				spcp, err := chatProfile.ToRecord()
 				if err == nil {
 					arrivalMsg.ChatProfile = &spcp
 				}
@@ -878,7 +878,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to retrieve just-saved VOD comment")
 			return nil
 		}
-		sc, err := vc.ToStreamplaceCommentView()
+		sc, err := vc.ToCommentView()
 		if err != nil {
 			log.Error(ctx, "failed to convert VOD comment to view", "err", err)
 			return nil

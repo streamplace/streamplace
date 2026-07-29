@@ -16,7 +16,7 @@ type ChatProfile struct {
 	Record  *[]byte
 }
 
-func (m *ChatProfile) ToStreamplaceChatProfile() (placestream.ChatProfile, error) {
+func (m *ChatProfile) ToRecord() (placestream.ChatProfile, error) {
 	if m == nil || m.Record == nil {
 		return placestream.ChatProfile{}, fmt.Errorf("chat profile is nil")
 	}

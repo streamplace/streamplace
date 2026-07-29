@@ -38,7 +38,7 @@ func hashString(s string) int {
 	return int(h.Sum32())
 }
 
-func (m *ChatMessage) ToStreamplaceMessageView() (*placestream.ChatDefs_MessageView, error) {
+func (m *ChatMessage) ToMessageView() (*placestream.ChatDefs_MessageView, error) {
 	var msg placestream.ChatMessage
 	if err := glex.DecodeCBOR(*m.ChatMessage, &msg); err != nil {
 		return nil, fmt.Errorf("error decoding chat message: %w", err)
@@ -67,7 +67,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*placestream.ChatDefs_MessageV
 	message.Record = &glex.LexiconTypeDecoder{Val: &msg}
 	message.IndexedAt = m.IndexedAt.UTC().Format(time.RFC3339Nano)
 	if m.ChatProfile != nil {
-		scp, err := m.ChatProfile.ToStreamplaceChatProfile()
+		scp, err := m.ChatProfile.ToRecord()
 		if err != nil {
 			return nil, fmt.Errorf("error converting chat profile to streamplace chat profile: %w", err)
 		}
@@ -81,7 +81,7 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*placestream.ChatDefs_MessageV
 
 	}
 	if m.ReplyTo != nil {
-		replyTo, err := m.ReplyTo.ToStreamplaceMessageView()
+		replyTo, err := m.ReplyTo.ToMessageView()
 		if err != nil {
 			return nil, fmt.Errorf("error converting reply to to streamplace message view: %w", err)
 		}
@@ -156,7 +156,7 @@ func (m *DBModel) MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs
 	}
 	spmessages := []placestream.ChatDefs_MessageView{}
 	for _, m := range dbmessages {
-		spmessage, err := m.ToStreamplaceMessageView()
+		spmessage, err := m.ToMessageView()
 		if err != nil {
 			return nil, fmt.Errorf("error converting feed post to bsky post view: %w", err)
 		}

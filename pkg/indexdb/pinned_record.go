@@ -22,7 +22,7 @@ type PinnedRecord struct {
 	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
 }
 
-func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord, error) {
+func (p *PinnedRecord) ToRecord() (placestream.ChatPinnedRecord, error) {
 	rec := placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,
@@ -35,7 +35,7 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord
 	return rec, nil
 }
 
-func (p *PinnedRecord) ToStreamplacePinnedRecordView() (placestream.ChatDefs_PinnedRecordView, error) {
+func (p *PinnedRecord) ToPinnedRecordView() (placestream.ChatDefs_PinnedRecordView, error) {
 	pr := placestream.ChatPinnedRecord{
 		LexiconTypeID: "place.stream.chat.pinnedRecord",
 		PinnedMessage: p.PinnedMessage,

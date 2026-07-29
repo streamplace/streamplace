@@ -18,7 +18,7 @@ type VodGate struct {
 	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
-func (g *VodGate) ToStreamplaceVodGate() (placestream.VodGate, error) {
+func (g *VodGate) ToRecord() (placestream.VodGate, error) {
 	return placestream.VodGate{
 		LexiconTypeID: "place.stream.vod.gate",
 		HiddenComment: g.HiddenComment,

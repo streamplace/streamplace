@@ -148,8 +148,8 @@ func (state *StatefulDB) ResetWebhookError(id string) error {
 	}).Error
 }
 
-// ToLexicon converts a database Webhook to a placestream.ServerDefs_Webhook
-func (w *Webhook) ToLexicon() (placestream.ServerDefs_Webhook, error) {
+// ToServerWebhook converts a database Webhook to a placestream.ServerDefs_Webhook
+func (w *Webhook) ToServerWebhook() (placestream.ServerDefs_Webhook, error) {
 	var events []string
 	if len(w.Events) > 0 {
 		err := json.Unmarshal(w.Events, &events)

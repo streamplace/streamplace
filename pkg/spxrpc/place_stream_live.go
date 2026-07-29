@@ -191,7 +191,7 @@ func (s *Server) handlePlaceStreamLiveGetSegments(ctx context.Context, before st
 	}
 
 	for i, segment := range segments {
-		record, err := segment.ToStreamplaceSegment()
+		record, err := segment.ToRecord()
 		if err != nil {
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert segment to streamplace segment: %s", err))
 		}

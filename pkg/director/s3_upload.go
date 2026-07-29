@@ -57,7 +57,7 @@ func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID str
 		// No settings record at all: default on for beta users.
 		return true
 	}
-	spsettings, err := settings.ToStreamplaceServerSettings()
+	spsettings, err := settings.ToRecord()
 	if err != nil {
 		log.Error(ctx, "live recording: failed to decode server settings", "error", err, "repoDID", repoDID)
 		return false

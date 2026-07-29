@@ -140,7 +140,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			return nil, fmt.Errorf("failed to retrieve metadata: %w", err)
 		} else if metadata != nil {
 			log.Debug(ctx, "ManifestBuilder: found metadata configuration", "did", streamerName, "metadata", metadata)
-			streamplaceMetadata, err := metadata.ToStreamplaceMetadataConfiguration()
+			streamplaceMetadata, err := metadata.ToRecord()
 			if err != nil {
 				log.Warn(ctx, "ManifestBuilder: failed to convert metadata, using defaults", "error", err, "did", streamerName)
 			} else {

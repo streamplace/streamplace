@@ -187,7 +187,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 							log.Debug(ctx, "chat message not found for label, skipping", "uri", l.URI)
 							continue
 						}
-						chatView, err := msg.ToStreamplaceMessageView()
+						chatView, err := msg.ToMessageView()
 						if err != nil {
 							log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 							continue

@@ -83,20 +83,20 @@ type Model interface {
 
 	CreateGate(ctx context.Context, gate *Gate) error
 	DeleteGate(ctx context.Context, rkey string) error
-	GetGate(ctx context.Context, rkey string) (*Gate, error)
+	GetGate(ctx context.Context, rkey string) (*placestream.ChatGate, error)
 	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
 
 	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
 	DeletePinnedRecord(ctx context.Context, uri string) error
 	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
-	GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error)
-	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error)
+	GetPinnedRecord(ctx context.Context, uri string) (*placestream.ChatDefs_PinnedRecordView, error)
+	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*placestream.ChatDefs_PinnedRecordView, error)
 
 	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
-	GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error)
+	GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error)
 
 	UpdateServerSettings(ctx context.Context, settings *ServerSettings) error
-	GetServerSettings(ctx context.Context, server string, repoDID string) (*ServerSettings, error)
+	GetServerSettings(ctx context.Context, server string, repoDID string) (*placestream.ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
 
 	CreateLabeler(did string) (*Labeler, error)
@@ -168,13 +168,13 @@ type Model interface {
 
 	CreateVodComment(ctx context.Context, comment *VodComment) error
 	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error
-	GetVodComment(uri string) (*VodComment, error)
+	GetVodComment(uri string) (*placestream.VodDefs_CommentView, error)
 	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error)
 
 	CreateLike(ctx context.Context, like *Like) error
 	DeleteLike(ctx context.Context, uri string) error
 	GetLike(uri string) (*Like, error)
-	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error)
+	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error)
 	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error)
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 

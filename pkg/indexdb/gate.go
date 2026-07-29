@@ -29,7 +29,7 @@ func (m *DBModel) CreateGate(ctx context.Context, gate *Gate) error {
 	return m.DB.Create(gate).Error
 }
 
-func (m *DBModel) GetGate(ctx context.Context, rkey string) (*Gate, error) {
+func (m *DBModel) GetGate(ctx context.Context, rkey string) (*placestream.ChatGate, error) {
 	var gate Gate
 	err := m.DB.Preload("Repo").Where("rkey = ?", rkey).First(&gate).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -38,7 +38,11 @@ func (m *DBModel) GetGate(ctx context.Context, rkey string) (*Gate, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &gate, nil
+	rec, err := gate.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 func (m *DBModel) DeleteGate(ctx context.Context, rkey string) error {

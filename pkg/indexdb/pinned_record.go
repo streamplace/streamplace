@@ -59,7 +59,7 @@ func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) err
 	return m.DB.Create(pin).Error
 }
 
-func (m *DBModel) GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecord, error) {
+func (m *DBModel) GetPinnedRecord(ctx context.Context, uri string) (*placestream.ChatDefs_PinnedRecordView, error) {
 	var pin PinnedRecord
 	err := m.DB.Preload("Repo").Where("uri = ?", uri).First(&pin).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -68,7 +68,11 @@ func (m *DBModel) GetPinnedRecord(ctx context.Context, uri string) (*PinnedRecor
 	if err != nil {
 		return nil, err
 	}
-	return &pin, nil
+	view, err := pin.ToPinnedRecordView()
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }
 
 func (m *DBModel) DeletePinnedRecord(ctx context.Context, uri string) error {
@@ -79,7 +83,7 @@ func (m *DBModel) DeleteAllPinnedRecords(ctx context.Context, streamerDID string
 	return m.DB.Where("repo_did = ?", streamerDID).Delete(&PinnedRecord{}).Error
 }
 
-func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error) {
+func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string) (*placestream.ChatDefs_PinnedRecordView, error) {
 	var pin PinnedRecord
 	now := time.Now()
 	err := m.DB.Preload("Repo").
@@ -92,5 +96,9 @@ func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string)
 	if err != nil {
 		return nil, err
 	}
-	return &pin, nil
+	view, err := pin.ToPinnedRecordView()
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }

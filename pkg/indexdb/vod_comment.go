@@ -115,7 +115,7 @@ func (m *DBModel) DeleteVodComment(ctx context.Context, uri string, deletedAt *t
 	return nil
 }
 
-func (m *DBModel) GetVodComment(uri string) (*VodComment, error) {
+func (m *DBModel) GetVodComment(uri string) (*placestream.VodDefs_CommentView, error) {
 	var comment VodComment
 	err := m.DB.
 		Preload("Repo").
@@ -130,7 +130,11 @@ func (m *DBModel) GetVodComment(uri string) (*VodComment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving VOD comment: %w", err)
 	}
-	return &comment, nil
+	view, err := comment.ToCommentView()
+	if err != nil {
+		return nil, fmt.Errorf("error converting VOD comment to view: %w", err)
+	}
+	return &view, nil
 }
 
 func (m *DBModel) GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error) {

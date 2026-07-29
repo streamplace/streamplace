@@ -70,7 +70,7 @@ func (m *DBModel) GetLike(uri string) (*Like, error) {
 	return &like, nil
 }
 
-func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*Like, error) {
+func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error) {
 	var like Like
 	err := m.DB.WithContext(ctx).Preload("Repo").Where("subject = ? AND repo_did = ?", subject, repoDID).First(&like).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -79,7 +79,11 @@ func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, r
 	if err != nil {
 		return nil, err
 	}
-	return &like, nil
+	view, err := like.ToLikeView()
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }
 
 func (m *DBModel) GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error) {

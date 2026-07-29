@@ -264,17 +264,12 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 
 		// get the latest active pinned message for the repo
 		go func() {
-			pin, err := a.Model.GetActivePinnedRecord(ctx, repoDID)
+			prv, err := a.Model.GetActivePinnedRecord(ctx, repoDID)
 			if err != nil {
 				log.Error(ctx, "could not get pinned record", "error", err)
 				return
 			}
-			if pin != nil {
-				prv, err := pin.ToPinnedRecordView()
-				if err != nil {
-					log.Error(ctx, "could not convert pinned record to streamplace view", "error", err)
-					return
-				}
+			if prv != nil {
 				// look up the original message, pinner
 				msg, err := a.Model.GetChatMessage(prv.Record.PinnedMessage)
 				if err != nil {
@@ -307,14 +302,9 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 					prv.Message = msgView
 				}
 				if profile != nil {
-					profileView, err := profile.ToRecord()
-					if err != nil {
-						log.Error(ctx, "failed to convert chat profile: %w", err)
-						return
-					}
-					prv.PinnedBy = &profileView
+					prv.PinnedBy = profile
 				}
-				initialBurst <- prv
+				initialBurst <- *prv
 			}
 		}()
 
@@ -346,10 +336,7 @@ func (a *StreamplaceAPI) HandleWebsocket(ctx context.Context) httprouter.Handle 
 				// get the source chat profile
 				chatProfile, err := a.Model.GetChatProfile(ctx, tp.RepoDID)
 				if err == nil && chatProfile != nil {
-					spcp, err := chatProfile.ToRecord()
-					if err == nil {
-						arrivalMsg.ChatProfile = &spcp
-					}
+					arrivalMsg.ChatProfile = chatProfile
 				}
 
 				initialBurst <- arrivalMsg

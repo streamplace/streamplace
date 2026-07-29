@@ -212,15 +212,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create gate: %w", err)
 		}
-		gate, err = atsync.Model.GetGate(ctx, rkey.String())
+		savedGate, err := atsync.Model.GetGate(ctx, rkey.String())
 		if err != nil {
 			return fmt.Errorf("failed to get gate after we just saved it?!: %w", err)
 		}
-		streamplaceGate, err := gate.ToRecord()
-		if err != nil {
-			return fmt.Errorf("failed to convert gate to streamplace gate: %w", err)
+		if savedGate == nil {
+			return fmt.Errorf("failed to get gate after we just saved it?!: not found")
 		}
-		go atsync.Bus.Publish(userDID, streamplaceGate)
+		go atsync.Bus.Publish(userDID, *savedGate)
 
 	case *placestream.ChatPinnedRecord:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
@@ -271,14 +270,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create pinned record: %w", err)
 		}
-		pin, err = atsync.Model.GetPinnedRecord(ctx, pin.Uri)
+		savedPin, err := atsync.Model.GetPinnedRecord(ctx, pin.Uri)
 		if err != nil {
 			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
 		}
-		pinnedView, err := pin.ToPinnedRecordView()
-		if err != nil {
-			return fmt.Errorf("failed to convert pinned record: %w", err)
+		if savedPin == nil {
+			return fmt.Errorf("failed to get pinned record after we just saved it: not found")
 		}
+		pinnedView := *savedPin
 		// look up the original message, pinner
 		msg, err := atsync.Model.GetChatMessage(pinnedView.Record.PinnedMessage)
 		if err != nil {
@@ -296,11 +295,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			pinnedView.Message = msgView
 		}
 		if profile != nil {
-			profileView, err := profile.ToRecord()
-			if err != nil {
-				return fmt.Errorf("failed to convert chat profile: %w", err)
-			}
-			pinnedView.PinnedBy = &profileView
+			pinnedView.PinnedBy = profile
 		}
 		go atsync.Bus.Publish(userDID, pinnedView)
 
@@ -559,10 +554,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// get the source chat profile
 			chatProfile, err := atsync.Model.GetChatProfile(ctx, userDID)
 			if err == nil && chatProfile != nil {
-				spcp, err := chatProfile.ToRecord()
-				if err == nil {
-					arrivalMsg.ChatProfile = &spcp
-				}
+				arrivalMsg.ChatProfile = chatProfile
 			}
 
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
@@ -869,20 +861,16 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create VOD comment", "err", err)
 			return nil
 		}
-		vc, err = atsync.Model.GetVodComment(aturi.String())
+		scv, err := atsync.Model.GetVodComment(aturi.String())
 		if err != nil {
 			log.Error(ctx, "failed to get just-saved VOD comment", "err", err)
 			return nil
 		}
-		if vc == nil {
+		if scv == nil {
 			log.Error(ctx, "failed to retrieve just-saved VOD comment")
 			return nil
 		}
-		sc, err := vc.ToCommentView()
-		if err != nil {
-			log.Error(ctx, "failed to convert VOD comment to view", "err", err)
-			return nil
-		}
+		sc := *scv
 
 		if sc.Author.Handle == "" || sc.Author.Handle == "handle.invalid" {
 			sc.Author.Handle = atsync.ResolveAuthorHandle(ctx, sc.Author.Did)

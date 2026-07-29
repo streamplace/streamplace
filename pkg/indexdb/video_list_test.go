@@ -76,7 +76,7 @@ func TestGetLikeBySubjectAndUser(t *testing.T) {
 	got, err := m.GetLikeBySubjectAndUser(ctx, subject, "did:plc:liker1")
 	require.NoError(t, err)
 	require.NotNil(t, got, "same subject + user should be found")
-	require.Equal(t, subject, got.Subject)
+	require.Equal(t, "at://did:plc:liker1/place.stream.like/c1", got.Uri)
 
 	got, err = m.GetLikeBySubjectAndUser(ctx, subject, "did:plc:liker2")
 	require.NoError(t, err)

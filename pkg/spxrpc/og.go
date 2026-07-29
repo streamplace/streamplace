@@ -274,20 +274,15 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 				B: uint8(clr.Blue),
 				A: 255,
 			}
-		} else if chatProfile != nil {
-			streamplaceChatProfile, err := chatProfile.ToRecord()
-			if err != nil {
-				log.Warn(ctx, "failed to decode chat profile", "did", userDID, "error", err)
-			} else if streamplaceChatProfile.Color != nil {
-				userColor = color.RGBA{
-					R: uint8(streamplaceChatProfile.Color.Red),
-					G: uint8(streamplaceChatProfile.Color.Green),
-					B: uint8(streamplaceChatProfile.Color.Blue),
-					A: 255,
-				}
-				borderColor = userColor
-				log.Debug(ctx, "using user's custom color", "did", userDID, "color", userColor)
+		} else if chatProfile != nil && chatProfile.Color != nil {
+			userColor = color.RGBA{
+				R: uint8(chatProfile.Color.Red),
+				G: uint8(chatProfile.Color.Green),
+				B: uint8(chatProfile.Color.Blue),
+				A: 255,
 			}
+			borderColor = userColor
+			log.Debug(ctx, "using user's custom color", "did", userDID, "color", userColor)
 		}
 	}
 

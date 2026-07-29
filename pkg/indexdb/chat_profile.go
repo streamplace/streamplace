@@ -35,7 +35,7 @@ func (m *DBModel) CreateChatProfile(ctx context.Context, profile *ChatProfile) e
 	return nil
 }
 
-func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*ChatProfile, error) {
+func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error) {
 	var profile ChatProfile
 	err := m.DB.Where("repo_did = ?", repoDID).First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -44,7 +44,11 @@ func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*ChatProf
 	if err != nil {
 		return nil, err
 	}
-	return &profile, nil
+	rec, err := profile.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 func ColorToHex(color *placestream.ChatProfile_Color) string {

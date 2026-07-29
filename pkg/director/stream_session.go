@@ -355,11 +355,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 				return fmt.Errorf("failed to get chat profile: %w", err)
 			}
 			if cp != nil {
-				spcp, err := cp.ToRecord()
-				if err != nil {
-					return fmt.Errorf("failed to convert chat profile to streamplace chat profile: %w", err)
-				}
-				task.ChatProfile = spcp
+				task.ChatProfile = *cp
 			}
 
 			_, err = ss.statefulDB.EnqueueTask(ctx, statedb.TaskNotification, task, statedb.WithTaskKey(fmt.Sprintf("notification-blast::%s", lsv.Uri)))

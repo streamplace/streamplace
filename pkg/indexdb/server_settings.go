@@ -48,7 +48,7 @@ func (m *DBModel) UpdateServerSettings(ctx context.Context, settings *ServerSett
 }
 
 // GetServerSettings retrieves server settings for a given server and repoDID
-func (m *DBModel) GetServerSettings(ctx context.Context, server string, repoDID string) (*ServerSettings, error) {
+func (m *DBModel) GetServerSettings(ctx context.Context, server string, repoDID string) (*placestream.ServerSettings, error) {
 	var settings ServerSettings
 	err := m.DB.Where("server = ? AND repo_did = ?", server, repoDID).First(&settings).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -57,7 +57,11 @@ func (m *DBModel) GetServerSettings(ctx context.Context, server string, repoDID 
 	if err != nil {
 		return nil, err
 	}
-	return &settings, nil
+	rec, err := settings.ToRecord()
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
 }
 
 // DeleteServerSettings deletes server settings for a given server and repoDID

@@ -337,14 +337,8 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// 	log.Log(ctx, "record data", "json", string(jsonData))
 		// }
 
-		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
-		if err != nil {
-			return fmt.Errorf("failed to parse createdAt: %w", err)
-		}
-
 		if livestream, ok := d["place.stream.livestream"]; ok {
-			repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
-			if err != nil {
+			if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
 				return fmt.Errorf("failed to sync bluesky repo: %w", err)
 			}
 			livestream, ok := livestream.(map[string]interface{})
@@ -356,16 +350,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("livestream url is not a string")
 			}
 			log.Debug(ctx, "livestream url", "url", url)
-			if err := atsync.Model.CreateFeedPost(ctx, &indexdb.FeedPost{
-				CID:       cid,
-				CreatedAt: createdAt,
-				FeedPost:  recCBOR,
-				RepoDID:   userDID,
-				Repo:      repo,
-				Type:      "livestream",
-				URI:       aturi.String(),
-				IndexedAt: &now,
-			}); err != nil {
+			if err := atsync.Model.UpsertFeedPost(ctx, rec, aturi, "livestream"); err != nil {
 				return fmt.Errorf("failed to create bluesky post: %w", err)
 			}
 		} else {
@@ -403,25 +388,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if !ok || livestreamRec.Post == nil {
 				return fmt.Errorf("livestream %s has no linked post record", livestream.Uri)
 			}
-			fp := &indexdb.FeedPost{
-				CID:              cid,
-				CreatedAt:        createdAt,
-				FeedPost:         recCBOR,
-				RepoDID:          userDID,
-				Type:             "reply",
-				Repo:             repo,
-				ReplyRootURI:     &livestreamRec.Post.Uri,
-				ReplyRootRepoDID: &livestream.Author.Did,
-				URI:              aturi.String(),
-				IndexedAt:        &now,
-			}
-			err = atsync.Model.CreateFeedPost(ctx, fp)
+			err = atsync.Model.UpsertFeedPost(ctx, rec, aturi, "reply")
 			if err != nil {
 				log.Error(ctx, "failed to create feed post", "err", err)
 			}
-			postView, err := fp.ToPostView()
-			if err != nil {
-				log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
+			postView := appbsky.FeedDefs_PostView{
+				LexiconTypeID: "app.bsky.feed.defs#postView",
+				Uri:           aturi.String(),
+				Cid:           cid,
+				Author: appbsky.ActorDefs_ProfileViewBasic{
+					Did:    userDID,
+					Handle: repo.Handle,
+				},
+				Record:    &glex.LexiconTypeDecoder{Val: rec},
+				IndexedAt: time.Now().UTC().Format(time.RFC3339Nano),
 			}
 			go atsync.Bus.Publish(livestream.Author.Did, postView)
 		}
@@ -431,23 +411,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// we don't know about this repo
 			return nil
 		}
-		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
-		if err != nil {
-			log.Error(ctx, "failed to parse createdAt", "err", err)
-			return nil
-		}
-		ls := &indexdb.Livestream{
-			CID:        cid,
-			URI:        aturi.String(),
-			CreatedAt:  createdAt,
-			Livestream: recCBOR,
-			RepoDID:    userDID,
-		}
-		if rec.Post != nil {
-			ls.PostCID = rec.Post.Cid
-			ls.PostURI = rec.Post.Uri
-		}
-		err = atsync.Model.CreateLivestream(ctx, ls)
+		err = atsync.Model.UpsertLivestream(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create livestream: %w", err)
 		}

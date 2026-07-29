@@ -1,11 +1,11 @@
 package statedb
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -14,35 +14,17 @@ import (
 	"stream.place/streamplace/pkg/placestream"
 )
 
-// marshalLivestream encodes a placestream.Livestream record to the CBOR blob
-// shape the model stores (the same bytes atproto sync decodes via
-// lexutil.CborDecodeValue).
-func marshalLivestream(t *testing.T, rec *placestream.Livestream) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	require.NoError(t, rec.MarshalCBOR(&buf))
-	return buf.Bytes()
-}
-
 // seedLivestream inserts a place.stream.livestream row for did with the given
-// lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI. createdAgo sets the
-// row's created_at (the column GetLatestLivestreamForRepo orders by) so callers
-// can control which record is "latest".
-func seedLivestream(t *testing.T, mod indexdb.Model, did, rkey string, createdAgo time.Duration, rec *placestream.Livestream) string {
+// lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI.
+func seedLivestream(t *testing.T, mod indexdb.Model, did, rkey string, _ time.Duration, rec *placestream.Livestream) string {
 	t.Helper()
 	// ToLivestreamView dereferences ls.Repo.Handle, so the streamer needs a
 	// repo row. UpdateRepo upserts on PK (did), creating it if absent.
 	require.NoError(t, mod.UpdateRepo(&indexdb.Repo{DID: did, Handle: "handle-" + rkey}))
 	uri := "at://" + did + "/place.stream.livestream/" + rkey
-	created := time.Now().Add(-createdAgo)
-	blob := marshalLivestream(t, rec)
-	require.NoError(t, mod.CreateLivestream(context.Background(), &indexdb.Livestream{
-		URI:        uri,
-		CID:        "bafy-" + rkey,
-		CreatedAt:  created,
-		Livestream: &blob,
-		RepoDID:    did,
-	}))
+	aturi, err := syntax.ParseATURI(uri)
+	require.NoError(t, err)
+	require.NoError(t, mod.UpsertLivestream(context.Background(), *rec, aturi))
 	return uri
 }
 

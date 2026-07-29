@@ -1,17 +1,20 @@
 package indexdb
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/moderation"
 	"stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/spid"
 )
 
 type Livestream struct {
@@ -49,8 +52,38 @@ func (ls *Livestream) ToLivestreamView() (*placestream.Livestream_LivestreamView
 	return &postView, nil
 }
 
-func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
-	// upsert livestream record, actually
+// UpsertLivestream indexes a place.stream.livestream record. The row —
+// its CBOR blob, CID, post linkage, and timestamps — is derived here;
+// callers only ever hand over the lexicon record and its AT-URI.
+func (m *DBModel) UpsertLivestream(ctx context.Context, rec placestream.Livestream, aturi syntax.ATURI) error {
+	repoDID, err := aturi.Authority().AsDID()
+	if err != nil {
+		return fmt.Errorf("invalid ATURI authority: %w", err)
+	}
+	cid, err := spid.GetCID(&rec)
+	if err != nil {
+		return fmt.Errorf("get livestream CID: %w", err)
+	}
+	createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("invalid livestream createdAt %q: %w", rec.CreatedAt, err)
+	}
+	var buf bytes.Buffer
+	if err := rec.MarshalCBOR(&buf); err != nil {
+		return fmt.Errorf("marshal livestream record: %w", err)
+	}
+	blob := buf.Bytes()
+	ls := &Livestream{
+		URI:        aturi.String(),
+		CID:        cid.String(),
+		CreatedAt:  createdAt,
+		Livestream: &blob,
+		RepoDID:    repoDID.String(),
+	}
+	if rec.Post != nil {
+		ls.PostCID = rec.Post.Cid
+		ls.PostURI = rec.Post.Uri
+	}
 	return m.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uri"}},
 		DoUpdates: clause.AssignmentColumns([]string{"cid", "created_at", "livestream", "repo_did", "post_cid", "post_uri"}),

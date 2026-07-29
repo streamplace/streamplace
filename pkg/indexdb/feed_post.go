@@ -1,12 +1,15 @@
 package indexdb
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/spid"
 )
 
 type FeedPost struct {
@@ -45,7 +48,46 @@ func (fp *FeedPost) ToPostView() (appbsky.FeedDefs_PostView, error) {
 	return postView, nil
 }
 
-func (m *DBModel) CreateFeedPost(ctx context.Context, post *FeedPost) error {
+// UpsertFeedPost indexes an app.bsky.feed.post record. typ is the
+// indexer's annotation for the post's role in our feeds ("livestream",
+// "reply") — it's caller knowledge, not part of the record. Reply
+// linkage, CID, CBOR blob, and timestamps are derived here from the
+// record and AT-URI.
+func (m *DBModel) UpsertFeedPost(ctx context.Context, rec *appbsky.FeedPost, aturi syntax.ATURI, typ string) error {
+	repoDID, err := aturi.Authority().AsDID()
+	if err != nil {
+		return fmt.Errorf("invalid ATURI authority: %w", err)
+	}
+	cid, err := spid.GetCID(rec)
+	if err != nil {
+		return fmt.Errorf("get feed post CID: %w", err)
+	}
+	createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("invalid feed post createdAt %q: %w", rec.CreatedAt, err)
+	}
+	var buf bytes.Buffer
+	if err := rec.MarshalCBOR(&buf); err != nil {
+		return fmt.Errorf("marshal feed post record: %w", err)
+	}
+	blob := buf.Bytes()
+	now := time.Now().UTC()
+	post := &FeedPost{
+		URI:       aturi.String(),
+		CID:       cid.String(),
+		CreatedAt: createdAt,
+		FeedPost:  &blob,
+		RepoDID:   repoDID.String(),
+		Type:      typ,
+		IndexedAt: &now,
+	}
+	if rec.Reply != nil && rec.Reply.Root.Uri != "" {
+		post.ReplyRootURI = &rec.Reply.Root.Uri
+		if rootDID, err := syntax.ATURI(rec.Reply.Root.Uri).Authority().AsDID(); err == nil {
+			did := rootDID.String()
+			post.ReplyRootRepoDID = &did
+		}
+	}
 	return m.DB.Create(post).Error
 }
 

@@ -51,12 +51,12 @@ type Model interface {
 	CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 
-	CreateFeedPost(ctx context.Context, post *FeedPost) error
+	UpsertFeedPost(ctx context.Context, rec *appbsky.FeedPost, aturi syntax.ATURI, typ string) error
 	ListFeedPosts() ([]FeedPost, error)
 	ListFeedPostsByType(feedType string, limit int, after int64) ([]FeedPost, error)
 	GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error)
 
-	CreateLivestream(ctx context.Context, ls *Livestream) error
+	UpsertLivestream(ctx context.Context, rec placestream.Livestream, aturi syntax.ATURI) error
 	GetLivestream(uri string) (*placestream.Livestream_LivestreamView, error)
 	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
 	GetLivestreamByPostURI(postURI string) (*placestream.Livestream_LivestreamView, error)

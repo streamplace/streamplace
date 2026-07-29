@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 // GetValidBadges returns valid badges for a user in the context of a streamer's chat.
 // Returns server-controlled badges (streamer, mod) based on permissions.
-func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]placestream.BadgeDefs_BadgeView, error) {
+func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m indexdb.Model) ([]placestream.BadgeDefs_BadgeView, error) {
 	badges := []placestream.BadgeDefs_BadgeView{}
 
 	// If no streamer context, return empty badges
@@ -115,7 +115,7 @@ func IsGlobalIssuer(did string) bool {
 
 // resolveIssuanceBadgeView fetches an issuance by URI, verifies the recipient, and returns a BadgeView.
 // Returns nil (with no error) if the issuance is revoked, not indexed, or the recipient doesn't match.
-func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m model.Model) (*placestream.BadgeDefs_BadgeView, error) {
+func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m indexdb.Model) (*placestream.BadgeDefs_BadgeView, error) {
 	issuance, err := m.GetBadgeIssuanceByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "failed to get badge issuance", "err", err, "uri", uri)

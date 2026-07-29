@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -30,7 +30,7 @@ func mustURI(t *testing.T, s string) syntax.ATURI {
 
 // putHostedVideo writes a media.track backed by blobCID plus a sourceTracks
 // video referencing it — the shape getVideoList resolves to a content blob.
-func putHostedVideo(t *testing.T, m model.Model, videoURI, trackURI, blobCID string) {
+func putHostedVideo(t *testing.T, m indexdb.Model, videoURI, trackURI, blobCID string) {
 	t.Helper()
 	ctx := context.Background()
 	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{
@@ -77,7 +77,7 @@ func TestReindexOriginsRepairsListing(t *testing.T) {
 	}
 	cli.DataDir = t.TempDir()
 
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := statedb.MakeDB(ctx, &cli, nil, mod)
 	require.NoError(t, err)

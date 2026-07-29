@@ -9,10 +9,10 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -25,7 +25,7 @@ import (
 
 type Director struct {
 	mm               *media.MediaManager
-	mod              model.Model
+	mod              indexdb.Model
 	cli              *config.CLI
 	bus              *bus.Bus
 	streamSessions   map[string]*StreamSession
@@ -37,7 +37,7 @@ type Director struct {
 	atsync           *atproto.ATProtoSynchronizer
 }
 
-func NewDirector(mm *media.MediaManager, mod model.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
+func NewDirector(mm *media.MediaManager, mod indexdb.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,

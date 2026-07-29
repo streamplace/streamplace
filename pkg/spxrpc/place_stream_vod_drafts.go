@@ -9,8 +9,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
@@ -226,7 +226,7 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 // livestream's title/activity/tags and links back to the livestream record via
 // connections. Called by the finalizeLivestream handler at kickoff so the user
 // can navigate straight to the draft while processing runs server-side.
-func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *model.Livestream) (*statedb.DraftVideo, error) {
+func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *indexdb.Livestream) (*statedb.DraftVideo, error) {
 	view, err := ls.ToLivestreamView()
 	if err != nil {
 		return nil, err

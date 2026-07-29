@@ -20,9 +20,9 @@ import (
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 
 	"stream.place/streamplace/pkg/log"
@@ -53,7 +53,7 @@ type MediaManager struct {
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
-	model               model.Model
+	model               indexdb.Model
 	bus                 *bus.Bus
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
@@ -112,7 +112,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod model.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod indexdb.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
 	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {

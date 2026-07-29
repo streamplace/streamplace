@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // run the inner testing function against all databases we support
@@ -14,7 +14,7 @@ func WithAllDatabases(t *testing.T, f func(*StatefulDB)) {
 		cli := config.CLI{
 			DBURL: ":memory:",
 		}
-		mod, err := model.MakeDB(":memory:")
+		mod, err := indexdb.MakeDB(":memory:")
 		require.NoError(t, err)
 		state, err := MakeDB(t.Context(), &cli, nil, mod)
 		require.NoError(t, err)
@@ -29,7 +29,7 @@ func WithAllDatabases(t *testing.T, f func(*StatefulDB)) {
 			cli := config.CLI{
 				DBURL: dburl,
 			}
-			mod, err := model.MakeDB(":memory:")
+			mod, err := indexdb.MakeDB(":memory:")
 			require.NoError(t, err)
 			state, err := MakeDB(t.Context(), &cli, nil, mod)
 			require.NoError(t, err)

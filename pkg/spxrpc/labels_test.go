@@ -15,7 +15,7 @@ import (
 
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
@@ -29,15 +29,15 @@ const (
 )
 
 // newTestModel returns a fresh in-memory model for a single test.
-func newTestModel(t *testing.T) model.Model {
+func newTestModel(t *testing.T) indexdb.Model {
 	t.Helper()
-	m, err := model.MakeDB(":memory:")
+	m, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	return m
 }
 
 // putLabel writes one active (non-expired, non-negated) label for uri.
-func putLabel(t *testing.T, m model.Model, uri, val string) {
+func putLabel(t *testing.T, m indexdb.Model, uri, val string) {
 	t.Helper()
 	lex := &comatproto.LabelDefs_Label{
 		Cts: time.Now().UTC().Format(time.RFC3339),
@@ -47,7 +47,7 @@ func putLabel(t *testing.T, m model.Model, uri, val string) {
 	}
 	var buf bytes.Buffer
 	require.NoError(t, lex.MarshalCBOR(&buf))
-	require.NoError(t, m.CreateLabel(&model.Label{
+	require.NoError(t, m.CreateLabel(&indexdb.Label{
 		Src:     testLabeler,
 		Uri:     uri,
 		Val:     val,
@@ -112,7 +112,7 @@ func writeBlob(t *testing.T, store blob.Store, cid string) {
 // content blob owned by testOwner, and testInitCID is an un-indexed
 // blob (stands in for a per-track init segment). Returns the model too
 // so callers can layer on labels.
-func setupBlobTest(t *testing.T) (*Server, model.Model) {
+func setupBlobTest(t *testing.T) (*Server, indexdb.Model) {
 	t.Helper()
 	m := newTestModel(t)
 	aturi, err := syntax.ParseATURI("at://" + testOwner + "/place.stream.media.track/1")

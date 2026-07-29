@@ -11,8 +11,8 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/localdb"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -23,7 +23,7 @@ func getFixture(name string) string {
 }
 
 func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	ldb, err := localdb.MakeDB(":memory:")
 	require.NoError(t, err)

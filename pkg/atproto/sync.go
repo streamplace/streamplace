@@ -15,8 +15,8 @@ import (
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -65,7 +65,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating block", "userDID", userDID, "subjectDID", rec.Subject)
-		block := &model.Block{
+		block := &indexdb.Block{
 			RKey:       rkey.String(),
 			RepoDID:    userDID,
 			SubjectDID: rec.Subject,
@@ -119,7 +119,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
-		mcm := &model.ChatMessage{
+		mcm := &indexdb.ChatMessage{
 			CID:             cid,
 			URI:             aturi.String(),
 			CreatedAt:       now,
@@ -200,7 +200,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating gate", "userDID", userDID, "hiddenMessage", rec.HiddenMessage)
-		gate := &model.Gate{
+		gate := &indexdb.Gate{
 			RKey:          rkey.String(),
 			RepoDID:       userDID,
 			HiddenMessage: rec.HiddenMessage,
@@ -256,7 +256,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			pinnedBy = *rec.PinnedBy
 		}
 
-		pin := &model.PinnedRecord{
+		pin := &indexdb.PinnedRecord{
 			Uri:           aturi.String(),
 			RepoDID:       userDID,
 			PinnedMessage: rec.PinnedMessage,
@@ -309,7 +309,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		mcm := &model.ChatProfile{
+		mcm := &indexdb.ChatProfile{
 			RepoDID: userDID,
 			Repo:    repo,
 			Record:  recCBOR,
@@ -324,7 +324,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		settings := &model.ServerSettings{
+		settings := &indexdb.ServerSettings{
 			Server:  rkey.String(),
 			RepoDID: userDID,
 			Record:  recCBOR,
@@ -361,7 +361,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("livestream url is not a string")
 			}
 			log.Debug(ctx, "livestream url", "url", url)
-			if err := atsync.Model.CreateFeedPost(ctx, &model.FeedPost{
+			if err := atsync.Model.CreateFeedPost(ctx, &indexdb.FeedPost{
 				CID:       cid,
 				CreatedAt: createdAt,
 				FeedPost:  recCBOR,
@@ -404,7 +404,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// if fc.cli.PrintChat {
 			// 	fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
 			// }
-			fp := &model.FeedPost{
+			fp := &indexdb.FeedPost{
 				CID:              cid,
 				CreatedAt:        createdAt,
 				FeedPost:         recCBOR,
@@ -437,7 +437,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to parse createdAt", "err", err)
 			return nil
 		}
-		ls := &model.Livestream{
+		ls := &indexdb.Livestream{
 			CID:        cid,
 			URI:        aturi.String(),
 			CreatedAt:  createdAt,
@@ -501,7 +501,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		viewerCount := atsync.Bus.GetViewerCount(userDID)
-		tp := &model.Teleport{
+		tp := &indexdb.Teleport{
 			CID:             cid,
 			URI:             aturi.String(),
 			StartsAt:        startsAt,
@@ -574,7 +574,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to parse createdAt: %w", err)
 		}
-		key := model.SigningKey{
+		key := indexdb.SigningKey{
 			DID:       rec.SigningKey,
 			RKey:      rkey.String(),
 			CreatedAt: time.Time(),
@@ -616,7 +616,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 		log.Debug(ctx, "creating metadata configuration", "metadata", rec)
-		metadata := &model.MetadataConfiguration{
+		metadata := &indexdb.MetadataConfiguration{
 			RepoDID: userDID,
 			Record:  recCBOR,
 			Repo:    repo,
@@ -690,7 +690,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to parse createdAt: %w", err)
 		}
 
-		recommendation := &model.Recommendation{
+		recommendation := &indexdb.Recommendation{
 			UserDID:   userDID,
 			Streamers: json.RawMessage(streamersJSON),
 			CreatedAt: createdAt,
@@ -702,7 +702,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *placestream.BadgeDef:
-		def := &model.BadgeDef{
+		def := &indexdb.BadgeDef{
 			URI:       aturi.String(),
 			CID:       cid,
 			RepoDID:   userDID,
@@ -725,7 +725,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "indexed badge def", "uri", aturi.String(), "name", rec.Name)
 
 	case *placestream.BadgeIssuance:
-		issuance := &model.BadgeIssuance{
+		issuance := &indexdb.BadgeIssuance{
 			URI:          aturi.String(),
 			CID:          cid,
 			RepoDID:      userDID,
@@ -837,7 +837,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Warn(ctx, "failed to parse video URI for block check", "video", rec.Video, "err", err)
 		}
 
-		vc := &model.VodComment{
+		vc := &indexdb.VodComment{
 			CID:            cid,
 			URI:            aturi.String(),
 			CreatedAt:      now,
@@ -913,7 +913,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 
-		like := &model.Like{
+		like := &indexdb.Like{
 			CID:       cid,
 			URI:       aturi.String(),
 			Subject:   rec.Subject,
@@ -938,7 +938,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating VOD gate", "userDID", userDID, "hiddenComment", rec.HiddenComment)
-		gate := &model.VodGate{
+		gate := &indexdb.VodGate{
 			RKey:          rkey.String(),
 			RepoDID:       userDID,
 			HiddenComment: rec.HiddenComment,

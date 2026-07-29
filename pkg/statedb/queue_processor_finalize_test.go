@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -28,15 +28,15 @@ func marshalLivestream(t *testing.T, rec *placestream.Livestream) []byte {
 // lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI. createdAgo sets the
 // row's created_at (the column GetLatestLivestreamForRepo orders by) so callers
 // can control which record is "latest".
-func seedLivestream(t *testing.T, mod model.Model, did, rkey string, createdAgo time.Duration, rec *placestream.Livestream) string {
+func seedLivestream(t *testing.T, mod indexdb.Model, did, rkey string, createdAgo time.Duration, rec *placestream.Livestream) string {
 	t.Helper()
 	// ToLivestreamView dereferences ls.Repo.Handle, so the streamer needs a
 	// repo row. UpdateRepo upserts on PK (did), creating it if absent.
-	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: did, Handle: "handle-" + rkey}))
+	require.NoError(t, mod.UpdateRepo(&indexdb.Repo{DID: did, Handle: "handle-" + rkey}))
 	uri := "at://" + did + "/place.stream.livestream/" + rkey
 	created := time.Now().Add(-createdAgo)
 	blob := marshalLivestream(t, rec)
-	require.NoError(t, mod.CreateLivestream(context.Background(), &model.Livestream{
+	require.NoError(t, mod.CreateLivestream(context.Background(), &indexdb.Livestream{
 		URI:        uri,
 		CID:        "bafy-" + rkey,
 		CreatedAt:  created,

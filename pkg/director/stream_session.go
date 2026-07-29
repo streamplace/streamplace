@@ -25,11 +25,11 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/livepeer"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/replication"
@@ -41,7 +41,7 @@ import (
 
 type StreamSession struct {
 	mm                     *media.MediaManager
-	mod                    model.Model
+	mod                    indexdb.Model
 	cli                    *config.CLI
 	bus                    *bus.Bus
 	op                     *oatproxy.OATProxy

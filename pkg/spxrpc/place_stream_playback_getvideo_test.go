@@ -14,7 +14,7 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/vod"
@@ -301,7 +301,7 @@ func TestSessionIDOrNew(t *testing.T) {
 // should return the parent's blob CID and surface the clip's bounds.
 func TestResolveVideoBlob_SourceClip(t *testing.T) {
 	ctx := context.Background()
-	m, err := model.MakeDB(":memory:")
+	m, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	s := &Server{model: m}
 

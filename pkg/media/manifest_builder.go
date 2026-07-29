@@ -8,8 +8,8 @@ import (
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -24,11 +24,11 @@ import (
 // The manifest is meant to align closely with the IPTC Video Metadata Recommendations.
 // See https://iptc.org/std/videometadatahub/recommendation/IPTC-VideoMetadataHub-props-Rec_1.6.html
 type ManifestBuilder struct {
-	model model.Model
+	model indexdb.Model
 	cli   *config.CLI
 }
 
-func NewManifestBuilder(model model.Model, cli *config.CLI) *ManifestBuilder {
+func NewManifestBuilder(model indexdb.Model, cli *config.CLI) *ManifestBuilder {
 	return &ManifestBuilder{
 		model: model,
 		cli:   cli,

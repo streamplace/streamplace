@@ -12,9 +12,9 @@ import (
 
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -46,7 +46,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 
 	color := "f8baca"
 	if spcp != nil && spcp.Color != nil {
-		color = strings.TrimPrefix(model.ColorToHex(spcp.Color), "#")
+		color = strings.TrimPrefix(indexdb.ColorToHex(spcp.Color), "#")
 	}
 
 	colorInt, err := strconv.ParseInt(color, 16, 64)

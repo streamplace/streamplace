@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gorm.io/driver/postgres"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 var postgresURL string
@@ -179,7 +179,7 @@ func TestPostgresLocks(t *testing.T) {
 	var count atomic.Uint64
 	start := make(chan struct{})
 	for i := 0; i < nodeCount; i++ {
-		mod, err := model.MakeDB(":memory:")
+		mod, err := indexdb.MakeDB(":memory:")
 		require.NoError(t, err)
 		state, err := MakeDB(ctx, &cli, nil, mod)
 		require.NoError(t, err)

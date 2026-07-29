@@ -58,7 +58,7 @@ import (
 	_ "github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/api"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // Additional jobs that can be injected by platforms
@@ -194,7 +194,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := indexdb.MakeDB(cli.DataFilePath([]string{"index"}))
 	if err != nil {
 		return err
 	}
@@ -535,7 +535,7 @@ func runWHIPTest(ctx context.Context, cli *config.CLI, build *config.BuildFlags)
 // registerTestStreams sets up the built-in self-test streams — "self-test"
 // (always on) and "intermittent-self-test" (flaps every 15 seconds) — and
 // adds them to the component list. Only runs with --test-stream.
-func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod model.Model, mm *media.MediaManager, a *api.StreamplaceAPI, cs *components) error {
+func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod indexdb.Model, mm *media.MediaManager, a *api.StreamplaceAPI, cs *components) error {
 	atkey, err := atproto.ParsePubKey(signer.Public())
 	if err != nil {
 		return err
@@ -545,7 +545,7 @@ func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Sig
 	if err != nil {
 		return err
 	}
-	err = mod.UpdateIdentity(&model.Identity{
+	err = mod.UpdateIdentity(&indexdb.Identity{
 		ID:     testMediaSigner.Pub().String(),
 		Handle: "stream-self-tester",
 		DID:    "",
@@ -569,7 +569,7 @@ func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Sig
 	if err != nil {
 		return err
 	}
-	err = mod.UpdateIdentity(&model.Identity{
+	err = mod.UpdateIdentity(&indexdb.Identity{
 		ID:     intermittentMediaSigner.Pub().String(),
 		Handle: "stream-intermittent-tester",
 		DID:    "",
@@ -604,7 +604,7 @@ func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Sig
 // makeReplicator builds the configured replicator — an iroh swarm and/or
 // websocket fan-out depending on --replicators. Returns nil when no known
 // replicator is configured; callers should treat that as "no replication".
-func makeReplicator(ctx context.Context, cli *config.CLI, mm *media.MediaManager, b *bus.Bus, mod model.Model) (replication.Replicator, error) {
+func makeReplicator(ctx context.Context, cli *config.CLI, mm *media.MediaManager, b *bus.Bus, mod indexdb.Model) (replication.Replicator, error) {
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
 		exists, err := cli.DataFileExists([]string{"iroh-kv-secret"})
@@ -652,7 +652,7 @@ func makeReplicator(ctx context.Context, cli *config.CLI, mm *media.MediaManager
 // attribute bytes/duration to the right track record (the streamer's
 // original track records or, later, user-contributed transcript/transcode
 // tracks).
-func trackRefFetcher(mod model.Model) func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
+func trackRefFetcher(mod indexdb.Model) func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 	return func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
 		rows, err := mod.GetMediaTracksByBlob(ctx, cid)
 		if err != nil {
@@ -1153,12 +1153,12 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 // records so playback can verify them. It picks the most recently created
 // non-revoked place.stream.key for the repo; streamers normally have exactly
 // one. Errors if the repo has no active signing key.
-func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
+func resolveLiveSigningKey(mod indexdb.Model, repoDID string) (string, error) {
 	keys, err := mod.GetSigningKeysForRepo(repoDID)
 	if err != nil {
 		return "", err
 	}
-	var best *model.SigningKey
+	var best *indexdb.SigningKey
 	for i := range keys {
 		k := &keys[i]
 		if k.RevokedAt != nil {

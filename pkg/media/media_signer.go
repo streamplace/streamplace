@@ -19,8 +19,8 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -68,7 +68,7 @@ func prepareCert(ctx context.Context, cli *config.CLI, signer crypto.Signer) ([]
 	return cert, nil
 }
 
-func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer, model model.Model) (MediaSigner, error) {
+func MakeMediaSigner(ctx context.Context, cli *config.CLI, streamer string, signer crypto.Signer, model indexdb.Model) (MediaSigner, error) {
 	cert, err := prepareCert(ctx, cli, signer)
 	if err != nil {
 		return nil, err

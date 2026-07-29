@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -18,7 +18,7 @@ const (
 	testRando        = "did:plc:someoneelse"
 )
 
-func putInvite(t *testing.T, m model.Model, repoDID, subjectDID, feature string) {
+func putInvite(t *testing.T, m indexdb.Model, repoDID, subjectDID, feature string) {
 	t.Helper()
 	rkey := feature + "-" + subjectDID
 	aturi, err := syntax.ParseATURI("at://" + repoDID + "/place.stream.beta.invite/" + rkey)
@@ -34,8 +34,8 @@ func putInvite(t *testing.T, m model.Model, repoDID, subjectDID, feature string)
 func TestAllowVODUpload_InviteMode(t *testing.T) {
 	// With --beta-invite-did configured, only accounts holding a `vod`
 	// invite from that exact issuer can upload.
-	mkServer := func(t *testing.T) (*Server, model.Model) {
-		m, err := model.MakeDB(":memory:")
+	mkServer := func(t *testing.T) (*Server, indexdb.Model) {
+		m, err := indexdb.MakeDB(":memory:")
 		require.NoError(t, err)
 		return &Server{
 			model: m,
@@ -76,7 +76,7 @@ func TestAllowVODUpload_AllowedStreamsFallback(t *testing.T) {
 	// livestreaming uses — including the "no allowlist ⇒ open server"
 	// fallback for dev / single-node deployments.
 	mkServer := func(allowed []string) *Server {
-		m, err := model.MakeDB(":memory:")
+		m, err := indexdb.MakeDB(":memory:")
 		require.NoError(t, err)
 		return &Server{
 			model: m,

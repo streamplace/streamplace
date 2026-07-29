@@ -29,8 +29,8 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
@@ -46,7 +46,7 @@ const dedupWindow = 5 * time.Minute
 
 type ATProtoSynchronizer struct {
 	CLI                *config.CLI
-	Model              model.Model
+	Model              indexdb.Model
 	StatefulDB         *statedb.StatefulDB
 	Noter              notificationpkg.Notifier
 	Bus                *bus.Bus

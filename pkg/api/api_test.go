@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 )
 
@@ -56,7 +56,7 @@ func TestRedirectHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cli := &config.CLI{HTTPAddr: tt.httpAddr, HTTPSAddr: tt.httpsAddr}
-			mod := &model.DBModel{}
+			mod := &indexdb.DBModel{}
 			a := StreamplaceAPI{CLI: cli, Model: mod}
 
 			handler, err := a.RedirectHandler(context.Background())
@@ -87,7 +87,7 @@ func (m *MockFirebase) Blast(ctx context.Context, targets []notifications.Notifi
 
 func TestContextMiddleware(t *testing.T) {
 	cli := &config.CLI{HTTPAddr: "0.0.0.0:80", HTTPSAddr: "0.0.0.0:443"}
-	mod := &model.DBModel{}
+	mod := &indexdb.DBModel{}
 	a := StreamplaceAPI{CLI: cli, Model: mod}
 
 	runtime.GC()

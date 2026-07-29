@@ -14,7 +14,7 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // a real CIDv1 to populate the required commit/identity link fields so CBOR
@@ -176,7 +176,7 @@ func TestRelayCursorPersistResumeLive(t *testing.T) {
 	defer cancel()
 
 	dbPath := t.TempDir() + "/cursor.db"
-	mod, err := model.MakeDB(dbPath)
+	mod, err := indexdb.MakeDB(dbPath)
 	require.NoError(t, err)
 	atsync := &ATProtoSynchronizer{Model: mod}
 
@@ -205,7 +205,7 @@ func TestRelayCursorPersistResumeLive(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Phase 2: "restart" — a new model over the same DB file reloads the cursor.
-	mod2, err := model.MakeDB(dbPath)
+	mod2, err := indexdb.MakeDB(dbPath)
 	require.NoError(t, err)
 	resumed := (&ATProtoSynchronizer{Model: mod2}).newRelayCursor(ctx, relay)
 	rg, ok := resumed.groupStart()

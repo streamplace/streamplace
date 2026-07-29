@@ -11,23 +11,23 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 type WebsocketReplicator struct {
 	bus        *bus.Bus
 	cli        *config.CLI
-	mod        model.Model
+	mod        indexdb.Model
 	conns      map[string]bool
 	connsMutex sync.RWMutex
 	group      *errgroup.Group
 	mm         *media.MediaManager
 }
 
-func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager) *WebsocketReplicator {
+func NewWebsocketReplicator(bus *bus.Bus, mod indexdb.Model, mm *media.MediaManager) *WebsocketReplicator {
 	return &WebsocketReplicator{
 		bus:        bus,
 		mod:        mod,

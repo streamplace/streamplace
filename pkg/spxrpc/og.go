@@ -27,8 +27,8 @@ import (
 	"github.com/tdewolff/canvas/renderers"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 const (
@@ -267,7 +267,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 		chatProfile, err := s.ATSync.Model.GetChatProfile(ctx, userDID)
 		if err != nil {
 			log.Warn(ctx, "failed to fetch chat profile", "did", userDID, "error", err)
-			clr := model.DefaultColors[hashString(userDID)%len(model.DefaultColors)]
+			clr := indexdb.DefaultColors[hashString(userDID)%len(indexdb.DefaultColors)]
 			userColor = color.RGBA{
 				R: uint8(clr.Red),
 				G: uint8(clr.Green),

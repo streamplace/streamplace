@@ -10,8 +10,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.bsky.feed.generator/([a-z0-9\.\-]+)$`)
@@ -43,7 +43,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cursor timestamp")
 		}
 	}
-	var posts []model.FeedPost
+	var posts []indexdb.FeedPost
 	outCursor := ""
 	if name == FeedAllStreams {
 		posts, err = s.model.ListFeedPostsByType("livestream", limit, ts)
@@ -71,7 +71,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 				continue
 			}
 			if ls.PostURI != "" {
-				posts = append(posts, model.FeedPost{
+				posts = append(posts, indexdb.FeedPost{
 					URI: ls.PostURI,
 				})
 			}

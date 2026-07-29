@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestGetValidBadges(t *testing.T) {
 	ctx := context.Background()
 
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 
 	issuerDID := "did:web:node.example.com"
@@ -81,7 +81,7 @@ func TestGetValidBadges(t *testing.T) {
 func TestGetValidBadges_Issuance(t *testing.T) {
 	ctx := context.Background()
 
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 
 	issuerDID := "did:web:node.example.com"
@@ -94,7 +94,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	setupVIPIssuance := func(t *testing.T, recipientDID string) {
 		t.Helper()
-		err := mod.UpsertBadgeDef(ctx, &model.BadgeDef{
+		err := mod.UpsertBadgeDef(ctx, &indexdb.BadgeDef{
 			URI:       defURI,
 			CID:       "bafydef",
 			RepoDID:   streamerDID,
@@ -105,7 +105,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = mod.UpsertBadgeIssuance(ctx, &model.BadgeIssuance{
+		err = mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
 			URI:          issuanceURI,
 			CID:          "bafyiss",
 			RepoDID:      streamerDID,
@@ -121,7 +121,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		setupVIPIssuance(t, vipUserDID)
 
 		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: issuanceURI, Cid: "bafyiss"})
-		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
+		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
 			RepoDID: vipUserDID,
 			Record:  &profile,
 		})
@@ -151,7 +151,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	t.Run("badge rejected when issuance recipient does not match user", func(t *testing.T) {
 		wrongIssuanceURI := "at://" + streamerDID + "/place.stream.badge.issuance/wrongiss"
-		err := mod.UpsertBadgeIssuance(ctx, &model.BadgeIssuance{
+		err := mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
 			URI:          wrongIssuanceURI,
 			CID:          "bafywrong",
 			RepoDID:      streamerDID,
@@ -164,7 +164,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 		theftUserDID := "did:plc:theftuser"
 		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
-		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
+		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
 			RepoDID: theftUserDID,
 			Record:  &profile,
 		})
@@ -186,7 +186,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	t.Run("badge disappears after badge def is deleted", func(t *testing.T) {
 		// Re-create issuance, then delete the def
-		err := mod.UpsertBadgeIssuance(ctx, &model.BadgeIssuance{
+		err := mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
 			URI:          issuanceURI,
 			CID:          "bafyiss",
 			RepoDID:      streamerDID,
@@ -216,7 +216,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		eventDefURI := "at://" + issuerDID + "/place.stream.badge.def/eventdef"
 		eventIssuanceURI := "at://" + issuerDID + "/place.stream.badge.issuance/eventiss"
 
-		err := mod.UpsertBadgeDef(ctx, &model.BadgeDef{
+		err := mod.UpsertBadgeDef(ctx, &indexdb.BadgeDef{
 			URI:       eventDefURI,
 			CID:       "bafyeventdef",
 			RepoDID:   issuerDID,
@@ -227,7 +227,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = mod.UpsertBadgeIssuance(ctx, &model.BadgeIssuance{
+		err = mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
 			URI:          eventIssuanceURI,
 			CID:          "bafyeventiss",
 			RepoDID:      issuerDID,
@@ -239,7 +239,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		require.NoError(t, err)
 
 		profile := buildProfileWithGlobalBadge(t, comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
-		err = mod.CreateChatProfile(ctx, &model.ChatProfile{
+		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
 			RepoDID: eventUserDID,
 			Record:  &profile,
 		})

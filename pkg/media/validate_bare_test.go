@@ -18,8 +18,8 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/livehls"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -158,8 +158,8 @@ func TestFeedLiveWindow(t *testing.T) {
 	require.Contains(t, w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "#EXTM3U")
 }
 
-// seedBanLabel writes an active ban label for did into the model.
-func seedBanLabel(t *testing.T, mod model.Model, did string) {
+// seedBanLabel writes an active ban label for did into the indexdb.
+func seedBanLabel(t *testing.T, mod indexdb.Model, did string) {
 	t.Helper()
 	lex := &comatproto.LabelDefs_Label{
 		Cts: time.Now().UTC().Format(time.RFC3339),
@@ -169,7 +169,7 @@ func seedBanLabel(t *testing.T, mod model.Model, did string) {
 	}
 	var buf bytes.Buffer
 	require.NoError(t, lex.MarshalCBOR(&buf))
-	require.NoError(t, mod.CreateLabel(&model.Label{
+	require.NoError(t, mod.CreateLabel(&indexdb.Label{
 		Src:    lex.Src,
 		Uri:    did,
 		Val:    atproto.LabelDMCAViolation,

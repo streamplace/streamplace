@@ -14,8 +14,8 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -36,7 +36,7 @@ func TestHandleChange(t *testing.T) {
 	t.Logf("cli: %+v", cli)
 	b := bus.NewBus()
 	cli.DataDir = t.TempDir()
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := statedb.MakeDB(context.Background(), &cli, nil, mod)
 	require.NoError(t, err)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"stream.place/streamplace/pkg/badges"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -14,7 +14,7 @@ import (
 // - If the author is the streamer, adds a "streamer" badge
 // - If the author has moderation permissions, adds a "mod" badge
 // - If the author self-labels as a bot, adds a "bot" badge
-func AddModBadgeIfApplicable(ctx context.Context, message *placestream.ChatDefs_MessageView, streamerDID string, issuerDID string, m model.Model) error {
+func AddModBadgeIfApplicable(ctx context.Context, message *placestream.ChatDefs_MessageView, streamerDID string, issuerDID string, m indexdb.Model) error {
 	if message == nil {
 		return fmt.Errorf("message is nil")
 	}

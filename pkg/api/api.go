@@ -36,12 +36,12 @@ import (
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
 	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spxrpc"
@@ -58,7 +58,7 @@ import (
 
 type StreamplaceAPI struct {
 	CLI           *config.CLI
-	Model         model.Model
+	Model         indexdb.Model
 	StatefulDB    *statedb.StatefulDB
 	LocalDB       localdb.LocalDB
 	Updater       *Updater
@@ -99,7 +99,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.Notifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod indexdb.Model, statefulDB *statedb.StatefulDB, noter notifications.Notifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -671,7 +671,7 @@ func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handl
 			w.WriteHeader(200)
 			return
 		}
-		var event model.PlayerEventAPI
+		var event indexdb.PlayerEventAPI
 		if err := json.NewDecoder(req.Body).Decode(&event); err != nil {
 			apierrors.WriteHTTPBadRequest(w, "could not decode JSON body", err)
 			return
@@ -735,7 +735,7 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 
 type ChatResponse struct {
 	Post *appbsky.FeedPost `json:"post"`
-	Repo *model.Repo       `json:"repo"`
+	Repo *indexdb.Repo     `json:"repo"`
 	CID  string            `json:"cid"`
 }
 

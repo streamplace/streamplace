@@ -12,7 +12,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 func TestRegexStreamplace(t *testing.T) {
@@ -168,7 +168,7 @@ func TestDownloadRedirects(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			mod := &model.DBModel{}
+			mod := &indexdb.DBModel{}
 			a := StreamplaceAPI{CLI: cli, Model: mod}
 
 			handler := a.HandleAppDownload(context.Background())

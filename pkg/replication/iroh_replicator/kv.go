@@ -15,10 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
 )
@@ -33,7 +33,7 @@ type IrohSwarm struct {
 	NodeTicket       string
 	bus              *bus.Bus
 	originMutex      sync.Mutex
-	mod              model.Model
+	mod              indexdb.Model
 	cli              *config.CLI
 	activeSubs       map[string]*SwarmOriginInfo
 	handleDataScoped func(pubKey *iroh_streamplace.PublicKey, topic string, data []byte)
@@ -54,7 +54,7 @@ type SwarmViewerCount struct {
 	Viewers  int    `json:"viewers"`
 }
 
-func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte, mm *media.MediaManager, bus *bus.Bus, mod model.Model) (*IrohSwarm, error) {
+func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte, mm *media.MediaManager, bus *bus.Bus, mod indexdb.Model) (*IrohSwarm, error) {
 	ctx = log.WithLogValues(ctx, "func", "StartKV")
 
 	if topic == nil {

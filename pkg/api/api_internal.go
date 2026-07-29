@@ -22,11 +22,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	sloghttp "github.com/samber/slog-http"
 	"stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/mist/misttriggers"
-	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/rtcrec"
 	v0 "stream.place/streamplace/pkg/schema/v0"
@@ -476,7 +476,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			return
 		}
 
-		var ident model.Identity
+		var ident indexdb.Identity
 		if err := json.NewDecoder(r.Body).Decode(&ident); err != nil {
 			errors.WriteHTTPBadRequest(w, "invalid request body", err)
 			return

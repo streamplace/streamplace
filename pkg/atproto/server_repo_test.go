@@ -8,7 +8,7 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -20,7 +20,7 @@ func TestServerRepo(t *testing.T) {
 		DBURL:           ":memory:",
 	}
 	cli.DataDir = t.TempDir()
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := statedb.MakeDB(context.Background(), &cli, nil, mod)
 	require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 		DBURL:           ":memory:",
 	}
 	cli.DataDir = t.TempDir()
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := statedb.MakeDB(context.Background(), &cli, nil, mod)
 	require.NoError(t, err)

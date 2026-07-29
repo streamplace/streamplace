@@ -10,7 +10,7 @@ import (
 )
 
 func TestWebRTCPlayback2(t *testing.T) {
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, _ := getStaticTestMediaManager(t)
 	ignore := goleak.IgnoreCurrent()
 	defer goleak.VerifyNone(t, ignore)
 	offer := &webrtc.SessionDescription{

@@ -13,6 +13,7 @@ import (
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -23,9 +24,21 @@ import (
 // - transcoding
 // - thumbnail generation
 
+// directorStore is the subset of the index database that pkg/director
+// reads, declared consumer-side so director depends on five methods
+// instead of the full indexdb.Model. Repo is indexer state; the rest are
+// placestream view types.
+type directorStore interface {
+	GetRepoByHandleOrDID(arg string) (*indexdb.Repo, error)
+	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
+	GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error)
+	GetServerSettings(ctx context.Context, server, repoDID string) (*placestream.ServerSettings, error)
+	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
+}
+
 type Director struct {
 	mm               *media.MediaManager
-	mod              indexdb.Model
+	mod              directorStore
 	cli              *config.CLI
 	bus              *bus.Bus
 	streamSessions   map[string]*StreamSession
@@ -37,7 +50,7 @@ type Director struct {
 	atsync           *atproto.ATProtoSynchronizer
 }
 
-func NewDirector(mm *media.MediaManager, mod indexdb.Model, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
+func NewDirector(mm *media.MediaManager, mod directorStore, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
 	return &Director{
 		mm:               mm,
 		mod:              mod,

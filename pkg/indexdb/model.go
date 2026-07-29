@@ -109,7 +109,7 @@ type Model interface {
 	GetRecentBroadcastOrigins(ctx context.Context) ([]placestream.BroadcastDefs_BroadcastOriginView, error)
 
 	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
-	GetMetadataConfiguration(ctx context.Context, repoDID string) (*MetadataConfiguration, error)
+	GetMetadataConfiguration(ctx context.Context, repoDID string) (*placestream.MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
 	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error

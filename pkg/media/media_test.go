@@ -22,7 +22,7 @@ func getFixture(name string) string {
 	return filepath.Join(dir, "..", "..", "test", "fixtures", name)
 }
 
-func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
+func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner, indexdb.Model) {
 	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	ldb, err := localdb.MakeDB(":memory:")
@@ -49,5 +49,5 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 	require.NoError(t, err)
 	// ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
 	// require.NoError(t, err)
-	return mm, nil
+	return mm, nil, mod
 }

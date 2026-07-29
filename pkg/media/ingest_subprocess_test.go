@@ -165,7 +165,7 @@ func TestMP4IngestIsolatedWedgeContained(t *testing.T) {
 	ingestWorkerWatchdog = 6 * time.Second
 	defer func() { ingestWorkerWatchdog = old }()
 
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 
 	wedge := makeAudioOnlyAACFMP4(t, context.Background(), 5)

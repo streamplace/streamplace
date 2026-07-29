@@ -18,6 +18,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
 	c2patypes "stream.place/streamplace/pkg/c2patypes"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/indexdb"
@@ -39,6 +40,18 @@ const SegmentsDir = "segments"
 
 const StreamplaceMetadata = "cawg.metadata"
 
+// mediaStore is the subset of the index database that pkg/media reads,
+// declared consumer-side so media depends on five methods instead of the
+// full indexdb.Model. SigningKey is node-local indexer state; everything
+// else crosses the seam as a lexicon view type.
+type mediaStore interface {
+	GetSigningKey(ctx context.Context, did, repoDID string) (*indexdb.SigningKey, error)
+	GetServerSettings(ctx context.Context, server, repoDID string) (*placestream.ServerSettings, error)
+	GetMetadataConfiguration(ctx context.Context, repoDID string) (*placestream.MetadataConfiguration, error)
+	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
+	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
+}
+
 type MediaManager struct {
 	cli            *config.CLI
 	liveWindows    map[string]*livehls.Writer
@@ -53,7 +66,7 @@ type MediaManager struct {
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
 	newSegmentSubsMutex sync.RWMutex
-	model               indexdb.Model
+	model               mediaStore
 	bus                 *bus.Bus
 	atsync              *atproto.ATProtoSynchronizer
 	webrtcAPI           *webrtc.API
@@ -112,7 +125,7 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod indexdb.Model, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
+func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod mediaStore, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
 	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {

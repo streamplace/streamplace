@@ -182,14 +182,14 @@ func seedBanLabel(t *testing.T, mod indexdb.Model, did string) {
 // regardless of whether their ingest worker was torn down. A clean streamer
 // passes; the ONLY change between the two checks is the ban label.
 func TestStreamerIsBanned(t *testing.T) {
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, mod := getStaticTestMediaManager(t)
 	did := "did:plc:bannedstreamer"
 
 	banned, err := mm.streamerIsBanned(did)
 	require.NoError(t, err)
 	require.False(t, banned, "a clean streamer is not banned")
 
-	seedBanLabel(t, mm.model, did)
+	seedBanLabel(t, mod, did)
 
 	banned, err = mm.streamerIsBanned(did)
 	require.NoError(t, err)

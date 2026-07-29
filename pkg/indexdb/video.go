@@ -152,22 +152,3 @@ func (m *DBModel) GetVideoView(ctx context.Context, uri string) (*placestream.Me
 		Tracks:     tracks,
 	}, nil
 }
-
-// GetLatestVideosForRepo returns the most recent N video rows by a
-// given repo. Model rows (not decoded records) so the caller has
-// URI/CID identity for each entry; call ToRecord on a row to decode.
-func (m *DBModel) GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error) {
-	if limit <= 0 {
-		limit = 25
-	}
-	var out []*Video
-	err := m.DB.WithContext(ctx).
-		Where("repo_did = ?", repoDID).
-		Order("indexed_at DESC").
-		Limit(limit).
-		Find(&out).Error
-	if err != nil {
-		return nil, fmt.Errorf("list videos for repo: %w", err)
-	}
-	return out, nil
-}

@@ -54,7 +54,6 @@ type Model interface {
 	CreateFeedPost(ctx context.Context, post *FeedPost) error
 	ListFeedPosts() ([]FeedPost, error)
 	ListFeedPostsByType(feedType string, limit int, after int64) ([]FeedPost, error)
-	GetFeedPost(uri string) (*FeedPost, error)
 	GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
@@ -64,8 +63,6 @@ type Model interface {
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]placestream.Livestream_LivestreamView, error)
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
-	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)
-	GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error)
 	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
 	GetTeleportByURI(uri string) (*Teleport, error)
 	DeleteTeleport(ctx context.Context, uri string) error
@@ -84,7 +81,6 @@ type Model interface {
 	CreateGate(ctx context.Context, gate *Gate) error
 	DeleteGate(ctx context.Context, rkey string) error
 	GetGate(ctx context.Context, rkey string) (*placestream.ChatGate, error)
-	GetUserGates(ctx context.Context, userDID string) ([]*Gate, error)
 
 	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
 	DeletePinnedRecord(ctx context.Context, uri string) error
@@ -140,7 +136,6 @@ type Model interface {
 	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error
 	DeleteVideo(ctx context.Context, uri string) error
 	GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error)
-	GetLatestVideosForRepo(ctx context.Context, repoDID string, limit int) ([]*Video, error)
 
 	UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error
 	DeleteMediaTrack(ctx context.Context, uri string) error
@@ -173,15 +168,12 @@ type Model interface {
 
 	CreateLike(ctx context.Context, like *Like) error
 	DeleteLike(ctx context.Context, uri string) error
-	GetLike(uri string) (*Like, error)
 	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error)
 	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error)
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 
 	CreateVodGate(ctx context.Context, gate *VodGate) error
 	DeleteVodGate(ctx context.Context, rkey string) error
-	GetVodGate(ctx context.Context, rkey string) (*VodGate, error)
-	GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error)
 }
 
 // DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE

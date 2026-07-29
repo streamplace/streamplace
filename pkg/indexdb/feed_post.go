@@ -2,12 +2,10 @@ package indexdb
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	glex "github.com/streamplace/glex/runtime"
-	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
 )
 
@@ -75,18 +73,6 @@ func (m *DBModel) ListFeedPostsByType(feedType string, limit int, after int64) (
 		return nil, fmt.Errorf("error retrieving feed posts: %w", err)
 	}
 	return posts, nil
-}
-
-func (m *DBModel) GetFeedPost(uri string) (*FeedPost, error) {
-	post := FeedPost{}
-	err := m.DB.Where("uri = ?", uri).First(&post).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving feed post: %w", err)
-	}
-	return &post, nil
 }
 
 func (m *DBModel) GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error) {

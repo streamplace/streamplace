@@ -31,44 +31,6 @@ func (m *DBModel) CreateTeleport(ctx context.Context, tp *Teleport) error {
 	}).Create(tp).Error
 }
 
-func (m *DBModel) GetLatestTeleportForRepo(repoDID string) (*Teleport, error) {
-	var teleport Teleport
-	err := m.DB.
-		Preload("Repo").
-		Preload("Target").
-		Where("repo_did = ?", repoDID).
-		Order("starts_at DESC").
-		First(&teleport).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving latest teleport: %w", err)
-	}
-	return &teleport, nil
-}
-
-func (m *DBModel) GetActiveTeleportsForRepo(repoDID string) ([]Teleport, error) {
-	now := time.Now()
-	var teleports []Teleport
-	err := m.DB.
-		Preload("Repo").
-		Preload("Target").
-		Where("repo_did = ?", repoDID).
-		Where("denied = ?", false).
-		Where("starts_at <= ?", now).
-		Where("(duration_seconds IS NULL OR DATE_ADD(starts_at, INTERVAL duration_seconds SECOND) > ?)", now).
-		Order("starts_at DESC").
-		Find(&teleports).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving active teleports: %w", err)
-	}
-	return teleports, nil
-}
-
 func (m *DBModel) GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error) {
 	now := time.Now()
 	var teleports []Teleport

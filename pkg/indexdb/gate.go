@@ -48,12 +48,3 @@ func (m *DBModel) GetGate(ctx context.Context, rkey string) (*placestream.ChatGa
 func (m *DBModel) DeleteGate(ctx context.Context, rkey string) error {
 	return m.DB.Where("rkey = ?", rkey).Delete(&Gate{}).Error
 }
-
-func (m *DBModel) GetUserGates(ctx context.Context, userDID string) ([]*Gate, error) {
-	var gates []*Gate
-	err := m.DB.Where("repo_did = ?", userDID).Find(&gates).Error
-	if err != nil {
-		return nil, err
-	}
-	return gates, nil
-}

@@ -2,10 +2,8 @@ package indexdb
 
 import (
 	"context"
-	"errors"
 	"time"
 
-	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -29,27 +27,6 @@ func (m *DBModel) CreateVodGate(ctx context.Context, gate *VodGate) error {
 	return m.DB.Create(gate).Error
 }
 
-func (m *DBModel) GetVodGate(ctx context.Context, rkey string) (*VodGate, error) {
-	var gate VodGate
-	err := m.DB.Preload("Repo").Where("rkey = ?", rkey).First(&gate).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &gate, nil
-}
-
 func (m *DBModel) DeleteVodGate(ctx context.Context, rkey string) error {
 	return m.DB.Where("rkey = ?", rkey).Delete(&VodGate{}).Error
-}
-
-func (m *DBModel) GetUserVodGates(ctx context.Context, userDID string) ([]*VodGate, error) {
-	var gates []*VodGate
-	err := m.DB.Where("repo_did = ?", userDID).Find(&gates).Error
-	if err != nil {
-		return nil, err
-	}
-	return gates, nil
 }

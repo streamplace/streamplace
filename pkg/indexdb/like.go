@@ -58,18 +58,6 @@ func (m *DBModel) DeleteLike(ctx context.Context, uri string) error {
 	return nil
 }
 
-func (m *DBModel) GetLike(uri string) (*Like, error) {
-	var like Like
-	err := m.DB.Preload("Repo").Where("uri = ?", uri).First(&like).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &like, nil
-}
-
 func (m *DBModel) GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error) {
 	var like Like
 	err := m.DB.WithContext(ctx).Preload("Repo").Where("subject = ? AND repo_did = ?", subject, repoDID).First(&like).Error

@@ -267,22 +267,16 @@ func (s *Server) getLiveUsersRanked(ctx context.Context, limit int, userDID stri
 		dids = dids[:limit]
 	}
 
-	ls, err := s.model.GetLatestLivestreams(limit, nil, dids)
+	streams, err := s.model.GetLatestLivestreams(limit, nil, dids)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]placestream.Livestream_LivestreamView, len(ls))
-	for i, l := range ls {
-		stream, err := l.ToLivestreamView()
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
-		}
-		stream.ViewerCount = &placestream.Livestream_ViewerCount{
+	for i := range streams {
+		streams[i].ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
-			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
+			Count:         int64(s.bus.GetViewerCount(streams[i].Author.Did)),
 		}
-		streams[i] = *stream
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
@@ -309,22 +303,16 @@ func (s *Server) getLiveUsersLatest(ctx context.Context, before string, limit in
 	for i, seg := range segs {
 		dids[i] = seg.RepoDID
 	}
-	ls, err := s.model.GetLatestLivestreams(limit, beforeTime, dids)
+	streams, err := s.model.GetLatestLivestreams(limit, beforeTime, dids)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Failed to fetch livestreams")
 	}
 
-	streams := make([]placestream.Livestream_LivestreamView, len(ls))
-	for i, l := range ls {
-		stream, err := l.ToLivestreamView()
-		if err != nil {
-			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Failed to convert livestream to streamplace livestream: %s", err))
-		}
-		stream.ViewerCount = &placestream.Livestream_ViewerCount{
+	for i := range streams {
+		streams[i].ViewerCount = &placestream.Livestream_ViewerCount{
 			LexiconTypeID: "place.stream.livestream#viewerCount",
-			Count:         int64(s.bus.GetViewerCount(stream.Author.Did)),
+			Count:         int64(s.bus.GetViewerCount(streams[i].Author.Did)),
 		}
-		streams[i] = *stream
 	}
 
 	liveUsers := placestream.LiveGetLiveUsers_Output{Streams: streams}
@@ -687,16 +675,12 @@ func (s *Server) handlePlaceStreamLiveStartLivestream(ctx context.Context, body 
 // to swap on, set endedAt, putRecord) but is best-effort and never returns an
 // error that blocks the new stream: callers log and continue.
 func (s *Server) endPriorLivestream(ctx context.Context, repoDID string, client *oatproxy.XrpcClient) error {
-	prior, err := s.model.GetLatestLivestreamForRepo(repoDID)
+	priorView, err := s.model.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("get latest livestream: %w", err)
 	}
-	if prior == nil || prior.Livestream == nil {
+	if priorView == nil {
 		return nil
-	}
-	priorView, err := prior.ToLivestreamView()
-	if err != nil {
-		return fmt.Errorf("convert prior livestream to view: %w", err)
 	}
 	priorRec, ok := priorView.Record.Val.(*placestream.Livestream)
 	if !ok {
@@ -754,17 +738,12 @@ func (s *Server) handlePlaceStreamLiveStopLivestream(ctx context.Context, body *
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required to stop livestream")
 	}
 
-	livestream, err := s.model.GetLatestLivestreamForRepo(session.DID)
+	livestreamView, err := s.model.GetLatestLivestreamForRepo(session.DID)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error getting livestream", err)
 	}
-	if livestream == nil || livestream.Livestream == nil {
+	if livestreamView == nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "no active livestream for this repo")
-	}
-
-	livestreamView, err := livestream.ToLivestreamView()
-	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error converting livestream to view", err)
 	}
 
 	livestreamRecord, ok := livestreamView.Record.Val.(*placestream.Livestream)

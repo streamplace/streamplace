@@ -324,11 +324,11 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			if err != nil {
 				return fmt.Errorf("failed to get repo: %w", err)
 			}
-			livestreamModel, err := ss.mod.GetLatestLivestreamForRepo(spseg.Creator)
+			lsv, err := ss.mod.GetLatestLivestreamForRepo(spseg.Creator)
 			if err != nil {
 				return fmt.Errorf("failed to get latest livestream for repo: %w", err)
 			}
-			if livestreamModel == nil {
+			if lsv == nil {
 				log.Warn(ctx, "no livestream found, skipping notification blast", "repoDID", spseg.Creator)
 				return nil
 			}
@@ -336,11 +336,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 			// own record is indexed (it may not have been when the uploader
 			// started), so all objects are attributed to the right stream.
 			if ss.s3Uploader != nil {
-				ss.s3Uploader.SetLivestreamURI(livestreamModel.URI)
-			}
-			lsv, err := livestreamModel.ToLivestreamView()
-			if err != nil {
-				return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
+				ss.s3Uploader.SetLivestreamURI(lsv.Uri)
 			}
 			if !shouldNotify(lsv) {
 				log.Debug(ctx, "is not set to notify", "repoDID", spseg.Creator)
@@ -451,17 +447,13 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
 
-	ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
+	lsv, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
 	}
-	if ls == nil {
+	if lsv == nil {
 		log.Debug(ctx, "no livestream found, skipping status update", "repoDID", repoDID)
 		return nil
-	}
-	lsv, err := ls.ToLivestreamView()
-	if err != nil {
-		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
 
 	lsvr, ok := lsv.Record.Val.(*placestream.Livestream)
@@ -589,24 +581,20 @@ func (ss *StreamSession) livestreamUpdateLoop(ctx context.Context, repoDID strin
 func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string) error {
 	ctx = log.WithLogValues(ctx, "func", "doUpdateLivestream")
 
-	lastLivestream, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
+	lsv, err := ss.mod.GetLatestLivestreamForRepo(repoDID)
 	if err != nil {
 		return fmt.Errorf("could not get latest livestream for repoDID: %w", err)
 	}
-	if lastLivestream == nil {
+	if lsv == nil {
 		log.Debug(ctx, "no livestream found, skipping livestream update")
 		return nil
-	}
-	lsv, err := lastLivestream.ToLivestreamView()
-	if err != nil {
-		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
 	lsvr, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
 
-	aturi, err := syntax.ParseATURI(lastLivestream.URI)
+	aturi, err := syntax.ParseATURI(lsv.Uri)
 	if err != nil {
 		return fmt.Errorf("could not parse livestream URI: %w", err)
 	}
@@ -646,7 +634,7 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 		return fmt.Errorf("could not update livestream record: %w", err)
 	}
 
-	log.Debug(ctx, "updated livestream record", "uri", lastLivestream.URI)
+	log.Debug(ctx, "updated livestream record", "uri", lsv.Uri)
 	ss.lastLivestreamTime = time.Now()
 
 	return nil

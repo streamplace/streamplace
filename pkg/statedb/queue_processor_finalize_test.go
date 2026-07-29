@@ -110,9 +110,7 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 
 		// And critically: the record must NOT have been ended. Re-read it from
 		// the repo and confirm endedAt is still unset.
-		ls, err := state.model.GetLivestream(uri)
-		require.NoError(t, err)
-		view, err := ls.ToLivestreamView()
+		view, err := state.model.GetLivestream(uri)
 		require.NoError(t, err)
 		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)
@@ -208,9 +206,7 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 		require.Empty(t, tasks, "no reschedule task should be enqueued for a session-less stale-but-latest record")
 
 		// The record must NOT have been ended (no session = no write access).
-		ls, err := state.model.GetLivestream(uri)
-		require.NoError(t, err)
-		view, err := ls.ToLivestreamView()
+		view, err := state.model.GetLivestream(uri)
 		require.NoError(t, err)
 		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)

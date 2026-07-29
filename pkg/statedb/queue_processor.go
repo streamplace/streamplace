@@ -328,16 +328,12 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err := json.Unmarshal(task.Payload, &finalizeLivestreamTask); err != nil {
 		return err
 	}
-	livestream, err := state.model.GetLivestream(finalizeLivestreamTask.LivestreamURI)
+	lastLivestreamView, err := state.model.GetLivestream(finalizeLivestreamTask.LivestreamURI)
 	if err != nil {
 		return fmt.Errorf("failed to get latest livestream for userDID: %w", err)
 	}
-	if livestream == nil {
+	if lastLivestreamView == nil {
 		return fmt.Errorf("no livestream found for URI: %s", finalizeLivestreamTask.LivestreamURI)
-	}
-	lastLivestreamView, err := livestream.ToLivestreamView()
-	if err != nil {
-		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 	}
 	rec, ok := lastLivestreamView.Record.Val.(*placestream.Livestream)
 	if !ok {
@@ -351,7 +347,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		return fmt.Errorf("could not parse last seen at: %w", err)
 	}
 	if rec.IdleTimeoutSeconds == nil || *rec.IdleTimeoutSeconds == 0 {
-		log.Debug(ctx, "livestream has no idle timeout, skipping finalization", "uri", livestream.URI)
+		log.Debug(ctx, "livestream has no idle timeout, skipping finalization", "uri", lastLivestreamView.Uri)
 		return nil
 	}
 	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
@@ -381,32 +377,32 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	// respawns the task every idle window forever (the rescheduled key embeds a
 	// fresh timestamp, so dedup never fires), flooding the logs and growing the
 	// task table without bound. So drop the task instead.
-	latest, err := state.model.GetLatestLivestreamForRepo(livestream.RepoDID)
+	latest, err := state.model.GetLatestLivestreamForRepo(lastLivestreamView.Author.Did)
 	if err != nil {
 		return fmt.Errorf("failed to get latest livestream for repo: %w", err)
 	}
-	if latest != nil && latest.URI == livestream.URI {
+	if latest != nil && latest.Uri == lastLivestreamView.Uri {
 		// Check for a local session before rescheduling. GetSessionByDID
 		// returns gorm.ErrRecordNotFound (or nil session via callers that
 		// swallow it) when the repo has never logged in here.
-		session, err := state.GetSessionByDID(livestream.RepoDID)
+		session, err := state.GetSessionByDID(lastLivestreamView.Author.Did)
 		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && session == nil) {
-			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
+			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", lastLivestreamView.Uri, "lastSeenAt", lastSeenTime)
 			return state.CompleteTask(ctx, task.ID)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
 		}
 		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
-		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
+		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", lastLivestreamView.Uri, rescheduledAt.Format(util.ISO8601))
 		_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, finalizeLivestreamTask, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
 		if err != nil {
 			return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
 		}
-		log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
+		log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize to let heartbeat catch up", "uri", lastLivestreamView.Uri, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
 		return nil
 	}
-	session, err := state.GetSessionByDID(livestream.RepoDID)
+	session, err := state.GetSessionByDID(lastLivestreamView.Author.Did)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
 	}
@@ -419,11 +415,11 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		return fmt.Errorf("failed to get xrpc client: %w", err)
 	}
 	if rec.EndedAt != nil {
-		log.Debug(ctx, "livestream has already ended, skipping", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+		log.Debug(ctx, "livestream has already ended, skipping", "uri", lastLivestreamView.Uri, "endedAt", *rec.EndedAt)
 		return nil
 	}
 
-	uri, err := syntax.ParseATURI(livestream.URI)
+	uri, err := syntax.ParseATURI(lastLivestreamView.Uri)
 	if err != nil {
 		return fmt.Errorf("failed to parse ATURI: %w", err)
 	}
@@ -434,8 +430,8 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		Collection: "place.stream.livestream",
 		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       uri.RecordKey().String(),
-		Repo:       livestream.RepoDID,
-		SwapRecord: &livestream.CID,
+		Repo:       lastLivestreamView.Author.Did,
+		SwapRecord: &lastLivestreamView.Cid,
 	}
 	out := comatproto.RepoPutRecord_Output{}
 
@@ -444,7 +440,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 		return fmt.Errorf("failed to update livestream record: %w", err)
 	}
 
-	log.Log(ctx, "livestream finalized", "uri", livestream.URI, "endedAt", *rec.EndedAt)
+	log.Log(ctx, "livestream finalized", "uri", lastLivestreamView.Uri, "endedAt", *rec.EndedAt)
 
 	return nil
 }

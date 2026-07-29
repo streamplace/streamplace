@@ -57,7 +57,7 @@ func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
 	}).Create(ls).Error
 }
 
-func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {
+func (m *DBModel) GetLivestream(uri string) (*placestream.Livestream_LivestreamView, error) {
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
@@ -70,11 +70,11 @@ func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving livestream by uri: %w", err)
 	}
-	return &livestream, nil
+	return livestream.ToLivestreamView()
 }
 
 // GetLatestLivestreamForRepo returns the most recent livestream for a given repo DID
-func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error) {
+func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error) {
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
@@ -88,10 +88,10 @@ func (m *DBModel) GetLatestLivestreamForRepo(repoDID string) (*Livestream, error
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving latest livestream: %w", err)
 	}
-	return &livestream, nil
+	return livestream.ToLivestreamView()
 }
 
-func (m *DBModel) GetLivestreamByPostURI(postURI string) (*Livestream, error) {
+func (m *DBModel) GetLivestreamByPostURI(postURI string) (*placestream.Livestream_LivestreamView, error) {
 	var livestream Livestream
 	err := m.DB.
 		Preload("Repo").
@@ -104,16 +104,16 @@ func (m *DBModel) GetLivestreamByPostURI(postURI string) (*Livestream, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving livestream by postURI: %w", err)
 	}
-	return &livestream, nil
+	return livestream.ToLivestreamView()
 }
 
 // Get the latest livestreams for a given list of repo DIDs
-func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error) {
+func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]placestream.Livestream_LivestreamView, error) {
 	var recentLivestreams []Livestream
 	now := time.Now().UTC()
 
 	if len(dids) == 0 {
-		return []Livestream{}, nil
+		return []placestream.Livestream_LivestreamView{}, nil
 	}
 
 	// Subquery to get the most recent livestream for each repo_did
@@ -166,9 +166,13 @@ func (m *DBModel) GetLatestLivestreams(limit int, before *time.Time, dids []stri
 		return nil, fmt.Errorf("error fetching recent livestreams: %w", err)
 	}
 
-	if len(recentLivestreams) == 0 {
-		return nil, nil
+	views := make([]placestream.Livestream_LivestreamView, 0, len(recentLivestreams))
+	for i := range recentLivestreams {
+		view, err := recentLivestreams[i].ToLivestreamView()
+		if err != nil {
+			return nil, fmt.Errorf("error converting livestream to view: %w", err)
+		}
+		views = append(views, *view)
 	}
-
-	return recentLivestreams, nil
+	return views, nil
 }

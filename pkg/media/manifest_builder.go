@@ -52,16 +52,12 @@ func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName strin
 	if mb.model == nil {
 		return nil, fmt.Errorf("model is nil")
 	}
-	livestream, err := mb.model.GetLatestLivestreamForRepo(streamerName)
+	livestreamRecord, err := mb.model.GetLatestLivestreamForRepo(streamerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve livestream: %w", err)
 	}
-	if livestream == nil {
+	if livestreamRecord == nil {
 		return nil, nil
-	}
-	livestreamRecord, err := livestream.ToLivestreamView()
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert livestream to view: %w", err)
 	}
 	ls, ok := livestreamRecord.Record.Val.(*placestream.Livestream)
 	if !ok {

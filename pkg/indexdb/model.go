@@ -58,10 +58,10 @@ type Model interface {
 	GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error)
 
 	CreateLivestream(ctx context.Context, ls *Livestream) error
-	GetLivestream(uri string) (*Livestream, error)
-	GetLatestLivestreamForRepo(repoDID string) (*Livestream, error)
-	GetLivestreamByPostURI(postURI string) (*Livestream, error)
-	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]Livestream, error)
+	GetLivestream(uri string) (*placestream.Livestream_LivestreamView, error)
+	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
+	GetLivestreamByPostURI(postURI string) (*placestream.Livestream_LivestreamView, error)
+	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]placestream.Livestream_LivestreamView, error)
 
 	CreateTeleport(ctx context.Context, tp *Teleport) error
 	GetLatestTeleportForRepo(repoDID string) (*Teleport, error)

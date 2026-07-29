@@ -388,17 +388,21 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 
 			// log.Warn(ctx, "chat message detected", "message", rec.Text, "repo", repo.Handle)
-			block, err := atsync.Model.GetUserBlock(ctx, livestream.RepoDID, userDID)
+			block, err := atsync.Model.GetUserBlock(ctx, livestream.Author.Did, userDID)
 			if err != nil {
 				return fmt.Errorf("failed to get user block: %w", err)
 			}
 			if block != nil {
-				log.Warn(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", livestream.RepoDID)
+				log.Warn(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", livestream.Author.Did)
 				return nil
 			}
 			// if fc.cli.PrintChat {
 			// 	fmt.Printf("@%s%s %s\n", blue.Sprintf(repo.Handle), green.Sprintf(":"), rec.Text)
 			// }
+			livestreamRec, ok := livestream.Record.Val.(*placestream.Livestream)
+			if !ok || livestreamRec.Post == nil {
+				return fmt.Errorf("livestream %s has no linked post record", livestream.Uri)
+			}
 			fp := &indexdb.FeedPost{
 				CID:              cid,
 				CreatedAt:        createdAt,
@@ -406,8 +410,8 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				RepoDID:          userDID,
 				Type:             "reply",
 				Repo:             repo,
-				ReplyRootURI:     &livestream.PostURI,
-				ReplyRootRepoDID: &livestream.RepoDID,
+				ReplyRootURI:     &livestreamRec.Post.Uri,
+				ReplyRootRepoDID: &livestream.Author.Did,
 				URI:              aturi.String(),
 				IndexedAt:        &now,
 			}
@@ -419,7 +423,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				log.Error(ctx, "failed to convert feed post to bsky post view", "err", err)
 			}
-			go atsync.Bus.Publish(livestream.RepoDID, postView)
+			go atsync.Bus.Publish(livestream.Author.Did, postView)
 		}
 
 	case *placestream.Livestream:
@@ -447,13 +451,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to create livestream: %w", err)
 		}
-		lsHydrated, err := atsync.Model.GetLatestLivestreamForRepo(userDID)
+		lsv, err := atsync.Model.GetLatestLivestreamForRepo(userDID)
 		if err != nil {
 			return fmt.Errorf("failed to get latest livestream for repo: %w", err)
 		}
-		lsv, err := lsHydrated.ToLivestreamView()
-		if err != nil {
-			return fmt.Errorf("failed to convert livestream to bsky post view: %w", err)
+		if lsv == nil {
+			return fmt.Errorf("no livestream found after we just saved it: %s", userDID)
 		}
 		go atsync.Bus.Publish(userDID, lsv)
 

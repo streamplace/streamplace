@@ -413,15 +413,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		ls, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
-		if err != nil || ls == nil {
-			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		lsv, err := ls.ToLivestreamView()
+		lsv, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
 		if err != nil || lsv == nil {
-			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
+			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
@@ -780,23 +774,12 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		livestream, err := a.Model.GetLatestLivestreamForRepo(repoDID)
+		doc, err := a.Model.GetLatestLivestreamForRepo(repoDID)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not get livestream", err)
 			return
 		}
-		if livestream == nil {
-			apierrors.WriteHTTPNotFound(w, "no livestream found", nil)
-			return
-		}
-
-		doc, err := livestream.ToLivestreamView()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
-			return
-		}
-
-		if livestream == nil {
+		if doc == nil {
 			apierrors.WriteHTTPNotFound(w, "no livestream found", nil)
 			return
 		}

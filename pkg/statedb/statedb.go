@@ -12,10 +12,12 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/plugin/prometheus"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type DBType string
@@ -25,13 +27,27 @@ const (
 	DBTypePostgres DBType = "postgres"
 )
 
+// indexStore is the subset of the index database that statedb's queue
+// processor and session handling read, declared consumer-side so statedb
+// depends on five methods instead of the full indexdb.Model. Repo and
+// Follow are indexer-state types with no lexicon view (see
+// docs/architecture.md); everything else crosses the seam as placestream
+// view types.
+type indexStore interface {
+	GetRepo(did string) (*indexdb.Repo, error)
+	GetLivestream(uri string) (*placestream.Livestream_LivestreamView, error)
+	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
+	GetUserFollowers(ctx context.Context, userDID string) ([]indexdb.Follow, error)
+	UpsertOwnMediaOrigin(ctx context.Context, serverDID, blobCID string, size int64, mimeType string) error
+}
+
 type StatefulDB struct {
 	DB    *gorm.DB
 	CLI   *config.CLI
 	Type  DBType
 	locks *NamedLocks
 	noter notificationpkg.Notifier
-	model indexdb.Model
+	model indexStore
 	// pokeQueue is used to wake up the queue processor when a new task is enqueued
 	pokeQueue chan struct{}
 	// pgLockConn is used to hold a connection to the database for locking
@@ -51,6 +67,19 @@ type StatefulDB struct {
 	// MUXL objects into a VOD. Installed via SetLivestreamVODFinalizer at
 	// bootstrap, same indirection as vodProcessor.
 	livestreamVODFinalizer LivestreamVODFinalizer
+	// webhookSender delivers outbound webhooks for notification/chat/
+	// stream-received tasks. Installed via SetWebhookSender at bootstrap
+	// so pkg/statedb doesn't import the delivery integrations.
+	webhookSender WebhookSender
+}
+
+// WebhookSender delivers outbound webhooks on behalf of the queue
+// processor. Implemented by pkg/integrations/webhook and installed via
+// SetWebhookSender.
+type WebhookSender interface {
+	SendChatWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, authorDID string, scm *placestream.ChatDefs_MessageView) error
+	SendLivestreamWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, pdsURL string, lsv *placestream.Livestream_LivestreamView, postView *appbsky.FeedDefs_PostView, spcp *placestream.ChatProfile) error
+	SendStreamReceivedWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, streamerDID string) error
 }
 
 // list tables here so we can migrate them
@@ -76,7 +105,7 @@ var StatefulDBModels = []any{
 var NoPostgresDatabaseCode = "3D000"
 
 // Stateful database for storing private streamplace state
-func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier, model indexdb.Model) (*StatefulDB, error) {
+func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier, model indexStore) (*StatefulDB, error) {
 	dbURL := cli.DBURL
 	log.Log(ctx, "starting stateful database", "dbURL", redactDBURL(dbURL))
 	var dial gorm.Dialector

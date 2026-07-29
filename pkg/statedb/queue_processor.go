@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
-	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
@@ -191,6 +190,11 @@ func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = 
 // fully assembled. The queue processor checks for nil, so a brief window
 // with no notifier is safe.
 func (state *StatefulDB) SetNotifier(n notificationpkg.Notifier) { state.noter = n }
+
+// SetWebhookSender installs the outbound-webhook integration after
+// construction so pkg/statedb doesn't import pkg/integrations. The queue
+// processor skips webhook dispatch while it's nil.
+func (state *StatefulDB) SetWebhookSender(w WebhookSender) { state.webhookSender = w }
 
 func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
@@ -510,7 +514,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 	webhooks, err := state.GetActiveWebhooksForUser(userDID, "livestream")
 	if err != nil {
 		log.Error(ctx, "failed to get livestream webhooks", "err", err)
-	} else {
+	} else if state.webhookSender != nil {
 		for _, w := range webhooks {
 			lexiconWebhook, err := w.ToServerWebhook()
 			if err != nil {
@@ -518,7 +522,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				continue
 			}
 			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-				err := webhook.SendLivestreamWebhook(ctx, &lexiconWebhook, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
+				err := state.webhookSender.SendLivestreamWebhook(ctx, &lexiconWebhook, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
 				if err != nil {
 					log.Error(ctx, "failed to send livestream to webhook", "err", err, "webhook_id", wid)
 					err := state.IncrementWebhookError(wid)
@@ -543,6 +547,9 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 	if err := json.Unmarshal(task.Payload, &streamReceivedTask); err != nil {
 		return err
 	}
+	if state.webhookSender == nil {
+		return nil
+	}
 
 	webhooks, err := state.GetActiveWebhooksForUser(streamReceivedTask.StreamerDID, "stream.received")
 	if err != nil {
@@ -555,7 +562,7 @@ func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *Ap
 			continue
 		}
 		go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-			err := webhook.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
+			err := state.webhookSender.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
 			if err != nil {
 				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
 				err = state.IncrementWebhookError(wid)
@@ -589,7 +596,7 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 	webhooks, err := state.GetActiveWebhooksForUser(rec.Streamer, "chat")
 	if err != nil {
 		log.Error(ctx, "failed to get chat webhooks", "err", err)
-	} else {
+	} else if state.webhookSender != nil {
 		for _, w := range webhooks {
 			lexiconWebhook, err := w.ToServerWebhook()
 			if err != nil {
@@ -597,7 +604,7 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 				continue
 			}
 			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
-				err := webhook.SendChatWebhook(ctx, &lexiconWebhook, scm.Author.Did, &scm)
+				err := state.webhookSender.SendChatWebhook(ctx, &lexiconWebhook, scm.Author.Did, &scm)
 				if err != nil {
 					log.Error(ctx, "failed to send chat to webhook", "err", err, "webhook_id", wid)
 					err = state.IncrementWebhookError(wid)

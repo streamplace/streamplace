@@ -73,13 +73,13 @@ func seedSession(t *testing.T, state *StatefulDB, did string) {
 // ~60s ingest gap froze lastSeenAt, the idle timer fired while the stream was
 // still flowing, and endedAt was written onto the live record.
 func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:reschedule"
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
+		uri := seedLivestream(t, mod, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -125,19 +125,19 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 // since no PDS session is wired; what matters is that no reschedule was enqueued
 // and the record wasn't protected by the latest-record guard).
 func TestFinalizeLivestreamEndsSupersededRecord(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:superseded"
 
 		// Older record: stale lastSeenAt, but a newer record will exist.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),
@@ -172,13 +172,13 @@ func TestFinalizeLivestreamEndsSupersededRecord(t *testing.T) {
 // rescheduled key embeds a fresh timestamp, so dedup never fires — flooding the
 // logs and growing the task table without bound.
 func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:firehose-only"
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
+		uri := seedLivestream(t, mod, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -222,19 +222,19 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 // (it doesn't silently drop), confirming the no-session drop only applies to
 // the stale-but-latest branch.
 func TestFinalizeLivestreamSupersededWithoutSessionErrorsAtSessionLookup(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:superseded-nosession"
 
 		// Older record: stale, will be superseded.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),

@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -224,6 +225,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	webNotifier := notifications.NewWebPushNotifier(vapidKeys, "")
 	noter := notifications.NewMultiNotifier(fbNotifier, webNotifier)
 	state.SetNotifier(noter)
+	state.SetWebhookSender(webhook.Sender{})
 	handle, err := atproto.MakeLexiconRepo(ctx, cli, mod, state)
 	if err != nil {
 		return err

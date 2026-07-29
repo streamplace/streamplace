@@ -99,6 +99,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		if err != nil {
 			return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
 		}
+		log.Log(ctx, "discovered new user", "did", ident.DID.String(), "handle", ident.Handle.String(), "pds", ident.PDSEndpoint())
 	}
 
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
@@ -327,7 +328,7 @@ func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string,
 	if err != nil {
 		return nil, err
 	}
-	log.Log(ctx, "resolved ident", "id", resolvedID.DID.String(), "handle", resolvedID.Handle.String())
+	log.Debug(ctx, "resolved ident", "id", resolvedID.DID.String(), "handle", resolvedID.Handle.String())
 
 	return resolvedID, nil
 }

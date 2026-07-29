@@ -45,7 +45,14 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner, indexd
 		StatefulDB: statedb,
 		Bus:        bus.NewBus(),
 	}
-	mm, err := MakeMediaManager(context.Background(), cli, nil, mod, bus.NewBus(), atsync, ldb)
+	mm, err := MakeMediaManager(context.Background(), Params{
+		CLI:     cli,
+		Signer:  nil,
+		Store:   mod,
+		Bus:     bus.NewBus(),
+		ATSync:  atsync,
+		LocalDB: ldb,
+	})
 	require.NoError(t, err)
 	// ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
 	// require.NoError(t, err)

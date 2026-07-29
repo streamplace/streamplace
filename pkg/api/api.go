@@ -99,7 +99,43 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod indexdb.Model, statefulDB *statedb.StatefulDB, noter notifications.Notifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
+// Params carries the dependencies MakeStreamplaceAPI needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site. Model stays the full indexdb.Model deliberately: the
+// API layer is the query surface of the node, so it is the one consumer
+// allowed the whole store (services get consumer-side interfaces).
+type Params struct {
+	CLI           *config.CLI
+	Model         indexdb.Model
+	StatefulDB    *statedb.StatefulDB
+	Notifier      notifications.Notifier
+	MediaManager  *media.MediaManager
+	MediaSigner   media.MediaSigner
+	Bus           *bus.Bus
+	ATSync        *atproto.ATProtoSynchronizer
+	Director      *director.Director
+	OATProxy      *oatproxy.OATProxy
+	LocalDB       localdb.LocalDB
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+}
+
+func MakeStreamplaceAPI(p Params) (*StreamplaceAPI, error) {
+	cli := p.CLI
+	mod := p.Model
+	statefulDB := p.StatefulDB
+	noter := p.Notifier
+	mm := p.MediaManager
+	ms := p.MediaSigner
+	bus := p.Bus
+	atsync := p.ATSync
+	d := p.Director
+	op := p.OATProxy
+	ldb := p.LocalDB
+	um := p.UploadManager
+	playbackStore := p.PlaybackStore
+	viewLog := p.ViewLog
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err

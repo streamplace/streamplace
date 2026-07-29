@@ -125,7 +125,24 @@ func RunSelfTest(ctx context.Context) error {
 	return SelfTest(ctx)
 }
 
-func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod mediaStore, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, ldb localdb.LocalDB) (*MediaManager, error) {
+// Params carries the dependencies MakeMediaManager needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site.
+type Params struct {
+	CLI     *config.CLI
+	Signer  crypto.Signer
+	Store   mediaStore
+	Bus     *bus.Bus
+	ATSync  *atproto.ATProtoSynchronizer
+	LocalDB localdb.LocalDB
+}
+
+func MakeMediaManager(ctx context.Context, p Params) (*MediaManager, error) {
+	cli := p.CLI
+	mod := p.Store
+	bus := p.Bus
+	atsync := p.ATSync
+	ldb := p.LocalDB
 	gstinit.InitGST()
 	err := SelfTest(ctx)
 	if err != nil {

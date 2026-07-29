@@ -50,19 +50,34 @@ type Director struct {
 	atsync           *atproto.ATProtoSynchronizer
 }
 
-func NewDirector(mm *media.MediaManager, mod directorStore, cli *config.CLI, bus *bus.Bus, op *oatproxy.OATProxy, statefulDB *statedb.StatefulDB, replicator replication.Replicator, ldb localdb.LocalDB, atsync *atproto.ATProtoSynchronizer) *Director {
+// Params carries the dependencies NewDirector needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site.
+type Params struct {
+	MediaManager *media.MediaManager
+	Store        directorStore
+	CLI          *config.CLI
+	Bus          *bus.Bus
+	OATProxy     *oatproxy.OATProxy
+	StatefulDB   *statedb.StatefulDB
+	Replicator   replication.Replicator
+	LocalDB      localdb.LocalDB
+	ATSync       *atproto.ATProtoSynchronizer
+}
+
+func NewDirector(p Params) *Director {
 	return &Director{
-		mm:               mm,
-		mod:              mod,
-		cli:              cli,
-		bus:              bus,
+		mm:               p.MediaManager,
+		mod:              p.Store,
+		cli:              p.CLI,
+		bus:              p.Bus,
 		streamSessions:   make(map[string]*StreamSession),
 		streamSessionsMu: sync.Mutex{},
-		op:               op,
-		statefulDB:       statefulDB,
-		replicator:       replicator,
-		localDB:          ldb,
-		atsync:           atsync,
+		op:               p.OATProxy,
+		statefulDB:       p.StatefulDB,
+		replicator:       p.Replicator,
+		localDB:          p.LocalDB,
+		atsync:           p.ATSync,
 	}
 }
 

@@ -269,7 +269,14 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return fmt.Errorf("failed to migrate: %w", err)
 	}
 
-	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
+	mm, err := media.MakeMediaManager(ctx, media.Params{
+		CLI:     cli,
+		Signer:  signer,
+		Store:   mod,
+		Bus:     b,
+		ATSync:  atsync,
+		LocalDB: ldb,
+	})
 	if err != nil {
 		return err
 	}
@@ -337,7 +344,17 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
+	d := director.NewDirector(director.Params{
+		MediaManager: mm,
+		Store:        mod,
+		CLI:          cli,
+		Bus:          b,
+		OATProxy:     op,
+		StatefulDB:   state,
+		Replicator:   replicator,
+		LocalDB:      ldb,
+		ATSync:       atsync,
+	})
 	um, err := upload.New(ctx, cli, state)
 	if err != nil {
 		return err
@@ -411,7 +428,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			})
 		})
 	}
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
+	a, err := api.MakeStreamplaceAPI(api.Params{
+		CLI:           cli,
+		Model:         mod,
+		StatefulDB:    state,
+		Notifier:      noter,
+		MediaManager:  mm,
+		MediaSigner:   ms,
+		Bus:           b,
+		ATSync:        atsync,
+		Director:      d,
+		OATProxy:      op,
+		LocalDB:       ldb,
+		UploadManager: um,
+		PlaybackStore: vodStore,
+		ViewLog:       viewLog,
+	})
 	if err != nil {
 		return err
 	}

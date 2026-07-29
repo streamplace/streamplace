@@ -170,7 +170,17 @@ type CLI struct {
 	ViewCountAggregateLag       time.Duration
 	VODConcurrency              int
 	MaximumLiveBitrate          int
+	SweepConcurrency            int
 }
+
+// DefaultSweepConcurrency is how many PDS hosts the atproto backfill sweep
+// works on at once when --sweep-concurrency is unset or zero.
+//
+// The sweep shards its work by host and gives each host one worker, so this
+// bounds remote servers rather than repos: 32 of them is a few hundred requests
+// per second spread across the whole network, and no more than one walk (5-7
+// requests per second) against any single PDS.
+const DefaultSweepConcurrency = 32
 
 // ContentFilters represents the content filtering configuration
 type ContentFilters struct {
@@ -811,6 +821,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       2,
 				Destination: &cli.VODConcurrency,
 				Sources:     urfavecli.EnvVars("SP_VOD_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "sweep-concurrency",
+				Usage:       "how many PDS hosts the atproto backfill sweep talks to at once. Work is sharded by host and each host is walked by one worker, so this is a count of remote servers, not of repos; 0 for the default",
+				Value:       DefaultSweepConcurrency,
+				Destination: &cli.SweepConcurrency,
+				Sources:     urfavecli.EnvVars("SP_SWEEP_CONCURRENCY"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "maximum-live-bitrate",

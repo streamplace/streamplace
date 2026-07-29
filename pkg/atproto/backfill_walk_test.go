@@ -602,6 +602,36 @@ func TestBackfillRanges(t *testing.T) {
 	}
 }
 
+// TestBackfillSyncClientBackoffHints is a wiring test, and worth having as one:
+// the hint registry only does anything if the client the sync path builds its
+// xrpc.Client on is the one watching responses. That is easy to undo by writing
+// aqhttp.Client at a new call site, and the symptom -- retries guessing at waits
+// a host was announcing -- is invisible from anywhere but a busy production
+// sweep.
+func TestBackfillSyncClientBackoffHints(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "42")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(srv.Close)
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL, nil)
+	require.NoError(t, err)
+	resp, err := SyncHTTPClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	hint, ok := pdsBackoffHints.Get(srv.URL)
+	require.True(t, ok, "the sync client must record what a throttling host asked for")
+	require.Equal(t, "retry-after", hint.Source)
+	require.WithinDuration(t, time.Now().Add(42*time.Second), hint.Until, 5*time.Second)
+
+	// And it is still the shared client underneath: same transport, so the same
+	// connection pool and the same SSRF checks.
+	require.Equal(t, aqhttp.Client.Timeout, SyncHTTPClient.Timeout)
+	require.NotNil(t, SyncHTTPClient.Transport)
+}
+
 // TestBackfillRangesWindowed: with a floor, the high-volume collections are cut
 // down to their recent history and everything else stays whole -- including the
 // records that sort on either side of the hole cut out of place.stream.
@@ -618,6 +648,8 @@ func TestBackfillRangesWindowed(t *testing.T) {
 	require.False(t, inRange("place.stream.chat.message/"+older))
 	require.True(t, inRange("app.bsky.feed.post/"+newer))
 	require.False(t, inRange("app.bsky.feed.post/"+older))
+	require.True(t, inRange("app.bsky.graph.follow/"+newer))
+	require.False(t, inRange("app.bsky.graph.follow/"+older))
 	// A windowed collection is still walked exhaustively, just not all at once:
 	// a non-TID rkey lands in whichever window its bytes fall into ("self"
 	// sorts above every TID minted this century, so it comes in the first one)
@@ -630,7 +662,10 @@ func TestBackfillRangesWindowed(t *testing.T) {
 	require.True(t, inRange("place.stream.chat.profile/self"))  // sorts after
 	require.True(t, inRange("place.stream.live.livestream/3l")) // sorts after
 	require.True(t, inRange("app.bsky.actor.profile/self"))
-	require.True(t, inRange("app.bsky.graph.follow/3l"))
+	// Current-state registries stay whole however big they get: a moderation
+	// list that arrives hours late is worse than a slow sync.
+	require.True(t, inRange("app.bsky.graph.block/"+older))
+	require.True(t, inRange("place.stream.key/"+older))
 	// And the ranges are still bounded where they were.
 	require.False(t, inRange("app.bsky.feed.postgate/3l"))
 	require.False(t, inRange("app.bsky.actor.status/3l"))
@@ -642,10 +677,18 @@ func TestBackfillRangesWindowed(t *testing.T) {
 		require.NotNil(t, r.Hi, "no unbounded range should come out of here: %s", r)
 		require.Less(t, string(r.Lo), string(r.Hi), "inverted range %s", r)
 	}
-	// Cutting two collections down to a window turns two whole ranges into a
-	// bounded piece each, plus the pieces left on either side of the hole in
-	// place.stream.
-	require.Len(t, ranges, len(backfillRanges(""))+len(windowedCollections))
+	// Windowing a collection that has a range of its own (app.bsky.*) replaces
+	// that range with a bounded one and changes nothing about the count.
+	// Windowing one under place.stream. punches a hole in the middle of that
+	// prefix range instead, leaving a piece on either side of it plus the window
+	// itself: two more ranges each.
+	extra := 0
+	for _, nsid := range windowedCollections {
+		if strings.HasPrefix(nsid, placeStreamPrefix) {
+			extra += 2
+		}
+	}
+	require.Len(t, ranges, len(backfillRanges(""))+extra)
 }
 
 // TestWindowRanges: a deepening step reads the windowed collections and nothing

@@ -96,6 +96,9 @@ func (f *XRPCBlockFetcher) GetBlocks(ctx context.Context, cids []cid.Cid) (map[c
 	if chunk <= 0 {
 		chunk = DefaultChunkSize
 	}
+	// The policy needs to know which host it is backing off from, and the
+	// client is the only thing that knows.
+	retry := f.Retry.forHost(f.Client.Host)
 	for start := 0; start < len(want); start += chunk {
 		end := start + chunk
 		if end > len(want) {
@@ -111,7 +114,7 @@ func (f *XRPCBlockFetcher) GetBlocks(ctx context.Context, cids []cid.Cid) (map[c
 		// happens outside the retry -- a CAR we cannot read is not transient.
 		var raw []byte
 		what := fmt.Sprintf("com.atproto.sync.getBlocks %s (%d cids)", f.DID, len(strs))
-		err := f.Retry.do(ctx, what, func() error {
+		err := retry.do(ctx, what, func() error {
 			var err error
 			raw, err = indigoat.SyncGetBlocks(ctx, f.Client, strs, f.DID)
 			return err

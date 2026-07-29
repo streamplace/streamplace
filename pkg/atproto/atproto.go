@@ -104,7 +104,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host:   ident.PDSEndpoint(),
-		Client: &aqhttp.Client,
+		Client: SyncHTTPClient,
 	}
 	if xrpcc.Host == "" {
 		return nil, fmt.Errorf("no PDS endpoint found for Bluesky identity %s", handle)
@@ -188,7 +188,7 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	if err != nil {
 		return false, fmt.Errorf("failed to resolve %s: %w", did, err)
 	}
-	xrpcc := xrpc.Client{Host: ident.PDSEndpoint(), Client: &aqhttp.Client}
+	xrpcc := xrpc.Client{Host: ident.PDSEndpoint(), Client: SyncHTTPClient}
 	if xrpcc.Host == "" {
 		return false, fmt.Errorf("no PDS endpoint found for %s", did)
 	}

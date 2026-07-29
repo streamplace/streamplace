@@ -45,6 +45,7 @@ func FetchVerifiedHead(ctx context.Context, client *xrpc.Client, f BlockFetcher,
 	if len(retry) == 1 {
 		policy = retry[0]
 	}
+	policy = policy.forHost(client.Host)
 
 	parsedDID, err := syntax.ParseDID(did)
 	if err != nil {

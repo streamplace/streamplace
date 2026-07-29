@@ -107,16 +107,17 @@ func TestRetryDelay(t *testing.T) {
 	for _, tc := range []struct{ attempt, wantSec int }{{1, 1}, {2, 2}, {3, 4}, {4, 8}, {5, 16}} {
 		full := time.Duration(tc.wantSec) * time.Second
 		for i := 0; i < 50; i++ {
-			d := p.delay(tc.attempt, plain)
+			d, source := p.delay(tc.attempt, plain)
 			require.GreaterOrEqual(t, d, time.Duration(float64(full)*0.75), "attempt %d", tc.attempt)
 			require.LessOrEqual(t, d, full, "attempt %d", tc.attempt)
+			require.Empty(t, source, "nothing told us to wait, so nothing is reported")
 		}
 	}
 
 	// Capped, and still jittered at the cap so a fleet does not resynchronize.
 	var sawJitter bool
 	for i := 0; i < 50; i++ {
-		d := p.delay(10, plain)
+		d, _ := p.delay(10, plain)
 		require.GreaterOrEqual(t, d, 22500*time.Millisecond)
 		require.LessOrEqual(t, d, 30*time.Second)
 		if d < 29*time.Second {
@@ -126,29 +127,112 @@ func TestRetryDelay(t *testing.T) {
 	require.True(t, sawJitter)
 
 	// The zero policy is the documented defaults.
-	require.LessOrEqual(t, RetryPolicy{}.delay(1, plain), DefaultRetryBaseDelay)
-	require.GreaterOrEqual(t, RetryPolicy{}.delay(1, plain), DefaultRetryBaseDelay*3/4)
+	zero, _ := RetryPolicy{}.delay(1, plain)
+	require.LessOrEqual(t, zero, DefaultRetryBaseDelay)
+	require.GreaterOrEqual(t, zero, DefaultRetryBaseDelay*3/4)
 
 	t.Run("ratelimit reset is honored", func(t *testing.T) {
 		// Further out than the backoff for attempt 1 (~1s): wait for the reset.
 		err := ratelimited(time.Now().Add(3 * time.Second))
-		d := p.delay(1, err)
+		d, source := p.delay(1, err)
 		require.Greater(t, d, 2500*time.Millisecond)
 		require.LessOrEqual(t, d, 3500*time.Millisecond)
+		require.Equal(t, "ratelimit-reset", source)
 	})
 
 	t.Run("ratelimit reset is clamped to MaxDelay", func(t *testing.T) {
 		// bsky rate limit windows are minutes long; we would rather make one
 		// more doomed attempt than hold a per-PDS lock that long.
 		err := ratelimited(time.Now().Add(10 * time.Minute))
-		require.Equal(t, 30*time.Second, p.delay(1, err))
+		d, source := p.delay(1, err)
+		require.Equal(t, 30*time.Second, d)
+		require.Equal(t, "ratelimit-reset", source)
 	})
 
 	t.Run("a reset in the past does not shorten the backoff", func(t *testing.T) {
 		err := ratelimited(time.Now().Add(-time.Minute))
-		d := p.delay(3, err)
+		d, source := p.delay(3, err)
 		require.GreaterOrEqual(t, d, 3*time.Second)
 		require.LessOrEqual(t, d, 4*time.Second)
+		require.Empty(t, source)
+	})
+
+	t.Run("a hint from the registry is honored", func(t *testing.T) {
+		hints := NewBackoffHints()
+		hints.Observe("https://pds.example/", http.StatusTooManyRequests,
+			http.Header{"Retry-After": []string{"3"}})
+		hinted := RetryPolicy{BaseDelay: time.Second, MaxDelay: 30 * time.Second,
+			Hints: hints, Host: "https://pds.example"}
+
+		d, source := hinted.delay(1, errors.New("boom"))
+		require.Greater(t, d, 2500*time.Millisecond)
+		require.LessOrEqual(t, d, 3500*time.Millisecond)
+		require.Equal(t, "retry-after", source)
+
+		// A hint that is shorter than the ladder changes nothing: the ladder is
+		// the floor, the hint only ever pushes a wait out.
+		d, source = hinted.delay(5, errors.New("boom"))
+		require.GreaterOrEqual(t, d, 12*time.Second)
+		require.Empty(t, source)
+
+		// A different host is a different budget.
+		other := hinted
+		other.Host = "other.example"
+		d, source = other.delay(1, errors.New("boom"))
+		require.LessOrEqual(t, d, time.Second)
+		require.Empty(t, source)
+
+		// And so is no host at all, which is what an un-plumbed policy looks
+		// like.
+		nohost := hinted
+		nohost.Host = ""
+		_, source = nohost.delay(1, errors.New("boom"))
+		require.Empty(t, source)
+	})
+
+	t.Run("the further-out of the two sources wins", func(t *testing.T) {
+		hints := NewBackoffHints()
+		hints.Observe("pds.example", http.StatusTooManyRequests,
+			http.Header{"Retry-After": []string{"2"}})
+		hinted := RetryPolicy{BaseDelay: time.Second, MaxDelay: 30 * time.Second,
+			Hints: hints, Host: "pds.example"}
+
+		// indigo parsed a reset further out than the header we captured.
+		d, source := hinted.delay(1, ratelimited(time.Now().Add(6*time.Second)))
+		require.Greater(t, d, 5*time.Second)
+		require.Equal(t, "ratelimit-reset", source)
+
+		// And the other way around.
+		d, source = hinted.delay(1, ratelimited(time.Now().Add(time.Millisecond)))
+		require.Greater(t, d, 1500*time.Millisecond)
+		require.Equal(t, "retry-after", source)
+	})
+
+	t.Run("a hint is clamped to MaxDelay", func(t *testing.T) {
+		hints := NewBackoffHints()
+		hints.Observe("pds.example", http.StatusTooManyRequests,
+			http.Header{"Retry-After": []string{"600"}})
+		hinted := RetryPolicy{BaseDelay: time.Second, MaxDelay: 30 * time.Second,
+			Hints: hints, Host: "pds.example"}
+		d, source := hinted.delay(1, errors.New("boom"))
+		require.Equal(t, 30*time.Second, d)
+		require.Equal(t, "retry-after", source)
+	})
+
+	t.Run("a stale observation does not inflate a later wait", func(t *testing.T) {
+		hints := NewBackoffHints()
+		// An hour-long backoff, observed longer ago than hintMaxAge: the wait it
+		// asked for has not elapsed, but it is no longer evidence about now.
+		hints.observeAt("pds.example", http.StatusTooManyRequests,
+			http.Header{"Retry-After": []string{"3600"}},
+			time.Now().Add(-hintMaxAge-time.Minute))
+		hinted := RetryPolicy{BaseDelay: time.Second, MaxDelay: 30 * time.Second,
+			Hints: hints, Host: "pds.example"}
+		d, source := hinted.delay(1, errors.New("boom"))
+		require.LessOrEqual(t, d, time.Second)
+		require.Empty(t, source)
+		_, live := hints.Get("pds.example")
+		require.False(t, live)
 	})
 }
 

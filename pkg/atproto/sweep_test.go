@@ -7,11 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -212,6 +215,200 @@ func TestSweepPrioritizesOwnDIDs(t *testing.T) {
 	require.Equal(t, dids, prioritizeDIDs(dids, "did:web:nowhere.example", ""))
 	require.Equal(t, dids, prioritizeDIDs(dids))
 	require.Nil(t, prioritizeDIDs(nil, "did:web:server.example"))
+}
+
+// TestSweepHostLanes: the bucketing a sweep's whole throughput rests on. Repos
+// are grouped by PDS host, in the order they arrive, so the lane list starts
+// with the lane holding whatever prioritizeDIDs put first.
+func TestSweepHostLanes(t *testing.T) {
+	// A PDS is a host however its URL was written down.
+	require.Equal(t, "pds.example", sweepLane("did:plc:a", "https://pds.example"))
+	require.Equal(t, "pds.example", sweepLane("did:plc:a", "https://PDS.Example/"))
+	// A row that does not name one gets a lane of its own, keyed by DID so it
+	// can never collide with a host.
+	require.Equal(t, "did:did:plc:a", sweepLane("did:plc:a", ""))
+	require.Equal(t, "did:did:plc:a", sweepLane("did:plc:a", "   "))
+
+	items := []sweepItem{
+		{DID: "own", Lane: sweepLane("own", "https://own.example")},
+		{DID: "a1", Lane: sweepLane("a1", "https://a.example")},
+		{DID: "b1", Lane: sweepLane("b1", "https://b.example")},
+		{DID: "a2", Lane: sweepLane("a2", "https://a.example")},
+		{DID: "u1", Lane: sweepLane("u1", "")},
+		{DID: "a3", Lane: sweepLane("a3", "https://A.EXAMPLE/")},
+		{DID: "u2", Lane: sweepLane("u2", "")},
+	}
+	lanes := hostLanes(items)
+
+	require.Equal(t, [][]string{
+		{"own"},            // the priority DID's host, first because it was first
+		{"a1", "a2", "a3"}, // one lane per host, whatever the URL looked like
+		{"b1"},
+		{"u1"}, // and unknown-PDS rows do not queue up behind each other
+		{"u2"},
+	}, laneDIDs(lanes))
+
+	require.Empty(t, hostLanes(nil))
+}
+
+// TestSweepResolvesUnknownHosts: the sweep's DID list and the PDS column live in
+// different databases, so a node with a fresh index knows which repos to sync and
+// nothing about where they live. Those repos have to be placed before the sharding
+// means anything -- a lane each would be the flat worker pool all over again.
+func TestSweepResolvesUnknownHosts(t *testing.T) {
+	dir := identity.NewMockDirectory()
+	insert := func(did, pds string) {
+		dir.Insert(identity.Identity{
+			DID:      syntax.DID(did),
+			Handle:   syntax.HandleInvalid,
+			Services: map[string]identity.ServiceEndpoint{"atproto_pds": {Type: "AtprotoPersonalDataServer", URL: pds}},
+		})
+	}
+	insert("did:plc:one", "https://shared.example")
+	insert("did:plc:two", "https://shared.example/")
+	insert("did:plc:three", "https://elsewhere.example")
+	// Pre-set so resolveIdent never reaches for a real directory.
+	atsync := &ATProtoSynchronizer{PLCDirectory: &dir, CachedPLCDirectory: &dir}
+
+	items := []sweepItem{
+		{DID: "did:plc:known", Lane: sweepLane("did:plc:known", "https://known.example")},
+		{DID: "did:plc:one"},
+		{DID: "did:plc:two"},
+		{DID: "did:plc:missing"}, // no DID document: nothing to place it by
+		{DID: "did:plc:three"},
+	}
+	atsync.resolveLanes(context.Background(), items)
+
+	require.Equal(t, [][]string{
+		{"did:plc:known"},              // a row that named its host is left alone
+		{"did:plc:one", "did:plc:two"}, // and two resolving to one host share a lane
+		{"did:plc:missing"},            // unplaceable: its own lane, not a queue
+		{"did:plc:three"},
+	}, laneDIDs(hostLanes(items)))
+
+	// Nothing to do is the normal case, and it must not cost a lookup.
+	placed := []sweepItem{{DID: "did:plc:known", Lane: "known.example"}}
+	atsync.resolveLanes(context.Background(), placed)
+	require.Equal(t, "known.example", placed[0].Lane)
+}
+
+// TestSweepLanesNeverShareAHost is the property the lanes exist for: a sweep
+// never has two workers on one PDS at the same time, however many workers it is
+// allowed. Nothing else in a sweep is worth optimizing until that holds -- walks
+// that share a host interleave their chunk fetches and run four to ten times
+// slower.
+func TestSweepLanesNeverShareAHost(t *testing.T) {
+	const cap = 3
+	var items []sweepItem
+	for i := 0; i < 20; i++ {
+		host := fmt.Sprintf("pds%d.example", i%4)
+		items = append(items, sweepItem{DID: fmt.Sprintf("did:plc:%d", i), Lane: sweepLane("", "https://"+host)})
+	}
+
+	var mu sync.Mutex
+	active := map[string]string{} // lane -> the DID holding it
+	var order []string
+	inFlight, maxInFlight := 0, 0
+	err := runLanes(context.Background(), cap, hostLanes(items), func(ctx context.Context, item sweepItem) {
+		mu.Lock()
+		holder, busy := active[item.Lane]
+		require.False(t, busy, "%s and %s ran on %s at once", item.DID, holder, item.Lane)
+		active[item.Lane] = item.DID
+		inFlight++
+		maxInFlight = max(maxInFlight, inFlight)
+		mu.Unlock()
+
+		// Long enough that a broken limiter or a shared lane would overlap here,
+		// short enough to be free.
+		time.Sleep(2 * time.Millisecond)
+
+		mu.Lock()
+		delete(active, item.Lane)
+		inFlight--
+		order = append(order, item.DID)
+		mu.Unlock()
+	})
+	require.NoError(t, err)
+	require.Len(t, order, len(items), "every repo ran exactly once")
+	require.LessOrEqual(t, maxInFlight, cap, "the cap bounds lanes in flight")
+	require.Greater(t, maxInFlight, 1, "and lanes really do run in parallel")
+
+	// Four hosts, cap of three: at least one lane waited for a slot, which is
+	// the case that has to not deadlock.
+	require.Equal(t, 4, len(hostLanes(items)))
+}
+
+// TestSweepLanesRunOwnDIDsFirst: the node's own repos hold what it serves, so
+// their lane is the first one scheduled -- the priority order prioritizeDIDs
+// produces has to survive the bucketing.
+func TestSweepLanesRunOwnDIDsFirst(t *testing.T) {
+	dids := prioritizeDIDs([]string{"did:plc:a", "did:web:server.example", "did:plc:b"}, "did:web:server.example")
+	items := make([]sweepItem, 0, len(dids))
+	for _, did := range dids {
+		// Every repo on its own host, so lane order is the only thing deciding.
+		items = append(items, sweepItem{DID: did, Lane: sweepLane(did, "https://"+did+".pds.example")})
+	}
+
+	var mu sync.Mutex
+	var order []string
+	// One slot: lanes are started in order, so the first thing that runs is the
+	// first lane.
+	require.NoError(t, runLanes(context.Background(), 1, hostLanes(items), func(ctx context.Context, item sweepItem) {
+		mu.Lock()
+		defer mu.Unlock()
+		order = append(order, item.DID)
+	}))
+	require.Equal(t, []string{"did:web:server.example", "did:plc:a", "did:plc:b"}, order)
+}
+
+// TestSweepLanesStopOnCancel: a sweep is cancellable at every point, and a lane
+// checks the context between repos rather than after all of them.
+func TestSweepLanesStopOnCancel(t *testing.T) {
+	items := make([]sweepItem, 0, 40)
+	for i := 0; i < 40; i++ {
+		items = append(items, sweepItem{DID: fmt.Sprintf("did:plc:%d", i), Lane: "pds.example"})
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	var mu sync.Mutex
+	ran := 0
+	err := runLanes(ctx, 4, hostLanes(items), func(ctx context.Context, item sweepItem) {
+		mu.Lock()
+		ran++
+		if ran == 2 {
+			cancel()
+		}
+		mu.Unlock()
+	})
+	require.ErrorIs(t, err, context.Canceled)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Less(t, ran, len(items), "the run stopped instead of draining the lane")
+}
+
+// TestSweepConcurrencyFlag: the cap comes from --sweep-concurrency, and an unset
+// or nonsense value is the documented default.
+func TestSweepConcurrencyFlag(t *testing.T) {
+	require.Equal(t, config.DefaultSweepConcurrency, (&ATProtoSynchronizer{}).sweepConcurrency(),
+		"a synchronizer without a CLI still sweeps")
+	require.Equal(t, config.DefaultSweepConcurrency,
+		(&ATProtoSynchronizer{CLI: &config.CLI{}}).sweepConcurrency(), "unset means the default")
+	require.Equal(t, config.DefaultSweepConcurrency,
+		(&ATProtoSynchronizer{CLI: &config.CLI{SweepConcurrency: -1}}).sweepConcurrency())
+	require.Equal(t, 64,
+		(&ATProtoSynchronizer{CLI: &config.CLI{SweepConcurrency: 64}}).sweepConcurrency())
+}
+
+// laneDIDs renders lanes for comparison.
+func laneDIDs(lanes [][]sweepItem) [][]string {
+	out := make([][]string, 0, len(lanes))
+	for _, lane := range lanes {
+		dids := make([]string, 0, len(lane))
+		for _, item := range lane {
+			dids = append(dids, item.DID)
+		}
+		out = append(out, dids)
+	}
+	return out
 }
 
 // TestSweepProgressStatusLine covers the one line an operator watches: it names

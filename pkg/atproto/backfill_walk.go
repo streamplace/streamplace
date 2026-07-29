@@ -15,6 +15,7 @@ import (
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/ipfs/go-cid"
+	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
@@ -29,17 +30,32 @@ const placeStreamPrefix = "place.stream."
 // windowedCollections are the collections a backfill reads by time window
 // instead of all at once.
 //
-// Their rkeys are TIDs, so their keys sort chronologically and "the last day of
-// chat" is a key range (see [reposync.TIDForTime]). They are also the two
-// collections whose volume decides how long a first sync takes: an account with
-// years of Bluesky posts and streamplace chat has tens of thousands of records
-// there and a few dozen everywhere else.
+// The policy, because getting this list wrong is a correctness bug rather than a
+// performance one: window a collection if and only if it is a high-volume
+// append-only log whose rkeys are TIDs. Those sort chronologically, so "the last
+// day of chat" is a key range (see [reposync.TIDForTime]), and they are the
+// whole cost of a first sync -- an active account has tens of thousands of
+// posts, follows and chat messages, and a few dozen records everywhere else. A
+// production sweep measured an average "shallow" sync fetching 756 records
+// because follows were being read in full; one account with 3516 follows took
+// four minutes.
+//
+// Everything else must stay full, in particular every current-state registry:
+// signing keys, chat gates, settings, delegations, the media catalog,
+// app.bsky.graph.block (moderation). Windowing those would be wrong, not slow.
+// A windowed collection's records below the floor are invisible until the
+// deepening ladder reaches the genesis window, which is hours later -- and
+// "hours without your block list" or "hours without your signing key" is not a
+// tradeoff, it is a broken node.
 //
 // Windowing changes when a record is indexed, never whether: the ladder of
 // windows in [nextBackfillWindow] bottoms out at the start of the collection,
 // and until it does the repo row says so. A record whose rkey is not a TID is
 // not skipped either -- the windows are key ranges, so it simply arrives with
-// whichever window its rkey sorts into.
+// whichever window its rkey sorts into. That is the caveat on the TID
+// requirement: a literal rkey that sorts below the floor ("!oldest", say) waits
+// for the genesis window like any old record would, which is fine for a log and
+// would not be fine for a registry keyed "self".
 //
 // Every entry must be a collection [backfillRanges] would otherwise walk whole
 // -- either under place.stream. or in [CollectionFilter]. TestBackfillRanges
@@ -47,6 +63,7 @@ const placeStreamPrefix = "place.stream."
 var windowedCollections = []string{
 	constants.PLACE_STREAM_CHAT_MESSAGE,
 	constants.APP_BSKY_FEED_POST,
+	constants.APP_BSKY_GRAPH_FOLLOW,
 }
 
 // backfillRanges is the set of MST key ranges a backfill walks: everything
@@ -264,18 +281,24 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 		dir = CustomDirectory(atsync.CLI.PLCURL)
 	}
 
+	// Every retry in this walk consults what the host has been telling us about
+	// backing off; see [pdsBackoffHints]. It only works if the calls go through
+	// a client with the hint-capturing transport installed, which is what
+	// [SyncHTTPClient] is for -- callers build xrpcc with it.
+	retry := reposync.RetryPolicy{Hints: pdsBackoffHints}
+
 	fetcher := &reposync.CachedFetcher{
 		// Bounded lifetime: one cache per backfill, so the head fetch and the
 		// walk share blocks without holding a repo in memory afterwards.
 		Cache: reposync.NewMemoryBlockCache(),
 		Inner: &pdsLockedFetcher{
 			lock:  pdsLocks.GetLock(ident.PDSEndpoint()),
-			inner: &reposync.XRPCBlockFetcher{Client: xrpcc, DID: did},
+			inner: &reposync.XRPCBlockFetcher{Client: xrpcc, DID: did, Retry: retry},
 		},
 	}
 
 	fetchHead := func(ctx context.Context) (*reposync.Head, error) {
-		head, err := reposync.FetchVerifiedHead(ctx, xrpcc, fetcher, dir, did)
+		head, err := reposync.FetchVerifiedHead(ctx, xrpcc, fetcher, dir, did, retry)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch verified head for %s from PDS %s: %w", did, xrpcc.Host, err)
 		}
@@ -457,6 +480,39 @@ func (atsync *ATProtoSynchronizer) legacyBackfill(ctx context.Context, ident *id
 	return sc.Rev, nil
 }
 
+// pdsBackoffHints is this process's memory of what PDS hosts have said about
+// backing off, shared by every repo sync so that one repo's 429 slows down the
+// next repo on that host too.
+//
+// It is fed by the transport on [SyncHTTPClient] and read by the retry policies
+// in [walkBackfill]. It has to be a package-level singleton for the same reason
+// pdsLocks is: the unit a rate limit applies to is the host, and the sweep works
+// on thousands of repos across it.
+var pdsBackoffHints = reposync.NewBackoffHints()
+
+// SyncHTTPClient is the HTTP client every repo-sync XRPC call goes through.
+//
+// It is [aqhttp.Client] -- same SSRF-checking transport, same timeout, same
+// redirect policy -- with one wrapper installed: the round tripper that notices
+// throttled responses and records their Retry-After / ratelimit-reset headers.
+// indigo's xrpc client discards response headers, so watching the transport is
+// the only place those numbers can be read at all, and without them a retry is
+// guessing at a wait the host already told us.
+//
+// The wrapper is scoped to sync traffic rather than installed on aqhttp.Client
+// globally: it is only useful where something consults the registry, and the
+// node makes plenty of unrelated HTTP requests that would otherwise pay for a
+// map lookup and a header parse.
+var SyncHTTPClient = newSyncHTTPClient()
+
+func newSyncHTTPClient() *http.Client {
+	// By value: aqhttp.Client is a struct of settings (no mutex), and copying it
+	// keeps the connection-pooling transport shared with the rest of the node.
+	c := aqhttp.Client
+	c.Transport = pdsBackoffHints.Transport(c.Transport)
+	return &c
+}
+
 // pdsLockedFetcher serializes block fetches per PDS, the way the legacy path
 // serializes its one big getRepo download.
 //
@@ -466,8 +522,9 @@ func (atsync *ATProtoSynchronizer) legacyBackfill(ctx context.Context, ident *id
 //
 // It is held across the fetcher's retry backoff, though, which is what we want:
 // a 429 applies to the whole host, so pausing every backfill against it is the
-// polite response. reposync.DefaultRetryMaxDelay is what keeps that pause
-// bounded.
+// polite response -- all the more so now that the backoff is usually the number
+// the host itself asked for ([pdsBackoffHints]) rather than a guess.
+// reposync.DefaultRetryMaxDelay is what keeps that pause bounded.
 type pdsLockedFetcher struct {
 	lock  *sync.Mutex
 	inner reposync.BlockFetcher

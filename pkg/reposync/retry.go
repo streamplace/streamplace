@@ -45,6 +45,22 @@ type RetryPolicy struct {
 	BaseDelay time.Duration
 	// MaxDelay caps every wait. Zero means [DefaultRetryMaxDelay].
 	MaxDelay time.Duration
+	// Hints, when set, is where waits come from whenever a host has said what
+	// it wants: see [BackoffHints]. Nil means the ladder plus whatever indigo
+	// happened to parse onto the error.
+	Hints *BackoffHints
+	// Host is the PDS these calls go to -- a base URL or a bare host, either
+	// way -- and the key into Hints. Fetchers fill it in from their client, so
+	// callers only have to set Hints.
+	Host string
+}
+
+// forHost returns p keyed to host, leaving an explicitly set Host alone.
+func (p RetryPolicy) forHost(host string) RetryPolicy {
+	if p.Host == "" {
+		p.Host = host
+	}
+	return p
 }
 
 func (p RetryPolicy) withDefaults() RetryPolicy {
@@ -63,17 +79,25 @@ func (p RetryPolicy) withDefaults() RetryPolicy {
 	return p
 }
 
-// delay is how long to wait after the attempt'th failure (1-based).
+// hintPad is added to a wait derived from a server's clock: the second it named
+// has to have actually elapsed by the time we ask again.
+const hintPad = 250 * time.Millisecond
+
+// delay is how long to wait after the attempt'th failure (1-based), and where
+// that wait came from ("" for the computed ladder).
 //
 // Exponential from BaseDelay, capped at MaxDelay, then scaled by a random
 // factor in [0.75, 1) so that a fleet of workers that hit the same rate limit
 // does not march back in lockstep. Jitter is multiplicative rather than
 // additive so the result never exceeds MaxDelay, including at the cap.
 //
-// If the server told us when its rate limit resets, and that is further out
-// than the computed backoff, wait for the reset instead -- still clamped to
-// MaxDelay, see the note there.
-func (p RetryPolicy) delay(attempt int, err error) time.Duration {
+// If the server said when to come back, and that is further out than the
+// computed backoff, wait for what it said instead -- still clamped to MaxDelay,
+// see the note there. There are two places that can come from: the ratelimit-*
+// headers indigo parsed onto the error, and [BackoffHints], which is our own
+// record of every header indigo discarded (notably Retry-After, which it never
+// reads). Whichever reaches further out wins.
+func (p RetryPolicy) delay(attempt int, err error) (time.Duration, string) {
 	p = p.withDefaults()
 	d := p.MaxDelay
 	if attempt >= 1 && attempt < 31 {
@@ -82,13 +106,17 @@ func (p RetryPolicy) delay(attempt int, err error) time.Duration {
 		}
 	}
 	d = time.Duration(float64(d) * (0.75 + 0.25*rand.Float64())) //nolint:gosec // jitter, not crypto
-	if reset := ratelimitReset(err); !reset.IsZero() {
-		// A small pad: the reset second has to have actually elapsed.
-		if wait := time.Until(reset) + 250*time.Millisecond; wait > d {
-			d = min(wait, p.MaxDelay)
+
+	until, source := ratelimitReset(err), "ratelimit-reset"
+	if hint, ok := p.Hints.Get(p.Host); ok && hint.Until.After(until) {
+		until, source = hint.Until, hint.Source
+	}
+	if !until.IsZero() {
+		if wait := time.Until(until) + hintPad; wait > d {
+			return min(wait, p.MaxDelay), source
 		}
 	}
-	return d
+	return d, ""
 }
 
 // do runs fn until it succeeds, fails with something not worth retrying, or
@@ -108,8 +136,16 @@ func (p RetryPolicy) do(ctx context.Context, what string, fn func() error) error
 		if attempt >= p.MaxAttempts {
 			return fmt.Errorf("giving up after %d attempts: %w", attempt, err)
 		}
-		d := p.delay(attempt, err)
-		log.Warn(ctx, "retrying transient xrpc failure", "call", what, "attempt", attempt, "wait", d, "err", errForLog(err))
+		d, source := p.delay(attempt, err)
+		kv := []any{"call", what, "attempt", attempt, "wait", d}
+		if source != "" {
+			// Worth saying out loud: it is the difference between "we guessed"
+			// and "the host told us", which is the first thing an operator
+			// looking at a throttled sweep wants to know.
+			kv = append(kv, "waitSource", source)
+		}
+		kv = append(kv, "err", errForLog(err))
+		log.Warn(ctx, "retrying transient xrpc failure", kv...)
 		if serr := sleepCtx(ctx, d); serr != nil {
 			return fmt.Errorf("aborted after %d attempts: %w", attempt, errors.Join(err, serr))
 		}

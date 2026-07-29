@@ -46,6 +46,14 @@
 // exponential backoff ([RetryPolicy]). Everything else -- 4xx, verification
 // failures, a cancelled context -- fails immediately.
 //
+// Guessing at the backoff is the last resort, not the first: a host that
+// answers 429 or 503 usually says when to come back, and [BackoffHints] is how
+// that gets read. Install its [BackoffHints.Transport] on the http.Client behind
+// the xrpc.Client and point [RetryPolicy.Hints] at the same registry; waits then
+// honor Retry-After and ratelimit-reset instead of a ladder. Without it the
+// headers are simply lost -- indigo's xrpc client keeps a status code and
+// discards the response headers.
+//
 // One 4xx in particular is worth knowing about: a walk pins a root and then
 // reads it over many round trips, while the host garbage-collects blocks that
 // only superseded commits referenced. A repo that commits mid-walk can leave

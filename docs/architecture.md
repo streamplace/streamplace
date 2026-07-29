@@ -66,3 +66,8 @@ not row structs.
 - Components take typed params structs and, where possible, **narrow
   interfaces** declared by the consumer (Go-style interface segregation),
   so the persistence layer can be swapped or faked at a single seam.
+  (`statedb.indexStore`, `media.mediaStore`, `director.directorStore`;
+  the API layer keeps the full `indexdb.Model` on purpose.)
+- The node's key material (OAuth upstream/downstream JWKs, service-auth
+  secret) is loaded from statedb once into `config.NodeIdentity` and
+  passed explicitly. `config.CLI` is never mutated after flag parsing.

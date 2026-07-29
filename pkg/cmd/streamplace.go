@@ -242,19 +242,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
-	cli.JWK = jwk
-
 	accessJWK, err := state.EnsureJWK(ctx, "access-jwk")
 	if err != nil {
 		return err
 	}
-	cli.AccessJWK = accessJWK
-
 	serviceAuthKey, err := state.EnsureServiceAuthKey(ctx)
 	if err != nil {
 		return err
 	}
-	cli.ServiceAuthKey = serviceAuthKey
+	identity := config.NodeIdentity{
+		JWK:            jwk,
+		AccessJWK:      accessJWK,
+		ServiceAuthKey: serviceAuthKey,
+	}
 
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
@@ -332,8 +332,8 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		GetOAuthSession:    state.LoadOAuthSession,
 		Lock:               state.GetNamedLock,
 		Scope:              atproto.OAuthString,
-		UpstreamJWK:        cli.JWK,
-		DownstreamJWK:      cli.AccessJWK,
+		UpstreamJWK:        identity.JWK,
+		DownstreamJWK:      identity.AccessJWK,
 		ClientMetadata:     clientMetadata,
 		Public:             cli.PublicOAuth,
 	})
@@ -430,6 +430,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	}
 	a, err := api.MakeStreamplaceAPI(api.Params{
 		CLI:           cli,
+		NodeIdentity:  identity,
 		Model:         mod,
 		StatefulDB:    state,
 		Notifier:      noter,

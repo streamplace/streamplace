@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
 	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
@@ -30,9 +31,12 @@ import (
 )
 
 type Server struct {
-	e               *echo.Echo
-	cli             *config.CLI
-	model           indexdb.Model
+	e     *echo.Echo
+	cli   *config.CLI
+	model indexdb.Model
+	// ServiceAuthKey is the node's shared secret for node-to-node service
+	// auth (XRPC proxying). Set from config.NodeIdentity at startup.
+	ServiceAuthKey  jwk.Key
 	OGImageCache    *cache.Cache
 	LiveUsersCache  *cache.Cache
 	GameSearchCache *cache.Cache

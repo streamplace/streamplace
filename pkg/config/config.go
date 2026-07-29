@@ -118,9 +118,6 @@ type CLI struct {
 	RateLimitPerSecond          int
 	RateLimitBurst              int
 	RateLimitWebsocket          int
-	JWK                         jwk.Key
-	AccessJWK                   jwk.Key
-	ServiceAuthKey              jwk.Key
 	dataDirFlags                []*string
 	DiscordWebhooks             []*discordtypes.Webhook
 	AppleTeamID                 string
@@ -190,6 +187,21 @@ const (
 
 var LivepeerFlagSet *flag.FlagSet
 var LivepeerConfig starter.LivepeerConfig
+
+// NodeIdentity holds the node's own cryptographic identity as loaded from
+// (or generated into) the stateful database at startup: the upstream and
+// downstream OAuth signing keys and the shared secret used for
+// node-to-node service auth. Loaded once into a value object so the CLI
+// struct is never mutated after flag parsing.
+type NodeIdentity struct {
+	// JWK signs upstream (broadcaster-facing) OAuth tokens.
+	JWK jwk.Key
+	// AccessJWK signs downstream (viewer-facing) OAuth tokens.
+	AccessJWK jwk.Key
+	// ServiceAuthKey is the shared symmetric key for node-to-node
+	// service auth (XRPC proxying between streamplace nodes).
+	ServiceAuthKey jwk.Key
+}
 
 func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 	cmd := &urfavecli.Command{

@@ -56,7 +56,7 @@ func (s *Server) ServiceAuthMiddleware() echo.MiddlewareFunc {
 			}
 
 			ctx := c.Request().Context()
-			key := s.cli.ServiceAuthKey
+			key := s.ServiceAuthKey
 			if key == nil {
 				log.Warn(ctx, "service auth token present but no service auth key configured")
 				return next(c)
@@ -112,7 +112,7 @@ func DIDWebToHost(did string) string {
 // ProxyServiceRequest proxies an XRPC request to a peer node, authenticating
 // with a service token. Returns the response body bytes or an echo.HTTPError.
 func (s *Server) ProxyServiceRequest(ctx context.Context, targetDID, httpMethod, xrpcMethod string, query url.Values, body io.Reader, contentType string) ([]byte, error) {
-	token, err := CreateServiceToken(s.cli.ServiceAuthKey, s.cli.ServerDID())
+	token, err := CreateServiceToken(s.ServiceAuthKey, s.cli.ServerDID())
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "error creating service token: "+err.Error())
 	}

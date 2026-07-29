@@ -58,6 +58,7 @@ import (
 
 type StreamplaceAPI struct {
 	CLI           *config.CLI
+	NodeIdentity  config.NodeIdentity
 	Model         indexdb.Model
 	StatefulDB    *statedb.StatefulDB
 	LocalDB       localdb.LocalDB
@@ -106,6 +107,7 @@ type WebsocketTracker struct {
 // allowed the whole store (services get consumer-side interfaces).
 type Params struct {
 	CLI           *config.CLI
+	NodeIdentity  config.NodeIdentity
 	Model         indexdb.Model
 	StatefulDB    *statedb.StatefulDB
 	Notifier      notifications.Notifier
@@ -141,6 +143,7 @@ func MakeStreamplaceAPI(p Params) (*StreamplaceAPI, error) {
 		return nil, err
 	}
 	a := &StreamplaceAPI{CLI: cli,
+		NodeIdentity:     p.NodeIdentity,
 		Model:            mod,
 		StatefulDB:       statefulDB,
 		Updater:          updater,
@@ -201,6 +204,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		return nil, err
 	}
 	a.XRPCServer = xrpc.(*spxrpc.Server)
+	a.XRPCServer.ServiceAuthKey = a.NodeIdentity.ServiceAuthKey
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.

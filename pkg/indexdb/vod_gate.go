@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -23,8 +24,20 @@ func (g *VodGate) ToRecord() (placestream.VodGate, error) {
 	}, nil
 }
 
-func (m *DBModel) CreateVodGate(ctx context.Context, gate *VodGate) error {
-	return m.DB.Create(gate).Error
+// UpsertVodGate indexes a place.stream.vod.gate record, deriving the
+// row (rkey, CID, timestamps) from the record and AT-URI.
+func (m *DBModel) UpsertVodGate(ctx context.Context, rec placestream.VodGate, aturi syntax.ATURI) error {
+	repoDID, cid, _, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	return m.DB.Create(&VodGate{
+		RKey:          aturi.RecordKey().String(),
+		RepoDID:       repoDID,
+		HiddenComment: rec.HiddenComment,
+		CID:           cid,
+		CreatedAt:     time.Now().UTC(),
+	}).Error
 }
 
 func (m *DBModel) DeleteVodGate(ctx context.Context, rkey string) error {

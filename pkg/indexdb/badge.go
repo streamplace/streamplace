@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // BadgeDef stores an indexed badge definition (image, name, description, type).
@@ -37,7 +39,30 @@ type BadgeIssuance struct {
 	IndexedAt    time.Time `gorm:"column:indexed_at"`
 }
 
-func (m *DBModel) UpsertBadgeDef(ctx context.Context, def *BadgeDef) error {
+// UpsertBadgeDef indexes a place.stream.badge.def record, deriving the
+// row (identity, image blob extraction, CBOR) from the record and AT-URI.
+func (m *DBModel) UpsertBadgeDef(ctx context.Context, rec placestream.BadgeDef, aturi syntax.ATURI) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	def := &BadgeDef{
+		URI:       aturi.String(),
+		CID:       cid,
+		RepoDID:   repoDID,
+		RKey:      aturi.RecordKey().String(),
+		Name:      rec.Name,
+		BadgeType: rec.BadgeType,
+		Record:    blob,
+		IndexedAt: time.Now().UTC(),
+	}
+	if rec.Description != nil {
+		def.Description = *rec.Description
+	}
+	if rec.Image != nil {
+		def.ImageCID = rec.Image.Ref.String()
+		def.ImageMimeType = rec.Image.MimeType
+	}
 	return m.DB.WithContext(ctx).Save(def).Error
 }
 
@@ -57,8 +82,24 @@ func (m *DBModel) GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, 
 	return &def, nil
 }
 
-func (m *DBModel) UpsertBadgeIssuance(ctx context.Context, issuance *BadgeIssuance) error {
-	return m.DB.WithContext(ctx).Save(issuance).Error
+// UpsertBadgeIssuance indexes a place.stream.badge.issuance record,
+// deriving the row (identity, recipient, badge link, CBOR) from the
+// record and AT-URI.
+func (m *DBModel) UpsertBadgeIssuance(ctx context.Context, rec placestream.BadgeIssuance, aturi syntax.ATURI) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	return m.DB.WithContext(ctx).Save(&BadgeIssuance{
+		URI:          aturi.String(),
+		CID:          cid,
+		RepoDID:      repoDID,
+		RKey:         aturi.RecordKey().String(),
+		RecipientDID: rec.Did,
+		BadgeURI:     rec.Badge.Uri,
+		Record:       blob,
+		IndexedAt:    time.Now().UTC(),
+	}).Error
 }
 
 func (m *DBModel) DeleteBadgeIssuance(ctx context.Context, uri string) error {

@@ -68,7 +68,7 @@ type Model interface {
 	DeleteTeleport(ctx context.Context, uri string) error
 	DenyTeleport(ctx context.Context, uri string) error
 
-	CreateBlock(ctx context.Context, block *Block) error
+	UpsertBlock(ctx context.Context, rec appbsky.GraphBlock, aturi syntax.ATURI) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
@@ -125,10 +125,10 @@ type Model interface {
 	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error)
 
-	UpsertBadgeDef(ctx context.Context, def *BadgeDef) error
+	UpsertBadgeDef(ctx context.Context, rec placestream.BadgeDef, aturi syntax.ATURI) error
 	DeleteBadgeDef(ctx context.Context, uri string) error
 	GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, error)
-	UpsertBadgeIssuance(ctx context.Context, issuance *BadgeIssuance) error
+	UpsertBadgeIssuance(ctx context.Context, rec placestream.BadgeIssuance, aturi syntax.ATURI) error
 	DeleteBadgeIssuance(ctx context.Context, uri string) error
 	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
 	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
@@ -161,18 +161,18 @@ type Model interface {
 	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
 
-	CreateVodComment(ctx context.Context, comment *VodComment) error
+	UpsertVodComment(ctx context.Context, rec placestream.VodComment, aturi syntax.ATURI) error
 	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error
 	GetVodComment(uri string) (*placestream.VodDefs_CommentView, error)
 	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error)
 
-	CreateLike(ctx context.Context, like *Like) error
+	UpsertLike(ctx context.Context, rec placestream.Like, aturi syntax.ATURI) error
 	DeleteLike(ctx context.Context, uri string) error
 	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error)
 	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error)
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 
-	CreateVodGate(ctx context.Context, gate *VodGate) error
+	UpsertVodGate(ctx context.Context, rec placestream.VodGate, aturi syntax.ATURI) error
 	DeleteVodGate(ctx context.Context, rkey string) error
 }
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/comatproto"
 
@@ -14,15 +15,14 @@ import (
 // putLike writes a place.stream.like by `liker` whose subject is the given URI.
 func putLike(t *testing.T, m Model, subject, liker, cid string) {
 	t.Helper()
-	now := time.Now().UTC()
-	require.NoError(t, m.CreateLike(context.Background(), &Like{
-		CID:       cid,
-		URI:       "at://" + liker + "/place.stream.like/" + cid,
-		Subject:   subject,
-		RepoDID:   liker,
-		IndexedAt: &now,
-		CreatedAt: now,
-	}))
+	uri := "at://" + liker + "/place.stream.like/" + cid
+	aturi, err := syntax.ParseATURI(uri)
+	require.NoError(t, err)
+	require.NoError(t, m.UpsertLike(context.Background(), placestream.Like{
+		LexiconTypeID: "place.stream.like",
+		Subject:       subject,
+		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
+	}, aturi))
 }
 
 // TestVideoLikeCount verifies likeCount is populated (and subject-scoped) on

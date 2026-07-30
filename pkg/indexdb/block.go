@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
@@ -49,8 +50,20 @@ func (b *Block) ToBlockView() (placestream.Defs_BlockView, error) {
 	}, nil
 }
 
-func (m *DBModel) CreateBlock(ctx context.Context, block *Block) error {
-	return m.DB.Create(block).Error
+// UpsertBlock indexes an app.bsky.graph.block record, deriving the row
+// (rkey, CID, subject, CBOR) from the record and AT-URI.
+func (m *DBModel) UpsertBlock(ctx context.Context, rec appbsky.GraphBlock, aturi syntax.ATURI) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	return m.DB.Create(&Block{
+		RKey:       aturi.RecordKey().String(),
+		RepoDID:    repoDID,
+		SubjectDID: rec.Subject,
+		Record:     blob,
+		CID:        cid,
+	}).Error
 }
 
 func (m *DBModel) DeleteBlock(ctx context.Context, rkey string) error {

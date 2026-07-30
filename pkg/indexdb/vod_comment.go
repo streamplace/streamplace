@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/rivo/uniseg"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
@@ -100,8 +101,32 @@ func (c *VodComment) ToCommentView() (placestream.VodDefs_CommentView, error) {
 	return commentView, nil
 }
 
-func (m *DBModel) CreateVodComment(ctx context.Context, comment *VodComment) error {
-	return m.DB.Create(comment).Error
+// UpsertVodComment indexes a place.stream.vod.comment record. Row
+// plumbing (URI/CID/CBOR, video + reply linkage) is derived here from
+// the record and AT-URI; created_at uses index time, matching the
+// pre-refactor indexer.
+func (m *DBModel) UpsertVodComment(ctx context.Context, rec placestream.VodComment, aturi syntax.ATURI) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	vc := &VodComment{
+		CID:       cid,
+		URI:       aturi.String(),
+		CreatedAt: now,
+		Comment:   &blob,
+		RepoDID:   repoDID,
+		VideoURI:  rec.Video,
+		IndexedAt: &now,
+	}
+	if videoATURI, err := syntax.ParseATURI(rec.Video); err == nil {
+		vc.VideoAuthorDID = videoATURI.Authority().String()
+	}
+	if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
+		vc.ReplyToCID = &rec.Reply.Parent.Cid
+	}
+	return m.DB.Create(vc).Error
 }
 
 func (m *DBModel) DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error {

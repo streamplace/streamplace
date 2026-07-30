@@ -93,27 +93,8 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	setupVIPIssuance := func(t *testing.T, recipientDID string) {
 		t.Helper()
-		err := mod.UpsertBadgeDef(ctx, &indexdb.BadgeDef{
-			URI:       defURI,
-			CID:       "bafydef",
-			RepoDID:   streamerDID,
-			RKey:      "def001",
-			Name:      "Streamer VIP",
-			BadgeType: constants.BadgeTypeVIP,
-			IndexedAt: time.Now(),
-		})
-		require.NoError(t, err)
-
-		err = mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
-			URI:          issuanceURI,
-			CID:          "bafyiss",
-			RepoDID:      streamerDID,
-			RKey:         "iss001",
-			RecipientDID: recipientDID,
-			BadgeURI:     defURI,
-			IndexedAt:    time.Now(),
-		})
-		require.NoError(t, err)
+		upsertBadgeDef(t, ctx, mod, defURI, "Streamer VIP", constants.BadgeTypeVIP)
+		upsertBadgeIssuance(t, ctx, mod, issuanceURI, recipientDID, defURI)
 	}
 
 	t.Run("vip badge appears when issuance and selection match", func(t *testing.T) {
@@ -146,16 +127,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	t.Run("badge rejected when issuance recipient does not match user", func(t *testing.T) {
 		wrongIssuanceURI := "at://" + streamerDID + "/place.stream.badge.issuance/wrongiss"
-		err := mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
-			URI:          wrongIssuanceURI,
-			CID:          "bafywrong",
-			RepoDID:      streamerDID,
-			RKey:         "wrongiss",
-			RecipientDID: "did:plc:someoneelse",
-			BadgeURI:     defURI,
-			IndexedAt:    time.Now(),
-		})
-		require.NoError(t, err)
+		upsertBadgeIssuance(t, ctx, mod, wrongIssuanceURI, "did:plc:someoneelse", defURI)
 
 		theftUserDID := "did:plc:theftuser"
 		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
@@ -177,16 +149,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 	t.Run("badge disappears after badge def is deleted", func(t *testing.T) {
 		// Re-create issuance, then delete the def
-		err := mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
-			URI:          issuanceURI,
-			CID:          "bafyiss",
-			RepoDID:      streamerDID,
-			RKey:         "iss001",
-			RecipientDID: vipUserDID,
-			BadgeURI:     defURI,
-			IndexedAt:    time.Now(),
-		})
-		require.NoError(t, err)
+		upsertBadgeIssuance(t, ctx, mod, issuanceURI, vipUserDID, defURI)
 
 		err = mod.DeleteBadgeDef(ctx, defURI)
 		require.NoError(t, err)
@@ -207,27 +170,8 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		eventDefURI := "at://" + issuerDID + "/place.stream.badge.def/eventdef"
 		eventIssuanceURI := "at://" + issuerDID + "/place.stream.badge.issuance/eventiss"
 
-		err := mod.UpsertBadgeDef(ctx, &indexdb.BadgeDef{
-			URI:       eventDefURI,
-			CID:       "bafyeventdef",
-			RepoDID:   issuerDID,
-			RKey:      "eventdef",
-			Name:      "Contest Winner",
-			BadgeType: constants.BadgeTypeEvent,
-			IndexedAt: time.Now(),
-		})
-		require.NoError(t, err)
-
-		err = mod.UpsertBadgeIssuance(ctx, &indexdb.BadgeIssuance{
-			URI:          eventIssuanceURI,
-			CID:          "bafyeventiss",
-			RepoDID:      issuerDID,
-			RKey:         "eventiss",
-			RecipientDID: eventUserDID,
-			BadgeURI:     eventDefURI,
-			IndexedAt:    time.Now(),
-		})
-		require.NoError(t, err)
+		upsertBadgeDef(t, ctx, mod, eventDefURI, "Contest Winner", constants.BadgeTypeEvent)
+		upsertBadgeIssuance(t, ctx, mod, eventIssuanceURI, eventUserDID, eventDefURI)
 
 		profile := buildProfileWithGlobalBadge(t, comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
 		upsertProfile(t, ctx, mod, eventUserDID, profile)
@@ -273,4 +217,26 @@ func upsertProfile(t *testing.T, ctx context.Context, mod indexdb.Model, ownerDI
 	aturi, err := syntax.ParseATURI("at://" + ownerDID + "/place.stream.chat.profile/self")
 	require.NoError(t, err)
 	require.NoError(t, mod.UpsertChatProfile(ctx, *rec, aturi))
+}
+
+func upsertBadgeDef(t *testing.T, ctx context.Context, mod indexdb.Model, uri, name, badgeType string) {
+	t.Helper()
+	aturi, err := syntax.ParseATURI(uri)
+	require.NoError(t, err)
+	require.NoError(t, mod.UpsertBadgeDef(ctx, placestream.BadgeDef{
+		LexiconTypeID: "place.stream.badge.def",
+		Name:          name,
+		BadgeType:     badgeType,
+	}, aturi))
+}
+
+func upsertBadgeIssuance(t *testing.T, ctx context.Context, mod indexdb.Model, uri, recipientDID, badgeURI string) {
+	t.Helper()
+	aturi, err := syntax.ParseATURI(uri)
+	require.NoError(t, err)
+	require.NoError(t, mod.UpsertBadgeIssuance(ctx, placestream.BadgeIssuance{
+		LexiconTypeID: "place.stream.badge.issuance",
+		Did:           recipientDID,
+		Badge:         comatproto.RepoStrongRef{Uri: badgeURI},
+	}, aturi))
 }

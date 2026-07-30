@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/appbsky"
@@ -46,8 +47,23 @@ func (l *Like) ToLikeView() (placestream.GetLikes_LikeView, error) {
 	}, nil
 }
 
-func (m *DBModel) CreateLike(ctx context.Context, like *Like) error {
-	return m.DB.Create(like).Error
+// UpsertLike indexes a place.stream.like record, deriving the row from
+// the record and AT-URI. created_at uses index time, matching the
+// pre-refactor indexer.
+func (m *DBModel) UpsertLike(ctx context.Context, rec placestream.Like, aturi syntax.ATURI) error {
+	repoDID, cid, _, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	return m.DB.Create(&Like{
+		CID:       cid,
+		URI:       aturi.String(),
+		Subject:   rec.Subject,
+		RepoDID:   repoDID,
+		IndexedAt: &now,
+		CreatedAt: now,
+	}).Error
 }
 
 func (m *DBModel) DeleteLike(ctx context.Context, uri string) error {

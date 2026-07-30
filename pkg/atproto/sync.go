@@ -26,7 +26,6 @@ import (
 
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
-	now := time.Now()
 	r, err := atsync.Model.GetRepo(userDID)
 	if err != nil {
 		return fmt.Errorf("failed to get repo: %w", err)
@@ -65,18 +64,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating block", "userDID", userDID, "subjectDID", rec.Subject)
-		block := &indexdb.Block{
-			RKey:       rkey.String(),
-			RepoDID:    userDID,
-			SubjectDID: rec.Subject,
-			Record:     *recCBOR,
-			CID:        cid,
-		}
-		err := atsync.Model.CreateBlock(ctx, block)
+		err := atsync.Model.UpsertBlock(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create block: %w", err)
 		}
-		block, err = atsync.Model.GetBlock(ctx, rkey.String())
+		block, err := atsync.Model.GetBlock(ctx, rkey.String())
 		if err != nil || block == nil {
 			return fmt.Errorf("failed to get block after we just saved it?!: %w", err)
 		}
@@ -601,40 +593,13 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *placestream.BadgeDef:
-		def := &indexdb.BadgeDef{
-			URI:       aturi.String(),
-			CID:       cid,
-			RepoDID:   userDID,
-			RKey:      rkey.String(),
-			Name:      rec.Name,
-			BadgeType: rec.BadgeType,
-			Record:    *recCBOR,
-			IndexedAt: now,
-		}
-		if rec.Description != nil {
-			def.Description = *rec.Description
-		}
-		if rec.Image != nil {
-			def.ImageCID = rec.Image.Ref.String()
-			def.ImageMimeType = rec.Image.MimeType
-		}
-		if err := atsync.Model.UpsertBadgeDef(ctx, def); err != nil {
+		if err := atsync.Model.UpsertBadgeDef(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert badge def: %w", err)
 		}
 		log.Debug(ctx, "indexed badge def", "uri", aturi.String(), "name", rec.Name)
 
 	case *placestream.BadgeIssuance:
-		issuance := &indexdb.BadgeIssuance{
-			URI:          aturi.String(),
-			CID:          cid,
-			RepoDID:      userDID,
-			RKey:         rkey.String(),
-			RecipientDID: rec.Did,
-			BadgeURI:     rec.Badge.Uri,
-			Record:       *recCBOR,
-			IndexedAt:    now,
-		}
-		if err := atsync.Model.UpsertBadgeIssuance(ctx, issuance); err != nil {
+		if err := atsync.Model.UpsertBadgeIssuance(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert badge issuance: %w", err)
 		}
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
@@ -736,21 +701,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Warn(ctx, "failed to parse video URI for block check", "video", rec.Video, "err", err)
 		}
 
-		vc := &indexdb.VodComment{
-			CID:            cid,
-			URI:            aturi.String(),
-			CreatedAt:      now,
-			Comment:        recCBOR,
-			RepoDID:        userDID,
-			Repo:           repo,
-			VideoURI:       rec.Video,
-			VideoAuthorDID: videoAuthor,
-			IndexedAt:      &now,
-		}
-		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
-			vc.ReplyToCID = &rec.Reply.Parent.Cid
-		}
-
 		// check for javascript: links in facets
 		for _, facet := range rec.Facets {
 			for _, feature := range facet.Features {
@@ -763,7 +713,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-		err = atsync.Model.CreateVodComment(ctx, vc)
+		err = atsync.Model.UpsertVodComment(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create VOD comment", "err", err)
 			return nil
@@ -808,23 +758,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 
-		like := &indexdb.Like{
-			CID:       cid,
-			URI:       aturi.String(),
-			Subject:   rec.Subject,
-			RepoDID:   userDID,
-			Repo:      repo,
-			IndexedAt: &now,
-			CreatedAt: now,
-		}
-		err = atsync.Model.CreateLike(ctx, like)
+		err = atsync.Model.UpsertLike(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create VOD like", "err", err)
 			return nil
 		}
 
 	case *placestream.VodGate:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -833,15 +774,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating VOD gate", "userDID", userDID, "hiddenComment", rec.HiddenComment)
-		gate := &indexdb.VodGate{
-			RKey:          rkey.String(),
-			RepoDID:       userDID,
-			HiddenComment: rec.HiddenComment,
-			CID:           cid,
-			CreatedAt:     now,
-			Repo:          repo,
-		}
-		err = atsync.Model.CreateVodGate(ctx, gate)
+		err = atsync.Model.UpsertVodGate(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create VOD gate: %w", err)
 		}

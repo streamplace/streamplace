@@ -146,14 +146,16 @@ func (p RetryPolicy) do(ctx context.Context, what string, fn func() error) error
 			return fmt.Errorf("giving up after %d attempts: %w", attempt, err)
 		}
 		d, source := p.delay(attempt, err)
-		kv := []any{"call", what, "attempt", attempt, "wait", d}
-		if source != "" {
-			// Worth saying out loud: it is the difference between "we guessed"
-			// and "the host told us", which is the first thing an operator
-			// looking at a throttled sweep wants to know.
-			kv = append(kv, "waitSource", source)
+		// Worth saying out loud either way: "the host told us" versus "the
+		// response carried no backoff headers, so we guessed" is the first
+		// thing an operator looking at a throttled sweep wants to know --
+		// ladder-shaped waits with waitSource=none mean the server gave us
+		// nothing to obey, not that we ignored it.
+		if source == "" {
+			source = "none"
 		}
-		kv = append(kv, "err", errForLog(err))
+		kv := []any{"call", what, "attempt", attempt, "wait", d, "waitSource", source,
+			"err", errForLog(err)}
 		log.Warn(ctx, "retrying transient xrpc failure", kv...)
 		if serr := sleepCtx(ctx, d); serr != nil {
 			return fmt.Errorf("aborted after %d attempts: %w", attempt, errors.Join(err, serr))

@@ -508,8 +508,9 @@ func TestSweepProgressStatusLine(t *testing.T) {
 	deeper := time.Now().Add(-30 * 24 * time.Hour)
 	progress.begin(sweepPhaseDeepen, 2, deeper)
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 0, "total", 2, "horizon", deeper.Unix(), "windows", 0},
+		[]any{"phase", "deepen", "users", 0, "total", 2, "horizon", deeper.Unix(), "round", 0, "windows", 0},
 		progress.status())
+	progress.setRound(1)
 	progress.window()
 	progress.window()
 	progress.window()
@@ -518,7 +519,7 @@ func TestSweepProgressStatusLine(t *testing.T) {
 	deepest := time.Now().Add(-180 * 24 * time.Hour)
 	progress.setHorizon(deepest)
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 2, "total", 2, "horizon", deepest.Unix(), "windows", 3},
+		[]any{"phase", "deepen", "users", 2, "total", 2, "horizon", deepest.Unix(), "round", 1, "windows", 3},
 		progress.status())
 
 	// The ticker stops when told to, without leaking a goroutine.

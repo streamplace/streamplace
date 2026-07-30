@@ -536,6 +536,7 @@ func (atsync *ATProtoSynchronizer) sweepDeepen(ctx context.Context, progress *sw
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		progress.setRound(round + 1)
 		var mu sync.Mutex
 		var next []sweepItem
 		err := runLanes(ctx, atsync.sweepConcurrency(), hostLanes(pending), func(ctx context.Context, item sweepItem) {
@@ -609,6 +610,7 @@ type sweepProgress struct {
 	phase   string
 	done    int
 	windows int
+	round   int
 	total   int
 	horizon time.Time
 	started bool
@@ -622,6 +624,7 @@ func (p *sweepProgress) begin(phase string, total int, horizon time.Time) {
 	p.total = total
 	p.done = 0
 	p.windows = 0
+	p.round = 0
 	p.horizon = horizon
 	p.started = true
 }
@@ -640,6 +643,16 @@ func (p *sweepProgress) window() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.windows++
+}
+
+// setRound records which deepening round is running. Rounds are barriers --
+// every repo gets its first window before any repo gets a second -- so repos
+// cannot finish before the last round, and users=0 is the expected reading for
+// most of the phase. The round is what makes that legible on the status line.
+func (p *sweepProgress) setRound(round int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.round = round
 }
 
 // setHorizon updates how far back the sweep has taken every repo it is working
@@ -662,7 +675,7 @@ func (p *sweepProgress) status() []any {
 	}
 	kv := []any{"phase", p.phase, "users", p.done, "total", p.total, "horizon", horizon}
 	if p.phase == sweepPhaseDeepen {
-		kv = append(kv, "windows", p.windows)
+		kv = append(kv, "round", p.round, "windows", p.windows)
 	}
 	return kv
 }

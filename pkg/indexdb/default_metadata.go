@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -24,12 +25,17 @@ func (m *MetadataConfiguration) ToRecord() (placestream.MetadataConfiguration, e
 	return sdm, nil
 }
 
-func (m *DBModel) CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error {
-	err := m.DB.Save(metadata).Error
+// UpsertMetadataConfiguration indexes a place.stream.metadata.configuration
+// record, deriving the stored CBOR blob from the record.
+func (m *DBModel) UpsertMetadataConfiguration(ctx context.Context, rec placestream.MetadataConfiguration, aturi syntax.ATURI) error {
+	repoDID, _, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err
 	}
-	return nil
+	return m.DB.Save(&MetadataConfiguration{
+		RepoDID: repoDID,
+		Record:  &blob,
+	}).Error
 }
 
 func (m *DBModel) GetMetadataConfiguration(ctx context.Context, repoDID string) (*placestream.MetadataConfiguration, error) {

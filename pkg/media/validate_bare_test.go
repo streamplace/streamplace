@@ -167,14 +167,7 @@ func seedBanLabel(t *testing.T, mod indexdb.Model, did string) {
 		Uri: did,
 		Val: atproto.LabelDMCAViolation,
 	}
-	var buf bytes.Buffer
-	require.NoError(t, lex.MarshalCBOR(&buf))
-	require.NoError(t, mod.CreateLabel(&indexdb.Label{
-		Src:    lex.Src,
-		Uri:    did,
-		Val:    atproto.LabelDMCAViolation,
-		Record: buf.Bytes(),
-	}))
+	require.NoError(t, mod.UpsertLabel(context.Background(), *lex))
 }
 
 // TestStreamerIsBanned exercises the defense-in-depth gate validateSource applies

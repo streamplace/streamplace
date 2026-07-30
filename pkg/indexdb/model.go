@@ -62,7 +62,7 @@ type Model interface {
 	GetLivestreamByPostURI(postURI string) (*placestream.Livestream_LivestreamView, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]placestream.Livestream_LivestreamView, error)
 
-	CreateTeleport(ctx context.Context, tp *Teleport) error
+	UpsertTeleport(ctx context.Context, rec placestream.LiveTeleport, aturi syntax.ATURI, viewerCount int64) error
 	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
 	GetTeleportByURI(uri string) (*Teleport, error)
 	DeleteTeleport(ctx context.Context, uri string) error
@@ -91,7 +91,7 @@ type Model interface {
 	UpsertChatProfile(ctx context.Context, rec placestream.ChatProfile, aturi syntax.ATURI) error
 	GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error)
 
-	UpdateServerSettings(ctx context.Context, settings *ServerSettings) error
+	UpsertServerSettings(ctx context.Context, rec placestream.ServerSettings, aturi syntax.ATURI) error
 	GetServerSettings(ctx context.Context, server string, repoDID string) (*placestream.ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
 
@@ -102,13 +102,13 @@ type Model interface {
 	GetRelayCursor(host string) (*RelayCursor, error)
 	UpsertRelayCursor(host string, cursor int64) error
 
-	CreateLabel(label *Label) error
+	UpsertLabel(ctx context.Context, rec comatproto.LabelDefs_Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 
 	UpdateBroadcastOrigin(ctx context.Context, origin placestream.BroadcastOrigin, aturi syntax.ATURI) error
 	GetRecentBroadcastOrigins(ctx context.Context) ([]placestream.BroadcastDefs_BroadcastOriginView, error)
 
-	CreateMetadataConfiguration(ctx context.Context, metadata *MetadataConfiguration) error
+	UpsertMetadataConfiguration(ctx context.Context, rec placestream.MetadataConfiguration, aturi syntax.ATURI) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*placestream.MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 

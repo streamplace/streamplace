@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type Teleport struct {
@@ -24,11 +26,32 @@ type Teleport struct {
 	Target          *Repo     `json:"target,omitempty" gorm:"foreignKey:DID;references:TargetDID"`
 }
 
-func (m *DBModel) CreateTeleport(ctx context.Context, tp *Teleport) error {
+// UpsertTeleport indexes a place.stream.live.teleport record. The row
+// (CBOR blob, CID, startsAt) is derived here from the record and AT-URI;
+// viewerCount is node-local indexer metadata (the streamer's viewer
+// count at index time), passed explicitly.
+func (m *DBModel) UpsertTeleport(ctx context.Context, rec placestream.LiveTeleport, aturi syntax.ATURI, viewerCount int64) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	startsAt, err := time.Parse(time.RFC3339, rec.StartsAt)
+	if err != nil {
+		return fmt.Errorf("invalid teleport startsAt %q: %w", rec.StartsAt, err)
+	}
 	return m.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "uri"}},
 		DoUpdates: clause.AssignmentColumns([]string{"cid", "starts_at", "duration_seconds", "viewer_count", "teleport", "repo_did", "target_did"}),
-	}).Create(tp).Error
+	}).Create(&Teleport{
+		CID:             cid,
+		URI:             aturi.String(),
+		StartsAt:        startsAt,
+		DurationSeconds: rec.DurationSeconds,
+		ViewerCount:     viewerCount,
+		Teleport:        &blob,
+		RepoDID:         repoDID,
+		TargetDID:       rec.Streamer,
+	}).Error
 }
 
 func (m *DBModel) GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error) {

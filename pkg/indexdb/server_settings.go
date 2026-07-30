@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -38,13 +39,23 @@ func (m *ServerSettings) ToRecord() (placestream.ServerSettings, error) {
 }
 
 // UpdateServerSettings creates or updates a server settings record
-func (m *DBModel) UpdateServerSettings(ctx context.Context, settings *ServerSettings) error {
-	now := time.Now()
-	if settings.Created.IsZero() {
-		settings.Created = now
+// UpsertServerSettings indexes a place.stream.server.settings record.
+// The server column is the record's rkey (server settings are keyed by
+// the server they apply to, carried in the record key); the repo DID
+// comes from the AT-URI authority.
+func (m *DBModel) UpsertServerSettings(ctx context.Context, rec placestream.ServerSettings, aturi syntax.ATURI) error {
+	repoDID, _, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
 	}
-	settings.Updated = now
-	return m.DB.Save(settings).Error
+	now := time.Now()
+	return m.DB.Save(&ServerSettings{
+		Server:  aturi.RecordKey().String(),
+		RepoDID: repoDID,
+		Record:  &blob,
+		Created: now,
+		Updated: now,
+	}).Error
 }
 
 // GetServerSettings retrieves server settings for a given server and repoDID

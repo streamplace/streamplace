@@ -251,12 +251,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		settings := &indexdb.ServerSettings{
-			Server:  rkey.String(),
-			RepoDID: userDID,
-			Record:  recCBOR,
-		}
-		err = atsync.Model.UpdateServerSettings(ctx, settings)
+		err = atsync.Model.UpsertServerSettings(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create server settings", "err", err)
 		}
@@ -395,17 +390,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		viewerCount := atsync.Bus.GetViewerCount(userDID)
-		tp := &indexdb.Teleport{
-			CID:             cid,
-			URI:             aturi.String(),
-			StartsAt:        startsAt,
-			DurationSeconds: rec.DurationSeconds,
-			ViewerCount:     int64(viewerCount),
-			Teleport:        recCBOR,
-			RepoDID:         userDID,
-			TargetDID:       rec.Streamer,
-		}
-		err = atsync.Model.CreateTeleport(ctx, tp)
+		err = atsync.Model.UpsertTeleport(ctx, *rec, aturi, int64(viewerCount))
 		if err != nil {
 			return fmt.Errorf("failed to create teleport: %w", err)
 		}
@@ -502,17 +487,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish("", view)
 
 	case *placestream.MetadataConfiguration:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
-		if err != nil {
+		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 		log.Debug(ctx, "creating metadata configuration", "metadata", rec)
-		metadata := &indexdb.MetadataConfiguration{
-			RepoDID: userDID,
-			Record:  recCBOR,
-			Repo:    repo,
-		}
-		err = atsync.Model.CreateMetadataConfiguration(ctx, metadata)
+		err := atsync.Model.UpsertMetadataConfiguration(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}

@@ -1,7 +1,6 @@
 package spxrpc
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -45,16 +44,7 @@ func putLabel(t *testing.T, m indexdb.Model, uri, val string) {
 		Uri: uri,
 		Val: val,
 	}
-	var buf bytes.Buffer
-	require.NoError(t, lex.MarshalCBOR(&buf))
-	require.NoError(t, m.CreateLabel(&indexdb.Label{
-		Src:     testLabeler,
-		Uri:     uri,
-		Val:     val,
-		Cts:     time.Now().UTC(),
-		Record:  buf.Bytes(),
-		RepoDID: uri,
-	}))
+	require.NoError(t, m.UpsertLabel(context.Background(), *lex))
 }
 
 func TestAccountBanned(t *testing.T) {

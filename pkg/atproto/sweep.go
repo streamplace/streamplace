@@ -46,8 +46,8 @@ type sweepItem struct {
 }
 
 // sweepLane is the lane a repo row belongs in: its PDS host, or -- for a repo
-// whose host is not known even after [ATProtoSynchronizer.resolveLanes] tried to
-// find out -- a lane of its own.
+// whose host is not known even after [ATProtoSynchronizer.feedUnresolved] tried
+// to find out -- a lane of its own.
 //
 // A lane to itself, rather than a shared catch-all: an unplaceable repo is
 // normally a resolution failure, so its sync is about to fail too, and queueing
@@ -63,18 +63,21 @@ func sweepLane(did, pds string) string {
 	return "did:" + did
 }
 
-// identityResolveConcurrency is how many identities [ATProtoSynchronizer.resolveLanes]
+// identityResolveConcurrency is how many identities [ATProtoSynchronizer.feedUnresolved]
 // looks up at once.
 //
 // Deliberately smaller than the sweep's own concurrency: these are lookups
 // against a handful of shared identity services (plc.directory, DNS) rather than
 // against thousands of PDSes, and the whole point is to move work that the
 // backfill would have done anyway, not to arrive at plc.directory with a
-// thundering herd.
-const identityResolveConcurrency = 8
+// thundering herd. On a fresh index every repo needs one of these, so this is
+// also the ceiling on how fast a fresh node discovers work -- which is why it
+// feeds a running [laneScheduler] instead of gating the sweep behind a barrier.
+const identityResolveConcurrency = 16
 
-// resolveLanes gives a lane to every item that has not got one, by resolving the
-// repo's identity to find its PDS.
+// feedUnresolved lanes every item that has not got one, by resolving the repo's
+// identity to find its PDS, handing each item to add as its answer lands. It
+// returns when every item has been handed over.
 //
 // This exists because the sweep's DID list and the PDS column come from
 // different databases. The DIDs are the state database's set of "repos this node
@@ -86,56 +89,153 @@ const identityResolveConcurrency = 8
 // put every repo in a lane of its own: sharding by host would do nothing on
 // precisely the sweep it was built for.
 //
+// Streaming, not a barrier: a fresh node has tens of thousands of these lookups
+// to do, and doing them all before the first walk turned the start of a sweep
+// into minutes of dead air. Feeding a running [laneScheduler] means the first
+// repos are being walked while the last are still being resolved.
+//
 // The lookup is moved rather than added. It goes through the same cached
 // directory [ATProtoSynchronizer.SyncBlueskyRepo] resolves with, so the backfill
-// a few seconds later reads this answer out of the cache instead of asking
-// again.
+// moments later reads this answer out of the cache instead of asking again.
 //
-// Failures are not fatal and are not even logged loudly: the repo keeps a lane
+// Failures are not fatal and are not even logged loudly: the repo gets a lane
 // of its own and its sync fails on its own terms, one repo at a time, the way it
 // did before.
-func (atsync *ATProtoSynchronizer) resolveLanes(ctx context.Context, items []sweepItem) {
-	var todo []int
-	for i := range items {
-		if items[i].Lane == "" {
-			todo = append(todo, i)
-		}
-	}
-	if len(todo) == 0 {
+func (atsync *ATProtoSynchronizer) feedUnresolved(ctx context.Context, items []sweepItem, add func(sweepItem)) {
+	if len(items) == 0 {
 		return
 	}
-	log.Log(ctx, "resolving PDS hosts to shard the sweep", "repos", len(todo))
+	log.Log(ctx, "resolving PDS hosts to shard the sweep", "repos", len(items))
 
 	start := time.Now()
 	var resolved atomic.Int64
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(identityResolveConcurrency)
-	for _, i := range todo {
+	for _, item := range items {
 		g.Go(func() error {
-			if err := gctx.Err(); err != nil {
-				return err
+			// On cancellation, still hand the item over (with a lane of its
+			// own): the scheduler's workers notice the dead context themselves,
+			// and every item accounted for exactly once is the simpler
+			// invariant to keep.
+			if gctx.Err() == nil {
+				if ident, err := atsync.resolveIdent(gctx, item.DID, true); err == nil {
+					item.Lane = reposync.HostKey(ident.PDSEndpoint())
+					resolved.Add(1)
+				} else {
+					log.Debug(gctx, "could not resolve a repo's PDS for sharding", "did", item.DID, "err", err)
+				}
 			}
-			ident, err := atsync.resolveIdent(gctx, items[i].DID, true)
-			if err != nil {
-				log.Debug(gctx, "could not resolve a repo's PDS for sharding", "did", items[i].DID, "err", err)
-				return nil
+			if item.Lane == "" {
+				item.Lane = sweepLane(item.DID, "")
 			}
-			items[i].Lane = reposync.HostKey(ident.PDSEndpoint())
-			resolved.Add(1)
+			add(item)
 			return nil
 		})
 	}
-	// A cancelled context is the only error this can produce, and the caller is
-	// about to notice it for itself.
 	_ = g.Wait()
-
-	for _, i := range todo {
-		if items[i].Lane == "" {
-			items[i].Lane = sweepLane(items[i].DID, "")
-		}
-	}
-	log.Log(ctx, "resolved PDS hosts to shard the sweep", "repos", len(todo),
+	log.Log(ctx, "resolved PDS hosts to shard the sweep", "repos", len(items),
 		"resolved", resolved.Load(), "took", time.Since(start))
+}
+
+// laneScheduler is [runLanes] for work that is still being discovered: it keeps
+// the one-worker-per-lane guarantee and the global lane cap, but accepts items
+// while it is running, so repos whose lane is already known are walked while a
+// resolver is still finding hosts for the rest.
+type laneScheduler struct {
+	ctx  context.Context
+	work func(context.Context, sweepItem)
+	// sem caps how many lane workers run at once; a worker holds a slot for the
+	// life of its lane. Blocked acquisitions queue in FIFO order, so lanes
+	// started earlier (own DIDs first) get slots first.
+	sem chan struct{}
+
+	mu    sync.Mutex
+	queue map[string][]sweepItem
+	live  map[string]bool
+	seen  int
+	wg    sync.WaitGroup
+}
+
+func newLaneScheduler(ctx context.Context, limit int, work func(context.Context, sweepItem)) *laneScheduler {
+	if limit <= 0 {
+		limit = config.DefaultSweepConcurrency
+	}
+	return &laneScheduler{
+		ctx:   ctx,
+		work:  work,
+		sem:   make(chan struct{}, limit),
+		queue: map[string][]sweepItem{},
+		live:  map[string]bool{},
+	}
+}
+
+// add enqueues an item on its lane, starting a worker for the lane if none is
+// running. Safe from any goroutine; must not be called after [laneScheduler.wait]
+// returns.
+func (s *laneScheduler) add(item sweepItem) {
+	s.mu.Lock()
+	if _, ok := s.queue[item.Lane]; !ok {
+		s.seen++
+	}
+	s.queue[item.Lane] = append(s.queue[item.Lane], item)
+	spawn := !s.live[item.Lane]
+	if spawn {
+		s.live[item.Lane] = true
+		s.wg.Add(1)
+	}
+	s.mu.Unlock()
+	if spawn {
+		go s.run(item.Lane)
+	}
+}
+
+// run drains one lane, one item at a time, holding a semaphore slot throughout.
+// It marks the lane not-live under the lock in the same instant it observes the
+// queue empty, so a concurrent add either lands before that (and this worker
+// picks it up) or after (and spawns a fresh worker).
+func (s *laneScheduler) run(lane string) {
+	defer s.wg.Done()
+	select {
+	case s.sem <- struct{}{}:
+	case <-s.ctx.Done():
+		s.abandon(lane)
+		return
+	}
+	defer func() { <-s.sem }()
+	for {
+		if s.ctx.Err() != nil {
+			s.abandon(lane)
+			return
+		}
+		s.mu.Lock()
+		if len(s.queue[lane]) == 0 {
+			s.live[lane] = false
+			s.mu.Unlock()
+			return
+		}
+		item := s.queue[lane][0]
+		s.queue[lane] = s.queue[lane][1:]
+		s.mu.Unlock()
+		s.work(s.ctx, item)
+	}
+}
+
+// abandon drops a lane's remaining items on cancellation. The repos keep their
+// rows untouched, so the next sweep picks them up.
+func (s *laneScheduler) abandon(lane string) {
+	s.mu.Lock()
+	s.live[lane] = false
+	s.queue[lane] = nil
+	s.mu.Unlock()
+}
+
+// wait blocks until every added item has been worked or abandoned, and reports
+// how many distinct lanes the run touched. Callers must have finished adding.
+func (s *laneScheduler) wait() (lanes int, err error) {
+	s.wg.Wait()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seen, s.ctx.Err()
 }
 
 // hostLanes groups items into one lane per [sweepItem.Lane], keeping each lane's
@@ -352,23 +452,29 @@ func (atsync *ATProtoSynchronizer) sweepShallow(ctx context.Context, progress *s
 		if repo != nil {
 			pds = repo.PDS
 		}
-		// Left empty when the row does not name a host: resolveLanes below fills
-		// those in rather than letting them each become a lane.
+		// Left empty when the row does not name a host: feedUnresolved below
+		// finds those hosts in the background rather than letting each become a
+		// lane -- or worse, gating the whole sweep behind the lookups.
 		todo = append(todo, sweepItem{DID: did, Lane: reposync.HostKey(pds)})
 	}
 	progress.begin(sweepPhaseShallow, len(todo), time.Now().Add(-InitialWindow))
 	if len(todo) == 0 {
 		return nil
 	}
-	atsync.resolveLanes(ctx, todo)
-	if err := ctx.Err(); err != nil {
-		return err
+
+	var known, unresolved []sweepItem
+	for _, item := range todo {
+		if item.Lane == "" {
+			unresolved = append(unresolved, item)
+		} else {
+			known = append(known, item)
+		}
 	}
-	lanes := hostLanes(todo)
-	log.Log(ctx, "syncing repos", "phase", sweepPhaseShallow, "repos", len(todo), "hosts", len(lanes))
+	log.Log(ctx, "syncing repos", "phase", sweepPhaseShallow, "repos", len(todo),
+		"knownHosts", len(hostLanes(known)), "unresolved", len(unresolved))
 
 	var failed atomic.Int64
-	err := runLanes(ctx, atsync.sweepConcurrency(), lanes, func(ctx context.Context, item sweepItem) {
+	sched := newLaneScheduler(ctx, atsync.sweepConcurrency(), func(ctx context.Context, item sweepItem) {
 		if _, err := atsync.SyncBlueskyRepoCached(ctx, item.DID); err != nil {
 			log.Error(ctx, "failed to sync repo", "did", item.DID, "err", err)
 			failed.Add(1)
@@ -376,9 +482,17 @@ func (atsync *ATProtoSynchronizer) sweepShallow(ctx context.Context, progress *s
 		}
 		progress.finished()
 	})
+	// Known lanes start working immediately, in priority order (own DIDs
+	// first); the rest stream in as the resolver finds their hosts.
+	for _, item := range known {
+		sched.add(item)
+	}
+	atsync.feedUnresolved(ctx, unresolved, sched.add)
+	lanes, err := sched.wait()
 	if err != nil {
 		return err
 	}
+	log.Log(ctx, "synced repos", "phase", sweepPhaseShallow, "repos", len(todo), "hosts", lanes)
 	if int(failed.Load()) == len(todo) {
 		return fmt.Errorf("all %d repos failed to sync", len(todo))
 	}

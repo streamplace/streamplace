@@ -113,8 +113,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		go func() {
-			_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer)
-			if err != nil {
+			// Its own err on purpose: assigning the enclosing function's err
+			// from this goroutine races every later use of it.
+			if _, err := atsync.SyncBlueskyRepoCached(ctx, rec.Streamer); err != nil {
 				log.Error(ctx, "failed to sync bluesky repo", "err", err)
 			}
 		}()

@@ -270,26 +270,101 @@ func TestSweepResolvesUnknownHosts(t *testing.T) {
 	// Pre-set so resolveIdent never reaches for a real directory.
 	atsync := &ATProtoSynchronizer{PLCDirectory: &dir, CachedPLCDirectory: &dir}
 
-	items := []sweepItem{
-		{DID: "did:plc:known", Lane: sweepLane("did:plc:known", "https://known.example")},
+	var mu sync.Mutex
+	lanes := map[string]string{}
+	atsync.feedUnresolved(context.Background(), []sweepItem{
 		{DID: "did:plc:one"},
 		{DID: "did:plc:two"},
 		{DID: "did:plc:missing"}, // no DID document: nothing to place it by
 		{DID: "did:plc:three"},
+	}, func(item sweepItem) {
+		mu.Lock()
+		lanes[item.DID] = item.Lane
+		mu.Unlock()
+	})
+
+	require.Equal(t, map[string]string{
+		"did:plc:one":     "shared.example", // two resolving to one host share a lane
+		"did:plc:two":     "shared.example",
+		"did:plc:missing": "did:did:plc:missing", // unplaceable: its own lane, not a queue
+		"did:plc:three":   "elsewhere.example",
+	}, lanes)
+
+	// Nothing to do is the normal case, and it must not add anything.
+	atsync.feedUnresolved(context.Background(), nil, func(sweepItem) {
+		t.Error("add called with no items to resolve")
+	})
+}
+
+// TestLaneSchedulerStreams is the property the scheduler exists for: work on
+// lanes that are already known starts while more items are still arriving,
+// without ever breaking one-worker-per-lane or the global cap.
+func TestLaneSchedulerStreams(t *testing.T) {
+	var mu sync.Mutex
+	inflight := map[string]int{}
+	maxTotal := 0
+	var order []string
+	release := make(chan struct{})
+	firstStarted := make(chan struct{})
+	var once sync.Once
+
+	sched := newLaneScheduler(context.Background(), 2, func(_ context.Context, item sweepItem) {
+		once.Do(func() { close(firstStarted) })
+		mu.Lock()
+		inflight[item.Lane]++
+		require.LessOrEqual(t, inflight[item.Lane], 1, "two workers on lane %s", item.Lane)
+		total := 0
+		for _, n := range inflight {
+			total += n
+		}
+		if total > maxTotal {
+			maxTotal = total
+		}
+		order = append(order, item.DID)
+		mu.Unlock()
+		<-release
+		mu.Lock()
+		inflight[item.Lane]--
+		mu.Unlock()
+	})
+
+	sched.add(sweepItem{DID: "a1", Lane: "hostA"})
+	// The first item is being worked before the rest have even been added --
+	// that is the streaming property.
+	<-firstStarted
+	sched.add(sweepItem{DID: "a2", Lane: "hostA"})
+	sched.add(sweepItem{DID: "b1", Lane: "hostB"})
+	sched.add(sweepItem{DID: "c1", Lane: "hostC"})
+	close(release)
+
+	lanes, err := sched.wait()
+	require.NoError(t, err)
+	require.Equal(t, 3, lanes)
+	require.ElementsMatch(t, []string{"a1", "a2", "b1", "c1"}, order)
+	require.LessOrEqual(t, maxTotal, 2, "global lane cap exceeded")
+	require.Less(t, indexOf(order, "a1"), indexOf(order, "a2"), "lane order must be FIFO")
+}
+
+// TestLaneSchedulerCancelled: a dead context stops a scheduler without working
+// anything more and without hanging wait.
+func TestLaneSchedulerCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	sched := newLaneScheduler(ctx, 2, func(context.Context, sweepItem) {
+		t.Error("work ran under a cancelled context")
+	})
+	sched.add(sweepItem{DID: "a1", Lane: "hostA"})
+	_, err := sched.wait()
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func indexOf(xs []string, x string) int {
+	for i, v := range xs {
+		if v == x {
+			return i
+		}
 	}
-	atsync.resolveLanes(context.Background(), items)
-
-	require.Equal(t, [][]string{
-		{"did:plc:known"},              // a row that named its host is left alone
-		{"did:plc:one", "did:plc:two"}, // and two resolving to one host share a lane
-		{"did:plc:missing"},            // unplaceable: its own lane, not a queue
-		{"did:plc:three"},
-	}, laneDIDs(hostLanes(items)))
-
-	// Nothing to do is the normal case, and it must not cost a lookup.
-	placed := []sweepItem{{DID: "did:plc:known", Lane: "known.example"}}
-	atsync.resolveLanes(context.Background(), placed)
-	require.Equal(t, "known.example", placed[0].Lane)
+	return -1
 }
 
 // TestSweepLanesNeverShareAHost is the property the lanes exist for: a sweep

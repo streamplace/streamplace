@@ -59,7 +59,39 @@ type Server struct {
 	aliases map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model indexdb.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
+// Params carries the dependencies NewServer needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site. Assembled by pkg/api from its own slimmer set.
+type Params struct {
+	CLI           *config.CLI
+	Model         indexdb.Model
+	StatefulDB    *statedb.StatefulDB
+	OATProxy      *oatproxy.OATProxy
+	Middleware    middleware.Middleware
+	ATSync        *atproto.ATProtoSynchronizer
+	Bus           *bus.Bus
+	LocalDB       localdb.LocalDB
+	MediaManager  *media.MediaManager
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+	Aliases       map[string]string
+}
+
+func NewServer(ctx context.Context, p Params) (*Server, error) {
+	cli := p.CLI
+	model := p.Model
+	statefulDB := p.StatefulDB
+	op := p.OATProxy
+	mdlw := p.Middleware
+	atsync := p.ATSync
+	bus := p.Bus
+	ldb := p.LocalDB
+	mm := p.MediaManager
+	um := p.UploadManager
+	playbackStore := p.PlaybackStore
+	viewLog := p.ViewLog
+	aliases := p.Aliases
 	e := echo.New()
 	s := &Server{
 		e:               e,

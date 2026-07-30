@@ -438,7 +438,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		MediaSigner:   ms,
 		Bus:           b,
 		ATSync:        atsync,
-		Director:      d,
 		OATProxy:      op,
 		LocalDB:       ldb,
 		UploadManager: um,

@@ -34,7 +34,6 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
-	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/linking"
@@ -73,10 +72,9 @@ type StreamplaceAPI struct {
 	ViewLog       *viewlog.Writer
 	XRPCServer    *spxrpc.Server
 	// not thread-safe yet
-	Aliases  map[string]string
-	Bus      *bus.Bus
-	ATSync   *atproto.ATProtoSynchronizer
-	Director *director.Director
+	Aliases map[string]string
+	Bus     *bus.Bus
+	ATSync  *atproto.ATProtoSynchronizer
 
 	connTracker *WebsocketTracker
 
@@ -115,7 +113,6 @@ type Params struct {
 	MediaSigner   media.MediaSigner
 	Bus           *bus.Bus
 	ATSync        *atproto.ATProtoSynchronizer
-	Director      *director.Director
 	OATProxy      *oatproxy.OATProxy
 	LocalDB       localdb.LocalDB
 	UploadManager *upload.Manager
@@ -132,7 +129,6 @@ func MakeStreamplaceAPI(p Params) (*StreamplaceAPI, error) {
 	ms := p.MediaSigner
 	bus := p.Bus
 	atsync := p.ATSync
-	d := p.Director
 	op := p.OATProxy
 	ldb := p.LocalDB
 	um := p.UploadManager
@@ -156,7 +152,6 @@ func MakeStreamplaceAPI(p Params) (*StreamplaceAPI, error) {
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
-		Director:         d,
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
@@ -199,7 +194,21 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.PlaybackStore, a.ViewLog, a.Aliases)
+	xrpc, err := spxrpc.NewServer(ctx, spxrpc.Params{
+		CLI:           a.CLI,
+		Model:         a.Model,
+		StatefulDB:    a.StatefulDB,
+		OATProxy:      a.op,
+		Middleware:    mdlw,
+		ATSync:        a.ATSync,
+		Bus:           a.Bus,
+		LocalDB:       a.LocalDB,
+		MediaManager:  a.MediaManager,
+		UploadManager: a.UploadManager,
+		PlaybackStore: a.PlaybackStore,
+		ViewLog:       a.ViewLog,
+		Aliases:       a.Aliases,
+	})
 	if err != nil {
 		return nil, err
 	}

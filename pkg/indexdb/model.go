@@ -122,7 +122,7 @@ type Model interface {
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
 
-	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, profileBs []byte, wasStreamplace bool) error
+	UpsertBskyProfile(ctx context.Context, rec appbsky.ActorProfile, aturi syntax.ATURI, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error)
 
 	UpsertBadgeDef(ctx context.Context, rec placestream.BadgeDef, aturi syntax.ATURI) error

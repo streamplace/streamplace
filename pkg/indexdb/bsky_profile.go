@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/appbsky"
-	"stream.place/streamplace/pkg/spid"
 )
 
 type BskyProfile struct {
@@ -22,16 +21,20 @@ type BskyProfile struct {
 	WasStreamplace bool    `json:"wasStreamplace" gorm:"primaryKey;column:was_streamplace"`
 }
 
-func (m *DBModel) UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, recBs []byte, wasStreamplace bool) error {
-	cid, err := spid.GetCIDFromBytes(recBs)
+// UpsertBskyProfile indexes an app.bsky.actor.profile record.
+// wasStreamplace is the golive flag from the raw record (not part of the
+// typed lexicon), so it stays caller-supplied; everything else derives
+// from the record and AT-URI.
+func (m *DBModel) UpsertBskyProfile(ctx context.Context, rec appbsky.ActorProfile, aturi syntax.ATURI, wasStreamplace bool) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
-		return fmt.Errorf("failed to get cid: %w", err)
+		return err
 	}
 	dbProfile := &BskyProfile{
 		URI:            aturi.String(),
-		CID:            cid.String(),
-		RepoDID:        aturi.Authority().String(),
-		Record:         &recBs,
+		CID:            cid,
+		RepoDID:        repoDID,
+		Record:         &blob,
 		WasStreamplace: wasStreamplace,
 	}
 

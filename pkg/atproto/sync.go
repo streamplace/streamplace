@@ -84,7 +84,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		wasStreamplace, _ := d[constants.BlueskyProfileGoliveKey].(bool)
-		err := atsync.Model.UpsertBskyProfile(ctx, aturi, *recCBOR, wasStreamplace)
+		err := atsync.Model.UpsertBskyProfile(ctx, *rec, aturi, wasStreamplace)
 		if err != nil {
 			return fmt.Errorf("failed to upsert bsky profile: %w", err)
 		}

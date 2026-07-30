@@ -96,11 +96,25 @@ func TestBackfillWindowedHistory(t *testing.T) {
 		4, // [genesis, 180d)  -- the two-hundred-day-old message
 	}
 	var done bool
+	var floor string
 	for rung, want := range wantAfterRung {
 		require.False(t, done, "the ladder finished early at rung %d", rung)
-		done, err = atsync.DeepenRepo(ctx, user.DID)
+		previous := floor
+		done, floor, err = atsync.DeepenRepo(ctx, user.DID)
 		require.NoError(t, err, "rung %d", rung)
 		require.Equal(t, want, countMessages(), "message count after rung %d", rung)
+		if !done {
+			// The floor a window reports is what the sweep's horizon is made
+			// of, so it has to be the watermark that was actually written, and
+			// it has to keep reaching further back.
+			stored, err := mod.GetRepo(user.DID)
+			require.NoError(t, err)
+			require.Equal(t, stored.BackfillFloor, floor, "rung %d reports the watermark it wrote", rung)
+			if previous != "" {
+				// TIDs sort by time, so each rung's watermark is smaller.
+				require.Less(t, floor, previous, "rung %d reaches further back than the last", rung)
+			}
+		}
 	}
 	require.True(t, done, "the last window bottoms out the collection")
 
@@ -115,7 +129,7 @@ func TestBackfillWindowedHistory(t *testing.T) {
 
 	// And a repo that is done is done: another sweep costs nothing and says
 	// nothing.
-	again, err := atsync.DeepenRepo(ctx, user.DID)
+	again, _, err := atsync.DeepenRepo(ctx, user.DID)
 	require.NoError(t, err)
 	require.True(t, again)
 	require.NoError(t, atsync.Sweep(ctx))
@@ -218,8 +232,8 @@ func TestSweepPrioritizesOwnDIDs(t *testing.T) {
 }
 
 // TestSweepHostLanes: the bucketing a sweep's whole throughput rests on. Repos
-// are grouped by PDS host, in the order they arrive, so the lane list starts
-// with the lane holding whatever prioritizeDIDs put first.
+// are grouped by PDS host, however the host was written down, and a row with no
+// host does not queue up behind the other rows that have none.
 func TestSweepHostLanes(t *testing.T) {
 	// A PDS is a host however its URL was written down.
 	require.Equal(t, "pds.example", sweepLane("did:plc:a", "https://pds.example"))
@@ -238,17 +252,10 @@ func TestSweepHostLanes(t *testing.T) {
 		{DID: "a3", Lane: sweepLane("a3", "https://A.EXAMPLE/")},
 		{DID: "u2", Lane: sweepLane("u2", "")},
 	}
-	lanes := hostLanes(items)
-
-	require.Equal(t, [][]string{
-		{"own"},            // the priority DID's host, first because it was first
-		{"a1", "a2", "a3"}, // one lane per host, whatever the URL looked like
-		{"b1"},
-		{"u1"}, // and unknown-PDS rows do not queue up behind each other
-		{"u2"},
-	}, laneDIDs(lanes))
-
-	require.Empty(t, hostLanes(nil))
+	// own.example, a.example (three repos, one lane), b.example, and one lane
+	// each for the two rows that name no host.
+	require.Equal(t, 5, laneCount(items))
+	require.Equal(t, 0, laneCount(nil))
 }
 
 // TestSweepResolvesUnknownHosts: the sweep's DID list and the PDS column live in
@@ -308,11 +315,11 @@ func TestLaneSchedulerStreams(t *testing.T) {
 	firstStarted := make(chan struct{})
 	var once sync.Once
 
-	sched := newLaneScheduler(context.Background(), 2, func(_ context.Context, item sweepItem) {
+	sched := newLaneScheduler(context.Background(), 2, func(_ context.Context, step sweepStep) bool {
 		once.Do(func() { close(firstStarted) })
 		mu.Lock()
-		inflight[item.Lane]++
-		require.LessOrEqual(t, inflight[item.Lane], 1, "two workers on lane %s", item.Lane)
+		inflight[step.Lane]++
+		require.LessOrEqual(t, inflight[step.Lane], 1, "two workers on lane %s", step.Lane)
 		total := 0
 		for _, n := range inflight {
 			total += n
@@ -320,12 +327,13 @@ func TestLaneSchedulerStreams(t *testing.T) {
 		if total > maxTotal {
 			maxTotal = total
 		}
-		order = append(order, item.DID)
+		order = append(order, step.DID)
 		mu.Unlock()
 		<-release
 		mu.Lock()
-		inflight[item.Lane]--
+		inflight[step.Lane]--
 		mu.Unlock()
+		return false
 	})
 
 	sched.add(sweepItem{DID: "a1", Lane: "hostA"})
@@ -350,8 +358,9 @@ func TestLaneSchedulerStreams(t *testing.T) {
 func TestLaneSchedulerCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	sched := newLaneScheduler(ctx, 2, func(context.Context, sweepItem) {
+	sched := newLaneScheduler(ctx, 2, func(context.Context, sweepStep) bool {
 		t.Error("work ran under a cancelled context")
+		return false
 	})
 	sched.add(sweepItem{DID: "a1", Lane: "hostA"})
 	_, err := sched.wait()
@@ -365,6 +374,219 @@ func indexOf(xs []string, x string) int {
 		}
 	}
 	return -1
+}
+
+// stepLabel renders a step the way the lane-program tests compare them: which
+// repo, and whether it is the shallow sync or the nth window.
+func stepLabel(step sweepStep) string {
+	if !step.Deepen {
+		return step.DID + "/shallow"
+	}
+	return fmt.Sprintf("%s/window%d", step.DID, step.Windows+1)
+}
+
+// TestSweepLaneProgramShallowFirst: a host's repos are all made servable before
+// any of them is deepened, and each repo's ladder starts at the bottom rung. A
+// sweep that deepened one repo's history while another on the same host had
+// never been read at all would be optimizing the wrong thing.
+func TestSweepLaneProgramShallowFirst(t *testing.T) {
+	// Nothing runs until every repo is queued, so that this is a statement
+	// about the program and not about who won a race to be added.
+	ready := make(chan struct{})
+	var mu sync.Mutex
+	var steps []string
+	windows := map[string]int{}
+
+	sched := newLaneScheduler(context.Background(), 4, func(_ context.Context, step sweepStep) bool {
+		<-ready
+		mu.Lock()
+		defer mu.Unlock()
+		steps = append(steps, stepLabel(step))
+		if !step.Deepen {
+			return true
+		}
+		windows[step.DID]++
+		return windows[step.DID] < 2
+	})
+	for _, did := range []string{"a", "b", "c"} {
+		sched.add(sweepItem{DID: did, Lane: "pds.example"})
+	}
+	close(ready)
+	lanes, err := sched.wait()
+	require.NoError(t, err)
+	require.Equal(t, 1, lanes)
+
+	require.Equal(t, []string{
+		"a/shallow", "b/shallow", "c/shallow",
+		"a/window1", "b/window1", "c/window1",
+		"a/window2", "b/window2", "c/window2",
+	}, steps)
+}
+
+// TestSweepLaneProgramBreadthFirst is the guarantee the global rounds used to
+// buy, rescoped to one host: no repo gets its (n+1)th window while another repo
+// on the same host is still waiting for its nth. That is what puts the same
+// horizon behind every account a PDS serves, and it is now free -- a lane
+// reaching it does not make any other lane wait.
+func TestSweepLaneProgramBreadthFirst(t *testing.T) {
+	want := map[string]int{"a": 2, "b": 5, "c": 3, "d": 5}
+	ready := make(chan struct{})
+	var mu sync.Mutex
+	windows := map[string]int{}
+	pending := map[string]bool{}
+	for did := range want {
+		pending[did] = true
+	}
+
+	sched := newLaneScheduler(context.Background(), 4, func(_ context.Context, step sweepStep) bool {
+		<-ready
+		mu.Lock()
+		defer mu.Unlock()
+		require.True(t, step.Deepen, "these repos are already servable")
+		require.Equal(t, windows[step.DID], step.Windows,
+			"%s: a step knows how many windows its repo has had", step.DID)
+		for did := range pending {
+			require.LessOrEqual(t, step.Windows, windows[did],
+				"%s took window %d while %s was still waiting for window %d",
+				step.DID, step.Windows+1, did, windows[did]+1)
+		}
+		windows[step.DID]++
+		if windows[step.DID] >= want[step.DID] {
+			delete(pending, step.DID)
+			return false
+		}
+		return true
+	})
+	for _, did := range []string{"a", "b", "c", "d"} {
+		sched.add(sweepItem{DID: did, Lane: "pds.example", Deepen: true})
+	}
+	close(ready)
+	_, err := sched.wait()
+	require.NoError(t, err)
+	require.Equal(t, want, windows, "every repo got exactly the ladder it asked for")
+}
+
+// TestSweepLaneProgramLateShallowPreempts: a repo whose host is resolved after
+// its lane started work joins that lane mid-ladder, and is synced before the
+// lane takes another rung -- an account nobody has read yet is worth more than
+// another month of history for accounts that are already being served. It then
+// joins the ladder at the bottom, so the breadth-first order absorbs it instead
+// of leaving it a lap behind.
+func TestSweepLaneProgramLateShallowPreempts(t *testing.T) {
+	var mu sync.Mutex
+	var steps []string
+	windows := map[string]int{}
+	var once sync.Once
+	var sched *laneScheduler
+
+	sched = newLaneScheduler(context.Background(), 4, func(_ context.Context, step sweepStep) bool {
+		mu.Lock()
+		steps = append(steps, stepLabel(step))
+		if step.Deepen {
+			windows[step.DID]++
+		}
+		n := windows[step.DID]
+		mu.Unlock()
+
+		if !step.Deepen {
+			return true // a fresh sync always leaves history to fetch here
+		}
+		if step.DID == "a" && n == 2 {
+			// The resolver finally placed a repo on this host, half way
+			// through the ladder the lane was already running.
+			once.Do(func() { sched.add(sweepItem{DID: "late", Lane: "pds.example"}) })
+		}
+		if step.DID == "late" {
+			return n < 2
+		}
+		return n < 4
+	})
+	sched.add(sweepItem{DID: "a", Lane: "pds.example", Deepen: true})
+	sched.add(sweepItem{DID: "b", Lane: "pds.example", Deepen: true})
+	_, err := sched.wait()
+	require.NoError(t, err)
+
+	require.Equal(t, []string{
+		"a/window1", "b/window1", "a/window2",
+		"late/shallow", // straight away, ahead of b's second window
+		"late/window1", // and its first rung before anyone's third
+		"b/window2", "late/window2",
+		"a/window3", "b/window3",
+		"a/window4", "b/window4",
+	}, steps)
+}
+
+// TestSweepLaneProgramsAreIndependent is the whole point of this design: a host
+// that is not answering cannot hold up a host that is. Measured on a 20k-repo
+// sweep, the global phase and round barriers spent roughly half the wall clock
+// with most lanes idle behind stragglers exactly like this one.
+func TestSweepLaneProgramsAreIndependent(t *testing.T) {
+	hold := make(chan struct{})
+	finished := make(chan struct{})
+	var mu sync.Mutex
+	var fast []string
+	windows := map[string]int{}
+	const fastSteps = 8 // two repos, each a shallow sync and three windows
+
+	sched := newLaneScheduler(context.Background(), 4, func(_ context.Context, step sweepStep) bool {
+		if step.Lane == "stuck.example" {
+			<-hold
+			return false
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		fast = append(fast, stepLabel(step))
+		if len(fast) == fastSteps {
+			close(finished)
+		}
+		if !step.Deepen {
+			return true
+		}
+		windows[step.DID]++
+		return windows[step.DID] < 3
+	})
+	// The stuck host goes first, so it also holds the first slot: priority
+	// order must not become priority blocking.
+	sched.add(sweepItem{DID: "stuck1", Lane: "stuck.example"})
+	sched.add(sweepItem{DID: "a", Lane: "pds.example"})
+	sched.add(sweepItem{DID: "b", Lane: "pds.example"})
+
+	select {
+	case <-finished:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the working host's lane never finished while another host was stuck")
+	}
+	mu.Lock()
+	require.Equal(t, []string{
+		"a/shallow", "b/shallow",
+		"a/window1", "b/window1",
+		"a/window2", "b/window2",
+		"a/window3", "b/window3",
+	}, fast, "a whole per-host program ran to the end with another host mid-sync")
+	mu.Unlock()
+
+	close(hold)
+	lanes, err := sched.wait()
+	require.NoError(t, err)
+	require.Equal(t, 2, lanes)
+}
+
+// TestSweepLaneProgramSpinGuard: a repo that never admits to being finished
+// still costs a bounded number of windows per sweep.
+func TestSweepLaneProgramSpinGuard(t *testing.T) {
+	var mu sync.Mutex
+	steps := 0
+	sched := newLaneScheduler(context.Background(), 2, func(_ context.Context, step sweepStep) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		steps++
+		require.LessOrEqual(t, step.Windows, maxDeepenRounds)
+		return true
+	})
+	sched.add(sweepItem{DID: "a", Lane: "pds.example"})
+	_, err := sched.wait()
+	require.NoError(t, err)
+	require.Equal(t, maxDeepenRounds+1, steps, "one shallow sync and a bounded ladder")
 }
 
 // TestSweepLanesNeverShareAHost is the property the lanes exist for: a sweep
@@ -383,12 +605,13 @@ func TestSweepLanesNeverShareAHost(t *testing.T) {
 	var mu sync.Mutex
 	active := map[string]string{} // lane -> the DID holding it
 	var order []string
+	windows := map[string]int{}
 	inFlight, maxInFlight := 0, 0
-	err := runLanes(context.Background(), cap, hostLanes(items), func(ctx context.Context, item sweepItem) {
+	sched := newLaneScheduler(context.Background(), cap, func(_ context.Context, step sweepStep) bool {
 		mu.Lock()
-		holder, busy := active[item.Lane]
-		require.False(t, busy, "%s and %s ran on %s at once", item.DID, holder, item.Lane)
-		active[item.Lane] = item.DID
+		holder, busy := active[step.Lane]
+		require.False(t, busy, "%s and %s ran on %s at once", step.DID, holder, step.Lane)
+		active[step.Lane] = step.DID
 		inFlight++
 		maxInFlight = max(maxInFlight, inFlight)
 		mu.Unlock()
@@ -398,66 +621,77 @@ func TestSweepLanesNeverShareAHost(t *testing.T) {
 		time.Sleep(2 * time.Millisecond)
 
 		mu.Lock()
-		delete(active, item.Lane)
+		defer mu.Unlock()
+		delete(active, step.Lane)
 		inFlight--
-		order = append(order, item.DID)
-		mu.Unlock()
+		order = append(order, step.DID)
+		if !step.Deepen {
+			return true
+		}
+		windows[step.DID]++
+		return windows[step.DID] < 2
 	})
+	for _, item := range items {
+		sched.add(item)
+	}
+	lanes, err := sched.wait()
 	require.NoError(t, err)
-	require.Len(t, order, len(items), "every repo ran exactly once")
+	require.Equal(t, 4, lanes, "four hosts, and a cap of three: some lane waited for a slot")
+	require.Len(t, order, 3*len(items), "every repo got its sync and both its windows")
 	require.LessOrEqual(t, maxInFlight, cap, "the cap bounds lanes in flight")
 	require.Greater(t, maxInFlight, 1, "and lanes really do run in parallel")
-
-	// Four hosts, cap of three: at least one lane waited for a slot, which is
-	// the case that has to not deadlock.
-	require.Equal(t, 4, len(hostLanes(items)))
 }
 
 // TestSweepLanesRunOwnDIDsFirst: the node's own repos hold what it serves, so
-// their lane is the first one scheduled -- the priority order prioritizeDIDs
-// produces has to survive the bucketing.
+// their lane is the first one given a slot -- the priority order prioritizeDIDs
+// produces has to survive the bucketing, which means slots go out in the order
+// lanes were added rather than in whatever order their goroutines woke up.
 func TestSweepLanesRunOwnDIDsFirst(t *testing.T) {
 	dids := prioritizeDIDs([]string{"did:plc:a", "did:web:server.example", "did:plc:b"}, "did:web:server.example")
-	items := make([]sweepItem, 0, len(dids))
-	for _, did := range dids {
-		// Every repo on its own host, so lane order is the only thing deciding.
-		items = append(items, sweepItem{DID: did, Lane: sweepLane(did, "https://"+did+".pds.example")})
-	}
 
 	var mu sync.Mutex
 	var order []string
-	// One slot: lanes are started in order, so the first thing that runs is the
-	// first lane.
-	require.NoError(t, runLanes(context.Background(), 1, hostLanes(items), func(ctx context.Context, item sweepItem) {
+	// One slot, and every repo on its own host, so lane order is the only
+	// thing deciding.
+	sched := newLaneScheduler(context.Background(), 1, func(_ context.Context, step sweepStep) bool {
 		mu.Lock()
 		defer mu.Unlock()
-		order = append(order, item.DID)
-	}))
+		order = append(order, step.DID)
+		return false
+	})
+	for _, did := range dids {
+		sched.add(sweepItem{DID: did, Lane: sweepLane(did, "https://"+did+".pds.example")})
+	}
+	_, err := sched.wait()
+	require.NoError(t, err)
 	require.Equal(t, []string{"did:web:server.example", "did:plc:a", "did:plc:b"}, order)
 }
 
 // TestSweepLanesStopOnCancel: a sweep is cancellable at every point, and a lane
-// checks the context between repos rather than after all of them.
+// checks the context between steps rather than at the end of a program that
+// would otherwise run for hours.
 func TestSweepLanesStopOnCancel(t *testing.T) {
-	items := make([]sweepItem, 0, 40)
-	for i := 0; i < 40; i++ {
-		items = append(items, sweepItem{DID: fmt.Sprintf("did:plc:%d", i), Lane: "pds.example"})
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	var mu sync.Mutex
 	ran := 0
-	err := runLanes(ctx, 4, hostLanes(items), func(ctx context.Context, item sweepItem) {
+	sched := newLaneScheduler(ctx, 4, func(_ context.Context, step sweepStep) bool {
 		mu.Lock()
+		defer mu.Unlock()
 		ran++
 		if ran == 2 {
 			cancel()
 		}
-		mu.Unlock()
+		// Never finished: only the cancellation can end this lane.
+		return true
 	})
+	for i := 0; i < 40; i++ {
+		sched.add(sweepItem{DID: fmt.Sprintf("did:plc:%d", i), Lane: "pds.example"})
+	}
+	_, err := sched.wait()
 	require.ErrorIs(t, err, context.Canceled)
 	mu.Lock()
 	defer mu.Unlock()
-	require.Less(t, ran, len(items), "the run stopped instead of draining the lane")
+	require.Less(t, ran, 40, "the lane stopped instead of running its program out")
 }
 
 // TestSweepConcurrencyFlag: the cap comes from --sweep-concurrency, and an unset
@@ -473,53 +707,60 @@ func TestSweepConcurrencyFlag(t *testing.T) {
 		(&ATProtoSynchronizer{CLI: &config.CLI{SweepConcurrency: 64}}).sweepConcurrency())
 }
 
-// laneDIDs renders lanes for comparison.
-func laneDIDs(lanes [][]sweepItem) [][]string {
-	out := make([][]string, 0, len(lanes))
-	for _, lane := range lanes {
-		dids := make([]string, 0, len(lane))
-		for _, item := range lane {
-			dids = append(dids, item.DID)
-		}
-		out = append(out, dids)
-	}
-	return out
-}
-
-// TestSweepProgressStatusLine covers the one line an operator watches: it names
-// the phase, counts finished repos against the total, and reports the horizon
-// as unix seconds.
+// TestSweepProgressStatusLine covers the one line an operator watches. There
+// are no phases left to name -- every host runs its own program -- so the line
+// is two fractions, the windows they took, and the horizon in unix seconds:
+//
+//	backfill sweep shallow=19000/20747 deepened=4300/20013 windows=41022 horizon=1753142400
 func TestSweepProgressStatusLine(t *testing.T) {
 	var progress sweepProgress
 
 	// Before anything starts there is nothing to say.
-	require.Equal(t, []any{"phase", "", "users", 0, "total", 0, "horizon", int64(0)}, progress.status())
-
-	horizon := time.Now().Add(-InitialWindow)
-	progress.begin(sweepPhaseShallow, 3, horizon)
-	progress.finished()
 	require.Equal(t,
-		[]any{"phase", "shallow", "users", 1, "total", 3, "horizon", horizon.Unix()},
+		[]any{"shallow", "0/0", "deepened", "0/0", "windows", 0, "horizon", int64(0)},
 		progress.status())
 
-	// A new phase resets the counts and moves the horizon. Deepening also
-	// reports windows: repos only count as done at the bottom of their ladder,
-	// so windows is the number that shows the sweep moving in the meantime.
-	deeper := time.Now().Add(-30 * 24 * time.Hour)
-	progress.begin(sweepPhaseDeepen, 2, deeper)
+	day := time.Now().Add(-InitialWindow)
+	week := time.Now().Add(-7 * 24 * time.Hour)
+	month := time.Now().Add(-30 * 24 * time.Hour)
+
+	// Three repos to make servable, one already servable and mid-ladder: the
+	// horizon is that one's watermark.
+	progress.begin(3, map[string]time.Time{"did:plc:old": week})
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 0, "total", 2, "horizon", deeper.Unix(), "round", 0, "windows", 0},
+		[]any{"shallow", "0/3", "deepened", "0/1", "windows", 0, "horizon", week.Unix()},
 		progress.status())
-	progress.setRound(1)
-	progress.window()
-	progress.window()
-	progress.window()
-	progress.finished()
-	progress.finished()
-	deepest := time.Now().Add(-180 * 24 * time.Hour)
-	progress.setHorizon(deepest)
+
+	// A repo that has just been synced is servable, and joins the ladder: the
+	// denominator grows as the sweep discovers who needs deepening, and the
+	// horizon follows the least-deepened repo.
+	progress.synced()
+	progress.laddered("did:plc:new", day)
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 2, "total", 2, "horizon", deepest.Unix(), "round", 1, "windows", 3},
+		[]any{"shallow", "1/3", "deepened", "0/2", "windows", 0, "horizon", day.Unix()},
+		progress.status())
+
+	// Windows count as they land, and each moves one repo's watermark. The
+	// horizon only moves when the laggard does.
+	progress.window("did:plc:new", week)
+	require.Equal(t,
+		[]any{"shallow", "1/3", "deepened", "0/2", "windows", 1, "horizon", week.Unix()},
+		progress.status())
+	progress.window("did:plc:old", month)
+	require.Equal(t,
+		[]any{"shallow", "1/3", "deepened", "0/2", "windows", 2, "horizon", week.Unix()},
+		progress.status())
+
+	// A repo with its whole history stops holding the horizon back, and when
+	// nothing is left to deepen there is no horizon at all.
+	progress.window("did:plc:new", month)
+	progress.deepened("did:plc:new")
+	require.Equal(t,
+		[]any{"shallow", "1/3", "deepened", "1/2", "windows", 3, "horizon", month.Unix()},
+		progress.status())
+	progress.deepened("did:plc:old")
+	require.Equal(t,
+		[]any{"shallow", "1/3", "deepened", "2/2", "windows", 3, "horizon", int64(0)},
 		progress.status())
 
 	// The ticker stops when told to, without leaking a goroutine.

@@ -32,6 +32,11 @@ const (
 	// long sleep here stalls every other repo on that host, and a repo whose
 	// backfill fails is simply retried later.
 	DefaultRetryMaxDelay = 30 * time.Second
+	// deadHostAttempts is all a host that is not there gets: see [isDeadHost].
+	// One retry, because a PDS that is restarting refuses connections for a
+	// second or two and that is worth waiting out; not five, because nothing
+	// else is.
+	deadHostAttempts = 2
 )
 
 // RetryPolicy bounds how hard a fetcher retries a transient XRPC failure.
@@ -133,7 +138,11 @@ func (p RetryPolicy) do(ctx context.Context, what string, fn func() error) error
 		if !isRetryable(err) {
 			return err
 		}
-		if attempt >= p.MaxAttempts {
+		budget := p.MaxAttempts
+		if isDeadHost(err) && deadHostAttempts < budget {
+			budget = deadHostAttempts
+		}
+		if attempt >= budget {
 			return fmt.Errorf("giving up after %d attempts: %w", attempt, err)
 		}
 		d, source := p.delay(attempt, err)
@@ -241,6 +250,30 @@ func isRetryable(err error) bool {
 		errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, io.ErrUnexpectedEOF) ||
 		errors.Is(err, io.EOF)
+}
+
+// isDeadHost reports whether err says the host is not there at all, rather than
+// busy, broken, or slow: nothing accepted the connection, or the name does not
+// resolve.
+//
+// These get [deadHostAttempts] tries instead of the full ladder. A sweep of
+// twenty thousand repos meets a long tail of PDSes that have been switched off,
+// and every repo on one of them was costing five attempts and a minute of
+// backoff to learn what the first attempt already said. That tail is most of
+// what a sweep's stragglers are made of.
+//
+// The whole retry ladder is for hosts that might answer if asked again --
+// timeouts, 429s, 5xx -- and a refused connection or a missing DNS record is
+// not that. It is checked with errors.Is/As rather than on the surface error
+// because the real thing arrives wrapped several deep: net/http returns a
+// *url.Error around a *net.OpError around the syscall or *net.DNSError, and
+// indigo's xrpc wraps that again.
+func isDeadHost(err error) bool {
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return true
+	}
+	var derr *net.DNSError
+	return errors.As(err, &derr) && derr.IsNotFound
 }
 
 // ratelimitReset pulls the reset time out of an XRPC error, if the host sent

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"syscall"
 	"testing"
@@ -234,6 +236,116 @@ func TestRetryDelay(t *testing.T) {
 		_, live := hints.Get("pds.example")
 		require.False(t, live)
 	})
+}
+
+// nxdomain is a name that no longer resolves, wrapped the way it arrives: the
+// resolver's error inside net/http's dial error inside net/http's request
+// error.
+func nxdomain() error {
+	return fmt.Errorf("getBlocks: %w", &url.Error{
+		Op:  "Get",
+		URL: "https://gone.example/xrpc/com.atproto.sync.getBlocks",
+		Err: &net.OpError{Op: "dial", Net: "tcp", Err: &net.DNSError{
+			Err: "no such host", Name: "gone.example", IsNotFound: true,
+		}},
+	})
+}
+
+// TestRetryFastFailsDeadHosts: a host that is not there at all gets two
+// attempts, not five. This is what makes a sweep's straggler tail cheap --
+// switched-off PDSes were costing a full backoff ladder per repo to rediscover
+// something the first connection attempt already reported.
+func TestRetryFastFailsDeadHosts(t *testing.T) {
+	policy := RetryPolicy{MaxAttempts: 5, BaseDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond}
+	attempts := func(t *testing.T, err error) int {
+		t.Helper()
+		calls := 0
+		got := policy.do(context.Background(), "getBlocks", func() error {
+			calls++
+			return err
+		})
+		require.Error(t, got)
+		return calls
+	}
+
+	t.Run("connection refused", func(t *testing.T) {
+		err := fmt.Errorf("request failed: %w", &url.Error{Op: "Get", URL: "https://pds.example/",
+			Err: &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}})
+		require.True(t, isDeadHost(err))
+		// Still retryable: a PDS that is restarting refuses for a moment.
+		require.True(t, isRetryable(err))
+		require.Equal(t, deadHostAttempts, attempts(t, err))
+	})
+
+	t.Run("no such host", func(t *testing.T) {
+		err := nxdomain()
+		require.True(t, isDeadHost(err))
+		// A name that does not resolve now will not resolve in a second, so
+		// this never even reaches the two-attempt cap: it is not retryable at
+		// all, and one attempt is what it costs.
+		require.False(t, isRetryable(err))
+		require.Equal(t, 1, attempts(t, err))
+	})
+
+	t.Run("a timeout still gets the whole ladder", func(t *testing.T) {
+		// The host is there and answering slowly, which is exactly what the
+		// retries are for.
+		err := fmt.Errorf("request failed: %w", timeoutError{})
+		require.False(t, isDeadHost(err))
+		require.Equal(t, 5, attempts(t, err))
+	})
+
+	t.Run("a DNS timeout is not a dead host", func(t *testing.T) {
+		// The resolver is struggling, not answering "no": that is transient.
+		err := fmt.Errorf("request failed: %w", &net.OpError{Op: "dial", Err: &net.DNSError{
+			Err: "i/o timeout", Name: "pds.example", IsTimeout: true,
+		}})
+		require.False(t, isDeadHost(err))
+		require.Equal(t, 5, attempts(t, err))
+	})
+
+	t.Run("429 still gets the whole ladder", func(t *testing.T) {
+		err := ratelimited(time.Time{})
+		require.False(t, isDeadHost(err))
+		require.Equal(t, 5, attempts(t, err))
+	})
+
+	t.Run("503 still gets the whole ladder", func(t *testing.T) {
+		require.Equal(t, 5, attempts(t, xrpcErr(http.StatusServiceUnavailable, "", "restarting")))
+	})
+
+	t.Run("a policy that asks for less keeps it", func(t *testing.T) {
+		single := RetryPolicy{MaxAttempts: 1, BaseDelay: time.Millisecond}
+		calls := 0
+		err := single.do(context.Background(), "getBlocks", func() error {
+			calls++
+			return fmt.Errorf("dialing: %w", syscall.ECONNREFUSED)
+		})
+		require.Error(t, err)
+		require.Equal(t, 1, calls)
+	})
+}
+
+// TestRetryDeadHostOffTheWire: the classification above is only worth anything
+// if a refused connection still looks like one after net/http and indigo have
+// each wrapped it, so this one dials a port that nothing is listening on.
+func TestRetryDeadHostOffTheWire(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close())
+
+	sr := buildSignedRepo(t, testDID, exactnessPaths())
+	f := &XRPCBlockFetcher{
+		Client: &xrpc.Client{Host: "http://" + addr},
+		DID:    testDID,
+		Retry:  RetryPolicy{MaxAttempts: 5, BaseDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
+	}
+	_, err = f.GetBlocks(context.Background(), []cid.Cid{sr.root})
+	require.Error(t, err)
+	require.True(t, isRetryable(err), "a refused connection is worth one retry: %v", err)
+	require.True(t, isDeadHost(err), "but it must be recognisable as a dead host: %v", err)
+	require.Contains(t, err.Error(), fmt.Sprintf("giving up after %d attempts", deadHostAttempts))
 }
 
 func ratelimited(reset time.Time) error {

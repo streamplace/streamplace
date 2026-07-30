@@ -150,34 +150,36 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 }
 
 // DeepenRepo walks one more window of history for a repo whose recent records
-// are already indexed, and reports whether that repo is now complete.
+// are already indexed. It reports whether that repo is now complete, and the
+// watermark it left behind: the TID from which the repo's windowed collections
+// are now fully indexed, which is what the sweep's horizon is made of.
 //
 // Each call reaches one rung further back down [backfillSpans] and advances the
-// row's watermark; the sweep calls it repeatedly, round-robin across repos, so
-// that every account reaches a week of history before any account reaches a
-// month. The records it re-emits from the window boundary are absorbed by the
-// idempotent indexer.
+// row's watermark; the sweep calls it repeatedly, round-robin across the repos
+// on one host, so that every account there reaches a week of history before any
+// of them reaches a month. The records it re-emits from the window boundary are
+// absorbed by the idempotent indexer.
 //
 // It never writes a placeholder row and never blanks Version, so a repo stays
 // served -- and stays out of the wedge path -- for the entire time its history
 // is being filled in.
-func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (bool, error) {
+func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (bool, string, error) {
 	repo, err := atsync.Model.GetRepo(did)
 	if err != nil {
-		return false, fmt.Errorf("failed to get repo for %s: %w", did, err)
+		return false, "", fmt.Errorf("failed to get repo for %s: %w", did, err)
 	}
 	switch {
 	case repo == nil:
-		return false, fmt.Errorf("no repo row for %s", did)
+		return false, "", fmt.Errorf("no repo row for %s", did)
 	case repo.TerminalStatus():
 		// The account is gone; whatever we indexed is all there will be.
-		return true, nil
+		return true, repo.BackfillFloor, nil
 	case repo.BackfillDone:
-		return true, nil
+		return true, repo.BackfillFloor, nil
 	case repo.Version == "":
-		// Never synced (or wedged): that is the shallow phase's job, and doing
+		// Never synced (or wedged): that is the shallow sync's job, and doing
 		// it here would skip the full collections entirely.
-		return false, fmt.Errorf("repo %s has no completed sync to deepen", did)
+		return false, "", fmt.Errorf("repo %s has no completed sync to deepen", did)
 	}
 
 	// The same lock a full sync takes, so the two cannot walk one repo at once.
@@ -189,11 +191,11 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
-		return false, fmt.Errorf("failed to resolve %s: %w", did, err)
+		return false, "", fmt.Errorf("failed to resolve %s: %w", did, err)
 	}
 	xrpcc := xrpc.Client{Host: ident.PDSEndpoint(), Client: SyncHTTPClient}
 	if xrpcc.Host == "" {
-		return false, fmt.Errorf("no PDS endpoint found for %s", did)
+		return false, "", fmt.Errorf("no PDS endpoint found for %s", did)
 	}
 
 	window := nextBackfillWindow(repo.BackfillFloor, time.Now())
@@ -213,18 +215,18 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	}
 	if err != nil {
 		if parked := parkTerminalRepo(ctx, atsync.Model, did, err); parked != nil {
-			return false, parked
+			return false, "", parked
 		}
-		return false, err
+		return false, "", err
 	}
 
 	if err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis); err != nil {
-		return false, fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
+		return false, "", fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
 	}
 	// Debug: at one line per repo per window this is thousands of lines per
 	// sweep. The sweep logs one Info summary per repo when its ladder finishes.
 	log.Debug(ctx, "deepened repo history", "rev", rev, "floor", window.Lo, "done", window.Genesis)
-	return window.Genesis, nil
+	return window.Genesis, window.Lo, nil
 }
 
 // syncsInFlight holds the DIDs whose backfill is running in this process right

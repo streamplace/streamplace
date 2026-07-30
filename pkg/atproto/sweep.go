@@ -528,6 +528,10 @@ func (atsync *ATProtoSynchronizer) sweepDeepen(ctx context.Context, progress *sw
 	log.Log(ctx, "deepening repo history", "phase", sweepPhaseDeepen, "repos", len(pending),
 		"hosts", len(hostLanes(pending)))
 
+	// Windows completed per DID across the whole ladder, for the one-line
+	// summary when a repo finishes. Rounds are sequential (each is a barrier),
+	// so each round's mu safely guards it in turn.
+	windows := make(map[string]int, len(pending))
 	for round := 0; len(pending) > 0 && round < maxDeepenRounds; round++ {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -540,8 +544,14 @@ func (atsync *ATProtoSynchronizer) sweepDeepen(ctx context.Context, progress *sw
 				log.Error(ctx, "failed to deepen repo history", "did", item.DID, "err", err)
 				return
 			}
+			progress.window()
+			mu.Lock()
+			windows[item.DID]++
+			n := windows[item.DID]
+			mu.Unlock()
 			if done {
 				progress.finished()
+				log.Log(ctx, "finished deepening repo history", "did", item.DID, "windows", n)
 				return
 			}
 			mu.Lock()
@@ -598,18 +608,20 @@ type sweepProgress struct {
 	mu      sync.Mutex
 	phase   string
 	done    int
+	windows int
 	total   int
 	horizon time.Time
 	started bool
 }
 
-// begin starts a phase, resetting the completion count.
+// begin starts a phase, resetting the completion counts.
 func (p *sweepProgress) begin(phase string, total int, horizon time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.phase = phase
 	p.total = total
 	p.done = 0
+	p.windows = 0
 	p.horizon = horizon
 	p.started = true
 }
@@ -619,6 +631,15 @@ func (p *sweepProgress) finished() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.done++
+}
+
+// window records one history window completing. During deepening a repo only
+// counts as done at the bottom of its ladder, so without this the status line
+// reads users=0 while thousands of windows finish underneath it.
+func (p *sweepProgress) window() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.windows++
 }
 
 // setHorizon updates how far back the sweep has taken every repo it is working
@@ -639,7 +660,11 @@ func (p *sweepProgress) status() []any {
 	if !p.horizon.IsZero() {
 		horizon = p.horizon.Unix()
 	}
-	return []any{"phase", p.phase, "users", p.done, "total", p.total, "horizon", horizon}
+	kv := []any{"phase", p.phase, "users", p.done, "total", p.total, "horizon", horizon}
+	if p.phase == sweepPhaseDeepen {
+		kv = append(kv, "windows", p.windows)
+	}
+	return kv
 }
 
 // start runs the status ticker until the returned function is called, which

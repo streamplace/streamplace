@@ -102,7 +102,9 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		log.Log(ctx, "discovered new user", "did", ident.DID.String(), "handle", ident.Handle.String(), "pds", ident.PDSEndpoint())
 	}
 
-	log.Log(ctx, "resolved bluesky identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
+	// Debug: this fires on every sync operation, not just first contact --
+	// "discovered new user" above is the first-contact line.
+	log.Debug(ctx, "resolved atproto identity", "did", ident.DID, "handle", ident.Handle, "pds", ident.PDSEndpoint())
 	xrpcc := xrpc.Client{
 		Host:   ident.PDSEndpoint(),
 		Client: SyncHTTPClient,
@@ -219,7 +221,9 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	if err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis); err != nil {
 		return false, fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
 	}
-	log.Log(ctx, "deepened repo history", "rev", rev, "floor", window.Lo, "done", window.Genesis)
+	// Debug: at one line per repo per window this is thousands of lines per
+	// sweep. The sweep logs one Info summary per repo when its ladder finishes.
+	log.Debug(ctx, "deepened repo history", "rev", rev, "floor", window.Lo, "done", window.Genesis)
 	return window.Genesis, nil
 }
 

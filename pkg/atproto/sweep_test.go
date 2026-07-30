@@ -502,18 +502,23 @@ func TestSweepProgressStatusLine(t *testing.T) {
 		[]any{"phase", "shallow", "users", 1, "total", 3, "horizon", horizon.Unix()},
 		progress.status())
 
-	// A new phase resets the count and moves the horizon.
+	// A new phase resets the counts and moves the horizon. Deepening also
+	// reports windows: repos only count as done at the bottom of their ladder,
+	// so windows is the number that shows the sweep moving in the meantime.
 	deeper := time.Now().Add(-30 * 24 * time.Hour)
 	progress.begin(sweepPhaseDeepen, 2, deeper)
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 0, "total", 2, "horizon", deeper.Unix()},
+		[]any{"phase", "deepen", "users", 0, "total", 2, "horizon", deeper.Unix(), "windows", 0},
 		progress.status())
+	progress.window()
+	progress.window()
+	progress.window()
 	progress.finished()
 	progress.finished()
 	deepest := time.Now().Add(-180 * 24 * time.Hour)
 	progress.setHorizon(deepest)
 	require.Equal(t,
-		[]any{"phase", "deepen", "users", 2, "total", 2, "horizon", deepest.Unix()},
+		[]any{"phase", "deepen", "users", 2, "total", 2, "horizon", deepest.Unix(), "windows", 3},
 		progress.status())
 
 	// The ticker stops when told to, without leaking a goroutine.

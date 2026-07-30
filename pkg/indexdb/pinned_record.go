@@ -3,8 +3,10 @@ package indexdb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -55,7 +57,43 @@ func (p *PinnedRecord) ToPinnedRecordView() (placestream.ChatDefs_PinnedRecordVi
 	}
 	return rec, nil
 }
-func (m *DBModel) CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error {
+
+// UpsertPinnedRecord indexes a place.stream.chat.pinnedRecord record,
+// deriving the row (CID, timestamps, expiry) from the record and AT-URI.
+// pinnedBy defaults to the record's own repo when unset, matching the
+// pre-refactor indexer.
+func (m *DBModel) UpsertPinnedRecord(ctx context.Context, rec placestream.ChatPinnedRecord, aturi syntax.ATURI) error {
+	repoDID, cid, _, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("invalid pinnedRecord createdAt %q: %w", rec.CreatedAt, err)
+	}
+	var expiresAt *time.Time
+	if rec.ExpiresAt != nil {
+		exp, err := time.Parse(time.RFC3339, *rec.ExpiresAt)
+		if err != nil {
+			return fmt.Errorf("invalid pinnedRecord expiresAt %q: %w", *rec.ExpiresAt, err)
+		}
+		expiresAt = &exp
+	}
+	pinnedBy := repoDID
+	if rec.PinnedBy != nil {
+		pinnedBy = *rec.PinnedBy
+	}
+	now := time.Now().UTC()
+	pin := &PinnedRecord{
+		Uri:           aturi.String(),
+		RepoDID:       repoDID,
+		PinnedMessage: rec.PinnedMessage,
+		PinnedBy:      pinnedBy,
+		IndexedAt:     &now,
+		CID:           cid,
+		CreatedAt:     createdAt,
+		ExpiresAt:     expiresAt,
+	}
 	return m.DB.Create(pin).Error
 }
 

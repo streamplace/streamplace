@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
 )
@@ -25,7 +26,20 @@ func (g *Gate) ToRecord() (placestream.ChatGate, error) {
 	}, nil
 }
 
-func (m *DBModel) CreateGate(ctx context.Context, gate *Gate) error {
+// UpsertGate indexes a place.stream.chat.gate record, deriving the row
+// (rkey, CID, timestamps) from the record and AT-URI.
+func (m *DBModel) UpsertGate(ctx context.Context, rec placestream.ChatGate, aturi syntax.ATURI) error {
+	repoDID, cid, _, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	gate := &Gate{
+		RKey:          aturi.RecordKey().String(),
+		CID:           cid,
+		RepoDID:       repoDID,
+		HiddenMessage: rec.HiddenMessage,
+		CreatedAt:     time.Now().UTC(),
+	}
 	return m.DB.Create(gate).Error
 }
 

@@ -1,7 +1,6 @@
 package badges
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -121,11 +120,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		setupVIPIssuance(t, vipUserDID)
 
 		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: issuanceURI, Cid: "bafyiss"})
-		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
-			RepoDID: vipUserDID,
-			Record:  &profile,
-		})
-		require.NoError(t, err)
+		upsertProfile(t, ctx, mod, vipUserDID, profile)
 
 		badges, err := GetValidBadges(ctx, vipUserDID, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
@@ -164,11 +159,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 
 		theftUserDID := "did:plc:theftuser"
 		profile := buildProfileWithStreamerBadge(t, streamerDID, comatproto.RepoStrongRef{Uri: wrongIssuanceURI, Cid: "bafywrong"})
-		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
-			RepoDID: theftUserDID,
-			Record:  &profile,
-		})
-		require.NoError(t, err)
+		upsertProfile(t, ctx, mod, theftUserDID, profile)
 
 		badges, err := GetValidBadges(ctx, theftUserDID, streamerDID, issuerDID, mod)
 		require.NoError(t, err)
@@ -239,11 +230,7 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 		require.NoError(t, err)
 
 		profile := buildProfileWithGlobalBadge(t, comatproto.RepoStrongRef{Uri: eventIssuanceURI, Cid: "bafyeventiss"})
-		err = mod.CreateChatProfile(ctx, &indexdb.ChatProfile{
-			RepoDID: eventUserDID,
-			Record:  &profile,
-		})
-		require.NoError(t, err)
+		upsertProfile(t, ctx, mod, eventUserDID, profile)
 
 		// Appears in streamer's chat
 		badges, err := GetValidBadges(ctx, eventUserDID, streamerDID, issuerDID, mod)
@@ -259,9 +246,9 @@ func TestGetValidBadges_Issuance(t *testing.T) {
 	})
 }
 
-func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref comatproto.RepoStrongRef) []byte {
+func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref comatproto.RepoStrongRef) *placestream.ChatProfile {
 	t.Helper()
-	profile := &placestream.ChatProfile{
+	return &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
 		Badges: &placestream.ChatProfile_BadgeSelections{
 			Streamer: []placestream.ChatProfile_StreamerBadgeSelection{
@@ -269,22 +256,21 @@ func buildProfileWithStreamerBadge(t *testing.T, streamerDID string, ref comatpr
 			},
 		},
 	}
-	var buf bytes.Buffer
-	err := profile.MarshalCBOR(&buf)
-	require.NoError(t, err)
-	return buf.Bytes()
 }
 
-func buildProfileWithGlobalBadge(t *testing.T, ref comatproto.RepoStrongRef) []byte {
+func buildProfileWithGlobalBadge(t *testing.T, ref comatproto.RepoStrongRef) *placestream.ChatProfile {
 	t.Helper()
-	profile := &placestream.ChatProfile{
+	return &placestream.ChatProfile{
 		LexiconTypeID: "place.stream.chat.profile",
 		Badges: &placestream.ChatProfile_BadgeSelections{
 			Global: &ref,
 		},
 	}
-	var buf bytes.Buffer
-	err := profile.MarshalCBOR(&buf)
+}
+
+func upsertProfile(t *testing.T, ctx context.Context, mod indexdb.Model, ownerDID string, rec *placestream.ChatProfile) {
+	t.Helper()
+	aturi, err := syntax.ParseATURI("at://" + ownerDID + "/place.stream.chat.profile/self")
 	require.NoError(t, err)
-	return buf.Bytes()
+	require.NoError(t, mod.UpsertChatProfile(ctx, *rec, aturi))
 }

@@ -73,22 +73,22 @@ type Model interface {
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
 
-	CreateChatMessage(ctx context.Context, message *ChatMessage) error
+	UpsertChatMessage(ctx context.Context, rec placestream.ChatMessage, aturi syntax.ATURI) error
 	MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 
-	CreateGate(ctx context.Context, gate *Gate) error
+	UpsertGate(ctx context.Context, rec placestream.ChatGate, aturi syntax.ATURI) error
 	DeleteGate(ctx context.Context, rkey string) error
 	GetGate(ctx context.Context, rkey string) (*placestream.ChatGate, error)
 
-	CreatePinnedRecord(ctx context.Context, pin *PinnedRecord) error
+	UpsertPinnedRecord(ctx context.Context, rec placestream.ChatPinnedRecord, aturi syntax.ATURI) error
 	DeletePinnedRecord(ctx context.Context, uri string) error
 	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
 	GetPinnedRecord(ctx context.Context, uri string) (*placestream.ChatDefs_PinnedRecordView, error)
 	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*placestream.ChatDefs_PinnedRecordView, error)
 
-	CreateChatProfile(ctx context.Context, profile *ChatProfile) error
+	UpsertChatProfile(ctx context.Context, rec placestream.ChatProfile, aturi syntax.ATURI) error
 	GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error)
 
 	UpdateServerSettings(ctx context.Context, settings *ServerSettings) error

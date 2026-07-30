@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -27,12 +28,17 @@ func (m *ChatProfile) ToRecord() (placestream.ChatProfile, error) {
 	return scp, nil
 }
 
-func (m *DBModel) CreateChatProfile(ctx context.Context, profile *ChatProfile) error {
-	err := m.DB.Save(profile).Error
+// UpsertChatProfile indexes a place.stream.chat.profile record,
+// deriving the stored CBOR blob from the record.
+func (m *DBModel) UpsertChatProfile(ctx context.Context, rec placestream.ChatProfile, aturi syntax.ATURI) error {
+	repoDID, _, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err
 	}
-	return nil
+	return m.DB.Save(&ChatProfile{
+		RepoDID: repoDID,
+		Record:  &blob,
+	}).Error
 }
 
 func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error) {

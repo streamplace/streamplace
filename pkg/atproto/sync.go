@@ -119,20 +119,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
-		mcm := &indexdb.ChatMessage{
-			CID:             cid,
-			URI:             aturi.String(),
-			CreatedAt:       now,
-			ChatMessage:     recCBOR,
-			RepoDID:         userDID,
-			Repo:            repo,
-			StreamerRepoDID: rec.Streamer,
-			IndexedAt:       &now,
-		}
-		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
-			mcm.ReplyToCID = &rec.Reply.Parent.Cid
-		}
-
 		// check if we have any link facets with 'javascript:' links
 		for _, facet := range rec.Facets {
 			for _, feature := range facet.Features {
@@ -145,12 +131,12 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-		err = atsync.Model.CreateChatMessage(ctx, mcm)
+		err = atsync.Model.UpsertChatMessage(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
 			return nil
 		}
-		mcm, err = atsync.Model.GetChatMessage(aturi.String())
+		mcm, err := atsync.Model.GetChatMessage(aturi.String())
 		if err != nil {
 			log.Error(ctx, "failed to get just-saved chat message", "err", err)
 			return nil
@@ -191,7 +177,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *placestream.ChatGate:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -200,15 +186,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating gate", "userDID", userDID, "hiddenMessage", rec.HiddenMessage)
-		gate := &indexdb.Gate{
-			RKey:          rkey.String(),
-			RepoDID:       userDID,
-			HiddenMessage: rec.HiddenMessage,
-			CID:           cid,
-			CreatedAt:     now,
-			Repo:          repo,
-		}
-		err = atsync.Model.CreateGate(ctx, gate)
+		err = atsync.Model.UpsertGate(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create gate: %w", err)
 		}
@@ -222,7 +200,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, *savedGate)
 
 	case *placestream.ChatPinnedRecord:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
+		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
@@ -230,47 +208,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating pinned record", "userDID", userDID, "pinnedMessage", rec.PinnedMessage)
-		// err = atsync.Model.DeleteAllPinnedRecords(ctx, userDID)
-		// if err != nil {
-		// 	log.Error(ctx, "failed to delete existing pinned records", "err", err)
-		// }
-		// Parse optional expiresAt
-		var expiresAt *time.Time
-		if rec.ExpiresAt != nil {
-			t, err := time.Parse(time.RFC3339, *rec.ExpiresAt)
-			if err == nil {
-				expiresAt = &t
-			}
-		}
-		// serialise createdAt
-		createdAt, err := time.Parse(time.RFC3339, rec.CreatedAt)
-		if err != nil {
-			return fmt.Errorf("failed to parse createdAt: %w", err)
-		}
-
-		var pinnedBy string
-		if rec.PinnedBy == nil {
-			pinnedBy = userDID
-		} else {
-			pinnedBy = *rec.PinnedBy
-		}
-
-		pin := &indexdb.PinnedRecord{
-			Uri:           aturi.String(),
-			RepoDID:       userDID,
-			PinnedMessage: rec.PinnedMessage,
-			PinnedBy:      pinnedBy,
-			IndexedAt:     &now,
-			CID:           cid,
-			CreatedAt:     createdAt,
-			Repo:          repo,
-			ExpiresAt:     expiresAt,
-		}
-		err = atsync.Model.CreatePinnedRecord(ctx, pin)
+		err = atsync.Model.UpsertPinnedRecord(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create pinned record: %w", err)
 		}
-		savedPin, err := atsync.Model.GetPinnedRecord(ctx, pin.Uri)
+		savedPin, err := atsync.Model.GetPinnedRecord(ctx, aturi.String())
 		if err != nil {
 			return fmt.Errorf("failed to get pinned record after we just saved it: %w", err)
 		}
@@ -278,6 +220,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to get pinned record after we just saved it: not found")
 		}
 		pinnedView := *savedPin
+		pinnedBy := userDID
+		if rec.PinnedBy != nil {
+			pinnedBy = *rec.PinnedBy
+		}
 		// look up the original message, pinner
 		msg, err := atsync.Model.GetChatMessage(pinnedView.Record.PinnedMessage)
 		if err != nil {
@@ -300,16 +246,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, pinnedView)
 
 	case *placestream.ChatProfile:
-		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
-		if err != nil {
+		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		mcm := &indexdb.ChatProfile{
-			RepoDID: userDID,
-			Repo:    repo,
-			Record:  recCBOR,
-		}
-		err = atsync.Model.CreateChatProfile(ctx, mcm)
+		err := atsync.Model.UpsertChatProfile(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to create chat profile", "err", err)
 		}

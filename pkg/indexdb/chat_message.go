@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/rivo/uniseg"
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
@@ -92,8 +93,28 @@ func (m *ChatMessage) ToMessageView() (*placestream.ChatDefs_MessageView, error)
 	return &message, nil
 }
 
-func (m *DBModel) CreateChatMessage(ctx context.Context, message *ChatMessage) error {
-	return m.DB.Create(message).Error
+// UpsertChatMessage indexes a place.stream.chat.message record. Row
+// plumbing (URI/CID/CBOR, streamer and reply linkage) is derived here;
+// created_at uses index time, matching the pre-refactor indexer.
+func (m *DBModel) UpsertChatMessage(ctx context.Context, rec placestream.ChatMessage, aturi syntax.ATURI) error {
+	repoDID, cid, blob, err := recordParts(aturi, &rec)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	mcm := &ChatMessage{
+		CID:             cid,
+		URI:             aturi.String(),
+		CreatedAt:       now,
+		ChatMessage:     &blob,
+		RepoDID:         repoDID,
+		StreamerRepoDID: rec.Streamer,
+		IndexedAt:       &now,
+	}
+	if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
+		mcm.ReplyToCID = &rec.Reply.Parent.Cid
+	}
+	return m.DB.Create(mcm).Error
 }
 
 func (m *DBModel) DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error {

@@ -35,6 +35,13 @@ type Repo struct {
 	// BackfillDone reports that those windowed collections are indexed all the
 	// way back to the start of the repo, so there is no history left to fetch.
 	BackfillDone bool `gorm:"column:backfill_done" json:"backfillDone,omitempty"`
+	// RepairFrom is the revision this repo was known good at when drift was
+	// detected -- a firehose commit that did not follow our rev, or a head
+	// check that disagreed with it. Marking a repo for repair clears Version
+	// (the wedge every repair path already keys on), which would otherwise
+	// throw away the one fact the repair needs: where the missed span starts.
+	// Empty for a repo that has never been marked.
+	RepairFrom string `gorm:"column:repair_from" json:"repairFrom,omitempty"`
 }
 
 // TerminalStatus reports whether this repo is in an account state no amount of
@@ -131,6 +138,57 @@ func (m *DBModel) AdvanceRepoBackfill(ctx context.Context, did, version, rootCID
 			BackfillFloor: floor,
 			BackfillDone:  done,
 		}).Error
+}
+
+// AdvanceRepoVersion moves a repo's revision from one value to another, and
+// only from that value: it is a compare-and-swap, and it reports whether it
+// applied.
+//
+// The firehose hands events to a goroutine each, so nothing orders two commits
+// on one repo. A CAS makes that harmless -- the event whose Since matches the
+// stored rev is by definition the next one, and every other outcome is decided
+// by re-reading the row rather than by whichever write landed last.
+//
+// An empty from is refused rather than executed: an empty Version is the wedge
+// that means "this repo is being backfilled, or needs to be", and quietly
+// filling it in from an event would un-wedge a repair nobody has done yet.
+func (m *DBModel) AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error) {
+	if from == "" || to == "" {
+		return false, nil
+	}
+	res := m.DB.WithContext(ctx).Model(&Repo{}).
+		Where("did = ? AND version = ?", did, from).
+		Select("Version").Updates(Repo{Version: to})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// MarkRepoForRepair records that this repo's index no longer matches its host:
+// it clears Version -- the wedge that makes every existing repair path (the
+// cached-sync fall-through, the sweep's plan) pick the repo up -- and remembers
+// the rev it was last known good at in RepairFrom.
+//
+// Only Version and RepairFrom are written. The rest of the row is history the
+// repair must not lose: the backfill watermark says how far back this repo is
+// indexed, and a repair walks a recent window, so blanking it would send a
+// completed repo back to the top of the deepening ladder.
+//
+// It is a compare-and-swap on from, so a repo somebody else has already wedged
+// (or has since advanced past) is left alone, and it reports whether it applied.
+func (m *DBModel) MarkRepoForRepair(ctx context.Context, did, from string) (bool, error) {
+	if from == "" {
+		return false, nil
+	}
+	res := m.DB.WithContext(ctx).Model(&Repo{}).
+		Where("did = ? AND version = ?", did, from).
+		Select("Version", "RepairFrom").
+		Updates(Repo{Version: "", RepairFrom: from})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // TerminalRepoDIDs lists the repos parked in a terminal account state, so the

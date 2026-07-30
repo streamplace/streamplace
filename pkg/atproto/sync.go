@@ -553,6 +553,14 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, rec)
 
+		if isFirstSync {
+			// A backfill reads history, and a teleport out of history has
+			// already happened: announcing it would tell a streamer somebody is
+			// arriving who arrived last year. The record is indexed either way;
+			// only the announcement is a live-only thing.
+			return nil
+		}
+
 		// schedule arrival notification 10 seconds after startsAt
 		arrivalTime := startsAt.Add(10 * time.Second)
 		waitDuration := time.Until(arrivalTime)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -379,10 +380,60 @@ func indexOf(xs []string, x string) int {
 // stepLabel renders a step the way the lane-program tests compare them: which
 // repo, and whether it is the shallow sync or the nth window.
 func stepLabel(step sweepStep) string {
+	if step.Check {
+		return step.DID + "/check"
+	}
 	if !step.Deepen {
 		return step.DID + "/shallow"
 	}
 	return fmt.Sprintf("%s/window%d", step.DID, step.Windows+1)
+}
+
+// TestSweepLaneProgramChecksFirst: a lane's head checks come before its other
+// work, because each is one request that says whether the rest of the work on
+// that repo is the right work -- a repo whose recent records are wrong is not
+// made righter by deepening it. A check that finds drift adds a shallow sync
+// the sweep did not know it had, and that sync still preempts the ladder.
+func TestSweepLaneProgramChecksFirst(t *testing.T) {
+	ready := make(chan struct{})
+	var mu sync.Mutex
+	var steps []string
+	var sched *laneScheduler
+	windows := map[string]int{}
+
+	sched = newLaneScheduler(context.Background(), 4, func(_ context.Context, step sweepStep) bool {
+		<-ready
+		mu.Lock()
+		defer mu.Unlock()
+		steps = append(steps, stepLabel(step))
+		switch {
+		case step.Check:
+			if step.DID == "drifted" {
+				// What sweepCheck does with drift: hand the repair back to
+				// this same lane, where it goes ahead of the ladder.
+				sched.add(sweepItem{DID: step.DID, Lane: step.Lane})
+				return false
+			}
+			return true // current, and still owes history
+		case !step.Deepen:
+			return true
+		default:
+			windows[step.DID]++
+			return false
+		}
+	})
+	sched.add(sweepItem{DID: "current", Lane: "pds.example", Check: true})
+	sched.add(sweepItem{DID: "drifted", Lane: "pds.example", Check: true})
+	sched.add(sweepItem{DID: "new", Lane: "pds.example"})
+	close(ready)
+	_, err := sched.wait()
+	require.NoError(t, err)
+
+	require.Equal(t, []string{
+		"current/check", "drifted/check",
+		"new/shallow", "drifted/shallow",
+		"current/window1", "new/window1", "drifted/window1",
+	}, steps)
 }
 
 // TestSweepLaneProgramShallowFirst: a host's repos are all made servable before
@@ -696,6 +747,95 @@ func TestSweepLanesStopOnCancel(t *testing.T) {
 
 // TestSweepConcurrencyFlag: the cap comes from --sweep-concurrency, and an unset
 // or nonsense value is the documented default.
+// TestSweepLoopRepeats: the boot sweep always runs, and after it the ticker
+// keeps running them until the node goes away. That repetition is what makes
+// the head check a reconciliation loop rather than a one-off.
+func TestSweepLoopRepeats(t *testing.T) {
+	atsync := &ATProtoSynchronizer{}
+
+	// A disabled ticker still sweeps once at boot.
+	var once atomic.Int64
+	atsync.sweepLoop(context.Background(), 0, func(context.Context) { once.Add(1) })
+	require.Equal(t, int64(1), once.Load())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runs := make(chan struct{}, 8)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		atsync.sweepLoop(ctx, time.Millisecond, func(context.Context) {
+			select {
+			case runs <- struct{}{}:
+			default:
+			}
+		})
+	}()
+	for i := 0; i < 3; i++ {
+		select {
+		case <-runs:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("only %d sweeps ran", i)
+		}
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the sweep loop outlived its context")
+	}
+}
+
+// TestSweepOnceSkipsWhileRunning: a sweep of a large index can take longer than
+// the interval, and two at once would double every host's request rate to do
+// the same work twice. The tick is dropped, not queued.
+func TestSweepOnceSkipsWhileRunning(t *testing.T) {
+	atsync := &ATProtoSynchronizer{}
+	ctx := context.Background()
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		atsync.sweepOnce(ctx, func(context.Context) error {
+			close(started)
+			<-release
+			return nil
+		})
+	}()
+	<-started
+
+	var skipped atomic.Bool
+	skipped.Store(true)
+	atsync.sweepOnce(ctx, func(context.Context) error {
+		skipped.Store(false)
+		return nil
+	})
+	require.True(t, skipped.Load(), "a second sweep must not start on top of the first")
+
+	close(release)
+	<-finished
+
+	// And the slot is handed back, so the next tick sweeps.
+	var ran atomic.Bool
+	atsync.sweepOnce(ctx, func(context.Context) error {
+		ran.Store(true)
+		return fmt.Errorf("a sweep that fails is logged, not fatal")
+	})
+	require.True(t, ran.Load())
+}
+
+// TestSweepIntervalConfig: how often a node re-checks the repos it indexes.
+func TestSweepIntervalConfig(t *testing.T) {
+	require.Equal(t, config.DefaultSweepInterval, (&ATProtoSynchronizer{}).sweepInterval(),
+		"a synchronizer without a CLI still re-sweeps")
+	require.Equal(t, 90*time.Minute,
+		(&ATProtoSynchronizer{CLI: &config.CLI{SweepInterval: 90 * time.Minute}}).sweepInterval())
+	require.Equal(t, time.Duration(0),
+		(&ATProtoSynchronizer{CLI: &config.CLI{SweepInterval: 0}}).sweepInterval(), "0 disables the ticker")
+}
+
 func TestSweepConcurrencyFlag(t *testing.T) {
 	require.Equal(t, config.DefaultSweepConcurrency, (&ATProtoSynchronizer{}).sweepConcurrency(),
 		"a synchronizer without a CLI still sweeps")
@@ -725,8 +865,9 @@ func TestSweepProgressStatusLine(t *testing.T) {
 	month := time.Now().Add(-30 * 24 * time.Hour)
 
 	// Three repos to make servable, one already servable and mid-ladder: the
-	// horizon is that one's watermark.
-	progress.begin(3, map[string]time.Time{"did:plc:old": week})
+	// horizon is that one's watermark. Nothing to head-check, so the line does
+	// not mention checking -- which is a fresh node's first sweep exactly.
+	progress.begin(3, 0, map[string]time.Time{"did:plc:old": week})
 	require.Equal(t,
 		[]any{"shallow", "0/3", "deepened", "0/1", "windows", 0, "horizon", week.Unix()},
 		progress.status())
@@ -766,6 +907,21 @@ func TestSweepProgressStatusLine(t *testing.T) {
 	// The ticker stops when told to, without leaking a goroutine.
 	stop := progress.start(context.Background())
 	stop()
+
+	// A warm node's sweep starts with a head check per servable repo, and says
+	// so until it has made all of them. A check that finds drift is a shallow
+	// sync this sweep did not know it had, so the denominator grows.
+	var warm sweepProgress
+	warm.begin(1, 2, nil)
+	require.Equal(t,
+		[]any{"checked", "0/2", "shallow", "0/1", "deepened", "0/0", "windows", 0, "horizon", int64(0)},
+		warm.status())
+	warm.checked()
+	warm.checked()
+	warm.repairing()
+	require.Equal(t,
+		[]any{"checked", "2/2", "shallow", "0/2", "deepened", "0/0", "windows", 0, "horizon", int64(0)},
+		warm.status())
 }
 
 // walkAll walks a repo's ranges against the dev PDS and returns the paths, so

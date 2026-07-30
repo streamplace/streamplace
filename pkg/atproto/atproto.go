@@ -17,7 +17,6 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/reposync"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
@@ -116,7 +115,13 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	// First contact is shallow: everything this node indexes, but only the last
 	// [InitialWindow] of the collections that can hold years of records. The
 	// account is servable in seconds; the sweep deepens its history afterwards.
-	floor := reposync.TIDForTime(time.Now().Add(-InitialWindow))
+	// A repo marked for repair instead reads from where its index was last
+	// known good, which is where the span it missed begins -- see [repairFloor].
+	repairFrom := ""
+	if oldRepo != nil {
+		repairFrom = oldRepo.RepairFrom
+	}
+	floor := repairFloor(repairFrom, time.Now())
 	result, err := atsync.backfillRepo(ctx, ident, &xrpcc, floor)
 	if err != nil {
 		if parked := parkTerminalRepo(ctx, mod, ident.DID.String(), err); parked != nil {
@@ -127,6 +132,11 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 
 	// A completed backfill proves the account is fine, so Status goes back to
 	// empty -- UpdateRepo writes every column, so this happens by construction.
+	// The same property is why the history state is merged rather than assigned:
+	// a repair walks one recent window and would otherwise report a repo with
+	// five years indexed as having a day. RepairFrom is left zero on purpose --
+	// the repair it asked for is the one that just finished.
+	floor, done := mergeBackfillState(oldRepo, result)
 	newRepo := model.Repo{
 		DID:           ident.DID.String(),
 		PDS:           ident.PDSEndpoint(),
@@ -134,8 +144,8 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		RootCID:       result.RootCID,
 		Handle:        ident.Handle.String(),
 		Status:        model.RepoStatusOK,
-		BackfillFloor: result.Floor,
-		BackfillDone:  result.Done,
+		BackfillFloor: floor,
+		BackfillDone:  done,
 	}
 	err = mod.UpdateRepo(&newRepo)
 	if err != nil {
@@ -289,6 +299,9 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 		// this repo's whole history again from the top of the ladder.
 		newRepo.BackfillFloor = oldRepo.BackfillFloor
 		newRepo.BackfillDone = oldRepo.BackfillDone
+		// And for the repair watermark, which is how a pending repair knows
+		// which span of history it is there to re-read.
+		newRepo.RepairFrom = oldRepo.RepairFrom
 	}
 	err = atsync.Model.UpdateRepo(&newRepo)
 	if err != nil {
@@ -313,7 +326,16 @@ func (atsync *ATProtoSynchronizer) ResolveAuthorHandle(ctx context.Context, did 
 	return handle
 }
 
-func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {
+// directory hands back the identity directory to resolve with, building the
+// pair on first use.
+//
+// Under a lock because a sweep resolves identities from dozens of goroutines at
+// once -- lane workers and the sharding resolver, at the same instant -- and
+// two of them racing to install the lazily built directory would each end up
+// using a different cache, if the race detector let them get that far.
+func (atsync *ATProtoSynchronizer) directory(cached bool) identity.Directory {
+	atsync.dirMu.Lock()
+	defer atsync.dirMu.Unlock()
 	if atsync.PLCDirectory == nil {
 		atsync.PLCDirectory = CustomDirectory(atsync.CLI.PLCURL)
 	}
@@ -321,10 +343,14 @@ func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string,
 		cachedDir := identity.NewCacheDirectory(atsync.PLCDirectory, 250_000, time.Hour*24, time.Minute*2, time.Minute*5)
 		atsync.CachedPLCDirectory = &cachedDir
 	}
-	dir := atsync.PLCDirectory
 	if cached {
-		dir = atsync.CachedPLCDirectory
+		return atsync.CachedPLCDirectory
 	}
+	return atsync.PLCDirectory
+}
+
+func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {
+	dir := atsync.directory(cached)
 	id, err := syntax.ParseAtIdentifier(arg)
 	if err != nil {
 		return nil, err

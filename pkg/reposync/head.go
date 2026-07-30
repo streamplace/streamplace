@@ -26,6 +26,38 @@ type Head struct {
 	Rev string
 }
 
+// LatestCommit asks a host which commit a repo is on, and nothing more: one
+// request, no blocks fetched, no signature checked.
+//
+// The answer is therefore the host's word rather than proof. That is enough to
+// tell "our index is at the same rev as the host" from "it is not", which is
+// all a drift check needs -- and a check that finds drift hands the repo to the
+// fully verified walk in [FetchVerifiedHead], so nothing gets indexed on the
+// strength of this call.
+//
+// At most one retry policy may be given; omitting it uses the package defaults.
+func LatestCommit(ctx context.Context, client *xrpc.Client, did string, retry ...RetryPolicy) (*indigoat.SyncGetLatestCommit_Output, error) {
+	if len(retry) > 1 {
+		return nil, fmt.Errorf("at most one retry policy, got %d", len(retry))
+	}
+	var policy RetryPolicy
+	if len(retry) == 1 {
+		policy = retry[0]
+	}
+	policy = policy.forHost(client.Host)
+
+	var latest *indigoat.SyncGetLatestCommit_Output
+	err := policy.do(ctx, "com.atproto.sync.getLatestCommit "+did, func() error {
+		var err error
+		latest, err = indigoat.SyncGetLatestCommit(ctx, client, did)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("com.atproto.sync.getLatestCommit for %s: %w", did, err)
+	}
+	return latest, nil
+}
+
 // FetchVerifiedHead resolves a repo's current commit and proves it belongs to
 // did.
 //
@@ -52,14 +84,9 @@ func FetchVerifiedHead(ctx context.Context, client *xrpc.Client, f BlockFetcher,
 		return nil, fmt.Errorf("invalid did %q: %w", did, err)
 	}
 
-	var latest *indigoat.SyncGetLatestCommit_Output
-	err = policy.do(ctx, "com.atproto.sync.getLatestCommit "+did, func() error {
-		var err error
-		latest, err = indigoat.SyncGetLatestCommit(ctx, client, did)
-		return err
-	})
+	latest, err := LatestCommit(ctx, client, did, policy)
 	if err != nil {
-		return nil, fmt.Errorf("com.atproto.sync.getLatestCommit for %s: %w", did, err)
+		return nil, err
 	}
 	commitCID, err := cid.Decode(latest.Cid)
 	if err != nil {

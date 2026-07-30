@@ -36,6 +36,9 @@ type sweepItem struct {
 	// nothing but history: it starts in its lane's ladder rather than in its
 	// lane's shallow queue.
 	Deepen bool
+	// Check is set for a repo that is servable and believed current, and so
+	// starts with one request that asks its host whether that belief is true.
+	Check bool
 }
 
 // sweepStep is one unit of work a lane does: either the shallow sync a repo
@@ -154,11 +157,16 @@ func (atsync *ATProtoSynchronizer) feedUnresolved(ctx context.Context, items []s
 // has finished its shallow work, a lane runs this program to completion by
 // itself and then gives its slot to the next host.
 //
-// Shallow work always comes first, because a repo with no completed sync cannot
-// be deepened at all, and because a repo that has just been discovered is not
-// servable until it has one. Deepening is round-robin within the host, which is
-// what the ladder buckets are for.
+// Head checks come first, because each is one request that turns a repo we
+// believe is current into one we know is current -- or into shallow work this
+// lane did not know it had. Shallow work is next, because a repo with no
+// completed sync cannot be deepened at all, and because a repo that has just
+// been discovered is not servable until it has one. Deepening is round-robin
+// within the host, which is what the ladder buckets are for.
 type laneProgram struct {
+	// check is the repos on this host whose head has not been verified against
+	// ours this sweep.
+	check []sweepItem
 	// shallow is the repos on this host with no completed sync, oldest first.
 	shallow []sweepItem
 	// ladder holds the repos with history left to fetch, bucketed by how many
@@ -175,9 +183,14 @@ type laneProgram struct {
 	live bool
 }
 
-// next takes the lane's next step: the oldest waiting shallow sync if there is
-// one, otherwise the least-deepened repo's next window.
+// next takes the lane's next step: an unchecked head if there is one, then the
+// oldest waiting shallow sync, then the least-deepened repo's next window.
 func (p *laneProgram) next() (sweepStep, bool) {
+	if len(p.check) > 0 {
+		item := p.check[0]
+		p.check = p.check[1:]
+		return sweepStep{sweepItem: item}, true
+	}
 	if len(p.shallow) > 0 {
 		item := p.shallow[0]
 		p.shallow = p.shallow[1:]
@@ -194,13 +207,16 @@ func (p *laneProgram) next() (sweepStep, bool) {
 	return sweepStep{}, false
 }
 
-// add puts a repo into the half of the program it belongs in.
+// add puts a repo into the part of the program it belongs in.
 func (p *laneProgram) add(item sweepItem) {
-	if item.Deepen {
+	switch {
+	case item.Check:
+		p.check = append(p.check, item)
+	case item.Deepen:
 		p.push(item, 0)
-		return
+	default:
+		p.shallow = append(p.shallow, item)
 	}
-	p.shallow = append(p.shallow, item)
 }
 
 // push queues a repo for its next window, having had windows of them already.
@@ -211,6 +227,9 @@ func (p *laneProgram) push(item sweepItem, windows int) {
 		return
 	}
 	item.Deepen = true
+	// Whatever this repo was doing, it is deepening now: a checked or freshly
+	// synced repo must not be handed back its old step class.
+	item.Check = false
 	for len(p.ladder) <= windows {
 		p.ladder = append(p.ladder, nil)
 	}
@@ -386,6 +405,7 @@ func (s *laneScheduler) abandon(prog *laneProgram) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	prog.live = false
+	prog.check = nil
 	prog.shallow = nil
 	prog.ladder = nil
 }
@@ -398,6 +418,67 @@ func (s *laneScheduler) wait() (lanes int, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.seen, s.ctx.Err()
+}
+
+// SweepForever runs a sweep at boot and another every [config.CLI.SweepInterval]
+// after that, for as long as ctx lives.
+//
+// Repeating is what makes the head check worth having: a repo that is current
+// costs one request per interval, and one that has drifted -- because this node
+// was down longer than the relay's replay window, or because a fresh index
+// started listening after the accounts it inherited had already moved -- is
+// found and repaired within an interval instead of never.
+func (atsync *ATProtoSynchronizer) SweepForever(ctx context.Context) {
+	atsync.sweepLoop(ctx, atsync.sweepInterval(), func(ctx context.Context) {
+		atsync.sweepOnce(ctx, atsync.Sweep)
+	})
+}
+
+// sweepLoop runs run now and every interval after, until ctx ends. A
+// non-positive interval runs it exactly once: the boot sweep is not optional,
+// only repeating it is.
+func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, interval time.Duration, run func(context.Context)) {
+	run(ctx)
+	if interval <= 0 || ctx.Err() != nil {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			run(ctx)
+		}
+	}
+}
+
+// sweepOnce runs a sweep unless one is already running.
+//
+// A sweep of a large index can take longer than the interval -- a fresh node's
+// first one takes hours -- and two of them at once would double every host's
+// request rate while doing the same work twice. The tick is dropped rather than
+// queued: the next one is another interval away, which is exactly when a sweep
+// that just finished should run again.
+func (atsync *ATProtoSynchronizer) sweepOnce(ctx context.Context, sweep func(context.Context) error) {
+	if !atsync.sweeping.CompareAndSwap(false, true) {
+		log.Log(ctx, "skipping scheduled sweep; the previous one is still running")
+		return
+	}
+	defer atsync.sweeping.Store(false)
+	if err := sweep(ctx); err != nil && ctx.Err() == nil {
+		log.Error(ctx, "backfill sweep failed", "err", err)
+	}
+}
+
+// sweepInterval is how often this node re-sweeps. Zero (or negative) disables
+// the ticker, leaving the boot sweep on its own.
+func (atsync *ATProtoSynchronizer) sweepInterval() time.Duration {
+	if atsync.CLI == nil {
+		return config.DefaultSweepInterval
+	}
+	return atsync.CLI.SweepInterval
 }
 
 // sweepConcurrency is how many host lanes this node runs at once.
@@ -440,19 +521,28 @@ func (atsync *ATProtoSynchronizer) Sweep(ctx context.Context) error {
 		return err
 	}
 	progress := &sweepProgress{}
-	progress.begin(plan.shallow, plan.floors)
+	progress.begin(plan.shallow, plan.checks, plan.floors)
 	stop := progress.start(ctx)
 	defer stop()
 
-	log.Log(ctx, "sweeping repos", "shallow", plan.shallow, "deepen", len(plan.floors),
-		"knownHosts", laneCount(plan.ready), "unresolved", len(plan.unresolved))
+	log.Log(ctx, "sweeping repos", "shallow", plan.shallow, "check", plan.checks,
+		"deepen", len(plan.floors), "knownHosts", laneCount(plan.ready),
+		"unresolved", len(plan.unresolved))
 
-	var failed atomic.Int64
-	sched := newLaneScheduler(ctx, atsync.sweepConcurrency(), func(ctx context.Context, step sweepStep) bool {
-		if !step.Deepen {
-			return atsync.sweepSync(ctx, progress, &failed, step)
+	var attempted, failed atomic.Int64
+	// The scheduler is captured by the work it runs: a head check that finds
+	// drift has repair work to hand back, and hands it to the lane it is
+	// already running on.
+	var sched *laneScheduler
+	sched = newLaneScheduler(ctx, atsync.sweepConcurrency(), func(ctx context.Context, step sweepStep) bool {
+		switch {
+		case step.Check:
+			return atsync.sweepCheck(ctx, progress, sched.add, step)
+		case !step.Deepen:
+			return atsync.sweepSync(ctx, progress, &attempted, &failed, step)
+		default:
+			return atsync.sweepWindow(ctx, progress, step)
 		}
-		return atsync.sweepWindow(ctx, progress, step)
 	})
 	// Lanes whose host is already known start working immediately, in priority
 	// order (own DIDs first); the rest stream in as the resolver finds them.
@@ -464,8 +554,11 @@ func (atsync *ATProtoSynchronizer) Sweep(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if plan.shallow > 0 && int(failed.Load()) == plan.shallow {
-		return fmt.Errorf("all %d repos failed to sync", plan.shallow)
+	// Counted rather than compared against the plan: head checks add shallow
+	// work as they find it, so the number of syncs a sweep tries is not known
+	// when it starts.
+	if tried := attempted.Load(); tried > 0 && failed.Load() == tried {
+		return fmt.Errorf("all %d repos failed to sync", tried)
 	}
 	log.Log(ctx, "backfill sweep complete",
 		append([]any{"totalRepos", len(dids), "hosts", lanes}, progress.status()...)...)
@@ -474,7 +567,8 @@ func (atsync *ATProtoSynchronizer) Sweep(ctx context.Context) error {
 
 // sweepSync gives a repo the shallow sync it has never had, and reports whether
 // it now has history to deepen.
-func (atsync *ATProtoSynchronizer) sweepSync(ctx context.Context, progress *sweepProgress, failed *atomic.Int64, step sweepStep) bool {
+func (atsync *ATProtoSynchronizer) sweepSync(ctx context.Context, progress *sweepProgress, attempted, failed *atomic.Int64, step sweepStep) bool {
+	attempted.Add(1)
 	repo, err := atsync.SyncBlueskyRepoCached(ctx, step.DID)
 	if err != nil {
 		log.Error(ctx, "failed to sync repo", "did", step.DID, "err", err)
@@ -607,6 +701,9 @@ type sweepPlan struct {
 	// shallow is how many repos in total need a shallow sync, ready and
 	// unresolved together.
 	shallow int
+	// checks is how many repos are servable and believed current, and so get a
+	// head check before anything else happens to them.
+	checks int
 	// floors is the backfill watermark of every repo that starts in a ladder,
 	// for the status line's horizon.
 	floors map[string]time.Time
@@ -616,9 +713,11 @@ type sweepPlan struct {
 //
 // A repo row with an empty Version has never completed a sync: either brand new,
 // or left half-indexed by a run that died, which is the same thing as far as
-// anyone reading the index is concerned. One with a Version and no BackfillDone
-// has some history and wants the rest. Anything parked or complete is left
-// alone.
+// anyone reading the index is concerned. Anything parked is left alone. Every
+// other repo -- servable, and as far as this node knows current -- starts with
+// a head check, including the ones with history left to fetch: a repo whose
+// recent records are wrong is not made righter by deepening it, and the check
+// costs one request against the several its first window will.
 func (atsync *ATProtoSynchronizer) sweepPlan(dids []string) (*sweepPlan, error) {
 	plan := &sweepPlan{floors: map[string]time.Time{}}
 	for _, did := range dids {
@@ -641,10 +740,15 @@ func (atsync *ATProtoSynchronizer) sweepPlan(dids []string) (*sweepPlan, error) 
 			} else {
 				plan.unresolved = append(plan.unresolved, sweepItem{DID: did})
 			}
-		case repo.TerminalStatus() || repo.BackfillDone:
+		case repo.TerminalStatus():
 		default:
-			plan.ready = append(plan.ready, sweepItem{DID: did, Lane: sweepLane(did, repo.PDS), Deepen: true})
-			plan.floors[did] = backfillFloorTime(repo.BackfillFloor)
+			plan.checks++
+			plan.ready = append(plan.ready, sweepItem{DID: did, Lane: sweepLane(did, repo.PDS), Check: true})
+			if !repo.BackfillDone {
+				// It joins its lane's ladder once its head checks out, but the
+				// horizon it holds is true from the moment the sweep starts.
+				plan.floors[did] = backfillFloorTime(repo.BackfillFloor)
+			}
 		}
 	}
 	return plan, nil
@@ -668,6 +772,8 @@ func backfillFloorTime(tid string) time.Time {
 type sweepProgress struct {
 	mu           sync.Mutex
 	started      bool
+	checkTotal   int
+	checkDone    int
 	shallowTotal int
 	shallowDone  int
 	deepenTotal  int
@@ -681,10 +787,12 @@ type sweepProgress struct {
 }
 
 // begin starts a sweep with the work its plan found.
-func (p *sweepProgress) begin(shallow int, floors map[string]time.Time) {
+func (p *sweepProgress) begin(shallow, checks int, floors map[string]time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.started = true
+	p.checkTotal = checks
+	p.checkDone = 0
 	p.shallowTotal = shallow
 	p.shallowDone = 0
 	p.deepenTotal = len(floors)
@@ -694,6 +802,22 @@ func (p *sweepProgress) begin(shallow int, floors map[string]time.Time) {
 	for did, floor := range floors {
 		p.floors[did] = floor
 	}
+}
+
+// checked records one repo's head having been compared with ours, however that
+// went: the fraction is of checks made, so that it finishes.
+func (p *sweepProgress) checked() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.checkDone++
+}
+
+// repairing records a head check finding drift, which is a shallow sync this
+// sweep did not know it had.
+func (p *sweepProgress) repairing() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.shallowTotal++
 }
 
 // synced records one repo's shallow sync completing.
@@ -709,7 +833,12 @@ func (p *sweepProgress) synced() {
 func (p *sweepProgress) laddered(did string, floor time.Time) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.deepenTotal++
+	if _, counted := p.floors[did]; !counted {
+		// A repo the plan already expected to deepen -- one that drifted, got
+		// repaired, and is on its way back to the ladder it never left -- is
+		// not a second repo.
+		p.deepenTotal++
+	}
 	p.floors[did] = floor
 }
 
@@ -756,12 +885,18 @@ func (p *sweepProgress) horizon() int64 {
 func (p *sweepProgress) status() []any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return []any{
+	var out []any
+	// Only a sweep with repos to check has anything to say about checking
+	// them, which is every sweep but a fresh node's first.
+	if p.checkTotal > 0 {
+		out = append(out, "checked", fmt.Sprintf("%d/%d", p.checkDone, p.checkTotal))
+	}
+	return append(out,
 		"shallow", fmt.Sprintf("%d/%d", p.shallowDone, p.shallowTotal),
 		"deepened", fmt.Sprintf("%d/%d", p.deepenDone, p.deepenTotal),
 		"windows", p.windows,
 		"horizon", p.horizon(),
-	}
+	)
 }
 
 // start runs the status ticker until the returned function is called, which

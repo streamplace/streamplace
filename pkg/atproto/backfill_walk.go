@@ -271,15 +271,10 @@ func (atsync *ATProtoSynchronizer) backfillRepo(ctx context.Context, ident *iden
 func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *identity.Identity, xrpcc *xrpc.Client, ranges []reposync.KeyRange) (string, string, error) {
 	did := ident.DID.String()
 
-	dir := atsync.PLCDirectory
-	if dir == nil {
-		// resolveIdent initializes this lazily, and every caller goes through
-		// it first; be defensive rather than nil-panic. Note this is the
-		// *uncached* directory on purpose: a signing key cached from before a
-		// rotation would fail commit verification, and backfills are rare
-		// enough that the extra lookup does not matter.
-		dir = CustomDirectory(atsync.CLI.PLCURL)
-	}
+	// The *uncached* directory on purpose: a signing key cached from before a
+	// rotation would fail commit verification, and backfills are rare enough
+	// that the extra lookup does not matter.
+	dir := atsync.directory(false)
 
 	// Every retry in this walk consults what the host has been telling us about
 	// backing off; see [pdsBackoffHints]. It only works if the calls go through

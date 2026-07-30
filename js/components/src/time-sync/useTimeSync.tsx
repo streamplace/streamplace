@@ -35,7 +35,7 @@ export function useTimeSync() {
           hasShownWarning.current = true;
           t.show(
             "Clock drift detected!",
-            `Your device clock is ${driftInfo.driftSeconds}s off from server time. Please sync your system clock to avoid issues.`,
+            `Your device clock is ${driftInfo.driftSeconds}s off from server time. Times have been auto-corrected, but please sync your system clock.`,
             {
               variant: "info",
               iconLeft: TriangleAlert,

@@ -44,6 +44,13 @@ not row structs.
 
 ## Type contract conventions
 
+- **Writes** take lexicon records, never rows:
+  `Upsert<Record>(ctx, rec placestream/appbsky.X, aturi syntax.ATURI)`.
+  The AT-URI carries did+rkey; the CID is computed (`spid.GetCID`);
+  the CBOR blob, timestamps, and any derived columns are built inside
+  indexdb (`recordParts`). Caller-computed _indexer metadata_ that isn't
+  record content stays an explicit parameter (FeedPost's `typ`,
+  Teleport's `viewerCount`, BskyProfile's `wasStreamplace`).
 - Row structs convert to lexicon types via methods named
   **`ToRecord()`** (full lexicon record) or **`To<ShortType>()`**
   (`ToBlockView`, `ToServerWebhook`, …) for views/defs. No other naming.
@@ -71,3 +78,37 @@ not row structs.
 - The node's key material (OAuth upstream/downstream JWKs, service-auth
   secret) is loaded from statedb once into `config.NodeIdentity` and
   passed explicitly. `config.CLI` is never mutated after flag parsing.
+
+## Coordination styles (rule of thumb for new dependencies)
+
+1. **Need an answer back?** Method on a narrow interface, wired at the
+   composition root (`cmd` + `Params` structs). The composition root is
+   the only star.
+2. **Others need to know it happened?** Bus event (typed views via
+   `bus.SubscribeEvents[T]`). Facts only, never commands.
+3. **Must survive restart / run on any node?** statedb task queue with
+   processor injection (`SetVODProcessor`, `SetWebhookSender`, …).
+
+Role interfaces named so far: `statedb.indexStore`, `media.mediaStore`,
+`director.directorStore`, `atproto.RepoIdentity` (the read-facing half
+of the synchronizer; the firehose indexer is the other half, driven by
+cmd).
+
+## Remaining work
+
+- **CLI → typed views.** `config.CLI` (~120 fields) is the last
+  god-object. The wrinkle: many CLI "fields" are behaviors
+  (`DataFilePath/DataFileWrite`, `S3Configured`, `StreamIsAllowed`,
+  `OwnInternalURL`), so a view can't be a plain struct copy. The clean
+  pattern is to extract behavior types from CLI first (e.g. a
+  `config.DataFiles` helper owning DataDir + file ops, an `S3Config`
+  value built once), then per-component views
+  (`cli.MediaConfig()` etc.) that hold plain fields plus those helpers.
+  Package-by-package, mechanical once the helpers exist.
+- **spxrpc store narrowing by audience.** spxrpc still takes the full
+  `indexdb.Model`; its handler groups (public XRPC / ingest / playback)
+  have almost disjoint query sets, and the consumer-side interface
+  pattern from statedb/media/director applies directly.
+- **Webhook worker.** Webhook dispatch is injected into the queue
+  processor (`SetWebhookSender`); a fuller extraction would run it as a
+  separate consumer of statedb tasks.

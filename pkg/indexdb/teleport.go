@@ -30,7 +30,7 @@ type Teleport struct {
 // (CBOR blob, CID, startsAt) is derived here from the record and AT-URI;
 // viewerCount is node-local indexer metadata (the streamer's viewer
 // count at index time), passed explicitly.
-func (m *DBModel) UpsertTeleport(ctx context.Context, rec placestream.LiveTeleport, aturi syntax.ATURI, viewerCount int64) error {
+func (m *DBModel) UpsertTeleport(ctx context.Context, aturi syntax.ATURI, rec placestream.LiveTeleport, viewerCount int64) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

@@ -57,7 +57,7 @@ func TestGetValidBadges(t *testing.T) {
 		aturi, err := syntax.ParseATURI("at://" + streamerDID + "/place.stream.moderation.permission/test123")
 		require.NoError(t, err)
 
-		err = mod.CreateModerationDelegation(ctx, perm, aturi)
+		err = mod.CreateModerationDelegation(ctx, aturi, perm)
 		require.NoError(t, err)
 
 		badges, err := GetValidBadges(ctx, moderatorDID, streamerDID, issuerDID, mod)
@@ -216,27 +216,27 @@ func upsertProfile(t *testing.T, ctx context.Context, mod indexdb.Model, ownerDI
 	t.Helper()
 	aturi, err := syntax.ParseATURI("at://" + ownerDID + "/place.stream.chat.profile/self")
 	require.NoError(t, err)
-	require.NoError(t, mod.UpsertChatProfile(ctx, *rec, aturi))
+	require.NoError(t, mod.UpsertChatProfile(ctx, aturi, *rec))
 }
 
 func upsertBadgeDef(t *testing.T, ctx context.Context, mod indexdb.Model, uri, name, badgeType string) {
 	t.Helper()
 	aturi, err := syntax.ParseATURI(uri)
 	require.NoError(t, err)
-	require.NoError(t, mod.UpsertBadgeDef(ctx, placestream.BadgeDef{
+	require.NoError(t, mod.UpsertBadgeDef(ctx, aturi, placestream.BadgeDef{
 		LexiconTypeID: "place.stream.badge.def",
 		Name:          name,
 		BadgeType:     badgeType,
-	}, aturi))
+	}))
 }
 
 func upsertBadgeIssuance(t *testing.T, ctx context.Context, mod indexdb.Model, uri, recipientDID, badgeURI string) {
 	t.Helper()
 	aturi, err := syntax.ParseATURI(uri)
 	require.NoError(t, err)
-	require.NoError(t, mod.UpsertBadgeIssuance(ctx, placestream.BadgeIssuance{
+	require.NoError(t, mod.UpsertBadgeIssuance(ctx, aturi, placestream.BadgeIssuance{
 		LexiconTypeID: "place.stream.badge.issuance",
 		Did:           recipientDID,
 		Badge:         comatproto.RepoStrongRef{Uri: badgeURI},
-	}, aturi))
+	}))
 }

@@ -45,7 +45,7 @@ func (bo *BroadcastOrigin) ToBroadcastOriginView() (placestream.BroadcastDefs_Br
 	}, nil
 }
 
-func (m *DBModel) UpdateBroadcastOrigin(ctx context.Context, origin placestream.BroadcastOrigin, aturi syntax.ATURI) error {
+func (m *DBModel) UpdateBroadcastOrigin(ctx context.Context, aturi syntax.ATURI, origin placestream.BroadcastOrigin) error {
 	repoDID := aturi.Authority().String()
 	cid, err := spid.GetCID(&origin)
 	if err != nil {

@@ -62,7 +62,7 @@ func (p *PinnedRecord) ToPinnedRecordView() (placestream.ChatDefs_PinnedRecordVi
 // deriving the row (CID, timestamps, expiry) from the record and AT-URI.
 // pinnedBy defaults to the record's own repo when unset, matching the
 // pre-refactor indexer.
-func (m *DBModel) UpsertPinnedRecord(ctx context.Context, rec placestream.ChatPinnedRecord, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertPinnedRecord(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatPinnedRecord) error {
 	repoDID, cid, _, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

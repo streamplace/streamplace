@@ -18,11 +18,11 @@ func putLike(t *testing.T, m Model, subject, liker, cid string) {
 	uri := "at://" + liker + "/place.stream.like/" + cid
 	aturi, err := syntax.ParseATURI(uri)
 	require.NoError(t, err)
-	require.NoError(t, m.UpsertLike(context.Background(), placestream.Like{
+	require.NoError(t, m.UpsertLike(context.Background(), aturi, placestream.Like{
 		LexiconTypeID: "place.stream.like",
 		Subject:       subject,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
-	}, aturi))
+	}))
 }
 
 // TestVideoLikeCount verifies likeCount is populated (and subject-scoped) on
@@ -107,7 +107,7 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertMediaTrack(ctx, track, parseURI(t, trackURI)))
+	require.NoError(t, m.UpsertMediaTrack(ctx, parseURI(t, trackURI), track))
 
 	video := placestream.Video{
 		LexiconTypeID: "place.stream.video",
@@ -121,7 +121,7 @@ func putTrackVideo(t *testing.T, m Model, videoURI, trackURI, blobCID string) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parseURI(t, videoURI), video))
 }
 
 // putClipVideo writes a sourceClip video referencing parentURI.
@@ -139,7 +139,7 @@ func putClipVideo(t *testing.T, m Model, clipURI, parentURI string) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(context.Background(), video, parseURI(t, clipURI)))
+	require.NoError(t, m.UpsertVideo(context.Background(), parseURI(t, clipURI), video))
 }
 
 // putOrigin attests that serverDID hosts blobCID.
@@ -152,7 +152,7 @@ func putOrigin(t *testing.T, m Model, serverDID, blobCID string) {
 		MimeType:      "video/mp4",
 	}
 	aturi := parseURI(t, "at://"+serverDID+"/place.stream.media.origin/"+blobCID)
-	require.NoError(t, m.UpsertMediaOrigin(context.Background(), rec, aturi))
+	require.NoError(t, m.UpsertMediaOrigin(context.Background(), aturi, rec))
 }
 
 func uriSet(out placestream.MediaGetVideoList_Output) map[string]bool {

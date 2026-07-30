@@ -52,7 +52,7 @@ func (b *Block) ToBlockView() (placestream.Defs_BlockView, error) {
 
 // UpsertBlock indexes an app.bsky.graph.block record, deriving the row
 // (rkey, CID, subject, CBOR) from the record and AT-URI.
-func (m *DBModel) UpsertBlock(ctx context.Context, rec appbsky.GraphBlock, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertBlock(ctx context.Context, aturi syntax.ATURI, rec appbsky.GraphBlock) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

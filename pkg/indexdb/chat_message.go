@@ -96,7 +96,7 @@ func (m *ChatMessage) ToMessageView() (*placestream.ChatDefs_MessageView, error)
 // UpsertChatMessage indexes a place.stream.chat.message record. Row
 // plumbing (URI/CID/CBOR, streamer and reply linkage) is derived here;
 // created_at uses index time, matching the pre-refactor indexer.
-func (m *DBModel) UpsertChatMessage(ctx context.Context, rec placestream.ChatMessage, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertChatMessage(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatMessage) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

@@ -44,7 +44,7 @@ func (v *MediaViewCount) ToRecord() (*placestream.MediaViewCount, error) {
 	return &vc, nil
 }
 
-func (m *DBModel) UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaViewCount(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaViewCount) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

@@ -51,7 +51,7 @@ func (md *ModerationDelegation) ToPermissionView() (placestream.ModerationDefs_P
 	return view, nil
 }
 
-func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error {
+func (m *DBModel) CreateModerationDelegation(ctx context.Context, aturi syntax.ATURI, rec placestream.ModerationPermission) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

@@ -33,7 +33,7 @@ func mustURI(t *testing.T, s string) syntax.ATURI {
 func putHostedVideo(t *testing.T, m indexdb.Model, videoURI, trackURI, blobCID string) {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{
+	require.NoError(t, m.UpsertMediaTrack(ctx, mustURI(t, trackURI), placestream.MediaTrack{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_TRACK,
 		Track: placestream.MediaTrack_Track{
 			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
@@ -43,9 +43,9 @@ func putHostedVideo(t *testing.T, m indexdb.Model, videoURI, trackURI, blobCID s
 				MediaType:     "video",
 			},
 		},
-	}, mustURI(t, trackURI)))
+	}))
 
-	require.NoError(t, m.UpsertVideo(ctx, placestream.Video{
+	require.NoError(t, m.UpsertVideo(ctx, mustURI(t, videoURI), placestream.Video{
 		LexiconTypeID: constants.PLACE_STREAM_VIDEO,
 		Title:         videoURI,
 		Source: placestream.Video_Source{
@@ -56,7 +56,7 @@ func putHostedVideo(t *testing.T, m indexdb.Model, videoURI, trackURI, blobCID s
 				},
 			},
 		},
-	}, mustURI(t, videoURI)))
+	}))
 }
 
 // TestReindexOriginsRepairsListing reproduces the production failure and its

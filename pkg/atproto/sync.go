@@ -64,7 +64,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating block", "userDID", userDID, "subjectDID", rec.Subject)
-		err := atsync.Model.UpsertBlock(ctx, *rec, aturi)
+		err := atsync.Model.UpsertBlock(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create block: %w", err)
 		}
@@ -84,7 +84,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		wasStreamplace, _ := d[constants.BlueskyProfileGoliveKey].(bool)
-		err := atsync.Model.UpsertBskyProfile(ctx, *rec, aturi, wasStreamplace)
+		err := atsync.Model.UpsertBskyProfile(ctx, aturi, *rec, wasStreamplace)
 		if err != nil {
 			return fmt.Errorf("failed to upsert bsky profile: %w", err)
 		}
@@ -123,7 +123,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-		err = atsync.Model.UpsertChatMessage(ctx, *rec, aturi)
+		err = atsync.Model.UpsertChatMessage(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
 			return nil
@@ -178,7 +178,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating gate", "userDID", userDID, "hiddenMessage", rec.HiddenMessage)
-		err = atsync.Model.UpsertGate(ctx, *rec, aturi)
+		err = atsync.Model.UpsertGate(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create gate: %w", err)
 		}
@@ -200,7 +200,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating pinned record", "userDID", userDID, "pinnedMessage", rec.PinnedMessage)
-		err = atsync.Model.UpsertPinnedRecord(ctx, *rec, aturi)
+		err = atsync.Model.UpsertPinnedRecord(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create pinned record: %w", err)
 		}
@@ -241,7 +241,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if _, err := atsync.SyncBlueskyRepoCached(ctx, userDID); err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		err := atsync.Model.UpsertChatProfile(ctx, *rec, aturi)
+		err := atsync.Model.UpsertChatProfile(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create chat profile", "err", err)
 		}
@@ -251,7 +251,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		err = atsync.Model.UpsertServerSettings(ctx, *rec, aturi)
+		err = atsync.Model.UpsertServerSettings(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create server settings", "err", err)
 		}
@@ -277,7 +277,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("livestream url is not a string")
 			}
 			log.Debug(ctx, "livestream url", "url", url)
-			if err := atsync.Model.UpsertFeedPost(ctx, rec, aturi, "livestream"); err != nil {
+			if err := atsync.Model.UpsertFeedPost(ctx, aturi, rec, "livestream"); err != nil {
 				return fmt.Errorf("failed to create bluesky post: %w", err)
 			}
 		} else {
@@ -315,7 +315,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if !ok || livestreamRec.Post == nil {
 				return fmt.Errorf("livestream %s has no linked post record", livestream.Uri)
 			}
-			err = atsync.Model.UpsertFeedPost(ctx, rec, aturi, "reply")
+			err = atsync.Model.UpsertFeedPost(ctx, aturi, rec, "reply")
 			if err != nil {
 				log.Error(ctx, "failed to create feed post", "err", err)
 			}
@@ -338,7 +338,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			// we don't know about this repo
 			return nil
 		}
-		err = atsync.Model.UpsertLivestream(ctx, *rec, aturi)
+		err = atsync.Model.UpsertLivestream(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create livestream: %w", err)
 		}
@@ -390,7 +390,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		viewerCount := atsync.Bus.GetViewerCount(userDID)
-		err = atsync.Model.UpsertTeleport(ctx, *rec, aturi, int64(viewerCount))
+		err = atsync.Model.UpsertTeleport(ctx, aturi, *rec, int64(viewerCount))
 		if err != nil {
 			return fmt.Errorf("failed to create teleport: %w", err)
 		}
@@ -470,7 +470,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin streamer bluesky repo: %w", err)
 		}
-		err = atsync.Model.UpdateBroadcastOrigin(ctx, *rec, aturi)
+		err = atsync.Model.UpdateBroadcastOrigin(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
@@ -491,7 +491,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 		log.Debug(ctx, "creating metadata configuration", "metadata", rec)
-		err := atsync.Model.UpsertMetadataConfiguration(ctx, *rec, aturi)
+		err := atsync.Model.UpsertMetadataConfiguration(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
@@ -503,7 +503,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
-		err = atsync.Model.CreateModerationDelegation(ctx, *rec, aturi)
+		err = atsync.Model.CreateModerationDelegation(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
@@ -572,13 +572,13 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 	case *placestream.BadgeDef:
-		if err := atsync.Model.UpsertBadgeDef(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBadgeDef(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert badge def: %w", err)
 		}
 		log.Debug(ctx, "indexed badge def", "uri", aturi.String(), "name", rec.Name)
 
 	case *placestream.BadgeIssuance:
-		if err := atsync.Model.UpsertBadgeIssuance(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBadgeIssuance(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert badge issuance: %w", err)
 		}
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
@@ -588,7 +588,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertVideo(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
@@ -601,7 +601,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
 			return nil
 		}
-		if err := atsync.Model.UpsertMediaTrack(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaTrack(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert media track: %w", err)
 		}
 		mt := rec.Track.MediaDefs_MuxlTrack
@@ -611,7 +611,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Origin records are published by streamplace nodes (not users)
 		// against their own server-repo DID. The aturi's authority is
 		// the publishing server.
-		if err := atsync.Model.UpsertMediaOrigin(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaOrigin(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert media origin: %w", err)
 		}
 		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
@@ -622,7 +622,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// callers filter by RepoDID to a single operator-configured
 		// issuer (the `--beta-invite-did` flag), so anyone else
 		// minting these records is harmless noise.
-		if err := atsync.Model.UpsertBetaInvite(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaInvite(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert beta invite: %w", err)
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
@@ -640,7 +640,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// Access requests are published by users in their own repos. We
 		// index them so operators can see who's waiting and so
 		// place.stream.beta.getStatus can report "requested".
-		if err := atsync.Model.UpsertBetaRequest(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaRequest(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert beta request: %w", err)
 		}
 		log.Debug(ctx, "indexed beta request", "uri", aturi.String(), "did", userDID, "feature", rec.Feature)
@@ -650,7 +650,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		// their server repos) reporting on traffic they observed.
 		// Multiple reporters publish records for the same video; the
 		// query layer (place.stream.media.getVideo) sums across them.
-		if err := atsync.Model.UpsertMediaViewCount(ctx, *rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaViewCount(ctx, aturi, *rec); err != nil {
 			return fmt.Errorf("failed to upsert media view count: %w", err)
 		}
 		log.Debug(ctx, "indexed media view count",
@@ -692,7 +692,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-		err = atsync.Model.UpsertVodComment(ctx, *rec, aturi)
+		err = atsync.Model.UpsertVodComment(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create VOD comment", "err", err)
 			return nil
@@ -737,7 +737,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 
-		err = atsync.Model.UpsertLike(ctx, *rec, aturi)
+		err = atsync.Model.UpsertLike(ctx, aturi, *rec)
 		if err != nil {
 			log.Error(ctx, "failed to create VOD like", "err", err)
 			return nil
@@ -753,7 +753,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 		log.Debug(ctx, "creating VOD gate", "userDID", userDID, "hiddenComment", rec.HiddenComment)
-		err = atsync.Model.UpsertVodGate(ctx, *rec, aturi)
+		err = atsync.Model.UpsertVodGate(ctx, aturi, *rec)
 		if err != nil {
 			return fmt.Errorf("failed to create VOD gate: %w", err)
 		}

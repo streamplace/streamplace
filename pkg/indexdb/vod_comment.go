@@ -105,7 +105,7 @@ func (c *VodComment) ToCommentView() (placestream.VodDefs_CommentView, error) {
 // plumbing (URI/CID/CBOR, video + reply linkage) is derived here from
 // the record and AT-URI; created_at uses index time, matching the
 // pre-refactor indexer.
-func (m *DBModel) UpsertVodComment(ctx context.Context, rec placestream.VodComment, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertVodComment(ctx context.Context, aturi syntax.ATURI, rec placestream.VodComment) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

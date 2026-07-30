@@ -24,7 +24,7 @@ func seedLivestream(t *testing.T, mod indexdb.Model, did, rkey string, _ time.Du
 	uri := "at://" + did + "/place.stream.livestream/" + rkey
 	aturi, err := syntax.ParseATURI(uri)
 	require.NoError(t, err)
-	require.NoError(t, mod.UpsertLivestream(context.Background(), *rec, aturi))
+	require.NoError(t, mod.UpsertLivestream(context.Background(), aturi, *rec))
 	return uri
 }
 

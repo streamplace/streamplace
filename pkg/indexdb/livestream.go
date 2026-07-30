@@ -55,7 +55,7 @@ func (ls *Livestream) ToLivestreamView() (*placestream.Livestream_LivestreamView
 // UpsertLivestream indexes a place.stream.livestream record. The row —
 // its CBOR blob, CID, post linkage, and timestamps — is derived here;
 // callers only ever hand over the lexicon record and its AT-URI.
-func (m *DBModel) UpsertLivestream(ctx context.Context, rec placestream.Livestream, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertLivestream(ctx context.Context, aturi syntax.ATURI, rec placestream.Livestream) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

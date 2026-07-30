@@ -69,7 +69,7 @@ func TestAddModBadge(t *testing.T) {
 		require.NoError(t, err)
 
 		// Sync the permission to the model
-		err = mod.CreateModerationDelegation(ctx, perm, aturi)
+		err = mod.CreateModerationDelegation(ctx, aturi, perm)
 		require.NoError(t, err)
 
 		msg := message // copy

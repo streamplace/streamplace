@@ -41,7 +41,7 @@ type BadgeIssuance struct {
 
 // UpsertBadgeDef indexes a place.stream.badge.def record, deriving the
 // row (identity, image blob extraction, CBOR) from the record and AT-URI.
-func (m *DBModel) UpsertBadgeDef(ctx context.Context, rec placestream.BadgeDef, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertBadgeDef(ctx context.Context, aturi syntax.ATURI, rec placestream.BadgeDef) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func (m *DBModel) GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, 
 // UpsertBadgeIssuance indexes a place.stream.badge.issuance record,
 // deriving the row (identity, recipient, badge link, CBOR) from the
 // record and AT-URI.
-func (m *DBModel) UpsertBadgeIssuance(ctx context.Context, rec placestream.BadgeIssuance, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertBadgeIssuance(ctx context.Context, aturi syntax.ATURI, rec placestream.BadgeIssuance) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

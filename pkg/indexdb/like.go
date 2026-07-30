@@ -50,7 +50,7 @@ func (l *Like) ToLikeView() (placestream.GetLikes_LikeView, error) {
 // UpsertLike indexes a place.stream.like record, deriving the row from
 // the record and AT-URI. created_at uses index time, matching the
 // pre-refactor indexer.
-func (m *DBModel) UpsertLike(ctx context.Context, rec placestream.Like, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertLike(ctx context.Context, aturi syntax.ATURI, rec placestream.Like) error {
 	repoDID, cid, _, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

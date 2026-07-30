@@ -30,7 +30,7 @@ func (m *ChatProfile) ToRecord() (placestream.ChatProfile, error) {
 
 // UpsertChatProfile indexes a place.stream.chat.profile record,
 // deriving the stored CBOR blob from the record.
-func (m *DBModel) UpsertChatProfile(ctx context.Context, rec placestream.ChatProfile, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertChatProfile(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatProfile) error {
 	repoDID, _, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

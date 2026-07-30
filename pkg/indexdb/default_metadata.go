@@ -27,7 +27,7 @@ func (m *MetadataConfiguration) ToRecord() (placestream.MetadataConfiguration, e
 
 // UpsertMetadataConfiguration indexes a place.stream.metadata.configuration
 // record, deriving the stored CBOR blob from the record.
-func (m *DBModel) UpsertMetadataConfiguration(ctx context.Context, rec placestream.MetadataConfiguration, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMetadataConfiguration(ctx context.Context, aturi syntax.ATURI, rec placestream.MetadataConfiguration) error {
 	repoDID, _, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

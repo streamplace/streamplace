@@ -34,7 +34,7 @@ func putViewCount(t *testing.T, m Model, reporter, rkey, videoURI string, count 
 		Tracks:        tracks,
 	}
 	aturi := parseURI(t, "at://"+reporter+"/place.stream.media.viewCount/"+rkey)
-	require.NoError(t, m.UpsertMediaViewCount(context.Background(), rec, aturi))
+	require.NoError(t, m.UpsertMediaViewCount(context.Background(), aturi, rec))
 }
 
 func TestGetVideoView_NoViewCounts(t *testing.T) {
@@ -56,7 +56,7 @@ func TestGetVideoView_NoViewCounts(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parseURI(t, videoURI), video))
 
 	view, err := m.GetVideoView(ctx, videoURI)
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestGetVideoView_SumsAcrossReporters(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, video, parseURI(t, videoURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parseURI(t, videoURI), video))
 
 	trackRef := comatproto.RepoStrongRef{
 		LexiconTypeID: "com.atproto.repo.strongRef",
@@ -142,10 +142,10 @@ func TestUpsertMediaViewCountIdempotent(t *testing.T) {
 	}
 	aturi := parseURI(t, "at://"+reporter+"/place.stream.media.viewCount/win-1")
 
-	require.NoError(t, m.UpsertMediaViewCount(ctx, rec, aturi))
+	require.NoError(t, m.UpsertMediaViewCount(ctx, aturi, rec))
 	// Second call with the same URI replaces, doesn't append.
 	rec.Count = 8
-	require.NoError(t, m.UpsertMediaViewCount(ctx, rec, aturi))
+	require.NoError(t, m.UpsertMediaViewCount(ctx, aturi, rec))
 
 	got, err := m.GetMediaViewCountByURI(ctx, aturi.String())
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func TestDeleteMediaViewCount(t *testing.T) {
 		IndexedAt:     "2026-05-17T12:15:00Z",
 	}
 	aturi := parseURI(t, "at://did:plc:node1/place.stream.media.viewCount/win-1")
-	require.NoError(t, m.UpsertMediaViewCount(ctx, rec, aturi))
+	require.NoError(t, m.UpsertMediaViewCount(ctx, aturi, rec))
 
 	require.NoError(t, m.DeleteMediaViewCount(ctx, aturi.String()))
 	got, err := m.GetMediaViewCountByURI(ctx, aturi.String())

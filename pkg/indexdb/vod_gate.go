@@ -26,7 +26,7 @@ func (g *VodGate) ToRecord() (placestream.VodGate, error) {
 
 // UpsertVodGate indexes a place.stream.vod.gate record, deriving the
 // row (rkey, CID, timestamps) from the record and AT-URI.
-func (m *DBModel) UpsertVodGate(ctx context.Context, rec placestream.VodGate, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertVodGate(ctx context.Context, aturi syntax.ATURI, rec placestream.VodGate) error {
 	repoDID, cid, _, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

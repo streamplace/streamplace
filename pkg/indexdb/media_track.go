@@ -49,7 +49,7 @@ func trackBlob(rec placestream.MediaTrack) string {
 	return rec.Track.MediaDefs_MuxlTrack.Blob
 }
 
-func (m *DBModel) UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaTrack(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaTrack) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

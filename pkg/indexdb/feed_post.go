@@ -53,7 +53,7 @@ func (fp *FeedPost) ToPostView() (appbsky.FeedDefs_PostView, error) {
 // "reply") — it's caller knowledge, not part of the record. Reply
 // linkage, CID, CBOR blob, and timestamps are derived here from the
 // record and AT-URI.
-func (m *DBModel) UpsertFeedPost(ctx context.Context, rec *appbsky.FeedPost, aturi syntax.ATURI, typ string) error {
+func (m *DBModel) UpsertFeedPost(ctx context.Context, aturi syntax.ATURI, rec *appbsky.FeedPost, typ string) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

@@ -40,7 +40,7 @@ func (o *MediaOrigin) ToRecord() (placestream.MediaOrigin, error) {
 	return origin, nil
 }
 
-func (m *DBModel) UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertMediaOrigin(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaOrigin) error {
 	serverDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
@@ -82,12 +82,12 @@ func (m *DBModel) UpsertOwnMediaOrigin(ctx context.Context, serverDID, blobCID s
 	if err != nil {
 		return fmt.Errorf("build media origin uri: %w", err)
 	}
-	return m.UpsertMediaOrigin(ctx, placestream.MediaOrigin{
+	return m.UpsertMediaOrigin(ctx, aturi, placestream.MediaOrigin{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          blobCID,
 		Size:          size,
 		MimeType:      mimeType,
-	}, aturi)
+	})
 }
 
 func (m *DBModel) DeleteMediaOrigin(ctx context.Context, uri string) error {

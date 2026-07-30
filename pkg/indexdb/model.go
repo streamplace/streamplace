@@ -51,47 +51,47 @@ type Model interface {
 	CountFollowersBatch(ctx context.Context, dids []string) (map[string]int, error)
 	DeleteFollow(ctx context.Context, userDID, rev string) error
 
-	UpsertFeedPost(ctx context.Context, rec *appbsky.FeedPost, aturi syntax.ATURI, typ string) error
+	UpsertFeedPost(ctx context.Context, aturi syntax.ATURI, rec *appbsky.FeedPost, typ string) error
 	ListFeedPosts() ([]FeedPost, error)
 	ListFeedPostsByType(feedType string, limit int, after int64) ([]FeedPost, error)
 	GetReplies(repoDID string) ([]appbsky.FeedDefs_PostView, error)
 
-	UpsertLivestream(ctx context.Context, rec placestream.Livestream, aturi syntax.ATURI) error
+	UpsertLivestream(ctx context.Context, aturi syntax.ATURI, rec placestream.Livestream) error
 	GetLivestream(uri string) (*placestream.Livestream_LivestreamView, error)
 	GetLatestLivestreamForRepo(repoDID string) (*placestream.Livestream_LivestreamView, error)
 	GetLivestreamByPostURI(postURI string) (*placestream.Livestream_LivestreamView, error)
 	GetLatestLivestreams(limit int, before *time.Time, dids []string) ([]placestream.Livestream_LivestreamView, error)
 
-	UpsertTeleport(ctx context.Context, rec placestream.LiveTeleport, aturi syntax.ATURI, viewerCount int64) error
+	UpsertTeleport(ctx context.Context, aturi syntax.ATURI, rec placestream.LiveTeleport, viewerCount int64) error
 	GetActiveTeleportsToRepo(targetDID string) ([]Teleport, error)
 	GetTeleportByURI(uri string) (*Teleport, error)
 	DeleteTeleport(ctx context.Context, uri string) error
 	DenyTeleport(ctx context.Context, uri string) error
 
-	UpsertBlock(ctx context.Context, rec appbsky.GraphBlock, aturi syntax.ATURI) error
+	UpsertBlock(ctx context.Context, aturi syntax.ATURI, rec appbsky.GraphBlock) error
 	GetBlock(ctx context.Context, rkey string) (*Block, error)
 	GetUserBlock(ctx context.Context, userDID, subjectDID string) (*Block, error)
 	DeleteBlock(ctx context.Context, rkey string) error
 
-	UpsertChatMessage(ctx context.Context, rec placestream.ChatMessage, aturi syntax.ATURI) error
+	UpsertChatMessage(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatMessage) error
 	MostRecentChatMessages(repoDID string) ([]placestream.ChatDefs_MessageView, error)
 	GetChatMessage(uri string) (*ChatMessage, error)
 	DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error
 
-	UpsertGate(ctx context.Context, rec placestream.ChatGate, aturi syntax.ATURI) error
+	UpsertGate(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatGate) error
 	DeleteGate(ctx context.Context, rkey string) error
 	GetGate(ctx context.Context, rkey string) (*placestream.ChatGate, error)
 
-	UpsertPinnedRecord(ctx context.Context, rec placestream.ChatPinnedRecord, aturi syntax.ATURI) error
+	UpsertPinnedRecord(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatPinnedRecord) error
 	DeletePinnedRecord(ctx context.Context, uri string) error
 	DeleteAllPinnedRecords(ctx context.Context, streamerDID string) error
 	GetPinnedRecord(ctx context.Context, uri string) (*placestream.ChatDefs_PinnedRecordView, error)
 	GetActivePinnedRecord(ctx context.Context, streamerDID string) (*placestream.ChatDefs_PinnedRecordView, error)
 
-	UpsertChatProfile(ctx context.Context, rec placestream.ChatProfile, aturi syntax.ATURI) error
+	UpsertChatProfile(ctx context.Context, aturi syntax.ATURI, rec placestream.ChatProfile) error
 	GetChatProfile(ctx context.Context, repoDID string) (*placestream.ChatProfile, error)
 
-	UpsertServerSettings(ctx context.Context, rec placestream.ServerSettings, aturi syntax.ATURI) error
+	UpsertServerSettings(ctx context.Context, aturi syntax.ATURI, rec placestream.ServerSettings) error
 	GetServerSettings(ctx context.Context, server string, repoDID string) (*placestream.ServerSettings, error)
 	DeleteServerSettings(ctx context.Context, server string, repoDID string) error
 
@@ -105,14 +105,14 @@ type Model interface {
 	UpsertLabel(ctx context.Context, rec comatproto.LabelDefs_Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
 
-	UpdateBroadcastOrigin(ctx context.Context, origin placestream.BroadcastOrigin, aturi syntax.ATURI) error
+	UpdateBroadcastOrigin(ctx context.Context, aturi syntax.ATURI, origin placestream.BroadcastOrigin) error
 	GetRecentBroadcastOrigins(ctx context.Context) ([]placestream.BroadcastDefs_BroadcastOriginView, error)
 
-	UpsertMetadataConfiguration(ctx context.Context, rec placestream.MetadataConfiguration, aturi syntax.ATURI) error
+	UpsertMetadataConfiguration(ctx context.Context, aturi syntax.ATURI, rec placestream.MetadataConfiguration) error
 	GetMetadataConfiguration(ctx context.Context, repoDID string) (*placestream.MetadataConfiguration, error)
 	DeleteMetadataConfiguration(ctx context.Context, repoDID string) error
 
-	CreateModerationDelegation(ctx context.Context, rec placestream.ModerationPermission, aturi syntax.ATURI) error
+	CreateModerationDelegation(ctx context.Context, aturi syntax.ATURI, rec placestream.ModerationPermission) error
 	DeleteModerationDelegation(ctx context.Context, rkey string) error
 	GetModerationDelegation(ctx context.Context, streamerDID, moderatorDID string) (*placestream.ModerationDefs_PermissionView, error)
 	GetModerationDelegations(ctx context.Context, streamerDID, moderatorDID string) ([]placestream.ModerationDefs_PermissionView, error)
@@ -122,57 +122,57 @@ type Model interface {
 	GetRecommendation(userDID string) (*Recommendation, error)
 	UpsertRecommendation(rec *Recommendation) error
 
-	UpsertBskyProfile(ctx context.Context, rec appbsky.ActorProfile, aturi syntax.ATURI, wasStreamplace bool) error
+	UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, rec appbsky.ActorProfile, wasStreamplace bool) error
 	GetBskyProfile(ctx context.Context, did string, wasStreamplace bool) (*appbsky.ActorProfile, error)
 
-	UpsertBadgeDef(ctx context.Context, rec placestream.BadgeDef, aturi syntax.ATURI) error
+	UpsertBadgeDef(ctx context.Context, aturi syntax.ATURI, rec placestream.BadgeDef) error
 	DeleteBadgeDef(ctx context.Context, uri string) error
 	GetBadgeDefByURI(ctx context.Context, uri string) (*BadgeDef, error)
-	UpsertBadgeIssuance(ctx context.Context, rec placestream.BadgeIssuance, aturi syntax.ATURI) error
+	UpsertBadgeIssuance(ctx context.Context, aturi syntax.ATURI, rec placestream.BadgeIssuance) error
 	DeleteBadgeIssuance(ctx context.Context, uri string) error
 	GetBadgeIssuanceByURI(ctx context.Context, uri string) (*BadgeIssuance, error)
 	GetBadgeIssuancesForRecipient(ctx context.Context, recipientDID string) ([]*BadgeIssuance, error)
 
-	UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error
+	UpsertVideo(ctx context.Context, aturi syntax.ATURI, rec placestream.Video) error
 	DeleteVideo(ctx context.Context, uri string) error
 	GetVideoByURI(ctx context.Context, uri string) (*placestream.Video, error)
 
-	UpsertMediaTrack(ctx context.Context, rec placestream.MediaTrack, aturi syntax.ATURI) error
+	UpsertMediaTrack(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaTrack) error
 	DeleteMediaTrack(ctx context.Context, uri string) error
 	GetMediaTrackByURI(ctx context.Context, uri string) (*placestream.MediaTrack, error)
 	GetMediaTracksByBlob(ctx context.Context, blob string) ([]*MediaTrack, error)
 
-	UpsertMediaOrigin(ctx context.Context, rec placestream.MediaOrigin, aturi syntax.ATURI) error
+	UpsertMediaOrigin(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaOrigin) error
 	UpsertOwnMediaOrigin(ctx context.Context, serverDID, blobCID string, size int64, mimeType string) error
 	DeleteMediaOrigin(ctx context.Context, uri string) error
 	GetMediaOriginByURI(ctx context.Context, uri string) (placestream.MediaOrigin, error)
 	GetMediaOriginsByBlob(ctx context.Context, blob string) ([]*MediaOrigin, error)
 
-	UpsertBetaInvite(ctx context.Context, rec placestream.BetaInvite, aturi syntax.ATURI) error
+	UpsertBetaInvite(ctx context.Context, aturi syntax.ATURI, rec placestream.BetaInvite) error
 	DeleteBetaInvite(ctx context.Context, uri string) error
 	HasBetaInvite(ctx context.Context, fromRepoDID, subjectDID, feature string) (bool, error)
-	UpsertBetaRequest(ctx context.Context, rec placestream.BetaRequest, aturi syntax.ATURI) error
+	UpsertBetaRequest(ctx context.Context, aturi syntax.ATURI, rec placestream.BetaRequest) error
 	DeleteBetaRequest(ctx context.Context, uri string) error
 	HasBetaRequest(ctx context.Context, subjectDID, feature string) (bool, error)
 
-	UpsertMediaViewCount(ctx context.Context, rec placestream.MediaViewCount, aturi syntax.ATURI) error
+	UpsertMediaViewCount(ctx context.Context, aturi syntax.ATURI, rec placestream.MediaViewCount) error
 	DeleteMediaViewCount(ctx context.Context, uri string) error
 	GetMediaViewCountByURI(ctx context.Context, uri string) (*placestream.MediaViewCount, error)
 	GetVideoView(ctx context.Context, uri string) (*placestream.MediaGetVideo_VideoView, error)
 	GetVideoList(ctx context.Context, repoDID string, limit int, cursor string, hostedByServerDID string) (placestream.MediaGetVideoList_Output, error)
 
-	UpsertVodComment(ctx context.Context, rec placestream.VodComment, aturi syntax.ATURI) error
+	UpsertVodComment(ctx context.Context, aturi syntax.ATURI, rec placestream.VodComment) error
 	DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error
 	GetVodComment(uri string) (*placestream.VodDefs_CommentView, error)
 	GetCommentsForVideo(ctx context.Context, videoURI string, limit int, cursor *time.Time) ([]placestream.VodDefs_CommentView, *time.Time, error)
 
-	UpsertLike(ctx context.Context, rec placestream.Like, aturi syntax.ATURI) error
+	UpsertLike(ctx context.Context, aturi syntax.ATURI, rec placestream.Like) error
 	DeleteLike(ctx context.Context, uri string) error
 	GetLikeBySubjectAndUser(ctx context.Context, subject string, repoDID string) (*placestream.GetLikes_LikeView, error)
 	GetLikesForSubject(ctx context.Context, subject string, limit int, cursor *time.Time) ([]placestream.GetLikes_LikeView, int64, *time.Time, error)
 	GetLikeCount(ctx context.Context, subject string) (int64, error)
 
-	UpsertVodGate(ctx context.Context, rec placestream.VodGate, aturi syntax.ATURI) error
+	UpsertVodGate(ctx context.Context, aturi syntax.ATURI, rec placestream.VodGate) error
 	DeleteVodGate(ctx context.Context, rkey string) error
 }
 

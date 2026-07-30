@@ -44,8 +44,8 @@ not row structs.
 
 ## Type contract conventions
 
-- **Writes** take lexicon records, never rows:
-  `Upsert<Record>(ctx, rec placestream/appbsky.X, aturi syntax.ATURI)`.
+- **Writes** take lexicon records, never rows, key before value:
+  `Upsert<Record>(ctx, aturi syntax.ATURI, rec placestream/appbsky.X)`.
   The AT-URI carries did+rkey; the CID is computed (`spid.GetCID`);
   the CBOR blob, timestamps, and any derived columns are built inside
   indexdb (`recordParts`). Caller-computed _indexer metadata_ that isn't

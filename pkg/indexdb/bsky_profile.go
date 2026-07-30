@@ -25,7 +25,7 @@ type BskyProfile struct {
 // wasStreamplace is the golive flag from the raw record (not part of the
 // typed lexicon), so it stays caller-supplied; everything else derives
 // from the record and AT-URI.
-func (m *DBModel) UpsertBskyProfile(ctx context.Context, rec appbsky.ActorProfile, aturi syntax.ATURI, wasStreamplace bool) error {
+func (m *DBModel) UpsertBskyProfile(ctx context.Context, aturi syntax.ATURI, rec appbsky.ActorProfile, wasStreamplace bool) error {
 	repoDID, cid, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

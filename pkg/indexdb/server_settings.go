@@ -43,7 +43,7 @@ func (m *ServerSettings) ToRecord() (placestream.ServerSettings, error) {
 // The server column is the record's rkey (server settings are keyed by
 // the server they apply to, carried in the record key); the repo DID
 // comes from the AT-URI authority.
-func (m *DBModel) UpsertServerSettings(ctx context.Context, rec placestream.ServerSettings, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertServerSettings(ctx context.Context, aturi syntax.ATURI, rec placestream.ServerSettings) error {
 	repoDID, _, blob, err := recordParts(aturi, &rec)
 	if err != nil {
 		return err

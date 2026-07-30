@@ -38,7 +38,7 @@ func (v *Video) ToRecord() (placestream.Video, error) {
 	return video, nil
 }
 
-func (m *DBModel) UpsertVideo(ctx context.Context, rec placestream.Video, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertVideo(ctx context.Context, aturi syntax.ATURI, rec placestream.Video) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)

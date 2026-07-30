@@ -107,7 +107,7 @@ func setupBlobTest(t *testing.T) (*Server, indexdb.Model) {
 	m := newTestModel(t)
 	aturi, err := syntax.ParseATURI("at://" + testOwner + "/place.stream.media.track/1")
 	require.NoError(t, err)
-	require.NoError(t, m.UpsertMediaTrack(context.Background(), placestream.MediaTrack{
+	require.NoError(t, m.UpsertMediaTrack(context.Background(), aturi, placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
 		Track: placestream.MediaTrack_Track{
 			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
@@ -117,7 +117,7 @@ func setupBlobTest(t *testing.T) (*Server, indexdb.Model) {
 				MediaType:     "video",
 			},
 		},
-	}, aturi))
+	}))
 	store, err := blob.NewFileStore(t.TempDir())
 	require.NoError(t, err)
 	writeBlob(t, store, testContentCID)

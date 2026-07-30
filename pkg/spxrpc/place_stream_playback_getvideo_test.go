@@ -318,7 +318,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 		return u
 	}
 
-	require.NoError(t, m.UpsertMediaTrack(ctx, placestream.MediaTrack{
+	require.NoError(t, m.UpsertMediaTrack(ctx, parseURI(trackURI), placestream.MediaTrack{
 		LexiconTypeID: "place.stream.media.track",
 		Track: placestream.MediaTrack_Track{
 			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
@@ -328,7 +328,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 				MediaType:     "video",
 			},
 		},
-	}, parseURI(trackURI)))
+	}))
 
 	parent := placestream.Video{
 		LexiconTypeID: "place.stream.video",
@@ -342,7 +342,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, parent, parseURI(parentURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parseURI(parentURI), parent))
 
 	clip := placestream.Video{
 		LexiconTypeID: "place.stream.video",
@@ -356,7 +356,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, m.UpsertVideo(ctx, clip, parseURI(clipURI)))
+	require.NoError(t, m.UpsertVideo(ctx, parseURI(clipURI), clip))
 
 	t.Run("non-clip parent resolves with no bounds", func(t *testing.T) {
 		got, err := s.resolveVideoBlob(ctx, parentURI)
@@ -392,7 +392,7 @@ func TestResolveVideoBlob_SourceClip(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, m.UpsertVideo(ctx, nested, parseURI(nestedURI)))
+		require.NoError(t, m.UpsertVideo(ctx, parseURI(nestedURI), nested))
 		_, err := s.resolveVideoBlob(ctx, nestedURI)
 		require.Error(t, err)
 		he, ok := err.(*echo.HTTPError)

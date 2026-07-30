@@ -23,12 +23,12 @@ func putInvite(t *testing.T, m indexdb.Model, repoDID, subjectDID, feature strin
 	rkey := feature + "-" + subjectDID
 	aturi, err := syntax.ParseATURI("at://" + repoDID + "/place.stream.beta.invite/" + rkey)
 	require.NoError(t, err)
-	require.NoError(t, m.UpsertBetaInvite(context.Background(), placestream.BetaInvite{
+	require.NoError(t, m.UpsertBetaInvite(context.Background(), aturi, placestream.BetaInvite{
 		LexiconTypeID: "place.stream.beta.invite",
 		Did:           subjectDID,
 		Feature:       feature,
 		CreatedAt:     "2026-01-01T00:00:00Z",
-	}, aturi))
+	}))
 }
 
 func TestAllowVODUpload_InviteMode(t *testing.T) {

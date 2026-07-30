@@ -49,7 +49,7 @@ func (a *StreamplaceAPI) MakeMediaSigner(ctx context.Context, keyStr string) (me
 	did := string(didBytes)
 
 	if did != "" {
-		repo, err := a.ATSync.SyncBlueskyRepo(ctx, did, a.Model)
+		repo, err := a.ATSync.SyncBlueskyRepoCached(ctx, did)
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve streamplace key: %w", err)
 		}

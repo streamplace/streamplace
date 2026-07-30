@@ -41,7 +41,7 @@ type Server struct {
 	LiveUsersCache  *cache.Cache
 	GameSearchCache *cache.Cache
 	ScoreCache      *cache.Cache
-	ATSync          *atproto.ATProtoSynchronizer
+	ATSync          atproto.RepoIdentity
 	statefulDB      *statedb.StatefulDB
 	bus             *bus.Bus
 	op              *oatproxy.OATProxy
@@ -68,7 +68,7 @@ type Params struct {
 	StatefulDB    *statedb.StatefulDB
 	OATProxy      *oatproxy.OATProxy
 	Middleware    middleware.Middleware
-	ATSync        *atproto.ATProtoSynchronizer
+	ATSync        atproto.RepoIdentity
 	Bus           *bus.Bus
 	LocalDB       localdb.LocalDB
 	MediaManager  *media.MediaManager

@@ -264,7 +264,7 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	var userColor = joinTextColor      // default
 	var borderColor = imageBorderColor // default
 	if userDID != "" {
-		chatProfile, err := s.ATSync.Model.GetChatProfile(ctx, userDID)
+		chatProfile, err := s.model.GetChatProfile(ctx, userDID)
 		if err != nil {
 			log.Warn(ctx, "failed to fetch chat profile", "did", userDID, "error", err)
 			clr := indexdb.DefaultColors[hashString(userDID)%len(indexdb.DefaultColors)]

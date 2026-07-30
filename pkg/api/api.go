@@ -74,7 +74,7 @@ type StreamplaceAPI struct {
 	// not thread-safe yet
 	Aliases map[string]string
 	Bus     *bus.Bus
-	ATSync  *atproto.ATProtoSynchronizer
+	ATSync  atproto.RepoIdentity
 
 	connTracker *WebsocketTracker
 
@@ -112,7 +112,7 @@ type Params struct {
 	MediaManager  *media.MediaManager
 	MediaSigner   media.MediaSigner
 	Bus           *bus.Bus
-	ATSync        *atproto.ATProtoSynchronizer
+	ATSync        atproto.RepoIdentity
 	OATProxy      *oatproxy.OATProxy
 	LocalDB       localdb.LocalDB
 	UploadManager *upload.Manager
@@ -635,7 +635,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 		w.WriteHeader(200)
 		if n.RepoDID != "" {
 			go func() {
-				_, err := a.ATSync.SyncBlueskyRepo(ctx, n.RepoDID, a.Model)
+				_, err := a.ATSync.SyncBlueskyRepoCached(ctx, n.RepoDID)
 				if err != nil {
 					log.Error(ctx, "error syncing bluesky repo after notification creation", "error", err)
 				}
@@ -755,7 +755,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got bluesky notification", "params", params)
-		key, err := a.ATSync.SyncBlueskyRepo(ctx, params.ByName("handle"), a.Model)
+		key, err := a.ATSync.SyncBlueskyRepoCached(ctx, params.ByName("handle"))
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 			return

@@ -254,10 +254,20 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
+	video := finalizeSampleDurations(videoOutput, segDur)
+	// segDur is audio-derived; a video-only segment would report Duration 0,
+	// throwing off the sender's latency bookkeeping (the segment occupies the
+	// sender for its full video span). Fall back to the video timeline.
+	duration := segDur
+	if duration == 0 {
+		for _, s := range video {
+			duration += s.Duration
+		}
+	}
 	return &bus.PacketizedSegment{
-		Video:    finalizeSampleDurations(videoOutput, segDur),
+		Video:    video,
 		Audio:    finalizeSampleDurations(audioOutput, segDur),
-		Duration: segDur,
+		Duration: duration,
 	}, nil
 }
 

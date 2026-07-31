@@ -359,6 +359,10 @@ func TestPacketizeSingleTrackSegment(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 30, len(packet.Video))
 			require.Empty(t, packet.Audio)
+			// Duration falls back to the video span when there's no audio to
+			// derive it from — the sender's latency accounting needs the time
+			// this segment actually occupies. 30 frames at 30fps ≈ 1s.
+			require.InDelta(t, time.Second, packet.Duration, float64(100*time.Millisecond))
 		})
 	})
 	t.Run("AudioOnly", func(t *testing.T) {

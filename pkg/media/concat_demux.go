@@ -16,6 +16,9 @@ import (
 // silly technique to avoid leaking pads
 func doNothing(self *gst.Element, pad *gst.Pad) {}
 
+// doNothing for signals without a pad argument
+func doNothingElement(self *gst.Element) {}
+
 // Function for demuxing a single segment. Needs to be handled very carefully.
 // In particular: users of this MUST cancel the passed context when they're
 // done with the bin.
@@ -170,6 +173,8 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	}
 
 	needed := 2
+	videoLinked := false
+	audioLinked := false
 
 	var padAdded func(self *gst.Element, pad *gst.Pad)
 	// the defer funcs are needed to avoid leaking pads for some reason
@@ -177,8 +182,10 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
+			videoLinked = true
 		} else if strings.HasPrefix(pad.GetName(), "audio_") {
 			downstreamPad = mqAudioSink
+			audioLinked = true
 		} else {
 			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
 			// cancel()
@@ -210,6 +217,41 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	_, err = demux.Connect("pad-added", outerPadAdded)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
+	}
+
+	// Both branches are wired up before the demux runs, but the segment may
+	// not have both tracks: a stream whose encoder is shedding everything but
+	// keyframes under bandwidth pressure can produce a segment with video and
+	// no audio (or, in principle, the reverse). The demux only EOSes pads it
+	// created, so a branch whose pad never appears would never see data OR
+	// EOS — its sink never finishes, the pipeline never completes, and the
+	// caller hangs until its timeout. When the demux declares it's done making
+	// pads, flush any branch left orphaned with an EOS so the pipeline can
+	// drain. Fires on the demux's streaming thread, same as pad-added, so the
+	// linked flags need no locking. Uses the same swap-to-no-op indirection as
+	// padAdded above so the closure's pad references don't leak.
+	var noMorePads func(self *gst.Element)
+	noMorePads = func(self *gst.Element) {
+		if !videoLinked {
+			log.Warn(ctx, "segment has no video track; completing video branch with EOS")
+			mqVideoSink.SendEvent(gst.NewEOSEvent())
+		}
+		if !audioLinked {
+			log.Warn(ctx, "segment has no audio track; completing audio branch with EOS")
+			mqAudioSink.SendEvent(gst.NewEOSEvent())
+		}
+		noMorePads = doNothingElement
+	}
+	outerNoMorePads := func(self *gst.Element) {
+		noMorePads(self)
+	}
+	go func() {
+		<-ctx.Done()
+		noMorePads = doNothingElement
+	}()
+	_, err = demux.Connect("no-more-pads", outerNoMorePads)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect demux no-more-pads signal: %w", err)
 	}
 
 	ok := bin.AddPad(videoGhost.Pad)

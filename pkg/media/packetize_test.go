@@ -340,6 +340,41 @@ func TestFinalizeSampleDurations(t *testing.T) {
 	})
 }
 
+// TestPacketizeSingleTrackSegment: a segment can arrive with only one track —
+// notably video-with-no-audio, seen in the wild when an encoder under
+// bandwidth pressure sheds everything but keyframes and a whole GoP's worth
+// of audio goes missing. ConcatDemuxBin pre-wires both branches, and the
+// demux only EOSes pads it actually created, so before the no-more-pads
+// backstop the trackless branch never completed: Packetize hung until its
+// timeout and the segment vanished from WebRTC playback entirely. It must
+// complete promptly with the missing track empty instead.
+func TestPacketizeSingleTrackSegment(t *testing.T) {
+	t.Run("VideoOnly", func(t *testing.T) {
+		withNoGSTLeaks(t, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			flat := runSynthPipeline(t, ctx,
+				"videotestsrc num-buffers=30 ! video/x-raw,width=320,height=240,framerate=30/1 ! x264enc tune=zerolatency speed-preset=ultrafast ! h264parse ! mp4mux fragment-duration=500 ! appsink name=sink")
+			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
+			require.NoError(t, err)
+			require.Equal(t, 30, len(packet.Video))
+			require.Empty(t, packet.Audio)
+		})
+	})
+	t.Run("AudioOnly", func(t *testing.T) {
+		withNoGSTLeaks(t, func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			flat := runSynthPipeline(t, ctx,
+				"audiotestsrc num-buffers=48 samplesperbuffer=1024 ! audio/x-raw,rate=48000,channels=2 ! audioconvert ! opusenc ! mp4mux fragment-duration=500 ! appsink name=sink")
+			packet, err := Packetize(context.Background(), &config.CLI{}, &bus.Seg{Data: flat})
+			require.NoError(t, err)
+			require.Empty(t, packet.Video)
+			require.NotEmpty(t, packet.Audio)
+		})
+	})
+}
+
 func TestPacketizeInvalid(t *testing.T) {
 	// cur := goleak.IgnoreCurrent()
 	// defer goleak.VerifyNone(t, cur)

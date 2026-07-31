@@ -7,15 +7,15 @@ import (
 	"sync"
 
 	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
+	glex "github.com/streamplace/glex/runtime"
 	"stream.place/streamplace/pkg/log"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 var repoLock sync.Mutex
@@ -81,7 +81,7 @@ func LexiconRepoListRecords(ctx context.Context, collection string, cursor strin
 		return nil, fmt.Errorf("handleComAtprotoRepoListRecords: failed to open repo: %w", err)
 	}
 	out := &comatproto.RepoListRecords_Output{
-		Records: []*comatproto.RepoListRecords_Record{},
+		Records: []comatproto.RepoListRecords_Record{},
 	}
 	err = r.ForEach(ctx, "", func(rkey string, c cid.Cid) error {
 		val, err := GetRecordCBOR(ctx, ses, c, collection, rkey)
@@ -89,10 +89,10 @@ func LexiconRepoListRecords(ctx context.Context, collection string, cursor strin
 			return fmt.Errorf("handleComAtprotoRepoListRecords: failed to get record for collection %q, rkey %q: %w", collection, rkey, err)
 		}
 		log.Warn(ctx, "got record", "rkey", rkey, "cid", c.String())
-		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
+		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s", repo, rkey),
 			Cid:   c.String(),
-			Value: &lexutil.LexiconTypeDecoder{Val: val},
+			Value: &glex.LexiconTypeDecoder{Val: val},
 		})
 
 		return nil
@@ -111,7 +111,7 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 	if err != nil {
 		return nil, fmt.Errorf("handleComAtprotoRepoGetRecord: failed to open repo: %w", err)
 	}
-	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
+	outCID, _, err := r.GetRecordBytes(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 	return &comatproto.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &lexutil.LexiconTypeDecoder{Val: rec},
+		Value: &glex.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
 

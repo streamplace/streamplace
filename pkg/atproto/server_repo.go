@@ -12,19 +12,19 @@ import (
 	"sync"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/atcrypto"
 	"github.com/bluesky-social/indigo/carstore"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/models"
 	atrepo "github.com/bluesky-social/indigo/repo"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/ipfs/go-cid"
 	cbor "github.com/ipfs/go-ipld-cbor"
 	"github.com/ipld/go-car"
+	glex "github.com/streamplace/glex/runtime"
 	cbg "github.com/whyrusleeping/cbor-gen"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/spkey"
@@ -325,7 +325,7 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 	rpath := fmt.Sprintf("%s/%s", collection, rkey)
 	var recordCid cid.Cid
 	var action string
-	_, _, err = r.GetRecord(ctx, rpath)
+	_, _, err = r.GetRecordBytes(ctx, rpath)
 	if err != nil {
 		// Record doesn't exist, create it
 		recordCid, err = r.PutRecord(ctx, rpath, value)
@@ -354,19 +354,19 @@ func CommitServerRepoRecord(ctx context.Context, cli *config.CLI, collection str
 
 	ServerRepo = r
 
-	cidLink := lexutil.LexLink(recordCid)
+	cidLink := glex.Link(recordCid)
 	signed := r.SignedCommit()
 	commit := &comatproto.SyncSubscribeRepos_Commit{
 		Repo:   cli.ServerDID(),
 		Blocks: blocks,
 		Rev:    rev,
-		Commit: lexutil.LexLink(root),
+		Commit: glex.Link(root),
 		Time:   time.Now().Format(util.ISO8601),
-		Ops: []*comatproto.SyncSubscribeRepos_RepoOp{
+		Ops: []comatproto.SyncSubscribeRepos_RepoOp{
 			{
 				Action: action,
 				Path:   rpath,
-				Cid:    &cidLink,
+				Cid:    cidLink,
 			},
 		},
 		TooBig: false,
@@ -579,21 +579,21 @@ func ServerRepoListRecords(ctx context.Context, collection string, cursor string
 
 	// 4. Fetch + decode bodies only for the page.
 	out := &comatproto.RepoListRecords_Output{
-		Records: make([]*comatproto.RepoListRecords_Record, 0, len(page)),
+		Records: make([]comatproto.RepoListRecords_Record, 0, len(page)),
 	}
 	for _, e := range page {
 		raw, err := getBlock(ctx, ses, e.c)
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: %w", err)
 		}
-		val, err := lexutil.CborDecodeValue(raw)
+		val, err := glex.CborDecodeValue(raw)
 		if err != nil {
 			return nil, fmt.Errorf("ServerRepoListRecords: failed to decode record for rkey %q: %w", e.rkey, err)
 		}
-		out.Records = append(out.Records, &comatproto.RepoListRecords_Record{
+		out.Records = append(out.Records, comatproto.RepoListRecords_Record{
 			Uri:   fmt.Sprintf("at://%s/%s%s", repo, prefix, e.rkey),
 			Cid:   e.c.String(),
-			Value: &lexutil.LexiconTypeDecoder{Val: val},
+			Value: &glex.LexiconTypeDecoder{Val: val},
 		})
 	}
 
@@ -615,7 +615,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to open repo: %w", err)
 	}
-	outCID, _, err := r.GetRecord(ctx, fmt.Sprintf("%s/%s", collection, rkey))
+	outCID, _, err := r.GetRecordBytes(ctx, fmt.Sprintf("%s/%s", collection, rkey))
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +623,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: %w", err)
 	}
-	rec, err := lexutil.CborDecodeValue(raw)
+	rec, err := glex.CborDecodeValue(raw)
 	if err != nil {
 		return nil, fmt.Errorf("ServerRepoGetRecord: failed to decode record: %w", err)
 	}
@@ -631,7 +631,7 @@ func ServerRepoGetRecord(ctx context.Context, repo string, collection string, rk
 	return &comatproto.RepoGetRecord_Output{
 		Uri:   fmt.Sprintf("at://%s/%s/%s", repo, collection, rkey),
 		Cid:   &str,
-		Value: &lexutil.LexiconTypeDecoder{Val: rec},
+		Value: &glex.LexiconTypeDecoder{Val: rec},
 	}, nil
 }
 

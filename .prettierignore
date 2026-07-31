@@ -3,4 +3,9 @@ js/app/ios
 js/app/android
 .ci/dockerfile-hash.yaml
 pnpm-lock.yaml
+lexicons.json
+lexicons/app
+lexicons/com
+lexicons/tools
+lexicons/games
 js/app/assets/emoji-data-stripped.json

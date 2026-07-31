@@ -17,11 +17,10 @@ import {
   useToast,
   zero,
 } from "@streamplace/components";
-import {
-  colors,
-  spacing,
-} from "@streamplace/components/src/lib/theme/tokens";
+import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
+import { LogoLockup } from "components/brand/logo";
+import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
@@ -37,13 +36,16 @@ import { DanmuCategorySettings } from "components/settings/danmu-category-settin
 import KeyManager from "components/settings/key-manager";
 import { LanguagesCategorySettings } from "components/settings/languages-category-settings";
 import MultistreamManager from "components/settings/multistream-manager";
+import { NotificationsCategorySettings } from "components/settings/notifications-category-settings";
 import { PrivacyCategorySettings } from "components/settings/privacy-category-settings";
 import RecommendationsManager from "components/settings/recommendations-manager";
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
-import { LogoLockup } from "components/brand/logo";
-import { LogoBrandMenu } from "components/brand/logo-brand-menu";
-import { SidebarOverlay, SidebarToggle } from "components/sidebar/sidebar-overlay";
+import {
+  SidebarOverlay,
+  SidebarToggle,
+} from "components/sidebar/sidebar-overlay";
+import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
@@ -52,8 +54,6 @@ import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
 import AboutScreen from "src/screens/about";
@@ -97,6 +97,8 @@ import {
   NavigationButton,
   UploadButton,
 } from "./router";
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const Tab = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -383,6 +385,11 @@ function SettingsNavigator() {
         options={{ title: "Privacy & Security" }}
       />
       <SettingsStack.Screen
+        name="NotificationsCategory"
+        component={NotificationsCategorySettings}
+        options={{ title: "Notifications" }}
+      />
+      <SettingsStack.Screen
         name="DanmuCategory"
         component={DanmuCategorySettings}
         options={{ title: "Danmu" }}
@@ -644,15 +651,15 @@ export default function Shell() {
   useBlueskyNotifications();
 
   // Track current route
-  const [currentRouteName, setCurrentRouteName] = useState<
-    string | undefined
-  >(() => {
-    try {
-      return getActiveLeafRouteName(navigation.getState());
-    } catch {
-      return undefined;
-    }
-  });
+  const [currentRouteName, setCurrentRouteName] = useState<string | undefined>(
+    () => {
+      try {
+        return getActiveLeafRouteName(navigation.getState());
+      } catch {
+        return undefined;
+      }
+    },
+  );
 
   useEffect(() => {
     const update = () => {
@@ -910,12 +917,12 @@ export default function Shell() {
                 }}
               >
                 <LogoLockup
-                size={19}
-                weight="semibold"
-                letterSpacing={0}
-                markColor={colors.white}
-                color={colors.white}
-              />
+                  size={19}
+                  weight="semibold"
+                  letterSpacing={0}
+                  markColor={colors.white}
+                  color={colors.white}
+                />
               </Pressable>
             </LogoBrandMenu>
           </View>
@@ -933,6 +940,7 @@ export default function Shell() {
           loginAction(pdsHost, openLoginLink);
         }}
       />
+      <UploadProgressIndicator />
     </View>
   );
 }

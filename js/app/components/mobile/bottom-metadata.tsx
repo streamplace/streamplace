@@ -6,8 +6,8 @@ import {
   formatHandle,
   formatHandleWithAt,
   IconButton,
-  LiveBadge,
   layout,
+  LiveBadge,
   PlayerUI,
   ShareSheet,
   Text,
@@ -25,10 +25,7 @@ import AQLink from "components/aqlink";
 import FollowButton from "components/follow-button";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Linking, Pressable, ScrollView, View } from "react-native";
-import type {
-  ActivityGame,
-  ActivityLabel,
-} from "streamplace/src/lexicons/types/place/stream/defs";
+import type { place } from "streamplace";
 import { LANG_TAG_PREFIX, LANGUAGES } from "../live-dashboard/livestream-panel";
 import { KebabMenu } from "./desktop-ui/kebab";
 
@@ -112,7 +109,9 @@ export function BottomMetadata({
   const { theme } = useTheme();
   const avatarUri = useAvatar();
   const activity = ls?.record.activity as
-    | ((ActivityGame | ActivityLabel) & { $type?: string })
+    | ((place.stream.defs.ActivityGame | place.stream.defs.ActivityLabel) & {
+        $type?: string;
+      })
     | undefined;
   const activityLabel = activity ? formatActivity(activity) : null;
   const rawTags = ls?.record.tags as string[] | undefined;

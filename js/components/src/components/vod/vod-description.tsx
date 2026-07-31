@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import type { PlaceStreamVideo } from "streamplace";
+import type { place } from "streamplace";
 import { useViews } from "../../hooks/useViews";
 import { spacing } from "../../lib/theme/tokens";
 import { useTheme } from "../../ui";
@@ -50,7 +50,7 @@ export function VodDescription() {
   const { theme } = useTheme();
 
   if (!video) return null;
-  const record = video.record as unknown as PlaceStreamVideo.Record;
+  const record = video.record as unknown as place.stream.video.Main;
   const description = record.description?.trim();
   const tags = (record.tags as string[] | undefined) ?? [];
   const posted = timeAgo(record.createdAt as string | undefined);

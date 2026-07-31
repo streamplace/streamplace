@@ -16,7 +16,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 var aggregateTracer = otel.Tracer("viewlog")
@@ -71,15 +71,15 @@ func RunAggregation(ctx context.Context, in RunAggregationInput) error {
 
 	indexedAt := aqtime.FromTime(time.Now().UTC()).String()
 	for _, vc := range result.VideoCounts {
-		tracks := make([]*streamplace.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
+		tracks := make([]placestream.MediaViewCount_TrackUsage, 0, len(vc.Tracks))
 		for _, t := range vc.Tracks {
-			tracks = append(tracks, &streamplace.MediaViewCount_TrackUsage{
+			tracks = append(tracks, placestream.MediaViewCount_TrackUsage{
 				Track:      t.Track,
 				Bytes:      t.Bytes,
 				DurationMs: t.DurationMS,
 			})
 		}
-		rec := &streamplace.MediaViewCount{
+		rec := &placestream.MediaViewCount{
 			LexiconTypeID: constants.PLACE_STREAM_MEDIA_VIEW_COUNT,
 			Video:         vc.VideoURI,
 			Count:         vc.Count,

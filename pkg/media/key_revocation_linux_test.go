@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 )
 

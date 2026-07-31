@@ -68,19 +68,20 @@ func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID str
 
 func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string) {
 	if !ss.cli.S3Configured() {
+		// Debug: the no-S3 dev default, so one line per stream start would be
+		// pure noise there — but it's flippable at runtime when an operator is
+		// asking "why isn't this node recording anything?".
+		log.Debug(ctx, "live recording skipped: S3 not configured", "repoDID", repoDID)
 		return
 	}
 	if !ss.shouldRecordLivestream(ctx, repoDID) {
-		log.Debug(ctx, "live recording disabled for streamer (not in VOD beta or recording not enabled)", "repoDID", repoDID)
+		// Info, not Debug: this fires once per stream session, and it's the
+		// answer to "why does this streamer have no recording?" — a question
+		// that once cost a production debugging session at Debug level.
+		log.Log(ctx, "live recording disabled for streamer (not in VOD beta, or recording turned off in settings)", "repoDID", repoDID)
 		return
 	}
-	cfg := s3.Config{
-		Endpoint:        ss.cli.S3Endpoint,
-		Bucket:          ss.cli.S3Bucket,
-		AccessKeyID:     ss.cli.S3AccessKeyID,
-		SecretAccessKey: ss.cli.S3SecretAccessKey,
-		Region:          ss.cli.S3Region,
-	}
+	cfg := ss.cli.S3Config()
 	// live-rec/ namespaces the in-progress livestream recordings away from the
 	// finalized VOD blobs (blobs/) and anything else in the bucket.
 	keyPrefix := liveRecPrefix + repoDID + "/"
@@ -90,10 +91,12 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	// the current stream everywhere (notification blast, idle finalize), so we
 	// do the same here; NewSegment refreshes it once the stream's own record is
 	// indexed, in case a prior stream was momentarily still "latest".
-	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err == nil && ls != nil {
+	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
+		log.Warn(ctx, "live recording: failed to resolve initial livestream URI; first object starts untagged", "error", err, "repoDID", repoDID)
+	} else if ls != nil {
 		ss.s3Uploader.SetLivestreamURI(ls.URI)
 	}
-	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint)
+	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
 }
 
 func (ss *StreamSession) s3Upload(ctx context.Context, notif *media.NewSegmentNotification) {

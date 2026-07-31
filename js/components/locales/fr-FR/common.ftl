@@ -72,3 +72,7 @@ pds-selector-learn-more = En savoir plus sur l'auto-hébergement
 pds-selector-info = Chaque hôte a ses propres politiques et normes de fiabilité. Vos données ATProto se trouvent sur l'hôte que vous choisissez et vous pouvez migrer ultérieurement. Remarque : Streamplace a ses propres règles de modération — vous pouvez être banni de Streamplace quel que soit l'hôte choisi.
 pds-selector-read-policies = Lisez les <tosLink>Conditions d'utilisation</tosLink> et la <privacyLink>Politique de confidentialité</privacyLink> de { $label } avant de continuer.
 pds-selector-handle-policy-checkbox = J'ai lu et j'accepte la <policyLink>politique des identifiants</policyLink>
+
+## Login
+login-show-live-on-bluesky = Afficher quand je suis en direct sur Bluesky
+login-show-live-on-bluesky-description = Ajoute l'anneau rouge LIVE à votre avatar Bluesky pendant vos streams et permet à Streamplace de publier des annonces pour vous. Décochez la case pour vous connecter sans accorder aucun accès à votre compte Bluesky.

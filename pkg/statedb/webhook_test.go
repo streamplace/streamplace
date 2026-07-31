@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestWebhookCreation(t *testing.T) {
@@ -22,6 +22,24 @@ func TestWebhookCreation(t *testing.T) {
 		require.Len(t, activeWebhooks, 1)
 		require.Equal(t, webhook.URL, activeWebhooks[0].URL)
 		require.Equal(t, webhook.Events, activeWebhooks[0].Events)
+	})
+}
+
+func TestWebhookStreamReceivedEventLookup(t *testing.T) {
+	WithAllDatabases(t, func(state *StatefulDB) {
+		webhook := &Webhook{
+			UserDID: "did:web:example.com",
+			URL:     "https://example.com",
+			Events:  []byte(`["stream.received"]`),
+			Active:  true,
+		}
+		err := state.CreateWebhook(webhook)
+		require.NoError(t, err)
+
+		activeWebhooks, err := state.GetActiveWebhooksForUser("did:web:example.com", "stream.received")
+		require.NoError(t, err)
+		require.Len(t, activeWebhooks, 1)
+		require.Equal(t, webhook.URL, activeWebhooks[0].URL)
 	})
 }
 
@@ -146,7 +164,7 @@ func TestWebhookConversionFunctions(t *testing.T) {
 		name := "test-name"
 		description := "test description"
 
-		input := &streamplace.ServerCreateWebhook_Input{
+		input := placestream.ServerCreateWebhook_Input{
 			Url:         "https://example.com/webhook",
 			Events:      []string{"chat", "livestream"},
 			Active:      &active,
@@ -154,7 +172,7 @@ func TestWebhookConversionFunctions(t *testing.T) {
 			Suffix:      &suffix,
 			Name:        &name,
 			Description: &description,
-			Rewrite: []*streamplace.ServerDefs_RewriteRule{
+			Rewrite: []placestream.ServerDefs_RewriteRule{
 				{From: "old", To: "new"},
 				{From: "hello", To: "hi"},
 			},

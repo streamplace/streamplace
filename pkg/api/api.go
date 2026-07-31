@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/google/uuid"
 	"github.com/julienschmidt/httprouter"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/cors"
 	sloghttp "github.com/samber/slog-http"
 	"golang.org/x/time/rate"
+	"stream.place/streamplace/pkg/appbsky"
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
@@ -43,9 +43,9 @@ import (
 	"stream.place/streamplace/pkg/mist/mistconfig"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spxrpc"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 
@@ -57,20 +57,20 @@ import (
 )
 
 type StreamplaceAPI struct {
-	CLI              *config.CLI
-	Model            model.Model
-	StatefulDB       *statedb.StatefulDB
-	LocalDB          localdb.LocalDB
-	Updater          *Updater
-	Signer           *eip712.EIP712Signer
-	Mimes            map[string]string
-	FirebaseNotifier notifications.FirebaseNotifier
-	MediaManager     *media.MediaManager
-	MediaSigner      media.MediaSigner
-	UploadManager    *upload.Manager
-	PlaybackStore    blob.Store
-	ViewLog          *viewlog.Writer
-	XRPCServer       *spxrpc.Server
+	CLI           *config.CLI
+	Model         model.Model
+	StatefulDB    *statedb.StatefulDB
+	LocalDB       localdb.LocalDB
+	Updater       *Updater
+	Signer        *eip712.EIP712Signer
+	Mimes         map[string]string
+	Notifier      notifications.Notifier
+	MediaManager  *media.MediaManager
+	MediaSigner   media.MediaSigner
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+	XRPCServer    *spxrpc.Server
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -99,7 +99,7 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.FirebaseNotifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
+func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.Notifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		Model:            mod,
 		StatefulDB:       statefulDB,
 		Updater:          updater,
-		FirebaseNotifier: noter,
+		Notifier:         noter,
 		MediaManager:     mm,
 		MediaSigner:      ms,
 		UploadManager:    um,
@@ -188,6 +188,8 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("GET", "/.well-known/assetlinks.json", a.HandleAndroidAssetLinks(ctx))
 	apiRouter := httprouter.New()
 	addFunc(apiRouter, "POST", "/api/notification", a.HandleNotification(ctx))
+	addFunc(apiRouter, "DELETE", "/api/notification", a.HandleNotificationDelete(ctx))
+	addFunc(apiRouter, "GET", "/api/notification/vapid-public-key", a.HandleVapidPublicKey(ctx))
 	// old clients
 	addFunc(router, "GET", "/app-updates", a.HandleAppUpdates(ctx))
 	// new ones
@@ -556,6 +558,7 @@ func (a *StreamplaceAPI) RedirectHandler(ctx context.Context) (http.Handler, err
 type NotificationPayload struct {
 	Token   string `json:"token"`
 	RepoDID string `json:"repoDID"`
+	Type    string `json:"type"`
 }
 
 func (a *StreamplaceAPI) HandleAPI404(ctx context.Context) http.HandlerFunc {
@@ -579,7 +582,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 			w.WriteHeader(400)
 			return
 		}
-		err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID)
+		err = a.StatefulDB.CreateNotification(n.Token, n.RepoDID, statedb.NotificationType(n.Type))
 		if err != nil {
 			log.Log(ctx, "error creating notification", "error", err)
 			w.WriteHeader(400)
@@ -594,6 +597,59 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 					log.Error(ctx, "error syncing bluesky repo after notification creation", "error", err)
 				}
 			}()
+		}
+	}
+}
+
+// HandleNotificationDelete removes a push token (web or mobile). Used by the
+// web client when a user disables notifications — the browser subscription is
+// unsubscribed locally and the server row is pruned so we stop pushing to a
+// dead endpoint.
+func (a *StreamplaceAPI) HandleNotificationDelete(ctx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		payload, err := io.ReadAll(req.Body)
+		if err != nil {
+			log.Log(ctx, "error reading notification delete", "error", err)
+			w.WriteHeader(400)
+			return
+		}
+		n := NotificationPayload{}
+		if err := json.Unmarshal(payload, &n); err != nil {
+			log.Log(ctx, "error unmarshalling notification delete", "error", err)
+			w.WriteHeader(400)
+			return
+		}
+		if n.Token == "" {
+			w.WriteHeader(400)
+			return
+		}
+		if err := a.StatefulDB.DeleteNotification(n.Token); err != nil {
+			log.Log(ctx, "error deleting notification", "error", err)
+			w.WriteHeader(400)
+			return
+		}
+		log.Log(ctx, "successfully deleted notification", "token", n.Token)
+		w.WriteHeader(200)
+	}
+}
+
+// HandleVapidPublicKey returns the server's Web Push VAPID public key. The web
+// client needs it to subscribe the browser's PushManager. The key is generated
+// on first access (via EnsureVAPIDKeys) and stays stable thereafter.
+func (a *StreamplaceAPI) HandleVapidPublicKey(ctx context.Context) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		keys, err := a.StatefulDB.EnsureVAPIDKeys(ctx)
+		if err != nil {
+			log.Error(ctx, "error ensuring vapid keys", "error", err)
+			apierrors.WriteHTTPInternalServerError(w, "unable to get vapid public key", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		resp := struct {
+			PublicKey string `json:"publicKey"`
+		}{PublicKey: keys.PublicKey}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			log.Error(ctx, "error writing vapid public key", "error", err)
 		}
 	}
 }
@@ -642,7 +698,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 			return
 		}
 		count := a.Bus.GetViewerCount(user)
-		bs, err := json.Marshal(streamplace.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
+		bs, err := json.Marshal(placestream.Livestream_ViewerCount{Count: int64(count), LexiconTypeID: "place.stream.livestream#viewerCount"})
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not marshal view count", err)
 			return
@@ -678,9 +734,9 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 }
 
 type ChatResponse struct {
-	Post *bsky.FeedPost `json:"post"`
-	Repo *model.Repo    `json:"repo"`
-	CID  string         `json:"cid"`
+	Post *appbsky.FeedPost `json:"post"`
+	Repo *model.Repo       `json:"repo"`
+	CID  string            `json:"cid"`
 }
 
 func (a *StreamplaceAPI) HandleChat(ctx context.Context) httprouter.Handle {

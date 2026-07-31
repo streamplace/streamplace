@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/events"
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/ipfs/go-cid"
-	atmoq "github.com/streamplace/atmoq-go"
+	atmoq "github.com/streamplace/atmoq/go"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/model"
 )
 
@@ -49,17 +49,17 @@ func TestDispatchMoqFrameCommit(t *testing.T) {
 		Seq:    42,
 		Repo:   "did:plc:abc123",
 		Rev:    "rev1",
-		Commit: lexutil.LexLink(mustCID(t)),
+		Commit: glex.Link(mustCID(t)),
 		Time:   "2026-06-25T00:00:00Z",
-		Blocks: lexutil.LexBytes{},
-		Ops:    []*comatproto.SyncSubscribeRepos_RepoOp{},
-		Blobs:  []lexutil.LexLink{},
+		Blocks: glex.Bytes{},
+		Ops:    []comatproto.SyncSubscribeRepos_RepoOp{},
+		Blobs:  []glex.Link{},
 	}
 	require.NoError(t, commit.MarshalCBOR(&buf))
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -86,7 +86,7 @@ func TestDispatchMoqFrameIdentity(t *testing.T) {
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -113,7 +113,7 @@ func TestDispatchMoqFrameIgnoredType(t *testing.T) {
 
 	sched, out := collectScheduler(t)
 	atsync := &ATProtoSynchronizer{}
-	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), sched))
+	require.NoError(t, atsync.dispatchMoqFrame(context.Background(), buf.Bytes(), 1, "moqt://test", "moq", sched))
 
 	select {
 	case ev := <-out:
@@ -148,7 +148,7 @@ func TestFirehoseMoqLive(t *testing.T) {
 	for commits < 5 {
 		raw, _, err := sub.ReadFrame(ctx)
 		require.NoError(t, err, "reading %d live frames", commits)
-		require.NoError(t, atsync.dispatchMoqFrame(ctx, raw, sched))
+		require.NoError(t, atsync.dispatchMoqFrame(ctx, raw, 1, "moqt://test", "moq", sched))
 		select {
 		case ev := <-out:
 			if ev.RepoCommit != nil {

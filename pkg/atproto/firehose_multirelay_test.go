@@ -7,17 +7,17 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/prometheus/client_golang/prometheus"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // TestMultiRelayDedup subscribes to the same dev PDS firehose twice (via two
@@ -69,7 +69,7 @@ func TestMultiRelayDedup(t *testing.T) {
 	}()
 
 	user := dev.CreateAccount(t)
-	msg := &streamplace.ChatMessage{
+	msg := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello from two relays!",
 		CreatedAt:     time.Now().Add(-time.Second).Format(util.ISO8601),
@@ -78,7 +78,7 @@ func TestMultiRelayDedup(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 

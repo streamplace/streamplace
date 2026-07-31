@@ -59,7 +59,7 @@ func TestDetachedWorkerZeroDowntime(t *testing.T) {
 		InputFD:         4,
 	}
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 	mediaR, mediaW, err := os.Pipe()
 	require.NoError(t, err)
 
@@ -67,7 +67,7 @@ func TestDetachedWorkerZeroDowntime(t *testing.T) {
 	require.NoError(t, err)
 	mediaR.Close() // the worker holds its own dup
 	go func() {
-		_, _ = mediaW.Write(mkv)
+		_, _ = mediaW.Write(mp4)
 		mediaW.Close()
 	}()
 

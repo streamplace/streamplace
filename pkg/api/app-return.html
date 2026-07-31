@@ -33,11 +33,8 @@
   </body>
   <script>
     const appBundleId = "APP_BUNDLE_ID_REPLACE_ME";
-    // This should work. It does work on iOS. On Android, it causes the token to be
-    // authorized twice? I don't know why. I spent two hours trying to figure out why
-    // without luck. You're welcome to try more if you want! In the meantime, using
-    // an annoying button makes it work every time.
-    document.location.href = `${appBundleId}:/${window.location.search}`;
+    // This has been causing redirect to fail. Button it is.
+    // document.location.href = `${appBundleId}:/${window.location.search}`;
     document.querySelector("button").addEventListener("click", () => {
       document.location.href = `${appBundleId}:/${window.location.search}`;
     });

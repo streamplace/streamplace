@@ -9,8 +9,8 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 func TestServerRepo(t *testing.T) {
@@ -45,14 +45,14 @@ func TestServerRepo(t *testing.T) {
 
 	// Put a LiveViewCount record
 	updatedAt := "2026-03-21T00:00:00Z"
-	vc := &streamplace.LiveViewerCount{
+	vc := placestream.LiveViewerCount{
 		LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 		Count:         42,
 		Server:        "did:web:server1.example.com",
 		Streamer:      "did:plc:abc123",
 		UpdatedAt:     &updatedAt,
 	}
-	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123", vc)
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, "did:plc:abc123", &vc)
 	require.NoError(t, err)
 
 	// Read it back
@@ -100,13 +100,13 @@ func TestServerRepo(t *testing.T) {
 
 	// After writing a record in a second collection, ListCollections
 	// should pick both up in sorted order.
-	origin := &streamplace.MediaOrigin{
+	origin := placestream.MediaOrigin{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          "babczxv...",
 		Size:          1234,
 		MimeType:      "video/mp4",
 	}
-	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv1", origin)
+	err = CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_MEDIA_ORIGIN, "babczxv1", &origin)
 	require.NoError(t, err)
 	cols, err = ServerRepoListCollections(context.Background())
 	require.NoError(t, err)
@@ -159,14 +159,14 @@ func TestServerRepoListRecords_Pagination(t *testing.T) {
 	streamers := []string{"did:plc:a", "did:plc:b", "did:plc:c", "did:plc:d", "did:plc:e"}
 	updatedAt := "2026-03-21T00:00:00Z"
 	for _, s := range streamers {
-		vc := &streamplace.LiveViewerCount{
+		vc := placestream.LiveViewerCount{
 			LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 			Count:         1,
 			Server:        "did:web:server2.example.com",
 			Streamer:      s,
 			UpdatedAt:     &updatedAt,
 		}
-		require.NoError(t, CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, s, vc))
+		require.NoError(t, CommitServerRepoRecord(context.Background(), &cli, constants.PLACE_STREAM_LIVE_VIEWERCOUNT, s, &vc))
 	}
 
 	// Default order is reverse-lexical (newest TID first). limit=2:

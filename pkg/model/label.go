@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"gorm.io/gorm/clause"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 type Label struct {

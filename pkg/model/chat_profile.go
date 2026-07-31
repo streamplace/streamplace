@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type ChatProfile struct {
@@ -16,17 +16,13 @@ type ChatProfile struct {
 	Record  *[]byte
 }
 
-func (m *ChatProfile) ToStreamplaceChatProfile() (*streamplace.ChatProfile, error) {
+func (m *ChatProfile) ToStreamplaceChatProfile() (placestream.ChatProfile, error) {
 	if m == nil || m.Record == nil {
-		return nil, fmt.Errorf("chat profile is nil")
+		return placestream.ChatProfile{}, fmt.Errorf("chat profile is nil")
 	}
-	rec, err := lexutil.CborDecodeValue(*m.Record)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding feed post: %w", err)
-	}
-	scp, ok := rec.(*streamplace.ChatProfile)
-	if !ok {
-		return nil, fmt.Errorf("invalid chat profile")
+	var scp placestream.ChatProfile
+	if err := glex.DecodeCBOR(*m.Record, &scp); err != nil {
+		return placestream.ChatProfile{}, fmt.Errorf("error decoding chat profile: %w", err)
 	}
 	return scp, nil
 }
@@ -51,7 +47,7 @@ func (m *DBModel) GetChatProfile(ctx context.Context, repoDID string) (*ChatProf
 	return &profile, nil
 }
 
-func ColorToHex(color *streamplace.ChatProfile_Color) string {
+func ColorToHex(color *placestream.ChatProfile_Color) string {
 	if color == nil {
 		return "#f8baca"
 	}

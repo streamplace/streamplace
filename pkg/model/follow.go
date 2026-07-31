@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 )
 
@@ -16,7 +16,7 @@ type Follow struct {
 	CreatedAt  time.Time
 }
 
-func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow *bsky.GraphFollow) error {
+func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow appbsky.GraphFollow) error {
 	at, err := aqtime.FromString(follow.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("failed to parse follow createdAt: %w", err)

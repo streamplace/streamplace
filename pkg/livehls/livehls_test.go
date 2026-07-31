@@ -193,3 +193,14 @@ func TestMasterPlaylist(t *testing.T) {
 		}
 	}
 }
+
+func TestPrimaryAudioTrackID(t *testing.T) {
+	w := NewWriter()
+	_ = w.Observe(initEvent())
+	_ = w.Observe(segEvent(bytes.Repeat([]byte{1}, 100), bytes.Repeat([]byte{2}, 40)))
+
+	got := w.PrimaryAudioTrackID()
+	if got != "2" {
+		t.Errorf("PrimaryAudioTrackID() = %q, want %q", got, "2")
+	}
+}

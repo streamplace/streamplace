@@ -53,7 +53,10 @@ func deleteSegment(ctx context.Context, localDB localdb.LocalDB, cli *config.CLI
 		return nil
 	}
 	aqt := aqtime.FromTime(seg.StartTime)
-	fpath, err := cli.SegmentFilePath(seg.RepoDID, fmt.Sprintf("%s.%s", aqt.FileSafeString(), "mp4"))
+	// Segments are archived as .m4s (see distributeSegment); this used to say
+	// "mp4" (a leftover from presentation-MP4 days), so os.Remove always missed
+	// the real file and the .m4s bytes leaked on disk forever.
+	fpath, err := cli.SegmentFilePath(seg.RepoDID, fmt.Sprintf("%s.%s", aqt.FileSafeString(), "m4s"))
 	if err != nil {
 		return err
 	}

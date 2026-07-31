@@ -1,10 +1,6 @@
 import { SessionManager } from "@atproto/api/dist/session-manager";
 import { useContext } from "react";
-import {
-  PlaceStreamChatProfile,
-  PlaceStreamIngestDefs,
-  PlaceStreamLivestream,
-} from "streamplace";
+import { place } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
@@ -31,9 +27,9 @@ export interface ContentMetadataResult {
 
 export interface StreamplaceState {
   url: string;
-  liveUsers: PlaceStreamLivestream.LivestreamView[] | null;
+  liveUsers: place.stream.livestream.LivestreamView[] | null;
   setLiveUsers: (opts: {
-    liveUsers?: PlaceStreamLivestream.LivestreamView[];
+    liveUsers?: place.stream.livestream.LivestreamView[];
     liveUsersLoading?: boolean;
     liveUsersError?: string | null;
     liveUsersRefresh?: number;
@@ -46,10 +42,10 @@ export interface StreamplaceState {
   // Lets components (comments, likes, chat) gate actions behind auth.
   onNeedsLogin: (() => void) | null;
   handle: string | null;
-  chatProfile: PlaceStreamChatProfile.Record | null;
+  chatProfile: place.stream.chat.profile.Main | null;
 
-  ingests: PlaceStreamIngestDefs.Ingest[] | null;
-  setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) => void;
+  ingests: place.stream.ingest.defs.Ingest[] | null;
+  setIngests: (ingests: place.stream.ingest.defs.Ingest[] | null) => void;
 
   // Content metadata state
   contentMetadata: ContentMetadataResult | null;
@@ -114,7 +110,7 @@ export const makeStreamplaceStore = ({
     url,
     liveUsers: null,
     setLiveUsers: (opts: {
-      liveUsers?: PlaceStreamLivestream.LivestreamView[];
+      liveUsers?: place.stream.livestream.LivestreamView[];
       liveUsersLoading?: boolean;
       liveUsersError?: string | null;
       liveUsersRefresh?: number;
@@ -131,7 +127,7 @@ export const makeStreamplaceStore = ({
     handle: null,
     chatProfile: null,
     ingests: null,
-    setIngests: (ingests: PlaceStreamIngestDefs.Ingest[] | null) =>
+    setIngests: (ingests: place.stream.ingest.defs.Ingest[] | null) =>
       set({ ingests: ingests }),
     broadcasterDID: null,
     setBroadcasterDID: (broadcasterDID: string | null) =>
@@ -351,8 +347,7 @@ export function useStreamplaceStore<U>(
 export const useUrl = () => useStreamplaceStore((x) => x.url);
 
 export const useDID = () => useStreamplaceStore((x) => x.oauthSession?.did);
-export const useOnNeedsLogin = () =>
-  useStreamplaceStore((x) => x.onNeedsLogin);
+export const useOnNeedsLogin = () => useStreamplaceStore((x) => x.onNeedsLogin);
 
 export const useHandle = () => useStreamplaceStore((x) => x.handle);
 export const useSetHandle = (): ((handle: string) => void) => {

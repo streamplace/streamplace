@@ -1,4 +1,4 @@
-import { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 
 // The DID lives in the second path segment of an at:// URI:
 // at://<did>/place.stream.video/<tid>
@@ -16,11 +16,11 @@ export function getTidFromAtUri(uri: string): string {
 // use. Returns undefined when the video has no thumbnail so callers can fall
 // back to a placeholder.
 export function getVideoThumbnailUrl(
-  record: PlaceStreamVideo.Record | undefined,
+  record: place.stream.video.Main | undefined,
   did: string,
 ): string | undefined {
-  const ref = record?.thumb?.ref as { $link?: string } | undefined;
-  const cid = ref?.$link ?? record?.thumb?.ref?.toString();
+  const ref = (record?.thumb as any)?.ref as { $link?: string } | undefined;
+  const cid = ref?.$link ?? (record?.thumb as any)?.ref?.toString();
   if (!cid || !did) return undefined;
   return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`;
 }

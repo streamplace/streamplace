@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -13,10 +14,15 @@ import (
 )
 
 // fakeUploadAPI is an in-memory stand-in for the multipart subset of *s3.Client
-// the upload loop drives. It hands back dummy upload IDs / etags and never errs.
+// the upload loop drives. It hands back dummy upload IDs / etags; set
+// failCompletes to make the first N CompleteMultipartUpload calls fail.
 type fakeUploadAPI struct {
-	mu      sync.Mutex
-	creates int
+	mu            sync.Mutex
+	creates       int
+	partSizes     []int
+	failCompletes int
+	completes     int
+	aborts        int
 }
 
 func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.CreateMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
@@ -27,15 +33,32 @@ func (f *fakeUploadAPI) CreateMultipartUpload(_ context.Context, _ *awss3.Create
 	return &awss3.CreateMultipartUploadOutput{UploadId: aws.String(fmt.Sprintf("up-%d", n))}, nil
 }
 
-func (f *fakeUploadAPI) UploadPart(_ context.Context, _ *awss3.UploadPartInput, _ ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+func (f *fakeUploadAPI) UploadPart(_ context.Context, in *awss3.UploadPartInput, _ ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+	body, err := io.ReadAll(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	f.mu.Lock()
+	f.partSizes = append(f.partSizes, len(body))
+	f.mu.Unlock()
 	return &awss3.UploadPartOutput{ETag: aws.String("etag")}, nil
 }
 
 func (f *fakeUploadAPI) CompleteMultipartUpload(_ context.Context, _ *awss3.CompleteMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.failCompletes > 0 {
+		f.failCompletes--
+		return nil, fmt.Errorf("InvalidPart: all non-trailing parts must have the same length")
+	}
+	f.completes++
 	return &awss3.CompleteMultipartUploadOutput{}, nil
 }
 
 func (f *fakeUploadAPI) AbortMultipartUpload(_ context.Context, _ *awss3.AbortMultipartUploadInput, _ ...func(*awss3.Options)) (*awss3.AbortMultipartUploadOutput, error) {
+	f.mu.Lock()
+	f.aborts++
+	f.mu.Unlock()
 	return &awss3.AbortMultipartUploadOutput{}, nil
 }
 
@@ -143,6 +166,71 @@ func TestS3UploaderCutoverCompletesObject(t *testing.T) {
 	keys := rec.startKeys()
 	require.Len(t, keys, 2)
 	require.NotEqual(t, keys[0], keys[1], "post-cutover object must have a distinct key")
+}
+
+// TestS3UploaderUniformParts proves the uploader slices its buffer into
+// exactly liveUploadPartSize parts regardless of segment sizes, with only the
+// object's final part smaller. R2 rejects multipart completes whose
+// non-trailing parts differ in length, so "flush whatever accumulated past
+// 5MB" (the old behavior) breaks against R2 with real, variable-size
+// segments.
+func TestS3UploaderUniformParts(t *testing.T) {
+	fc := &fakeUploadAPI{}
+	rec := &fakeRecorder{}
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+
+	ctx := context.Background()
+	total := 0
+	for _, mb := range []int{2, 3, 4, 3} { // 12MB in irregular chunks
+		require.NoError(t, u.AddSegment(ctx, make([]byte, mb*1024*1024)))
+		total += mb * 1024 * 1024
+	}
+	require.NoError(t, u.Close(ctx))
+
+	fc.mu.Lock()
+	sizes := append([]int(nil), fc.partSizes...)
+	fc.mu.Unlock()
+	require.NotEmpty(t, sizes)
+	got := 0
+	for i, s := range sizes {
+		got += s
+		if i < len(sizes)-1 {
+			require.Equal(t, liveUploadPartSize, s, "non-trailing part %d must be exactly liveUploadPartSize", i+1)
+		} else {
+			require.LessOrEqual(t, s, liveUploadPartSize)
+		}
+	}
+	require.Equal(t, total, got, "flushed parts must cover every byte exactly once")
+}
+
+// TestS3UploaderRecoversFromCompleteFailure proves a failed
+// CompleteMultipartUpload doesn't wedge the uploader: the broken object is
+// aborted and abandoned, and the next segment starts a fresh object that
+// uploads normally. Before this behavior existed, the first error killed the
+// upload loop and the rest of the stream was silently never recorded — which
+// is exactly how R2's InvalidPart rejection presented in production.
+func TestS3UploaderRecoversFromCompleteFailure(t *testing.T) {
+	fc := &fakeUploadAPI{failCompletes: 1}
+	rec := &fakeRecorder{}
+	u := newS3Uploader(fc, "bucket", "did:plc:test", "did:plc:test/", time.Hour, rec)
+
+	ctx := context.Background()
+	seg := make([]byte, 1024)
+
+	require.NoError(t, u.AddSegment(ctx, seg))
+	waitForStarts(t, rec, 1)           // object 1
+	require.NoError(t, u.Cutover(ctx)) // complete fails -> object 1 abandoned+aborted
+
+	require.NoError(t, u.AddSegment(ctx, seg))
+	waitForStarts(t, rec, 2) // loop survived: object 2 started
+
+	require.NoError(t, u.Close(ctx), "mid-stream failure must not surface at Close; the final object completed fine")
+
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	require.Equal(t, 2, fc.creates, "a fresh object must start after the failure")
+	require.Equal(t, 1, fc.aborts, "the broken object must be aborted, not leaked")
+	require.Equal(t, 1, fc.completes, "the post-failure object must complete")
 }
 
 // TestS3UploaderCloseIdempotent exercises the lifecycle fix that re-enabled

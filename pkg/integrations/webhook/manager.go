@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/integrations/discord"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // SendChatWebhook sends chat message to a specific webhook
-func SendChatWebhook(ctx context.Context, webhook *streamplace.ServerDefs_Webhook, authorDID string, scm *streamplace.ChatDefs_MessageView) error {
+func SendChatWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, authorDID string, scm *placestream.ChatDefs_MessageView) error {
 	// Check if message should be muted
-	if msg, ok := scm.Record.Val.(*streamplace.ChatMessage); ok {
+	if msg, ok := scm.Record.Val.(*placestream.ChatMessage); ok {
 		if len(webhook.MuteWords) > 0 {
 			messageText := strings.ToLower(msg.Text)
 			for _, muteWord := range webhook.MuteWords {
@@ -35,7 +35,7 @@ func SendChatWebhook(ctx context.Context, webhook *streamplace.ServerDefs_Webhoo
 }
 
 // SendLivestreamWebhook sends livestream notification to a specific webhook
-func SendLivestreamWebhook(ctx context.Context, webhook *streamplace.ServerDefs_Webhook, pdsURL string, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
+func SendLivestreamWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, pdsURL string, lsv *placestream.Livestream_LivestreamView, postView *appbsky.FeedDefs_PostView, spcp *placestream.ChatProfile) error {
 	discordWebhook, err := webhookToDiscordWebhook(webhook)
 	if err != nil {
 		return fmt.Errorf("failed to convert webhook: %w", err)
@@ -44,8 +44,18 @@ func SendLivestreamWebhook(ctx context.Context, webhook *streamplace.ServerDefs_
 	return discord.SendLivestream(ctx, discordWebhook, pdsURL, lsv, postView, spcp)
 }
 
-// webhookToDiscordWebhook converts streamplace.ServerDefs_Webhook to discordtypes.Webhook
-func webhookToDiscordWebhook(webhook *streamplace.ServerDefs_Webhook) (*discordtypes.Webhook, error) {
+// SendStreamReceivedWebhook sends a stream.received event to a specific webhook.
+func SendStreamReceivedWebhook(ctx context.Context, webhook *placestream.ServerDefs_Webhook, streamerDID string) error {
+	discordWebhook, err := webhookToDiscordWebhook(webhook)
+	if err != nil {
+		return fmt.Errorf("failed to convert webhook: %w", err)
+	}
+
+	return discord.SendStreamReceived(ctx, discordWebhook, streamerDID)
+}
+
+// webhookToDiscordWebhook converts placestream.ServerDefs_Webhook to discordtypes.Webhook
+func webhookToDiscordWebhook(webhook *placestream.ServerDefs_Webhook) (*discordtypes.Webhook, error) {
 	var rewriteRules []*discordtypes.WebhookRewrite
 	for _, rule := range webhook.Rewrite {
 		rewriteRules = append(rewriteRules, &discordtypes.WebhookRewrite{

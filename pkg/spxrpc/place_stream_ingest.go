@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func hostPort(host, port, defaultPort string) string {
@@ -22,8 +22,8 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 	}
 	broadcasterDID := s.cli.BroadcasterDID()
 	broadcasterHost := strings.TrimPrefix(broadcasterDID, "did:web:")
-	out := &placestream.IngestGetIngestUrls_Output{
-		Ingests: []*placestream.IngestGetIngestUrls_Output_Ingests_Elem{},
+	out := placestream.IngestGetIngestUrls_Output{
+		Ingests: []placestream.IngestGetIngestUrls_Output_Ingests_Elem{},
 	}
 	if !s.cli.Secure {
 		_, rtmpPort, err := net.SplitHostPort(s.cli.RTMPAddr)
@@ -31,7 +31,7 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 			return nil, err
 		}
 		rtmpUrl := fmt.Sprintf("rtmp://%s/live", hostPort(broadcasterHost, rtmpPort, "1935"))
-		out.Ingests = append(out.Ingests, &placestream.IngestGetIngestUrls_Output_Ingests_Elem{
+		out.Ingests = append(out.Ingests, placestream.IngestGetIngestUrls_Output_Ingests_Elem{
 			IngestDefs_Ingest: &placestream.IngestDefs_Ingest{
 				Type: "rtmp",
 				Url:  rtmpUrl,
@@ -43,7 +43,7 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 			return nil, err
 		}
 		whipUrl := fmt.Sprintf("http://%s", hostPort(broadcasterHost, httpPort, "80"))
-		out.Ingests = append(out.Ingests, &placestream.IngestGetIngestUrls_Output_Ingests_Elem{
+		out.Ingests = append(out.Ingests, placestream.IngestGetIngestUrls_Output_Ingests_Elem{
 			IngestDefs_Ingest: &placestream.IngestDefs_Ingest{
 				Type: "whip",
 				Url:  whipUrl,
@@ -55,7 +55,7 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 			return nil, err
 		}
 		rtmpsUrl := fmt.Sprintf("rtmps://%s:%s/live", broadcasterHost, rtmpsPort)
-		out.Ingests = append(out.Ingests, &placestream.IngestGetIngestUrls_Output_Ingests_Elem{
+		out.Ingests = append(out.Ingests, placestream.IngestGetIngestUrls_Output_Ingests_Elem{
 			IngestDefs_Ingest: &placestream.IngestDefs_Ingest{
 				Type: "rtmps",
 				Url:  rtmpsUrl,
@@ -67,7 +67,7 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 			return nil, err
 		}
 		whipUrl := fmt.Sprintf("https://%s", hostPort(broadcasterHost, httpsPort, "443"))
-		out.Ingests = append(out.Ingests, &placestream.IngestGetIngestUrls_Output_Ingests_Elem{
+		out.Ingests = append(out.Ingests, placestream.IngestGetIngestUrls_Output_Ingests_Elem{
 			IngestDefs_Ingest: &placestream.IngestDefs_Ingest{
 				Type: "whip",
 				Url:  whipUrl,
@@ -75,5 +75,5 @@ func (s *Server) handlePlaceStreamIngestGetIngestUrls(ctx context.Context) (*pla
 		})
 	}
 
-	return out, nil
+	return &out, nil
 }

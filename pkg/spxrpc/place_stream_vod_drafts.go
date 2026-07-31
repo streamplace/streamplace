@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	placestream "stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -41,7 +42,7 @@ func (s *Server) loadOwnedDraft(ctx context.Context, uri, did string) (*placestr
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return view, nil
+	return &view, nil
 }
 
 // handlers ─────────────────────────────────────────────────────────────────
@@ -55,7 +56,7 @@ func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor stri
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	views := make([]*placestream.VodDraftDefs_DraftView, 0, len(drafts))
+	views := make([]placestream.VodDraftDefs_DraftView, 0, len(drafts))
 	for _, dv := range drafts {
 		v, err := dv.ToDraftView()
 		if err != nil {
@@ -63,12 +64,12 @@ func (s *Server) handlePlaceStreamVodListDrafts(ctx context.Context, cursor stri
 		}
 		views = append(views, v)
 	}
-	out := &placestream.VodListDrafts_Output{Drafts: views}
+	out := placestream.VodListDrafts_Output{Drafts: views}
 	if len(drafts) > 0 {
 		c := drafts[len(drafts)-1].CreatedAt.Format(time.RFC3339Nano)
 		out.Cursor = &c
 	}
-	return out, nil
+	return &out, nil
 }
 
 func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (*placestream.VodGetDraft_Output, error) {
@@ -80,7 +81,7 @@ func (s *Server) handlePlaceStreamVodGetDraft(ctx context.Context, uri string) (
 	if err != nil {
 		return nil, err
 	}
-	return &placestream.VodGetDraft_Output{Draft: owned}, nil
+	return &placestream.VodGetDraft_Output{Draft: *owned}, nil
 }
 
 func (s *Server) handlePlaceStreamVodUpdateDraft(ctx context.Context, body *placestream.VodUpdateDraft_Input) (*placestream.VodUpdateDraft_Output, error) {
@@ -194,6 +195,7 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "publishDraft", "did", session.DID, "draftUri", body.Uri)
 	if body.Uri == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uri is required")
 	}
@@ -238,7 +240,7 @@ func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string
 	if title == "" {
 		title = "Livestream"
 	}
-	draftRec := &placestream.VodDraftVideo{
+	draftRec := placestream.VodDraftVideo{
 		LexiconTypeID: "place.stream.vod.draftVideo",
 		Title:         title,
 		Status:        "processing",
@@ -253,7 +255,7 @@ func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string
 	// Link back to the source livestream so a published VOD carries the
 	// connection (the existing UI uses this to flip a finalized row to
 	// "View VOD").
-	draftRec.Connections = []*placestream.VodDraftVideo_Connections_Elem{{
+	draftRec.Connections = []placestream.VodDraftVideo_Connections_Elem{{
 		Video_Connection: &placestream.Video_Connection{
 			LexiconTypeID: "place.stream.video#connection",
 			Ref: &comatproto.RepoStrongRef{
@@ -263,7 +265,7 @@ func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string
 		},
 	}}
 
-	return s.statefulDB.CreateDraft(ctx, did, uploadID, draftRec)
+	return s.statefulDB.CreateDraft(ctx, did, uploadID, &draftRec)
 }
 
 // livestreamActivityToDraft maps a livestream's activity union onto the draft's

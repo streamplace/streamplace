@@ -1,8 +1,19 @@
 import { useNavigation } from "@react-navigation/native";
-import { Button, Loader, Switch, Text, View, zero } from "@streamplace/components";
-import { Plus } from "lucide-react-native";
-import { surfaces, borderAlphas, textAlphas } from "@streamplace/components/src/lib/theme/tokens";
+import {
+  Button,
+  Loader,
+  Switch,
+  Text,
+  View,
+  zero,
+} from "@streamplace/components";
+import {
+  borderAlphas,
+  surfaces,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
+import { Plus } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import Animated, {
   cancelAnimation,
@@ -11,12 +22,12 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { PlaceStreamMultistreamDefs } from "streamplace";
+import { place } from "streamplace";
 
 const { flex, p, gap, layout, bg, borders, text, r } = zero;
 
 interface MultistreamTargetViewHydrated
-  extends PlaceStreamMultistreamDefs.TargetView {
+  extends place.stream.multistream.defs.TargetView {
   record: any;
 }
 
@@ -54,10 +65,11 @@ export default function MultistreamStatus() {
 
     try {
       setLoading(true);
-      const targetViews = await agent.place.stream.multistream.listTargets({
-        limit: 50,
-      });
-      setTargets(targetViews.data.targets as MultistreamTargetViewHydrated[]);
+      const targetViews = await agent.client.call(
+        place.stream.multistream.listTargets,
+        { limit: 50 },
+      );
+      setTargets(targetViews.targets as MultistreamTargetViewHydrated[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
       setTargets([]);
@@ -71,7 +83,7 @@ export default function MultistreamStatus() {
       if (!agent) return;
       try {
         setTogglingTargets((prev) => new Set(prev).add(target.uri));
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             ...target.record,
             active: newActiveState,
@@ -206,46 +218,46 @@ export default function MultistreamStatus() {
       ) : (
         <View style={[p[3], gap.all[2]]}>
           {targets.map((target) => (
-        <View
-          key={target.uri}
-          style={[
-            layout.flex.row,
-            layout.flex.alignCenter,
-            layout.flex.spaceBetween,
-            p[2],
-            { backgroundColor: surfaces.dark[2] },
-            r.md,
-            borders.width.thin,
-            { borderColor: borderAlphas.dark.strong },
-          ]}
-        >
-          <View style={[flex.values[1]]}>
             <View
-              style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+              key={target.uri}
+              style={[
+                layout.flex.row,
+                layout.flex.alignCenter,
+                layout.flex.spaceBetween,
+                p[2],
+                { backgroundColor: surfaces.dark[2] },
+                r.md,
+                borders.width.thin,
+                { borderColor: borderAlphas.dark.strong },
+              ]}
             >
-              <Text>{getTargetName(target)}</Text>
-              {target.record.name && getTargetHostname(target) && (
-                <Text color="muted">{getTargetHostname(target)}</Text>
-              )}
+              <View style={[flex.values[1]]}>
+                <View
+                  style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
+                >
+                  <Text>{getTargetName(target)}</Text>
+                  {target.record.name && getTargetHostname(target) && (
+                    <Text color="muted">{getTargetHostname(target)}</Text>
+                  )}
+                </View>
+                {target.latestEvent && (
+                  <Animated.Text
+                    style={[
+                      getStatusColor(target),
+                      { fontSize: 11 },
+                      target.latestEvent.status === "pending" && animatedStyle,
+                    ]}
+                  >
+                    {target.latestEvent.status}
+                  </Animated.Text>
+                )}
+              </View>
+              <Switch
+                value={target.record.active}
+                onValueChange={(active) => toggleTarget(target, active)}
+                disabled={togglingTargets.has(target.uri)}
+              />
             </View>
-            {target.latestEvent && (
-              <Animated.Text
-                style={[
-                  getStatusColor(target),
-                  { fontSize: 11 },
-                  target.latestEvent.status === "pending" && animatedStyle,
-                ]}
-              >
-                {target.latestEvent.status}
-              </Animated.Text>
-            )}
-          </View>
-          <Switch
-            value={target.record.active}
-            onValueChange={(active) => toggleTarget(target, active)}
-            disabled={togglingTargets.has(target.uri)}
-          />
-        </View>
           ))}
         </View>
       )}

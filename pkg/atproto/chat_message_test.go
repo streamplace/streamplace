@@ -8,17 +8,17 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/cenkalti/backoff"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 func TestChatMessage(t *testing.T) {
@@ -68,7 +68,7 @@ func TestChatMessage(t *testing.T) {
 		}
 	}()
 
-	msg := &streamplace.ChatMessage{
+	msg := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello, world!",
 		CreatedAt:     time.Now().Add(-time.Second).Format(util.ISO8601),
@@ -78,11 +78,11 @@ func TestChatMessage(t *testing.T) {
 	rec1, err := comatproto.RepoCreateRecord(ctx, user.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: msg},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg},
 	})
 	require.NoError(t, err)
 
-	msg2 := &streamplace.ChatMessage{
+	msg2 := placestream.ChatMessage{
 		LexiconTypeID: "place.stream.chat.message",
 		Text:          "Hello, world 2!",
 		CreatedAt:     time.Now().Format(util.ISO8601),
@@ -92,11 +92,11 @@ func TestChatMessage(t *testing.T) {
 	_, err = comatproto.RepoCreateRecord(ctx, user2.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.chat.message",
 		Repo:       user2.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: msg2},
+		Record:     &glex.LexiconTypeDecoder{Val: &msg2},
 	})
 	require.NoError(t, err)
 
-	messages := []*streamplace.ChatDefs_MessageView{}
+	messages := []placestream.ChatDefs_MessageView{}
 	err = untilNoErrors(t, func() error {
 		messages, err = mod.MostRecentChatMessages(user.DID)
 		if err != nil {
@@ -111,9 +111,9 @@ func TestChatMessage(t *testing.T) {
 		return nil
 	})
 	// Reverse the messages slice to match expected order (most recent first)
-	slices.SortFunc(messages, func(a, b *streamplace.ChatDefs_MessageView) int {
-		aTime := a.Record.Val.(*streamplace.ChatMessage).CreatedAt
-		bTime := b.Record.Val.(*streamplace.ChatMessage).CreatedAt
+	slices.SortFunc(messages, func(a, b placestream.ChatDefs_MessageView) int {
+		aTime := a.Record.Val.(*placestream.ChatMessage).CreatedAt
+		bTime := b.Record.Val.(*placestream.ChatMessage).CreatedAt
 		if aTime < bTime {
 			return -1
 		} else if aTime > bTime {
@@ -122,8 +122,8 @@ func TestChatMessage(t *testing.T) {
 		return 0
 	})
 	slices.SortFunc(busMessages, func(a, b bus.Message) int {
-		aTime := a.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
-		bTime := b.(*streamplace.ChatDefs_MessageView).Record.Val.(*streamplace.ChatMessage).CreatedAt
+		aTime := a.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
+		bTime := b.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
 		if aTime < bTime {
 			return -1
 		} else if aTime > bTime {
@@ -131,12 +131,12 @@ func TestChatMessage(t *testing.T) {
 		}
 		return 0
 	})
-	require.Equal(t, msg.Text, messages[0].Record.Val.(*streamplace.ChatMessage).Text)
-	require.Equal(t, msg2.Text, messages[1].Record.Val.(*streamplace.ChatMessage).Text)
-	busMessage1 := busMessages[0].(*streamplace.ChatDefs_MessageView)
-	busMessage2 := busMessages[1].(*streamplace.ChatDefs_MessageView)
-	require.Equal(t, msg.Text, busMessage1.Record.Val.(*streamplace.ChatMessage).Text)
-	require.Equal(t, msg2.Text, busMessage2.Record.Val.(*streamplace.ChatMessage).Text)
+	require.Equal(t, msg.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
+	require.Equal(t, msg2.Text, messages[1].Record.Val.(*placestream.ChatMessage).Text)
+	busMessage1 := busMessages[0].(*placestream.ChatDefs_MessageView)
+	busMessage2 := busMessages[1].(*placestream.ChatDefs_MessageView)
+	require.Equal(t, msg.Text, busMessage1.Record.Val.(*placestream.ChatMessage).Text)
+	require.Equal(t, msg2.Text, busMessage2.Record.Val.(*placestream.ChatMessage).Text)
 
 	rkey := strings.TrimPrefix(rec1.Uri, fmt.Sprintf("at://%s/place.stream.chat.message/", user.DID))
 
@@ -162,8 +162,8 @@ func TestChatMessage(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, msg2.Text, messages[0].Record.Val.(*streamplace.ChatMessage).Text)
-	busMessage3 := busMessages[2].(*streamplace.ChatDefs_MessageView)
+	require.Equal(t, msg2.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
+	busMessage3 := busMessages[2].(*placestream.ChatDefs_MessageView)
 	require.Equal(t, true, *busMessage3.Deleted)
 
 	cancel()

@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 // TestStreamKickMarshalsAsPlaceStreamError locks the dashboard wire contract: a
@@ -88,19 +87,20 @@ func TestWatchKeyRevocationStreamKick(t *testing.T) {
 	}
 }
 
-// TestMKVIngestIsolatedBanContained proves the fix end to end: banning a streamer
+// TestMP4IngestIsolatedBanContained proves the fix end to end: banning a streamer
 // mid-ingest tears their isolated worker down. The watchdog is set generously
-// (60s) and the input is the wedging 4-audio MKV that never ends on its own — so
-// a timely return can only be the ban kill, not the watchdog or a natural EOS.
-func TestMKVIngestIsolatedBanContained(t *testing.T) {
+// (60s) and the input is a wedging audio-only fMP4 that never ends on its own —
+// so a timely return can only be the ban kill, not the watchdog or a natural
+// EOS. (The 4-audio sample-stream.mp4 previously used here now ingests to
+// completion in a few seconds, which would race the ban.)
+func TestMP4IngestIsolatedBanContained(t *testing.T) {
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 60 * time.Second
 	defer func() { ingestWorkerWatchdog = old }()
 
 	mm, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
-	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
-	require.NoError(t, err)
+	wedge := makeAudioOnlyAACFMP4(t, context.Background(), 5)
 
 	// Ban the streamer once the worker is up and the watcher has subscribed.
 	go func() {
@@ -112,7 +112,7 @@ func TestMKVIngestIsolatedBanContained(t *testing.T) {
 	}()
 
 	start := time.Now()
-	err = mm.MKVIngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
+	err := mm.MP4IngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
 	elapsed := time.Since(start)
 
 	require.Error(t, err, "a banned stream is torn down, surfaced as an error")

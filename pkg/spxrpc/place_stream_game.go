@@ -7,10 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	gamesgamesgamesgamesgames "stream.place/streamplace/pkg/gamesgamesgamesgamesgames"
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string, limit int, q string) (*placestream.GameSearch_Output, error) {
@@ -24,7 +25,9 @@ func (s *Server) handlePlaceStreamGameSearch(ctx context.Context, cursor string,
 
 	cacheKey := fmt.Sprintf("game_search:%s:%d:%s", q, limit, cursor)
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
-		return cached.(*placestream.GameSearch_Output), nil
+		if out, ok := cached.(*placestream.GameSearch_Output); ok {
+			return out, nil
+		}
 	}
 
 	params := url.Values{}
@@ -78,7 +81,9 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 
 	cacheKey := "game:" + uri
 	if cached, found := s.GameSearchCache.Get(cacheKey); found {
-		return cached.(*placestream.GameGetGame_Output), nil
+		if out, ok := cached.(*placestream.GameGetGame_Output); ok {
+			return out, nil
+		}
 	}
 
 	// Parse AT URI: at://authority/collection/rkey
@@ -149,7 +154,7 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 		}
 	}
 
-	out := &placestream.GameGetGame_Output{
+	out := placestream.GameGetGame_Output{
 		Uri:      uri,
 		Name:     record.Value.Name,
 		Summary:  &record.Value.Summary,
@@ -157,6 +162,12 @@ func (s *Server) handlePlaceStreamGameGetGame(ctx context.Context, uri string) (
 		CoverUrl: coverUrl,
 	}
 
-	s.GameSearchCache.SetDefault(cacheKey, out)
-	return out, nil
+	s.GameSearchCache.SetDefault(cacheKey, &out)
+	return &out, nil
+}
+
+func (s *Server) handleGamesGamesgamesgamesgamesSearch(ctx context.Context, ageRatings []string, applicationTypes []string, cursor string, genres []string, includeCancelled bool, includeUnrated bool, limit int, modes []string, playerPerspectives []string, q string, sort string, themes []string, types []string) (*gamesgamesgamesgamesgames.Search_Output, error) {
+	// TODO: implement full games search with all filter params
+	// TODO: convert GameSearch_Output to gamesgamesgamesgamesgames.Search_Output
+	return nil, fmt.Errorf("games search not yet implemented")
 }

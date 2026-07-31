@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type VodGate struct {
@@ -18,8 +18,8 @@ type VodGate struct {
 	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
-func (g *VodGate) ToStreamplaceVodGate() (*streamplace.VodGate, error) {
-	return &streamplace.VodGate{
+func (g *VodGate) ToStreamplaceVodGate() (placestream.VodGate, error) {
+	return placestream.VodGate{
 		LexiconTypeID: "place.stream.vod.gate",
 		HiddenComment: g.HiddenComment,
 	}, nil

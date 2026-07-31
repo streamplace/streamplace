@@ -7,22 +7,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/log"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	"stream.place/streamplace/pkg/comatproto"
 )
 
 var TaskNotification = "notification"
 var TaskChat = "chat"
+var TaskStreamReceived = "stream_received"
 var TaskFinalizeLivestream = "finalize_livestream"
 var TaskFinalizeLivestreamVOD = "finalize_livestream_vod"
 var TaskVODProcess = "vod_process"
@@ -37,19 +39,24 @@ var TaskViewCountAggregate = "view_count_aggregate"
 var nonVODTaskTypes = []string{
 	TaskNotification,
 	TaskChat,
+	TaskStreamReceived,
 	TaskFinalizeLivestream,
 	TaskViewCountAggregate,
 }
 
 type NotificationTask struct {
-	Livestream  *streamplace.Livestream_LivestreamView
-	FeedPost    *bsky.FeedDefs_PostView
-	ChatProfile *streamplace.ChatProfile
+	Livestream  placestream.Livestream_LivestreamView
+	FeedPost    *appbsky.FeedDefs_PostView
+	ChatProfile placestream.ChatProfile
 	PDSURL      string
 }
 
 type ChatTask struct {
-	MessageView *streamplace.ChatDefs_MessageView
+	MessageView placestream.ChatDefs_MessageView
+}
+
+type StreamReceivedTask struct {
+	StreamerDID string `json:"streamerDID"`
 }
 
 type FinalizeLivestreamTask struct {
@@ -148,11 +155,14 @@ func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, ta
 }
 
 func (state *StatefulDB) processTask(ctx context.Context, task *AppTask) error {
+	ctx = log.WithLogValues(ctx, "taskType", task.Type, "taskId", fmt.Sprintf("%d", task.ID))
 	switch task.Type {
 	case TaskNotification:
 		return state.processNotificationTask(ctx, task)
 	case TaskChat:
 		return state.processChatMessageTask(ctx, task)
+	case TaskStreamReceived:
+		return state.processStreamReceivedTask(ctx, task)
 	case TaskFinalizeLivestream:
 		return state.processFinalizeLivestreamTask(ctx, task)
 	case TaskVODProcess:
@@ -175,12 +185,24 @@ type VODProcessor func(ctx context.Context, t VODProcessTask) (cid string, err e
 
 func (state *StatefulDB) SetVODProcessor(f VODProcessor) { state.vodProcessor = f }
 
+// SetNotifier installs the notification notifier after construction. This is
+// needed because building the Web Push notifier requires VAPID keys, which
+// are stored in the DB — so the DB must exist before the notifier can be
+// fully assembled. The queue processor checks for nil, so a brief window
+// with no notifier is safe.
+func (state *StatefulDB) SetNotifier(n notificationpkg.Notifier) { state.noter = n }
+
 func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTask) error {
 	ctx = log.WithLogValues(ctx, "func", "processVODProcessTask")
 	var t VODProcessTask
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
+	// Thread the upload + owner into the log context as early as possible so
+	// every downstream log line (and the error returned below, which is
+	// re-logged by runQueueWorker with the loop's context) carries the user.
+	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID)
+	log.Log(ctx, "dequeued vod-process task")
 	if state.vodProcessor == nil {
 		log.Warn(ctx, "no VOD processor configured; dropping task",
 			"uploadId", t.UploadID, "did", t.RepoDID)
@@ -202,10 +224,9 @@ func (state *StatefulDB) processVODProcessTask(ctx context.Context, task *AppTas
 		// Complete the task so it doesn't retry — most VOD failures are
 		// permanent (unsupported codec, corrupted file, etc.).
 		_ = state.CompleteTask(ctx, task.ID)
-		// Include the upload ID in the error string: this error is logged
-		// upstream in ProcessQueue with the loop's context, which doesn't
-		// carry the per-task "uploadId" log value, so without it the failure
-		// (e.g. a publish-records track error) can't be tied to an upload.
+		// The upload ID + DID are now in the log context (set above), so the
+		// error string no longer needs to embed them for traceability — the
+		// runQueueWorker re-log picks them up from context.
 		return fmt.Errorf("vod processing upload %s: %w", t.UploadID, err)
 	}
 	// The processor (vod.ProcessVOD) calls SetUploadProcessed deep inside its
@@ -237,6 +258,11 @@ func (state *StatefulDB) processFinalizeLivestreamVODTask(ctx context.Context, t
 	if err := json.Unmarshal(task.Payload, &t); err != nil {
 		return err
 	}
+	// Thread the upload + owner into the log context so every downstream log
+	// line (and the error returned below, re-logged by runQueueWorker) carries
+	// the user.
+	ctx = log.WithLogValues(ctx, "uploadId", t.UploadID, "did", t.RepoDID, "livestream", t.LivestreamURI)
+	log.Log(ctx, "dequeued finalize-livestream-vod task")
 	if state.livestreamVODFinalizer == nil {
 		log.Warn(ctx, "no livestream VOD finalizer configured; dropping task",
 			"uploadId", t.UploadID, "did", t.RepoDID)
@@ -313,7 +339,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	if err != nil {
 		return fmt.Errorf("failed to convert livestream to streamplace livestream: %w", err)
 	}
-	rec, ok := lastLivestreamView.Record.Val.(*streamplace.Livestream)
+	rec, ok := lastLivestreamView.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -330,6 +356,54 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 	}
 	if time.Since(lastSeenTime) < (time.Duration(*rec.IdleTimeoutSeconds) * time.Second) {
 		log.Debug(ctx, "livestream is active, skipping finalization", "lastSeenAt", lastSeenTime)
+		return nil
+	}
+	// If this record is still the streamer's latest livestream, do NOT end it
+	// on a stale lastSeenAt alone. lastSeenAt only advances via the per-segment
+	// heartbeat (StreamSession.doUpdateLivestream), which is coupled to segment
+	// arrival and can lag behind actual ingestion — e.g. after an ingest gap
+	// long enough to tear down and restart the StreamSession, the new session's
+	// heartbeat may not land on this record before the idle timer fires. Ending
+	// here would set endedAt on the record the active stream is publishing
+	// under, taking the stream pre-live underneath a still-flowing ingest.
+	//
+	// Instead, reschedule the check for one more idle window: if the stream is
+	// truly abandoned the heartbeat stays frozen and we end it on the next
+	// pass; if it's a heartbeat-lag artifact, the heartbeat catches up and the
+	// rescheduled task hits the "active" early-return above.
+	//
+	// BUT the heartbeat-lag guard only applies to repos this node is actively
+	// ingesting — the heartbeat runs inside StreamSession.doUpdateLivestream,
+	// which requires the streamer to have a local OAuth session on this node.
+	// If no session exists, there is no heartbeat to wait for and no write
+	// access to end the record anyway: the record arrived via firehose sync
+	// from an account that never connected here. Rescheduling in that case just
+	// respawns the task every idle window forever (the rescheduled key embeds a
+	// fresh timestamp, so dedup never fires), flooding the logs and growing the
+	// task table without bound. So drop the task instead.
+	latest, err := state.model.GetLatestLivestreamForRepo(livestream.RepoDID)
+	if err != nil {
+		return fmt.Errorf("failed to get latest livestream for repo: %w", err)
+	}
+	if latest != nil && latest.URI == livestream.URI {
+		// Check for a local session before rescheduling. GetSessionByDID
+		// returns gorm.ErrRecordNotFound (or nil session via callers that
+		// swallow it) when the repo has never logged in here.
+		session, err := state.GetSessionByDID(livestream.RepoDID)
+		if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && session == nil) {
+			log.Debug(ctx, "stale latest livestream has no local session; dropping finalize task (firehose-observed, no heartbeat to wait for)", "uri", livestream.URI, "lastSeenAt", lastSeenTime)
+			return state.CompleteTask(ctx, task.ID)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to get session for finalize-livestream guard: %w", err)
+		}
+		rescheduledAt := time.Now().Add(time.Duration(*rec.IdleTimeoutSeconds) * time.Second).UTC()
+		rescheduledKey := fmt.Sprintf("finalize-livestream::%s::%s", livestream.URI, rescheduledAt.Format(util.ISO8601))
+		_, err = state.EnqueueTask(ctx, TaskFinalizeLivestream, finalizeLivestreamTask, WithTaskKey(rescheduledKey), WithScheduledAt(rescheduledAt))
+		if err != nil {
+			return fmt.Errorf("failed to reschedule finalize livestream task: %w", err)
+		}
+		log.Log(ctx, "livestream is latest for repo but lastSeenAt is stale; rescheduling finalize to let heartbeat catch up", "uri", livestream.URI, "lastSeenAt", lastSeenTime, "rescheduledAt", rescheduledAt)
 		return nil
 	}
 	session, err := state.GetSessionByDID(livestream.RepoDID)
@@ -358,7 +432,7 @@ func (state *StatefulDB) processFinalizeLivestreamTask(ctx context.Context, task
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       uri.RecordKey().String(),
 		Repo:       livestream.RepoDID,
 		SwapRecord: &livestream.CID,
@@ -381,9 +455,9 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 		return err
 	}
 	lsv := notificationTask.Livestream
-	rec, ok := lsv.Record.Val.(*streamplace.Livestream)
-	if !ok {
-		return fmt.Errorf("invalid livestream record")
+	rec, err := glex.RecordAs[placestream.Livestream](lsv.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid livestream record: %w", err)
 	}
 	userDID := lsv.Author.Did
 
@@ -400,7 +474,7 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 
 	log.Log(ctx, "found followers", "count", len(followersDIDs))
 
-	notifications, err := state.GetManyNotificationTokens(followersDIDs)
+	notifications, err := state.GetManyNotifications(followersDIDs)
 	if err != nil {
 		return err
 	}
@@ -413,11 +487,24 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				"path": fmt.Sprintf("/%s", lsv.Author.Handle),
 			},
 		}
-		err = state.noter.Blast(ctx, notifications, nb)
+		targets := make([]notificationpkg.NotificationTarget, len(notifications))
+		for i, n := range notifications {
+			targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
+		}
+		err = state.noter.Blast(ctx, targets, nb)
 		if err != nil {
 			log.Error(ctx, "failed to blast notifications", "err", err)
 		} else {
 			log.Log(ctx, "sent notifications", "user", userDID, "count", len(notifications), "content", nb)
+		}
+		// Prune web push subscriptions whose endpoints returned 410 Gone /
+		// 404 — they're dead and would just fail again on every future blast.
+		for _, token := range notificationpkg.ExpiredTokens(err) {
+			if delErr := state.DeleteNotification(token); delErr != nil {
+				log.Error(ctx, "failed to prune expired notification", "token", token, "err", delErr)
+			} else {
+				log.Log(ctx, "pruned expired notification", "token", token)
+			}
 		}
 	} else {
 		log.Log(ctx, "no notifier configured, skipping notifications", "user", userDID, "count", len(notifications))
@@ -434,8 +521,8 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue
 			}
-			go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-				err := webhook.SendLivestreamWebhook(ctx, lexiconWebhook, notificationTask.PDSURL, lsv, notificationTask.FeedPost, notificationTask.ChatProfile)
+			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+				err := webhook.SendLivestreamWebhook(ctx, &lexiconWebhook, notificationTask.PDSURL, &lsv, notificationTask.FeedPost, &notificationTask.ChatProfile)
 				if err != nil {
 					log.Error(ctx, "failed to send livestream to webhook", "err", err, "webhook_id", wid)
 					err := state.IncrementWebhookError(wid)
@@ -455,15 +542,51 @@ func (state *StatefulDB) processNotificationTask(ctx context.Context, task *AppT
 	return nil
 }
 
+func (state *StatefulDB) processStreamReceivedTask(ctx context.Context, task *AppTask) error {
+	var streamReceivedTask StreamReceivedTask
+	if err := json.Unmarshal(task.Payload, &streamReceivedTask); err != nil {
+		return err
+	}
+
+	webhooks, err := state.GetActiveWebhooksForUser(streamReceivedTask.StreamerDID, "stream.received")
+	if err != nil {
+		return fmt.Errorf("failed to get stream.received webhooks: %w", err)
+	}
+	for _, w := range webhooks {
+		lexiconWebhook, err := w.ToLexicon()
+		if err != nil {
+			log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
+			continue
+		}
+		go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+			err := webhook.SendStreamReceivedWebhook(ctx, &lexiconWebhook, streamReceivedTask.StreamerDID)
+			if err != nil {
+				log.Error(ctx, "failed to send stream.received webhook", "err", err, "webhook_id", wid)
+				err = state.IncrementWebhookError(wid)
+				if err != nil {
+					log.Error(ctx, "failed to increment webhook error count", "err", err, "webhook_id", wid)
+				}
+			} else {
+				log.Log(ctx, "sent stream.received webhook", "webhook_id", wid)
+				err = state.ResetWebhookError(wid)
+				if err != nil {
+					log.Error(ctx, "failed to reset webhook error count", "err", err, "webhook_id", wid)
+				}
+			}
+		}(lexiconWebhook, w.ID)
+	}
+	return nil
+}
+
 func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTask) error {
 	var chatTask ChatTask
 	if err := json.Unmarshal(task.Payload, &chatTask); err != nil {
 		return err
 	}
 	scm := chatTask.MessageView
-	rec, ok := scm.Record.Val.(*streamplace.ChatMessage)
-	if !ok {
-		return fmt.Errorf("invalid chat message record")
+	rec, err := glex.RecordAs[placestream.ChatMessage](scm.Record.Val)
+	if err != nil {
+		return fmt.Errorf("invalid chat message record: %w", err)
 	}
 
 	// Send to webhooks using webhook manager
@@ -477,8 +600,8 @@ func (state *StatefulDB) processChatMessageTask(ctx context.Context, task *AppTa
 				log.Error(ctx, "failed to convert webhook to lexicon", "err", err, "webhook_id", w.ID)
 				continue
 			}
-			go func(lexiconWebhook *streamplace.ServerDefs_Webhook, wid string) {
-				err := webhook.SendChatWebhook(ctx, lexiconWebhook, scm.Author.Did, scm)
+			go func(lexiconWebhook placestream.ServerDefs_Webhook, wid string) {
+				err := webhook.SendChatWebhook(ctx, &lexiconWebhook, scm.Author.Did, &scm)
 				if err != nil {
 					log.Error(ctx, "failed to send chat to webhook", "err", err, "webhook_id", wid)
 					err = state.IncrementWebhookError(wid)

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import {
   useDID,
   useGetBskyProfile,
@@ -36,9 +36,11 @@ export default function Poller({ children }: { children: React.ReactNode }) {
         liveUsersLoading: true,
       });
       try {
-        const res = await agent.place.stream.live.getLiveUsers({ limit: 50 });
+        const res = await agent.client.call(place.stream.live.getLiveUsers, {
+          limit: 50,
+        });
         setLiveUsers({
-          liveUsers: res.data.streams || [],
+          liveUsers: res.streams || [],
           liveUsersLoading: false,
           liveUsersError: null,
         });

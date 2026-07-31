@@ -15,13 +15,15 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// Config holds the configuration for an S3-compatible upload target.
+// Config holds the configuration for an S3-compatible upload target. The json
+// tags exist because it rides the ingest-worker startup handshake (a dedicated
+// pipe fd, never argv/env — it carries the secret key).
 type Config struct {
-	Endpoint        string
-	Bucket          string
-	AccessKeyID     string
-	SecretAccessKey string
-	Region          string
+	Endpoint        string `json:"endpoint,omitempty"`
+	Bucket          string `json:"bucket,omitempty"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
+	Region          string `json:"region,omitempty"`
 }
 
 // Recorder is an optional persistence hook for S3Uploader. RecordStart is
@@ -91,6 +93,15 @@ func (u *S3Uploader) getLivestreamURI() string {
 // S3 requires each part except the last to be at least 5MB.
 const minPartSize = 5 * 1024 * 1024
 
+// liveUploadPartSize is the exact size of every non-final part the live
+// uploader flushes. R2 — unlike AWS/minio — rejects CompleteMultipartUpload
+// with "All non-trailing parts must have the same length" unless parts are
+// uniform, so the buffer is sliced at fixed boundaries instead of flushing
+// whatever segments accumulated past the 5MB minimum. The S3 minimum keeps
+// flushes prompt for a live stream; at 5MB a 10000-part object still spans
+// ~48GB, far beyond one 10-minute cutover object.
+const liveUploadPartSize = minPartSize
+
 type activeUpload struct {
 	key           string
 	uploadID      string
@@ -111,7 +122,14 @@ var DefaultCutoverEvery = 10 * time.Minute
 // nil to disable persistence. Starts the muxl Concatenator and a background
 // goroutine that reads processed segments and uploads them.
 func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Duration, recorder Recorder) *S3Uploader {
-	client := s3.New(s3.Options{
+	return newS3Uploader(NewClient(cfg), cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
+}
+
+// NewClient builds an *s3.Client for an S3-compatible endpoint from cfg. Uses
+// static credentials, an explicit BaseEndpoint, and path-style addressing (so it
+// works against MinIO / R2 / plain-IP endpoints, not just AWS virtual-host style).
+func NewClient(cfg Config) *s3.Client {
+	return s3.New(s3.Options{
 		Region: cfg.Region,
 		Credentials: credentials.NewStaticCredentialsProvider(
 			cfg.AccessKeyID,
@@ -121,7 +139,6 @@ func NewS3Uploader(cfg Config, userDID, keyPrefix string, cutoverEvery time.Dura
 		BaseEndpoint: aws.String(cfg.Endpoint),
 		UsePathStyle: true,
 	})
-	return newS3Uploader(client, cfg.Bucket, userDID, keyPrefix, cutoverEvery, recorder)
 }
 
 // newS3Uploader is the client-injectable constructor behind NewS3Uploader; the
@@ -191,10 +208,13 @@ func (u *S3Uploader) Cutover(ctx context.Context) error {
 }
 
 // Close signals that no more segments will be added, waits for all in-flight
-// uploads to complete, and returns any error. It is idempotent: repeated calls
-// return the same result without re-closing the channel. The supplied ctx is
-// unused for the wait (uploadLoop runs on its own context so it can flush the
-// final object even after the session context is cancelled) but kept for API
+// uploads to complete, and returns any error completing the final object.
+// Mid-stream upload failures don't surface here — the upload loop recovers
+// from those by abandoning the broken object (logged loudly at the time) and
+// continuing with a fresh one. It is idempotent: repeated calls return the
+// same result without re-closing the channel. The supplied ctx is unused for
+// the wait (uploadLoop runs on its own context so it can flush the final
+// object even after the session context is cancelled) but kept for API
 // symmetry.
 func (u *S3Uploader) Close(ctx context.Context) error {
 	u.closeOnce.Do(func() {
@@ -248,8 +268,12 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	flushBuffer := func() error {
-		if current == nil || len(current.buf) == 0 {
+	// flushPart uploads exactly the first n buffered bytes as the next part,
+	// keeping the remainder buffered. Callers pass liveUploadPartSize for every
+	// part except the object's final flush (completeUpload passes whatever is
+	// left) — R2 requires all non-trailing parts to have the same length.
+	flushPart := func(n int) error {
+		if current == nil || n == 0 {
 			return nil
 		}
 		current.partNum++
@@ -260,18 +284,18 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			Key:        aws.String(current.key),
 			UploadId:   aws.String(current.uploadID),
 			PartNumber: aws.Int32(partNum),
-			Body:       bytes.NewReader(current.buf),
+			Body:       bytes.NewReader(current.buf[:n]),
 		})
 		if err != nil {
 			return fmt.Errorf("uploading part %d: %w", partNum, err)
 		}
-		log.Debug(ctx, "uploaded S3 part", "key", current.key, "part", partNum, "size", len(current.buf))
+		log.Debug(ctx, "uploaded S3 part", "key", current.key, "part", partNum, "size", n)
 		current.parts = append(current.parts, types.CompletedPart{
 			ETag:       resp.ETag,
 			PartNumber: aws.Int32(partNum),
 		})
-		current.totalSize += int64(len(current.buf))
-		current.buf = current.buf[:0]
+		current.totalSize += int64(n)
+		current.buf = append(current.buf[:0], current.buf[n:]...)
 		return nil
 	}
 
@@ -279,7 +303,7 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		if current == nil {
 			return nil
 		}
-		if err := flushBuffer(); err != nil {
+		if err := flushPart(len(current.buf)); err != nil {
 			return fmt.Errorf("error flushing buffer: %w", err)
 		}
 		if len(current.parts) == 0 {
@@ -339,9 +363,10 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		// Append segment data to buffer
 		current.buf = append(current.buf, seg...)
 
-		// Flush if buffer is large enough for a part
-		if len(current.buf) >= minPartSize {
-			if err := flushBuffer(); err != nil {
+		// Flush full-size parts; a sub-part remainder stays buffered until the
+		// next segment or the object's completing flush.
+		for len(current.buf) >= liveUploadPartSize {
+			if err := flushPart(liveUploadPartSize); err != nil {
 				return err
 			}
 		}
@@ -349,15 +374,47 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 		return nil
 	}
 
-	var err error
-	for err == nil {
+	// abandonCurrent is the failure recovery: abort the broken object (so the
+	// backend doesn't hold its parts) and drop its un-completed bytes, loudly.
+	// The next segment starts a fresh object, so one bad object costs a gap in
+	// the recording instead of wedging the uploader for the rest of the stream
+	// (the abandoned object's recorder row never completes, so finalize skips
+	// it). Before this existed, the first error killed the loop: segments
+	// backed up silently and the stream never recorded another byte.
+	abandonCurrent := func(reason error) {
+		if current == nil {
+			// Nothing in flight (e.g. CreateMultipartUpload itself failed); the
+			// segment is still dropped, so say so.
+			log.Error(ctx, "error in live-rec S3 upload; segment dropped", "error", reason)
+			return
+		}
+		log.Error(ctx, "abandoning live-rec S3 object; its bytes will be missing from the recording",
+			"key", current.key,
+			"uploadedBytes", current.totalSize,
+			"droppedBufferedBytes", len(current.buf),
+			"error", reason,
+		)
+		if _, err := u.client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+			Bucket:   aws.String(u.bucket),
+			Key:      aws.String(current.key),
+			UploadId: aws.String(current.uploadID),
+		}); err != nil {
+			log.Error(ctx, "aborting abandoned S3 upload", "key", current.key, "error", err)
+		}
+		current = nil
+	}
+
+	for {
 		select {
 		case cmd, ok := <-u.segCh:
 			if !ok {
-				// No more segments; complete any in-progress upload.
-				err = completeUpload()
+				// No more segments; complete any in-progress upload. This is the
+				// one error that still surfaces through done/Close — there are no
+				// more segments coming to recover with.
+				err := completeUpload()
 				if err != nil {
 					err = fmt.Errorf("error completing upload: %w", err)
+					abandonCurrent(err)
 				}
 				u.done <- err
 				return
@@ -365,26 +422,26 @@ func (u *S3Uploader) uploadLoop(ctx context.Context) {
 			if cmd.cutover {
 				// Close out the current object so it's immediately finalize-able
 				// (e.g. the livestream just ended). No-op if nothing is in flight.
-				if err = completeUpload(); err != nil {
-					err = fmt.Errorf("error completing upload on cutover: %w", err)
-					log.Error(ctx, "error completing upload on cutover", "error", err)
+				if err := completeUpload(); err != nil {
+					abandonCurrent(fmt.Errorf("error completing upload on cutover: %w", err))
 				}
 				continue
 			}
 			log.Debug(ctx, "received segment for S3 upload", "size", len(cmd.seg))
-			if err = handleSegment(cmd.seg); err != nil {
-				log.Error(ctx, "error handling segment", "error", err)
+			if err := handleSegment(cmd.seg); err != nil {
+				// The triggering segment is dropped along with the object: it may
+				// already be partially flushed into it, so it can't be salvaged.
+				abandonCurrent(fmt.Errorf("error handling segment: %w", err))
 			}
 
 		case <-ctx.Done():
-			err = completeUpload()
+			err := completeUpload()
 			if err != nil {
 				err = fmt.Errorf("error completing upload: %w", err)
+				abandonCurrent(err)
 			}
 			u.done <- err
 			return
 		}
 	}
-
-	u.done <- err
 }

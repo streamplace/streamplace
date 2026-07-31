@@ -1,11 +1,10 @@
 package notifications
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-
-	"context"
 
 	firebase "firebase.google.com/go/v4"
 	"firebase.google.com/go/v4/messaging"
@@ -13,8 +12,12 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
+// FirebaseNotifier sends pushes via Firebase Cloud Messaging (FCM/APNs). It
+// implements Notifier by handling targets of NotificationTypeFirebase and
+// ignoring all others.
 type FirebaseNotifier interface {
-	Blast(ctx context.Context, tokens []string, golive *NotificationBlast) error
+	Notifier
+	BlastTokens(ctx context.Context, tokens []string, blast *NotificationBlast) error
 }
 
 type FirebaseNotifierS struct {
@@ -55,8 +58,23 @@ func MakeFirebaseNotifier(ctx context.Context, serviceAccountJSONb64 string) (Fi
 	return &FirebaseNotifierS{app: app}, nil
 }
 
+// Blast implements Notifier. It filters targets down to firebase tokens and
+// delegates to BlastTokens; web targets are left for another notifier.
+func (f *FirebaseNotifierS) Blast(ctx context.Context, targets []NotificationTarget, blast *NotificationBlast) error {
+	tokens := make([]string, 0, len(targets))
+	for _, t := range targets {
+		if t.Type == NotificationTypeFirebase || t.Type == "" {
+			tokens = append(tokens, t.Token)
+		}
+	}
+	if len(tokens) == 0 {
+		return nil
+	}
+	return f.BlastTokens(ctx, tokens, blast)
+}
+
 // refactor me when we have >500 users
-func (f *FirebaseNotifierS) Blast(ctx context.Context, tokens []string, blast *NotificationBlast) error {
+func (f *FirebaseNotifierS) BlastTokens(ctx context.Context, tokens []string, blast *NotificationBlast) error {
 	client, err := f.app.Messaging(ctx)
 	if err != nil {
 		return err

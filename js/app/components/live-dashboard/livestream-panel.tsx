@@ -27,15 +27,15 @@ import {
   zero,
 } from "@streamplace/components";
 import {
+  borderAlphas,
   scrims,
   shadows,
   statusColors,
-  textAlphas,
   surfaces,
-  borderAlphas,
+  textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
-import { ChevronsUpDown, Globe, ImagePlus, X } from "lucide-react-native";
+import { ChevronsUpDown, Globe, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -44,8 +44,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useStore } from "store";
 import { useUserProfile } from "store/hooks";
-import type { PlaceStreamLivestream } from "streamplace";
+import type { place } from "streamplace";
+import {
+  SCOPE_BSKY_POST_CREATE,
+  scopeGrants,
+} from "../../features/bluesky/scopes";
 import { useCaptureVideoFrame } from "../../hooks/useCaptureVideoFrame";
 import { useLiveUser } from "../../hooks/useLiveUser";
 import ActivityPicker from "../activity-picker";
@@ -288,11 +293,13 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   );
 
   const [activity, setActivity] = useState<
-    PlaceStreamLivestream.Record["activity"] | undefined
+    place.stream.livestream.Main["activity"] | undefined
   >(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
 
+  const sessionScope = useStore((s) => s.sessionScope);
+  const canPostToBluesky = scopeGrants(sessionScope, SCOPE_BSKY_POST_CREATE);
   const [createPost, setCreatePost] = useState(true);
   const [idleTimeout, setIdleTimeout] = useState(true);
   const [sendPushNotification, setSendPushNotification] = useState(true);
@@ -316,7 +323,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
       if (livestream.record.activity) {
         setActivity(
           livestream.record
-            .activity as PlaceStreamLivestream.Record["activity"],
+            .activity as place.stream.livestream.Main["activity"],
         );
       }
 
@@ -375,7 +382,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         await createStreamRecord({
           title: title.trim(),
           customThumbnail: thumbnailToUse as Blob | undefined,
-          submitPost: createPost,
+          submitPost: createPost && canPostToBluesky,
           notificationSettings: {
             pushNotification: sendPushNotification,
           },
@@ -473,7 +480,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
 
     try {
       const did = livestream.uri.split("/")[2];
-      const cid = (livestream.record.thumb.ref as any).$link;
+      const cid = (livestream.record.thumb as any).ref.$link;
 
       const didDoc = await resolveDIDDocument(did);
       const blob = await getBlob(did, cid, didDoc);
@@ -567,35 +574,107 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
         {...wrapperProps}
       >
         {mode === "metadata" ? (
-            // Metadata view
-            <View style={[flex.values[1], p[4]]}>
-              <ContentMetadataForm
-                showUpdateButton={!userIsLive}
-                style={{ flex: 1, height: "100%" }}
-              />
-            </View>
-          ) : mode === "moderation" ? (
-            // Moderation view
-            <View style={[flex.values[1], { minHeight: 400 }]}>
-              <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
-            </View>
-          ) : (
-            // Create/Edit view
-            <View style={[gap.all[5], w.percent[100], p[4]]}>
-              {/* Fields */}
-              <View style={[gap.all[4], w.percent[100]]}>
-                {/* Title */}
-                <View style={[gap.all[1]]}>
-                  <Text size="sm" color="muted">
-                    Title
+          // Metadata view
+          <View style={[flex.values[1], p[4]]}>
+            <ContentMetadataForm
+              showUpdateButton={!userIsLive}
+              style={{ flex: 1, height: "100%" }}
+            />
+          </View>
+        ) : mode === "moderation" ? (
+          // Moderation view
+          <View style={[flex.values[1], { minHeight: 400 }]}>
+            <Dashboard.ModeratorPanel isLive={userIsLive} embedded={true} />
+          </View>
+        ) : (
+          // Create/Edit view
+          <View style={[gap.all[5], w.percent[100], p[4]]}>
+            {/* Fields */}
+            <View style={[gap.all[4], w.percent[100]]}>
+              {/* Title */}
+              <View style={[gap.all[1]]}>
+                <Text size="sm" color="muted">
+                  Title
+                </Text>
+                <Textarea
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Enter your stream title..."
+                  maxLength={140}
+                  multiline
+                  style={[
+                    p[3],
+                    r.md,
+                    { backgroundColor: surfaces.dark[2] },
+                    text.white,
+                    borders.width.thin,
+                    { borderColor: borderAlphas.dark.strong },
+                    w.percent[100],
+                    { fontSize: 15, lineHeight: 22 },
+                  ]}
+                />
+                <View style={[layout.flex.row, layout.flex.spaceBetween]}>
+                  <Text style={[text.neutral[600], { fontSize: 11 }]}>
+                    {title.trim() === "" ? "Required" : ""}
                   </Text>
-                  <Textarea
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Enter your stream title..."
-                    maxLength={140}
-                    multiline
+                  <Text
                     style={[
+                      { fontSize: 11 },
+                      title.length <= 120
+                        ? text.neutral[600]
+                        : title.length < 140
+                          ? { color: statusColors.dark.warning }
+                          : { color: statusColors.dark.danger },
+                    ]}
+                  >
+                    {title.length}/140
+                  </Text>
+                </View>
+              </View>
+
+              {/* Activity */}
+              <View style={[gap.all[1]]}>
+                <Text size="sm" color="muted">
+                  Activity
+                </Text>
+                <ActivityPicker value={activity} onChange={setActivity} />
+              </View>
+
+              {/* Tags + language */}
+              <View style={[gap.all[2]]}>
+                <View
+                  style={[
+                    layout.flex.row,
+                    layout.flex.spaceBetween,
+                    layout.flex.alignCenter,
+                  ]}
+                >
+                  <Text size="sm" color="muted">
+                    Tags
+                  </Text>
+                  <LanguagePicker tags={tags} onTagsChange={setTags} />
+                </View>
+                {tags.length < 10 && (
+                  <Input
+                    value={tagInput}
+                    onChange={(v) =>
+                      setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
+                    }
+                    placeholder="Add a tag, press Enter"
+                    variant="filled"
+                    onSubmitEditing={(e) => {
+                      const trimmed = tagInput.trim();
+                      if (trimmed && !tags.includes(trimmed)) {
+                        setTags([...tags, trimmed]);
+                      }
+                      setTagInput("");
+                      // re-focus the input after submitting
+                      setTimeout(() => {
+                        const input = e.target;
+                        input.focus();
+                      }, 10);
+                    }}
+                    inputStyle={[
                       p[3],
                       r.md,
                       { backgroundColor: surfaces.dark[2] },
@@ -603,225 +682,166 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
                       borders.width.thin,
                       { borderColor: borderAlphas.dark.strong },
                       w.percent[100],
-                      { fontSize: 15, lineHeight: 22 },
+                      { fontSize: 15 },
                     ]}
                   />
-                  <View style={[layout.flex.row, layout.flex.spaceBetween]}>
-                    <Text style={[text.neutral[600], { fontSize: 11 }]}>
-                      {title.trim() === "" ? "Required" : ""}
-                    </Text>
-                    <Text
-                      style={[
-                        { fontSize: 11 },
-                        title.length <= 120
-                          ? text.neutral[600]
-                          : title.length < 140
-                            ? { color: statusColors.dark.warning }
-                            : { color: statusColors.dark.danger },
-                      ]}
-                    >
-                      {title.length}/140
-                    </Text>
+                )}
+                {tags.filter((t) => !t.startsWith(LANG_TAG_PREFIX)).length >
+                  0 && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 6,
+                      width: "100%",
+                    }}
+                  >
+                    {tags
+                      .filter((t) => !t.startsWith(LANG_TAG_PREFIX))
+                      .map((tag) => (
+                        <Pressable
+                          key={tag}
+                          onPress={() => setTags(tags.filter((t) => t !== tag))}
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            backgroundColor: hexToRgba(
+                              theme.colors.primary,
+                              0.12,
+                            ),
+                            borderWidth: 1,
+                            borderColor: hexToRgba(theme.colors.primary, 0.3),
+                            borderRadius: 16,
+                            paddingHorizontal: 10,
+                            paddingVertical: 3,
+                            gap: 5,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: theme.colors.primary,
+                              fontSize: 13,
+                            }}
+                          >
+                            {tag}
+                          </Text>
+                          <Text
+                            style={{
+                              color: hexToRgba(theme.colors.primary, 0.6),
+                              fontSize: 14,
+                              lineHeight: 16,
+                            }}
+                          >
+                            ×
+                          </Text>
+                        </Pressable>
+                      ))}
                   </View>
-                </View>
+                )}
+              </View>
 
-                {/* Activity */}
+              {/* Canonical URL */}
+              <Tooltip
+                content="Set this to have the livestream announced with a link to this URL instead of the default URL."
+                position="top"
+              >
                 <View style={[gap.all[1]]}>
                   <Text size="sm" color="muted">
-                    Activity
+                    Canonical URL
                   </Text>
-                  <ActivityPicker value={activity} onChange={setActivity} />
+                  <Input
+                    value={canonicalUrl}
+                    onChange={(value) => setCanonicalUrl(value)}
+                    placeholder={defaultCanonicalUrl}
+                    variant="filled"
+                    inputStyle={[
+                      p[3],
+                      r.md,
+                      { backgroundColor: surfaces.dark[2] },
+                      text.white,
+                      borders.width.thin,
+                      { borderColor: borderAlphas.dark.strong },
+                      w.percent[100],
+                      { fontSize: 15 },
+                    ]}
+                  />
                 </View>
+              </Tooltip>
 
-                {/* Tags + language */}
-                <View style={[gap.all[2]]}>
+              {/* Options */}
+              <View
+                style={[
+                  gap.all[2],
+                  p[3],
+                  r.md,
+                  borders.width.thin,
+                  { borderColor: borderAlphas.dark.strong },
+                ]}
+              >
+                <Tooltip
+                  content={
+                    canPostToBluesky
+                      ? "Create a Bluesky post announcing you're live with a link to the stream."
+                      : "You signed in without granting Bluesky permissions, so Streamplace can't post to your account. Log out and back in to change this."
+                  }
+                  position="top"
+                >
                   <View
                     style={[
                       layout.flex.row,
-                      layout.flex.spaceBetween,
-                      layout.flex.alignCenter,
+                      { alignItems: "center" },
+                      gap.all[1],
                     ]}
                   >
-                    <Text size="sm" color="muted">
-                      Tags
-                    </Text>
-                    <LanguagePicker tags={tags} onTagsChange={setTags} />
-                  </View>
-                  {tags.length < 10 && (
-                    <Input
-                      value={tagInput}
-                      onChange={(v) =>
-                        setTagInput(v.replace(/[^a-zA-Z0-9]/g, ""))
-                      }
-                      placeholder="Add a tag, press Enter"
-                      variant="filled"
-                      onSubmitEditing={(e) => {
-                        const trimmed = tagInput.trim();
-                        if (trimmed && !tags.includes(trimmed)) {
-                          setTags([...tags, trimmed]);
-                        }
-                        setTagInput("");
-                        // re-focus the input after submitting
-                        setTimeout(() => {
-                          const input = e.target;
-                          input.focus();
-                        }, 10);
-                      }}
-                      inputStyle={[
-                        p[3],
-                        r.md,
-                        { backgroundColor: surfaces.dark[2] },
-                        text.white,
-                        borders.width.thin,
-                        { borderColor: borderAlphas.dark.strong },
-                        w.percent[100],
-                        { fontSize: 15 },
-                      ]}
-                    />
-                  )}
-                  {tags.filter((t) => !t.startsWith(LANG_TAG_PREFIX)).length >
-                    0 && (
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        flexWrap: "wrap",
-                        gap: 6,
-                        width: "100%",
-                      }}
-                    >
-                      {tags
-                        .filter((t) => !t.startsWith(LANG_TAG_PREFIX))
-                        .map((tag) => (
-                          <Pressable
-                            key={tag}
-                            onPress={() =>
-                              setTags(tags.filter((t) => t !== tag))
-                            }
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              backgroundColor: hexToRgba(
-                                theme.colors.primary,
-                                0.12,
-                              ),
-                              borderWidth: 1,
-                              borderColor: hexToRgba(theme.colors.primary, 0.3),
-                              borderRadius: 16,
-                              paddingHorizontal: 10,
-                              paddingVertical: 3,
-                              gap: 5,
-                            }}
-                          >
-                            <Text
-                              style={{
-                                color: theme.colors.primary,
-                                fontSize: 13,
-                              }}
-                            >
-                              {tag}
-                            </Text>
-                            <Text
-                              style={{
-                                color: hexToRgba(theme.colors.primary, 0.6),
-                                fontSize: 14,
-                                lineHeight: 16,
-                              }}
-                            >
-                              ×
-                            </Text>
-                          </Pressable>
-                        ))}
-                    </View>
-                  )}
-                </View>
-
-                {/* Canonical URL */}
-                <Tooltip
-                  content="Set this to have the livestream announced with a link to this URL instead of the default URL."
-                  position="top"
-                >
-                  <View style={[gap.all[1]]}>
-                    <Text size="sm" color="muted">
-                      Canonical URL
-                    </Text>
-                    <Input
-                      value={canonicalUrl}
-                      onChange={(value) => setCanonicalUrl(value)}
-                      placeholder={defaultCanonicalUrl}
-                      variant="filled"
-                      inputStyle={[
-                        p[3],
-                        r.md,
-                        { backgroundColor: surfaces.dark[2] },
-                        text.white,
-                        borders.width.thin,
-                        { borderColor: borderAlphas.dark.strong },
-                        w.percent[100],
-                        { fontSize: 15 },
-                      ]}
-                    />
-                  </View>
-                </Tooltip>
-
-                {/* Options */}
-                <View
-                  style={[
-                    gap.all[2],
-                    p[3],
-                    r.md,
-                    borders.width.thin,
-                    { borderColor: borderAlphas.dark.strong },
-                  ]}
-                >
-                  <Tooltip
-                    content="Create a Bluesky post announcing you're live with a link to the stream."
-                    position="top"
-                  >
                     <Checkbox
-                      checked={createPost}
+                      checked={createPost && canPostToBluesky}
                       onCheckedChange={(checked) => setCreatePost(checked)}
+                      disabled={!canPostToBluesky}
                       label="Create Bluesky post"
                     />
-                  </Tooltip>
-                  <Tooltip
-                    content="Send a push notification to your followers on the Streamplace iOS/Android app."
-                    position="top"
-                  >
-                    <Checkbox
-                      checked={sendPushNotification}
-                      onCheckedChange={(checked) =>
-                        setSendPushNotification(checked)
-                      }
-                      label="Send push notification"
-                    />
-                  </Tooltip>
-                  <Tooltip
-                    content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
-                    position="top"
-                  >
-                    <Checkbox
-                      checked={idleTimeout}
-                      onCheckedChange={(checked) => setIdleTimeout(checked)}
-                      label="End livestream automatically"
-                    />
-                  </Tooltip>
-                </View>
+                    {!canPostToBluesky && (
+                      <Lock size={14} color={theme.colors.textMuted} />
+                    )}
+                  </View>
+                </Tooltip>
+                <Tooltip
+                  content="Send a push notification to your followers on the Streamplace iOS/Android app."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={sendPushNotification}
+                    onCheckedChange={(checked) =>
+                      setSendPushNotification(checked)
+                    }
+                    label="Send push notification"
+                  />
+                </Tooltip>
+                <Tooltip
+                  content="Enabling this setting will turn your livestream off after 5 minutes of inactivity, and you'll need to press the 'Start Livestream' button again to start it again next time you stream."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={idleTimeout}
+                    onCheckedChange={(checked) => setIdleTimeout(checked)}
+                    label="End livestream automatically"
+                  />
+                </Tooltip>
               </View>
-
-              {/* Thumbnail */}
-              {mode === "create" && (
-                <ImageUploadComponent
-                  selectedImage={selectedImage}
-                  onImageSelect={handleImageSelect}
-                  onImageRemove={handleImageRemove}
-                  onUseLastImage={handleUseLastImage}
-                  hasLastImage={!!livestream?.record.thumb}
-                  onGoToMetadata={() => handleModeChange("metadata")}
-                />
-              )}
-
             </View>
-          )}
+
+            {/* Thumbnail */}
+            {mode === "create" && (
+              <ImageUploadComponent
+                selectedImage={selectedImage}
+                onImageSelect={handleImageSelect}
+                onImageRemove={handleImageRemove}
+                onUseLastImage={handleUseLastImage}
+                hasLastImage={!!livestream?.record.thumb}
+                onGoToMetadata={() => handleModeChange("metadata")}
+              />
+            )}
+          </View>
+        )}
       </Wrapper>
 
       {/* Sticky footer — the primary go-live actions stay pinned above the fold

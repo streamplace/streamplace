@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/labeling"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/events"
@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spmetrics"
@@ -113,7 +114,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 	spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Inc()
 	defer spmetrics.LabelerFirehosesConnected.WithLabelValues(did).Dec()
 	rsc := &events.RepoStreamCallbacks{
-		LabelLabels: func(evt *comatproto.LabelSubscribeLabels_Labels) error {
+		LabelLabels: func(evt *indigoatproto.LabelSubscribeLabels_Labels) error {
 			err = atsync.Model.UpdateLabelerCursor(did, evt.Seq)
 			if err != nil {
 				log.Error(ctx, "failed to update labeler cursor", "err", err)
@@ -215,11 +216,18 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 					log.Error(ctx, "failed to create label", "err", err)
 					continue
 				}
-				atsync.Bus.Publish(targetDID, labelLex)
+				// Publish our generated label type — bus consumers (e.g. the
+				// media ban watcher) type-switch on it, not on indigo's.
+				busLabel := &comatproto.LabelDefs_Label{}
+				if err := busLabel.UnmarshalCBOR(bytes.NewReader(bs.Bytes())); err != nil {
+					log.Error(ctx, "failed to decode label for bus publish", "err", err)
+					continue
+				}
+				atsync.Bus.Publish(targetDID, busLabel)
 			}
 			return nil
 		},
-		LabelInfo: func(evt *comatproto.LabelSubscribeLabels_Info) error {
+		LabelInfo: func(evt *indigoatproto.LabelSubscribeLabels_Info) error {
 			log.Log(ctx, "labeler info", "name", evt.Name, "message", evt.Message)
 			return nil
 		},

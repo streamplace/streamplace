@@ -23,12 +23,12 @@ import ColorPicker, {
 } from "reanimated-color-picker";
 import { useStore } from "store";
 import { useChatProfile, useUserProfile } from "store/hooks";
-import { PlaceStreamChatProfile } from "streamplace";
+import { place } from "streamplace";
 
 /**
  * Parses an RGB color string and returns an object with red, green, and blue values
  */
-function parseRgbString(rgbString: string): PlaceStreamChatProfile.Color {
+function parseRgbString(rgbString: string): place.stream.chat.profile.Color {
   if (
     !rgbString ||
     (!rgbString.startsWith("rgb(") && !rgbString.startsWith("rgba("))

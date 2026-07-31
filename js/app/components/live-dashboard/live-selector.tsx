@@ -3,8 +3,8 @@ import { hexToRgba, Text, useTheme } from "@streamplace/components";
 import { spacing } from "@streamplace/components/src/lib/theme/tokens";
 import Loading from "components/loading/loading";
 import { ArrowLeft, Camera, MonitorPlay, Radio } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
 import { StreamKeyScreen } from "./stream-key";
@@ -141,6 +141,17 @@ export default function StreamScreen({ route }: { route?: any }) {
           >
             Stream from OBS
           </Text>
+          <Pressable onPress={() => Linking.openURL("https://obsproject.com/")}>
+            <Text
+              size="sm"
+              style={{
+                color: theme.colors.primary,
+                textDecorationLine: "underline",
+              }}
+            >
+              obsproject.com
+            </Text>
+          </Pressable>
         </View>
         <StreamKeyScreen />
       </View>

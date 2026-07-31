@@ -8,18 +8,18 @@ import (
 	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // ErrDraftNotFound / ErrDraftNotReady let the publishDraft XRPC handler map
@@ -41,6 +41,7 @@ var (
 //
 // did is the authenticated user; draftURI is the ats:// URI of their draft.
 func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, draftURI string) (string, string, error) {
+	ctx = log.WithLogValues(ctx, "func", "PublishDraft", "did", did, "draftUri", draftURI)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishDraft", trace.WithAttributes(
 		attribute.String("did", did),
 		attribute.String("draft_uri", draftURI),
@@ -69,7 +70,7 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	// fields map 1:1; source/durationMs come straight from the CBOR body (the
 	// server filled them at SetDraftReady time). createdAt is set here, as
 	// PublishVideo does.
-	video := &streamplace.Video{
+	video := &placestream.Video{
 		LexiconTypeID: constants.PLACE_STREAM_VIDEO,
 		Title:         rec.Title,
 		Description:   rec.Description,
@@ -104,17 +105,17 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		return "", "", fmt.Errorf("publish tracks: %w", terr)
 	}
 	if sourceTracks != nil {
-		video.Source = &streamplace.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceTracks: sourceTracks,
 		}
 	} else if rec.Source != nil && rec.Source.MediaDefs_SourceTracks != nil {
 		// Legacy fallback: a draft that already carries source (e.g. published
 		// via the old at-ready-time path). Carry it over.
-		video.Source = &streamplace.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceTracks: rec.Source.MediaDefs_SourceTracks,
 		}
 	} else if rec.Source != nil && rec.Source.MediaDefs_SourceClip != nil {
-		video.Source = &streamplace.Video_Source{
+		video.Source = placestream.Video_Source{
 			MediaDefs_SourceClip: rec.Source.MediaDefs_SourceClip,
 		}
 	}
@@ -144,7 +145,7 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_VIDEO,
-		Record:     &lexutil.LexiconTypeDecoder{Val: video},
+		Record:     &glex.LexiconTypeDecoder{Val: video},
 		Rkey:       rkey,
 		Repo:       did,
 	}
@@ -170,8 +171,8 @@ func PublishDraft(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 
 // unmarshalDraftRecord CBOR-decodes a draft record body. (Sibling of
 // statedb.unmarshalDraft, exposed here so PublishDraft stays in pkg/vod.)
-func unmarshalDraftRecord(data []byte) (*streamplace.VodDraftVideo, error) {
-	var rec streamplace.VodDraftVideo
+func unmarshalDraftRecord(data []byte) (*placestream.VodDraftVideo, error) {
+	var rec placestream.VodDraftVideo
 	if err := rec.UnmarshalCBOR(bytes.NewReader(data)); err != nil {
 		return nil, fmt.Errorf("unmarshal draft CBOR: %w", err)
 	}
@@ -196,7 +197,7 @@ func draftTID(atsURI string) (string, error) {
 // calls publishTrack for each A/V stream, returning the fresh strongRefs to use
 // as the video record's source. Returns (nil, nil) if the draft has no tied
 // upload (so the caller can fall back to a carried-over source).
-func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, client XRPCClient, did string, dv *statedb.DraftVideo) (*streamplace.MediaDefs_SourceTracks, error) {
+func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, client XRPCClient, did string, dv *statedb.DraftVideo) (*placestream.MediaDefs_SourceTracks, error) {
 	if dv.OriginUploadID == "" {
 		return nil, nil
 	}
@@ -214,27 +215,27 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	if upload.ContentCID == "" {
 		return nil, fmt.Errorf("upload %s has no content_cid", upload.ID)
 	}
-	var tracks []*comatproto.RepoStrongRef
+	var tracks []comatproto.RepoStrongRef
 	if probe.Video != nil {
 		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "1", "video", upload.SigningKey, probe.Video, nil)
 		if err != nil {
 			return nil, fmt.Errorf("publish video track: %w", err)
 		}
-		tracks = append(tracks, ref)
+		tracks = append(tracks, *ref)
 	}
 	if probe.Audio != nil {
 		ref, err := publishTrack(ctx, client, did, upload.ContentCID, upload.BlobSize, probe.DurationMS, "2", "audio", upload.SigningKey, nil, probe.Audio)
 		if err != nil {
 			return nil, fmt.Errorf("publish audio track: %w", err)
 		}
-		tracks = append(tracks, ref)
+		tracks = append(tracks, *ref)
 	}
 	if len(tracks) == 0 {
 		return nil, nil
 	}
 	log.Log(ctx, "published media.track records (deferred to publish)",
 		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
-	return &streamplace.MediaDefs_SourceTracks{
+	return &placestream.MediaDefs_SourceTracks{
 		LexiconTypeID: "place.stream.media.defs#sourceTracks",
 		Tracks:        tracks,
 	}, nil
@@ -249,32 +250,30 @@ func derefInt64(p *int64) int64 {
 
 // draftConnectionsToVideo maps the draft's connections union slice to the video
 // record's connections slice (both wrap place.stream.video#connection).
-func draftConnectionsToVideo(in []*streamplace.VodDraftVideo_Connections_Elem) []*streamplace.Video_Connections_Elem {
+func draftConnectionsToVideo(in []placestream.VodDraftVideo_Connections_Elem) []placestream.Video_Connections_Elem {
 	if len(in) == 0 {
 		return nil
 	}
-	out := make([]*streamplace.Video_Connections_Elem, 0, len(in))
+	out := make([]placestream.Video_Connections_Elem, 0, len(in))
 	for _, c := range in {
-		if c == nil || c.Video_Connection == nil {
+		if c.Video_Connection == nil {
 			continue
 		}
-		out = append(out, &streamplace.Video_Connections_Elem{
-			Video_Connection: c.Video_Connection,
-		})
+		out = append(out, placestream.Video_Connections_Elem(c))
 	}
 	return out
 }
 
 // draftActivityToVideo maps the draft's activity union to the video record's.
-func draftActivityToVideo(in *streamplace.VodDraftVideo_Activity) *streamplace.Video_Activity {
+func draftActivityToVideo(in *placestream.VodDraftVideo_Activity) *placestream.Video_Activity {
 	if in == nil {
 		return nil
 	}
 	if in.Defs_ActivityGame != nil {
-		return &streamplace.Video_Activity{Defs_ActivityGame: in.Defs_ActivityGame}
+		return &placestream.Video_Activity{Defs_ActivityGame: in.Defs_ActivityGame}
 	}
 	if in.Defs_ActivityLabel != nil {
-		return &streamplace.Video_Activity{Defs_ActivityLabel: in.Defs_ActivityLabel}
+		return &placestream.Video_Activity{Defs_ActivityLabel: in.Defs_ActivityLabel}
 	}
 	return nil
 }

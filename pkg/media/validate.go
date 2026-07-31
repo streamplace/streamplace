@@ -210,23 +210,11 @@ func (mm *MediaManager) streamerIsBanned(repoDID string) (bool, error) {
 // synchronously from ValidateMP4 or asynchronously from the stream transcoder,
 // so it takes its own (non-request) context in the latter case.
 func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegment, seg []byte) error {
-	tracer := otel.Tracer("signer")
 	meta := vs.meta
 
-	_, fileSpan := tracer.Start(ctx, "ValidateMP4.SegmentArchiveWrite", trace.WithAttributes(
-		attribute.Int("bytes", len(seg)),
-	))
-	fd, err := mm.cli.SegmentFileCreate(vs.repoDID, meta.StartTime, "m4s")
-	if err != nil {
-		fileSpan.End()
-		return err
-	}
-	defer fd.Close()
-	if _, err := io.Copy(fd, bytes.NewReader(seg)); err != nil {
-		fileSpan.End()
-		return err
-	}
-	fileSpan.End()
+	// Retain the canonical segment in the in-memory moderation buffer (this
+	// replaces on-disk .m4s archival) so reports can clip the recent window.
+	mm.feedModerationBuffer(vs.repoDID, meta.StartTime.Time(), seg)
 
 	// Fold the validated segment into the streamer's live-HLS window, off the
 	// critical path. This runs for every segment — locally signed or replicated
@@ -235,18 +223,25 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	// Only published segments are actually folded in (see feedLiveWindow).
 	go mm.feedLiveWindow(context.WithoutCancel(ctx), vs.repoDID, seg, meta.Published)
 
+	// Segments are no longer written to disk, but a Segment DB row is still kept
+	// (dedup, /segment metadata, live playlists). delete_after governs when that
+	// row is reaped by the cleaner — and reaps any legacy .m4s left on disk by an
+	// older build. Every row gets an expiry capped at SegmentArchiveRetention
+	// (default 1h); a -1 ("indefinite archival") distribution policy no longer
+	// pins it forever, and an explicit *shorter* policy expiry still wins.
+	// SegmentArchiveRetention <= 0 is the operator opt-out (keep rows until
+	// manually cleaned).
 	var deleteAfter *time.Time
-	if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
-		secs := *meta.DistributionPolicy.DeleteAfterSeconds
-		if secs == -1 {
-			deleteAfter = nil
-		} else {
-			expiryTime := meta.StartTime.Time().Add(time.Duration(secs) * time.Second)
-			deleteAfter = &expiryTime
+	if mm.cli.SegmentArchiveRetention > 0 {
+		expiry := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
+		if meta.DistributionPolicy != nil && meta.DistributionPolicy.DeleteAfterSeconds != nil {
+			if secs := *meta.DistributionPolicy.DeleteAfterSeconds; secs >= 0 {
+				if policyExpiry := meta.StartTime.Time().Add(time.Duration(secs) * time.Second); policyExpiry.Before(expiry) {
+					expiry = policyExpiry
+				}
+			}
 		}
-	} else if mm.cli.SegmentArchiveRetention.Seconds() != 0 {
-		tomorrow := time.Now().Add(mm.cli.SegmentArchiveRetention).UTC()
-		deleteAfter = &tomorrow
+		deleteAfter = &expiry
 	}
 	dbSeg := &localdb.Segment{
 		ID:                 vs.label,

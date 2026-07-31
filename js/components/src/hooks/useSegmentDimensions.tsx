@@ -1,8 +1,4 @@
-import {
-  PlaceStreamMediaTrack,
-  PlaceStreamSegment,
-  VideoViewHydrated,
-} from "streamplace";
+import { place, VideoViewHydrated } from "streamplace";
 import { useLivestreamStoreOptional } from "../livestream-store";
 import { useVideoStoreOptional } from "../video-store";
 
@@ -32,21 +28,20 @@ export function useSegmentDimensions() {
   };
 }
 
-function getVideoMetadata(
-  view: VideoViewHydrated,
-): PlaceStreamSegment.Video | null {
+function getVideoMetadata(view: VideoViewHydrated) {
   if (!view.tracks) {
     return null;
   }
   for (const track of view.tracks) {
     const meta = track.record.metadata;
-    if (!PlaceStreamMediaTrack.isCommonMetadata(meta)) {
+    if (!meta || !place.stream.media.track.commonMetadata.isTypeOf(meta)) {
       continue;
     }
-    if (!meta.video) {
+    const common = meta as place.stream.media.track.CommonMetadata;
+    if (!common.video) {
       continue;
     }
-    return meta.video;
+    return common.video;
   }
   return null;
 }

@@ -21,7 +21,7 @@ import (
 
 // runIngestWorkerHelper is what the test binary becomes when re-exec'd with the
 // `ingest-worker` arg (see TestMain). It mirrors makeIngestWorkerCommand exactly:
-// config on fd 3, frames on fd 4, MKV on stdin; clean run ends with End, a fatal
+// config on fd 3, frames on fd 4, fMP4 on stdin; clean run ends with End, a fatal
 // error with an Error frame and a non-zero exit.
 func runIngestWorkerHelper() int {
 	// Test hook: a worker-shaped process that just sleeps (same argv layout as a
@@ -57,7 +57,7 @@ func runIngestWorkerHelper() int {
 			defer f.Close()
 			raw = f
 		}
-		if err := ServeMKVIngestWorkerSocket(context.Background(), cfg, WorkerInput(cfg, raw)); err != nil {
+		if err := ServeMP4IngestWorkerSocket(context.Background(), cfg, WorkerInput(cfg, raw)); err != nil {
 			return 1
 		}
 		return 0
@@ -69,7 +69,7 @@ func runIngestWorkerHelper() int {
 	}
 	defer framesFile.Close()
 	frames := ingestframe.NewWriter(framesFile)
-	if err := RunMKVIngestWorker(context.Background(), cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
+	if err := RunMP4IngestWorker(context.Background(), cfg, os.Stdin, frames, func() []byte { return cfg.Manifest }); err != nil {
 		_ = frames.Error(err.Error())
 		return 1
 	}
@@ -78,8 +78,8 @@ func runIngestWorkerHelper() int {
 }
 
 // TestIngestWorkerSubprocess exercises the real process boundary: it spawns the
-// worker as an actual subprocess (config over fd 3, MKV over stdin, frames over
-// fd 4 — the exact wiring MKVIngestIsolated uses) and verifies the worker
+// worker as an actual subprocess (config over fd 3, fMP4 over stdin, frames over
+// fd 4 — the exact wiring MP4IngestIsolated uses) and verifies the worker
 // produces valid signed segments, a clean End frame, and a zero exit. This is
 // the part the in-process worker test can't cover: fd passing, the framed wire
 // protocol over a real pipe, and process lifecycle.
@@ -99,14 +99,14 @@ func TestIngestWorkerSubprocess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
 	exe, err := os.Executable()
 	require.NoError(t, err)
 	cmd := exec.CommandContext(ctx, exe, "ingest-worker")
 	// Quiet gst in the child (it inherits the parent test's verbose leak-tracer env).
 	cmd.Env = append(os.Environ(), "GST_DEBUG=0", "GST_TRACERS=")
-	cmd.Stdin = bytes.NewReader(mkv)
+	cmd.Stdin = bytes.NewReader(mp4)
 	cmd.Stderr = os.Stderr
 
 	cfgR, cfgW, err := os.Pipe()
@@ -153,14 +153,14 @@ func TestIngestWorkerSubprocess(t *testing.T) {
 	t.Logf("worker subprocess emitted %d valid signed segments + clean End", segs)
 }
 
-// TestMKVIngestIsolatedWedgeContained is the isolation guarantee: sample-stream.mkv
-// carries four audio tracks, so the single-audio ingest pipeline leaves three
-// matroskademux pads unlinked and wedges with no EOS — exactly the kind of native
+// TestMP4IngestIsolatedWedgeContained is the isolation guarantee: an audio-only
+// fMP4 starves the fMP4 muxer's video pad of both data and EOS, so the native
+// pipeline wedges with no frames and no EOS — exactly the kind of native
 // wedge that would hang (or, with a runaway buffer, OOM-kill) an in-process
 // ingest and take the node with it. Run in a worker, it must be contained: the
-// watchdog kills the worker and MKVIngestIsolated returns an error, bounded in
+// watchdog kills the worker and MP4IngestIsolated returns an error, bounded in
 // time, with THIS process — the node — still running to assert it.
-func TestMKVIngestIsolatedWedgeContained(t *testing.T) {
+func TestMP4IngestIsolatedWedgeContained(t *testing.T) {
 	old := ingestWorkerWatchdog
 	ingestWorkerWatchdog = 6 * time.Second
 	defer func() { ingestWorkerWatchdog = old }()
@@ -168,11 +168,10 @@ func TestMKVIngestIsolatedWedgeContained(t *testing.T) {
 	mm, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 
-	wedge, err := os.ReadFile(getFixture("sample-stream.mkv"))
-	require.NoError(t, err)
+	wedge := makeAudioOnlyAACFMP4(t, context.Background(), 5)
 
 	start := time.Now()
-	err = mm.MKVIngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
+	err := mm.MP4IngestIsolated(context.Background(), bytes.NewReader(wedge), ms)
 	elapsed := time.Since(start)
 
 	require.Error(t, err, "a wedged worker must surface as an error, not a hang")
@@ -209,7 +208,7 @@ func TestWorkerIngestsFromPassedFD(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	mkv := makeH264AACMKV(t, ctx, getFixture("5sec.mp4"))
+	mp4 := makeH264AACFMP4(t, ctx, getFixture("5sec.mp4"))
 
 	exe, err := os.Executable()
 	require.NoError(t, err)
@@ -234,7 +233,7 @@ func TestWorkerIngestsFromPassedFD(t *testing.T) {
 		cfgW.Close()
 	}()
 	go func() {
-		_, _ = mediaW.Write(mkv)
+		_, _ = mediaW.Write(mp4)
 		mediaW.Close()
 	}()
 

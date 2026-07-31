@@ -6,19 +6,18 @@ import (
 	"net/http"
 	"time"
 
-	comatprototypes "github.com/bluesky-social/indigo/api/atproto"
+	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
 
-func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *comatprototypes.ModerationCreateReport_Input) (*comatprototypes.ModerationCreateReport_Output, error) {
+func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, body *indigoatproto.ModerationCreateReport_Input) (*indigoatproto.ModerationCreateReport_Output, error) {
 	c, ok := ctx.Value(echoContextKey).(echo.Context)
 	if !ok {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "echo context not found")
@@ -76,7 +75,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid subject")
 	}
 
-	clipID, err := makeClip(ctx, s.cli, s.localDB, did)
+	clipID, err := makeClip(ctx, s.cli, s.mm, did)
 	if err != nil {
 		// we still want the report to go through!
 		log.Error(ctx, "failed to make clip for report", "error", err)
@@ -90,7 +89,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 		"Atproto-Proxy": atprotoProxy,
 	})
 
-	var output comatprototypes.ModerationCreateReport_Output
+	var output indigoatproto.ModerationCreateReport_Output
 	err = client.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.moderation.createReport", nil, body, &output)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -99,7 +98,7 @@ func (s *Server) handleComAtprotoModerationCreateReport(ctx context.Context, bod
 	return &output, nil
 }
 
-func makeClip(ctx context.Context, cli *config.CLI, localDB localdb.LocalDB, did string) (string, error) {
+func makeClip(ctx context.Context, cli *config.CLI, mm *media.MediaManager, did string) (string, error) {
 	after := time.Now().Add(-time.Duration(60) * time.Second)
 
 	uu, err := uuid.NewV7()
@@ -113,7 +112,7 @@ func makeClip(ctx context.Context, cli *config.CLI, localDB localdb.LocalDB, did
 	}
 	defer fd.Close()
 
-	err = media.ClipUser(ctx, localDB, cli, did, fd, nil, &after)
+	err = mm.ClipUser(ctx, did, fd, nil, &after)
 	if err != nil {
 		return "", echo.NewHTTPError(http.StatusInternalServerError, "failed to clip user")
 	}

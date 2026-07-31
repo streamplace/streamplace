@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
-	"path/filepath"
-	"regexp"
 	"runtime"
 	rtpprof "runtime/pprof"
 	"strconv"
@@ -46,19 +44,16 @@ func (a *StreamplaceAPI) ServeInternalHTTP(ctx context.Context) error {
 	})
 }
 
-// lightweight way to authenticate push requests to ourself
-var mkvRE *regexp.Regexp
-
-func init() {
-	mkvRE = regexp.MustCompile(`^\d+\.mkv$`)
-}
-
 func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, error) {
 	router := httprouter.New()
 	broker := misttriggers.NewTriggerBroker()
 
+	// serverCtx outlives any single trigger request — the Mist pull ingests
+	// spawned below run for the life of their stream, not the life of the
+	// PUSH_REWRITE request that announced it.
+	serverCtx := ctx
 	broker.OnPushRewrite(func(ctx context.Context, payload *misttriggers.PushRewritePayload) (string, error) {
-		log.Log(ctx, "got push out start", "streamName", payload.StreamName, "url", payload.URL.String())
+		log.Log(ctx, "got push rewrite", "streamName", payload.StreamName, "url", payload.URL.String())
 		// Extract the last part of the URL path
 		urlPath := payload.URL.Path
 		parts := strings.Split(urlPath, "/")
@@ -77,6 +72,20 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		a.SignerCache[mediaSigner.Streamer()] = mediaSigner
 		a.SignerCacheMu.Unlock()
 		log.Log(ctx, "added key to cache", "mist-stream", out, "streamer", mediaSigner.Streamer())
+
+		// The push is authed and named — ingest it by pulling Mist's live fMP4
+		// output for the stream we just named. This replaces the old Mist-side
+		// MKVExec process (`streamplace live` POSTing MKV back to /live): fMP4
+		// carries real decode timestamps, so ingest no longer reconstructs DTS.
+		// Mist accepts the push right after this trigger returns, so the pull
+		// retries briefly while the stream boots (mistPullConnect).
+		go func() {
+			if perr := a.MediaManager.MistPullIngest(serverCtx, out, mediaSigner); perr != nil {
+				log.Error(serverCtx, "mist pull ingest ended", "mist-stream", out, "streamer", mediaSigner.Streamer(), "error", perr)
+			} else {
+				log.Log(serverCtx, "mist pull ingest ended cleanly", "mist-stream", out, "streamer", mediaSigner.Streamer())
+			}
+		}()
 
 		return out, nil
 	})
@@ -106,79 +115,16 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 	// store and attest to it via place.stream.media.origin.
 	router.POST("/vod-transfer", a.HandleVODTransfer(ctx))
 
+	// Rebuild the local media.origin index from our own server repo, for
+	// blobs we host but never indexed (a dropped firehose event, or a
+	// --secure node whose self-subscription never connected).
+	router.POST("/reindex-origins", a.HandleReindexOrigins(ctx))
+
 	router.Handler("GET", "/metrics", promhttp.Handler())
 
-	router.GET("/playback/:user/:rendition/concat", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		w.Header().Set("content-type", "text/plain")
-		fmt.Fprintf(w, "ffconcat version 1.0\n")
-		// intermittent reports that you need two here to make things work properly? shouldn't matter.
-		for i := 0; i < 2; i += 1 {
-			fmt.Fprintf(w, "file '%s/playback/%s/%s/latest.mp4'\n", a.CLI.OwnInternalURL(), user, rendition)
-		}
-	})
-
-	router.GET("/playback/:user/:rendition/latest.mp4", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		rendition := p.ByName("rendition")
-		if rendition == "" {
-			errors.WriteHTTPBadRequest(w, "rendition required", nil)
-			return
-		}
-		segChan := a.Bus.SubscribeSegment(ctx, user, rendition)
-		defer a.Bus.UnsubscribeSegment(ctx, user, rendition, segChan)
-		seg := <-segChan.C
-		base := filepath.Base(seg.Filepath)
-		w.Header().Set("Location", fmt.Sprintf("%s/playback/%s/%s/segment/%s\n", a.CLI.OwnInternalURL(), user, rendition, base))
-		w.WriteHeader(301)
-	})
-
-	router.GET("/playback/:user/:rendition/segment/:file", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		user := p.ByName("user")
-		if user == "" {
-			errors.WriteHTTPBadRequest(w, "user required", nil)
-			return
-		}
-		user, err := a.NormalizeUser(ctx, user)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "invalid user", err)
-			return
-		}
-		file := p.ByName("file")
-		if file == "" {
-			errors.WriteHTTPBadRequest(w, "file required", nil)
-			return
-		}
-		fullpath, err := a.CLI.SegmentFilePath(user, file)
-		if err != nil {
-			errors.WriteHTTPBadRequest(w, "badly formatted request", err)
-			return
-		}
-		http.ServeFile(w, r, fullpath)
-	})
+	// Legacy disk-served HLS (ffconcat -> latest.mp4 -> segment/:file, all reading
+	// .m4s off disk) has been removed — live playback is all MUXL HLS now, served
+	// from the in-memory window in pkg/livehls / place_stream_playback_getlive.
 
 	router.HEAD("/playback/:user/:rendition/stream.mkv", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		user := p.ByName("user")
@@ -278,21 +224,22 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 					_, _ = io.ReadFull(bufrw.Reader, prebuf)
 				}
 				chunked := len(httpReq.TransferEncoding) > 0 && httpReq.TransferEncoding[0] == "chunked"
-				if derr := a.MediaManager.MKVIngestDetached(reqCtx, conn, prebuf, chunked, mediaSigner); derr != nil {
+				if derr := a.MediaManager.MP4IngestDetached(reqCtx, conn, prebuf, chunked, mediaSigner); derr != nil {
 					log.Log(reqCtx, "isolated stream ended", "error", derr)
 				}
 				return // connection hijacked; the HTTP response is ours now
 			}
 			// The isolated path needs a hijackable HTTP/1.1 connection (which the
-			// only real MKV/RTMP-push client — a co-located MistServer pushing over
-			// localhost — always is). We don't support a non-hijack fallback: it
-			// couldn't receive mid-stream manifest updates and would stay stuck
-			// pre-live, so refuse. Such a client can use WHIP instead.
+			// real /live clients — the `streamplace live` CLI and tests pushing
+			// over localhost — always are; the Mist ingest itself now arrives via
+			// MistPullIngest, not this route). We don't support a non-hijack
+			// fallback: it couldn't receive mid-stream manifest updates and would
+			// stay stuck pre-live, so refuse. Such a client can use WHIP instead.
 			log.Error(reqCtx, "isolated ingest requires a hijackable HTTP/1.1 connection; refusing push")
 			errors.WriteHTTPInternalServerError(w, "isolated ingest requires a hijackable HTTP/1.1 connection; use WHIP", fmt.Errorf("connection is not hijackable"))
 			return
 		} else {
-			err = a.MediaManager.MKVIngest(reqCtx, r, mediaSigner)
+			err = a.MediaManager.MP4Ingest(reqCtx, r, mediaSigner)
 		}
 
 		if err != nil {
@@ -303,7 +250,10 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		log.Log(reqCtx, "stream success", "url", httpReq.URL.String())
 	}
 
-	// route to accept an incoming mkv stream from OBS, segment it, and push the segments back to this HTTP handler
+	// route to accept an incoming fragmented-MP4 stream (the `streamplace live`
+	// CLI piping from stdin), segment it, and validate the signed segments.
+	// The co-located MistServer's streams are ingested by pulling its fMP4
+	// output instead (MistPullIngest, kicked off from PUSH_REWRITE above).
 	router.POST("/live/:key", handleIncomingStream)
 	router.PUT("/live/:key", handleIncomingStream)
 
@@ -499,15 +449,15 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 			errors.WriteHTTPInternalServerError(w, "unable to get notifications", err)
 			return
 		}
-		if a.FirebaseNotifier == nil {
-			errors.WriteHTTPInternalServerError(w, "firebase notifier not initialized", nil)
+		if a.Notifier == nil {
+			errors.WriteHTTPInternalServerError(w, "notifier not initialized", nil)
 			return
 		}
-		tokens := []string{}
-		for _, not := range notifications {
-			tokens = append(tokens, not.Token)
+		targets := make([]notificationpkg.NotificationTarget, len(notifications))
+		for i, not := range notifications {
+			targets[i] = notificationpkg.NotificationTarget{Token: not.Token, Type: not.Type}
 		}
-		err = a.FirebaseNotifier.Blast(ctx, tokens, &payload)
+		err = a.Notifier.Blast(ctx, targets, &payload)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to blast notifications", err)
 			return
@@ -593,7 +543,7 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		}
 		after := time.Now().Add(-time.Duration(secs) * time.Second)
 		w.Header().Set("Content-Type", "video/mp4")
-		err = media.ClipUser(ctx, a.LocalDB, a.CLI, user, w, nil, &after)
+		err = a.MediaManager.ClipUser(ctx, user, w, nil, &after)
 		if err != nil {
 			errors.WriteHTTPInternalServerError(w, "unable to clip user", err)
 			return

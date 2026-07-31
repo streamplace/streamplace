@@ -47,7 +47,7 @@ func whipClientOffer(t *testing.T) (*webrtc.PeerConnection, *webrtc.TrackLocalSt
 // an offer it builds the PeerConnection, generates the SDP answer, and emits it
 // as the FIRST frame on its socket — the synchronous reply main returns to the
 // WHIP client. (Media flow → signed segments rides the same webRTCIngestPipeline
-// the in-process path uses, plus the transcoder/frame machinery the MKV tests
+// the in-process path uses, plus the transcoder/frame machinery the fMP4 ingest tests
 // already cover.)
 func TestWHIPWorkerAnswersOffer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -149,7 +149,7 @@ func produceWHIPMedia(t *testing.T, ctx context.Context, video, audio *webrtc.Tr
 // TestWHIPWorkerLoopback is the full WHIP media path: a pion client offers,
 // connects to the worker (which owns the PeerConnection), and streams real
 // H264+Opus RTP; the worker must mux+sign+transcode it and serve a valid signed
-// dual-codec segment over its socket — the WHIP parity of the MKV worker e2e
+// dual-codec segment over its socket — the WHIP parity of the fMP4 ingest worker e2e
 // test.
 func TestWHIPWorkerLoopback(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

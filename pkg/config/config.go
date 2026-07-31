@@ -32,7 +32,8 @@ import (
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/moderation"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
+	"stream.place/streamplace/pkg/s3"
 )
 
 const SPDataDir = "$SP_DATA_DIR"
@@ -834,8 +835,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "segment-archive-retention",
-				Usage:       "for users who don't specify a distribution policy, how long to keep segments around?",
-				Value:       24 * time.Hour,
+				Usage:       "how long to keep on-disk segment files before cleaning them up (durable copies live in S3/VOD). 0 disables cleanup.",
+				Value:       1 * time.Hour,
 				Destination: &cli.SegmentArchiveRetention,
 				Sources:     urfavecli.EnvVars("SP_SEGMENT_ARCHIVE_RETENTION"),
 			},
@@ -1031,8 +1032,8 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 		})
 		cmd.Flags = append(cmd.Flags, &urfavecli.IntFlag{
 			Name:        "mist-http-port",
-			Usage:       "MistServer HTTP port (internal use only)",
-			Value:       18080,
+			Usage:       "MistServer HTTP port (internal use only) — ingest pulls Mist's live fMP4 output from this port, so it must match the running Mist config (docker/mistserver.json uses 28080, the default here)",
+			Value:       28080,
 			Destination: &cli.MistHTTPPort,
 			Sources:     urfavecli.EnvVars("SP_MIST_HTTP_PORT"),
 		})
@@ -1058,16 +1059,28 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 
 var StreamplaceSchemePrefix = "streamplace://"
 
+// OwnPublicURL is the URL this process's own public listener answers on.
+//
+// With --secure we terminate TLS ourselves: the real handler is on HTTPSAddr
+// and the HTTPAddr listener only serves 307 redirects to it (ServeHTTPRedirect),
+// so http://<HTTPAddr> is not an address anything can actually be fetched from
+// — a websocket dial there gets the redirect instead of a 101 upgrade.
+// --behind-https-proxy is the opposite case: the proxy terminates TLS and we
+// really do serve the handler as plain HTTP on HTTPAddr, so only cli.Secure
+// flips this.
 func (cli *CLI) OwnPublicURL() string {
 	//  No errors because we know it's valid from AddrFlag
-	host, port, _ := net.SplitHostPort(cli.HTTPAddr)
+	addr, scheme := cli.HTTPAddr, "http"
+	if cli.Secure {
+		addr, scheme = cli.HTTPSAddr, "https"
+	}
+	host, port, _ := net.SplitHostPort(addr)
 
 	ip := net.ParseIP(host)
 	if host == "" || ip.IsUnspecified() {
 		host = "127.0.0.1"
 	}
-	addr := net.JoinHostPort(host, port)
-	return fmt.Sprintf("http://%s", addr)
+	return fmt.Sprintf("%s://%s", scheme, net.JoinHostPort(host, port))
 }
 
 func (cli *CLI) OwnInternalURL() string {
@@ -1426,6 +1439,55 @@ func (cli *CLI) DumpDebugSegment(ctx context.Context, name string, r io.Reader) 
 
 func (cli *CLI) S3Configured() bool {
 	return cli.S3Endpoint != "" && cli.S3Bucket != "" && cli.S3AccessKeyID != "" && cli.S3SecretAccessKey != ""
+}
+
+// S3Config assembles an s3.Config from the CLI's S3 flags.
+func (cli *CLI) S3Config() s3.Config {
+	return s3.Config{
+		Endpoint:        cli.S3Endpoint,
+		Bucket:          cli.S3Bucket,
+		AccessKeyID:     cli.S3AccessKeyID,
+		SecretAccessKey: cli.S3SecretAccessKey,
+		Region:          cli.S3Region,
+	}
+}
+
+// SetS3Config applies an s3.Config to the CLI's S3 fields — the inverse of
+// S3Config, for processes (ingest workers) that receive the S3 destination over
+// a handshake instead of from flags.
+func (cli *CLI) SetS3Config(c s3.Config) {
+	cli.S3Endpoint = c.Endpoint
+	cli.S3Bucket = c.Bucket
+	cli.S3AccessKeyID = c.AccessKeyID
+	cli.S3SecretAccessKey = c.SecretAccessKey
+	cli.S3Region = c.Region
+}
+
+// DebugRecordingFile is the write target returned by DebugRecordingCreate: an
+// *os.File on local disk, or an S3 upload that commits on Close. Name() reports
+// the destination (path or object key) for logging.
+type DebugRecordingFile interface {
+	io.WriteCloser
+	Name() string
+}
+
+// DebugRecordingCreate opens a write target for a debug recording (RTMP/MKV
+// dumps, WHIP rtcrec sessions). When S3 is configured the recording streams to
+// an S3 object at the key formed by joining fpath with "/" (so the bucket
+// mirrors the on-disk debug-recordings/<did>/<file> layout); otherwise it falls
+// back to a local file under DataDir — the dev default. The returned value must
+// be Closed to finalize (Close commits the S3 upload). overwrite only affects
+// the local-disk path (S3 puts always overwrite).
+func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, contentType string, overwrite bool) (DebugRecordingFile, error) {
+	if cli.S3Configured() {
+		key := strings.Join(fpath, "/")
+		// The recording outlives the ingest session's ctx: Close commits the upload
+		// during teardown, after that ctx is typically cancelled — a cancelled ctx
+		// here would abort the upload and lose the object. Callers bound the commit
+		// with their own finalize waits instead.
+		return s3.NewUploadWriter(context.WithoutCancel(ctx), s3.NewClient(cli.S3Config()), cli.S3Bucket, key, contentType)
+	}
+	return cli.DataFileCreate(fpath, overwrite)
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {

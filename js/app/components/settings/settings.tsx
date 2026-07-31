@@ -18,6 +18,7 @@ import {
 import { ImageBackground } from "expo-image";
 import {
   Award,
+  Bell,
   Brush,
   Globe,
   Info,
@@ -141,6 +142,12 @@ export function Settings() {
                   title={t("privacy-security")}
                   screen="PrivacyCategory"
                   icon={Shield}
+                />
+                <MenuSeparator />
+                <SettingsNavigationItem
+                  title={t("notifications")}
+                  screen="NotificationsCategory"
+                  icon={Bell}
                 />
               </MenuGroup>
             )}

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
-import type { PlaceStreamVodDefs } from "streamplace";
+import type { place } from "streamplace";
 import { spacing } from "../../lib/theme/tokens";
 import {
   useDID,
@@ -61,7 +61,7 @@ function CommentAvatar({ uri, size = 36 }: { uri?: string; size?: number }) {
 }
 
 export function VodComments({ videoUri }: { videoUri: string }) {
-  const [comments, setComments] = useState<PlaceStreamVodDefs.CommentView[]>(
+  const [comments, setComments] = useState<place.stream.vod.defs.CommentView[]>(
     [],
   );
   const [loading, setLoading] = useState(true);
@@ -224,8 +224,7 @@ export function VodComments({ videoUri }: { videoUri: string }) {
                   <Text size="sm">{record?.text}</Text>
                   {item.likeCount > 0 ? (
                     <Text size="xs" style={{ color: theme.colors.text3 }}>
-                      {item.likeCount}{" "}
-                      {item.likeCount === 1 ? "like" : "likes"}
+                      {item.likeCount} {item.likeCount === 1 ? "like" : "likes"}
                     </Text>
                   ) : null}
                 </View>

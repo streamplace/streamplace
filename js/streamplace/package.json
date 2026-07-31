@@ -1,7 +1,8 @@
 {
   "name": "streamplace",
-  "version": "0.11.0",
+  "version": "0.11.16",
   "description": "Live video on the AT Protocol",
+  "type": "module",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "exports": {
@@ -14,7 +15,7 @@
   "scripts": {
     "build": "tsc",
     "prepare": "cd ../.. && make js-lexicons && cd - && pnpm run build && pnpm run test-import",
-    "test-import": "node -e 'require(\".\")' || (echo 'require(\".\") failed, npm package is not working' && exit 1)",
+    "test-import": "node -e 'import(\"./dist/index.js\").catch((e) => { console.error(e); process.exit(1); })'",
     "start": "tsc --watch --preserveWatchOutput"
   },
   "keywords": [
@@ -27,12 +28,13 @@
   "packageManager": "pnpm@10.11.0",
   "dependencies": {
     "@atproto/api": "^0.19.3",
+    "@atproto/lex": "^0.2.0",
     "@atproto/lexicon": "^0.6.2",
     "@atproto/xrpc": "^0.7.7",
     "multiformats": "^9.9.0",
     "tslib": "^2.8.1"
   },
   "devDependencies": {
-    "typescript": "~5.3.3"
+    "typescript": "^5.8.3"
   }
 }

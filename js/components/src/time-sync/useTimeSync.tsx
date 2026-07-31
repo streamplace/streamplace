@@ -1,7 +1,7 @@
 import { TriangleAlert } from "lucide-react-native";
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import { StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import { useToast } from "../components/ui/toast";
 import { useUrl } from "../streamplace-store/streamplace-store";
 import { checkClockDrift, syncTimeWithServer } from "./time-sync";
@@ -19,9 +19,11 @@ export function useTimeSync() {
       try {
         const agent = new StreamplaceAgent(url);
         const start = new Date().getTime();
-        const response = await agent.place.stream.server.getServerTime();
+        const response = await agent.client.call(
+          place.stream.server.getServerTime,
+        );
         const roundTripLatency = new Date().getTime() - start;
-        const serverTime = response.data.serverTime;
+        const serverTime = response.serverTime;
 
         // always sync with server time
         syncTimeWithServer(serverTime, roundTripLatency / 2);
@@ -33,7 +35,7 @@ export function useTimeSync() {
           hasShownWarning.current = true;
           t.show(
             "Clock drift detected!",
-            `Your device clock is ${driftInfo.driftSeconds}s off from server time. Please sync your system clock to avoid issues.`,
+            `Your device clock is ${driftInfo.driftSeconds}s off from server time. Times have been auto-corrected, but please sync your system clock.`,
             {
               variant: "info",
               iconLeft: TriangleAlert,

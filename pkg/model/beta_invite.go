@@ -8,8 +8,8 @@ import (
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"stream.place/streamplace/pkg/aqtime"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // BetaInvite is the indexed view of a place.stream.beta.invite
@@ -29,12 +29,12 @@ type BetaInvite struct {
 	IndexedAt time.Time `gorm:"column:indexed_at"`
 }
 
-func (m *DBModel) UpsertBetaInvite(ctx context.Context, rec *streamplace.BetaInvite, aturi syntax.ATURI) error {
+func (m *DBModel) UpsertBetaInvite(ctx context.Context, rec placestream.BetaInvite, aturi syntax.ATURI) error {
 	repoDID, err := aturi.Authority().AsDID()
 	if err != nil {
 		return fmt.Errorf("invalid ATURI authority: %w", err)
 	}
-	cid, err := spid.GetCID(rec)
+	cid, err := spid.GetCID(&rec)
 	if err != nil {
 		return fmt.Errorf("get beta invite CID: %w", err)
 	}

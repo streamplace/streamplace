@@ -9,7 +9,7 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 const (
@@ -23,7 +23,7 @@ func putInvite(t *testing.T, m model.Model, repoDID, subjectDID, feature string)
 	rkey := feature + "-" + subjectDID
 	aturi, err := syntax.ParseATURI("at://" + repoDID + "/place.stream.beta.invite/" + rkey)
 	require.NoError(t, err)
-	require.NoError(t, m.UpsertBetaInvite(context.Background(), &streamplace.BetaInvite{
+	require.NoError(t, m.UpsertBetaInvite(context.Background(), placestream.BetaInvite{
 		LexiconTypeID: "place.stream.beta.invite",
 		Did:           subjectDID,
 		Feature:       feature,

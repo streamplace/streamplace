@@ -1,7 +1,7 @@
 import { EyeOff, Pin, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
-import { PinnedRecordViewHydrated, PlaceStreamChatProfile } from "streamplace";
+import { PinnedRecordViewHydrated, place } from "streamplace";
 import {
   Text,
   useCanModerate,
@@ -16,7 +16,7 @@ import { formatHandleWithAt } from "../../utils/format-handle";
 // static link accent — this overlay can render outside a ThemeProvider (OBS)
 const LINK_ACCENT = tokens.colors.primary[400]; // token-ok
 
-const getRgbColor = (color?: PlaceStreamChatProfile.Color) =>
+const getRgbColor = (color?: place.stream.chat.profile.Color) =>
   color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined; // token-ok: dynamic user color / soft shadow
 
 function renderSegment(segment: RichtextSegment, index: number) {

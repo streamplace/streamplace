@@ -13,18 +13,18 @@ import (
 	"testing"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	scraper "github.com/starttoaster/prometheus-exporter-scraper"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/cmd"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/crypto/spkey"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/test/remote"
 )
 
@@ -248,7 +248,7 @@ func (node *TestNode) StartStream(t *testing.T, acct *devenv.DevEnvAccount) {
 	priv, pub, err := spkey.GenerateStreamKeyForDID(acct.DID)
 	require.NoErrorf(t, err, "[%s] failed to generate stream key for DID %s", node.Name, acct.DID)
 	createdBy := "multitest"
-	streamKey := streamplace.Key{
+	streamKey := placestream.Key{
 		SigningKey: pub.DIDKey(),
 		CreatedAt:  time.Now().Format(util.ISO8601),
 		CreatedBy:  &createdBy,
@@ -256,7 +256,7 @@ func (node *TestNode) StartStream(t *testing.T, acct *devenv.DevEnvAccount) {
 	_, err = comatproto.RepoCreateRecord(context.TODO(), acct.XRPC, &comatproto.RepoCreateRecord_Input{
 		Collection: "place.stream.key",
 		Repo:       acct.DID,
-		Record:     &lexutil.LexiconTypeDecoder{Val: &streamKey},
+		Record:     &glex.LexiconTypeDecoder{Val: &streamKey},
 	})
 	require.NoErrorf(t, err, "[%s] failed to create Repo record for DID %s", node.Name, acct.DID)
 	log.Log(context.Background(), "created stream key", "did", acct.DID, "pub", pub.DIDKey())

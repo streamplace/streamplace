@@ -3,8 +3,9 @@ import { Platform } from "react-native";
 let timeOffset = 0;
 let hasWarned = false;
 let OriginalDate: DateConstructor = Date;
+let isInitialized = false;
 
-const CLOCK_DRIFT_THRESHOLD_MS = 5000; // 5 seconds
+const CLOCK_DRIFT_THRESHOLD_MS = 60 * 60 * 1000; // 1 hour
 
 export function getTimeOffset(): number {
   return timeOffset;
@@ -19,8 +20,8 @@ export function checkClockDrift(serverTime: string): {
   driftMs: number;
   driftSeconds: number;
 } {
-  const serverDate = new Date(serverTime);
-  const clientDate = new Date();
+  const serverDate = new OriginalDate(serverTime);
+  const clientDate = new OriginalDate();
   const drift = Math.abs(serverDate.getTime() - clientDate.getTime());
 
   if (drift > CLOCK_DRIFT_THRESHOLD_MS) {
@@ -55,11 +56,10 @@ export function syncTimeWithServer(
 }
 
 export function getSyncedDate(): Date {
-  const now = new Date();
   if (timeOffset !== 0) {
-    return new Date(now.getTime() + timeOffset);
+    return new Date(OriginalDate.now() + timeOffset);
   }
-  return now;
+  return new OriginalDate();
 }
 
 export function getSystemDate(): Date {
@@ -71,6 +71,11 @@ export function getSystemTime(): number {
 }
 
 export function initializeTimeSync(): void {
+  if (isInitialized) {
+    return;
+  }
+  isInitialized = true;
+
   if (Platform.OS !== "web") {
     return;
   }

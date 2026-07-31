@@ -9,6 +9,7 @@ export type SettingsStackParamList = {
   WebhooksSettings: undefined;
   BackupSettings: undefined;
   PrivacyCategory: undefined;
+  NotificationsCategory: undefined;
   DanmuCategory: undefined;
   AdvancedCategory: undefined;
   LanguagesCategory: undefined;

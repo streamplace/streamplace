@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	streamplace "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 // Storage represents S3 storage configuration for a user
@@ -61,14 +61,14 @@ func (state *StatefulDB) DeleteStorage(userDID string) error {
 	return state.DB.Where("user_did = ?", userDID).Delete(&Storage{}).Error
 }
 
-func (s *Storage) ToLexicon() *streamplace.ServerDefs_Storage {
-	return &streamplace.ServerDefs_Storage{
+func (s *Storage) ToLexicon() placestream.ServerDefs_Storage {
+	return placestream.ServerDefs_Storage{
 		IsActive: s.IsActive,
 		Url:      maskSecretKey(s.URL),
 	}
 }
 
-func StorageFromLexiconInput(input *streamplace.ServerUpsertStorage_Input, userDID string) *Storage {
+func StorageFromLexiconInput(input placestream.ServerUpsertStorage_Input, userDID string) *Storage {
 
 	var url string
 	if input.Url != nil {

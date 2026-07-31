@@ -132,6 +132,17 @@ var FirehoseEventsDedupedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help: "firehose events dropped as cross-relay duplicates, by relay/protocol/kind",
 }, []string{"relay", "protocol", "kind"})
 
+// FirehoseBadFramesTotal counts firehose frames that failed strict decoding
+// and were skipped (the connection stays up; only the frame is dropped),
+// labeled by relay and protocol. A nonzero rate means a relay is delivering
+// bytes that violate the atproto event schema — either corruption in the
+// relay's serving path or genuinely invalid upstream data; the accompanying
+// warn log carries the decoded context (DID, seq) for investigation.
+var FirehoseBadFramesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "streamplace_firehose_bad_frames_total",
+	Help: "firehose frames skipped because they failed decoding, by relay/protocol",
+}, []string{"relay", "protocol"})
+
 // FirehoseRelayHighSeq is the highest upstream sequence number seen from each
 // relay. A WebSocket bsky relay and a MoQ relay that bridges the same upstream
 // both carry bsky's original seq, so the difference between two relays' high_seq

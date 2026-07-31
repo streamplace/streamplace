@@ -55,6 +55,12 @@ developer = Developer
 languages = Languages
 privacy-security = Privacy & Security
 streaming = Streaming
+notifications = Notifications
+notifications-title = Push Notifications
+notifications-web-description = Get notified when streamers you follow go live.
+notifications-mobile-description = Push notifications are managed by your device settings.
+notifications-blocked-description = Blocked — you denied notification permission in your browser.
+notifications-blocked-help = To re-enable, update site permissions in your browser settings, then toggle this on again.
 
 ## Common Actions
 cancel = Cancel
@@ -145,6 +151,7 @@ activates-on = Activates on:
 events = Events
 events-livestream = Livestream Events
 events-chat = Chat Events
+events-stream-received = Stream Received Events
 untitled-webhook = Untitled Webhook
 inactive = Inactive
 active = Active

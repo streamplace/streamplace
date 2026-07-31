@@ -81,20 +81,24 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
-	err := s.RegisterHandlersPlaceStream(e)
+	err := s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
 	}
-	err = s.RegisterHandlersAppBsky(e)
+	err = s.RegisterHandlersAppbsky(e)
 	if err != nil {
 		return nil, err
 	}
-	err = s.RegisterHandlersComAtproto(e)
+	err = s.RegisterHandlersGamesgamesgamesgamesgames(e)
+	if err != nil {
+		return nil, err
+	}
+	err = s.RegisterHandlersComatproto(e)
 	if err != nil {
 		return nil, err
 	}
 	e.GET("/xrpc/_health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"version": cli.Build.Version})
+		return c.JSON(http.StatusOK, map[string]string{"version": fmt.Sprintf("streamplace %s", cli.Build.Version)})
 	})
 	e.GET("/xrpc/com.atproto.sync.subscribeRepos", s.handleComAtprotoSyncSubscribeRepos)
 	e.GET("/xrpc/place.stream.live.subscribeSegments", s.handlePlaceStreamLiveSubscribeSegments)
@@ -102,7 +106,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// stubs.go hard-codes status 200 + content-type, but we need
 	// 206 Partial Content for HTTP Range on getVideoBlob and the
 	// `application/vnd.apple.mpegurl` MIME for getVideoPlaylist.
-	// Registering AFTER RegisterHandlersPlaceStream wins because
+	// Registering AFTER RegisterHandlersPlacestream wins because
 	// echo's last-write-wins for exact-match routes.
 	e.GET("/xrpc/place.stream.playback.getVideoBlob", s.HandleGetVideoBlob)
 	e.GET("/xrpc/place.stream.playback.getVideoPlaylist", s.HandleGetVideoPlaylist)
@@ -110,6 +114,10 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	// in-memory live window instead of a stored metafile.
 	e.GET("/xrpc/place.stream.playback.getLivePlaylist", s.HandleGetLivePlaylist)
 	e.GET("/xrpc/place.stream.playback.getLiveSegment", s.HandleGetLiveSegment)
+	// glex code-generated these but we want them just passed upstream
+	e.POST("/xrpc/com.atproto.repo.createRecord", s.HandleWildcard)
+	e.POST("/xrpc/com.atproto.repo.putRecord", s.HandleWildcard)
+	e.POST("/xrpc/com.atproto.repo.deleteRecord", s.HandleWildcard)
 	e.GET("/xrpc/*", s.HandleWildcard)
 	e.POST("/xrpc/*", s.HandleWildcard)
 	return s, nil

@@ -80,3 +80,9 @@ export const useNotificationToken = () =>
   useStore((state) => state.notificationToken);
 export const useNotificationDestination = () =>
   useStore((state) => state.notificationDestination);
+export const useEnableWebNotifications = () =>
+  useStore((state) => state.enableWebNotifications);
+export const useDisableWebNotifications = () =>
+  useStore((state) => state.disableWebNotifications);
+export const useWebNotificationPermission = () =>
+  useStore((state) => state.webNotificationPermission);

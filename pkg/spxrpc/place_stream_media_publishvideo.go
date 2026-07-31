@@ -7,7 +7,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/log"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/vod"
 )
 
@@ -21,17 +22,15 @@ func (s *Server) handlePlaceStreamMediaPublishVideo(ctx context.Context, body *p
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "publishVideo", "did", session.DID, "uploadId", body.UploadId)
 	if body.UploadId == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uploadId is required")
-	}
-	if body.Record == nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "record is required")
 	}
 	if s.playbackStore == nil {
 		return nil, echo.NewHTTPError(http.StatusServiceUnavailable, "playback store not configured")
 	}
 
-	uri, cid, err := vod.PublishVideo(ctx, s.statefulDB, s.playbackStore, session.DID, body.UploadId, body.Record)
+	uri, cid, err := vod.PublishVideo(ctx, s.statefulDB, s.playbackStore, session.DID, body.UploadId, &body.Record)
 	if err != nil {
 		switch {
 		case errors.Is(err, vod.ErrUploadNotFound):

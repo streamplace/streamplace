@@ -5,13 +5,13 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	placestreamtypes "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
-func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context, limit int, q string) (*placestreamtypes.LiveSearchActorsTypeahead_Output, error) {
+func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context, limit int, q string) (*placestream.LiveSearchActorsTypeahead_Output, error) {
 	if q == "" {
-		return &placestreamtypes.LiveSearchActorsTypeahead_Output{
-			Actors: []*placestreamtypes.LiveSearchActorsTypeahead_Actor{},
+		return &placestream.LiveSearchActorsTypeahead_Output{
+			Actors: []placestream.LiveSearchActorsTypeahead_Actor{},
 		}, nil
 	}
 
@@ -31,15 +31,15 @@ func (s *Server) handlePlaceStreamLiveSearchActorsTypeahead(ctx context.Context,
 	}
 
 	// Convert to output format
-	actors := make([]*placestreamtypes.LiveSearchActorsTypeahead_Actor, len(repos))
+	actors := make([]placestream.LiveSearchActorsTypeahead_Actor, len(repos))
 	for i, repo := range repos {
-		actors[i] = &placestreamtypes.LiveSearchActorsTypeahead_Actor{
+		actors[i] = placestream.LiveSearchActorsTypeahead_Actor{
 			Did:    repo.DID,
 			Handle: repo.Handle,
 		}
 	}
 
-	return &placestreamtypes.LiveSearchActorsTypeahead_Output{
+	return &placestream.LiveSearchActorsTypeahead_Output{
 		Actors: actors,
 	}, nil
 }

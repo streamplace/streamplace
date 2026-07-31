@@ -29,6 +29,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import Sortable from "react-native-sortables";
+import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 import { SettingsViewHeader } from "./components/settings-view-header";
 
@@ -78,29 +79,20 @@ export default function RecommendationsManager() {
       }
 
       // Get the record directly from the PDS for editing
-      const response = await agent.com.atproto.repo.getRecord({
-        repo: userDID,
-        collection: "place.stream.live.recommendations",
-        rkey: "self",
-      });
-
       // todo: type this right
-      let record = response.data.value as any;
-
-      if (!response.success) {
+      let record: any;
+      try {
+        const { value } = await agent.client.get(
+          place.stream.live.recommendations,
+        );
+        record = value;
+      } catch {
         // Create a new empty record if not found
-        const res = await agent.com.atproto.repo.createRecord({
-          repo: userDID,
-          collection: "place.stream.live.recommendations",
-          record: {
-            streamers: [],
-            createdAt: new Date().toISOString(),
-          },
-        });
-        if (!res.success) {
-          throw new Error("Failed to create recommendations record");
-        }
-        record = res.data;
+        await agent.client.create(place.stream.live.recommendations, {
+          streamers: [],
+          createdAt: new Date().toISOString(),
+        } as any);
+        record = { streamers: [] };
       }
       setStreamers(record.streamers || []);
     } catch (error: any) {
@@ -123,16 +115,11 @@ export default function RecommendationsManager() {
       }
       setSaving(true);
 
-      // Use putRecord to create or update the record
-      await agent.com.atproto.repo.putRecord({
-        repo: agent.did,
-        collection: "place.stream.live.recommendations",
-        rkey: "self",
-        record: {
-          streamers: newStreamers,
-          createdAt: new Date().toISOString(),
-        },
-      });
+      // Use put to create or update the record
+      await agent.client.put(place.stream.live.recommendations, {
+        streamers: newStreamers,
+        createdAt: new Date().toISOString(),
+      } as any);
 
       setStreamers(newStreamers);
     } catch (error: any) {
@@ -157,13 +144,16 @@ export default function RecommendationsManager() {
 
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
-          q: query,
-          limit: 10,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q: query,
+            limit: 10,
+          },
+        );
 
         setSearchResults(
-          response.data.actors.map((actor: any) => ({
+          response.actors.map((actor: any) => ({
             did: actor.did,
             handle: actor.handle,
           })),
@@ -318,34 +308,273 @@ export default function RecommendationsManager() {
     <>
       <ScrollView contentContainerStyle={{ alignItems: "center" }}>
         <View
-          style={[
-            { maxWidth: 800, width: "100%" },
-            zero.px[8],
-            zero.py[6],
-          ]}
+          style={[{ maxWidth: 800, width: "100%" }, zero.px[8], zero.py[6]]}
         >
           <SettingsViewHeader
-              title={t("recommendations-to-others")}
-              description={t("recommendations-description")}
-              action={
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  width="min"
-                  leftIcon={<RefreshCw size={16} />}
-                  onPress={loadRecommendations}
-                  disabled={loading || saving}
-                >
-                  {t("refresh")}
-                </Button>
-              }
-            />
+            title={t("recommendations-to-others")}
+            description={t("recommendations-description")}
+            action={
+              <Button
+                size="sm"
+                variant="secondary"
+                width="min"
+                leftIcon={<RefreshCw size={16} />}
+                onPress={loadRecommendations}
+                disabled={loading || saving}
+              >
+                {t("refresh")}
+              </Button>
+            }
+          />
 
-            {/* Search Bar */}
-            {streamers.length < 8 && (
-              <MenuContainer>
-                <MenuGroup>
-                  <View style={[px[3], py[2]]}>
+          {/* Search Bar */}
+          {streamers.length < 8 && (
+            <MenuContainer>
+              <MenuGroup>
+                <View style={[px[3], py[2]]}>
+                  <View
+                    style={[
+                      layout.flex.row,
+                      layout.flex.alignCenter,
+                      gap.all[2],
+                    ]}
+                  >
+                    <Search size={18} color={theme.colors.text3} />
+                    <Input
+                      value={searchQuery}
+                      onChangeText={handleSearchChange}
+                      placeholder="Search for streamers..."
+                    />
+                  </View>
+                </View>
+
+                {searching && (
+                  <>
+                    <MenuSeparator />
+                    <View style={[py[2], layout.flex.center]}>
+                      <Text size="sm" style={{ color: theme.colors.text3 }}>
+                        Searching...
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {!searching && searchResults.length > 0 && (
+                  <>
+                    <MenuSeparator />
+                    {searchResults.map((actor, index) => {
+                      const alreadyAdded = streamers.includes(actor.did);
+                      return (
+                        <View key={actor.did}>
+                          {index > 0 && <MenuSeparator />}
+                          <Pressable
+                            onPress={() =>
+                              !alreadyAdded && handleSelectActor(actor)
+                            }
+                            disabled={alreadyAdded}
+                          >
+                            {({ pressed }) => (
+                              <View
+                                style={[
+                                  px[3],
+                                  py[2],
+                                  layout.flex.row,
+                                  layout.flex.alignCenter,
+                                  gap.all[2],
+                                  r.md,
+                                  {
+                                    backgroundColor:
+                                      pressed && !alreadyAdded
+                                        ? theme.colors.surface3
+                                        : "transparent",
+                                    opacity: alreadyAdded ? 0.5 : 1,
+                                  },
+                                ]}
+                              >
+                                <View style={{ flex: 1 }}>
+                                  <Text>@{actor.handle}</Text>
+                                </View>
+                                {alreadyAdded && (
+                                  <Text
+                                    size="xs"
+                                    style={{ color: theme.colors.text3 }}
+                                  >
+                                    Added
+                                  </Text>
+                                )}
+                              </View>
+                            )}
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </>
+                )}
+
+                {!searching &&
+                  searchQuery.trim() &&
+                  searchResults.length === 0 && (
+                    <>
+                      <MenuSeparator />
+                      <View style={[py[2], layout.flex.center]}>
+                        <Text size="sm" style={{ color: theme.colors.text3 }}>
+                          No results found
+                        </Text>
+                      </View>
+                    </>
+                  )}
+              </MenuGroup>
+
+              {searchQuery.trim() === "" && (
+                <MenuInfo description="Search for streamers by handle or name, or enter DIDs manually below" />
+              )}
+            </MenuContainer>
+          )}
+
+          {loading ? (
+            <Loading />
+          ) : (
+            <MenuContainer>
+              <MenuGroup>
+                {streamers.length === 0 ? (
+                  <EmptyState
+                    illustration={<EmptyStateTile icon={Users} />}
+                    title={t("no-recommendations-yet")}
+                    subtitle="Search above to add streamers you want to recommend to your viewers."
+                  />
+                ) : (
+                  <Sortable.Grid
+                    columns={1}
+                    activeItemOpacity={90}
+                    activeItemScale={1}
+                    onActiveItemDropped={() => {
+                      saveRecommendations(streamers);
+                    }}
+                    data={streamers}
+                    keyExtractor={(item: string) => `item-${item}`}
+                    overDrag="vertical"
+                    onDragStart={(e) => {
+                      console.log("dragging", e.key);
+                      setActiveDrag(e.key);
+                    }}
+                    onDragEnd={() => setActiveDrag("")}
+                    renderItem={(params: any) => {
+                      const streamer: string = params.item;
+                      const index: number = params.index ?? 0;
+                      const beforeSeparator =
+                        index > 0 && "item-" + params.item !== activeDrag ? (
+                          <MenuSeparator key={`sep-${index}`} />
+                        ) : null;
+
+                      return (
+                        <>
+                          {beforeSeparator}
+                          <MenuItem key={`item-${index}`}>
+                            <GripVertical
+                              color={theme.colors.text3}
+                              size={18}
+                              style={{
+                                marginLeft: -4,
+                                marginRight: 4,
+                              }}
+                            />
+                            {editingIndex === index ? (
+                              <>
+                                <View style={{ flex: 1 }}>
+                                  <Input
+                                    value={editValue}
+                                    onChangeText={setEditValue}
+                                    placeholder="did:plc:..."
+                                    autoFocus
+                                  />
+                                  {errors[index] && (
+                                    <Text
+                                      size="xs"
+                                      style={{
+                                        color: theme.colors.danger,
+                                        marginTop: 4,
+                                      }}
+                                    >
+                                      {errors[index]}
+                                    </Text>
+                                  )}
+                                </View>
+
+                                <IconButton
+                                  size="sm"
+                                  variant="ghost"
+                                  accessibilityLabel="Save"
+                                  onPress={handleSaveEdit}
+                                >
+                                  <Check size={18} color={theme.colors.text1} />
+                                </IconButton>
+
+                                <IconButton
+                                  size="sm"
+                                  variant="ghost"
+                                  accessibilityLabel="Cancel"
+                                  onPress={handleCancelEdit}
+                                >
+                                  <X size={18} color={theme.colors.text3} />
+                                </IconButton>
+                              </>
+                            ) : (
+                              <>
+                                <View style={{ flex: 1 }}>
+                                  <Text
+                                    numberOfLines={1}
+                                    ellipsizeMode="middle"
+                                  >
+                                    {streamer || "(empty)"}
+                                  </Text>
+                                </View>
+
+                                <IconButton
+                                  size="sm"
+                                  variant="ghost"
+                                  accessibilityLabel="Edit"
+                                  onPress={() => handleEdit(index)}
+                                >
+                                  <Pencil
+                                    size={18}
+                                    color={theme.colors.text3}
+                                  />
+                                </IconButton>
+
+                                <IconButton
+                                  size="sm"
+                                  variant="ghost"
+                                  accessibilityLabel="Delete"
+                                  onPress={() => handleDelete(index)}
+                                >
+                                  <X size={18} color={theme.colors.danger} />
+                                </IconButton>
+                              </>
+                            )}
+                          </MenuItem>
+                        </>
+                      );
+                    }}
+                    onOrderChange={(params) => {
+                      console.log(params);
+                      // calculate new order from params
+                      // duplicate streamers array
+                      const newData = [...streamers];
+                      const movedItem = newData.splice(params.fromIndex, 1)[0];
+                      newData.splice(params.toIndex, 0, movedItem);
+                      setStreamers(newData);
+                    }}
+                    rowGap={0}
+                    columnGap={0}
+                  />
+                )}
+
+                {streamers.length > 0 && streamers.length < 8 && (
+                  <MenuSeparator />
+                )}
+
+                {streamers.length < 8 && (
+                  <SettingsRowItem onPress={handleAddRecommendation}>
                     <View
                       style={[
                         layout.flex.row,
@@ -353,273 +582,24 @@ export default function RecommendationsManager() {
                         gap.all[2],
                       ]}
                     >
-                      <Search size={18} color={theme.colors.text3} />
-                      <Input
-                        value={searchQuery}
-                        onChangeText={handleSearchChange}
-                        placeholder="Search for streamers..."
-                      />
+                      <Plus size={18} color={theme.colors.text1} />
+                      <Text>Add DID manually</Text>
                     </View>
-                  </View>
-
-                  {searching && (
-                    <>
-                      <MenuSeparator />
-                      <View style={[py[2], layout.flex.center]}>
-                        <Text size="sm" style={{ color: theme.colors.text3 }}>
-                          Searching...
-                        </Text>
-                      </View>
-                    </>
-                  )}
-
-                  {!searching && searchResults.length > 0 && (
-                    <>
-                      <MenuSeparator />
-                      {searchResults.map((actor, index) => {
-                        const alreadyAdded = streamers.includes(actor.did);
-                        return (
-                          <View key={actor.did}>
-                            {index > 0 && <MenuSeparator />}
-                            <Pressable
-                              onPress={() =>
-                                !alreadyAdded && handleSelectActor(actor)
-                              }
-                              disabled={alreadyAdded}
-                            >
-                              {({ pressed }) => (
-                                <View
-                                  style={[
-                                    px[3],
-                                    py[2],
-                                    layout.flex.row,
-                                    layout.flex.alignCenter,
-                                    gap.all[2],
-                                    r.md,
-                                    {
-                                      backgroundColor:
-                                        pressed && !alreadyAdded
-                                          ? theme.colors.surface3
-                                          : "transparent",
-                                      opacity: alreadyAdded ? 0.5 : 1,
-                                    },
-                                  ]}
-                                >
-                                  <View style={{ flex: 1 }}>
-                                    <Text>@{actor.handle}</Text>
-                                  </View>
-                                  {alreadyAdded && (
-                                    <Text
-                                      size="xs"
-                                      style={{ color: theme.colors.text3 }}
-                                    >
-                                      Added
-                                    </Text>
-                                  )}
-                                </View>
-                              )}
-                            </Pressable>
-                          </View>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {!searching &&
-                    searchQuery.trim() &&
-                    searchResults.length === 0 && (
-                      <>
-                        <MenuSeparator />
-                        <View style={[py[2], layout.flex.center]}>
-                          <Text size="sm" style={{ color: theme.colors.text3 }}>
-                            No results found
-                          </Text>
-                        </View>
-                      </>
-                    )}
-                </MenuGroup>
-
-                {searchQuery.trim() === "" && (
-                  <MenuInfo description="Search for streamers by handle or name, or enter DIDs manually below" />
+                  </SettingsRowItem>
                 )}
-              </MenuContainer>
-            )}
 
-            {loading ? (
-              <Loading />
-            ) : (
-              <MenuContainer>
-                <MenuGroup>
-                  {streamers.length === 0 ? (
-                    <EmptyState
-                      illustration={<EmptyStateTile icon={Users} />}
-                      title={t("no-recommendations-yet")}
-                      subtitle="Search above to add streamers you want to recommend to your viewers."
-                    />
-                  ) : (
-                    <Sortable.Grid
-                      columns={1}
-                      activeItemOpacity={90}
-                      activeItemScale={1}
-                      onActiveItemDropped={() => {
-                        saveRecommendations(streamers);
-                      }}
-                      data={streamers}
-                      keyExtractor={(item: string) => `item-${item}`}
-                      overDrag="vertical"
-                      onDragStart={(e) => {
-                        console.log("dragging", e.key);
-                        setActiveDrag(e.key);
-                      }}
-                      onDragEnd={() => setActiveDrag("")}
-                      renderItem={(params: any) => {
-                        const streamer: string = params.item;
-                        const index: number = params.index ?? 0;
-                        const beforeSeparator =
-                          index > 0 && "item-" + params.item !== activeDrag ? (
-                            <MenuSeparator key={`sep-${index}`} />
-                          ) : null;
-
-                        return (
-                          <>
-                            {beforeSeparator}
-                            <MenuItem key={`item-${index}`}>
-                              <GripVertical
-                                color={theme.colors.text3}
-                                size={18}
-                                style={{
-                                  marginLeft: -4,
-                                  marginRight: 4,
-                                }}
-                              />
-                              {editingIndex === index ? (
-                                <>
-                                  <View style={{ flex: 1 }}>
-                                    <Input
-                                      value={editValue}
-                                      onChangeText={setEditValue}
-                                      placeholder="did:plc:..."
-                                      autoFocus
-                                    />
-                                    {errors[index] && (
-                                      <Text
-                                        size="xs"
-                                        style={{
-                                          color: theme.colors.danger,
-                                          marginTop: 4,
-                                        }}
-                                      >
-                                        {errors[index]}
-                                      </Text>
-                                    )}
-                                  </View>
-
-                                  <IconButton
-                                    size="sm"
-                                    variant="ghost"
-                                    accessibilityLabel="Save"
-                                    onPress={handleSaveEdit}
-                                  >
-                                    <Check
-                                      size={18}
-                                      color={theme.colors.text1}
-                                    />
-                                  </IconButton>
-
-                                  <IconButton
-                                    size="sm"
-                                    variant="ghost"
-                                    accessibilityLabel="Cancel"
-                                    onPress={handleCancelEdit}
-                                  >
-                                    <X size={18} color={theme.colors.text3} />
-                                  </IconButton>
-                                </>
-                              ) : (
-                                <>
-                                  <View style={{ flex: 1 }}>
-                                    <Text
-                                      numberOfLines={1}
-                                      ellipsizeMode="middle"
-                                    >
-                                      {streamer || "(empty)"}
-                                    </Text>
-                                  </View>
-
-                                  <IconButton
-                                    size="sm"
-                                    variant="ghost"
-                                    accessibilityLabel="Edit"
-                                    onPress={() => handleEdit(index)}
-                                  >
-                                    <Pencil
-                                      size={18}
-                                      color={theme.colors.text3}
-                                    />
-                                  </IconButton>
-
-                                  <IconButton
-                                    size="sm"
-                                    variant="ghost"
-                                    accessibilityLabel="Delete"
-                                    onPress={() => handleDelete(index)}
-                                  >
-                                    <X size={18} color={theme.colors.danger} />
-                                  </IconButton>
-                                </>
-                              )}
-                            </MenuItem>
-                          </>
-                        );
-                      }}
-                      onOrderChange={(params) => {
-                        console.log(params);
-                        // calculate new order from params
-                        // duplicate streamers array
-                        const newData = [...streamers];
-                        const movedItem = newData.splice(
-                          params.fromIndex,
-                          1,
-                        )[0];
-                        newData.splice(params.toIndex, 0, movedItem);
-                        setStreamers(newData);
-                      }}
-                      rowGap={0}
-                      columnGap={0}
-                    />
-                  )}
-
-                  {streamers.length > 0 && streamers.length < 8 && (
-                    <MenuSeparator />
-                  )}
-
-                  {streamers.length < 8 && (
-                    <SettingsRowItem onPress={handleAddRecommendation}>
-                      <View
-                        style={[
-                          layout.flex.row,
-                          layout.flex.alignCenter,
-                          gap.all[2],
-                        ]}
-                      >
-                        <Plus size={18} color={theme.colors.text1} />
-                        <Text>Add DID manually</Text>
-                      </View>
-                    </SettingsRowItem>
-                  )}
-
-                  {saving && (
-                    <View style={[mt[2], layout.flex.center]}>
-                      <Text size="sm" style={{ color: theme.colors.text3 }}>
-                        {t("saving")}
-                      </Text>
-                    </View>
-                  )}
-                </MenuGroup>
-              </MenuContainer>
-            )}
-          </View>
-        </ScrollView>
+                {saving && (
+                  <View style={[mt[2], layout.flex.center]}>
+                    <Text size="sm" style={{ color: theme.colors.text3 }}>
+                      {t("saving")}
+                    </Text>
+                  </View>
+                )}
+              </MenuGroup>
+            </MenuContainer>
+          )}
+        </View>
+      </ScrollView>
 
       <ResponsiveDialog
         open={deleteDialog.isVisible}

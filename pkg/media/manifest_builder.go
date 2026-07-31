@@ -10,7 +10,7 @@ import (
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 // ManifestBuilder is responsible for creating C2PA (Content Credentials) manifests
@@ -48,7 +48,7 @@ func toObj(record any) (obj, error) {
 	return o, nil
 }
 
-func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName string) (*streamplace.Livestream, error) {
+func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName string) (*placestream.Livestream, error) {
 	if mb.model == nil {
 		return nil, fmt.Errorf("model is nil")
 	}
@@ -63,7 +63,7 @@ func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert livestream to view: %w", err)
 	}
-	ls, ok := livestreamRecord.Record.Val.(*streamplace.Livestream)
+	ls, ok := livestreamRecord.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return nil, fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -145,7 +145,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 				log.Warn(ctx, "ManifestBuilder: failed to convert metadata, using defaults", "error", err, "did", streamerName)
 			} else {
 				log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", streamplaceMetadata.ContentWarnings, "contentRights", streamplaceMetadata.ContentRights)
-				mani = mb.enhanceManifestWithMetadata(mani, streamplaceMetadata, start)
+				mani = mb.enhanceManifestWithMetadata(mani, &streamplaceMetadata, start)
 				metadataObj, err := toObj(streamplaceMetadata)
 				if err != nil {
 					return nil, fmt.Errorf("failed to marshal metadata: %w", err)
@@ -210,7 +210,7 @@ func getWarningCodeMap() map[string]string {
 	}
 }
 
-func (mb *ManifestBuilder) enhanceManifestWithMetadata(mani obj, metadata *streamplace.MetadataConfiguration, startTimeMillis int64) obj {
+func (mb *ManifestBuilder) enhanceManifestWithMetadata(mani obj, metadata *placestream.MetadataConfiguration, startTimeMillis int64) obj {
 	if metadata.ContentRights != nil {
 		// TODO: We are currently validating the creator in the ValidateMP4 function to be the streamer DID
 		// if metadata.ContentRights.Creator != nil {

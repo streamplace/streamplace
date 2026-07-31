@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useNewLivestream, useUserProfile } from "store/hooks";
-import type { PlaceStreamLivestream } from "streamplace";
+import type { place } from "streamplace";
 
 const isWeb = Platform.OS === "web";
 
@@ -33,7 +33,7 @@ export default function CreateLivestream() {
   const userIsLive = useLiveUser();
   const [title, setTitle] = useState("");
   const [activity, setActivity] = useState<
-    PlaceStreamLivestream.Record["activity"] | undefined
+    place.stream.livestream.Main["activity"] | undefined
   >(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -257,11 +257,7 @@ export default function CreateLivestream() {
           </View>
 
           <View style={[{ width: "100%" }, zero.mt[4]]}>
-            <Button
-              size="lg"
-              disabled={disabled}
-              onPress={handleSubmit}
-            >
+            <Button size="lg" disabled={disabled} onPress={handleSubmit}>
               {buttonText}
             </Button>
           </View>

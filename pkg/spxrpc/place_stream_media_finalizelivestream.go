@@ -7,8 +7,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"stream.place/streamplace/pkg/log"
+	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	placestream "stream.place/streamplace/pkg/streamplace"
 )
 
 // handlePlaceStreamMediaFinalizeLivestream turns a finished livestream into a
@@ -24,6 +25,7 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "finalizeLivestream", "did", session.DID, "livestream", body.Livestream)
 	if body.Livestream == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "livestream is required")
 	}

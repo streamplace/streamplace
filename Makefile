@@ -379,52 +379,32 @@ golangci-lint:
 lexicons:
 	$(MAKE) go-lexicons \
 	&& $(MAKE) js-lexicons \
-	&& $(MAKE) md-lexicons \
-	&& make fix
+	&& $(MAKE) md-lexicons
+
+# glex is the standalone Go lexicon codegen tool (github.com/streamplace/glex).
+# It generates Go types that serialize as canonical DAG-CBOR via go-dasl,
+# using the glex runtime (github.com/streamplace/glex/runtime) for the data model.
+GO_LEXICON_GEN := github.com/streamplace/glex/cmd/glex
 
 .PHONY: go-lexicons
 go-lexicons:
-	rm -rf ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& mkdir -p ./pkg/streamplace ./pkg/gamesgamesgamesgames \
-	&& $(MAKE) lexgen-types \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& echo 'package streamplace' > pkg/streamplace/cbor_gen.go \
-    && echo 'import "io"' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_MuxlTrack) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_MuxlTrack) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceTracks) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceTracks) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceClip) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaDefs_SourceClip) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *Video_Connection) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *Video_Connection) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaTrack_CommonMetadata) MarshalCBOR(w io.Writer) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-    && echo 'func (t *MediaTrack_CommonMetadata) UnmarshalCBOR(r io.Reader) error { return nil }' >> pkg/streamplace/cbor_gen.go \
-	&& sed -i.bak 's/\tlexutil\.RegisterType/\/\/\tlexutil.RegisterType/' $$(find ./pkg/streamplace -type f) \
-	&& go run golang.org/x/tools/cmd/goimports@latest -w $$(find ./pkg/streamplace ./pkg/gamesgamesgamesgames -type f) \
-	&& go run ./pkg/gen/gen_stubs.go \
-	&& go run ./pkg/gen/gen.go \
-	&& rm -f ./pkg/streamplace/cbor_stubs.go \
-	&& $(MAKE) lexgen \
-	&& find . | grep bak$$ | xargs rm \
-	&& rm -rf api
+	go tool github.com/streamplace/glex/cmd/glex install \
+	&& go tool github.com/streamplace/glex/cmd/glex build \
+		--lexicons-dir lexicons \
+		--output-dir pkg \
+		--module-path stream.place/streamplace/pkg \
+		--gen-server spxrpc \
+		lexicons
 
 .PHONY: js-lexicons
 js-lexicons:
-	node_modules/.bin/lex gen-api ./js/streamplace/src/lexicons $$(find ./lexicons -type f -name '*.json') --yes \
-		&& rm -rf ./js/streamplace/src/lexicons/types/com ./js/streamplace/src/lexicons/types/app \
-		&& sed -i.bak "s/^..port.*app\/bsky.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/^..port.*com\/atproto.*//g" $$(find ./js/streamplace/src/lexicons -type f) \
-		&& sed -i.bak "s/\(..port .*\)\.js\(.*\)/\1\2/g" $$(find ./js/streamplace/src/lexicons -type f) \
- 		&& sed -i.bak 's/AppBskyGraphBlock\.Main/AppBskyGraphBlock\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamMultistreamTarget\.Main/PlaceStreamMultistreamTarget\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamChatProfile\.Main/PlaceStreamChatProfile\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream -type f) \
- 		&& sed -i.bak 's/PlaceStreamLivestream\.Main/PlaceStreamLivestream\.Record/' $$(find ./js/streamplace/src/lexicons/types/place/stream/live -type f) \
-		&& for x in $$(find ./js/streamplace/src/lexicons -type f -name '*.ts'); do \
-			echo 'import { ComAtprotoSyncGetRepo, AppBskyRichtextFacet, AppBskyGraphBlock, ComAtprotoRepoStrongRef, AppBskyActorDefs, ComAtprotoSyncListRepos, AppBskyActorGetProfile, AppBskyFeedGetFeedSkeleton, ComAtprotoIdentityResolveHandle, ComAtprotoModerationCreateReport, ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord, ComAtprotoRepoDescribeRepo, ComAtprotoRepoGetRecord, ComAtprotoRepoListRecords, ComAtprotoRepoPutRecord, ComAtprotoRepoUploadBlob, ComAtprotoServerDescribeServer, ComAtprotoSyncGetRecord, ComAtprotoIdentityRefreshIdentity } from "@atproto/api"' >> $$x; \
-		done \
-		&& npx prettier --ignore-unknown --write $$(find ./js/streamplace/src/lexicons -type f -name '*.ts') \
-		&& find . | grep bak$$ | xargs rm
+	pnpm exec lex install \
+	&& node js/streamplace/scripts/gen-raw-lexicons.mjs \
+	&& pnpm exec lex build \
+		--lexicons lexicons \
+		--out js/streamplace/src/lexicons \
+		--clear --index-file --no-pretty \
+		--exclude place.stream.live.subscribeSegments
 
 .PHONY: md-lexicons
 md-lexicons:
@@ -432,47 +412,12 @@ md-lexicons:
 	&& pnpm exec lexmd \
 	    ./lexicons \
 		.build/temp \
-		subprojects/atproto/lexicons \
+		./lexicons \
 		js/docs/src/content/docs/lex-reference/openapi.json \
 	&& ls -R .build/temp \
 	&& cp -rf .build/temp/place/stream/* js/docs/src/content/docs/lex-reference/ \
 	&& rm -rf .build/temp \
-	&& $(MAKE) fix
-
-.PHONY: lexgen
-lexgen:
-	$(MAKE) lexgen-types
-	$(MAKE) lexgen-server
-
-.PHONY: lexgen-types
-lexgen-types:
-	go tool github.com/bluesky-social/indigo/cmd/lexgen \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		lexicons/place/stream \
-		lexicons/games/gamesgamesgamesgames \
-		./subprojects/atproto/lexicons
-
-.PHONY: lexgen-server
-lexgen-server:
-	mkdir -p ./pkg/spxrpc \
-	&& go tool github.com/bluesky-social/indigo/cmd/lexgen \
-		--gen-server \
-		--types-import place.stream:stream.place/streamplace/pkg/streamplace \
-		--types-import games.gamesgamesgamesgames:stream.place/streamplace/pkg/gamesgamesgamesgames \
-		--types-import app.bsky:github.com/bluesky-social/indigo/api/bsky \
-		--types-import com.atproto:github.com/bluesky-social/indigo/api/atproto \
-		--types-import chat.bsky:github.com/bluesky-social/indigo/api/chat \
-		--types-import tools.ozone:github.com/bluesky-social/indigo/api/ozone \
-		-outdir ./pkg/spxrpc \
-		--build-file util/lexgen-types.json \
-		--external-lexicons subprojects/atproto/lexicons \
-		--external-lexicons lexicons/games/gamesgamesgamesgames \
-		--package spxrpc \
-		lexicons/place/stream \
-		lexicons/app/bsky \
-		lexicons/com/atproto
+	&& find js/docs/src/content/docs/lex-reference -type f  | xargs pnpm exec prettier --write --ignore-unknown
 
 .PHONY: ci-lexicons
 ci-lexicons:

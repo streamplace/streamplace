@@ -86,6 +86,7 @@ type TransferResult struct {
 // track in the blob — the source's getVideoBlob requires it for egress
 // attribution and labeler enforcement on content blobs.
 func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpClient *http.Client, sourceBaseURL, contentCID, did string) (*TransferResult, error) {
+	ctx = log.WithLogValues(ctx, "func", "TransferVOD", "cid", contentCID, "did", did)
 	ctx, span := vodTracer.Start(ctx, "vod.TransferVOD", trace.WithAttributes(
 		attribute.String("cid", contentCID),
 		attribute.String("did", did),

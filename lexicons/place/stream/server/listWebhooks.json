@@ -25,7 +25,13 @@
           },
           "event": {
             "type": "string",
-            "enum": ["chat", "livestream", "follow", "mention"],
+            "enum": [
+              "chat",
+              "livestream",
+              "follow",
+              "mention",
+              "stream.received"
+            ],
             "description": "Filter webhooks that handle this event type."
           }
         }

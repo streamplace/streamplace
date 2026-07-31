@@ -1,4 +1,4 @@
-import { PlaceStreamLiveTeleport, StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import {
   registerSlashCommand,
   SlashCommandHandler,
@@ -14,9 +14,8 @@ export async function deleteTeleport(
   if (!rkey) {
     throw new Error("No rkey found in teleport URI");
   }
-  return await pdsAgent.com.atproto.repo.deleteRecord({
-    repo: userDID,
-    collection: "place.stream.live.teleport",
+  return await pdsAgent.client.delete(place.stream.live.teleport, {
+    repo: userDID as any,
     rkey: rkey,
   });
 }
@@ -26,6 +25,7 @@ export async function createTeleport(
   userDID: string,
   targetHandle: string,
   countdownSeconds: number,
+  livestream?: { uri: string; cid: string } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
 ): Promise<{ success: boolean; error?: string }> {
   if (countdownSeconds < 5 || countdownSeconds > 300) {
@@ -57,22 +57,27 @@ export async function createTeleport(
 
   const startsAt = new Date(Date.now() + countdownSeconds * 1000).toISOString();
 
-  const record: PlaceStreamLiveTeleport.Record = {
-    $type: "place.stream.live.teleport",
+  // The `livestream` strongRef is optional: when present it pins the source
+  // stream so the server can end exactly that record on arrival. When absent
+  // (e.g. no active livestream) the teleport still sends viewers over; the
+  // server just won't end a source stream.
+  const record: Record<string, unknown> = {
     streamer: targetDID,
-    startsAt,
-    countdownSeconds,
+    startsAt: startsAt,
   };
+  if (livestream?.uri && livestream?.cid) {
+    record.livestream = { uri: livestream.uri, cid: livestream.cid };
+  }
 
   try {
-    const result = await pdsAgent.com.atproto.repo.createRecord({
-      repo: userDID,
-      collection: "place.stream.live.teleport",
-      record,
-    });
+    const result = await pdsAgent.client.create(
+      place.stream.live.teleport,
+      record as any,
+      { repo: userDID as any },
+    );
 
     if (setActiveTeleportUri) {
-      setActiveTeleportUri(result.data.uri);
+      setActiveTeleportUri(result.uri);
     }
 
     return { success: true };
@@ -87,6 +92,7 @@ export async function createTeleport(
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
+  getLivestream?: () => { uri: string; cid: string } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
   onOpenModal?: () => void,
 ) {
@@ -136,6 +142,12 @@ export function registerTeleportCommand(
       countdownSeconds = parsedDuration;
     }
 
+    // The `livestream` strongRef is optional: when present it pins the source
+    // stream so the server can end exactly that record on arrival. When absent
+    // the teleport still sends viewers over; the server just won't end a
+    // source stream.
+    const livestream = getLivestream?.() ?? null;
+
     let targetDID: string;
     try {
       const resolution = await pdsAgent.resolveHandle({
@@ -160,23 +172,24 @@ export function registerTeleportCommand(
       Date.now() + countdownSeconds * 1000,
     ).toISOString();
 
-    const record: PlaceStreamLiveTeleport.Record = {
-      $type: "place.stream.live.teleport",
+    const record: Record<string, unknown> = {
       streamer: targetDID,
-      startsAt,
-      countdownSeconds,
+      startsAt: startsAt,
     };
+    if (livestream?.uri && livestream?.cid) {
+      record.livestream = { uri: livestream.uri, cid: livestream.cid };
+    }
 
     try {
-      const result = await pdsAgent.com.atproto.repo.createRecord({
-        repo: userDID,
-        collection: "place.stream.live.teleport",
-        record,
-      });
+      const result = await pdsAgent.client.create(
+        place.stream.live.teleport,
+        record as any,
+        { repo: userDID as any },
+      );
 
       // store the URI in the livestream store
       if (setActiveTeleportUri) {
-        setActiveTeleportUri(result.data.uri);
+        setActiveTeleportUri(result.uri);
       }
 
       return { handled: true };

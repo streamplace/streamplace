@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // ErrUploadNotFound / ErrUploadNotReady let the publishVideo XRPC handler map
@@ -44,7 +44,8 @@ var (
 // letting the server write the record is what lets us backfill a thumbnail
 // (the client may not supply one) using the same generateThumbnail path
 // vod-test exercises.
-func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *streamplace.Video) (string, string, error) {
+func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Store, did, uploadID string, video *placestream.Video) (string, string, error) {
+	ctx = log.WithLogValues(ctx, "func", "PublishVideo", "did", did, "uploadId", uploadID)
 	ctx, span := vodTracer.Start(ctx, "vod.PublishVideo", trace.WithAttributes(
 		attribute.String("did", did),
 		attribute.String("upload_id", uploadID),
@@ -74,8 +75,8 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 		span.RecordError(err)
 		return "", "", err
 	}
-	video.Source = &streamplace.Video_Source{
-		MediaDefs_SourceTracks: &streamplace.MediaDefs_SourceTracks{
+	video.Source = placestream.Video_Source{
+		MediaDefs_SourceTracks: &placestream.MediaDefs_SourceTracks{
 			LexiconTypeID: "place.stream.media.defs#sourceTracks",
 			Tracks:        tracks,
 		},
@@ -102,7 +103,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 	rkey := spid.TIDClock.Next().String()
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_VIDEO,
-		Record:     &lexutil.LexiconTypeDecoder{Val: video},
+		Record:     &glex.LexiconTypeDecoder{Val: video},
 		Rkey:       rkey,
 		Repo:       did,
 	}
@@ -120,7 +121,7 @@ func PublishVideo(ctx context.Context, state *statedb.StatefulDB, store blob.Sto
 
 // sourceTracksFromUpload turns the {uri,cid} track refs stored on the Upload
 // row (by publishRecords) into the strongRefs for the video record's source.
-func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef, error) {
+func sourceTracksFromUpload(upload *statedb.Upload) ([]comatproto.RepoStrongRef, error) {
 	if upload.TrackURIs == "" {
 		return nil, nil
 	}
@@ -128,9 +129,9 @@ func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef
 	if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err != nil {
 		return nil, fmt.Errorf("decode track refs: %w", err)
 	}
-	tracks := make([]*comatproto.RepoStrongRef, 0, len(refs))
+	tracks := make([]comatproto.RepoStrongRef, 0, len(refs))
 	for _, r := range refs {
-		tracks = append(tracks, &comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
+		tracks = append(tracks, comatproto.RepoStrongRef{Uri: r.URI, Cid: r.CID})
 	}
 	return tracks, nil
 }
@@ -138,7 +139,7 @@ func sourceTracksFromUpload(upload *statedb.Upload) ([]*comatproto.RepoStrongRef
 // generateAndUploadThumbnail renders a thumbnail from the processed video
 // blob (via the same path as vod-test) and uploads it to the user's PDS,
 // returning the resulting blob ref.
-func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store blob.Store, contentCID string) (*lexutil.LexBlob, error) {
+func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store blob.Store, contentCID string) (*glex.Blob, error) {
 	metafile, err := readMetafile(ctx, store, contentCID)
 	if err != nil {
 		return nil, fmt.Errorf("read metafile: %w", err)
@@ -151,5 +152,5 @@ func generateAndUploadThumbnail(ctx context.Context, client XRPCClient, store bl
 	if err := client.Do(ctx, xrpc.Procedure, thumbnailMimeType, "com.atproto.repo.uploadBlob", nil, bytes.NewReader(thumb), &uploadOut); err != nil {
 		return nil, fmt.Errorf("upload thumb blob: %w", err)
 	}
-	return uploadOut.Blob, nil
+	return &uploadOut.Blob, nil
 }

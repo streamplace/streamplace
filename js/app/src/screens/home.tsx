@@ -19,18 +19,18 @@ import useAvatars from "hooks/useAvatars";
 import { useEffect, useState } from "react";
 import { Platform, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 
 function getStreamActivity(
-  record: PlaceStreamLivestream.Record,
+  record: place.stream.livestream.Main,
 ): string | undefined {
   if (!record.activity) return undefined;
   if (record.activity.$type === "place.stream.defs#activityGame") {
-    const game = record.activity as PlaceStreamDefs.ActivityGame;
+    const game = record.activity as place.stream.defs.ActivityGame;
     return game.name ?? undefined;
   }
   if (record.activity.$type === "place.stream.defs#activityLabel") {
-    const label = record.activity as PlaceStreamDefs.ActivityLabel;
+    const label = record.activity as place.stream.defs.ActivityLabel;
     return ACTIVITY_LABEL_DISPLAY[label.label] ?? label.label;
   }
   return undefined;
@@ -50,9 +50,9 @@ type StreamRecord = {
 
 // Function to generate mock data for testing purposes
 function generateMockSegments(count: number): {
-  streams: PlaceStreamLivestream.LivestreamView[];
+  streams: place.stream.livestream.LivestreamView[];
 } {
-  const mockSegments: PlaceStreamLivestream.LivestreamView[] = [];
+  const mockSegments: place.stream.livestream.LivestreamView[] = [];
   const baseDid = "did:plc:mockmockmockmockmockmockmockmockmock";
 
   for (let i = 0; i < count; i++) {
@@ -65,14 +65,14 @@ function generateMockSegments(count: number): {
         $type: "place.stream.livestream",
         createdAt: new Date().toISOString(),
         title: `Mock Stream ${i + 1}`,
-      } as PlaceStreamLivestream.Record,
+      } as place.stream.livestream.Main,
       author: {
         did: did,
         handle: handle,
       },
       indexedAt: new Date().toISOString(),
       viewerCount: { count: Math.floor(Math.random() * 1000) },
-    });
+    } as any);
   }
   return { streams: mockSegments };
 }
@@ -101,7 +101,7 @@ function HomeScreenItem({
   horizontal = false,
   showAvatar = true,
 }: {
-  item: PlaceStreamLivestream.LivestreamView;
+  item: place.stream.livestream.LivestreamView;
   size: StreamCardSize;
   avatarUrl?: string;
   horizontal?: boolean;
@@ -123,7 +123,7 @@ function HomeScreenItem({
       <StreamCardHorizontal
         size={size}
         title={
-          (item.record as PlaceStreamLivestream.Record).title || "A livestream!"
+          (item.record as place.stream.livestream.Main).title || "A livestream!"
         }
         horizontal={horizontal}
         showAvatar={showAvatar}
@@ -132,9 +132,9 @@ function HomeScreenItem({
         streamerName={user}
         category={[]}
         activity={getStreamActivity(
-          item.record as PlaceStreamLivestream.Record,
+          item.record as place.stream.livestream.Main,
         )}
-        tags={(item.record as PlaceStreamLivestream.Record).tags ?? []}
+        tags={(item.record as place.stream.livestream.Main).tags ?? []}
         viewers={item.viewerCount?.count}
         isLive={true}
       />
@@ -252,7 +252,7 @@ export default function HomeScreen({
   // Use horizontal (SBS) layout for all items on single-column breakpoint
   const useHorizontalAll = cols === 1;
 
-  let rows: (PlaceStreamLivestream.LivestreamView | null)[][] = [];
+  let rows: (place.stream.livestream.LivestreamView | null)[][] = [];
 
   if (!useHorizontalAll) {
     for (let i = 0; i < segments.length; i += cols) {

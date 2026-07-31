@@ -18,3 +18,4 @@ onlyBuiltDependencies:
   - utf-8-validate
 patchedDependencies:
   core-js: patches/core-js.patch
+  lex-md: patches/lex-md.patch

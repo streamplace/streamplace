@@ -1,8 +1,9 @@
-import { PlaceStreamDefs, schemas } from "streamplace";
+import { place, schemas } from "streamplace";
 
 // "knownValues": [
 //   "events",
 //   "just_chatting",
+//   "podcasting",
 //   "music",
 //   "art",
 //   "software_dev",
@@ -13,10 +14,11 @@ import { PlaceStreamDefs, schemas } from "streamplace";
 // ]
 
 export const ACTIVITY_LABELS: Array<{
-  value: PlaceStreamDefs.ActivityLabel["label"];
+  value: place.stream.defs.ActivityLabel["label"];
   display: string;
 }> = [
   { value: "just_chatting", display: "Just Chatting" },
+  { value: "podcasting", display: "Podcasting" },
   { value: "music", display: "Music" },
   { value: "art", display: "Art" },
   { value: "software_dev", display: "Software and Game Development" },
@@ -34,15 +36,18 @@ export const ACTIVITY_LABEL_DISPLAY: Record<string, string> =
   );
 
 export function formatActivity(
-  activity: (PlaceStreamDefs.ActivityGame | PlaceStreamDefs.ActivityLabel) & {
+  activity: (
+    | place.stream.defs.ActivityGame
+    | place.stream.defs.ActivityLabel
+  ) & {
     $type?: string;
   },
 ): string | null {
   if (activity.$type === "place.stream.defs#activityGame") {
-    return (activity as PlaceStreamDefs.ActivityGame).name ?? null;
+    return (activity as place.stream.defs.ActivityGame).name ?? null;
   }
   if (activity.$type === "place.stream.defs#activityLabel") {
-    const label = (activity as PlaceStreamDefs.ActivityLabel).label;
+    const label = (activity as place.stream.defs.ActivityLabel).label;
     return ACTIVITY_LABEL_DISPLAY[label] ?? label;
   }
   return null;

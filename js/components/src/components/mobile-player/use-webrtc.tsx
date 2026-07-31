@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as sdpTransform from "sdp-transform";
-import { StreamplaceAgent } from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 import {
   PlayerStatus,
   useDID,
@@ -14,6 +14,7 @@ import { RTCPeerConnection, RTCSessionDescription } from "./webrtc-primitives";
 
 export default function useWebRTC(
   streamer: string,
+  rendition: string,
 ): [MediaStream | null, boolean] {
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [stuck, setStuck] = useState<boolean>(false);
@@ -73,6 +74,7 @@ export default function useWebRTC(
         agent,
         isOwnStream,
         playbackWorkerUrl,
+        rendition,
       );
     });
 
@@ -111,7 +113,7 @@ export default function useWebRTC(
       clearInterval(handle);
       peerConnection.close();
     };
-  }, [streamer, agent, isOwnStream, playbackWorkerUrl]);
+  }, [streamer, agent, isOwnStream, playbackWorkerUrl, rendition]);
   return [mediaStream, stuck];
 }
 
@@ -134,6 +136,7 @@ export async function negotiateConnectionWithClientOffer(
   agent?: StreamplaceAgent,
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
+  rendition?: string,
 ) {
   /** https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createOffer */
   const offer = await peerConnection.createOffer({
@@ -173,19 +176,16 @@ export async function negotiateConnectionWithClientOffer(
         agent,
         isOwnStream,
         playbackWorkerUrl,
+        rendition,
       );
-      let text = new TextDecoder().decode(response.data);
-      if (response.success) {
-        if ((peerConnection.connectionState as string) === "closed") {
-          return;
-        }
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ type: "answer", sdp: text }),
-        );
-        return "https://stream.place/example";
-      } else {
-        console.error(text);
+      let text = new TextDecoder().decode(response);
+      if ((peerConnection.connectionState as string) === "closed") {
+        return;
       }
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription({ type: "answer", sdp: text }),
+      );
+      return "https://stream.place/example";
     } catch (e) {
       console.error(`posting sdp offer failed: ${e}`);
     }
@@ -267,11 +267,12 @@ async function getPlaybackServerAgent(
 
   try {
     const lookupAgent = new StreamplaceAgent(playbackWorkerUrl);
-    const res = await lookupAgent.place.stream.playback.getPlaybackServer({
-      stream: streamer,
-    });
-    if (res.data.servers.length > 0) {
-      const serverUrl = res.data.servers[0];
+    const res = await lookupAgent.client.call(
+      place.stream.playback.getPlaybackServer,
+      { stream: streamer },
+    );
+    if (res.servers.length > 0) {
+      const serverUrl = res.servers[0];
       console.log(`Using playback server: ${serverUrl}`);
       return new StreamplaceAgent(serverUrl);
     }
@@ -288,6 +289,7 @@ async function postSDPOffer(
   agent?: StreamplaceAgent,
   isOwnStream?: boolean,
   playbackWorkerUrl?: string | null,
+  rendition?: string,
 ) {
   if (!agent) {
     throw new Error("No agent found");
@@ -298,12 +300,16 @@ async function postSDPOffer(
   const playbackAgent = isOwnStream
     ? agent
     : await getPlaybackServerAgent(agent, streamer, playbackWorkerUrl);
-  return await playbackAgent.place.stream.playback.whep(data, {
-    qp: {
-      rendition: "source",
-      streamer: streamer,
+  return await playbackAgent.client.call(
+    place.stream.playback.whep,
+    data as any,
+    {
+      params: {
+        rendition: rendition || "source",
+        streamer: streamer,
+      },
     },
-  });
+  );
 }
 
 async function postSDPIngestOffer(

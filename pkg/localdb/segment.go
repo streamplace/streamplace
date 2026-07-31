@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type SegmentMediadataVideo struct {
@@ -150,7 +150,7 @@ type Segment struct {
 	Published          bool                 `json:"published"            gorm:"column:published;index:latest_segments_published,priority:3"`
 }
 
-func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
+func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 	aqt := aqtime.FromTime(s.StartTime)
 	if s.MediaData == nil {
 		return nil, fmt.Errorf("media data is nil")
@@ -165,9 +165,9 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 	sizei64 := int64(s.Size)
 
 	// Convert model metadata to streamplace metadata
-	var contentRights *streamplace.MetadataContentRights
+	var contentRights *placestream.MetadataContentRights
 	if s.ContentRights != nil {
-		contentRights = &streamplace.MetadataContentRights{
+		contentRights = &placestream.MetadataContentRights{
 			CopyrightNotice: s.ContentRights.CopyrightNotice,
 			CopyrightYear:   s.ContentRights.CopyrightYear,
 			Creator:         s.ContentRights.Creator,
@@ -176,21 +176,21 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 		}
 	}
 
-	var contentWarnings *streamplace.MetadataContentWarnings
+	var contentWarnings *placestream.MetadataContentWarnings
 	if len(s.ContentWarnings) > 0 {
-		contentWarnings = &streamplace.MetadataContentWarnings{
+		contentWarnings = &placestream.MetadataContentWarnings{
 			Warnings: []string(s.ContentWarnings),
 		}
 	}
 
-	var distributionPolicy *streamplace.MetadataDistributionPolicy
+	var distributionPolicy *placestream.MetadataDistributionPolicy
 	if s.DistributionPolicy != nil && s.DistributionPolicy.DeleteAfterSeconds != nil {
-		distributionPolicy = &streamplace.MetadataDistributionPolicy{
+		distributionPolicy = &placestream.MetadataDistributionPolicy{
 			DeleteAfter: s.DistributionPolicy.DeleteAfterSeconds,
 		}
 	}
 
-	return &streamplace.Segment{
+	return &placestream.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,
 		Id:                 s.ID,
@@ -201,19 +201,19 @@ func (s *Segment) ToStreamplaceSegment() (*streamplace.Segment, error) {
 		ContentRights:      contentRights,
 		ContentWarnings:    contentWarnings,
 		DistributionPolicy: distributionPolicy,
-		Video: []*streamplace.Segment_Video{
+		Video: []placestream.Segment_Video{
 			{
 				Codec:  "h264",
 				Width:  int64(s.MediaData.Video[0].Width),
 				Height: int64(s.MediaData.Video[0].Height),
-				Framerate: &streamplace.Segment_Framerate{
+				Framerate: &placestream.Segment_Framerate{
 					Num: int64(s.MediaData.Video[0].FPSNum),
 					Den: int64(s.MediaData.Video[0].FPSDen),
 				},
 				Bframes: &s.MediaData.Video[0].BFrames,
 			},
 		},
-		Audio: []*streamplace.Segment_Audio{
+		Audio: []placestream.Segment_Audio{
 			{
 				Codec:    "opus",
 				Rate:     int64(s.MediaData.Audio[0].Rate),

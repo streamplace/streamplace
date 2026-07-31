@@ -23,7 +23,7 @@ import (
 	"stream.place/streamplace/pkg/livehls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 
 	"stream.place/streamplace/pkg/log"
 
@@ -40,9 +40,15 @@ const SegmentsDir = "segments"
 const StreamplaceMetadata = "cawg.metadata"
 
 type MediaManager struct {
-	cli                 *config.CLI
-	liveWindows         map[string]*livehls.Writer
-	liveWindowsMut      sync.Mutex
+	cli            *config.CLI
+	liveWindows    map[string]*livehls.Writer
+	liveWindowsMut sync.Mutex
+	// modBuffers holds a short in-memory ring of each live user's most recent
+	// canonical segments, the source for moderation/report clips now that
+	// segments are no longer archived to disk. Keyed by repoDID. See
+	// moderation_buffer.go.
+	modBuffers          map[string]*modBuffer
+	modBuffersMut       sync.Mutex
 	httpPipes           map[string]io.Writer
 	httpPipesMutex      sync.Mutex
 	newSegmentSubs      []chan *NewSegmentNotification
@@ -120,6 +126,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	mm := &MediaManager{
 		cli:          cli,
 		liveWindows:  map[string]*livehls.Writer{},
+		modBuffers:   map[string]*modBuffer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,
 		bus:          bus,
@@ -198,8 +205,8 @@ type SegmentMetadata struct {
 	ContentWarnings       []string
 	ContentRights         *localdb.ContentRights
 	DistributionPolicy    *localdb.DistributionPolicy
-	MetadataConfiguration *streamplace.MetadataConfiguration
-	Livestream            *streamplace.Livestream
+	MetadataConfiguration *placestream.MetadataConfiguration
+	Livestream            *placestream.Livestream
 	Published             bool
 }
 
@@ -433,7 +440,7 @@ func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQT
 }
 
 // extractMetadataConfiguration extracts the place.stream.metadata.configuration from the C2PA manifest
-func extractMetadataConfiguration(mani *c2patypes.Manifest) *streamplace.MetadataConfiguration {
+func extractMetadataConfiguration(mani *c2patypes.Manifest) *placestream.MetadataConfiguration {
 	ass := findAssertion(mani, "place.stream.metadata.configuration")
 	if ass == nil {
 		return nil
@@ -443,7 +450,7 @@ func extractMetadataConfiguration(mani *c2patypes.Manifest) *streamplace.Metadat
 	if err != nil {
 		return nil
 	}
-	var metadataConfiguration streamplace.MetadataConfiguration
+	var metadataConfiguration placestream.MetadataConfiguration
 	err = json.Unmarshal(bs, &metadataConfiguration)
 	if err != nil {
 		return nil
@@ -451,7 +458,7 @@ func extractMetadataConfiguration(mani *c2patypes.Manifest) *streamplace.Metadat
 	return &metadataConfiguration
 }
 
-func extractLivestream(mani *c2patypes.Manifest) *streamplace.Livestream {
+func extractLivestream(mani *c2patypes.Manifest) *placestream.Livestream {
 	ass := findAssertion(mani, "place.stream.livestream")
 	if ass == nil {
 		return nil
@@ -461,7 +468,7 @@ func extractLivestream(mani *c2patypes.Manifest) *streamplace.Livestream {
 		return nil
 	}
 
-	var livestream streamplace.Livestream
+	var livestream placestream.Livestream
 	err = json.Unmarshal(bs, &livestream)
 	if err != nil {
 		return nil

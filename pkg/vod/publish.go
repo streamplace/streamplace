@@ -5,21 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/xrpc"
+	glex "github.com/streamplace/glex/runtime"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"stream.place/streamplace/pkg/comatproto"
 
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 )
 
 // trackRefJSON is the shape stored in Upload.TrackURIs.
@@ -72,6 +72,19 @@ func publishRecords(ctx context.Context, p publishParams) error {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "origin")
 		return fmt.Errorf("publish origin: %w", err)
+	}
+
+	// The commit above reaches the local index by federating back to us over
+	// the firehose, which is a single point of failure: miss that one event and
+	// the video plays fine by direct link but never shows up in any listing,
+	// with nothing to reconcile it later. Index it directly as well. Not fatal
+	// — a VOD that published its records but lost a race with the indexer is
+	// still a successful VOD, and the firehose upsert (or a reindex) converges
+	// it. Idempotent either way, keyed by URI.
+	if p.state != nil {
+		if err := p.state.IndexOwnMediaOrigin(ctx, p.cid, p.size, p.mimeType); err != nil {
+			log.Error(ctx, "failed to index own media.origin locally", "cid", p.cid, "error", err)
+		}
 	}
 
 	// Serialize the probe so publishDraft can publish the track records later
@@ -179,7 +192,7 @@ func publishOrigin(ctx context.Context, cli *config.CLI, cid string, size int64,
 	))
 	defer span.End()
 
-	rec := &streamplace.MediaOrigin{
+	rec := &placestream.MediaOrigin{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_ORIGIN,
 		Blob:          cid,
 		Size:          size,
@@ -215,35 +228,35 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 	))
 	defer span.End()
 
-	meta := &streamplace.MediaTrack_CommonMetadata{
+	meta := &placestream.MediaTrack_CommonMetadata{
 		LexiconTypeID: "place.stream.media.track#commonMetadata",
 		DurationMs:    &durationMS,
 	}
 	if videoMeta != nil {
-		meta.Video = &streamplace.Segment_Video{
+		meta.Video = &placestream.Segment_Video{
 			Codec:  "h264",
 			Width:  int64(videoMeta.Width),
 			Height: int64(videoMeta.Height),
 		}
 		if videoMeta.FPSDen > 0 {
-			meta.Video.Framerate = &streamplace.Segment_Framerate{
+			meta.Video.Framerate = &placestream.Segment_Framerate{
 				Num: int64(videoMeta.FPSNum),
 				Den: int64(videoMeta.FPSDen),
 			}
 		}
 	}
 	if audioMeta != nil {
-		meta.Audio = &streamplace.Segment_Audio{
+		meta.Audio = &placestream.Segment_Audio{
 			Codec:    audioCodecForLexicon(audioMeta),
 			Rate:     int64(audioMeta.Rate),
 			Channels: int64(audioMeta.Channels),
 		}
 	}
 
-	rec := &streamplace.MediaTrack{
+	rec := &placestream.MediaTrack{
 		LexiconTypeID: constants.PLACE_STREAM_MEDIA_TRACK,
-		Track: &streamplace.MediaTrack_Track{
-			MediaDefs_MuxlTrack: &streamplace.MediaDefs_MuxlTrack{
+		Track: placestream.MediaTrack_Track{
+			MediaDefs_MuxlTrack: &placestream.MediaDefs_MuxlTrack{
 				LexiconTypeID: "place.stream.media.defs#muxlTrack",
 				Blob:          cid,
 				Size:          &blobSize,
@@ -252,7 +265,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 				SigningKey:    &signingKey,
 			},
 		},
-		Metadata: &streamplace.MediaTrack_Metadata{
+		Metadata: &placestream.MediaTrack_Metadata{
 			MediaTrack_CommonMetadata: meta,
 		},
 	}
@@ -260,7 +273,7 @@ func publishTrack(ctx context.Context, client XRPCClient, did, cid string, blobS
 	rkey := spid.TIDClock.Next().String()
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: constants.PLACE_STREAM_MEDIA_TRACK,
-		Record:     &lexutil.LexiconTypeDecoder{Val: rec},
+		Record:     &glex.LexiconTypeDecoder{Val: rec},
 		Rkey:       rkey,
 		Repo:       did,
 	}

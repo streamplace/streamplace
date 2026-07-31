@@ -3,7 +3,8 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "module": "commonjs"
+    "module": "node16",
+    "moduleResolution": "node16"
   },
   "include": ["./src"]
 }

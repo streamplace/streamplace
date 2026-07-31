@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { useStore } from "store";
 import { useKeyRecords } from "store/hooks";
-import { PlaceStreamKey } from "streamplace";
+import { place } from "streamplace";
 import { timeAgo } from "utils/timeAgo";
 
 import { Button, IconButton, Text, useTheme } from "@streamplace/components";
@@ -22,7 +22,7 @@ function KeyRow({
   isDeleting,
   isLast,
 }: {
-  keyRecord: PlaceStreamKey.Record;
+  keyRecord: place.stream.key.Main;
   rkey: string;
   deleteKeyRecord: (rkey: string) => void;
   isDeleting: boolean;
@@ -130,79 +130,79 @@ export default function KeyManager() {
         }}
       >
         <SettingsViewHeader
-            title={t("your-stream-pubkeys")}
-            description={t("pubkey-description")}
+          title={t("your-stream-pubkeys")}
+          description={t("pubkey-description")}
+          action={
+            <Button
+              size="sm"
+              width="min"
+              variant="secondary"
+              leftIcon={<RefreshCw size={16} />}
+              onPress={() => getStreamKeyRecords()}
+            >
+              {t("refresh")}
+            </Button>
+          }
+        />
+
+        {isLoading ? (
+          <View
+            style={{
+              flex: 1,
+              minHeight: 320,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Loading />
+          </View>
+        ) : isEmpty ? (
+          <EmptyState
+            illustration={<EmptyStateTile icon={KeyRound} />}
+            title={t("no-keys")}
+            subtitle="Stream signing keys are generated when you go live. Head to the Live Dashboard to start streaming and create your first key."
             action={
               <Button
+                variant="secondary"
                 size="sm"
                 width="min"
-                variant="secondary"
-                leftIcon={<RefreshCw size={16} />}
-                onPress={() => getStreamKeyRecords()}
+                onPress={() => (navigation as any).navigate("LiveDashboard")}
               >
-                {t("refresh")}
+                {t("go-to-dashboard")}
               </Button>
             }
           />
-
-          {isLoading ? (
+        ) : (
+          <>
             <View
               style={{
-                flex: 1,
-                minHeight: 320,
-                justifyContent: "center",
-                alignItems: "center",
+                backgroundColor: theme.colors.surface1,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSubtle,
+                borderRadius: theme.borderRadius.lg,
+                overflow: "hidden",
               }}
             >
-              <Loading />
+              {keyRecords.records.map((keyRecord, index) => {
+                const rkey = keyRecord.uri.split("/").pop() as string;
+                return (
+                  <KeyRow
+                    key={rkey}
+                    rkey={rkey}
+                    keyRecord={keyRecord.value as any}
+                    deleteKeyRecord={deleteKeyRecord}
+                    isDeleting={deletingKeys.has(rkey)}
+                    isLast={index === keyRecords.records.length - 1}
+                  />
+                );
+              })}
             </View>
-          ) : isEmpty ? (
-            <EmptyState
-              illustration={<EmptyStateTile icon={KeyRound} />}
-              title={t("no-keys")}
-              subtitle="Stream signing keys are generated when you go live. Head to the Live Dashboard to start streaming and create your first key."
-              action={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  width="min"
-                  onPress={() => (navigation as any).navigate("LiveDashboard")}
-                >
-                  {t("go-to-dashboard")}
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <View
-                style={{
-                  backgroundColor: theme.colors.surface1,
-                  borderWidth: 1,
-                  borderColor: theme.colors.borderSubtle,
-                  borderRadius: theme.borderRadius.lg,
-                  overflow: "hidden",
-                }}
-              >
-                {keyRecords.records.map((keyRecord, index) => {
-                  const rkey = keyRecord.uri.split("/").pop() as string;
-                  return (
-                    <KeyRow
-                      key={rkey}
-                      rkey={rkey}
-                      keyRecord={keyRecord.value as any}
-                      deleteKeyRecord={deleteKeyRecord}
-                      isDeleting={deletingKeys.has(rkey)}
-                      isLast={index === keyRecords.records.length - 1}
-                    />
-                  );
-                })}
-              </View>
-              <Text size="sm" color="muted" style={{ marginTop: 12 }}>
-                {t("keys-count", { count: keyRecords.records.length })}
-              </Text>
-            </>
-          )}
-        </View>
+            <Text size="sm" color="muted" style={{ marginTop: 12 }}>
+              {t("keys-count", { count: keyRecords.records.length })}
+            </Text>
+          </>
+        )}
+      </View>
     </ScrollView>
   );
 }

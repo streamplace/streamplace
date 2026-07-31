@@ -5,24 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"github.com/bluesky-social/indigo/api/bsky"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
-func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string, lsv *streamplace.Livestream_LivestreamView, postView *bsky.FeedDefs_PostView, spcp *streamplace.ChatProfile) error {
+func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string, lsv *placestream.Livestream_LivestreamView, postView *appbsky.FeedDefs_PostView, spcp *placestream.ChatProfile) error {
 
 	ctx = log.WithLogValues(ctx, "func", "SendLivestream")
-	ls, ok := lsv.Record.Val.(*streamplace.Livestream)
+	ls, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("failed to cast livestream view to livestream")
 	}
@@ -93,7 +92,7 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload))
+	log.Warn(ctx, "sending livestream to discord", "payload", string(jsonPayload), "webhook_url", w.URL)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -108,11 +107,12 @@ func SendLivestream(ctx context.Context, w *discordtypes.Webhook, pdsURL string,
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, err := io.ReadAll(resp.Body)
+		body, err := readResponseBody(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
-		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, string(body))
+		log.Error(ctx, "livestream webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
+		return fmt.Errorf("failed to send request (http %d): %s", resp.StatusCode, body)
 	}
 
 	return nil

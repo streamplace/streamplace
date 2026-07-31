@@ -65,6 +65,10 @@ export * from "./components/share/sharesheet";
 
 export * from "./components/keep-awake";
 
+// Time sync — installs a Date monkeypatch that corrects for server clock
+// offset. Must be called once on web before any time-sensitive code runs.
+export { initializeTimeSync } from "./time-sync";
+
 // Dashboard components
 export * as Dashboard from "./components/dashboard";
 

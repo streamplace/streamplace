@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { PlaceStreamModerationPermission } from "streamplace";
+import { place } from "streamplace";
 import { usePDSAgent } from "./xrpc";
 
 interface ModeratorRecord {
   uri: string;
   cid: string;
-  value: PlaceStreamModerationPermission.Record;
+  value: place.stream.moderation.permission.Main;
   rkey: string;
 }
 
@@ -43,9 +43,12 @@ export function useListModerators(): ListModeratorsResult {
       setError(null);
 
       try {
-        const result = await agent.place.stream.moderation.permission.list({
-          repo: agent.did!,
-        });
+        const result = await agent.client.list(
+          place.stream.moderation.permission,
+          {
+            repo: agent.did! as any,
+          },
+        );
 
         const records = result.records.map((record: any) => {
           const rkey = record.uri.split("/").pop();
@@ -122,20 +125,20 @@ export function useAddModerator() {
         }
       }
 
-      const record: PlaceStreamModerationPermission.Record = {
-        $type: "place.stream.moderation.permission",
-        moderator: moderatorDID,
+      const record = {
+        moderator: moderatorDID as any,
         permissions: params.permissions,
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString() as any,
       };
 
       if (params.expirationTime) {
         (record as any).expirationTime = params.expirationTime;
       }
 
-      const result = await agent.place.stream.moderation.permission.create(
-        { repo: agent.did },
+      const result = await agent.client.create(
+        place.stream.moderation.permission,
         record,
+        { repo: agent.did as any },
       );
 
       return result;
@@ -162,8 +165,8 @@ export function useRemoveModerator() {
 
     setIsLoading(true);
     try {
-      await agent.place.stream.moderation.permission.delete({
-        repo: agent.did,
+      await agent.client.delete(place.stream.moderation.permission, {
+        repo: agent.did as any,
         rkey,
       });
     } finally {

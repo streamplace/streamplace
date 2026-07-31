@@ -26,6 +26,7 @@ import {
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Pressable, ScrollView, View } from "react-native";
+import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 import { SettingsViewHeader } from "./components/settings-view-header";
 
@@ -82,10 +83,35 @@ interface WebhookFormData {
   description: string;
 }
 
+type WebhookEvent =
+  | "livestream"
+  | "chat"
+  | "follow"
+  | "mention"
+  | "stream.received";
+
+const VALID_WEBHOOK_EVENTS: WebhookEvent[] = [
+  "livestream",
+  "chat",
+  "follow",
+  "mention",
+  "stream.received",
+];
+
 const EVENT_OPTIONS = [
   { value: "livestream", labelKey: "events-livestream" },
   { value: "chat", labelKey: "events-chat" },
+  { value: "stream.received", labelKey: "events-stream-received" },
 ];
+
+const EVENT_LABEL_KEYS = new Map(
+  EVENT_OPTIONS.map((option) => [option.value, option.labelKey]),
+);
+
+function getEventLabel(t: (key: string) => string, event: string) {
+  const labelKey = EVENT_LABEL_KEYS.get(event);
+  return labelKey ? t(labelKey) : event;
+}
 
 function WebhookRow({
   webhook,
@@ -178,7 +204,7 @@ function WebhookRow({
               ]}
             >
               <Text size="sm" style={{ color: theme.colors.text2 }}>
-                {t(`events-${event}`)}
+                {getEventLabel(t, event)}
               </Text>
             </View>
           ))}
@@ -511,7 +537,11 @@ function WebhookForm({
               mb[2],
             ]}
           >
-            <Text size="sm" weight="medium" style={{ color: theme.colors.text2 }}>
+            <Text
+              size="sm"
+              weight="medium"
+              style={{ color: theme.colors.text2 }}
+            >
               Text Replacements
             </Text>
             <Button
@@ -524,7 +554,10 @@ function WebhookForm({
               Add
             </Button>
           </View>
-          <Text size="sm" style={{ color: theme.colors.text3, marginBottom: 12 }}>
+          <Text
+            size="sm"
+            style={{ color: theme.colors.text3, marginBottom: 12 }}
+          >
             Replace text in messages. Example: "#gaming" →
             "&lt;@1384516462017777734&gt;"
           </Text>
@@ -575,7 +608,10 @@ function WebhookForm({
           <Text size="sm" weight="medium" style={labelStyle}>
             Mute Words (Chat Only)
           </Text>
-          <Text size="sm" style={{ color: theme.colors.text3, marginBottom: 12 }}>
+          <Text
+            size="sm"
+            style={{ color: theme.colors.text3, marginBottom: 12 }}
+          >
             Chat messages containing any of these words will not be forwarded.
             Useful for avoiding reforwarding of forwarded messages.
           </Text>
@@ -663,19 +699,22 @@ export default function WebhookManager() {
 
     try {
       setLoading(true);
-      const response = await agent.place.stream.server.listWebhooks({
-        limit: 50,
-      });
-      // if not type "livestream" | "chat" | "follow" | "mention"[] just return
+      const response = await agent.client.call(
+        place.stream.server.listWebhooks,
+        {
+          limit: 50,
+        },
+      );
+      // Filter out unknown event types returned by the server.
       // todo: find a better way to check this
-      if (response.data.webhooks) {
-        for (const webhook of response.data.webhooks) {
+      if (response.webhooks) {
+        for (const webhook of response.webhooks) {
           webhook.events = (webhook.events as string[]).filter((event) =>
-            ["livestream", "chat", "follow", "mention"].includes(event),
-          ) as ("livestream" | "chat" | "follow" | "mention")[];
+            VALID_WEBHOOK_EVENTS.includes(event as WebhookEvent),
+          ) as WebhookEvent[];
         }
       }
-      setWebhooks((response.data.webhooks as any) || []);
+      setWebhooks((response.webhooks as any) || []);
     } catch (error) {
       console.error("Failed to load webhooks:", error);
       Alert.alert("Error", "Failed to load webhooks. Please try again.");
@@ -695,10 +734,10 @@ export default function WebhookManager() {
         (r) => r.from.trim() && r.to.trim(),
       );
 
-      await agent.place.stream.server.createWebhook({
+      await agent.client.call(place.stream.server.createWebhook, {
         name: data.name || undefined,
-        url: data.url,
-        events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
+        url: data.url as any,
+        events: data.events as WebhookEvent[],
         active: data.active,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,
@@ -731,11 +770,11 @@ export default function WebhookManager() {
         (r) => r.from.trim() && r.to.trim(),
       );
 
-      await agent.place.stream.server.updateWebhook({
+      await agent.client.call(place.stream.server.updateWebhook, {
         id: editingWebhook.id,
         name: data.name || undefined,
-        url: data.url,
-        events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
+        url: data.url as any,
+        events: data.events as WebhookEvent[],
         active: data.active,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,
@@ -771,7 +810,7 @@ export default function WebhookManager() {
 
     try {
       setDeletingWebhooks((prev) => new Set(prev).add(id));
-      await agent.place.stream.server.deleteWebhook({ id });
+      await agent.client.call(place.stream.server.deleteWebhook, { id });
       await loadWebhooks();
       setDeleteDialog({ isVisible: false, webhook: null });
     } catch (error: any) {
@@ -834,85 +873,85 @@ export default function WebhookManager() {
         >
           {/* Header */}
           <SettingsViewHeader
-              title={t("webhook-integrations")}
-              description={t("webhook-integrations-description")}
+            title={t("webhook-integrations")}
+            description={t("webhook-integrations-description")}
+            action={
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <Button
+                  size="sm"
+                  width="min"
+                  variant="secondary"
+                  leftIcon={<RefreshCw size={16} />}
+                  disabled={loading}
+                  onPress={loadWebhooks}
+                >
+                  {t("refresh")}
+                </Button>
+                <Button
+                  size="sm"
+                  width="min"
+                  variant="primary"
+                  leftIcon={<Plus size={16} />}
+                  onPress={handleCreate}
+                >
+                  {t("create")}
+                </Button>
+              </View>
+            }
+          />
+
+          {/* Content */}
+          {loading ? (
+            <View
+              style={{
+                flex: 1,
+                minHeight: 320,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Loading />
+            </View>
+          ) : webhooks === null ? (
+            <View style={[layout.flex.center, mt[8]]}>
+              <Text style={{ color: theme.colors.danger }}>
+                {t("failed-load-webhooks")}
+              </Text>
+            </View>
+          ) : webhooks.length === 0 ? (
+            <EmptyState
+              illustration={<EmptyStateTile icon={WebhookIcon} />}
+              title={t("no-webhooks-yet")}
+              subtitle={t("create-first-webhook-description")}
               action={
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <Button
-                    size="sm"
-                    width="min"
-                    variant="secondary"
-                    leftIcon={<RefreshCw size={16} />}
-                    disabled={loading}
-                    onPress={loadWebhooks}
-                  >
-                    {t("refresh")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    width="min"
-                    variant="primary"
-                    leftIcon={<Plus size={16} />}
-                    onPress={handleCreate}
-                  >
-                    {t("create")}
-                  </Button>
-                </View>
+                <Button
+                  size="sm"
+                  leftIcon={<Plus size={16} />}
+                  onPress={handleCreate}
+                >
+                  {t("create-webhook")}
+                </Button>
               }
             />
-
-            {/* Content */}
-            {loading ? (
-              <View
-                style={{
-                  flex: 1,
-                  minHeight: 320,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <Loading />
-              </View>
-            ) : webhooks === null ? (
-              <View style={[layout.flex.center, mt[8]]}>
-                <Text style={{ color: theme.colors.danger }}>
-                  {t("failed-load-webhooks")}
-                </Text>
-              </View>
-            ) : webhooks.length === 0 ? (
-              <EmptyState
-                illustration={<EmptyStateTile icon={WebhookIcon} />}
-                title={t("no-webhooks-yet")}
-                subtitle={t("create-first-webhook-description")}
-                action={
-                  <Button
-                    size="sm"
-                    leftIcon={<Plus size={16} />}
-                    onPress={handleCreate}
-                  >
-                    {t("create-webhook")}
-                  </Button>
-                }
-              />
-            ) : (
-              <MenuContainer>
-                <MenuGroup>
-                  {webhooks.map((webhook, index) => (
-                    <View key={webhook.id}>
-                      {index > 0 && <MenuSeparator />}
-                      <WebhookRow
-                        webhook={webhook}
-                        onEdit={handleEdit}
-                        onDelete={deleteWebhook}
-                        isDeleting={deletingWebhooks.has(webhook.id)}
-                      />
-                    </View>
-                  ))}
-                </MenuGroup>
-              </MenuContainer>
-            )}
-          </View>
-        </ScrollView>
+          ) : (
+            <MenuContainer>
+              <MenuGroup>
+                {webhooks.map((webhook, index) => (
+                  <View key={webhook.id}>
+                    {index > 0 && <MenuSeparator />}
+                    <WebhookRow
+                      webhook={webhook}
+                      onEdit={handleEdit}
+                      onDelete={deleteWebhook}
+                      isDeleting={deletingWebhooks.has(webhook.id)}
+                    />
+                  </View>
+                ))}
+              </MenuGroup>
+            </MenuContainer>
+          )}
+        </View>
+      </ScrollView>
 
       <WebhookForm
         webhook={editingWebhook}

@@ -1,11 +1,5 @@
 import { useCallback } from "react";
-import {
-  PlaceStreamGetLikes,
-  PlaceStreamLike,
-  PlaceStreamVodComment,
-  PlaceStreamVodDefs,
-  PlaceStreamVodGetComments,
-} from "streamplace";
+import { place } from "streamplace";
 import { useDID } from "../streamplace-store/streamplace-store";
 import {
   usePDSAgent,
@@ -22,17 +16,14 @@ export const useCreateVodComment = () => {
         throw new Error("No PDS agent or user DID found");
       }
 
-      const record: PlaceStreamVodComment.Record = {
-        $type: "place.stream.vod.comment",
+      const record = {
         text: params.text,
-        createdAt: new Date().toISOString(),
-        video: params.video,
+        createdAt: new Date().toISOString() as any,
+        video: params.video as any,
       };
 
-      return await pdsAgent.com.atproto.repo.createRecord({
-        repo: userDID,
-        collection: "place.stream.vod.comment",
-        record,
+      return await pdsAgent.client.create(place.stream.vod.comment, record, {
+        repo: userDID as any,
       });
     },
     [pdsAgent, userDID],
@@ -50,9 +41,8 @@ export const useDeleteVodComment = () => {
       }
       const rkey = uri.split("/").pop();
       if (!rkey) throw new Error("No rkey found");
-      return await pdsAgent.com.atproto.repo.deleteRecord({
-        repo: userDID,
-        collection: "place.stream.vod.comment",
+      return await pdsAgent.client.delete(place.stream.vod.comment, {
+        repo: userDID as any,
         rkey,
       });
     },
@@ -70,16 +60,13 @@ export const useCreateLike = () => {
         throw new Error("No PDS agent or user DID found");
       }
 
-      const record: PlaceStreamLike.Record = {
-        $type: "place.stream.like",
-        subject,
-        createdAt: new Date().toISOString(),
+      const record = {
+        subject: subject as any,
+        createdAt: new Date().toISOString() as any,
       };
 
-      return await pdsAgent.com.atproto.repo.createRecord({
-        repo: userDID,
-        collection: "place.stream.like",
-        record,
+      return await pdsAgent.client.create(place.stream.like, record, {
+        repo: userDID as any,
       });
     },
     [pdsAgent, userDID],
@@ -97,9 +84,8 @@ export const useDeleteLike = () => {
       }
       const rkey = uri.split("/").pop();
       if (!rkey) throw new Error("No rkey found");
-      return await pdsAgent.com.atproto.repo.deleteRecord({
-        repo: userDID,
-        collection: "place.stream.like",
+      return await pdsAgent.client.delete(place.stream.like, {
+        repo: userDID as any,
         rkey,
       });
     },
@@ -118,16 +104,16 @@ export const useGetVodComments = () => {
       video: string,
       limit?: number,
       cursor?: string,
-    ): Promise<PlaceStreamVodGetComments.OutputSchema> => {
+    ): Promise<place.stream.vod.getComments.$OutputBody> => {
       if (!pdsAgent) {
         throw new Error("No PDS agent found");
       }
-      const res = await pdsAgent.place.stream.vod.getComments({
-        video,
+      const res = await pdsAgent.client.call(place.stream.vod.getComments, {
+        video: video as any,
         limit,
         cursor,
       });
-      return res.data;
+      return res;
     },
     [pdsAgent],
   );
@@ -142,16 +128,16 @@ export const useGetLikes = () => {
       subject: string,
       limit?: number,
       cursor?: string,
-    ): Promise<PlaceStreamGetLikes.OutputSchema> => {
+    ): Promise<place.stream.getLikes.$OutputBody> => {
       if (!pdsAgent) {
         throw new Error("No PDS agent found");
       }
-      const res = await pdsAgent.place.stream.getLikes({
-        subject,
+      const res = await pdsAgent.client.call(place.stream.getLikes, {
+        subject: subject as any,
         limit,
         cursor,
       });
-      return res.data;
+      return res;
     },
     [pdsAgent],
   );
@@ -165,16 +151,16 @@ export const useLikeCount = () => {
       if (!pdsAgent) {
         throw new Error("No PDS agent found");
       }
-      const res = await pdsAgent.place.stream.getLikes({
-        subject,
+      const res = await pdsAgent.client.call(place.stream.getLikes, {
+        subject: subject as any,
         limit: 1,
       });
-      return res.data.count;
+      return res.count;
     },
     [pdsAgent],
   );
 };
 
-export type VodCommentHydrated = PlaceStreamVodDefs.CommentView & {
-  record: PlaceStreamVodComment.Record;
+export type VodCommentHydrated = place.stream.vod.defs.CommentView & {
+  record: place.stream.vod.comment.Main;
 };

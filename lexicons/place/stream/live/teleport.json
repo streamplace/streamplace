@@ -20,6 +20,11 @@
             "format": "datetime",
             "description": "The time the teleport becomes active."
           },
+          "livestream": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The source livestream this teleport is sending viewers away from. When the teleport fires, this is the livestream that gets ended (the same update place.stream.live.stopLivestream performs), so the source streamer returns to pre-live. Teleports without an origin livestream are treated as a no-op."
+          },
           "durationSeconds": {
             "type": "integer",
             "description": "The time limit in seconds for the teleport. If not set, the teleport is permanent. Must be at least 60 seconds, and no more than 32,400 seconds (9 hours).",

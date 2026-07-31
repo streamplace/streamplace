@@ -27,7 +27,7 @@ import (
 // shorten it.
 var ingestWorkerWatchdog = 30 * time.Second
 
-// MKVIngestIsolated is the process-isolated counterpart to MKVIngest. Instead of
+// MP4IngestIsolated is the process-isolated counterpart to MP4Ingest. Instead of
 // running the demux + sign pipeline in this process — where a native gst fault,
 // OOM, or deadlock would take the whole node down — it spawns a dedicated
 // `ingest-worker` subprocess that owns the pipeline and streams signed canonical
@@ -38,7 +38,7 @@ var ingestWorkerWatchdog = 30 * time.Second
 // Per the locked design the worker signs everything, so main hands it the
 // streamer key + cert + a once-built manifest over a dedicated config fd (kept
 // off argv/env). See buildWorkerConfig for the interim key-custody note.
-func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, ms MediaSigner) error {
+func (mm *MediaManager) MP4IngestIsolated(ctx context.Context, input io.Reader, ms MediaSigner) error {
 	cfg, err := mm.buildWorkerConfig(ctx, ms)
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	}
 	cfgR.Close()    // the child holds its own copy now
 	framesW.Close() // ditto; the parent only reads framesR
-	spmetrics.IngestWorkerStarts.WithLabelValues("mkv-fd").Inc()
+	spmetrics.IngestWorkerStarts.WithLabelValues("mp4-fd").Inc()
 
 	go func() {
 		_, _ = cfgW.Write(cfgJSON)
@@ -160,7 +160,7 @@ func (mm *MediaManager) MKVIngestIsolated(ctx context.Context, input io.Reader, 
 	} else if werr != nil && !sawEnd {
 		exitErr = werr
 	}
-	recordWorkerExit("mkv-fd", exitErr, ctx.Err())
+	recordWorkerExit("mp4-fd", exitErr, ctx.Err())
 
 	switch {
 	case readErr != nil:
@@ -245,7 +245,7 @@ func streamWorkerLogs(ctx context.Context, stderr io.Reader, streamer string) {
 
 // buildWorkerConfig extracts the handshake the worker needs to sign on main's
 // behalf. INTERIM key custody: requires a software MediaSignerLocal — the
-// MKV/RTMP push path always provides one; anything else errors so the caller can
+// Mist-pull/RTMP path always provides one; anything else errors so the caller can
 // fall back to the in-process path.
 func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (IngestWorkerConfig, error) {
 	local, ok := ms.(*MediaSignerLocal)
@@ -278,6 +278,14 @@ func (mm *MediaManager) buildWorkerConfig(ctx context.Context, ms MediaSigner) (
 	} else if rec {
 		cfg.Record = true
 		cfg.DataDir = mm.cli.DataDir
+		// The worker writes the recording, so it needs main's S3 destination too —
+		// without it, DebugRecordingCreate inside the worker would silently fall
+		// back to local disk under DataDir. Only sent when recording, to keep the
+		// S3 secret out of handshakes that don't need it.
+		if mm.cli.S3Configured() {
+			s3cfg := mm.cli.S3Config()
+			cfg.S3 = &s3cfg
+		}
 	}
 	// Node transcode signer lets the worker complete to dual-codec itself. If it's
 	// unavailable, the worker emits single-codec (the node doesn't re-transcode the

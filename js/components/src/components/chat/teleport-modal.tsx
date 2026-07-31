@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Check, X } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 import { useAvatars, zero } from "../..";
 import { scrims } from "../../lib/theme/tokens";
 import { useStreamplaceStore } from "../../streamplace-store";
@@ -21,7 +21,7 @@ export const TeleportModal: React.FC<TeleportModalProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStream, setSelectedStream] =
-    useState<PlaceStreamLivestream.LivestreamView | null>(null);
+    useState<place.stream.livestream.LivestreamView | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState("10");
 
   const { theme } = useTheme();

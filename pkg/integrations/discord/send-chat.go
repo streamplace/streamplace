@@ -5,19 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/integrations/discord/discordtypes"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
-func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *streamplace.ChatDefs_MessageView) error {
+func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *placestream.ChatDefs_MessageView) error {
 
-	msg, ok := scm.Record.Val.(*streamplace.ChatMessage)
+	msg, ok := scm.Record.Val.(*placestream.ChatMessage)
 	if !ok {
 		return fmt.Errorf("failed to cast chat message to streamplace chat message")
 	}
@@ -51,7 +50,7 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *str
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	log.Warn(ctx, "sending chat to discord", "payload", string(jsonPayload))
+	log.Warn(ctx, "sending chat to discord", "payload", string(jsonPayload), "for_did", w.DID)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -65,16 +64,15 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *str
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readResponseBody(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != 204 {
-		return fmt.Errorf("failed to send chat to discord: %s", string(body))
+		log.Error(ctx, "chat webhook delivery failed", "webhook_url", w.URL, "status_code", resp.StatusCode, "response_body", body)
+		return fmt.Errorf("failed to send chat to discord: %s", body)
 	}
-
-	log.Warn(ctx, "chat sent to discord", "payload", string(body))
 
 	return nil
 }

@@ -13,7 +13,6 @@ import {
 import { StreamNotifications } from "../../lib/stream-notifications";
 import { SystemMessages } from "../../lib/system-messages";
 import {
-  bg,
   borders,
   flex,
   gap,
@@ -119,11 +118,15 @@ export function ChatBox({
 
   useEffect(() => {
     if (pdsAgent && userDID) {
-      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri, () =>
-        setShowTeleportModal(true),
+      registerTeleportCommand(
+        pdsAgent,
+        userDID,
+        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
+        setActiveTeleportUri,
+        () => setShowTeleportModal(true),
       );
     }
-  }, [pdsAgent, userDID, setActiveTeleportUri]);
+  }, [pdsAgent, userDID, linfo, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
     if (!chat) return null;
@@ -141,11 +144,12 @@ export function ChatBox({
       registerTeleportCommand(
         pdsAgent,
         pdsAgent.did,
+        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
         setActiveTeleportUri,
         () => setShowTeleportModal(true),
       );
     }
-  }, [pdsAgent, linfo?.author?.did, setActiveTeleportUri]);
+  }, [pdsAgent, linfo, setActiveTeleportUri]);
 
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
@@ -177,6 +181,7 @@ export function ChatBox({
       userDID,
       targetHandle,
       countdownSeconds,
+      linfo ? { uri: linfo.uri, cid: linfo.cid } : undefined,
       setActiveTeleportUri,
     );
 
@@ -628,7 +633,11 @@ export function ChatBox({
           )}
           <Button
             variant="secondary"
-            style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
+            style={{
+              borderRadius: theme.borderRadius.md,
+              maxWidth: 44,
+              aspectRatio: 1,
+            }}
             aria-label="Insert Mention"
             onPress={() => {
               !message.endsWith("@") && setMessage(message + "@");
@@ -652,7 +661,11 @@ export function ChatBox({
               variant="secondary"
               id="web-emoji-picker-btn"
               aria-label="Insert Emoji"
-              style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
+              style={{
+                borderRadius: theme.borderRadius.md,
+                maxWidth: 44,
+                aspectRatio: 1,
+              }}
               onPress={() => {
                 onEmojiPickerToggle
                   ? onEmojiPickerToggle()
@@ -668,7 +681,11 @@ export function ChatBox({
               href={`/chat-popout/${linfo?.author?.did}`}
               variant="secondary"
               aria-label="Popout Chat"
-              style={{ borderRadius: theme.borderRadius.md, maxWidth: 44, aspectRatio: 1 }}
+              style={{
+                borderRadius: theme.borderRadius.md,
+                maxWidth: 44,
+                aspectRatio: 1,
+              }}
               onPress={() => {
                 const did = linfo?.author?.did ?? profile?.did;
                 if (did) {

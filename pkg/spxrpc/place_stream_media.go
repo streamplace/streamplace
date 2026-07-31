@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/log"
-	placestream "stream.place/streamplace/pkg/streamplace"
+	placestream "stream.place/streamplace/pkg/placestream"
 )
 
 func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *placestream.MediaCreateUpload_Input) (*placestream.MediaCreateUpload_Output, error) {
@@ -17,6 +17,7 @@ func (s *Server) handlePlaceStreamMediaCreateUpload(ctx context.Context, body *p
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "createUpload", "did", session.DID)
 	// Labeler enforcement: a banned account can't start new uploads.
 	if banned, err := s.accountBanned(session.DID); err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -79,6 +80,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 	if session == nil {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "oauth session required")
 	}
+	ctx = log.WithLogValues(ctx, "func", "getUploadStatus", "did", session.DID, "uploadId", uploadId)
 	if uploadId == "" {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "uploadId is required")
 	}
@@ -90,7 +92,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 		return nil, echo.NewHTTPError(http.StatusNotFound, "upload not found")
 	}
 
-	out := &placestream.MediaGetUploadStatus_Output{}
+	out := placestream.MediaGetUploadStatus_Output{}
 
 	switch upload.ProcessingStatus {
 	case "done":
@@ -106,7 +108,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 			}
 			if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err == nil {
 				for _, r := range refs {
-					out.Tracks = append(out.Tracks, &placestream.MediaGetUploadStatus_TrackRef{
+					out.Tracks = append(out.Tracks, placestream.MediaGetUploadStatus_TrackRef{
 						Uri: r.URI,
 						Cid: r.CID,
 					})
@@ -128,7 +130,7 @@ func (s *Server) handlePlaceStreamMediaGetUploadStatus(ctx context.Context, uplo
 		out.Status = "pending"
 	}
 
-	return out, nil
+	return &out, nil
 }
 
 // requestBaseURL returns the scheme+host of the inbound HTTP request, used

@@ -58,12 +58,8 @@ import {
 } from "react-native";
 import { useStore } from "store";
 import { useIsReady, useUserProfile } from "store/hooks";
-import type {
-  PlaceStreamLivestream,
-  PlaceStreamVodDraftDefs,
-  PlaceStreamVodDraftVideo,
-} from "streamplace";
-import * as tus from "tus-js-client";
+import { place } from "streamplace";
+import * as uploadManager from "utils/upload-manager";
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +89,7 @@ type UploadPhase =
 type MetadataState = {
   title: string;
   description: string;
-  activity: PlaceStreamLivestream.Record["activity"];
+  activity: place.stream.livestream.Main["activity"];
   tags: string[];
   tagInput: string;
   thumbnail: Blob | undefined;
@@ -662,8 +658,6 @@ export default function UploadScreen() {
   const navigation = useNavigation();
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const uploadRef = useRef<tus.Upload | null>(null);
-  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const processingAnim = useRef(new Animated.Value(0)).current;
   const [file, setFile] = useState<File | null>(null);
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
@@ -748,14 +742,6 @@ export default function UploadScreen() {
     }
   }, [phase.kind, processingAnim]);
 
-  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearTimeout(pollRef.current);
-      uploadRef.current?.abort();
-    };
-  }, []);
-
   const pickFile = useCallback(() => fileInputRef.current?.click(), []);
 
   const handleFileChange = useCallback(
@@ -786,65 +772,31 @@ export default function UploadScreen() {
       // upload. The user lands on the draft editor immediately and can edit
       // metadata while the upload runs; a failed upload leaves the draft
       // intact so they can re-upload against the same draft.
-      const draftRes = await agent.place.stream.vod.createDraft({});
-      if (!draftRes.success) throw new Error("createDraft failed");
-      const draftUri = draftRes.data.uri;
+      const draftRes = await agent.client.call(
+        place.stream.vod.createDraft,
+        {},
+      );
+      const draftUri = draftRes.uri;
       const tid = tidFromUri(draftUri);
 
-      const res = await agent.place.stream.media.createUpload({
+      const res = await agent.client.call(place.stream.media.createUpload, {
         size: file.size,
         mimeType,
         filename: file.name,
         draftUri,
       });
-      if (!res.success) throw new Error("createUpload failed");
-      const { uploadUrl, uploadToken } = res.data;
+      const { uploadUrl, uploadToken } = res;
+
+      // Hand the TUS upload to the module-level upload manager — it survives
+      // this screen unmounting, and the floating indicator in the app shell
+      // shows progress until the bytes are all up. The draft (navigated to
+      // below) flips to 'ready' server-side when processing finishes.
+      uploadManager.startUpload({ file, uploadUrl, uploadToken, tid });
 
       // Navigate to the draft editor now — the upload continues in the
       // background and fills this draft when it finishes processing.
       navigation.navigate("UploadVideo" as any, { tid });
-
-      // The TUS upload runs to completion here; the draft (already navigated
-      // to) will flip to 'ready' server-side when processing finishes.
-      await new Promise<void>((resolve, reject) => {
-        let retried = false;
-        const params: tus.UploadOptions = {
-          uploadUrl,
-          retryDelays: [0, 1000, 3000, 5000],
-          headers: { Authorization: `Bearer ${uploadToken}` },
-          metadata: { filename: file.name, filetype: file.type },
-          onError: (err) => {
-            if (!retried) {
-              retried = true;
-              // <1mb for default nginx proxy settings
-              params.chunkSize = 800000;
-              doTry();
-            } else {
-              console.log(err);
-              reject(err);
-            }
-          },
-          onProgress(bytesSent, bytesTotal) {
-            // Progress isn't shown on the bare upload screen anymore (we've
-            // navigated away to the editor); the editor surfaces the draft's
-            // processing status instead.
-          },
-          onSuccess: () => resolve(),
-        };
-        const doTry = () => {
-          const upload = new tus.Upload(file, params);
-          uploadRef.current = upload;
-          upload.start();
-        };
-        doTry();
-      });
-
-      uploadRef.current = null;
-      // No phase change here: we've already navigated to the draft editor,
-      // which polls/reloads the draft and reflects the 'ready' state when
-      // processing completes.
     } catch (err) {
-      uploadRef.current = null;
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : String(err),
@@ -853,9 +805,6 @@ export default function UploadScreen() {
   }, [agent, file, navigation]);
 
   const cancelUpload = useCallback(() => {
-    if (pollRef.current) clearTimeout(pollRef.current);
-    uploadRef.current?.abort();
-    uploadRef.current = null;
     setPhase({ kind: "idle" });
   }, []);
 
@@ -879,124 +828,113 @@ export default function UploadScreen() {
               thumbnail, and publish whenever you are ready.
             </Text>
 
-        {dropzoneVisible && (
-          <>
-            <div
-              onClick={pickFile}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                dragDepthRef.current += 1;
-                setDragActive(true);
-              }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                dragDepthRef.current -= 1;
-                if (dragDepthRef.current <= 0) setDragActive(false);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                dragDepthRef.current = 0;
-                setDragActive(false);
-                acceptFile(e.dataTransfer.files?.[0]);
-              }}
-              style={{
-                position: "relative",
-                cursor: "pointer",
-                borderRadius: 20,
-                border: `1.5px dashed ${dragActive ? c.primary : c.borderStrong}`,
-                background: dragActive
-                  ? `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.2)} 0%, ${c.surface1} 58%)`
-                  : `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.07)} 0%, ${c.surface1} 52%)`,
-                transition:
-                  "border-color 160ms ease, background 220ms ease, transform 160ms ease, box-shadow 220ms ease",
-                transform: dragActive ? "scale(1.006)" : "scale(1)",
-                boxShadow: dragActive
-                  ? `0 0 0 4px ${hexToRgba(c.primary, 0.12)}`
-                  : "none",
-                padding: "60px 24px",
-              }}
-            >
-              <View
-                style={{ alignItems: "center", gap: 16, pointerEvents: "none" }}
-              >
-                <View
+            {dropzoneVisible && (
+              <>
+                <div
+                  onClick={pickFile}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    dragDepthRef.current += 1;
+                    setDragActive(true);
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    dragDepthRef.current -= 1;
+                    if (dragDepthRef.current <= 0) setDragActive(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    dragDepthRef.current = 0;
+                    setDragActive(false);
+                    acceptFile(e.dataTransfer.files?.[0]);
+                  }}
                   style={{
-                    width: 78,
-                    height: 78,
-                    borderRadius: 22,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: hexToRgba(c.primary, dragActive ? 0.24 : 0.12),
-                    borderWidth: 1,
-                    borderColor: hexToRgba(c.primary, 0.35),
+                    position: "relative",
+                    cursor: "pointer",
+                    borderRadius: 20,
+                    border: `1.5px dashed ${dragActive ? c.primary : c.borderStrong}`,
+                    background: dragActive
+                      ? `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.2)} 0%, ${c.surface1} 58%)`
+                      : `radial-gradient(130% 130% at 50% -10%, ${hexToRgba(c.primary, 0.07)} 0%, ${c.surface1} 52%)`,
+                    transition:
+                      "border-color 160ms ease, background 220ms ease, transform 160ms ease, box-shadow 220ms ease",
+                    transform: dragActive ? "scale(1.006)" : "scale(1)",
+                    boxShadow: dragActive
+                      ? `0 0 0 4px ${hexToRgba(c.primary, 0.12)}`
+                      : "none",
+                    padding: "60px 24px",
                   }}
                 >
-                  <UploadCloud size={34} color={c.primary} />
-                </View>
-                <View style={{ alignItems: "center", gap: 5 }}>
-                  <Text
-                    style={{ color: c.text1, fontSize: 18, fontWeight: "600" }}
-                  >
-                    {dragActive ? "Drop to upload" : "Drag and drop your video"}
-                  </Text>
-                  <Text style={{ color: c.text3, fontSize: 14 }}>
-                    or{" "}
-                    <Text style={{ color: c.primary, fontWeight: "600" }}>
-                      browse your files
-                    </Text>
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    marginTop: 2,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 999,
-                    backgroundColor: c.surface2,
-                    borderWidth: 1,
-                    borderColor: c.borderSubtle,
-                  }}
-                >
-                  <Text
+                  <View
                     style={{
-                      color: c.text4,
-                      fontSize: 12,
-                      fontFamily: fontFamilies.monoMedium,
-                      letterSpacing: 0.4,
+                      alignItems: "center",
+                      gap: 16,
+                      pointerEvents: "none",
                     }}
                   >
-                    MP4 · MOV · WEBM
-                  </Text>
-                </View>
-              </View>
-            </div>
+                    <View
+                      style={{
+                        width: 78,
+                        height: 78,
+                        borderRadius: 22,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: hexToRgba(
+                          c.primary,
+                          dragActive ? 0.24 : 0.12,
+                        ),
+                        borderWidth: 1,
+                        borderColor: hexToRgba(c.primary, 0.35),
+                      }}
+                    >
+                      <UploadCloud size={34} color={c.primary} />
+                    </View>
+                    <View style={{ alignItems: "center", gap: 5 }}>
+                      <Text
+                        style={{
+                          color: c.text1,
+                          fontSize: 18,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {dragActive
+                          ? "Drop to upload"
+                          : "Drag and drop your video"}
+                      </Text>
+                      <Text style={{ color: c.text3, fontSize: 14 }}>
+                        or{" "}
+                        <Text style={{ color: c.primary, fontWeight: "600" }}>
+                          browse your files
+                        </Text>
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        marginTop: 2,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 999,
+                        backgroundColor: c.surface2,
+                        borderWidth: 1,
+                        borderColor: c.borderSubtle,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: c.text4,
+                          fontSize: 12,
+                          fontFamily: fontFamilies.monoMedium,
+                          letterSpacing: 0.4,
+                        }}
+                      >
+                        MP4 · MOV · WEBM
+                      </Text>
+                    </View>
+                  </View>
+                </div>
 
-            {phase.kind === "error" && (
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <AlertCircle size={16} color={c.destructive} />
-                <Text size="sm" color="destructive">
-                  {phase.message}
-                </Text>
-              </View>
-            )}
-
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {NEXT_STEPS.map((step, i) => (
-                <View
-                  key={step.title}
-                  style={{
-                    flex: 1,
-                    gap: 8,
-                    padding: 14,
-                    borderRadius: 14,
-                    backgroundColor: c.surface1,
-                    borderWidth: 1,
-                    borderColor: c.borderSubtle,
-                  }}
-                >
+                {phase.kind === "error" && (
                   <View
                     style={{
                       flexDirection: "row",
@@ -1004,268 +942,329 @@ export default function UploadScreen() {
                       gap: 8,
                     }}
                   >
+                    <AlertCircle size={16} color={c.destructive} />
+                    <Text size="sm" color="destructive">
+                      {phase.message}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {NEXT_STEPS.map((step, i) => (
                     <View
+                      key={step.title}
                       style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 999,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: c.surface3,
+                        flex: 1,
+                        gap: 8,
+                        padding: 14,
+                        borderRadius: 14,
+                        backgroundColor: c.surface1,
+                        borderWidth: 1,
+                        borderColor: c.borderSubtle,
                       }}
                     >
-                      <Text
+                      <View
                         style={{
-                          color: c.text3,
-                          fontSize: 11,
-                          fontWeight: "700",
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 8,
                         }}
                       >
-                        {i + 1}
-                      </Text>
+                        <View
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: 999,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            backgroundColor: c.surface3,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: c.text3,
+                              fontSize: 11,
+                              fontWeight: "700",
+                            }}
+                          >
+                            {i + 1}
+                          </Text>
+                        </View>
+                        <step.icon size={16} color={c.text2} />
+                      </View>
+                      <View style={{ gap: 2 }}>
+                        <Text
+                          style={{
+                            color: c.text1,
+                            fontSize: 13,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {step.title}
+                        </Text>
+                        <Text
+                          style={{
+                            color: c.text4,
+                            fontSize: 12,
+                            lineHeight: 16,
+                          }}
+                        >
+                          {step.body}
+                        </Text>
+                      </View>
                     </View>
-                    <step.icon size={16} color={c.text2} />
+                  ))}
+                </View>
+              </>
+            )}
+
+            {selectedVisible && file && (
+              <View style={{ gap: 14 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                    backgroundColor: c.surface1,
+                    borderWidth: 1,
+                    borderColor: c.borderStrong,
+                    borderRadius: 16,
+                    padding: 14,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: hexToRgba(c.primary, 0.12),
+                      borderWidth: 1,
+                      borderColor: hexToRgba(c.primary, 0.3),
+                    }}
+                  >
+                    <FileVideo size={24} color={c.primary} />
                   </View>
-                  <View style={{ gap: 2 }}>
+                  <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                     <Text
+                      numberOfLines={1}
                       style={{
                         color: c.text1,
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: "600",
                       }}
                     >
-                      {step.title}
+                      {file.name}
                     </Text>
-                    <Text style={{ color: c.text4, fontSize: 12, lineHeight: 16 }}>
-                      {step.body}
+                    <Text
+                      style={{
+                        color: c.text3,
+                        fontSize: 13,
+                        fontFamily: fontFamilies.monoRegular,
+                      }}
+                    >
+                      {humanBytes(file.size)} ·{" "}
+                      {(file.type || "video")
+                        .replace("video/", "")
+                        .toUpperCase() || "VIDEO"}
                     </Text>
                   </View>
+                  <Pressable
+                    onPress={() => {
+                      setFile(null);
+                      setPhase({ kind: "idle" });
+                    }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: c.surface2,
+                    }}
+                  >
+                    <X size={16} color={c.text3} />
+                  </Pressable>
                 </View>
-              ))}
-            </View>
-          </>
-        )}
 
-        {selectedVisible && file && (
-          <View style={{ gap: 14 }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 14,
-                backgroundColor: c.surface1,
-                borderWidth: 1,
-                borderColor: c.borderStrong,
-                borderRadius: 16,
-                padding: 14,
-              }}
-            >
+                {phase.kind === "error" && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <AlertCircle size={16} color={c.destructive} />
+                    <Text size="sm" color="destructive">
+                      {phase.message}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ gap: 8 }}>
+                  <Button onPress={startUpload}>Upload video</Button>
+                  <Button variant="secondary" onPress={pickFile}>
+                    Choose a different file
+                  </Button>
+                </View>
+              </View>
+            )}
+
+            {progressVisible && (
               <View
                 style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: hexToRgba(c.primary, 0.12),
+                  gap: 14,
+                  backgroundColor: c.surface1,
                   borderWidth: 1,
-                  borderColor: hexToRgba(c.primary, 0.3),
+                  borderColor: c.borderStrong,
+                  borderRadius: 16,
+                  padding: 18,
                 }}
               >
-                <FileVideo size={24} color={c.primary} />
+                {file && (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <FileVideo size={18} color={c.text3} />
+                    <Text
+                      numberOfLines={1}
+                      style={{ color: c.text2, fontSize: 14, flex: 1 }}
+                    >
+                      {file.name}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ gap: 8 }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    {phase.kind === "uploading" ? (
+                      <ArrowUp size={16} color={c.primary} />
+                    ) : (
+                      <LoaderCircle size={16} color={c.primary} />
+                    )}
+                    <Text size="sm" color="muted">
+                      {phase.kind === "creating"
+                        ? "Preparing your upload…"
+                        : phase.kind === "uploading"
+                          ? `Uploading — ${phase.pct.toFixed(0)}% · ${humanBytes(phase.bytesSent)} / ${humanBytes(phase.bytesTotal)}`
+                          : phase.kind === "processing"
+                            ? phase.serverStatus === "processing"
+                              ? `Processing${phase.progress != null ? ` (${phase.progress}%)` : "…"}`
+                              : "Waiting to process…"
+                            : "Publishing…"}
+                    </Text>
+                  </View>
+                  {phase.kind === "uploading" ? (
+                    <View style={track}>
+                      <View
+                        style={{
+                          height: 6,
+                          width: `${phase.pct}%`,
+                          backgroundColor: c.primary,
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                  ) : phase.kind === "processing" && phase.progress != null ? (
+                    <View style={track}>
+                      <View
+                        style={{
+                          height: 6,
+                          width: `${phase.progress}%`,
+                          backgroundColor: c.primary,
+                          borderRadius: 3,
+                        }}
+                      />
+                    </View>
+                  ) : (
+                    <Animated.View style={track}>
+                      <Animated.View
+                        style={{
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: c.primary,
+                          width: processingAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0%", "100%"],
+                          }),
+                          opacity: processingAnim.interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: [0.4, 1, 0.4],
+                          }),
+                        }}
+                      />
+                    </Animated.View>
+                  )}
+                </View>
+                {isUploading && phase.kind !== "processing" && (
+                  <Button variant="danger" onPress={cancelUpload}>
+                    Cancel
+                  </Button>
+                )}
               </View>
-              <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                <Text
-                  numberOfLines={1}
-                  style={{ color: c.text1, fontSize: 15, fontWeight: "600" }}
-                >
-                  {file.name}
-                </Text>
-                <Text
+            )}
+
+            {doneVisible && (
+              <View
+                style={{
+                  gap: 12,
+                  backgroundColor: c.surface1,
+                  borderWidth: 1,
+                  borderColor: c.borderStrong,
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: "flex-start",
+                }}
+              >
+                <View
                   style={{
-                    color: c.text3,
-                    fontSize: 13,
-                    fontFamily: fontFamilies.monoRegular,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
                   }}
                 >
-                  {humanBytes(file.size)} ·{" "}
-                  {(file.type || "video").replace("video/", "").toUpperCase() ||
-                    "VIDEO"}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  setFile(null);
-                  setPhase({ kind: "idle" });
-                }}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: c.surface2,
-                }}
-              >
-                <X size={16} color={c.text3} />
-              </Pressable>
-            </View>
-
-            {phase.kind === "error" && (
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-              >
-                <AlertCircle size={16} color={c.destructive} />
-                <Text size="sm" color="destructive">
-                  {phase.message}
-                </Text>
-              </View>
-            )}
-
-            <View style={{ gap: 8 }}>
-              <Button onPress={startUpload}>Upload video</Button>
-              <Button variant="secondary" onPress={pickFile}>
-                Choose a different file
-              </Button>
-            </View>
-          </View>
-        )}
-
-        {progressVisible && (
-          <View
-            style={{
-              gap: 14,
-              backgroundColor: c.surface1,
-              borderWidth: 1,
-              borderColor: c.borderStrong,
-              borderRadius: 16,
-              padding: 18,
-            }}
-          >
-            {file && (
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-              >
-                <FileVideo size={18} color={c.text3} />
-                <Text
-                  numberOfLines={1}
-                  style={{ color: c.text2, fontSize: 14, flex: 1 }}
-                >
-                  {file.name}
-                </Text>
-              </View>
-            )}
-            <View style={{ gap: 8 }}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-              >
-                {phase.kind === "uploading" ? (
-                  <ArrowUp size={16} color={c.primary} />
-                ) : (
-                  <LoaderCircle size={16} color={c.primary} />
-                )}
-                <Text size="sm" color="muted">
-                  {phase.kind === "creating"
-                    ? "Preparing your upload…"
-                    : phase.kind === "uploading"
-                      ? `Uploading — ${phase.pct.toFixed(0)}% · ${humanBytes(phase.bytesSent)} / ${humanBytes(phase.bytesTotal)}`
-                      : phase.kind === "processing"
-                        ? phase.serverStatus === "processing"
-                          ? `Processing${phase.progress != null ? ` (${phase.progress}%)` : "…"}`
-                          : "Waiting to process…"
-                        : "Publishing…"}
-                </Text>
-              </View>
-              {phase.kind === "uploading" ? (
-                <View style={track}>
-                  <View
-                    style={{
-                      height: 6,
-                      width: `${phase.pct}%`,
-                      backgroundColor: c.primary,
-                      borderRadius: 3,
-                    }}
-                  />
+                  <CheckCircle2 size={22} color={c.success} />
+                  <Text
+                    style={{ color: c.text1, fontSize: 16, fontWeight: "600" }}
+                  >
+                    {phase.kind === "ready"
+                      ? "Ready to publish"
+                      : "Upload complete"}
+                  </Text>
                 </View>
-              ) : phase.kind === "processing" && phase.progress != null ? (
-                <View style={track}>
-                  <View
-                    style={{
-                      height: 6,
-                      width: `${phase.progress}%`,
-                      backgroundColor: c.primary,
-                      borderRadius: 3,
+                <Text style={{ color: c.text3, fontSize: 14, lineHeight: 20 }}>
+                  Your video is processing into a draft. Add the finishing
+                  touches and publish it from your Drafts.
+                </Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <Button
+                    onPress={() => navigation.navigate("UploadDrafts" as any)}
+                  >
+                    Go to drafts
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onPress={() => {
+                      setFile(null);
+                      setPhase({ kind: "idle" });
                     }}
-                  />
+                  >
+                    Upload another
+                  </Button>
                 </View>
-              ) : (
-                <Animated.View style={track}>
-                  <Animated.View
-                    style={{
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: c.primary,
-                      width: processingAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0%", "100%"],
-                      }),
-                      opacity: processingAnim.interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: [0.4, 1, 0.4],
-                      }),
-                    }}
-                  />
-                </Animated.View>
-              )}
-            </View>
-            {isUploading && phase.kind !== "processing" && (
-              <Button variant="danger" onPress={cancelUpload}>
-                Cancel
-              </Button>
+              </View>
             )}
-          </View>
-        )}
-
-        {doneVisible && (
-          <View
-            style={{
-              gap: 12,
-              backgroundColor: c.surface1,
-              borderWidth: 1,
-              borderColor: c.borderStrong,
-              borderRadius: 16,
-              padding: 20,
-              alignItems: "flex-start",
-            }}
-          >
-            <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-            >
-              <CheckCircle2 size={22} color={c.success} />
-              <Text style={{ color: c.text1, fontSize: 16, fontWeight: "600" }}>
-                {phase.kind === "ready" ? "Ready to publish" : "Upload complete"}
-              </Text>
-            </View>
-            <Text style={{ color: c.text3, fontSize: 14, lineHeight: 20 }}>
-              Your video is processing into a draft. Add the finishing touches
-              and publish it from your Drafts.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Button onPress={() => navigation.navigate("UploadDrafts" as any)}>
-                Go to drafts
-              </Button>
-              <Button
-                variant="secondary"
-                onPress={() => {
-                  setFile(null);
-                  setPhase({ kind: "idle" });
-                }}
-              >
-                Upload another
-              </Button>
-            </View>
-          </View>
-        )}
           </View>
         </View>
       </View>
@@ -1297,7 +1296,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
   const [draftUri_, setDraftUri] = useState<string | undefined>(undefined);
   const [videoUri_, setVideoUri] = useState<string | undefined>(undefined);
   const [draftStatus, setDraftStatus] = useState<
-    PlaceStreamVodDraftVideo.Main["status"] | undefined
+    place.stream.vod.draftVideo.Main["status"] | undefined
   >(undefined);
   const [meta, setMetaState] = useState<MetadataState>(DEFAULT_METADATA);
   const [updating, setUpdating] = useState(false);
@@ -1330,9 +1329,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
       const did = agent.did!;
       const duri = draftUri(did, tid);
       try {
-        const res = await agent.place.stream.vod.getDraft({ uri: duri });
+        const res = await agent.client.call(place.stream.vod.getDraft, {
+          uri: duri,
+        });
         if (cancelled) return;
-        const rec = res.data.draft.record as PlaceStreamVodDraftVideo.Main;
+        const rec = res.draft.record as place.stream.vod.draftVideo.Main;
         setMode("draft");
         setDraftUri(duri);
         setVideoUri(undefined);
@@ -1345,7 +1346,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
           tagInput: "",
           thumbnail: undefined,
           thumbnailUrl: rec.thumb
-            ? `https://cdn.stream.place/thumb/${(rec.thumb.ref as any)?.$link || (rec.thumb as any).cid || ""}`
+            ? `https://cdn.stream.place/thumb/${(rec.thumb as any).ref?.$link || (rec.thumb as any).cid || ""}`
             : undefined,
           warnings: new Set(rec.contentWarnings?.warnings || []),
           license:
@@ -1359,13 +1360,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
         // NotFound → fall back to published video
         const vuri = videoUri(did, tid);
         try {
-          const existing = await agent.com.atproto.repo.getRecord({
-            repo: did,
-            collection: "place.stream.video",
-            rkey: tid,
+          const existing = await agent.client.get(place.stream.video, {
+            rkey: tid as any,
           });
           if (cancelled) return;
-          const rec = existing.data.value as any;
+          const rec = existing.value as any;
           setMode("video");
           setVideoUri(vuri);
           setDraftUri(undefined);
@@ -1378,7 +1377,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
             tagInput: "",
             thumbnail: undefined,
             thumbnailUrl: rec.thumb
-              ? `https://cdn.stream.place/thumb/${(rec.thumb.ref as any)?.$link || (rec.thumb as any).cid || ""}`
+              ? `https://cdn.stream.place/thumb/${(rec.thumb as any).ref?.$link || (rec.thumb as any).cid || ""}`
               : undefined,
             warnings: new Set(rec.contentWarnings?.warnings || []),
             license:
@@ -1416,11 +1415,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     let cancelled = false;
     const poll = async () => {
       try {
-        const res = await agent.place.stream.vod.getDraft({
+        const res = await agent.client.call(place.stream.vod.getDraft, {
           uri: draftUri(agent.did!, tid),
         });
         if (cancelled) return;
-        const rec = res.data.draft.record as PlaceStreamVodDraftVideo.Main;
+        const rec = res.draft.record as place.stream.vod.draftVideo.Main;
         setDraftStatus(rec.status);
       } catch {
         // Transient fetch failures are fine; the next tick retries.
@@ -1465,23 +1464,21 @@ export function UploadVideoScreen({ route }: { route: any }) {
         }
         if (meta.thumbnail) {
           try {
-            const blobRes = await agent.uploadBlob(meta.thumbnail, {
-              encoding: meta.thumbnail.type || "image/jpeg",
+            const blobRes = await agent.client.uploadBlob(meta.thumbnail, {
+              encoding: (meta.thumbnail.type || "image/jpeg") as any,
             });
-            if (blobRes.success) params.thumb = blobRes.data.blob;
+            params.thumb = blobRes.body.blob;
           } catch {
             // thumbnail failure is non-fatal
           }
         }
-        await agent.place.stream.vod.updateDraft(params as any);
+        await agent.client.call(place.stream.vod.updateDraft, params as any);
       } else if (mode === "video") {
         // Published video: putRecord. Preserve source/duration/createdAt.
-        const existing = await agent.com.atproto.repo.getRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
+        const existing = await agent.client.get(place.stream.video, {
+          rkey: tid as any,
         });
-        const existingRec = existing.data.value as any;
+        const existingRec = existing.value as any;
         const record: Record<string, any> = {
           $type: "place.stream.video",
           title: meta.title.trim(),
@@ -1511,19 +1508,17 @@ export function UploadVideoScreen({ route }: { route: any }) {
         }
         if (meta.thumbnail) {
           try {
-            const blobRes = await agent.uploadBlob(meta.thumbnail, {
-              encoding: meta.thumbnail.type || "image/jpeg",
+            const blobRes = await agent.client.uploadBlob(meta.thumbnail, {
+              encoding: (meta.thumbnail.type || "image/jpeg") as any,
             });
-            if (blobRes.success) record.thumb = blobRes.data.blob;
+            record.thumb = blobRes.body.blob;
           } catch {
             // thumbnail is non-fatal
           }
         }
-        await agent.com.atproto.repo.putRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
-          record: record as any,
+        const { $type: _videoType, ...videoRecordInput } = record;
+        await agent.client.put(place.stream.video, videoRecordInput as any, {
+          rkey: tid as any,
         });
       }
     } catch (err) {
@@ -1539,11 +1534,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     setPublishing(true);
     setError(undefined);
     try {
-      const res = await agent.place.stream.vod.publishDraft({
+      const res = await agent.client.call(place.stream.vod.publishDraft, {
         uri: draftUri_,
       });
       // Navigate to the player route for the published video.
-      const publishedTid = tidFromUri(res.data.videoUri);
+      const publishedTid = tidFromUri(res.videoUri);
       navigation.navigate("Video" as any, {
         user: agent.did ?? "",
         tid: publishedTid,
@@ -1562,13 +1557,11 @@ export function UploadVideoScreen({ route }: { route: any }) {
     setError(undefined);
     try {
       if (mode === "draft" && draftUri_) {
-        await agent.place.stream.vod.deleteDraft({ uri: draftUri_ });
-      } else if (mode === "video") {
-        await agent.com.atproto.repo.deleteRecord({
-          repo: agent.did,
-          collection: "place.stream.video",
-          rkey: tid,
+        await agent.client.call(place.stream.vod.deleteDraft, {
+          uri: draftUri_,
         });
+      } else if (mode === "video") {
+        await agent.client.delete(place.stream.video, { rkey: tid as any });
       }
       navigation.navigate("UploadVideos" as any);
     } catch (err) {
@@ -1586,7 +1579,14 @@ export function UploadVideoScreen({ route }: { route: any }) {
   if (error && !mode) {
     return (
       <ScrollView>
-        <View style={[zero.layout.flex.align.center, zero.px[2], zero.pt[8], zero.pb[6]]}>
+        <View
+          style={[
+            zero.layout.flex.align.center,
+            zero.px[2],
+            zero.pt[8],
+            zero.pb[6],
+          ]}
+        >
           <UploadTabNav
             activeScreen={mode === "video" ? "UploadVideos" : "UploadDrafts"}
           />
@@ -1751,7 +1751,9 @@ export function UploadDraftsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation();
 
-  const [drafts, setDrafts] = useState<PlaceStreamVodDraftDefs.DraftView[]>([]);
+  const [drafts, setDrafts] = useState<place.stream.vod.draftDefs.DraftView[]>(
+    [],
+  );
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftAction, setDraftAction] = useState<
     Record<string, "publishing" | "deleting" | "error">
@@ -1769,8 +1771,10 @@ export function UploadDraftsScreen() {
     if (!agent) return;
     setDraftsLoading(true);
     try {
-      const res = await agent.place.stream.vod.listDrafts({ limit: 100 });
-      setDrafts(res.data.drafts || []);
+      const res = await agent.client.call(place.stream.vod.listDrafts, {
+        limit: 100,
+      });
+      setDrafts(res.drafts || []);
     } catch (err) {
       console.error("Failed to fetch drafts", err);
     } finally {
@@ -1787,8 +1791,10 @@ export function UploadDraftsScreen() {
       if (!agent) return;
       setDraftAction((m) => ({ ...m, [uri]: "publishing" }));
       try {
-        const res = await agent.place.stream.vod.publishDraft({ uri });
-        setPublishedFromDrafts((m) => ({ ...m, [uri]: res.data.videoUri }));
+        const res = await agent.client.call(place.stream.vod.publishDraft, {
+          uri,
+        });
+        setPublishedFromDrafts((m) => ({ ...m, [uri]: res.videoUri }));
         setDrafts((prev) => prev.filter((d) => d.uri !== uri));
       } catch (err) {
         console.error("Failed to publish draft", err);
@@ -1803,7 +1809,7 @@ export function UploadDraftsScreen() {
       if (!agent) return;
       setDraftAction((m) => ({ ...m, [uri]: "deleting" }));
       try {
-        await agent.place.stream.vod.deleteDraft({ uri });
+        await agent.client.call(place.stream.vod.deleteDraft, { uri });
         setDrafts((prev) => prev.filter((d) => d.uri !== uri));
       } catch (err) {
         console.error("Failed to delete draft", err);
@@ -1851,7 +1857,7 @@ export function UploadDraftsScreen() {
             />
           )}
           {drafts.map((draft) => {
-            const rec = draft.record as PlaceStreamVodDraftVideo.Main;
+            const rec = draft.record as place.stream.vod.draftVideo.Main;
             const status = rec.status;
             const action = draftAction[draft.uri];
             const publishedUri = publishedFromDrafts[draft.uri];
@@ -1972,6 +1978,7 @@ export function UploadDraftsScreen() {
                   <Button
                     size="sm"
                     variant="danger"
+                    style={[{ width: "auto" }]}
                     onPress={() => handleDeleteDraft(draft.uri)}
                   >
                     <X size={14} color={theme.colors.destructiveForeground} />
@@ -2013,10 +2020,10 @@ export function UploadLivestreamsScreen() {
   const fetchVideos = useCallback(async () => {
     if (!agent || !agent.did) return;
     try {
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
-      setUserVideos(res.data.videos || []);
+      setUserVideos(res.videos || []);
     } catch (err) {
       console.error("Failed to fetch videos", err);
     }
@@ -2026,12 +2033,11 @@ export function UploadLivestreamsScreen() {
     if (!agent || !agent.did) return;
     setLivestreamsLoading(true);
     try {
-      const res = await agent.com.atproto.repo.listRecords({
-        repo: agent.did,
-        collection: "place.stream.livestream",
+      const res = await agent.client.list(place.stream.livestream, {
+        repo: agent.did as any,
         limit: 100,
       });
-      const records = (res.data.records ?? []).slice().sort((a, b) => {
+      const records = (res.records ?? []).slice().sort((a, b) => {
         const at = ((a.value as any)?.createdAt as string) ?? "";
         const bt = ((b.value as any)?.createdAt as string) ?? "";
         return bt.localeCompare(at); // newest first
@@ -2083,16 +2089,18 @@ export function UploadLivestreamsScreen() {
       if (!agent || !agent.did) return;
       setFinalizing((m) => ({ ...m, [ls.uri]: "finalizing" }));
       try {
-        const res = await agent.place.stream.media.finalizeLivestream({
-          livestream: ls.uri,
-        });
-        if (!res.success) throw new Error("finalizeLivestream failed");
+        const res = await agent.client.call(
+          place.stream.media.finalizeLivestream,
+          {
+            livestream: ls.uri as any,
+          },
+        );
         // Record the draft URI so the row can offer a deep-link to the
         // draft editor.
-        if (res.data.draftUri) {
+        if (res.draftUri) {
           setFinalizedDraftUris((m) => ({
             ...m,
-            [ls.uri]: res.data.draftUri as string,
+            [ls.uri]: res.draftUri as string,
           }));
         }
         setFinalizing((m) => ({ ...m, [ls.uri]: "done" }));
@@ -2276,10 +2284,10 @@ export function UploadVideosScreen() {
   const fetchVideos = useCallback(async () => {
     if (!agent || !agent.did) return;
     try {
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
-      setUserVideos(res.data.videos || []);
+      setUserVideos(res.videos || []);
     } catch (err) {
       console.error("Failed to fetch videos", err);
     }

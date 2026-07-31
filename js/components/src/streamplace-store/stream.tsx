@@ -1,8 +1,6 @@
 import { AppBskyFeedPost, BlobRef, RichText } from "@atproto/api";
 import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
-import { StreamplaceAgent } from "streamplace/src/agent";
-import { PlaceStreamLivestream } from "streamplace/src/lexicons";
-import { LivestreamViewHydrated } from "streamplace/src/useful-types";
+import { LivestreamViewHydrated, place, StreamplaceAgent } from "streamplace";
 import { useUrl } from "./streamplace-store";
 import { usePDSAgent } from "./xrpc";
 
@@ -44,7 +42,12 @@ const useUploadThumbnail = () => {
           thumbnail.data.blob.size === customThumbnail.size
         ) {
           console.log("Successfully uploaded thumbnail");
-          return thumbnail.data.blob;
+          // Convert @atproto/api's BlobRef class to its plain lex-JSON form
+          // ({$type: "blob", ref: {$link}, ...}). The @atproto/lex client's
+          // lexStringify only recognizes its OWN BlobRef class — a foreign
+          // BlobRef gets serialized field-by-field, losing $type, which the
+          // server then rejects as a malformed blob.
+          return JSON.parse(JSON.stringify(thumbnail.data.blob));
         } else {
           console.warn(
             `Blob size mismatch (attempt ${tries + 1}): received ${thumbnail.data.blob.size}, expected ${customThumbnail.size}`,
@@ -141,9 +144,9 @@ export function useCreateStreamRecord() {
     customThumbnail?: Blob;
     submitPost?: boolean;
     canonicalUrl?: string;
-    notificationSettings?: PlaceStreamLivestream.NotificationSettings;
+    notificationSettings?: place.stream.livestream.NotificationSettings;
     idleTimeoutSeconds?: number;
-    activity?: PlaceStreamLivestream.Record["activity"];
+    activity?: place.stream.livestream.Main["activity"];
     tags?: string[];
   }) => {
     if (!agent) {
@@ -168,14 +171,14 @@ export function useCreateStreamRecord() {
 
     const thisUrl = `${url}/${agent.did}`;
 
-    const record: PlaceStreamLivestream.Record = {
+    const record: place.stream.livestream.Main = {
       $type: "place.stream.livestream",
       title: title,
-      url: thisUrl,
-      createdAt: new Date().toISOString(),
-      lastSeenAt: new Date().toISOString(),
+      url: thisUrl as any,
+      createdAt: new Date().toISOString() as any,
+      lastSeenAt: new Date().toISOString() as any,
       // would match up with e.g. https://stream.place/iame.li
-      canonicalUrl: canonicalUrl,
+      canonicalUrl: canonicalUrl as any,
       // user agent style string
       // e.g. `@streamplace/components/0.1.0 (ios, 32.0)`
       agent: `@streamplace/components/${PackageJson.version} (${platform}, ${platVersion})`,
@@ -191,23 +194,19 @@ export function useCreateStreamRecord() {
     if (customThumbnail) {
       try {
         const thumbnail = await uploadThumbnail(agent, customThumbnail);
-        record.thumb = thumbnail;
+        record.thumb = thumbnail as any;
       } catch (e) {
         throw new Error(`Custom thumbnail upload failed ${e}`);
       }
     }
 
-    const output = await agent.place.stream.live.startLivestream({
+    const output = await agent.client.call(place.stream.live.startLivestream, {
       livestream: record,
-      streamer: agent.did,
+      streamer: agent.did as any,
       createBlueskyPost: submitPost,
     });
 
-    if (!output.success) {
-      throw new Error("Failed to start livestream");
-    }
-
-    return output.data;
+    return output;
   };
 }
 
@@ -220,7 +219,7 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     title: string,
     livestream: LivestreamViewHydrated | null,
     customThumbnail?: Blob,
-    activity?: PlaceStreamLivestream.Record["activity"],
+    activity?: place.stream.livestream.Main["activity"],
     tags?: string[],
   ) => {
     if (!agent) {
@@ -239,13 +238,13 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
     const finalUrl = customUrl || url;
 
     let rkey = livestream.uri.split("/").pop();
-    let oldRecordValue: PlaceStreamLivestream.Record = livestream.record;
+    let oldRecordValue: place.stream.livestream.Main = livestream.record;
 
     if (!rkey) {
       throw new Error("No rkey?");
     }
 
-    let thumbnail: BlobRef | undefined = oldRecordValue.thumb;
+    let thumbnail: BlobRef | undefined = oldRecordValue.thumb as any;
 
     // update thumbnail if a new one is provided
     if (customThumbnail) {
@@ -256,22 +255,20 @@ export function useUpdateStreamRecord(customUrl: string | null = null) {
       }
     }
 
-    const record: PlaceStreamLivestream.Record = {
+    const record: place.stream.livestream.Main = {
       $type: "place.stream.livestream",
       title: title,
-      url: finalUrl,
-      createdAt: new Date().toISOString(),
+      url: finalUrl as any,
+      createdAt: new Date().toISOString() as any,
       post: oldRecordValue.post,
-      thumb: thumbnail,
+      thumb: thumbnail as any,
       activity: activity,
       tags: tags?.length ? tags : undefined,
     };
 
-    await agent.com.atproto.repo.putRecord({
-      repo: agent.did,
-      collection: "place.stream.livestream",
+    await agent.client.put(place.stream.livestream, record, {
+      repo: agent.did as any,
       rkey,
-      record,
     });
 
     return record;
@@ -289,6 +286,6 @@ export function useEndLivestream() {
       throw new Error("No user DID found, assuming not logged in");
     }
 
-    return await agent.place.stream.live.stopLivestream({});
+    return await agent.client.call(place.stream.live.stopLivestream, {});
   };
 }

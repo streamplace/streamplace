@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { place } from "streamplace";
 import storage from "../storage";
 import {
   getStreamplaceStoreFromContext,
@@ -90,14 +91,15 @@ export function useFetchBroadcasterDID() {
       if (!streamplaceAgent) {
         throw new Error("Streamplace agent not available");
       }
-      const result =
-        await streamplaceAgent.place.stream.broadcast.getBroadcaster();
-      store.setState({ broadcasterDID: result.data.broadcaster });
-      if (result.data.server) {
-        store.setState({ serverDID: result.data.server });
+      const result = await streamplaceAgent.client.call(
+        place.stream.broadcast.getBroadcaster,
+      );
+      store.setState({ broadcasterDID: result.broadcaster });
+      if (result.server) {
+        store.setState({ serverDID: result.server });
       }
-      if (result.data.admins) {
-        store.setState({ adminDIDs: result.data.admins });
+      if (result.admins) {
+        store.setState({ adminDIDs: result.admins });
       }
     } catch (err) {
       console.error("Failed to fetch broadcaster DID:", err);
@@ -115,11 +117,13 @@ export function useFetchEnvConfig() {
       if (!streamplaceAgent) {
         throw new Error("Streamplace agent not available");
       }
-      const result = await streamplaceAgent.place.stream.config.getEnv();
-      if (result.data.playbackWorkerUrl) {
-        store.setState({ playbackWorkerUrl: result.data.playbackWorkerUrl });
+      const result = await streamplaceAgent.client.call(
+        place.stream.config.getEnv,
+      );
+      if (result.playbackWorkerUrl) {
+        store.setState({ playbackWorkerUrl: result.playbackWorkerUrl });
       }
-      store.setState({ gamesEnabled: result.data.gamesEnabled ?? false });
+      store.setState({ gamesEnabled: result.gamesEnabled ?? false });
     } catch (err) {
       console.error("Failed to fetch env config:", err);
     }
@@ -165,10 +169,13 @@ export function useFetchBranding() {
         if (!streamplaceAgent) {
           throw new Error("Streamplace agent not available");
         }
-        const res = await streamplaceAgent.place.stream.branding.getBranding({
-          broadcaster: broadcasterDID,
-        });
-        const assets = res.data.assets;
+        const res = await streamplaceAgent.client.call(
+          place.stream.branding.getBranding,
+          {
+            broadcaster: broadcasterDID as any,
+          },
+        );
+        const assets = res.assets;
 
         // convert assets array to keyed object and fetch blob data
         const brandingMap: Record<string, BrandingAsset> = {};

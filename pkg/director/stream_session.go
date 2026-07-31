@@ -3,24 +3,26 @@ package director
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 
-	comatproto "github.com/bluesky-social/indigo/api/atproto"
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/syntax"
-	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/google/uuid"
+	glex "github.com/streamplace/glex/runtime"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"golang.org/x/sync/errgroup"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/livepeer"
@@ -28,28 +30,29 @@ import (
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/renditions"
 	"stream.place/streamplace/pkg/replication"
 	"stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 	"stream.place/streamplace/pkg/thumbnail"
 )
 
 type StreamSession struct {
-	mm             *media.MediaManager
-	mod            model.Model
-	cli            *config.CLI
-	bus            *bus.Bus
-	op             *oatproxy.OATProxy
-	lp             *livepeer.LivepeerSession
-	repoDID        string
-	segmentChan    chan struct{}
-	lastStatus     time.Time
-	lastStatusCID  *string
-	lastOriginTime time.Time
-	localDB        localdb.LocalDB
+	mm                     *media.MediaManager
+	mod                    model.Model
+	cli                    *config.CLI
+	bus                    *bus.Bus
+	op                     *oatproxy.OATProxy
+	lp                     *livepeer.LivepeerSession
+	repoDID                string
+	segmentChan            chan struct{}
+	lastStatus             time.Time
+	lastStatusCID          *string
+	lastOriginTime         time.Time
+	localDB                localdb.LocalDB
+	streamReceivedNotified bool
 
 	// Channels for background workers
 	statusUpdateChan     chan struct{} // Signal to update status
@@ -242,6 +245,21 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 		return fmt.Errorf("could not convert segment to streamplace segment: %w", err)
 	}
 
+	// stream.received is enqueued once per StreamSession when the first local media segment is accepted.
+	if notif.Local && !ss.streamReceivedNotified {
+		ss.streamReceivedNotified = true
+		ss.Go(ctx, func() error {
+			task := &statedb.StreamReceivedTask{
+				StreamerDID: spseg.Creator,
+			}
+			_, err := ss.statefulDB.EnqueueTask(ctx, statedb.TaskStreamReceived, task, statedb.WithTaskKey(fmt.Sprintf("stream-received::%s::%s", spseg.Creator, notif.Segment.ID)))
+			if err != nil {
+				log.Error(ctx, "failed to enqueue stream.received task", "err", err)
+			}
+			return nil
+		})
+	}
+
 	// Record to S3 for live-to-VOD only while the stream is live (an un-ended
 	// place.stream.livestream record exists -> the segment is published).
 	// Segments that arrive before "go live" or after the livestream ends are
@@ -329,7 +347,7 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 				return nil
 			}
 			task := &statedb.NotificationTask{
-				Livestream: lsv,
+				Livestream: *lsv,
 				PDSURL:     r.PDS,
 			}
 			cp, err := ss.mod.GetChatProfile(ctx, spseg.Creator)
@@ -357,8 +375,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	return nil
 }
 
-func shouldNotify(lsv *streamplace.Livestream_LivestreamView) bool {
-	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+func shouldNotify(lsv *placestream.Livestream_LivestreamView) bool {
+	lsvr, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return true
 	}
@@ -427,7 +445,12 @@ func (ss *StreamSession) statusUpdateLoop(ctx context.Context, repoDID string) e
 func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) error {
 	ctx = log.WithLogValues(ctx, "func", "doUpdateStatus")
 
-	client, err := ss.GetClientByDID(repoDID)
+	client, err := ss.GetClientByDID(repoDID, atproto.ScopeBskyActorStatus)
+	if errors.Is(err, statedb.ErrNoSessionWithScope) {
+		log.Debug(ctx, "user declined Bluesky permissions, skipping live status update", "repoDID", repoDID)
+		ss.lastStatus = time.Now()
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
@@ -445,7 +468,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
 
-	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	lsvr, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -456,7 +479,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 		return fmt.Errorf("could not get repo for repoDID: %w", err)
 	}
 
-	lsr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	lsr, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -472,9 +495,9 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 		canonicalUrl = *lsr.CanonicalUrl
 	}
 
-	actorStatusEmbed := bsky.ActorStatus_Embed{
-		EmbedExternal: &bsky.EmbedExternal{
-			External: &bsky.EmbedExternal_External{
+	actorStatusEmbed := appbsky.ActorStatus_Embed{
+		EmbedExternal: &appbsky.EmbedExternal{
+			External: appbsky.EmbedExternal_External{
 				Title:       lsr.Title,
 				Uri:         canonicalUrl,
 				Description: fmt.Sprintf("@%s is 🔴LIVE on %s", repo.Handle, ss.cli.BroadcasterHost),
@@ -484,7 +507,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 	}
 
 	duration := int64(10)
-	status := bsky.ActorStatus{
+	status := appbsky.ActorStatus{
 		Status:          "app.bsky.actor.status#live",
 		DurationMinutes: &duration,
 		Embed:           &actorStatusEmbed,
@@ -514,7 +537,7 @@ func (ss *StreamSession) doUpdateStatus(ctx context.Context, repoDID string) err
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "app.bsky.actor.status",
-		Record:     &lexutil.LexiconTypeDecoder{Val: &status},
+		Record:     &glex.LexiconTypeDecoder{Val: &status},
 		Rkey:       "self",
 		Repo:       repoDID,
 		SwapRecord: swapRecord,
@@ -582,7 +605,7 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 	if err != nil {
 		return fmt.Errorf("could not convert livestream to streamplace livestream: %w", err)
 	}
-	lsvr, ok := lsv.Record.Val.(*streamplace.Livestream)
+	lsvr, ok := lsv.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return fmt.Errorf("livestream is not a streamplace livestream")
 	}
@@ -615,7 +638,7 @@ func (ss *StreamSession) doUpdateLivestream(ctx context.Context, repoDID string)
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.livestream",
-		Record:     &lexutil.LexiconTypeDecoder{Val: lsvr},
+		Record:     &glex.LexiconTypeDecoder{Val: lsvr},
 		Rkey:       aturi.RecordKey().String(),
 		Repo:       ss.repoDID,
 		SwapRecord: swapRecord,
@@ -649,7 +672,7 @@ func (ss *StreamSession) DeleteStatus(repoDID string) error {
 	inp.SwapRecord = ss.lastStatusCID
 	out := comatproto.RepoDeleteRecord_Output{}
 
-	client, err := ss.GetClientByDID(repoDID)
+	client, err := ss.GetClientByDID(repoDID, atproto.ScopeBskyActorStatus)
 	if err != nil {
 		return fmt.Errorf("could not get xrpc client: %w", err)
 	}
@@ -698,7 +721,7 @@ func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
 	ctx = log.WithLogValues(ctx, "func", "doUpdateBroadcastOrigin")
 
 	broadcaster := fmt.Sprintf("did:web:%s", ss.cli.BroadcasterHost)
-	origin := streamplace.BroadcastOrigin{
+	origin := placestream.BroadcastOrigin{
 		Streamer:    ss.repoDID,
 		Server:      fmt.Sprintf("did:web:%s", ss.cli.ServerHost),
 		Broadcaster: &broadcaster,
@@ -739,7 +762,7 @@ func (ss *StreamSession) doUpdateBroadcastOrigin(ctx context.Context) error {
 
 	inp := comatproto.RepoPutRecord_Input{
 		Collection: "place.stream.broadcast.origin",
-		Record:     &lexutil.LexiconTypeDecoder{Val: &origin},
+		Record:     &glex.LexiconTypeDecoder{Val: &origin},
 		Rkey:       rkey,
 		Repo:       ss.repoDID,
 		SwapRecord: swapRecord,
@@ -793,7 +816,7 @@ func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) 
 	now := time.Now().UTC().Format(util.ISO8601)
 	rkey := fmt.Sprintf("%s::%s", repoDID, ss.cli.ServerDID())
 
-	vc := &streamplace.LiveViewerCount{
+	vc := &placestream.LiveViewerCount{
 		LexiconTypeID: constants.PLACE_STREAM_LIVE_VIEWERCOUNT,
 		Count:         int64(count),
 		Server:        ss.cli.ServerDID(),
@@ -811,7 +834,7 @@ func (ss *StreamSession) doUpdateViewCount(ctx context.Context, repoDID string) 
 	return nil
 }
 
-func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segment, data []byte) error {
+func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segment, data []byte) error {
 	rs, err := renditions.GenerateRenditions(spseg)
 	if err != nil {
 		return fmt.Errorf("failed to generated renditions: %w", err)
@@ -863,14 +886,14 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *streamplace.Segme
 	return nil
 }
 
-func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
+func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
 	ss.Go(ctx, func() error {
 		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
 	})
 	return nil
 }
 
-func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *streamplace.Segment, rendition string, seg *bus.Seg) error {
+func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
 	packet, err := media.Packetize(ctx, ss.cli, seg)
 	if err != nil {
 		return fmt.Errorf("failed to packetize segment: %w", err)
@@ -884,7 +907,11 @@ type XRPCClient interface {
 	Do(ctx context.Context, method string, contentType string, path string, queryParams map[string]any, body any, out any) error
 }
 
-func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
+// GetClientByDID returns an XRPC client acting as the given user. If
+// requiredScope values are passed, the user's sessions are scanned for one
+// that was granted all of them; statedb.ErrNoSessionWithScope means the user
+// declined those permissions everywhere they're logged in.
+func (ss *StreamSession) GetClientByDID(did string, requiredScope ...string) (XRPCClient, error) {
 	password, ok := ss.cli.DevAccountCreds[did]
 	if ok {
 		repo, err := ss.mod.GetRepoByHandleOrDID(did)
@@ -919,7 +946,13 @@ func (ss *StreamSession) GetClientByDID(did string) (XRPCClient, error) {
 			},
 		}, nil
 	}
-	session, err := ss.statefulDB.GetSessionByDID(ss.repoDID)
+	var session *oatproxy.OAuthSession
+	var err error
+	if len(requiredScope) > 0 {
+		session, err = ss.statefulDB.GetSessionByDIDWithScope(ss.repoDID, strings.Join(requiredScope, " "))
+	} else {
+		session, err = ss.statefulDB.GetSessionByDID(ss.repoDID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("could not get OAuth session for repoDID: %w", err)
 	}
@@ -971,7 +1004,7 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 		}
 		currentRunning := map[string]bool{}
 		for _, targetView := range targets {
-			rec, ok := targetView.Record.Val.(*streamplace.MultistreamTarget)
+			rec, ok := targetView.Record.Val.(*placestream.MultistreamTarget)
 			if !ok {
 				log.Error(ctx, "failed to convert multistream target to streamplace multistream target", "uri", targetView.Uri)
 				continue
@@ -990,7 +1023,7 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 					if err != nil {
 						log.Error(ctx, "failed to create multistream event", "error", err)
 					}
-					return ss.StartMultistreamTarget(childCtx, targetView)
+					return ss.StartMultistreamTarget(childCtx, &targetView)
 				})
 				running[key] = &runningMultistream{
 					cancel: childCancel,
@@ -1017,7 +1050,7 @@ func (ss *StreamSession) HandleMultistreamTargets(ctx context.Context) error {
 	}
 }
 
-func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *streamplace.MultistreamDefs_TargetView) error {
+func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView *placestream.MultistreamDefs_TargetView) error {
 	for {
 		// Under --isolated-ingest the crash-prone native egress pipeline runs in a
 		// worker subprocess (a gst fault there can't take the node down); otherwise

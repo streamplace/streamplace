@@ -9,19 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api/bsky"
 	"github.com/bluesky-social/indigo/atproto/atdata"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/util"
+	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/aqtime"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/model"
 	notificationpkg "stream.place/streamplace/pkg/notifications"
+	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
-	"stream.place/streamplace/pkg/streamplace"
 
-	lexutil "github.com/bluesky-social/indigo/lex/util"
+	glex "github.com/streamplace/glex/runtime"
 )
 
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
@@ -40,26 +40,26 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 	if err != nil {
 		return fmt.Errorf("failed to unmarhsal record CBOR: %w", err)
 	}
-	cb, err := lexutil.CborDecodeValue(*recCBOR)
-	if errors.Is(err, lexutil.ErrUnrecognizedType) {
+	cb, err := glex.CborDecodeValue(*recCBOR)
+	if errors.Is(err, glex.ErrUnrecognizedType) {
 		log.Debug(ctx, "unrecognized record type", "key", rkey.String(), "type", err)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to decode record CBOR: %w", err)
 	}
 	switch rec := cb.(type) {
-	case *bsky.GraphFollow:
+	case *appbsky.GraphFollow:
 		if r == nil {
 			// someone we don't know about
 			return nil
 		}
 		log.Debug(ctx, "creating follow", "userDID", userDID, "subjectDID", rec.Subject)
-		err := atsync.Model.CreateFollow(ctx, userDID, rkey.String(), rec)
+		err := atsync.Model.CreateFollow(ctx, userDID, rkey.String(), *rec)
 		if err != nil {
 			log.Debug(ctx, "failed to create follow", "err", err)
 		}
 
-	case *bsky.GraphBlock:
+	case *appbsky.GraphBlock:
 		if r == nil {
 			// someone we don't know about
 			return nil
@@ -86,7 +86,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceBlock)
 
-	case *bsky.ActorProfile:
+	case *appbsky.ActorProfile:
 		if r == nil {
 			// someone we don't know about
 			return nil
@@ -97,7 +97,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to upsert bsky profile: %w", err)
 		}
 
-	case *streamplace.ChatMessage:
+	case *placestream.ChatMessage:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -110,7 +110,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}()
 
-		log.Debug(ctx, "streamplace.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
+		log.Debug(ctx, "placestream.ChatMessage detected", "message", rec.Text, "repo", repo.Handle)
 		block, err := atsync.Model.GetUserBlock(ctx, rec.Streamer, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to get user block: %w", err)
@@ -129,7 +129,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			StreamerRepoDID: rec.Streamer,
 			IndexedAt:       &now,
 		}
-		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
 			mcm.ReplyToCID = &rec.Reply.Parent.Cid
 		}
 
@@ -181,7 +181,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if !isUpdate && !isFirstSync {
 
 			task := &statedb.ChatTask{
-				MessageView: scm,
+				MessageView: *scm,
 			}
 
 			_, err = atsync.StatefulDB.EnqueueTask(ctx, statedb.TaskChat, task, statedb.WithTaskKey(fmt.Sprintf("chat-message::%s", aturi.String())))
@@ -190,7 +190,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 		}
 
-	case *streamplace.ChatGate:
+	case *placestream.ChatGate:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -222,7 +222,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		go atsync.Bus.Publish(userDID, streamplaceGate)
 
-	case *streamplace.ChatPinnedRecord:
+	case *placestream.ChatPinnedRecord:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -300,11 +300,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err != nil {
 				return fmt.Errorf("failed to convert chat profile: %w", err)
 			}
-			pinnedView.PinnedBy = profileView
+			pinnedView.PinnedBy = &profileView
 		}
 		go atsync.Bus.Publish(userDID, pinnedView)
 
-	case *streamplace.ChatProfile:
+	case *placestream.ChatProfile:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -319,7 +319,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create chat profile", "err", err)
 		}
 
-	case *streamplace.ServerSettings:
+	case *placestream.ServerSettings:
 		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -334,7 +334,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create server settings", "err", err)
 		}
 
-	case *bsky.FeedPost:
+	case *appbsky.FeedPost:
 		// jsonData, err := json.Marshal(d)
 		// if err != nil {
 		// 	log.Error(ctx, "failed to marshal record data", "err", err)
@@ -374,7 +374,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("failed to create bluesky post: %w", err)
 			}
 		} else {
-			if rec.Reply == nil || rec.Reply.Root == nil {
+			if rec.Reply == nil || rec.Reply.Root.Uri == "" {
 				return nil
 			}
 			livestream, err := atsync.Model.GetLivestreamByPostURI(rec.Reply.Root.Uri)
@@ -427,7 +427,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			go atsync.Bus.Publish(livestream.RepoDID, postView)
 		}
 
-	case *streamplace.Livestream:
+	case *placestream.Livestream:
 		if r == nil {
 			// we don't know about this repo
 			return nil
@@ -463,6 +463,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		go atsync.Bus.Publish(userDID, lsv)
 
 		if !isFirstSync {
+			if atsync.CLI.StreamIsAllowed(userDID) != nil {
+				// they're live somewhere but they don't have nothin' to do with us
+				return nil
+			}
+			log.Log(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),
@@ -486,7 +491,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		}
 
-	case *streamplace.LiveTeleport:
+	case *placestream.LiveTeleport:
 		if r == nil {
 			return nil
 		}
@@ -540,10 +545,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 			viewerCount := existingTp.ViewerCount
 
-			arrivalMsg := &streamplace.Livestream_TeleportArrival{
+			arrivalMsg := placestream.Livestream_TeleportArrival{
 				LexiconTypeID: "place.stream.livestream#teleportArrival",
 				TeleportUri:   aturi.String(),
-				Source: &bsky.ActorDefs_ProfileViewBasic{
+				Source: appbsky.ActorDefs_ProfileViewBasic{
 					Did:    userDID,
 					Handle: sourceRepo.Handle,
 				},
@@ -556,14 +561,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			if err == nil && chatProfile != nil {
 				spcp, err := chatProfile.ToStreamplaceChatProfile()
 				if err == nil {
-					arrivalMsg.ChatProfile = spcp
+					arrivalMsg.ChatProfile = &spcp
 				}
 			}
 
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+
+			// A teleport is our version of a "raid": it sends the source
+			// streamer's viewers to the target. Unlike a raid, though, it
+			// previously left the source stream live — so viewers could just
+			// navigate back. End the source streamer's livestream here (the
+			// same record update place.stream.live.stopLivestream performs,
+			// setting endedAt so the streamer returns to "pre-live"), now
+			// that viewers have been sent over. The exact stream to end is
+			// pinned by the teleport record's `livestream` strongRef, so a
+			// newer stream the streamer may have started in the meantime is
+			// never terminated by mistake. Best-effort: a failure only logs
+			// and never blocks the arrival notification.
+			atsync.endLivestreamForTeleport(ctx, userDID, rec.Livestream)
 		})
 
-	case *streamplace.Key:
+	case *placestream.Key:
 		log.Debug(ctx, "creating key", "key", rec)
 		time, err := aqtime.FromString(rec.CreatedAt)
 		if err != nil {
@@ -580,7 +598,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create signing key", "err", err)
 		}
 
-	case *streamplace.BroadcastOrigin:
+	case *placestream.BroadcastOrigin:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin creator bluesky repo: %w", err)
@@ -589,23 +607,23 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		if err != nil {
 			return fmt.Errorf("failed to sync broadcast origin streamer bluesky repo: %w", err)
 		}
-		err = atsync.Model.UpdateBroadcastOrigin(ctx, rec, aturi)
+		err = atsync.Model.UpdateBroadcastOrigin(ctx, *rec, aturi)
 		if err != nil {
 			log.Error(ctx, "failed to update broadcast origin", "err", err)
 		}
-		view := &streamplace.BroadcastDefs_BroadcastOriginView{
+		view := placestream.BroadcastDefs_BroadcastOriginView{
 			Uri: aturi.String(),
 			Cid: cid,
-			Author: &bsky.ActorDefs_ProfileViewBasic{
+			Author: appbsky.ActorDefs_ProfileViewBasic{
 				Did:    userDID,
 				Handle: repo.Handle,
 			},
-			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
 		// publishes with an empty string because we're discovering the stream
 		go atsync.Bus.Publish("", view)
 
-	case *streamplace.MetadataConfiguration:
+	case *placestream.MetadataConfiguration:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -621,32 +639,32 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create metadata configuration", "err", err)
 		}
 
-	case *streamplace.ModerationPermission:
+	case *placestream.ModerationPermission:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
-		err = atsync.Model.CreateModerationDelegation(ctx, rec, aturi)
+		err = atsync.Model.CreateModerationDelegation(ctx, *rec, aturi)
 		if err != nil {
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
 
-		view := &streamplace.ModerationDefs_PermissionView{
+		view := placestream.ModerationDefs_PermissionView{
 			Uri: aturi.String(),
 			Cid: cid,
-			Author: &bsky.ActorDefs_ProfileViewBasic{
+			Author: appbsky.ActorDefs_ProfileViewBasic{
 				Did:    userDID,
 				Handle: repo.Handle,
 			},
-			Record: &lexutil.LexiconTypeDecoder{Val: rec},
+			Record: &glex.LexiconTypeDecoder{Val: rec},
 		}
 		// Publish moderation permission view to WebSocket bus for real-time updates
 		// This allows moderators to see their permissions instantly without page refresh
 		go atsync.Bus.Publish(userDID, view)
 
-	case *streamplace.LiveViewerCount:
+	case *placestream.LiveViewerCount:
 		log.Debug(ctx, "indexing view count", "streamer", rec.Streamer, "server", rec.Server, "count", rec.Count)
 		// Our own record loops back through our own firehose; indexing it
 		// would stack the federated copy of our local count on top of the
@@ -664,7 +682,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		atsync.Bus.SetFederatedViewCount(rec.Streamer, rec.Server, int(rec.Count))
 
-	case *streamplace.LiveRecommendations:
+	case *placestream.LiveRecommendations:
 		log.Debug(ctx, "creating recommendations", "userDID", userDID, "count", len(rec.Streamers))
 
 		// Validate max 8 streamers
@@ -696,7 +714,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return fmt.Errorf("failed to upsert recommendation: %w", err)
 		}
 
-	case *streamplace.BadgeDef:
+	case *placestream.BadgeDef:
 		def := &model.BadgeDef{
 			URI:       aturi.String(),
 			CID:       cid,
@@ -719,7 +737,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed badge def", "uri", aturi.String(), "name", rec.Name)
 
-	case *streamplace.BadgeIssuance:
+	case *placestream.BadgeIssuance:
 		issuance := &model.BadgeIssuance{
 			URI:          aturi.String(),
 			CID:          cid,
@@ -735,46 +753,46 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 		log.Debug(ctx, "indexed badge issuance", "uri", aturi.String(), "recipient", rec.Did)
 
-	case *streamplace.Video:
+	case *placestream.Video:
 		_, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
 		}
-		if err := atsync.Model.UpsertVideo(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertVideo(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert video: %w", err)
 		}
 		log.Debug(ctx, "indexed video", "uri", aturi.String(), "title", rec.Title)
 
-	case *streamplace.MediaTrack:
+	case *placestream.MediaTrack:
 		// Tracks not backed by a muxlTrack (we don't define any other
 		// shape yet) are skipped with a warning — there'd be no blob
 		// to key the row off of.
-		if rec.Track == nil || rec.Track.MediaDefs_MuxlTrack == nil {
+		if rec.Track.MediaDefs_MuxlTrack == nil {
 			log.Warn(ctx, "track record missing muxlTrack; skipping", "uri", aturi.String())
 			return nil
 		}
-		if err := atsync.Model.UpsertMediaTrack(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaTrack(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media track: %w", err)
 		}
 		mt := rec.Track.MediaDefs_MuxlTrack
 		log.Debug(ctx, "indexed media track", "uri", aturi.String(), "blob", mt.Blob, "mediaType", mt.MediaType)
 
-	case *streamplace.MediaOrigin:
+	case *placestream.MediaOrigin:
 		// Origin records are published by streamplace nodes (not users)
 		// against their own server-repo DID. The aturi's authority is
 		// the publishing server.
-		if err := atsync.Model.UpsertMediaOrigin(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaOrigin(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media origin: %w", err)
 		}
 		log.Debug(ctx, "indexed media origin", "uri", aturi.String(), "blob", rec.Blob, "server", userDID)
 
-	case *streamplace.BetaInvite:
+	case *placestream.BetaInvite:
 		// Invite records grant a specific account access to a named
 		// beta feature. We index all of them as they fly past; gate
 		// callers filter by RepoDID to a single operator-configured
 		// issuer (the `--beta-invite-did` flag), so anyone else
 		// minting these records is harmless noise.
-		if err := atsync.Model.UpsertBetaInvite(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaInvite(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert beta invite: %w", err)
 		}
 		log.Debug(ctx, "indexed beta invite", "uri", aturi.String(), "did", rec.Did, "feature", rec.Feature)
@@ -788,27 +806,27 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			atsync.notifyBetaInvite(ctx, rec)
 		}
 
-	case *streamplace.BetaRequest:
+	case *placestream.BetaRequest:
 		// Access requests are published by users in their own repos. We
 		// index them so operators can see who's waiting and so
 		// place.stream.beta.getStatus can report "requested".
-		if err := atsync.Model.UpsertBetaRequest(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertBetaRequest(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert beta request: %w", err)
 		}
 		log.Debug(ctx, "indexed beta request", "uri", aturi.String(), "did", userDID, "feature", rec.Feature)
 
-	case *streamplace.MediaViewCount:
+	case *placestream.MediaViewCount:
 		// View-count records are published by streamplace nodes (in
 		// their server repos) reporting on traffic they observed.
 		// Multiple reporters publish records for the same video; the
 		// query layer (place.stream.media.getVideo) sums across them.
-		if err := atsync.Model.UpsertMediaViewCount(ctx, rec, aturi); err != nil {
+		if err := atsync.Model.UpsertMediaViewCount(ctx, *rec, aturi); err != nil {
 			return fmt.Errorf("failed to upsert media view count: %w", err)
 		}
 		log.Debug(ctx, "indexed media view count",
 			"uri", aturi.String(), "video", rec.Video, "count", rec.Count, "reporter", userDID)
 
-	case *streamplace.VodComment:
+	case *placestream.VodComment:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -843,7 +861,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			VideoAuthorDID: videoAuthor,
 			IndexedAt:      &now,
 		}
-		if rec.Reply != nil && rec.Reply.Parent != nil && rec.Reply.Root != nil {
+		if rec.Reply != nil && rec.Reply.Parent.Uri != "" && rec.Reply.Root.Uri != "" {
 			vc.ReplyToCID = &rec.Reply.Parent.Cid
 		}
 
@@ -889,7 +907,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			go atsync.Bus.Publish(userDID, sc)
 		}
 
-	case *streamplace.Like:
+	case *placestream.Like:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -923,7 +941,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			return nil
 		}
 
-	case *streamplace.VodGate:
+	case *placestream.VodGate:
 		repo, err := atsync.SyncBlueskyRepoCached(ctx, userDID)
 		if err != nil {
 			return fmt.Errorf("failed to sync bluesky repo: %w", err)
@@ -956,25 +974,35 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 // account named by a freshly-issued, trusted beta invite. Best-effort: any
 // failure is logged, never returned, since the invite is already indexed and
 // the upload gate works regardless of whether the push lands.
-func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *streamplace.BetaInvite) {
+func (atsync *ATProtoSynchronizer) notifyBetaInvite(ctx context.Context, rec *placestream.BetaInvite) {
 	if atsync.Noter == nil || atsync.StatefulDB == nil {
 		return
 	}
-	tokens, err := atsync.StatefulDB.GetManyNotificationTokens([]string{rec.Did})
+	notifications, err := atsync.StatefulDB.GetManyNotifications([]string{rec.Did})
 	if err != nil {
 		log.Error(ctx, "beta invite notification: failed to load tokens", "did", rec.Did, "err", err)
 		return
 	}
-	if len(tokens) == 0 {
+	if len(notifications) == 0 {
 		log.Debug(ctx, "beta invite notification: no device tokens for invitee", "did", rec.Did, "feature", rec.Feature)
 		return
 	}
 	blast := betaInviteBlast(rec.Feature)
-	if err := atsync.Noter.Blast(ctx, tokens, blast); err != nil {
-		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
-		return
+	targets := make([]notificationpkg.NotificationTarget, len(notifications))
+	for i, n := range notifications {
+		targets[i] = notificationpkg.NotificationTarget{Token: n.Token, Type: n.Type}
 	}
-	log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(tokens))
+	if err := atsync.Noter.Blast(ctx, targets, blast); err != nil {
+		log.Error(ctx, "beta invite notification: blast failed", "did", rec.Did, "feature", rec.Feature, "err", err)
+	} else {
+		log.Log(ctx, "sent beta invite notification", "did", rec.Did, "feature", rec.Feature, "tokens", len(notifications))
+	}
+	// Prune dead web push subscriptions so they don't accumulate.
+	for _, token := range notificationpkg.ExpiredTokens(err) {
+		if delErr := atsync.StatefulDB.DeleteNotification(token); delErr != nil {
+			log.Error(ctx, "beta invite notification: failed to prune expired", "token", token, "err", delErr)
+		}
+	}
 }
 
 // betaInviteBlast builds the push payload for a newly-granted beta feature.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math"
 
-	"stream.place/streamplace/pkg/streamplace"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 type FPS struct {
@@ -142,11 +142,11 @@ var DesiredRenditions = []Rendition{
 }
 
 // GenerateRenditions generates renditions for a given spseg
-func GenerateRenditions(spseg *streamplace.Segment) (Renditions, error) {
-	vid := spseg.Video[0]
-	if vid == nil {
+func GenerateRenditions(spseg *placestream.Segment) (Renditions, error) {
+	if len(spseg.Video) == 0 {
 		return nil, fmt.Errorf("no video stream found")
 	}
+	vid := spseg.Video[0]
 	rs := []Rendition{}
 	for _, r := range DesiredRenditions {
 		vidWidth := int64(vid.Width)

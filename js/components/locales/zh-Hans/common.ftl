@@ -67,3 +67,7 @@ pds-selector-learn-more = 了解有关自组主机的更多信息
 pds-selector-info = 每个主机都有自己的政策和可靠性标准。您的 ATProto 数据存储在您选择的主机上，您可以以后进行迁移。注意：Streamplace 有自己的审核规则——无论您选择哪个主机，都可能会被 Streamplace 禁止使用。
 pds-selector-read-policies = 在继续之前，请阅读 { $label } 的<tosLink>服务条款</tosLink>和<privacyLink>隐私政策</privacyLink>。
 pds-selector-handle-policy-checkbox = 我已阅读并同意<policyLink>处理政策</policyLink>
+
+## Login
+login-show-live-on-bluesky = 在 Bluesky 上显示我的直播状态
+login-show-live-on-bluesky-description = 直播时为您的 Bluesky 头像加上红色 LIVE 圆环，并允许 Streamplace 代您发布直播公告。取消勾选即可在不授予任何 Bluesky 账号访问权限的情况下登录。

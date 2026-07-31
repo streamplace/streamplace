@@ -72,3 +72,7 @@ pds-selector-learn-more = Aflați mai multe despre găzduirea proprie
 pds-selector-info = Fiecare gazdă are propriile politici și standarde de fiabilitate. Datele dvs. ATProto se află pe gazda pe care o alegeți și le puteți migra ulterior. Notă: Streamplace are propriile reguli de moderare - accesul dvs. poate fi interzis pe Streamplace indiferent de gazda pe care o alegeți.
 pds-selector-read-policies = Citiți <tosLink>Termenii și condițiile</tosLink> și <privacyLink>Politica de confidențialitate</privacyLink> ale { $label } înainte de a continua.
 pds-selector-handle-policy-checkbox = Am citit și sunt de acord cu <policyLink>politica de gestionare</policyLink>
+
+## Login
+login-show-live-on-bluesky = Arată când sunt live pe Bluesky
+login-show-live-on-bluesky-description = Adaugă inelul roșu LIVE avatarului dvs. de Bluesky în timp ce transmiteți și permite Streamplace să publice anunțuri în numele dvs. Debifați pentru a vă conecta fără a acorda niciun acces la contul dvs. de Bluesky.

@@ -11,8 +11,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 func Migrate(cli *config.CLI) error {
@@ -62,7 +62,7 @@ func Migrate(cli *config.CLI) error {
 		}
 	}
 
-	var repos []model.Repo
+	var repos []indexdb.Repo
 	if err := oldDB.Find(&repos).Error; err != nil {
 		time.Sleep(1 * time.Second)
 		return err

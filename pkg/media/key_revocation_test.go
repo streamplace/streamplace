@@ -31,7 +31,7 @@ func TestStreamKickMarshalsAsPlaceStreamError(t *testing.T) {
 // delivers to already-registered subscribers, so we re-publish on a tick until
 // the watcher's subscription is live.)
 func TestWatchKeyRevocationBan(t *testing.T) {
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,7 +61,7 @@ func TestWatchKeyRevocationBan(t *testing.T) {
 // streamer's bus channel fires onRevoked with its message — the path the max
 // live bitrate enforcement uses to tear a stream down across every ingest path.
 func TestWatchKeyRevocationStreamKick(t *testing.T) {
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -98,7 +98,7 @@ func TestMP4IngestIsolatedBanContained(t *testing.T) {
 	ingestWorkerWatchdog = 60 * time.Second
 	defer func() { ingestWorkerWatchdog = old }()
 
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, _ := getStaticTestMediaManager(t)
 	ms := newBareSegmentSigner(t)
 	wedge := makeAudioOnlyAACFMP4(t, context.Background(), 5)
 

@@ -1,48 +1,30 @@
 package statedb
 
 import (
-	"bytes"
 	"context"
 	"testing"
 	"time"
 
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
-// marshalLivestream encodes a placestream.Livestream record to the CBOR blob
-// shape the model stores (the same bytes atproto sync decodes via
-// lexutil.CborDecodeValue).
-func marshalLivestream(t *testing.T, rec *placestream.Livestream) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	require.NoError(t, rec.MarshalCBOR(&buf))
-	return buf.Bytes()
-}
-
 // seedLivestream inserts a place.stream.livestream row for did with the given
-// lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI. createdAgo sets the
-// row's created_at (the column GetLatestLivestreamForRepo orders by) so callers
-// can control which record is "latest".
-func seedLivestream(t *testing.T, mod model.Model, did, rkey string, createdAgo time.Duration, rec *placestream.Livestream) string {
+// lastSeenAt/endedAt/idleTimeoutSeconds, returning its URI.
+func seedLivestream(t *testing.T, mod indexdb.Model, did, rkey string, _ time.Duration, rec *placestream.Livestream) string {
 	t.Helper()
 	// ToLivestreamView dereferences ls.Repo.Handle, so the streamer needs a
 	// repo row. UpdateRepo upserts on PK (did), creating it if absent.
-	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: did, Handle: "handle-" + rkey}))
+	require.NoError(t, mod.UpdateRepo(&indexdb.Repo{DID: did, Handle: "handle-" + rkey}))
 	uri := "at://" + did + "/place.stream.livestream/" + rkey
-	created := time.Now().Add(-createdAgo)
-	blob := marshalLivestream(t, rec)
-	require.NoError(t, mod.CreateLivestream(context.Background(), &model.Livestream{
-		URI:        uri,
-		CID:        "bafy-" + rkey,
-		CreatedAt:  created,
-		Livestream: &blob,
-		RepoDID:    did,
-	}))
+	aturi, err := syntax.ParseATURI(uri)
+	require.NoError(t, err)
+	require.NoError(t, mod.UpsertLivestream(context.Background(), aturi, *rec))
 	return uri
 }
 
@@ -73,13 +55,13 @@ func seedSession(t *testing.T, state *StatefulDB, did string) {
 // ~60s ingest gap froze lastSeenAt, the idle timer fired while the stream was
 // still flowing, and endedAt was written onto the live record.
 func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:reschedule"
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
+		uri := seedLivestream(t, mod, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -110,9 +92,7 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 
 		// And critically: the record must NOT have been ended. Re-read it from
 		// the repo and confirm endedAt is still unset.
-		ls, err := state.model.GetLivestream(uri)
-		require.NoError(t, err)
-		view, err := ls.ToLivestreamView()
+		view, err := state.model.GetLivestream(uri)
 		require.NoError(t, err)
 		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)
@@ -127,19 +107,19 @@ func TestFinalizeLivestreamReschedulesWhenLatestButStale(t *testing.T) {
 // since no PDS session is wired; what matters is that no reschedule was enqueued
 // and the record wasn't protected by the latest-record guard).
 func TestFinalizeLivestreamEndsSupersededRecord(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:superseded"
 
 		// Older record: stale lastSeenAt, but a newer record will exist.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),
@@ -174,13 +154,13 @@ func TestFinalizeLivestreamEndsSupersededRecord(t *testing.T) {
 // rescheduled key embeds a fresh timestamp, so dedup never fires — flooding the
 // logs and growing the task table without bound.
 func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:firehose-only"
 
 		// The record is "latest" (only one for this repo) and its lastSeenAt
 		// is well past the 300s idle timeout.
-		uri := seedLivestream(t, state.model, did, "latest", 1*time.Hour, &placestream.Livestream{
+		uri := seedLivestream(t, mod, did, "latest", 1*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
@@ -208,9 +188,7 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 		require.Empty(t, tasks, "no reschedule task should be enqueued for a session-less stale-but-latest record")
 
 		// The record must NOT have been ended (no session = no write access).
-		ls, err := state.model.GetLivestream(uri)
-		require.NoError(t, err)
-		view, err := ls.ToLivestreamView()
+		view, err := state.model.GetLivestream(uri)
 		require.NoError(t, err)
 		rec, ok := view.Record.Val.(*placestream.Livestream)
 		require.True(t, ok)
@@ -226,19 +204,19 @@ func TestFinalizeLivestreamDropsStaleLatestWithoutSession(t *testing.T) {
 // (it doesn't silently drop), confirming the no-session drop only applies to
 // the stale-but-latest branch.
 func TestFinalizeLivestreamSupersededWithoutSessionErrorsAtSessionLookup(t *testing.T) {
-	WithAllDatabases(t, func(state *StatefulDB) {
+	WithAllDatabasesAndModel(t, func(state *StatefulDB, mod indexdb.Model) {
 		ctx := context.Background()
 		did := "did:plc:superseded-nosession"
 
 		// Older record: stale, will be superseded.
-		_ = seedLivestream(t, state.model, did, "old", 2*time.Hour, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "old", 2*time.Hour, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Add(-10 * time.Minute).Format(time.RFC3339)),
 			IdleTimeoutSeconds: ptr(int64(300)),
 		})
 		// Newer record: makes "old" no longer latest.
-		_ = seedLivestream(t, state.model, did, "new", 1*time.Minute, &placestream.Livestream{
+		_ = seedLivestream(t, mod, did, "new", 1*time.Minute, &placestream.Livestream{
 			LexiconTypeID:      "place.stream.livestream",
 			CreatedAt:          time.Now().Add(-1 * time.Minute).Format(time.RFC3339),
 			LastSeenAt:         ptr(time.Now().Format(time.RFC3339)),

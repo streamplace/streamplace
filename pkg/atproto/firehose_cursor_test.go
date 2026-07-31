@@ -7,11 +7,11 @@ import (
 	indigoatproto "github.com/bluesky-social/indigo/api/atproto"
 	lexutil "github.com/bluesky-social/indigo/lex/util"
 	"github.com/stretchr/testify/require"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 func TestRelayCursorResume(t *testing.T) {
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	atsync := &ATProtoSynchronizer{Model: mod}
 	ctx := context.Background()
@@ -61,7 +61,7 @@ func TestRelayCursorResume(t *testing.T) {
 }
 
 func TestRelayCursorGroupResume(t *testing.T) {
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	atsync := &ATProtoSynchronizer{Model: mod}
 	ctx := context.Background()
@@ -137,7 +137,7 @@ func TestMoqCallbacksDontPoisonGroupCursor(t *testing.T) {
 }
 
 func TestRelayCursorReset(t *testing.T) {
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	atsync := &ATProtoSynchronizer{Model: mod}
 	ctx := context.Background()

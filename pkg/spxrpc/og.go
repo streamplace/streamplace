@@ -27,8 +27,8 @@ import (
 	"github.com/tdewolff/canvas/renderers"
 	"stream.place/streamplace/js/app"
 	"stream.place/streamplace/pkg/aqhttp"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 const (
@@ -264,30 +264,25 @@ func (s *Server) generateOGImage(ctx context.Context, username string) ([]byte, 
 	var userColor = joinTextColor      // default
 	var borderColor = imageBorderColor // default
 	if userDID != "" {
-		chatProfile, err := s.ATSync.Model.GetChatProfile(ctx, userDID)
+		chatProfile, err := s.model.GetChatProfile(ctx, userDID)
 		if err != nil {
 			log.Warn(ctx, "failed to fetch chat profile", "did", userDID, "error", err)
-			clr := model.DefaultColors[hashString(userDID)%len(model.DefaultColors)]
+			clr := indexdb.DefaultColors[hashString(userDID)%len(indexdb.DefaultColors)]
 			userColor = color.RGBA{
 				R: uint8(clr.Red),
 				G: uint8(clr.Green),
 				B: uint8(clr.Blue),
 				A: 255,
 			}
-		} else if chatProfile != nil {
-			streamplaceChatProfile, err := chatProfile.ToStreamplaceChatProfile()
-			if err != nil {
-				log.Warn(ctx, "failed to decode chat profile", "did", userDID, "error", err)
-			} else if streamplaceChatProfile.Color != nil {
-				userColor = color.RGBA{
-					R: uint8(streamplaceChatProfile.Color.Red),
-					G: uint8(streamplaceChatProfile.Color.Green),
-					B: uint8(streamplaceChatProfile.Color.Blue),
-					A: 255,
-				}
-				borderColor = userColor
-				log.Debug(ctx, "using user's custom color", "did", userDID, "color", userColor)
+		} else if chatProfile != nil && chatProfile.Color != nil {
+			userColor = color.RGBA{
+				R: uint8(chatProfile.Color.Red),
+				G: uint8(chatProfile.Color.Green),
+				B: uint8(chatProfile.Color.Blue),
+				A: 255,
 			}
+			borderColor = userColor
+			log.Debug(ctx, "using user's custom color", "did", userDID, "color", userColor)
 		}
 	}
 

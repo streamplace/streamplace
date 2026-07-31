@@ -34,14 +34,13 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/crypto/signers/eip712"
-	"stream.place/streamplace/pkg/director"
 	apierrors "stream.place/streamplace/pkg/errors"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/linking"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 	"stream.place/streamplace/pkg/mist/mistconfig"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/notifications"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spxrpc"
@@ -58,7 +57,8 @@ import (
 
 type StreamplaceAPI struct {
 	CLI           *config.CLI
-	Model         model.Model
+	NodeIdentity  config.NodeIdentity
+	Model         indexdb.Model
 	StatefulDB    *statedb.StatefulDB
 	LocalDB       localdb.LocalDB
 	Updater       *Updater
@@ -72,10 +72,9 @@ type StreamplaceAPI struct {
 	ViewLog       *viewlog.Writer
 	XRPCServer    *spxrpc.Server
 	// not thread-safe yet
-	Aliases  map[string]string
-	Bus      *bus.Bus
-	ATSync   *atproto.ATProtoSynchronizer
-	Director *director.Director
+	Aliases map[string]string
+	Bus     *bus.Bus
+	ATSync  atproto.RepoIdentity
 
 	connTracker *WebsocketTracker
 
@@ -99,12 +98,48 @@ type WebsocketTracker struct {
 	mu            sync.RWMutex
 }
 
-func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.StatefulDB, noter notifications.Notifier, mm *media.MediaManager, ms media.MediaSigner, bus *bus.Bus, atsync *atproto.ATProtoSynchronizer, d *director.Director, op *oatproxy.OATProxy, ldb localdb.LocalDB, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer) (*StreamplaceAPI, error) {
+// Params carries the dependencies MakeStreamplaceAPI needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site. Model stays the full indexdb.Model deliberately: the
+// API layer is the query surface of the node, so it is the one consumer
+// allowed the whole store (services get consumer-side interfaces).
+type Params struct {
+	CLI           *config.CLI
+	NodeIdentity  config.NodeIdentity
+	Model         indexdb.Model
+	StatefulDB    *statedb.StatefulDB
+	Notifier      notifications.Notifier
+	MediaManager  *media.MediaManager
+	MediaSigner   media.MediaSigner
+	Bus           *bus.Bus
+	ATSync        atproto.RepoIdentity
+	OATProxy      *oatproxy.OATProxy
+	LocalDB       localdb.LocalDB
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+}
+
+func MakeStreamplaceAPI(p Params) (*StreamplaceAPI, error) {
+	cli := p.CLI
+	mod := p.Model
+	statefulDB := p.StatefulDB
+	noter := p.Notifier
+	mm := p.MediaManager
+	ms := p.MediaSigner
+	bus := p.Bus
+	atsync := p.ATSync
+	op := p.OATProxy
+	ldb := p.LocalDB
+	um := p.UploadManager
+	playbackStore := p.PlaybackStore
+	viewLog := p.ViewLog
 	updater, err := PrepareUpdater(cli)
 	if err != nil {
 		return nil, err
 	}
 	a := &StreamplaceAPI{CLI: cli,
+		NodeIdentity:     p.NodeIdentity,
 		Model:            mod,
 		StatefulDB:       statefulDB,
 		Updater:          updater,
@@ -117,7 +152,6 @@ func MakeStreamplaceAPI(cli *config.CLI, mod model.Model, statefulDB *statedb.St
 		Aliases:          map[string]string{},
 		Bus:              bus,
 		ATSync:           atsync,
-		Director:         d,
 		connTracker:      NewWebsocketTracker(cli.RateLimitWebsocket),
 		limiters:         make(map[string]*rate.Limiter),
 		SignerCache:      make(map[string]media.MediaSigner),
@@ -160,11 +194,26 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 		Recorder: metrics.NewRecorder(metrics.Config{}),
 	})
 	var xrpc http.Handler
-	xrpc, err := spxrpc.NewServer(ctx, a.CLI, a.Model, a.StatefulDB, a.op, mdlw, a.ATSync, a.Bus, a.LocalDB, a.MediaManager, a.UploadManager, a.PlaybackStore, a.ViewLog, a.Aliases)
+	xrpc, err := spxrpc.NewServer(ctx, spxrpc.Params{
+		CLI:           a.CLI,
+		Model:         a.Model,
+		StatefulDB:    a.StatefulDB,
+		OATProxy:      a.op,
+		Middleware:    mdlw,
+		ATSync:        a.ATSync,
+		Bus:           a.Bus,
+		LocalDB:       a.LocalDB,
+		MediaManager:  a.MediaManager,
+		UploadManager: a.UploadManager,
+		PlaybackStore: a.PlaybackStore,
+		ViewLog:       a.ViewLog,
+		Aliases:       a.Aliases,
+	})
 	if err != nil {
 		return nil, err
 	}
 	a.XRPCServer = xrpc.(*spxrpc.Server)
+	a.XRPCServer.ServiceAuthKey = a.NodeIdentity.ServiceAuthKey
 	router := httprouter.New()
 
 	// Create our middleware factory with the default settings.
@@ -413,15 +462,9 @@ func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *lin
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
-		ls, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
-		if err != nil || ls == nil {
-			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
-			defaultHandler.ServeHTTP(w, req)
-			return
-		}
-		lsv, err := ls.ToLivestreamView()
+		lsv, err := a.Model.GetLatestLivestreamForRepo(repo.DID)
 		if err != nil || lsv == nil {
-			log.Error(ctx, "no livestream view found", "repoDID", repo.DID)
+			log.Error(ctx, "no livestream found", "repoDID", repo.DID)
 			defaultHandler.ServeHTTP(w, req)
 			return
 		}
@@ -592,7 +635,7 @@ func (a *StreamplaceAPI) HandleNotification(ctx context.Context) http.HandlerFun
 		w.WriteHeader(200)
 		if n.RepoDID != "" {
 			go func() {
-				_, err := a.ATSync.SyncBlueskyRepo(ctx, n.RepoDID, a.Model)
+				_, err := a.ATSync.SyncBlueskyRepoCached(ctx, n.RepoDID)
 				if err != nil {
 					log.Error(ctx, "error syncing bluesky repo after notification creation", "error", err)
 				}
@@ -671,7 +714,7 @@ func (a *StreamplaceAPI) HandlePlayerEvent(ctx context.Context) httprouter.Handl
 			w.WriteHeader(200)
 			return
 		}
-		var event model.PlayerEventAPI
+		var event indexdb.PlayerEventAPI
 		if err := json.NewDecoder(req.Body).Decode(&event); err != nil {
 			apierrors.WriteHTTPBadRequest(w, "could not decode JSON body", err)
 			return
@@ -712,7 +755,7 @@ func (a *StreamplaceAPI) HandleViewCount(ctx context.Context) httprouter.Handle 
 func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, params httprouter.Params) {
 		log.Log(ctx, "got bluesky notification", "params", params)
-		key, err := a.ATSync.SyncBlueskyRepo(ctx, params.ByName("handle"), a.Model)
+		key, err := a.ATSync.SyncBlueskyRepoCached(ctx, params.ByName("handle"))
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not resolve streamplace key", err)
 			return
@@ -735,7 +778,7 @@ func (a *StreamplaceAPI) HandleBlueskyResolve(ctx context.Context) httprouter.Ha
 
 type ChatResponse struct {
 	Post *appbsky.FeedPost `json:"post"`
-	Repo *model.Repo       `json:"repo"`
+	Repo *indexdb.Repo     `json:"repo"`
 	CID  string            `json:"cid"`
 }
 
@@ -780,23 +823,12 @@ func (a *StreamplaceAPI) HandleLivestream(ctx context.Context) httprouter.Handle
 			apierrors.WriteHTTPNotFound(w, "user not found", err)
 			return
 		}
-		livestream, err := a.Model.GetLatestLivestreamForRepo(repoDID)
+		doc, err := a.Model.GetLatestLivestreamForRepo(repoDID)
 		if err != nil {
 			apierrors.WriteHTTPInternalServerError(w, "could not get livestream", err)
 			return
 		}
-		if livestream == nil {
-			apierrors.WriteHTTPNotFound(w, "no livestream found", nil)
-			return
-		}
-
-		doc, err := livestream.ToLivestreamView()
-		if err != nil {
-			apierrors.WriteHTTPInternalServerError(w, "could not marshal livestream", err)
-			return
-		}
-
-		if livestream == nil {
+		if doc == nil {
 			apierrors.WriteHTTPNotFound(w, "no livestream found", nil)
 			return
 		}

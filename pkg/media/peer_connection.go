@@ -13,14 +13,8 @@ func (mm *MediaManager) shouldRecord(ctx context.Context, user string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	if settings != nil {
-		spsettings, err := settings.ToStreamplaceServerSettings()
-		if err != nil {
-			return false, err
-		}
-		if spsettings.DebugRecording != nil {
-			shouldRecord = *spsettings.DebugRecording
-		}
+	if settings != nil && settings.DebugRecording != nil {
+		shouldRecord = *settings.DebugRecording
 	}
 	return shouldRecord, nil
 }

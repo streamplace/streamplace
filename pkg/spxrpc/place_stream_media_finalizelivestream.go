@@ -41,7 +41,7 @@ func (s *Server) handlePlaceStreamMediaFinalizeLivestream(ctx context.Context, b
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	if ls == nil || ls.RepoDID != session.DID {
+	if ls == nil || ls.Author.Did != session.DID {
 		// Don't distinguish "not found" from "not yours" — same response.
 		return nil, echo.NewHTTPError(http.StatusNotFound, "livestream not found")
 	}

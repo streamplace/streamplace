@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/patrickmn/go-cache"
 	"github.com/slok/go-http-metrics/middleware"
 	echomiddleware "github.com/slok/go-http-metrics/middleware/echo"
@@ -20,24 +21,27 @@ import (
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/upload"
 	"stream.place/streamplace/pkg/viewlog"
 )
 
 type Server struct {
-	e               *echo.Echo
-	cli             *config.CLI
-	model           model.Model
+	e     *echo.Echo
+	cli   *config.CLI
+	model indexdb.Model
+	// ServiceAuthKey is the node's shared secret for node-to-node service
+	// auth (XRPC proxying). Set from config.NodeIdentity at startup.
+	ServiceAuthKey  jwk.Key
 	OGImageCache    *cache.Cache
 	LiveUsersCache  *cache.Cache
 	GameSearchCache *cache.Cache
 	ScoreCache      *cache.Cache
-	ATSync          *atproto.ATProtoSynchronizer
+	ATSync          atproto.RepoIdentity
 	statefulDB      *statedb.StatefulDB
 	bus             *bus.Bus
 	op              *oatproxy.OATProxy
@@ -55,7 +59,39 @@ type Server struct {
 	aliases map[string]string
 }
 
-func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
+// Params carries the dependencies NewServer needs, so adding a
+// dependency is a one-line change here instead of a signature change at
+// every call site. Assembled by pkg/api from its own slimmer set.
+type Params struct {
+	CLI           *config.CLI
+	Model         indexdb.Model
+	StatefulDB    *statedb.StatefulDB
+	OATProxy      *oatproxy.OATProxy
+	Middleware    middleware.Middleware
+	ATSync        atproto.RepoIdentity
+	Bus           *bus.Bus
+	LocalDB       localdb.LocalDB
+	MediaManager  *media.MediaManager
+	UploadManager *upload.Manager
+	PlaybackStore blob.Store
+	ViewLog       *viewlog.Writer
+	Aliases       map[string]string
+}
+
+func NewServer(ctx context.Context, p Params) (*Server, error) {
+	cli := p.CLI
+	model := p.Model
+	statefulDB := p.StatefulDB
+	op := p.OATProxy
+	mdlw := p.Middleware
+	atsync := p.ATSync
+	bus := p.Bus
+	ldb := p.LocalDB
+	mm := p.MediaManager
+	um := p.UploadManager
+	playbackStore := p.PlaybackStore
+	viewLog := p.ViewLog
+	aliases := p.Aliases
 	e := echo.New()
 	s := &Server{
 		e:               e,

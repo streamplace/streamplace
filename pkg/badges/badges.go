@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"stream.place/streamplace/pkg/constants"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 // GetValidBadges returns valid badges for a user in the context of a streamer's chat.
 // Returns server-controlled badges (streamer, mod) based on permissions.
-func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m model.Model) ([]placestream.BadgeDefs_BadgeView, error) {
+func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string, m indexdb.Model) ([]placestream.BadgeDefs_BadgeView, error) {
 	badges := []placestream.BadgeDefs_BadgeView{}
 
 	// If no streamer context, return empty badges
@@ -51,13 +51,8 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	if err != nil || chatProfile == nil {
 		return badges, nil
 	}
-	spChatProfile, err := chatProfile.ToStreamplaceChatProfile()
 
-	if err != nil {
-		return badges, nil
-	}
-
-	for _, label := range spChatProfile.SelfLabels {
+	for _, label := range chatProfile.SelfLabels {
 		if label == constants.SelfLabelBot {
 			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
 			badges = append(badges, placestream.BadgeDefs_BadgeView{
@@ -69,10 +64,10 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 	}
 
 	// Resolve issuance-based badges from the user's badge selections.
-	if spChatProfile.Badges != nil {
+	if chatProfile.Badges != nil {
 		// VIP badges: one per streamer channel, only shown in that streamer's chat.
 		if streamerDID != "" {
-			for _, sel := range spChatProfile.Badges.Streamer {
+			for _, sel := range chatProfile.Badges.Streamer {
 				if sel.Badge.Uri == "" || sel.Streamer != streamerDID {
 					continue
 				}
@@ -89,8 +84,8 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 		}
 
 		// Global badge: shown in any chat, must be issued by an authorized global issuer.
-		if spChatProfile.Badges.Global != nil {
-			view, err := resolveIssuanceBadgeView(ctx, spChatProfile.Badges.Global.Uri, userDID, m)
+		if chatProfile.Badges.Global != nil {
+			view, err := resolveIssuanceBadgeView(ctx, chatProfile.Badges.Global.Uri, userDID, m)
 			if err != nil || view == nil {
 				// logged inside resolveIssuanceBadgeView
 			} else if !IsGlobalIssuer(view.Issuer) {
@@ -115,7 +110,7 @@ func IsGlobalIssuer(did string) bool {
 
 // resolveIssuanceBadgeView fetches an issuance by URI, verifies the recipient, and returns a BadgeView.
 // Returns nil (with no error) if the issuance is revoked, not indexed, or the recipient doesn't match.
-func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m model.Model) (*placestream.BadgeDefs_BadgeView, error) {
+func resolveIssuanceBadgeView(ctx context.Context, uri string, userDID string, m indexdb.Model) (*placestream.BadgeDefs_BadgeView, error) {
 	issuance, err := m.GetBadgeIssuanceByURI(ctx, uri)
 	if err != nil {
 		log.Error(ctx, "failed to get badge issuance", "err", err, "uri", uri)

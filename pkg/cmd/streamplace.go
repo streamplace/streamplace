@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -20,7 +21,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/bluesky-social/indigo/carstore"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/livepeer/go-livepeer/cmd/livepeer/starter"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -33,6 +33,7 @@ import (
 	"stream.place/streamplace/pkg/director"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/integrations/webhook"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -58,7 +59,7 @@ import (
 	_ "github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/api"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // Additional jobs that can be injected by platforms
@@ -194,7 +195,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := indexdb.MakeDB(cli.DataFilePath([]string{"index"}))
 	if err != nil {
 		return err
 	}
@@ -208,11 +209,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 
 	group, ctx := TimeoutGroupWithContext(ctx)
 
-	out := carstore.SQLiteStore{}
-	err = out.Open(":memory:")
-	if err != nil {
-		return err
-	}
 	// The notifier is assembled after the DB exists, because the Web Push
 	// notifier needs VAPID keys that are persisted in the Config table. The
 	// queue processor nil-checks the notifier, so the brief window is safe.
@@ -229,6 +225,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	webNotifier := notifications.NewWebPushNotifier(vapidKeys, "")
 	noter := notifications.NewMultiNotifier(fbNotifier, webNotifier)
 	state.SetNotifier(noter)
+	state.SetWebhookSender(webhook.Sender{})
 	handle, err := atproto.MakeLexiconRepo(ctx, cli, mod, state)
 	if err != nil {
 		return err
@@ -245,19 +242,19 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	if err != nil {
 		return err
 	}
-	cli.JWK = jwk
-
 	accessJWK, err := state.EnsureJWK(ctx, "access-jwk")
 	if err != nil {
 		return err
 	}
-	cli.AccessJWK = accessJWK
-
 	serviceAuthKey, err := state.EnsureServiceAuthKey(ctx)
 	if err != nil {
 		return err
 	}
-	cli.ServiceAuthKey = serviceAuthKey
+	identity := config.NodeIdentity{
+		JWK:            jwk,
+		AccessJWK:      accessJWK,
+		ServiceAuthKey: serviceAuthKey,
+	}
 
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{
@@ -272,7 +269,14 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return fmt.Errorf("failed to migrate: %w", err)
 	}
 
-	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
+	mm, err := media.MakeMediaManager(ctx, media.Params{
+		CLI:     cli,
+		Signer:  signer,
+		Store:   mod,
+		Bus:     b,
+		ATSync:  atsync,
+		LocalDB: ldb,
+	})
 	if err != nil {
 		return err
 	}
@@ -328,58 +332,29 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		GetOAuthSession:    state.LoadOAuthSession,
 		Lock:               state.GetNamedLock,
 		Scope:              atproto.OAuthString,
-		UpstreamJWK:        cli.JWK,
-		DownstreamJWK:      cli.AccessJWK,
+		UpstreamJWK:        identity.JWK,
+		DownstreamJWK:      identity.AccessJWK,
 		ClientMetadata:     clientMetadata,
 		Public:             cli.PublicOAuth,
 	})
 	state.OATProxy = op
 
-	err = atsync.Migrate(ctx)
+	replicator, err := makeReplicator(ctx, cli, mm, b, mod)
 	if err != nil {
-		return fmt.Errorf("failed to migrate: %w", err)
+		return err
 	}
 
-	var replicator replication.Replicator = nil
-	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
-		exists, err := cli.DataFileExists([]string{"iroh-kv-secret"})
-		if err != nil {
-			return err
-		}
-		if !exists {
-			secret := make([]byte, 32)
-			_, err := rand.Read(secret)
-			if err != nil {
-				return fmt.Errorf("failed to generate random secret: %w", err)
-			}
-			err = cli.DataFileWrite([]string{"iroh-kv-secret"}, bytes.NewReader(secret), true)
-			if err != nil {
-				return err
-			}
-		}
-		buf := bytes.Buffer{}
-		err = cli.DataFileRead([]string{"iroh-kv-secret"}, &buf)
-		if err != nil {
-			return err
-		}
-		secret := buf.Bytes()
-		var topic []byte
-		if cli.IrohTopic != "" {
-			topic, err = hexutil.Decode("0x" + cli.IrohTopic)
-			if err != nil {
-				return err
-			}
-		}
-		replicator, err = iroh_replicator.NewSwarm(ctx, cli, secret, topic, mm, b, mod)
-		if err != nil {
-			return err
-		}
-	}
-	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
-		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
-	}
-
-	d := director.NewDirector(mm, mod, cli, b, op, state, replicator, ldb, atsync)
+	d := director.NewDirector(director.Params{
+		MediaManager: mm,
+		Store:        mod,
+		CLI:          cli,
+		Bus:          b,
+		OATProxy:     op,
+		StatefulDB:   state,
+		Replicator:   replicator,
+		LocalDB:      ldb,
+		ATSync:       atsync,
+	})
 	um, err := upload.New(ctx, cli, state)
 	if err != nil {
 		return err
@@ -393,10 +368,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return fmt.Errorf("make view log: %w", err)
 	}
 	if viewLog != nil {
-		group.Go(func() error {
-			viewLog.Run(ctx)
-			return nil
-		})
 		defer func() {
 			if err := viewLog.Close(); err != nil {
 				log.Error(ctx, "view log close", "error", err)
@@ -446,40 +417,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// goroutine fires per --view-count-aggregate-interval; statedb's
 	// unique TaskKey makes the cross-node race a no-op for losers.
 	if vodStore != nil && cli.ViewCountAggregateInterval > 0 {
-		// Resolver: for a blob CID, return strongRefs of every
-		// place.stream.media.track record whose muxlTrack lives in
-		// that blob, keyed by in-container trackId. Used by the
-		// aggregator to attribute bytes/duration to the right track
-		// record (the streamer's original track records or, later,
-		// user-contributed transcript/transcode tracks).
-		fetchTrackRefs := func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
-			rows, err := mod.GetMediaTracksByBlob(ctx, cid)
-			if err != nil {
-				return nil, err
-			}
-			out := make(map[string]comatproto.RepoStrongRef, len(rows))
-			for _, row := range rows {
-				rec, err := row.ToRecord()
-				if err != nil {
-					log.Warn(ctx, "viewlog refs: decode track record",
-						"uri", row.URI, "error", err)
-					continue
-				}
-				if rec.Track.MediaDefs_MuxlTrack == nil {
-					continue
-				}
-				tid := rec.Track.MediaDefs_MuxlTrack.TrackId
-				if tid == "" {
-					continue
-				}
-				out[tid] = comatproto.RepoStrongRef{
-					LexiconTypeID: "com.atproto.repo.strongRef",
-					Uri:           row.URI,
-					Cid:           row.CID,
-				}
-			}
-			return out, nil
-		}
 		state.SetViewCountAggregator(func(ctx context.Context, t statedb.ViewCountAggregateTask) error {
 			return viewlog.RunAggregation(ctx, viewlog.RunAggregationInput{
 				Store:          vodStore,
@@ -487,70 +424,31 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 				WindowStart:    t.WindowStart,
 				WindowEnd:      t.WindowEnd,
 				ReadMargin:     2 * cli.ViewLogFlushInterval,
-				FetchTrackRefs: fetchTrackRefs,
-			})
-		})
-		group.Go(func() error {
-			return viewlog.ScheduleAggregations(ctx, state, viewlog.ScheduleConfig{
-				Interval: cli.ViewCountAggregateInterval,
-				Lag:      cli.ViewCountAggregateLag,
+				FetchTrackRefs: trackRefFetcher(mod),
 			})
 		})
 	}
-	a, err := api.MakeStreamplaceAPI(cli, mod, state, noter, mm, ms, b, atsync, d, op, ldb, um, vodStore, viewLog)
+	a, err := api.MakeStreamplaceAPI(api.Params{
+		CLI:           cli,
+		NodeIdentity:  identity,
+		Model:         mod,
+		StatefulDB:    state,
+		Notifier:      noter,
+		MediaManager:  mm,
+		MediaSigner:   ms,
+		Bus:           b,
+		ATSync:        atsync,
+		OATProxy:      op,
+		LocalDB:       ldb,
+		UploadManager: um,
+		PlaybackStore: vodStore,
+		ViewLog:       viewLog,
+	})
 	if err != nil {
 		return err
 	}
 
 	ctx = log.WithLogValues(ctx, "version", build.Version)
-
-	group.Go(func() error {
-		return handleSignals(ctx)
-	})
-
-	group.Go(func() error {
-		return state.ProcessQueue(ctx, cli.VODConcurrency)
-	})
-
-	if cli.TracingEndpoint != "" {
-		group.Go(func() error {
-			return startTelemetry(ctx, cli.TracingEndpoint)
-		})
-	}
-
-	if cli.Secure {
-		group.Go(func() error {
-			return a.ServeHTTPS(ctx)
-		})
-		group.Go(func() error {
-			return a.ServeHTTPRedirect(ctx)
-		})
-		if cli.RTMPServerAddon != "" {
-			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli)
-			})
-		}
-		group.Go(func() error {
-			return a.ServeRTMPS(ctx, cli)
-		})
-	} else {
-		group.Go(func() error {
-			return a.ServeHTTP(ctx)
-		})
-		group.Go(func() error {
-			return a.ServeRTMP(ctx)
-		})
-	}
-
-	group.Go(func() error {
-		return a.ServeInternalHTTP(ctx)
-	})
-
-	if !cli.NoFirehose {
-		group.Go(func() error {
-			return atsync.StartFirehose(ctx)
-		})
-	}
 
 	// Make sure the beta-invite issuer's repo is registered so the
 	// firehose path indexes its place.stream.beta.invite records. The
@@ -564,142 +462,259 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			}
 		}()
 	}
+	// The node's long-running components, declared as data. Everything
+	// above is construction; everything below is supervision. The first
+	// component to return shuts the whole node down (see TimeoutGroup).
+	cs := components{}
+	cs.add("signals", handleSignals)
+	cs.add("task-queue", func(ctx context.Context) error {
+		return state.ProcessQueue(ctx, cli.VODConcurrency)
+	})
+	cs.addIf(viewLog != nil, "view-log", func(ctx context.Context) error {
+		viewLog.Run(ctx)
+		return nil
+	})
+	cs.addIf(vodStore != nil && cli.ViewCountAggregateInterval > 0, "view-count-aggregator", func(ctx context.Context) error {
+		return viewlog.ScheduleAggregations(ctx, state, viewlog.ScheduleConfig{
+			Interval: cli.ViewCountAggregateInterval,
+			Lag:      cli.ViewCountAggregateLag,
+		})
+	})
+	cs.addIf(cli.TracingEndpoint != "", "telemetry", func(ctx context.Context) error {
+		return startTelemetry(ctx, cli.TracingEndpoint)
+	})
+	if cli.Secure {
+		cs.add("https", a.ServeHTTPS)
+		cs.add("http-redirect", a.ServeHTTPRedirect)
+		cs.addIf(cli.RTMPServerAddon != "", "rtmps-addon", func(ctx context.Context) error {
+			return rtmps.ServeRTMPSAddon(ctx, cli)
+		})
+		cs.add("rtmps", func(ctx context.Context) error {
+			return a.ServeRTMPS(ctx, cli)
+		})
+	} else {
+		cs.add("http", a.ServeHTTP)
+		cs.add("rtmp", a.ServeRTMP)
+	}
+	cs.add("internal-http", a.ServeInternalHTTP)
+	cs.addIf(!cli.NoFirehose, "firehose", atsync.StartFirehose)
 	for _, labeler := range cli.Labelers {
-		group.Go(func() error {
+		cs.add("labeler-firehose-"+labeler, func(ctx context.Context) error {
 			return atsync.StartLabelerFirehose(ctx, labeler)
 		})
 	}
-
-	group.Go(func() error {
+	cs.add("segment-cleaner", func(ctx context.Context) error {
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
-
-	if cli.LegacySegmentCleaner {
-		group.Go(func() error {
-			return ldb.StartSegmentCleaner(ctx)
-		})
-	}
-
-	group.Go(func() error {
+	cs.addIf(cli.LegacySegmentCleaner, "legacy-segment-cleaner", ldb.StartSegmentCleaner)
+	cs.addIf(replicator != nil, "replicator", func(ctx context.Context) error {
 		return replicator.Start(ctx, cli)
 	})
-
-	if cli.LivepeerGateway {
-		// make a file to make sure the directory exists
-		fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
-		if err != nil {
-			return err
-		}
-		fd.Close()
-		if err != nil {
-			return err
-		}
-		group.Go(func() error {
-			err = GoLivepeer(ctx, config.LivepeerFlagSet)
-			if err != nil {
-				return err
-			}
-			// livepeer returns nil on error, so we need to check if we're responsible
-			if ctx.Err() == nil {
-				return fmt.Errorf("livepeer exited")
-			}
-			return nil
-		})
-	}
-
-	group.Go(func() error {
-		return d.Start(ctx)
+	cs.addIf(cli.LivepeerGateway, "livepeer-gateway", func(ctx context.Context) error {
+		return runLivepeerGateway(ctx, cli)
 	})
-
+	cs.add("director", d.Start)
 	if cli.TestStream {
-		atkey, err := atproto.ParsePubKey(signer.Public())
+		err := registerTestStreams(ctx, cli, signer, mod, mm, a, &cs)
 		if err != nil {
 			return err
 		}
-		did := atkey.DIDKey()
-		testMediaSigner, err := media.MakeMediaSigner(ctx, cli, did, signer, mod)
-		if err != nil {
-			return err
-		}
-		err = mod.UpdateIdentity(&model.Identity{
-			ID:     testMediaSigner.Pub().String(),
-			Handle: "stream-self-tester",
-			DID:    "",
-		})
-		if err != nil {
-			return err
-		}
-		cli.AllowedStreams = append(cli.AllowedStreams, did)
-		a.Aliases["self-test"] = did
-		group.Go(func() error {
-			return mm.TestSource(ctx, testMediaSigner)
-		})
-
-		// Start a test stream that will run intermittently
-		if err != nil {
-			return err
-		}
-		atkey2, err := atproto.ParsePubKey(signer.Public())
-		if err != nil {
-			return err
-		}
-		did2 := atkey2.DIDKey()
-		intermittentMediaSigner, err := media.MakeMediaSigner(ctx, cli, did2, signer, mod)
-		if err != nil {
-			return err
-		}
-		err = mod.UpdateIdentity(&model.Identity{
-			ID:     intermittentMediaSigner.Pub().String(),
-			Handle: "stream-intermittent-tester",
-			DID:    "",
-		})
-		if err != nil {
-			return err
-		}
-		cli.AllowedStreams = append(cli.AllowedStreams, did2)
-		a.Aliases["intermittent-self-test"] = did2
-
-		group.Go(func() error {
-			for {
-				// Start intermittent stream
-				intermittentCtx, cancel := context.WithCancel(ctx)
-				done := make(chan struct{})
-				go func() {
-					_ = mm.TestSource(intermittentCtx, intermittentMediaSigner)
-					close(done)
-				}()
-				// Stream ON for 15 seconds
-				time.Sleep(15 * time.Second)
-				// Stop stream
-				cancel()
-				<-done // Wait for TestSource to exit
-				// Stream OFF for 15 seconds
-				time.Sleep(15 * time.Second)
-			}
-		})
 	}
-
-	for _, job := range platformJobs {
-		group.Go(func() error {
+	for i, job := range platformJobs {
+		cs.add(fmt.Sprintf("platform-job-%d", i), func(ctx context.Context) error {
 			return job(ctx, cli)
 		})
 	}
+	cs.addIf(cli.WHIPTest != "", "whip-test", func(ctx context.Context) error {
+		return runWHIPTest(ctx, cli, build)
+	})
 
-	if cli.WHIPTest != "" {
-		group.Go(func() error {
-			// Parse WHIPTest string using the whip command's flag parser
-			whipCmd := makeWhipCommand(build)
-			args := strings.Split(cli.WHIPTest, " ")
-			err := whipCmd.Run(ctx, append([]string{"streamplace", "whip"}, args...))
-			log.Warn(ctx, "WHIP test complete, sleeping for 3 seconds and shutting down gstreamer")
-			time.Sleep(time.Second * 3)
-			// gst.Deinit()
-			log.Warn(ctx, "gst deinit complete, exiting")
-			return err
-		})
+	return cs.run(ctx, group)
+}
+
+// runLivepeerGateway runs the embedded Livepeer gateway. The empty file
+// dance just ensures the data directory exists before Livepeer starts
+// writing into it.
+func runLivepeerGateway(ctx context.Context, cli *config.CLI) error {
+	// make a file to make sure the directory exists
+	fd, err := cli.DataFileCreate([]string{"livepeer", "gateway", "empty"}, true)
+	if err != nil {
+		return err
 	}
+	fd.Close()
+	err = GoLivepeer(ctx, config.LivepeerFlagSet)
+	if err != nil {
+		return err
+	}
+	// livepeer returns nil on error, so we need to check if we're responsible
+	if ctx.Err() == nil {
+		return fmt.Errorf("livepeer exited")
+	}
+	return nil
+}
 
-	return group.Wait()
+// runWHIPTest parses --whip-test with the whip subcommand's flag parser,
+// runs the test publish, then exits the node.
+func runWHIPTest(ctx context.Context, cli *config.CLI, build *config.BuildFlags) error {
+	whipCmd := makeWhipCommand(build)
+	args := strings.Split(cli.WHIPTest, " ")
+	err := whipCmd.Run(ctx, append([]string{"streamplace", "whip"}, args...))
+	log.Warn(ctx, "WHIP test complete, sleeping for 3 seconds and shutting down gstreamer")
+	time.Sleep(time.Second * 3)
+	// gst.Deinit()
+	log.Warn(ctx, "gst deinit complete, exiting")
+	return err
+}
+
+// registerTestStreams sets up the built-in self-test streams — "self-test"
+// (always on) and "intermittent-self-test" (flaps every 15 seconds) — and
+// adds them to the component list. Only runs with --test-stream.
+func registerTestStreams(ctx context.Context, cli *config.CLI, signer crypto.Signer, mod indexdb.Model, mm *media.MediaManager, a *api.StreamplaceAPI, cs *components) error {
+	atkey, err := atproto.ParsePubKey(signer.Public())
+	if err != nil {
+		return err
+	}
+	did := atkey.DIDKey()
+	testMediaSigner, err := media.MakeMediaSigner(ctx, cli, did, signer, mod)
+	if err != nil {
+		return err
+	}
+	err = mod.UpdateIdentity(&indexdb.Identity{
+		ID:     testMediaSigner.Pub().String(),
+		Handle: "stream-self-tester",
+		DID:    "",
+	})
+	if err != nil {
+		return err
+	}
+	cli.AllowedStreams = append(cli.AllowedStreams, did)
+	a.Aliases["self-test"] = did
+	cs.add("test-stream-self-test", func(ctx context.Context) error {
+		return mm.TestSource(ctx, testMediaSigner)
+	})
+
+	// Start a test stream that will run intermittently
+	atkey2, err := atproto.ParsePubKey(signer.Public())
+	if err != nil {
+		return err
+	}
+	did2 := atkey2.DIDKey()
+	intermittentMediaSigner, err := media.MakeMediaSigner(ctx, cli, did2, signer, mod)
+	if err != nil {
+		return err
+	}
+	err = mod.UpdateIdentity(&indexdb.Identity{
+		ID:     intermittentMediaSigner.Pub().String(),
+		Handle: "stream-intermittent-tester",
+		DID:    "",
+	})
+	if err != nil {
+		return err
+	}
+	cli.AllowedStreams = append(cli.AllowedStreams, did2)
+	a.Aliases["intermittent-self-test"] = did2
+
+	cs.add("test-stream-intermittent", func(ctx context.Context) error {
+		for {
+			// Start intermittent stream
+			intermittentCtx, cancel := context.WithCancel(ctx)
+			done := make(chan struct{})
+			go func() {
+				_ = mm.TestSource(intermittentCtx, intermittentMediaSigner)
+				close(done)
+			}()
+			// Stream ON for 15 seconds
+			time.Sleep(15 * time.Second)
+			// Stop stream
+			cancel()
+			<-done // Wait for TestSource to exit
+			// Stream OFF for 15 seconds
+			time.Sleep(15 * time.Second)
+		}
+	})
+	return nil
+}
+
+// makeReplicator builds the configured replicator — an iroh swarm and/or
+// websocket fan-out depending on --replicators. Returns nil when no known
+// replicator is configured; callers should treat that as "no replication".
+func makeReplicator(ctx context.Context, cli *config.CLI, mm *media.MediaManager, b *bus.Bus, mod indexdb.Model) (replication.Replicator, error) {
+	var replicator replication.Replicator = nil
+	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
+		exists, err := cli.DataFileExists([]string{"iroh-kv-secret"})
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			secret := make([]byte, 32)
+			_, err := rand.Read(secret)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate random secret: %w", err)
+			}
+			err = cli.DataFileWrite([]string{"iroh-kv-secret"}, bytes.NewReader(secret), true)
+			if err != nil {
+				return nil, err
+			}
+		}
+		buf := bytes.Buffer{}
+		err = cli.DataFileRead([]string{"iroh-kv-secret"}, &buf)
+		if err != nil {
+			return nil, err
+		}
+		secret := buf.Bytes()
+		var topic []byte
+		if cli.IrohTopic != "" {
+			topic, err = hexutil.Decode("0x" + cli.IrohTopic)
+			if err != nil {
+				return nil, err
+			}
+		}
+		replicator, err = iroh_replicator.NewSwarm(ctx, cli, secret, topic, mm, b, mod)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if slices.Contains(cli.Replicators, config.ReplicatorWebsocket) {
+		replicator = websocketrep.NewWebsocketReplicator(b, mod, mm)
+	}
+	return replicator, nil
+}
+
+// trackRefFetcher resolves, for a blob CID, strongRefs of every
+// place.stream.media.track record whose muxlTrack lives in that blob,
+// keyed by in-container trackId. Used by the view-count aggregator to
+// attribute bytes/duration to the right track record (the streamer's
+// original track records or, later, user-contributed transcript/transcode
+// tracks).
+func trackRefFetcher(mod indexdb.Model) func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
+	return func(ctx context.Context, cid string) (map[string]comatproto.RepoStrongRef, error) {
+		rows, err := mod.GetMediaTracksByBlob(ctx, cid)
+		if err != nil {
+			return nil, err
+		}
+		out := make(map[string]comatproto.RepoStrongRef, len(rows))
+		for _, row := range rows {
+			rec, err := row.ToRecord()
+			if err != nil {
+				log.Warn(ctx, "viewlog refs: decode track record",
+					"uri", row.URI, "error", err)
+				continue
+			}
+			if rec.Track.MediaDefs_MuxlTrack == nil {
+				continue
+			}
+			tid := rec.Track.MediaDefs_MuxlTrack.TrackId
+			if tid == "" {
+				continue
+			}
+			out[tid] = comatproto.RepoStrongRef{
+				LexiconTypeID: "com.atproto.repo.strongRef",
+				Uri:           row.URI,
+				Cid:           row.CID,
+			}
+		}
+		return out, nil
+	}
 }
 
 // makeVODStore picks the blob.Store backing VOD output for this
@@ -1172,12 +1187,12 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 // records so playback can verify them. It picks the most recently created
 // non-revoked place.stream.key for the repo; streamers normally have exactly
 // one. Errors if the repo has no active signing key.
-func resolveLiveSigningKey(mod model.Model, repoDID string) (string, error) {
+func resolveLiveSigningKey(mod indexdb.Model, repoDID string) (string, error) {
 	keys, err := mod.GetSigningKeysForRepo(repoDID)
 	if err != nil {
 		return "", err
 	}
-	var best *model.SigningKey
+	var best *indexdb.SigningKey
 	for i := range keys {
 		k := &keys[i]
 		if k.RevokedAt != nil {

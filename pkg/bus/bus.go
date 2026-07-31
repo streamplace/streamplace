@@ -8,7 +8,21 @@ import (
 	"github.com/patrickmn/go-cache"
 )
 
-type Message any
+// Message is a domain event on the bus. Events flow on per-user
+// channels (keyed by streamer DID) and on the global "" channel.
+// Payloads are generated lexicon view/record types from pkg/placestream,
+// pkg/appbsky, and pkg/comatproto (chat messages, livestream views,
+// pinned records, blocks, gates, likes, VOD comments, teleports,
+// broadcast origins, labels) plus a few local control types
+// (media.StreamKick, indexdb.SigningKey, ViewerCountUpdate — the latter
+// on its own dedicated channel).
+//
+// The bus is for facts that happened: "a stream started", "a chat
+// message landed", "a ban label arrived". Commands and queries stay
+// method calls on the components; work that must survive a restart goes
+// through the statedb task queue instead.
+type Message = any
+
 type Subscription chan Message
 
 type ViewerCountUpdate struct {

@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 // cursorFlushInterval bounds how often a relay's progress is written to the
@@ -49,7 +49,7 @@ func (h *highWater) set(seq int64) { h.v.Store(seq) }
 // cold deduper after restart, those commits get re-delivered and re-indexed.
 type relayCursor struct {
 	host  string
-	model model.Model
+	model indexdb.Model
 
 	// latest is the high-water cursor: the upstream at-sequence for a WebSocket
 	// relay, or the high-water MoQ group sequence for a moqt:// relay (used to

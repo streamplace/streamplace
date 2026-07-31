@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // TestSelfRelayURLSecure pins the address the self-subscription dials. Under
@@ -94,7 +94,7 @@ func TestConnectRelaySelfDialsOwnTLSListener(t *testing.T) {
 		Secure:     true,
 		ServerHost: serverHost,
 	}
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	atsync := &ATProtoSynchronizer{CLI: &cli, Model: mod}
 

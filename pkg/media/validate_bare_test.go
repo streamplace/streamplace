@@ -18,8 +18,8 @@ import (
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/crypto/aqpub"
 	"stream.place/streamplace/pkg/crypto/signers"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/livehls"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/muxl"
 )
 
@@ -158,8 +158,8 @@ func TestFeedLiveWindow(t *testing.T) {
 	require.Contains(t, w.MasterPlaylist(func(tid string) string { return tid + ".m3u8" }), "#EXTM3U")
 }
 
-// seedBanLabel writes an active ban label for did into the model.
-func seedBanLabel(t *testing.T, mod model.Model, did string) {
+// seedBanLabel writes an active ban label for did into the indexdb.
+func seedBanLabel(t *testing.T, mod indexdb.Model, did string) {
 	t.Helper()
 	lex := &comatproto.LabelDefs_Label{
 		Cts: time.Now().UTC().Format(time.RFC3339),
@@ -167,14 +167,7 @@ func seedBanLabel(t *testing.T, mod model.Model, did string) {
 		Uri: did,
 		Val: atproto.LabelDMCAViolation,
 	}
-	var buf bytes.Buffer
-	require.NoError(t, lex.MarshalCBOR(&buf))
-	require.NoError(t, mod.CreateLabel(&model.Label{
-		Src:    lex.Src,
-		Uri:    did,
-		Val:    atproto.LabelDMCAViolation,
-		Record: buf.Bytes(),
-	}))
+	require.NoError(t, mod.UpsertLabel(context.Background(), *lex))
 }
 
 // TestStreamerIsBanned exercises the defense-in-depth gate validateSource applies
@@ -182,14 +175,14 @@ func seedBanLabel(t *testing.T, mod model.Model, did string) {
 // regardless of whether their ingest worker was torn down. A clean streamer
 // passes; the ONLY change between the two checks is the ban label.
 func TestStreamerIsBanned(t *testing.T) {
-	mm, _ := getStaticTestMediaManager(t)
+	mm, _, mod := getStaticTestMediaManager(t)
 	did := "did:plc:bannedstreamer"
 
 	banned, err := mm.streamerIsBanned(did)
 	require.NoError(t, err)
 	require.False(t, banned, "a clean streamer is not banned")
 
-	seedBanLabel(t, mm.model, did)
+	seedBanLabel(t, mod, did)
 
 	banned, err = mm.streamerIsBanned(did)
 	require.NoError(t, err)

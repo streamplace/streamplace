@@ -9,7 +9,6 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -24,11 +23,11 @@ import (
 // The manifest is meant to align closely with the IPTC Video Metadata Recommendations.
 // See https://iptc.org/std/videometadatahub/recommendation/IPTC-VideoMetadataHub-props-Rec_1.6.html
 type ManifestBuilder struct {
-	model model.Model
+	model mediaStore
 	cli   *config.CLI
 }
 
-func NewManifestBuilder(model model.Model, cli *config.CLI) *ManifestBuilder {
+func NewManifestBuilder(model mediaStore, cli *config.CLI) *ManifestBuilder {
 	return &ManifestBuilder{
 		model: model,
 		cli:   cli,
@@ -52,16 +51,12 @@ func (mb *ManifestBuilder) getLivestream(ctx context.Context, streamerName strin
 	if mb.model == nil {
 		return nil, fmt.Errorf("model is nil")
 	}
-	livestream, err := mb.model.GetLatestLivestreamForRepo(streamerName)
+	livestreamRecord, err := mb.model.GetLatestLivestreamForRepo(streamerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve livestream: %w", err)
 	}
-	if livestream == nil {
+	if livestreamRecord == nil {
 		return nil, nil
-	}
-	livestreamRecord, err := livestream.ToLivestreamView()
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert livestream to view: %w", err)
 	}
 	ls, ok := livestreamRecord.Record.Val.(*placestream.Livestream)
 	if !ok {
@@ -139,22 +134,16 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			log.Warn(ctx, "ManifestBuilder: failed to retrieve metadata", "error", err, "did", streamerName)
 			return nil, fmt.Errorf("failed to retrieve metadata: %w", err)
 		} else if metadata != nil {
-			log.Debug(ctx, "ManifestBuilder: found metadata configuration", "did", streamerName, "metadata", metadata)
-			streamplaceMetadata, err := metadata.ToStreamplaceMetadataConfiguration()
+			log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", metadata.ContentWarnings, "contentRights", metadata.ContentRights)
+			mani = mb.enhanceManifestWithMetadata(mani, metadata, start)
+			metadataObj, err := toObj(*metadata)
 			if err != nil {
-				log.Warn(ctx, "ManifestBuilder: failed to convert metadata, using defaults", "error", err, "did", streamerName)
-			} else {
-				log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", streamplaceMetadata.ContentWarnings, "contentRights", streamplaceMetadata.ContentRights)
-				mani = mb.enhanceManifestWithMetadata(mani, &streamplaceMetadata, start)
-				metadataObj, err := toObj(streamplaceMetadata)
-				if err != nil {
-					return nil, fmt.Errorf("failed to marshal metadata: %w", err)
-				}
-				mani["assertions"] = append(mani["assertions"].([]obj), obj{
-					"label": "place.stream.metadata.configuration",
-					"data":  metadataObj,
-				})
+				return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 			}
+			mani["assertions"] = append(mani["assertions"].([]obj), obj{
+				"label": "place.stream.metadata.configuration",
+				"data":  metadataObj,
+			})
 		} else {
 			log.Debug(ctx, "ManifestBuilder: no metadata configuration found for streamer", "did", streamerName)
 		}

@@ -7,7 +7,7 @@ import (
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/comatproto"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // PlaceStreamError is the $type of the websocket frame the dashboard renders as
@@ -52,7 +52,7 @@ func (mm *MediaManager) watchKeyRevocation(ctx context.Context, streamer, did st
 			return
 		case msg := <-sub:
 			switch v := msg.(type) {
-			case *model.SigningKey:
+			case *indexdb.SigningKey:
 				if v.RevokedAt != nil && v.DID == did {
 					onRevoked(fmt.Sprintf("signing key revoked: %s", v.RKey))
 					return

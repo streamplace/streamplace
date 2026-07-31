@@ -26,8 +26,8 @@ import (
 	"github.com/whyrusleeping/go-did"
 	"stream.place/streamplace/lexicons"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spid"
 	"stream.place/streamplace/pkg/statedb"
 )
@@ -133,7 +133,7 @@ func (c *NoopCloser) Close() error {
 	return nil
 }
 
-func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod model.Model, state *statedb.StatefulDB) (Closer, error) {
+func MakeLexiconRepo(ctx context.Context, cli *config.CLI, mod indexdb.Model, state *statedb.StatefulDB) (Closer, error) {
 	ctx = log.WithLogValues(ctx, "func", "MakeLexiconRepo")
 	var err error
 

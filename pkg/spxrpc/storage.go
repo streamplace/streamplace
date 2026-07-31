@@ -28,7 +28,7 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 	if input.Url != nil {
 		url = *input.Url
 		if existing != nil && url != "" {
-			maskedExisting := existing.ToLexicon().Url
+			maskedExisting := existing.ToServerStorage().Url
 			if url == maskedExisting {
 				url = existing.URL
 			}
@@ -68,7 +68,7 @@ func (s *Server) handlePlaceStreamServerUpsertStorage(ctx context.Context, input
 	}
 
 	return &placestreamtypes.ServerUpsertStorage_Output{
-		Storage: savedStorage.ToLexicon(),
+		Storage: savedStorage.ToServerStorage(),
 	}, nil
 }
 
@@ -85,7 +85,7 @@ func (s *Server) handlePlaceStreamServerGetStorage(ctx context.Context) (*places
 		}, nil
 	}
 
-	storageLex := storage.ToLexicon()
+	storageLex := storage.ToServerStorage()
 	return &placestreamtypes.ServerGetStorage_Output{
 		Storage: &storageLex,
 	}, nil

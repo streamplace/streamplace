@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 	appbsky "stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 func TestAddModBadge(t *testing.T) {
 	ctx := context.Background()
 
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 
 	streamerDID := "did:plc:streamer"
@@ -69,7 +69,7 @@ func TestAddModBadge(t *testing.T) {
 		require.NoError(t, err)
 
 		// Sync the permission to the model
-		err = mod.CreateModerationDelegation(ctx, perm, aturi)
+		err = mod.CreateModerationDelegation(ctx, aturi, perm)
 		require.NoError(t, err)
 
 		msg := message // copy

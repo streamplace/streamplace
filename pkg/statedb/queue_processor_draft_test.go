@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/config"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/placestream"
 )
 
@@ -77,7 +77,7 @@ func TestDraftLifecycleThroughVODProcessor(t *testing.T) {
 // draft to 'error' so the user isn't stuck looking at 'processing' forever.
 func TestDraftLifecycleErrorFlipsDraft(t *testing.T) {
 	cli := &config.CLI{DBURL: ":memory:"}
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := MakeDB(t.Context(), cli, nil, mod)
 	require.NoError(t, err)

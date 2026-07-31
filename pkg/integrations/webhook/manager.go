@@ -79,3 +79,22 @@ func webhookToDiscordWebhook(webhook *placestream.ServerDefs_Webhook) (*discordt
 		Rewrite: rewriteRules,
 	}, nil
 }
+
+// Sender adapts the package-level senders to statedb.WebhookSender so the
+// queue processor can invoke them through an injected interface without
+// pkg/statedb importing this package. Stateless; the zero value is ready
+// to use. (The unqualified calls resolve to the package-level functions,
+// not to these methods.)
+type Sender struct{}
+
+func (Sender) SendChatWebhook(ctx context.Context, wh *placestream.ServerDefs_Webhook, authorDID string, scm *placestream.ChatDefs_MessageView) error {
+	return SendChatWebhook(ctx, wh, authorDID, scm)
+}
+
+func (Sender) SendLivestreamWebhook(ctx context.Context, wh *placestream.ServerDefs_Webhook, pdsURL string, lsv *placestream.Livestream_LivestreamView, postView *appbsky.FeedDefs_PostView, spcp *placestream.ChatProfile) error {
+	return SendLivestreamWebhook(ctx, wh, pdsURL, lsv, postView, spcp)
+}
+
+func (Sender) SendStreamReceivedWebhook(ctx context.Context, wh *placestream.ServerDefs_Webhook, streamerDID string) error {
+	return SendStreamReceivedWebhook(ctx, wh, streamerDID)
+}

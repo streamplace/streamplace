@@ -15,11 +15,11 @@ import (
 	"github.com/bluesky-social/indigo/events/schedulers/parallel"
 	"github.com/bluesky-social/indigo/util"
 	"github.com/gorilla/websocket"
+	glex "github.com/streamplace/glex/runtime"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/spmetrics"
 )
 
@@ -187,7 +187,7 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 							log.Debug(ctx, "chat message not found for label, skipping", "uri", l.URI)
 							continue
 						}
-						chatView, err := msg.ToStreamplaceMessageView()
+						chatView, err := msg.ToMessageView()
 						if err != nil {
 							log.Error(ctx, "failed to convert chat message to streamplace message view", "err", err)
 							continue
@@ -199,19 +199,12 @@ func (atsync *ATProtoSynchronizer) StartLabelerFirehoseRetry(ctx context.Context
 				}
 
 				log.Log(ctx, "labeler label", "targetDID", targetDID, "uri", l.URI, "cid", l.CID, "createdAt", cts, "expiresAt", exp, "negated", neg, "sourceDID", l.SourceDID, "val", l.Val, "version", l.Version)
-				err = atsync.Model.CreateLabel(&model.Label{
-					Cid:     l.CID,
-					Cts:     cts.UTC(),
-					Exp:     exp,
-					Neg:     neg,
-					Sig:     l.Sig,
-					Src:     l.SourceDID,
-					Uri:     l.URI,
-					Val:     l.Val,
-					Ver:     &l.Version,
-					Record:  bs.Bytes(),
-					RepoDID: targetDID,
-				})
+				var ourLabel comatproto.LabelDefs_Label
+				if err := glex.DecodeCBOR(bs.Bytes(), &ourLabel); err != nil {
+					log.Error(ctx, "failed to decode label", "err", err)
+					continue
+				}
+				err = atsync.Model.UpsertLabel(ctx, ourLabel)
 				if err != nil {
 					log.Error(ctx, "failed to create label", "err", err)
 					continue

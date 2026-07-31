@@ -17,15 +17,15 @@ import (
 	"go.opentelemetry.io/otel"
 	"stream.place/streamplace/pkg/aqhttp"
 	"stream.place/streamplace/pkg/comatproto"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
 
 var handleCache = cache.New(1*time.Hour, 10*time.Minute)
 
-func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*indexdb.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
 	defer span.End()
 	repo, err := atsync.Model.GetRepoByHandleOrDID(handle)
@@ -44,7 +44,7 @@ type mstNode struct {
 	collection syntax.NSID
 }
 
-func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod model.Model) (*model.Repo, error) {
+func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle string, mod indexdb.Model) (*indexdb.Repo, error) {
 	ident, err := atsync.resolveIdent(ctx, handle, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Bluesky handle %s: %w", handle, err)
@@ -67,7 +67,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 	} else {
 		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
 		// any new follows and such from this user while we're syncing, which can take a long time
-		newRepo := model.Repo{
+		newRepo := indexdb.Repo{
 			DID:     ident.DID.String(),
 			PDS:     ident.PDSEndpoint(),
 			Version: "",
@@ -150,7 +150,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("failed to iterate over repo: %w", err)
 	}
 
-	newRepo := model.Repo{
+	newRepo := indexdb.Repo{
 		DID:     ident.DID.String(),
 		PDS:     ident.PDSEndpoint(),
 		Version: sc.Rev,
@@ -173,7 +173,7 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve ident: %w", err)
 	}
-	newRepo := model.Repo{
+	newRepo := indexdb.Repo{
 		DID:    id.DID.String(),
 		PDS:    id.PDSEndpoint(),
 		Handle: id.Handle.String(),

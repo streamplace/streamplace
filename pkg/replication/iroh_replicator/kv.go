@@ -15,10 +15,10 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/iroh/generated/iroh_streamplace"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spmetrics"
 )
@@ -33,7 +33,7 @@ type IrohSwarm struct {
 	NodeTicket       string
 	bus              *bus.Bus
 	originMutex      sync.Mutex
-	mod              model.Model
+	mod              indexdb.Model
 	cli              *config.CLI
 	activeSubs       map[string]*SwarmOriginInfo
 	handleDataScoped func(pubKey *iroh_streamplace.PublicKey, topic string, data []byte)
@@ -54,7 +54,7 @@ type SwarmViewerCount struct {
 	Viewers  int    `json:"viewers"`
 }
 
-func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte, mm *media.MediaManager, bus *bus.Bus, mod model.Model) (*IrohSwarm, error) {
+func NewSwarm(ctx context.Context, cli *config.CLI, secret []byte, topic []byte, mm *media.MediaManager, bus *bus.Bus, mod indexdb.Model) (*IrohSwarm, error) {
 	ctx = log.WithLogValues(ctx, "func", "StartKV")
 
 	if topic == nil {
@@ -253,7 +253,7 @@ func decodeIrohMessage(key, value []byte) (any, error) {
 // subscribe to all streams
 func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 	// start subscription first so we're buffering new origins
-	busCh := swarm.bus.Subscribe("")
+	busCh := bus.SubscribeEvents[*placestream.BroadcastDefs_BroadcastOriginView](ctx, swarm.bus, "")
 	originViews, err := swarm.mod.GetRecentBroadcastOrigins(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
@@ -265,20 +265,13 @@ func (swarm *IrohSwarm) startBusSubscribe(ctx context.Context) error {
 		}
 	}
 	log.Log(ctx, "Resumed recent broadcast origins", "count", len(originViews))
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case msg := <-busCh:
-			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
-				log.Debug(ctx, "got broadcast origin view", "view", view)
-				err = swarm.handleOriginMessage(ctx, view)
-				if err != nil {
-					log.Error(ctx, "could not handle origin message", "error", err)
-				}
-			}
+	for view := range busCh {
+		log.Debug(ctx, "got broadcast origin view", "view", view)
+		if err := swarm.handleOriginMessage(ctx, view); err != nil {
+			log.Error(ctx, "could not handle origin message", "error", err)
 		}
 	}
+	return ctx.Err()
 }
 
 func (swarm *IrohSwarm) startViewerCountSubscribe(ctx context.Context) error {

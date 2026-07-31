@@ -61,7 +61,7 @@ func (state *StatefulDB) DeleteStorage(userDID string) error {
 	return state.DB.Where("user_did = ?", userDID).Delete(&Storage{}).Error
 }
 
-func (s *Storage) ToLexicon() placestream.ServerDefs_Storage {
+func (s *Storage) ToServerStorage() placestream.ServerDefs_Storage {
 	return placestream.ServerDefs_Storage{
 		IsActive: s.IsActive,
 		Url:      maskSecretKey(s.URL),

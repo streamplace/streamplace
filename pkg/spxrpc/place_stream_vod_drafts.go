@@ -10,7 +10,6 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/pkg/comatproto"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
 	placestream "stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/vod"
@@ -226,12 +225,8 @@ func (s *Server) handlePlaceStreamVodPublishDraft(ctx context.Context, body *pla
 // livestream's title/activity/tags and links back to the livestream record via
 // connections. Called by the finalizeLivestream handler at kickoff so the user
 // can navigate straight to the draft while processing runs server-side.
-func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *model.Livestream) (*statedb.DraftVideo, error) {
-	view, err := ls.ToLivestreamView()
-	if err != nil {
-		return nil, err
-	}
-	rec, ok := view.Record.Val.(*placestream.Livestream)
+func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string, ls *placestream.Livestream_LivestreamView) (*statedb.DraftVideo, error) {
+	rec, ok := ls.Record.Val.(*placestream.Livestream)
 	if !ok {
 		return nil, errors.New("livestream record is not a place.stream.livestream")
 	}
@@ -259,8 +254,8 @@ func (s *Server) createLivestreamDraft(ctx context.Context, did, uploadID string
 		Video_Connection: &placestream.Video_Connection{
 			LexiconTypeID: "place.stream.video#connection",
 			Ref: &comatproto.RepoStrongRef{
-				Uri: ls.URI,
-				Cid: ls.CID,
+				Uri: ls.Uri,
+				Cid: ls.Cid,
 			},
 		},
 	}}

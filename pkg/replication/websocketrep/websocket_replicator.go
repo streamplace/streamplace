@@ -11,23 +11,23 @@ import (
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
 )
 
 type WebsocketReplicator struct {
 	bus        *bus.Bus
 	cli        *config.CLI
-	mod        model.Model
+	mod        indexdb.Model
 	conns      map[string]bool
 	connsMutex sync.RWMutex
 	group      *errgroup.Group
 	mm         *media.MediaManager
 }
 
-func NewWebsocketReplicator(bus *bus.Bus, mod model.Model, mm *media.MediaManager) *WebsocketReplicator {
+func NewWebsocketReplicator(bus *bus.Bus, mod indexdb.Model, mm *media.MediaManager) *WebsocketReplicator {
 	return &WebsocketReplicator{
 		bus:        bus,
 		mod:        mod,
@@ -46,7 +46,7 @@ func (r *WebsocketReplicator) Start(ctx context.Context, cli *config.CLI) error 
 
 func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 	// start subscription first so we're buffering new origins
-	busCh := r.bus.Subscribe("")
+	busCh := bus.SubscribeEvents[*placestream.BroadcastDefs_BroadcastOriginView](ctx, r.bus, "")
 	originViews, err := r.mod.GetRecentBroadcastOrigins(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get recent broadcast origins: %w", err)
@@ -58,20 +58,13 @@ func (r *WebsocketReplicator) startBusSubscribe(ctx context.Context) error {
 		}
 	}
 	log.Log(ctx, "Resumed recent broadcast origins", "count", len(originViews))
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case msg := <-busCh:
-			if view, ok := msg.(*placestream.BroadcastDefs_BroadcastOriginView); ok {
-				log.Debug(ctx, "got broadcast origin view", "view", view)
-				err = r.handleOriginMessage(ctx, view)
-				if err != nil {
-					log.Error(ctx, "could not handle origin message", "error", err)
-				}
-			}
+	for view := range busCh {
+		log.Debug(ctx, "got broadcast origin view", "view", view)
+		if err := r.handleOriginMessage(ctx, view); err != nil {
+			log.Error(ctx, "could not handle origin message", "error", err)
 		}
 	}
+	return ctx.Err()
 }
 
 func (r *WebsocketReplicator) handleOriginMessage(ctx context.Context, view *placestream.BroadcastDefs_BroadcastOriginView) error {

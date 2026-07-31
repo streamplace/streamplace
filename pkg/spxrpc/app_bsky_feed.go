@@ -10,8 +10,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"stream.place/streamplace/pkg/appbsky"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/log"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/placestream"
 )
 
 var FeedSkeletonRE = regexp.MustCompile(`^at://did:(web|plc):([a-z0-9\.\-]+)/app.bsky.feed.generator/([a-z0-9\.\-]+)$`)
@@ -43,7 +44,7 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 			return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid cursor timestamp")
 		}
 	}
-	var posts []model.FeedPost
+	var posts []indexdb.FeedPost
 	outCursor := ""
 	if name == FeedAllStreams {
 		posts, err = s.model.ListFeedPostsByType("livestream", limit, ts)
@@ -61,18 +62,19 @@ func (s *Server) handleAppBskyFeedGetFeedSkeleton(ctx context.Context, inCursor 
 			return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get recent segments: %v", err))
 		}
 		for _, seg := range segs {
-			ls, err := s.model.GetLatestLivestreamForRepo(seg.RepoDID)
+			lsv, err := s.model.GetLatestLivestreamForRepo(seg.RepoDID)
 			if err != nil {
 				log.Error(ctx, "failed to get latest livestream, skipping", "repoDID", seg.RepoDID, "error", err)
 				continue
 			}
-			if ls == nil {
+			if lsv == nil {
 				log.Error(ctx, "no livestream found, skipping", "repoDID", seg.RepoDID)
 				continue
 			}
-			if ls.PostURI != "" {
-				posts = append(posts, model.FeedPost{
-					URI: ls.PostURI,
+			rec, ok := lsv.Record.Val.(*placestream.Livestream)
+			if ok && rec.Post != nil && rec.Post.Uri != "" {
+				posts = append(posts, indexdb.FeedPost{
+					URI: rec.Post.Uri,
 				})
 			}
 		}

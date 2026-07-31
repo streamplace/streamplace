@@ -8,7 +8,7 @@ import (
 
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/constants"
-	"stream.place/streamplace/pkg/model"
+	"stream.place/streamplace/pkg/indexdb"
 )
 
 // TestIndexOwnMediaOrigin checks the seam pkg/vod uses to index an origin
@@ -24,7 +24,7 @@ func TestIndexOwnMediaOrigin(t *testing.T) {
 	}
 	cli.DataDir = t.TempDir()
 
-	mod, err := model.MakeDB(":memory:")
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	state, err := MakeDB(ctx, &cli, nil, mod)
 	require.NoError(t, err)

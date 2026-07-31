@@ -11,8 +11,8 @@ import (
 	"stream.place/streamplace/pkg/bus"
 	"stream.place/streamplace/pkg/config"
 	ct "stream.place/streamplace/pkg/config/configtesting"
+	"stream.place/streamplace/pkg/indexdb"
 	"stream.place/streamplace/pkg/localdb"
-	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/statedb"
 )
 
@@ -22,8 +22,8 @@ func getFixture(name string) string {
 	return filepath.Join(dir, "..", "..", "test", "fixtures", name)
 }
 
-func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
-	mod, err := model.MakeDB(":memory:")
+func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner, indexdb.Model) {
+	mod, err := indexdb.MakeDB(":memory:")
 	require.NoError(t, err)
 	ldb, err := localdb.MakeDB(":memory:")
 	require.NoError(t, err)
@@ -45,9 +45,16 @@ func getStaticTestMediaManager(t *testing.T) (*MediaManager, MediaSigner) {
 		StatefulDB: statedb,
 		Bus:        bus.NewBus(),
 	}
-	mm, err := MakeMediaManager(context.Background(), cli, nil, mod, bus.NewBus(), atsync, ldb)
+	mm, err := MakeMediaManager(context.Background(), Params{
+		CLI:     cli,
+		Signer:  nil,
+		Store:   mod,
+		Bus:     bus.NewBus(),
+		ATSync:  atsync,
+		LocalDB: ldb,
+	})
 	require.NoError(t, err)
 	// ms, err := MakeMediaSigner(context.Background(), cli, "test-person", signer)
 	// require.NoError(t, err)
-	return mm, nil
+	return mm, nil, mod
 }

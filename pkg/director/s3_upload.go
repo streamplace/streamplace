@@ -57,13 +57,8 @@ func (ss *StreamSession) shouldRecordLivestream(ctx context.Context, repoDID str
 		// No settings record at all: default on for beta users.
 		return true
 	}
-	spsettings, err := settings.ToStreamplaceServerSettings()
-	if err != nil {
-		log.Error(ctx, "live recording: failed to decode server settings", "error", err, "repoDID", repoDID)
-		return false
-	}
 	// Default on: record unless the streamer explicitly set the flag to false.
-	return spsettings.LivestreamRecording == nil || *spsettings.LivestreamRecording
+	return settings.LivestreamRecording == nil || *settings.LivestreamRecording
 }
 
 func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string) {
@@ -91,10 +86,10 @@ func (ss *StreamSession) maybeStartS3Upload(ctx context.Context, repoDID string)
 	// the current stream everywhere (notification blast, idle finalize), so we
 	// do the same here; NewSegment refreshes it once the stream's own record is
 	// indexed, in case a prior stream was momentarily still "latest".
-	if ls, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
+	if lsv, err := ss.mod.GetLatestLivestreamForRepo(repoDID); err != nil {
 		log.Warn(ctx, "live recording: failed to resolve initial livestream URI; first object starts untagged", "error", err, "repoDID", repoDID)
-	} else if ls != nil {
-		ss.s3Uploader.SetLivestreamURI(ls.URI)
+	} else if lsv != nil {
+		ss.s3Uploader.SetLivestreamURI(lsv.Uri)
 	}
 	log.Log(ctx, "S3 upload enabled", "bucket", ss.cli.S3Bucket, "endpoint", ss.cli.S3Endpoint, "repoDID", repoDID)
 }

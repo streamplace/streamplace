@@ -17,6 +17,32 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
+// hasVideoSlice reports whether byte-stream H264 data contains a VCL NAL
+// (coded slice, nal_unit_type 1–5) — i.e. an actual picture, as opposed to
+// bare parameter sets or SEI metadata.
+func hasVideoSlice(data []byte) bool {
+	for i := 0; i+3 < len(data); i++ {
+		if data[i] != 0 || data[i+1] != 0 {
+			continue
+		}
+		var nalIdx int
+		if data[i+2] == 1 {
+			nalIdx = i + 3
+		} else if data[i+2] == 0 && i+4 < len(data) && data[i+3] == 1 {
+			nalIdx = i + 4
+		} else {
+			continue
+		}
+		if nalIdx < len(data) {
+			if t := data[nalIdx] & 0x1f; t >= 1 && t <= 5 {
+				return true
+			}
+		}
+		i = nalIdx // skip the matched start code (else a 4-byte code re-matches as 3-byte)
+	}
+	return false
+}
+
 // take in a segment and return a bunch of packets suitable for webrtc
 func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
@@ -116,6 +142,18 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	audioOutput := [][]byte{}
 	// eosCh := make(chan struct{})
 
+	// Slice-less video data (parameter sets / SEI metadata with no picture)
+	// held back for the next real frame. Streams with embedded closed captions
+	// carry a trailing caption SEI after some frames' slices; when h264parse
+	// re-parses the byte stream it splits that SEI into its own timestamp-less
+	// AU. Sent to WebRTC as a standalone "frame" it breaks strict decoders
+	// (iOS VideoToolbox errors on a picture-less access unit, and with PLI
+	// unanswered the picture stays broken until the next keyframe). Prepending
+	// it to the following frame is where a caption SEI normally lives, so
+	// caption-aware receivers still get it. A remainder at EOS has no frame to
+	// ride with and is dropped.
+	var pendingVideo []byte
+
 	videoappsink := app.SinkFromElement(videoSink)
 	videoappsink.SetCallbacks(&app.SinkCallbacks{
 		NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
@@ -131,15 +169,16 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 			samples := buffer.Bytes()
 
-			videoOutput = append(videoOutput, samples)
+			if !hasVideoSlice(samples) {
+				pendingVideo = append(pendingVideo, samples...)
+				return gst.FlowOK
+			}
+			if pendingVideo != nil {
+				samples = append(pendingVideo, samples...)
+				pendingVideo = nil
+			}
 
-			// clockTime := buffer.Duration()
-			// dur := clockTime.AsDuration()
-			// if dur != nil {
-			// 	log.Log(ctx, "video duration", "duration", *dur)
-			// } else {
-			// 	log.Error(ctx, "no video duration", "samples", len(samples))
-			// }
+			videoOutput = append(videoOutput, samples)
 
 			return gst.FlowOK
 		},

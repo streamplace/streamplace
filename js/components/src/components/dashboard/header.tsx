@@ -25,7 +25,12 @@ function MetaReadout({ label, value }: { label: string; value: string }) {
       >
         {label}
       </Text>
-      <Text style={[text.white, { fontSize: 14, fontFamily: fontFamilies.monoMedium }]}>
+      <Text
+        style={[
+          text.white,
+          { fontSize: 14, fontFamily: fontFamilies.monoMedium },
+        ]}
+      >
         {value}
       </Text>
     </View>

@@ -133,7 +133,9 @@ export function TopControlBar({
             gap.all[3],
           ]}
         >
-          {!embedded && !offline && <LiveBubble broadcasting={ingest !== null} />}
+          {!embedded && !offline && (
+            <LiveBubble broadcasting={ingest !== null} />
+          )}
           {embedded && Platform.OS === "web" && (
             <Pressable
               onPress={() => {

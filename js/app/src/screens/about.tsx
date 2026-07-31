@@ -50,9 +50,7 @@ function FeatureRow({
   const { theme } = useTheme();
   const c = theme.colors;
   return (
-    <View
-      style={{ flexDirection: "row", gap: 16, alignItems: "flex-start" }}
-    >
+    <View style={{ flexDirection: "row", gap: 16, alignItems: "flex-start" }}>
       <View
         style={{
           width: 44,
@@ -164,8 +162,8 @@ export default function AboutScreen() {
               maxWidth: 440,
             }}
           >
-            Join our Discord to learn more about Streamplace and how you can help
-            build it.
+            Join our Discord to learn more about Streamplace and how you can
+            help build it.
           </Text>
           <View style={{ marginTop: 14 }}>
             <Button

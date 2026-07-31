@@ -67,7 +67,12 @@ export default function ModeratorPanel({
       >
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
           <Shield size={18} color={colors.white} />
-          <Text style={[{ color: theme.colors.text1 }, { fontSize: 18, fontWeight: "600" }]}>
+          <Text
+            style={[
+              { color: theme.colors.text1 },
+              { fontSize: 18, fontWeight: "600" },
+            ]}
+          >
             Moderators
           </Text>
         </View>
@@ -85,7 +90,10 @@ export default function ModeratorPanel({
       <ScrollView style={[flex.values[1], p[4]]}>
         {isLoading && moderators.length === 0 && (
           <Text
-            style={[{ color: theme.colors.text3 }, { fontSize: 14, textAlign: "center" }]}
+            style={[
+              { color: theme.colors.text3 },
+              { fontSize: 14, textAlign: "center" },
+            ]}
           >
             Loading moderators...
           </Text>
@@ -101,7 +109,9 @@ export default function ModeratorPanel({
               { borderColor: theme.colors.danger },
             ]}
           >
-            <Text style={[{ color: theme.colors.danger }, { fontSize: 13 }]}>{error}</Text>
+            <Text style={[{ color: theme.colors.danger }, { fontSize: 13 }]}>
+              {error}
+            </Text>
           </View>
         )}
 
@@ -303,7 +313,12 @@ function ModeratorCard({
           )}
         </View>
         {moderator.value.expirationTime && !isExpired && (
-          <Text style={[{ color: theme.colors.text3 }, { fontSize: 11, marginTop: 4 }]}>
+          <Text
+            style={[
+              { color: theme.colors.text3 },
+              { fontSize: 11, marginTop: 4 },
+            ]}
+          >
             Expires:{" "}
             {new Date(moderator.value.expirationTime).toLocaleDateString()}
           </Text>
@@ -449,7 +464,12 @@ function AddModeratorDialog({
     >
       {/* DID Input */}
       <View style={[my[4]]}>
-        <Text style={[{ color: theme.colors.text2 }, { fontSize: 13, marginBottom: 8 }]}>
+        <Text
+          style={[
+            { color: theme.colors.text2 },
+            { fontSize: 13, marginBottom: 8 },
+          ]}
+        >
           Moderator DID or Handle
         </Text>
         <Input
@@ -463,7 +483,12 @@ function AddModeratorDialog({
 
       {/* Permissions */}
       <View style={[mb[4]]}>
-        <Text style={[{ color: theme.colors.text2 }, { fontSize: 13, marginBottom: 8 }]}>
+        <Text
+          style={[
+            { color: theme.colors.text2 },
+            { fontSize: 13, marginBottom: 8 },
+          ]}
+        >
           Permissions
         </Text>
         <View style={[gap.all[2]]}>
@@ -488,7 +513,9 @@ function AddModeratorDialog({
                 },
                 borders.width.thin,
                 { borderColor: theme.colors.borderStrong },
-                permissions.ban ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.surface1 },
+                permissions.ban
+                  ? { backgroundColor: theme.colors.primary }
+                  : { backgroundColor: theme.colors.surface1 },
                 layout.flex.center,
                 { marginRight: 12 },
               ]}
@@ -497,7 +524,10 @@ function AddModeratorDialog({
             </View>
             <View>
               <Text
-                style={[{ color: theme.colors.text1 }, { fontSize: 14, fontWeight: "500" }]}
+                style={[
+                  { color: theme.colors.text1 },
+                  { fontSize: 14, fontWeight: "500" },
+                ]}
               >
                 Ban Users
               </Text>
@@ -528,18 +558,25 @@ function AddModeratorDialog({
                 },
                 borders.width.thin,
                 { borderColor: theme.colors.borderStrong },
-                permissions.hide ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.surface1 },
+                permissions.hide
+                  ? { backgroundColor: theme.colors.primary }
+                  : { backgroundColor: theme.colors.surface1 },
                 layout.flex.center,
                 { marginRight: 12 },
               ]}
             >
               {permissions.hide && (
-                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>✓</Text>
+                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>
+                  ✓
+                </Text>
               )}
             </View>
             <View>
               <Text
-                style={[{ color: theme.colors.text1 }, { fontSize: 14, fontWeight: "500" }]}
+                style={[
+                  { color: theme.colors.text1 },
+                  { fontSize: 14, fontWeight: "500" },
+                ]}
               >
                 Hide Messages
               </Text>
@@ -583,12 +620,17 @@ function AddModeratorDialog({
               ]}
             >
               {permissions["livestream.manage"] && (
-                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>✓</Text>
+                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>
+                  ✓
+                </Text>
               )}
             </View>
             <View>
               <Text
-                style={[{ color: theme.colors.text1 }, { fontSize: 14, fontWeight: "500" }]}
+                style={[
+                  { color: theme.colors.text1 },
+                  { fontSize: 14, fontWeight: "500" },
+                ]}
               >
                 Manage Livestream
               </Text>
@@ -624,18 +666,25 @@ function AddModeratorDialog({
                 },
                 borders.width.thin,
                 { borderColor: theme.colors.borderStrong },
-                permissions["message.pin"] ? { backgroundColor: theme.colors.primary } : { backgroundColor: theme.colors.surface1 },
+                permissions["message.pin"]
+                  ? { backgroundColor: theme.colors.primary }
+                  : { backgroundColor: theme.colors.surface1 },
                 layout.flex.center,
                 { marginRight: 12 },
               ]}
             >
               {permissions["message.pin"] && (
-                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>✓</Text>
+                <Text style={[{ color: theme.colors.text1 }, { fontSize: 12 }]}>
+                  ✓
+                </Text>
               )}
             </View>
             <View>
               <Text
-                style={[{ color: theme.colors.text1 }, { fontSize: 14, fontWeight: "500" }]}
+                style={[
+                  { color: theme.colors.text1 },
+                  { fontSize: 14, fontWeight: "500" },
+                ]}
               >
                 Pin Messages
               </Text>
@@ -659,7 +708,9 @@ function AddModeratorDialog({
             mb[4],
           ]}
         >
-          <Text style={[{ color: theme.colors.danger }, { fontSize: 13 }]}>{error}</Text>
+          <Text style={[{ color: theme.colors.danger }, { fontSize: 13 }]}>
+            {error}
+          </Text>
         </View>
       )}
 

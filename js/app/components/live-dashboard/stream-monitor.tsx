@@ -11,12 +11,12 @@ import {
   zero,
 } from "@streamplace/components";
 import {
-  scrims,
-  statusColors,
-  textAlphas,
-  surfaces,
   borderAlphas,
   fontFamilies,
+  scrims,
+  statusColors,
+  surfaces,
+  textAlphas,
 } from "@streamplace/components/src/lib/theme/tokens";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { OfflineCounter } from "components/mobile/offline-counter";
@@ -247,7 +247,13 @@ export default function StreamMonitor({
         { overflow: "hidden" },
       ]}
     >
-      <View style={[flex.values[1], layout.flex.center, { backgroundColor: surfaces.dark[1] }]}>
+      <View
+        style={[
+          flex.values[1],
+          layout.flex.center,
+          { backgroundColor: surfaces.dark[1] },
+        ]}
+      >
         {isLive && userProfile ? (
           isStreamVisible ? (
             <View

@@ -1,6 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
 import {
-  borders,
   Button,
   Dashboard,
   useLivestreamStore,
@@ -9,11 +8,11 @@ import {
   useTheme,
   zero,
 } from "@streamplace/components";
-import { surfaces, borderAlphas } from "@streamplace/components/src/lib/theme/tokens";
 import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
+import { surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";

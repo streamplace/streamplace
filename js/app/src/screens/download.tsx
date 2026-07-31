@@ -47,7 +47,9 @@ export default function DownloadScreen() {
         paddingVertical: 56,
       }}
     >
-      <View style={{ width: "100%", maxWidth: 540, gap: 32, alignItems: "center" }}>
+      <View
+        style={{ width: "100%", maxWidth: 540, gap: 32, alignItems: "center" }}
+      >
         {/* Hero */}
         <View style={{ alignItems: "center", gap: 16 }}>
           <LogoMark size={48} color={c.text1} />

@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { Button, Text, useTheme, zero } from "@streamplace/components";
+import { Button, useTheme, zero } from "@streamplace/components";
 import { EmptyState, EmptyStateTile } from "components/empty-state";
 import Title from "components/title";
 import VideoCard from "components/video/video-card";

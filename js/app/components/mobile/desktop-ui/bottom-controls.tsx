@@ -110,7 +110,11 @@ function CollapseChatButton({
 }) {
   if (Platform.OS === "web") return null;
   return (
-    <Button variant="secondary" size="sm" onPress={() => setShowChat(!showChat)}>
+    <Button
+      variant="secondary"
+      size="sm"
+      onPress={() => setShowChat(!showChat)}
+    >
       {showChat ? (
         <ChevronRight color="white" size={16} />
       ) : (

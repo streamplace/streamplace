@@ -77,7 +77,9 @@ export function useSidebarControl(): UseSidebarOutput {
     overlay ? (drawerOpen ? 0 : -DRAWER_WIDTH) : 0,
   );
   const animatedContentMargin = useSharedValue(overlay ? 0 : targetWidth);
-  const animatedScrim = useSharedValue(overlay && drawerOpen ? SCRIM_OPACITY : 0);
+  const animatedScrim = useSharedValue(
+    overlay && drawerOpen ? SCRIM_OPACITY : 0,
+  );
 
   const prevOverlay = useRef(overlay);
   useEffect(() => {

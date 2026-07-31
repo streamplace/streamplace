@@ -15,9 +15,9 @@ import {
   touchTargets,
   typeScale,
 } from "../../lib/theme/tokens";
+import { ButtonTextColorContext } from "./button-text-color";
 import { ButtonPrimitive, ButtonPrimitiveProps } from "./primitives/button";
 import { TextPrimitive } from "./primitives/text";
-import { ButtonTextColorContext } from "./button-text-color";
 
 // Button variants. Emphasis comes from CONTRAST, not hue:
 //   primary  → Paper/Ink monochrome fill (the one hero action per view)
@@ -61,12 +61,7 @@ const buttonVariants = cva("", {
   },
 });
 
-type CanonicalVariant =
-  | "primary"
-  | "secondary"
-  | "ghost"
-  | "danger"
-  | "accent";
+type CanonicalVariant = "primary" | "secondary" | "ghost" | "danger" | "accent";
 
 function canonicalVariant(
   variant: string | null | undefined,
@@ -311,10 +306,9 @@ export const Button = forwardRef<any, ButtonProps>(
     // Callers that need a bespoke icon color can wrap it in a colored element.
     const tintIcon = (node: React.ReactNode): React.ReactNode =>
       React.isValidElement(node)
-        ? React.cloneElement(
-            node as React.ReactElement<{ color?: string }>,
-            { color: variantStyles.text },
-          )
+        ? React.cloneElement(node as React.ReactElement<{ color?: string }>, {
+            color: variantStyles.text,
+          })
         : node;
 
     // if href, wrap in pressable that renders as <a> on web
@@ -341,41 +335,41 @@ export const Button = forwardRef<any, ButtonProps>(
           {...props}
         >
           <ButtonPrimitive.Content style={sizeStyles.inner}>
-          <ButtonTextColorContext.Provider value={variantStyles.text}>
-            {loading && !leftIcon ? (
-              <ButtonPrimitive.Icon position="left">
-                <ActivityIndicator size="small" color={variantStyles.text} />
-              </ButtonPrimitive.Icon>
-            ) : leftIcon ? (
-              <ButtonPrimitive.Icon position="left">
-                {tintIcon(leftIcon)}
-              </ButtonPrimitive.Icon>
-            ) : null}
+            <ButtonTextColorContext.Provider value={variantStyles.text}>
+              {loading && !leftIcon ? (
+                <ButtonPrimitive.Icon position="left">
+                  <ActivityIndicator size="small" color={variantStyles.text} />
+                </ButtonPrimitive.Icon>
+              ) : leftIcon ? (
+                <ButtonPrimitive.Icon position="left">
+                  {tintIcon(leftIcon)}
+                </ButtonPrimitive.Icon>
+              ) : null}
 
-            {typeof children === "string" ? (
-              <TextPrimitive.Root style={textStyle as any}>
-                {loading && loadingText ? loadingText : children}
-              </TextPrimitive.Root>
-            ) : loading && loadingText ? (
-              loadingText
-            ) : (
-              children
-            )}
+              {typeof children === "string" ? (
+                <TextPrimitive.Root style={textStyle as any}>
+                  {loading && loadingText ? loadingText : children}
+                </TextPrimitive.Root>
+              ) : loading && loadingText ? (
+                loadingText
+              ) : (
+                children
+              )}
 
-            {loading && rightIcon ? (
-              <ButtonPrimitive.Icon position="right">
-                <ActivityIndicator size="small" color={variantStyles.text} />
-              </ButtonPrimitive.Icon>
-            ) : rightIcon ? (
-              <ButtonPrimitive.Icon
-                position="right"
-                style={{ width: iconSize, height: iconSize }}
-              >
-                {tintIcon(rightIcon)}
-              </ButtonPrimitive.Icon>
-            ) : null}
-          </ButtonTextColorContext.Provider>
-        </ButtonPrimitive.Content>
+              {loading && rightIcon ? (
+                <ButtonPrimitive.Icon position="right">
+                  <ActivityIndicator size="small" color={variantStyles.text} />
+                </ButtonPrimitive.Icon>
+              ) : rightIcon ? (
+                <ButtonPrimitive.Icon
+                  position="right"
+                  style={{ width: iconSize, height: iconSize }}
+                >
+                  {tintIcon(rightIcon)}
+                </ButtonPrimitive.Icon>
+              ) : null}
+            </ButtonTextColorContext.Provider>
+          </ButtonPrimitive.Content>
         </ButtonPrimitive.Root>
       </Wrapper>
     );

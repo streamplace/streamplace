@@ -132,13 +132,17 @@ export function SettingsListItem({
 
       {/* Subtitle/Description */}
       {subtitle && (
-        <Text style={[{ color: theme.colors.text2 }, { fontSize: 14 }]}>{subtitle}</Text>
+        <Text style={[{ color: theme.colors.text2 }, { fontSize: 14 }]}>
+          {subtitle}
+        </Text>
       )}
 
       {/* URL */}
       {url && (
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>URL:</Text>
+          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>
+            URL:
+          </Text>
           <Text
             style={[
               { color: theme.colors.text3 },
@@ -159,11 +163,20 @@ export function SettingsListItem({
           key={index}
           style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
         >
-          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>{meta.label}:</Text>
+          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>
+            {meta.label}:
+          </Text>
           <View style={[layout.flex.row, gap.all[1], { flexWrap: "wrap" }]}>
             {Array.isArray(meta.value) ? (
               meta.value.map((item: any, idx: number) => (
-                <View key={idx} style={[{ backgroundColor: theme.colors.primary }, p[1], r.full]}>
+                <View
+                  key={idx}
+                  style={[
+                    { backgroundColor: theme.colors.primary },
+                    p[1],
+                    r.full,
+                  ]}
+                >
                   <Text style={[text.blue[300], { fontSize: 11 }]}>{item}</Text>
                 </View>
               ))

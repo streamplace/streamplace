@@ -211,7 +211,11 @@ const AccountMenuItem = ({
       >
         <Icon size={18} color={fg} />
         <Text
-          style={{ color: fg, fontSize: 14, fontWeight: danger ? "600" : "500" }}
+          style={{
+            color: fg,
+            fontSize: 14,
+            fontWeight: danger ? "600" : "500",
+          }}
         >
           {label}
         </Text>
@@ -242,7 +246,10 @@ export const AvatarButton = () => {
       const rootNav = navigation.getParent()?.getParent() || navigation;
       (rootNav as any).navigate(screen, params);
     } else {
-      const converted = convertNavigationParams({ screen: screen as any, params });
+      const converted = convertNavigationParams({
+        screen: screen as any,
+        params,
+      });
       (navigation as any).navigate(converted.screen, converted.params);
     }
   };

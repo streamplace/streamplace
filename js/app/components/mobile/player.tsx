@@ -409,10 +409,7 @@ export function PlayerInner(
   // Web VOD pages have a sticky translucent header (56px) rendered by the shell;
   // reserve space so the video starts below it and scrolls under it.
   const vodHeaderPad =
-    Platform.OS === "web" &&
-    props.mode === "vod" &&
-    sb.isActive &&
-    !fullscreen
+    Platform.OS === "web" && props.mode === "vod" && sb.isActive && !fullscreen
       ? 56
       : 0;
 

@@ -61,11 +61,13 @@ export const MARK_WITH_HOLE = `${TILE_PATH} ${UPPER_HOLE} ${LOWER_HOLE}`;
 // Standalone SVG source for the "copy as SVG" brand menu. Mono ink by default
 // (reads on light surfaces / code editors); mirrors js/app/public/brand/*.svg.
 // token-ok: SVG export ink, mirrors public/brand/*.svg
-export function markSvgString(color = "#0A0A0B") { // token-ok
+export function markSvgString(color = "#0A0A0B") {
+  // token-ok
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" fill-rule="evenodd" d="${MARK_WITH_HOLE}"/></svg>`;
 }
 
-export function wordmarkSvgString(color = "#0A0A0B") { // token-ok
+export function wordmarkSvgString(color = "#0A0A0B") {
+  // token-ok
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96"><text x="0" y="68" fill="${color}" font-family="Geist, Inter, Arial, sans-serif" font-size="72" font-weight="600" letter-spacing="-1.44">stream.place</text></svg>`;
 }
 

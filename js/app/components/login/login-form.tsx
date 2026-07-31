@@ -328,7 +328,7 @@ export default function LoginForm({
                   backgroundColor: theme.colors.muted,
                 }}
               >
-                <AtSign size={22} color="#eee" />
+                <AtSign size={22} color={theme.colors.text2} />
               </View>
             )}
           </View>

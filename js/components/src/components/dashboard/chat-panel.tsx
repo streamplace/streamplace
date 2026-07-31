@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
+import { borderAlphas, surfaces } from "../../lib/theme/tokens";
 import * as zero from "../../ui";
-import { surfaces, borderAlphas } from "../../lib/theme/tokens";
 import { Chat } from "../chat/chat";
 import { ChatBox } from "../chat/chat-box";
 

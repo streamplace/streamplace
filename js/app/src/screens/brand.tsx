@@ -654,11 +654,15 @@ export default function BrandScreen() {
             active nav, selected items) — not button fills, and never the mark.
             Red signals state, not decoration: a filled red dot is on-air, and
             that hero use stays reserved; destructive and error states borrow
-            red as ink (outline, text, icon) so a glance still separates
-            "live" from "careful." Red never becomes a brand or accent color.
+            red as ink (outline, text, icon) so a glance still separates "live"
+            from "careful." Red never becomes a brand or accent color.
           </Text>
           <View style={{ gap: spacing[4], maxWidth: 760 }}>
-            <Swatch name="Ink" value={BRAND_INK} note="Brand on light — the mark, type, surfaces" />
+            <Swatch
+              name="Ink"
+              value={BRAND_INK}
+              note="Brand on light — the mark, type, surfaces"
+            />
             <Swatch
               name="Paper"
               value={BRAND_PAPER}
@@ -691,7 +695,11 @@ export default function BrandScreen() {
               <LogoMark size={72} color={BRAND_INK} />
             </Panel>
             <Panel background={surfaces.dark[3]}>
-              <LogoLockup size={24} color={BRAND_PAPER} markColor={BRAND_PAPER} />
+              <LogoLockup
+                size={24}
+                color={BRAND_PAPER}
+                markColor={BRAND_PAPER}
+              />
             </Panel>
           </View>
         </Section>
@@ -713,7 +721,10 @@ export default function BrandScreen() {
               alignItems: "flex-start",
             }}
           >
-            <ButtonSpec label="Primary · Paper" note="The one hero action. One per view.">
+            <ButtonSpec
+              label="Primary · Paper"
+              note="The one hero action. One per view."
+            >
               <Button width="min">Publish</Button>
             </ButtonSpec>
             <ButtonSpec label="Secondary · Tonal" note="Supporting actions.">
@@ -731,7 +742,10 @@ export default function BrandScreen() {
                 Delete
               </Button>
             </ButtonSpec>
-            <ButtonSpec label="Accent · Indigo" note="Reserved. Rare, opt-in brand moment.">
+            <ButtonSpec
+              label="Accent · Indigo"
+              note="Reserved. Rare, opt-in brand moment."
+            >
               <Button variant="accent" width="min">
                 Get started
               </Button>

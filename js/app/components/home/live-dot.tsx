@@ -1,6 +1,6 @@
+import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
-import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

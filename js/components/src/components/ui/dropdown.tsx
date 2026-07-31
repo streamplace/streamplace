@@ -14,6 +14,12 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import {
   a,
   borderRadius,
@@ -37,12 +43,6 @@ import {
   TextContext as TextClassContext,
 } from "./primitives/text";
 import { Text } from "./text";
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 
 export const DropdownMenu = DropdownMenuPrimitive.Root;
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -405,66 +405,75 @@ export const DropdownMenuItem = forwardRef<
   }
 >(
   (
-    { inset, disabled, style, children, onFocus, onBlur, noHighlight, ...props },
+    {
+      inset,
+      disabled,
+      style,
+      children,
+      onFocus,
+      onBlur,
+      noHighlight,
+      ...props
+    },
     ref,
   ) => {
-  const { theme } = useTheme();
-  const c = theme.colors;
-  // Highlight the row on hover and on keyboard focus. Radix moves DOM focus to
-  // whichever item the pointer is over (roving focus), so a single `active`
-  // flag covers both mouse and keyboard, and the surface fill replaces the
-  // global :focus-visible outline that would otherwise draw an indigo ring.
-  const [active, setActive] = React.useState(false);
-  const highlight = active && !disabled && !noHighlight;
-  return (
-    <DropdownMenuPrimitive.Item
-      ref={ref}
-      // Flatten to a single style object: on web this style is forwarded
-      // straight to a DOM node (via Radix asChild/Slot), and React DOM throws
-      // "Indexed property setter is not supported" if handed a style array.
-      style={StyleSheet.flatten([{ outlineStyle: "none" }, style]) as any}
-      onFocus={(e: any) => {
-        setActive(true);
-        onFocus?.(e);
-      }}
-      onBlur={(e: any) => {
-        setActive(false);
-        onBlur?.(e);
-      }}
-      {...props}
-    >
-      <TextClassContext.Provider
-        value={objectFromObjects([
-          { color: theme.colors.popoverForeground },
-          a.fontSize.base,
-        ])}
+    const { theme } = useTheme();
+    const c = theme.colors;
+    // Highlight the row on hover and on keyboard focus. Radix moves DOM focus to
+    // whichever item the pointer is over (roving focus), so a single `active`
+    // flag covers both mouse and keyboard, and the surface fill replaces the
+    // global :focus-visible outline that would otherwise draw an indigo ring.
+    const [active, setActive] = React.useState(false);
+    const highlight = active && !disabled && !noHighlight;
+    return (
+      <DropdownMenuPrimitive.Item
+        ref={ref}
+        // Flatten to a single style object: on web this style is forwarded
+        // straight to a DOM node (via Radix asChild/Slot), and React DOM throws
+        // "Indexed property setter is not supported" if handed a style array.
+        style={StyleSheet.flatten([{ outlineStyle: "none" }, style]) as any}
+        onFocus={(e: any) => {
+          setActive(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e: any) => {
+          setActive(false);
+          onBlur?.(e);
+        }}
+        {...props}
       >
-        <View
-          onPointerEnter={() => setActive(true)}
-          onPointerLeave={() => setActive(false)}
-          style={[
-            a.layout.flex.row,
-            a.layout.flex.alignCenter,
-            a.radius.all.sm,
-            py[1],
-            pl[2],
-            pr[2],
-            { backgroundColor: highlight ? c.surface3 : "transparent" },
-          ]}
+        <TextClassContext.Provider
+          value={objectFromObjects([
+            { color: theme.colors.popoverForeground },
+            a.fontSize.base,
+          ])}
         >
-          {typeof children === "function" ? (
-            children({ pressed: true })
-          ) : typeof children === "string" ? (
-            <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
-              {children}
-            </Text>
-          ) : (
-            children
-          )}
-        </View>
-      </TextClassContext.Provider>
-    </DropdownMenuPrimitive.Item>
-  );
+          <View
+            onPointerEnter={() => setActive(true)}
+            onPointerLeave={() => setActive(false)}
+            style={[
+              a.layout.flex.row,
+              a.layout.flex.alignCenter,
+              a.radius.all.sm,
+              py[1],
+              pl[2],
+              pr[2],
+              { backgroundColor: highlight ? c.surface3 : "transparent" },
+            ]}
+          >
+            {typeof children === "function" ? (
+              children({ pressed: true })
+            ) : typeof children === "string" ? (
+              <Text style={[inset && gap[2], disabled && { opacity: 0.5 }]}>
+                {children}
+              </Text>
+            ) : (
+              children
+            )}
+          </View>
+        </TextClassContext.Provider>
+      </DropdownMenuPrimitive.Item>
+    );
   },
 );
 

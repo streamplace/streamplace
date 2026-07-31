@@ -138,8 +138,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to get audio appsink element")
 	}
 
-	videoOutput := [][]byte{}
-	audioOutput := [][]byte{}
+	videoOutput := []rawSample{}
+	audioOutput := []rawSample{}
 	// eosCh := make(chan struct{})
 
 	// Slice-less video data (parameter sets / SEI metadata with no picture)
@@ -178,7 +178,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 				pendingVideo = nil
 			}
 
-			videoOutput = append(videoOutput, samples)
+			videoOutput = append(videoOutput, newRawSample(samples, buffer))
 
 			return gst.FlowOK
 		},
@@ -206,7 +206,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			samples := buffer.Bytes()
 			// log.Warn(ctx, "audioappsink NewSampleFunc", "sample", len(samples))
 
-			audioOutput = append(audioOutput, samples)
+			audioOutput = append(audioOutput, newRawSample(samples, buffer))
 
 			clockTime := buffer.Duration()
 			dur := clockTime.AsDuration()
@@ -255,8 +255,58 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 	}
 
 	return &bus.PacketizedSegment{
-		Video:    videoOutput,
-		Audio:    audioOutput,
+		Video:    finalizeSampleDurations(videoOutput, segDur),
+		Audio:    finalizeSampleDurations(audioOutput, segDur),
 		Duration: segDur,
 	}, nil
+}
+
+// rawSample is a demuxed sample plus the source timing needed to compute its
+// WebRTC duration: its decode timestamp (DTS when the container carries one —
+// decode order is monotonic even with B-frames — else PTS) and the buffer's
+// own duration as a fallback.
+type rawSample struct {
+	data   []byte
+	ts     time.Duration
+	hasTS  bool
+	bufDur time.Duration
+	hasDur bool
+}
+
+func newRawSample(data []byte, buffer *gst.Buffer) rawSample {
+	rs := rawSample{data: data}
+	if ts := buffer.DecodingTimestamp().AsDuration(); ts != nil {
+		rs.ts, rs.hasTS = *ts, true
+	} else if pts := buffer.PresentationTimestamp().AsDuration(); pts != nil {
+		rs.ts, rs.hasTS = *pts, true
+	}
+	if dur := buffer.Duration().AsDuration(); dur != nil {
+		rs.bufDur, rs.hasDur = *dur, true
+	}
+	return rs
+}
+
+// finalizeSampleDurations converts raw buffer timing into the per-sample
+// durations the WebRTC sender stamps and paces by. Each sample lasts until
+// the next sample's timestamp — the source timeline, so non-uniform spacing
+// (an encoder shedding frames under bandwidth pressure) is preserved instead
+// of being respaced evenly. The last sample has no successor: it gets its own
+// buffer duration, stretched to fill out the segment (total) when the track
+// would otherwise end early — a sparse track's final frame must hold until
+// the segment ends or its timeline falls behind the other track's.
+func finalizeSampleDurations(raw []rawSample, total time.Duration) []bus.PacketizedSample {
+	out := make([]bus.PacketizedSample, len(raw))
+	var span time.Duration
+	for i, rs := range raw {
+		dur := rs.bufDur
+		if i+1 < len(raw) && rs.hasTS && raw[i+1].hasTS && raw[i+1].ts > rs.ts {
+			dur = raw[i+1].ts - rs.ts
+		}
+		out[i] = bus.PacketizedSample{Data: rs.data, Duration: dur}
+		span += dur
+	}
+	if len(out) > 0 && total > span {
+		out[len(out)-1].Duration += total - span
+	}
+	return out
 }

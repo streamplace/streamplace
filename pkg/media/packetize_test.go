@@ -266,12 +266,77 @@ func TestPacketizeTrailingCaptionSEI(t *testing.T) {
 		require.Equal(t, frames, len(packet.Video))
 		totalSEIs := 0
 		for i, v := range packet.Video {
-			require.True(t, hasVideoSlice(v), "video sample %d has no picture", i)
-			totalSEIs += countCaptionSEIs(v)
+			require.True(t, hasVideoSlice(v.Data), "video sample %d has no picture", i)
+			totalSEIs += countCaptionSEIs(v.Data)
+			// Real per-sample timing: ~33ms at 30fps, no sample burned by a
+			// zero-length caption "frame". The last sample is exempt — it
+			// stretches to cover the (audio-derived) segment end.
+			if i < len(packet.Video)-1 {
+				require.InDelta(t, 33*time.Millisecond, v.Duration, float64(10*time.Millisecond),
+					"video sample %d duration", i)
+			}
 		}
 		// ...and the captions must survive, riding with real frames.
 		require.Equal(t, seiCount, totalSEIs)
 		require.NotEmpty(t, packet.Audio)
+	})
+}
+
+// TestFinalizeSampleDurations covers the duration synthesis rules: durations
+// come from successive timestamps (preserving gaps from dropped frames), the
+// buffer's own duration is the fallback, and the final sample stretches to
+// the end of the segment when the track would otherwise end early.
+func TestFinalizeSampleDurations(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+
+	t.Run("UniformTimeline", func(t *testing.T) {
+		raw := []rawSample{
+			{ts: ms(0), hasTS: true, bufDur: ms(33), hasDur: true},
+			{ts: ms(33), hasTS: true, bufDur: ms(33), hasDur: true},
+			{ts: ms(66), hasTS: true, bufDur: ms(34), hasDur: true},
+		}
+		out := finalizeSampleDurations(raw, ms(100))
+		require.Equal(t, []time.Duration{ms(33), ms(33), ms(34)},
+			[]time.Duration{out[0].Duration, out[1].Duration, out[2].Duration})
+	})
+
+	t.Run("GapFromDroppedFrames", func(t *testing.T) {
+		// An encoder under bandwidth pressure sent two frames, dropped ~1s,
+		// then sent another: the gap belongs to the sample before it.
+		raw := []rawSample{
+			{ts: ms(0), hasTS: true, bufDur: ms(33), hasDur: true},
+			{ts: ms(33), hasTS: true, bufDur: ms(33), hasDur: true},
+			{ts: ms(1033), hasTS: true, bufDur: ms(33), hasDur: true},
+		}
+		out := finalizeSampleDurations(raw, ms(1066))
+		require.Equal(t, ms(33), out[0].Duration)
+		require.Equal(t, ms(1000), out[1].Duration)
+		require.Equal(t, ms(33), out[2].Duration)
+	})
+
+	t.Run("LastSampleStretchesToSegmentEnd", func(t *testing.T) {
+		// A single keyframe in a 4s segment must hold the full 4s, or the
+		// video timeline falls behind the audio's segment after segment.
+		raw := []rawSample{
+			{ts: ms(0), hasTS: true, bufDur: ms(33), hasDur: true},
+		}
+		out := finalizeSampleDurations(raw, ms(4000))
+		require.Equal(t, ms(4000), out[0].Duration)
+	})
+
+	t.Run("NoStretchWhenTrackFillsSegment", func(t *testing.T) {
+		// Video already spans past the (audio-derived) total: leave it alone.
+		raw := []rawSample{
+			{ts: ms(0), hasTS: true, bufDur: ms(33), hasDur: true},
+			{ts: ms(33), hasTS: true, bufDur: ms(34), hasDur: true},
+		}
+		out := finalizeSampleDurations(raw, ms(50))
+		require.Equal(t, ms(33), out[0].Duration)
+		require.Equal(t, ms(34), out[1].Duration)
+	})
+
+	t.Run("Empty", func(t *testing.T) {
+		require.Empty(t, finalizeSampleDurations(nil, ms(1000)))
 	})
 }
 

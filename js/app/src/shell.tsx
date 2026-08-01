@@ -647,6 +647,9 @@ export default function Shell() {
             headerTitleStyle: {
               fontFamily: z.theme.typography.universal.base.fontFamily,
             },
+            headerStyle: {
+              backgroundColor: z.theme.colors.background,
+            },
           }}
         >
           {/* Main tabs (initial screen for all platforms) */}

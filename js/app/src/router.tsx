@@ -1,6 +1,7 @@
 import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
+import * as DropdownMenuPrimitive from "@rn-primitives/dropdown-menu";
 import {
   Button,
   Text,
@@ -10,6 +11,7 @@ import {
 } from "@streamplace/components";
 import { Provider } from "components";
 import { ImageBackground } from "expo-image";
+import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
   ArrowLeft,
@@ -20,10 +22,12 @@ import {
   Upload,
   User,
 } from "lucide-react-native";
+import { ReactNode } from "react";
 import {
   ImageSourcePropType,
   Platform,
   Pressable,
+  StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -35,6 +39,7 @@ import {
   configureReanimatedLogger,
   ReanimatedLogLevel,
 } from "react-native-reanimated";
+import { convertNavigationParams } from "src/navigation-helper";
 import "src/navigation-types";
 import Shell from "src/shell";
 import { useStore } from "store";
@@ -132,8 +137,90 @@ export const NavigationButton = ({ canGoBack }: { canGoBack?: boolean }) => {
   );
 };
 
+// Red ring shown around the avatar while the user is live
+const LiveRing = ({ children }: { children: ReactNode }) => {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        borderWidth: 2,
+        borderColor: theme.colors.destructive,
+        borderRadius: 26,
+        padding: 2,
+      }}
+    >
+      {children}
+    </View>
+  );
+};
+
+// Anchored popover menu with a link to the live dashboard. Built on
+// rn-primitives directly so it stays a regular dropdown on native too,
+// where the shared DropdownMenuContent renders as a bottom sheet.
+const LiveAvatarDropdown = ({ children }: { children: ReactNode }) => {
+  const { theme } = useTheme();
+  const navigation = useNavigation();
+  return (
+    <DropdownMenuPrimitive.Root>
+      <DropdownMenuPrimitive.Trigger>{children}</DropdownMenuPrimitive.Trigger>
+      <DropdownMenuPrimitive.Portal>
+        <DropdownMenuPrimitive.Overlay
+          style={Platform.OS !== "web" ? StyleSheet.absoluteFill : undefined}
+        >
+          <DropdownMenuPrimitive.Content
+            align="end"
+            sideOffset={8}
+            style={{
+              zIndex: 50,
+              minWidth: 160,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              backgroundColor: theme.colors.popover,
+              padding: 4,
+            }}
+          >
+            <DropdownMenuPrimitive.Item
+              onPress={() => {
+                const to = convertNavigationParams({
+                  screen: "LiveDashboard",
+                });
+                // @ts-expect-error - dynamic navigation with LinkParams
+                navigation.navigate(to.screen, to.params);
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  paddingVertical: 6,
+                  paddingHorizontal: 8,
+                }}
+              >
+                <View
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: theme.colors.destructive,
+                  }}
+                />
+                <Text style={{ color: theme.colors.popoverForeground }}>
+                  Go to Live Dashboard
+                </Text>
+              </View>
+            </DropdownMenuPrimitive.Item>
+          </DropdownMenuPrimitive.Content>
+        </DropdownMenuPrimitive.Overlay>
+      </DropdownMenuPrimitive.Portal>
+    </DropdownMenuPrimitive.Root>
+  );
+};
+
 export const LGAvatarButton = () => {
   const userProfile = useUserProfile();
+  const userIsLive = useLiveUser();
 
   if (Platform.OS !== "ios") return <AvatarButton />;
 
@@ -147,40 +234,56 @@ export const LGAvatarButton = () => {
     source = { uri: userProfile.avatar };
     opacity = 0;
   }
-  return (
-    <AQLink to={targetScreen} style={{ marginRight: 10 }}>
-      <LiquidGlassView
-        interactive
+
+  const glassAvatar = (
+    <LiquidGlassView
+      interactive
+      style={{
+        borderRadius: 24,
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <ImageBackground
+        // defeat cursed-ass caching on ios; image sticks around when source is undefined
+        key={source?.uri ?? "default"}
+        source={source}
         style={{
+          width: 38,
+          height: 38,
           borderRadius: 24,
-          width: 40,
-          height: 40,
-          justifyContent: "center",
-          alignItems: "center",
+          overflow: "hidden",
+          backgroundColor: "black",
+          opacity: 0.9,
         }}
       >
-        <ImageBackground
-          // defeat cursed-ass caching on ios; image sticks around when source is undefined
-          key={source?.uri ?? "default"}
-          source={source}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 24,
-            overflow: "hidden",
-            backgroundColor: "black",
-            opacity: 0.9,
-          }}
-        >
-          <User size={24} color="white" style={{ zIndex: -2 }} />
-        </ImageBackground>
-      </LiquidGlassView>
+        <User size={24} color="white" style={{ zIndex: -2 }} />
+      </ImageBackground>
+    </LiquidGlassView>
+  );
+
+  if (userProfile && userIsLive) {
+    return (
+      <View style={{ marginRight: 10 }}>
+        <LiveAvatarDropdown>
+          <LiveRing>{glassAvatar}</LiveRing>
+        </LiveAvatarDropdown>
+      </View>
+    );
+  }
+
+  return (
+    <AQLink to={targetScreen} style={{ marginRight: 10 }}>
+      {glassAvatar}
     </AQLink>
   );
 };
 
 export const AvatarButton = () => {
   const userProfile = useUserProfile();
+  const userIsLive = useLiveUser();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
   const { theme } = useTheme();
@@ -192,24 +295,35 @@ export const AvatarButton = () => {
 
   if (userProfile) {
     source = { uri: userProfile.avatar };
+    const avatar = (
+      <ImageBackground
+        key={source?.uri ?? "default"}
+        source={source}
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 24,
+          overflow: "hidden",
+          backgroundColor: "black",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <User size={24} color="white" style={{ zIndex: -2 }} />
+      </ImageBackground>
+    );
+    if (userIsLive) {
+      return (
+        <View style={{ marginRight: 10 }}>
+          <LiveAvatarDropdown>
+            <LiveRing>{avatar}</LiveRing>
+          </LiveAvatarDropdown>
+        </View>
+      );
+    }
     return (
-      <AQLink to={{ screen: "AccountCategory" }}>
-        <ImageBackground
-          key={source?.uri ?? "default"}
-          source={source}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 24,
-            overflow: "hidden",
-            marginRight: 10,
-            backgroundColor: "black",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-        >
-          <User size={24} color="white" style={{ zIndex: -2 }} />
-        </ImageBackground>
+      <AQLink to={{ screen: "AccountCategory" }} style={{ marginRight: 10 }}>
+        {avatar}
       </AQLink>
     );
   }

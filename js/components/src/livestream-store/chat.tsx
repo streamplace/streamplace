@@ -491,11 +491,16 @@ export const usePinChatMessage = () => {
   return async (
     messageUri: string,
     streamerDID: string,
-    expiresAt?: string,
+    options?: { expiresAt?: string; duration?: string; livestream?: string },
   ) => {
     if (!agent || !agent.did) {
       throw new Error("No PDS agent or user DID found");
     }
+
+    const extra: Record<string, string> = {};
+    if (options?.expiresAt) extra.expiresAt = options.expiresAt;
+    if (options?.duration) extra.duration = options.duration;
+    if (options?.livestream) extra.livestream = options.livestream;
 
     // If streamer, create directly
     if (agent.did === streamerDID) {
@@ -503,7 +508,7 @@ export const usePinChatMessage = () => {
         $type: "place.stream.chat.pinnedRecord",
         pinnedMessage: messageUri,
         createdAt: new Date().toISOString(),
-        ...(expiresAt ? { expiresAt } : {}),
+        ...extra,
       };
 
       const result = await agent.com.atproto.repo.createRecord({
@@ -518,7 +523,7 @@ export const usePinChatMessage = () => {
     const result = await agent.client.call(place.stream.moderation.createPin, {
       streamer: streamerDID,
       messageUri,
-      ...(expiresAt ? { expiresAt } : {}),
+      ...extra,
     } as any);
     return result;
   };

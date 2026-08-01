@@ -2128,6 +2128,15 @@
                     "type": "string",
                     "description": "Optional expiration time for this pin.",
                     "format": "date-time"
+                  },
+                  "duration": {
+                    "type": "string",
+                    "description": "Pin duration, passed through to the pinned record. Defaults to 'streamEnd' when unset."
+                  },
+                  "livestream": {
+                    "type": "string",
+                    "description": "AT-URI of the livestream this pin is scoped to, passed through to the pinned record. Required for 'streamEnd' pins to be active.",
+                    "format": "uri"
                   }
                 },
                 "required": ["streamer", "messageUri"]

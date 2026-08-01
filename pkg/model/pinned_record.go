@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	glex "github.com/streamplace/glex/runtime"
+
 	"github.com/bluesky-social/indigo/util"
 	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/placestream"
@@ -20,6 +22,8 @@ type PinnedRecord struct {
 	IndexedAt     *time.Time `gorm:"column:indexed_at"    json:"indexedAt"`
 	ExpiresAt     *time.Time `gorm:"column:expires_at"    json:"expiresAt"`
 	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
+	Duration      string     `gorm:"column:duration"       json:"duration,omitempty"`
+	LivestreamURI string     `gorm:"column:livestream_uri" json:"livestreamURI,omitempty"`
 }
 
 func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord, error) {
@@ -31,6 +35,12 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord
 	if p.ExpiresAt != nil {
 		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		rec.ExpiresAt = &s
+	}
+	if p.Duration != "" {
+		rec.Duration = &p.Duration
+	}
+	if p.LivestreamURI != "" {
+		rec.Livestream = &p.LivestreamURI
 	}
 	return rec, nil
 }
@@ -44,6 +54,12 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (placestream.ChatDefs_Pin
 	if p.ExpiresAt != nil {
 		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		pr.ExpiresAt = &s
+	}
+	if p.Duration != "" {
+		pr.Duration = &p.Duration
+	}
+	if p.LivestreamURI != "" {
+		pr.Livestream = &p.LivestreamURI
 	}
 	rec := placestream.ChatDefs_PinnedRecordView{
 		LexiconTypeID: "place.stream.chat.defs#pinnedRecordView",
@@ -81,9 +97,8 @@ func (m *DBModel) DeleteAllPinnedRecords(ctx context.Context, streamerDID string
 
 func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string) (*PinnedRecord, error) {
 	var pin PinnedRecord
-	now := time.Now()
 	err := m.DB.Preload("Repo").
-		Where("repo_did = ? AND (expires_at IS NULL OR expires_at > ?)", streamerDID, now).
+		Where("repo_did = ?", streamerDID).
 		Order("created_at DESC").
 		First(&pin).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -92,5 +107,43 @@ func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string)
 	if err != nil {
 		return nil, err
 	}
+	active, err := m.isPinActive(&pin)
+	if err != nil {
+		return nil, err
+	}
+	if !active {
+		return nil, nil
+	}
 	return &pin, nil
+}
+
+// isPinActive checks whether a pin should currently be shown. The most recent
+// pin record for a streamer is authoritative: if it is expired, or scoped to
+// a livestream (duration="streamEnd" or unset) whose stream has ended, the
+// streamer has no active pin — older records are not resurrected.
+func (m *DBModel) isPinActive(pin *PinnedRecord) (bool, error) {
+	if pin.ExpiresAt != nil && pin.ExpiresAt.Before(time.Now()) {
+		return false, nil
+	}
+	if pin.Duration == "forever" {
+		return true, nil
+	}
+	// Legacy pins with no livestream scope are always active.
+	if pin.LivestreamURI == "" {
+		return true, nil
+	}
+	ls, err := m.GetLivestream(pin.LivestreamURI)
+	if err != nil {
+		return false, err
+	}
+	if ls == nil {
+		return false, nil
+	}
+	if ls.Livestream != nil {
+		var rec placestream.Livestream
+		if err := glex.DecodeCBOR(*ls.Livestream, &rec); err == nil && rec.EndedAt != nil {
+			return false, nil
+		}
+	}
+	return true, nil
 }

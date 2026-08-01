@@ -376,6 +376,8 @@ func (s *Server) handlePlaceStreamModerationCreatePin(ctx context.Context, input
 		PinnedMessage: input.MessageUri,
 		CreatedAt:     time.Now().UTC().Format(time.RFC3339),
 		ExpiresAt:     input.ExpiresAt,
+		Duration:      input.Duration,
+		Livestream:    input.Livestream,
 	}
 
 	createInput := comatproto.RepoCreateRecord_Input{

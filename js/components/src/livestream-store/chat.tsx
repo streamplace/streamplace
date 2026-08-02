@@ -491,7 +491,7 @@ export const usePinChatMessage = () => {
   return async (
     messageUri: string,
     streamerDID: string,
-    options?: { expiresAt?: string; duration?: string; livestream?: string },
+    options?: { expiresAt?: string; livestream?: string },
   ) => {
     if (!agent || !agent.did) {
       throw new Error("No PDS agent or user DID found");
@@ -499,7 +499,6 @@ export const usePinChatMessage = () => {
 
     const extra: Record<string, string> = {};
     if (options?.expiresAt) extra.expiresAt = options.expiresAt;
-    if (options?.duration) extra.duration = options.duration;
     if (options?.livestream) extra.livestream = options.livestream;
 
     // If streamer, create directly

@@ -21,11 +21,9 @@ type ChatPinnedRecord struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// createdAt: When this pin was created.
 	CreatedAt string `json:"createdAt"`
-	// duration: How long this pin lasts when expiresAt is not set. 'streamEnd' (the default when unset) keeps the pin active until the livestream referenced by 'livestream' ends. 'forever' keeps the pin active across streams until manually unpinned.
-	Duration *string `json:"duration,omitempty"`
-	// expiresAt: Optional expiration time. If set, the pin is considered inactive after this time.
+	// expiresAt: Optional expiration time. If 'livestream' is not set, the pin is considered inactive after this time.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
-	// livestream: AT-URI of the place.stream.livestream record this pin is scoped to. Set when duration is 'streamEnd' (including the unset default); the pin is inactive unless that livestream exists and has not ended.
+	// livestream: AT-URI of the place.stream.livestream record this pin is scoped to. If set, the pin is active only while that livestream exists and has not ended, and takes precedence over 'expiresAt'. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned.
 	Livestream *string `json:"livestream,omitempty"`
 	// pinnedBy: DID of the user who pinned the message.
 	PinnedBy *string `json:"pinnedBy,omitempty"`

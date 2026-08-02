@@ -24,13 +24,12 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
 
 **Schema Type:** `object`
 
-| Name         | Type     | Req'd | Description                                                                                                                      | Constraints                          |
-| ------------ | -------- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `streamer`   | `string` | ✅    | The DID of the streamer.                                                                                                         | Format: `did`                        |
-| `messageUri` | `string` | ✅    | The AT-URI of the chat message to pin.                                                                                           | Format: `at-uri`                     |
-| `expiresAt`  | `string` | ❌    | Optional expiration time for this pin.                                                                                           | Format: `datetime`                   |
-| `duration`   | `string` | ❌    | Pin duration, passed through to the pinned record. Defaults to 'streamEnd' when unset.                                           | Known Values: `streamEnd`, `forever` |
-| `livestream` | `string` | ❌    | AT-URI of the livestream this pin is scoped to, passed through to the pinned record. Required for 'streamEnd' pins to be active. | Format: `at-uri`                     |
+| Name         | Type     | Req'd | Description                                                                                                                                                                                                                                 | Constraints        |
+| ------------ | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `streamer`   | `string` | ✅    | The DID of the streamer.                                                                                                                                                                                                                    | Format: `did`      |
+| `messageUri` | `string` | ✅    | The AT-URI of the chat message to pin.                                                                                                                                                                                                      | Format: `at-uri`   |
+| `expiresAt`  | `string` | ❌    | Optional expiration time for this pin. Ignored when 'livestream' is set.                                                                                                                                                                    | Format: `datetime` |
+| `livestream` | `string` | ❌    | AT-URI of the livestream this pin is scoped to, passed through to the pinned record. If set, the pin stays active until that livestream ends. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned. | Format: `at-uri`   |
 
 **Output:**
 
@@ -81,17 +80,12 @@ Pin a chat message on behalf of a streamer. Requires 'message.pin' permission. C
             "expiresAt": {
               "type": "string",
               "format": "datetime",
-              "description": "Optional expiration time for this pin."
-            },
-            "duration": {
-              "type": "string",
-              "knownValues": ["streamEnd", "forever"],
-              "description": "Pin duration, passed through to the pinned record. Defaults to 'streamEnd' when unset."
+              "description": "Optional expiration time for this pin. Ignored when 'livestream' is set."
             },
             "livestream": {
               "type": "string",
               "format": "at-uri",
-              "description": "AT-URI of the livestream this pin is scoped to, passed through to the pinned record. Required for 'streamEnd' pins to be active."
+              "description": "AT-URI of the livestream this pin is scoped to, passed through to the pinned record. If set, the pin stays active until that livestream ends. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned."
             }
           }
         }

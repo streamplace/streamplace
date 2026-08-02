@@ -286,9 +286,6 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Repo:          repo,
 			ExpiresAt:     expiresAt,
 		}
-		if rec.Duration != nil {
-			pin.Duration = *rec.Duration
-		}
 		if rec.Livestream != nil {
 			pin.LivestreamURI = *rec.Livestream
 		}

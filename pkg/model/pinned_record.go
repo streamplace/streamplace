@@ -22,7 +22,6 @@ type PinnedRecord struct {
 	IndexedAt     *time.Time `gorm:"column:indexed_at"    json:"indexedAt"`
 	ExpiresAt     *time.Time `gorm:"column:expires_at"    json:"expiresAt"`
 	CreatedAt     time.Time  `gorm:"column:created_at"    json:"createdAt"`
-	Duration      string     `gorm:"column:duration"       json:"duration,omitempty"`
 	LivestreamURI string     `gorm:"column:livestream_uri" json:"livestreamURI,omitempty"`
 }
 
@@ -35,9 +34,6 @@ func (p *PinnedRecord) ToStreamplacePinnedRecord() (placestream.ChatPinnedRecord
 	if p.ExpiresAt != nil {
 		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		rec.ExpiresAt = &s
-	}
-	if p.Duration != "" {
-		rec.Duration = &p.Duration
 	}
 	if p.LivestreamURI != "" {
 		rec.Livestream = &p.LivestreamURI
@@ -54,9 +50,6 @@ func (p *PinnedRecord) ToStreamplacePinnedRecordView() (placestream.ChatDefs_Pin
 	if p.ExpiresAt != nil {
 		s := p.ExpiresAt.UTC().Format(util.ISO8601)
 		pr.ExpiresAt = &s
-	}
-	if p.Duration != "" {
-		pr.Duration = &p.Duration
 	}
 	if p.LivestreamURI != "" {
 		pr.Livestream = &p.LivestreamURI
@@ -118,32 +111,32 @@ func (m *DBModel) GetActivePinnedRecord(ctx context.Context, streamerDID string)
 }
 
 // isPinActive checks whether a pin should currently be shown. The most recent
-// pin record for a streamer is authoritative: if it is expired, or scoped to
-// a livestream (duration="streamEnd" or unset) whose stream has ended, the
-// streamer has no active pin — older records are not resurrected.
+// pin record for a streamer is authoritative: if it is scoped to a livestream
+// whose stream has ended, or expires (expiresAt in the past with no
+// livestream), the streamer has no active pin — older records are not
+// resurrected. A pin with neither livestream nor expiresAt is permanent.
 func (m *DBModel) isPinActive(pin *PinnedRecord) (bool, error) {
-	if pin.ExpiresAt != nil && pin.ExpiresAt.Before(time.Now()) {
-		return false, nil
-	}
-	if pin.Duration == "forever" {
-		return true, nil
-	}
-	// Legacy pins with no livestream scope are always active.
-	if pin.LivestreamURI == "" {
-		return true, nil
-	}
-	ls, err := m.GetLivestream(pin.LivestreamURI)
-	if err != nil {
-		return false, err
-	}
-	if ls == nil {
-		return false, nil
-	}
-	if ls.Livestream != nil {
-		var rec placestream.Livestream
-		if err := glex.DecodeCBOR(*ls.Livestream, &rec); err == nil && rec.EndedAt != nil {
+	// A livestream-scoped pin is active only while the referenced stream
+	// exists and has not ended; livestream takes precedence over expiresAt.
+	if pin.LivestreamURI != "" {
+		ls, err := m.GetLivestream(pin.LivestreamURI)
+		if err != nil {
+			return false, err
+		}
+		if ls == nil {
 			return false, nil
 		}
+		if ls.Livestream != nil {
+			var rec placestream.Livestream
+			if err := glex.DecodeCBOR(*ls.Livestream, &rec); err == nil && rec.EndedAt != nil {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+	// Timed pins expire; pins with neither livestream nor expiresAt are permanent.
+	if pin.ExpiresAt != nil && pin.ExpiresAt.Before(time.Now()) {
+		return false, nil
 	}
 	return true, nil
 }

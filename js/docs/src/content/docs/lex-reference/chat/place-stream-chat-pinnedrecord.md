@@ -19,14 +19,13 @@ Record pinning a chat message for prominent display.
 
 **Record Properties:**
 
-| Name            | Type     | Req'd | Description                                                                                                                                                                                                                               | Constraints                          |
-| --------------- | -------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `pinnedMessage` | `string` | ✅    | AT-URI of the pinned chat message.                                                                                                                                                                                                        | Format: `at-uri`                     |
-| `pinnedBy`      | `string` | ❌    | DID of the user who pinned the message.                                                                                                                                                                                                   | Format: `did`                        |
-| `createdAt`     | `string` | ✅    | When this pin was created.                                                                                                                                                                                                                | Format: `datetime`                   |
-| `expiresAt`     | `string` | ❌    | Optional expiration time. If set, the pin is considered inactive after this time.                                                                                                                                                         | Format: `datetime`                   |
-| `duration`      | `string` | ❌    | How long this pin lasts when expiresAt is not set. 'streamEnd' (the default when unset) keeps the pin active until the livestream referenced by 'livestream' ends. 'forever' keeps the pin active across streams until manually unpinned. | Known Values: `streamEnd`, `forever` |
-| `livestream`    | `string` | ❌    | AT-URI of the place.stream.livestream record this pin is scoped to. Set when duration is 'streamEnd' (including the unset default); the pin is inactive unless that livestream exists and has not ended.                                  | Format: `at-uri`                     |
+| Name            | Type     | Req'd | Description                                                                                                                                                                                                                                                                             | Constraints        |
+| --------------- | -------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `pinnedMessage` | `string` | ✅    | AT-URI of the pinned chat message.                                                                                                                                                                                                                                                      | Format: `at-uri`   |
+| `pinnedBy`      | `string` | ❌    | DID of the user who pinned the message.                                                                                                                                                                                                                                                 | Format: `did`      |
+| `createdAt`     | `string` | ✅    | When this pin was created.                                                                                                                                                                                                                                                              | Format: `datetime` |
+| `expiresAt`     | `string` | ❌    | Optional expiration time. If 'livestream' is not set, the pin is considered inactive after this time.                                                                                                                                                                                   | Format: `datetime` |
+| `livestream`    | `string` | ❌    | AT-URI of the place.stream.livestream record this pin is scoped to. If set, the pin is active only while that livestream exists and has not ended, and takes precedence over 'expiresAt'. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned. | Format: `at-uri`   |
 
 ---
 
@@ -63,17 +62,12 @@ Record pinning a chat message for prominent display.
           "expiresAt": {
             "type": "string",
             "format": "datetime",
-            "description": "Optional expiration time. If set, the pin is considered inactive after this time."
-          },
-          "duration": {
-            "type": "string",
-            "knownValues": ["streamEnd", "forever"],
-            "description": "How long this pin lasts when expiresAt is not set. 'streamEnd' (the default when unset) keeps the pin active until the livestream referenced by 'livestream' ends. 'forever' keeps the pin active across streams until manually unpinned."
+            "description": "Optional expiration time. If 'livestream' is not set, the pin is considered inactive after this time."
           },
           "livestream": {
             "type": "string",
             "format": "at-uri",
-            "description": "AT-URI of the place.stream.livestream record this pin is scoped to. Set when duration is 'streamEnd' (including the unset default); the pin is inactive unless that livestream exists and has not ended."
+            "description": "AT-URI of the place.stream.livestream record this pin is scoped to. If set, the pin is active only while that livestream exists and has not ended, and takes precedence over 'expiresAt'. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned."
           }
         }
       }

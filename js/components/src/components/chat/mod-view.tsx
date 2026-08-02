@@ -274,9 +274,7 @@ function ModViewContent({
                     <DropdownMenuItem
                       onPress={() => {
                         if (!streamerDID) return;
-                        pinChatMessage(message.uri, streamerDID, {
-                          duration: "forever",
-                        })
+                        pinChatMessage(message.uri, streamerDID)
                           .then(() => {
                             toast.show("Comment pinned", "", { duration: 3 });
                             onOpenChange?.(false);
@@ -302,7 +300,6 @@ function ModViewContent({
                           );
                           pinChatMessage(message.uri, streamerDID, {
                             expiresAt: expiresAt.toISOString(),
-                            livestream: livestreamUri,
                           })
                             .then(() => {
                               toast.show("Comment pinned", "", { duration: 3 });

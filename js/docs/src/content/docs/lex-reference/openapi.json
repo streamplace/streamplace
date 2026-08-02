@@ -2126,16 +2126,12 @@
                   },
                   "expiresAt": {
                     "type": "string",
-                    "description": "Optional expiration time for this pin.",
+                    "description": "Optional expiration time for this pin. Ignored when 'livestream' is set.",
                     "format": "date-time"
-                  },
-                  "duration": {
-                    "type": "string",
-                    "description": "Pin duration, passed through to the pinned record. Defaults to 'streamEnd' when unset."
                   },
                   "livestream": {
                     "type": "string",
-                    "description": "AT-URI of the livestream this pin is scoped to, passed through to the pinned record. Required for 'streamEnd' pins to be active.",
+                    "description": "AT-URI of the livestream this pin is scoped to, passed through to the pinned record. If set, the pin stays active until that livestream ends. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned.",
                     "format": "uri"
                   }
                 },

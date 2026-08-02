@@ -249,7 +249,7 @@ function ModViewContent({
                   <Text color="primary">Pin this message</Text>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
-                  <DropdownMenuGroup title="Pin duration">
+                  <DropdownMenuGroup title="Pin until">
                     <DropdownMenuItem
                       onPress={() => {
                         if (!streamerDID) return;

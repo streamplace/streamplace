@@ -71,12 +71,44 @@ type StreamSession struct {
 	lastLivestreamTime time.Time
 	lastViewCountTime  time.Time
 	s3Uploader         *s3.S3Uploader
+
+	// bitrateWindow holds the most recent segments' (sourceBytes, durationNS)
+	// samples for the rolling bitrate average. Only touched from NewSegment
+	// (appended in recordBitrateSample, cleared on a gap reset in
+	// effectiveSegmentDuration), which the director serializes per session.
+	bitrateWindow []bitrateSample
+	// lastSegStart is the previous segment's signed StartTime, for the
+	// cadence cross-check in effectiveSegmentDuration.
+	lastSegStart time.Time
 }
+
+// bitrateSample is one segment's contribution to the rolling bitrate average:
+// its source size in bytes and its duration in nanoseconds.
+type bitrateSample struct {
+	bytes int
+	ns    int64
+}
+
+// bitrateWindowSize is how many recent segments the rolling bitrate average
+// covers. Averaging over a handful of GoPs keeps a spiky keyframe (e.g. a scene
+// cut) from tripping the margin on an otherwise-compliant stream.
+const bitrateWindowSize = 5
 
 // bitrateMargin is the wiggle room over the configured maximum before a stream
 // is disconnected, so an occasional spiky GoP (e.g. a scene cut) doesn't kill an
 // otherwise-compliant stream.
 const bitrateMargin = 1.1
+
+// bitrateGapThreshold is the largest wall-clock gap between consecutive
+// segments that can still be a GoP interval. Anything larger means the stream
+// stopped (reconnect or pause): billing that gap would deflate the rolling
+// window and mask an over-limit stream, so enforcement restarts fresh instead.
+const bitrateGapThreshold = 10 * time.Second
+
+// cadenceWarnFactor is how far the segment cadence must exceed the media span
+// before the override is worth a warn. Smaller stretches (encode-to-ingest
+// latency) are the norm on healthy streams and would otherwise log per segment.
+const cadenceWarnFactor = 2
 
 // exceedsMaxBitrate returns a segment's bitrate (bits/sec, from its emitted size
 // and duration) and whether that exceeds maxBitrate (bits/sec) by more than
@@ -89,6 +121,65 @@ func exceedsMaxBitrate(dataLen int, durationNS int64, maxBitrate int) (int, bool
 	seconds := float64(durationNS) / float64(time.Second)
 	bitrate := int(float64(dataLen) * 8 / seconds)
 	return bitrate, float64(bitrate) > float64(maxBitrate)*bitrateMargin
+}
+
+// effectiveSegmentDuration returns the duration a segment should be billed at
+// for bitrate enforcement, and whether enforcement may run at all. It
+// cross-checks the parsed media span against the cadence of signed segment
+// start times: the media span derives from the encoder's video PTS, which
+// pathological encoders can collapse — frames arriving with near-identical
+// timestamps make a ~1s GoP measure as milliseconds, inflating the computed
+// bitrate by orders of magnitude and kicking compliant streams. The signed
+// StartTime is stamped per segment at ingest with real wall clock, so the
+// delta between consecutive segments is the true GoP cadence; the larger of
+// the two is the safer measure. Negative or zero cadence (out-of-order
+// replication) never wins.
+//
+// A session's first segment has no cadence reference — its PTS-derived span is
+// the one value we cannot verify — so it reports ok=false and is excluded from
+// enforcement. A genuinely abusive stream is still caught one segment later.
+// A wall-clock gap beyond bitrateGapThreshold is the same situation: the stream
+// stopped (reconnect or pause), the gap is absence rather than cadence, and
+// billing it would deflate the window — so the gap segment itself is excluded
+// and the next one begins a fresh cadence chain.
+func (ss *StreamSession) effectiveSegmentDuration(notif *media.NewSegmentNotification) (dur int64, ok bool) {
+	start := notif.Segment.StartTime
+	if ss.lastSegStart.IsZero() {
+		ss.lastSegStart = start
+		return 0, false
+	}
+	dur = notif.Segment.MediaData.Duration
+	if cadence := start.Sub(ss.lastSegStart); cadence.Nanoseconds() > dur {
+		if cadence > bitrateGapThreshold {
+			ss.bitrateWindow = nil
+			ss.lastSegStart = start
+			return 0, false
+		}
+		dur = cadence.Nanoseconds()
+	}
+	ss.lastSegStart = start
+	return dur, true
+}
+
+// recordBitrateSample folds one segment into the rolling window and returns the
+// windowed average bitrate (bits/sec) and whether it exceeds maxBitrate past the
+// margin. Samples with a non-positive duration can't yield a meaningful rate and
+// are skipped, matching exceedsMaxBitrate's per-segment semantics. Only called
+// from NewSegment, which the director serializes per session.
+func (ss *StreamSession) recordBitrateSample(bytes int, ns int64, maxBitrate int) (int, bool) {
+	if ns > 0 {
+		ss.bitrateWindow = append(ss.bitrateWindow, bitrateSample{bytes: bytes, ns: ns})
+		if len(ss.bitrateWindow) > bitrateWindowSize {
+			ss.bitrateWindow = ss.bitrateWindow[1:]
+		}
+	}
+	var winBytes int
+	var winNS int64
+	for _, s := range ss.bitrateWindow {
+		winBytes += s.bytes
+		winNS += s.ns
+	}
+	return exceedsMaxBitrate(winBytes, winNS, maxBitrate)
 }
 
 func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotification) error {
@@ -209,30 +300,42 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	aqt := aqtime.FromTime(notif.Segment.StartTime)
 	ctx = log.WithLogValues(ctx, "segID", notif.Segment.ID, "repoDID", notif.Segment.RepoDID, "timestamp", aqt.FileSafeString())
 
-	// Enforce the node's max live bitrate, inferred per emitted segment. A stream
-	// over the limit (plus a margin for spiky GoPs) is kicked: the StreamKick both
-	// tears the ingest down — via watchKeyRevocation, on every ingest path
-	// including isolated workers — and surfaces a place.stream.error "problem" to
-	// the streamer's dashboard explaining the disconnect.
+	// Enforce the node's max live bitrate over the last few emitted segments;
+	// see effectiveSegmentDuration and recordBitrateSample for the measurement
+	// rationale. A stream over the limit (plus a margin for spiky GoPs) is
+	// kicked: the StreamKick tears the ingest down — via watchKeyRevocation, on
+	// every ingest path including isolated workers — and surfaces a
+	// place.stream.error "problem" on the streamer's dashboard explaining the
+	// disconnect.
 	//
-	// We kick on EVERY over-limit segment, not once per session: the kick only
+	// We kick on EVERY over-limit window, not once per session: the kick only
 	// ends the ingest connection, not this director session (which lingers until
-	// StreamSessionTimeout). If we latched it, an encoder that auto-reconnects
-	// within that window would reuse this session and stream on unchecked. The
-	// early return keeps the over-limit segment from being distributed, so no
-	// healthy segment overwrites the dashboard problem until the streamer fixes
-	// their bitrate and reconnects clean — at which point findProblems clears it.
-	// The client dedupes place.stream.error by code, so repeated kicks surface as
-	// a single persistent problem.
-	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded {
-		log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
-			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate)
-		ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(
-			"bitrate",
-			fmt.Sprintf("Your stream's bitrate (%d kbps) exceeds this server's maximum of %d kbps. Lower your encoder's bitrate to keep streaming.",
-				bitrate/1000, ss.cli.MaximumLiveBitrate/1000),
-		))
-		return nil
+	// StreamSessionTimeout), so a latched check would let an auto-reconnecting
+	// encoder stream on unchecked. The early return also keeps the over-limit
+	// segment from being distributed, so the dashboard problem stays visible
+	// until the streamer fixes their bitrate and reconnects clean — findProblems
+	// clears it, and the client dedupes place.stream.error by code.
+	segSize := notif.SourceSize
+	if segSize == 0 {
+		segSize = len(notif.Data)
+	}
+	segDur, enforceable := ss.effectiveSegmentDuration(notif)
+	if enforceable && segDur > notif.Segment.MediaData.Duration*cadenceWarnFactor {
+		log.Warn(ctx, "encoder media timestamps understate segment duration; using segment cadence instead",
+			"mediaDuration", notif.Segment.MediaData.Duration, "cadenceDuration", segDur)
+	}
+	if enforceable {
+		if bitrate, exceeded := ss.recordBitrateSample(segSize, segDur, ss.cli.MaximumLiveBitrate); exceeded {
+			log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
+				"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate,
+				"windowSegments", len(ss.bitrateWindow))
+			ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(
+				"bitrate",
+				fmt.Sprintf("Your stream's bitrate (%d kbps) exceeds this server's maximum of %d kbps. Lower your encoder's bitrate to keep streaming.",
+					bitrate/1000, ss.cli.MaximumLiveBitrate/1000),
+			))
+			return nil
+		}
 	}
 
 	notif.Segment.MediaData.Size = len(notif.Data)

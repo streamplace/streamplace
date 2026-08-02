@@ -56,6 +56,26 @@ func TestMediaDataParserBFrames(t *testing.T) {
 	})
 }
 
+// sample-segment.mp4 is 59.75fps (239/4); its video track's last PTS − first
+// PTS is ~785.93ms, and the full span including the final sample's own duration
+// is ~802.67ms. The parser must report the full span — dropping the last frame
+// undercounts every segment's duration and inflates bitrate calculations.
+func TestMediaDataParserDurationIncludesLastSample(t *testing.T) {
+	withNoGSTLeaks(t, func() {
+		inputFile, err := os.Open(getFixture("sample-segment.mp4"))
+		require.NoError(t, err)
+		defer inputFile.Close()
+		bs, err := io.ReadAll(inputFile)
+		require.NoError(t, err)
+
+		ctx := log.WithDebugValue(context.Background(), map[string]map[string]int{"GStreamerFunc": {"ParseSegmentMediaData": 9}})
+		mediaData, err := ParseSegmentMediaData(ctx, bs)
+		require.NoError(t, err)
+		require.NotNil(t, mediaData)
+		require.InDelta(t, 802_666_666, mediaData.Duration, 2_000_000, "duration must include the final sample")
+	})
+}
+
 func TestMediaDataParserVideoHeaderWithNoVideo(t *testing.T) {
 	withNoGSTLeaks(t, func() {
 		inputFile, err := os.Open(remote.RemoteFixture("0aa38ed08bb6b6b0ae5f4891a97244717e2c952d5ca878e34450729770f7ca53/2025-11-16T23-05-04-512Z-converge-segment-did-key-zQ3shkzEYN8UrJoRAGS6pgPodXjdg8kF2fXQNGfJhpg3x4KJT.mp4"))

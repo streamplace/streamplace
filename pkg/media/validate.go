@@ -83,7 +83,11 @@ type validatedSegment struct {
 	label         string
 	repoDID       string
 	signingKeyDID string
-	local         bool
+	// sourceSize is len of the bare canonical source .m4s — carried through the
+	// async completion path so distributeSegment can report what the streamer
+	// actually sent (bitrate enforcement), not the node-completed bytes.
+	sourceSize int
+	local      bool
 }
 
 // validateSource verifies + media-parses a bare canonical .m4s, resolves the
@@ -183,6 +187,7 @@ func (mm *MediaManager) validateSource(ctx context.Context, buf []byte, local bo
 		label:         label,
 		repoDID:       repoDID,
 		signingKeyDID: signingKeyDID,
+		sourceSize:    len(buf),
 		local:         local,
 	}, nil
 }
@@ -272,11 +277,12 @@ func (mm *MediaManager) distributeSegment(ctx context.Context, vs *validatedSegm
 	mm.newSegmentSubsMutex.RLock()
 	defer mm.newSegmentSubsMutex.RUnlock()
 	not := &NewSegmentNotification{
-		Segment:  dbSeg,
-		Data:     playable.Bytes(),
-		Muxl:     seg,
-		Metadata: meta,
-		Local:    vs.local,
+		Segment:    dbSeg,
+		Data:       playable.Bytes(),
+		Muxl:       seg,
+		SourceSize: vs.sourceSize,
+		Metadata:   meta,
+		Local:      vs.local,
 	}
 	for _, ch := range mm.newSegmentSubs {
 		go func() {

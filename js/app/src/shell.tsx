@@ -2,7 +2,7 @@ import {
   BottomTabIcon,
   createBottomTabNavigator,
 } from "@react-navigation/bottom-tabs";
-import { useLinkTo, useNavigation } from "@react-navigation/native";
+import { useLinkTo } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   NativeStackHeaderBackProps,
@@ -14,7 +14,6 @@ import {
   usePrimaryColor,
   useSiteTitle,
   useTheme,
-  useToast,
   zero,
 } from "@streamplace/components";
 import { Settings } from "components";
@@ -41,11 +40,10 @@ import WebhookManager from "components/settings/webhook-manager";
 import { SidebarOverlay } from "components/sidebar/sidebar-overlay";
 import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
-import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
 import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { Platform, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
@@ -550,7 +548,6 @@ function TabNavigator() {
 export default function Shell() {
   const { isNative } = usePlatform();
   const sidebar = useSidebarControl();
-  const navigation = useNavigation();
   const hydrate = useStore((state) => state.hydrate);
   const initPushNotifications = useStore(
     (state) => state.initPushNotifications,
@@ -567,10 +564,7 @@ export default function Shell() {
   const closePdsModal = useStore((state) => state.closePdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
-  const livePopupShown = useRef(false);
   const z = useTheme();
-
-  const toast = useToast();
 
   // Top-level hydration and initialization
   useEffect(() => {
@@ -613,52 +607,7 @@ export default function Shell() {
     return () => clearInterval(handle);
   }, []);
 
-  const userIsLive = useLiveUser();
   useBlueskyNotifications();
-
-  // Track current route
-  const [currentRouteName, setCurrentRouteName] = useState<
-    string | undefined
-  >();
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener("state", () => {
-      const state = navigation.getState();
-      if (state?.routes) {
-        const currentRoute = state.routes[state.index];
-        console.log("setCurrentRouteName", currentRoute?.name);
-        setCurrentRouteName(currentRoute?.name);
-      }
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const noLivePopupRoutes =
-    currentRouteName === "LiveDashboard" ||
-    currentRouteName === "GoLiveTab" ||
-    currentRouteName === "MobileGoLive";
-
-  // Show "You are live!" toast once per live session
-  useEffect(() => {
-    if (!userIsLive) {
-      livePopupShown.current = false;
-      return;
-    }
-    if (!noLivePopupRoutes && !livePopupShown.current) {
-      livePopupShown.current = true;
-      toast.show("You are live!", "Do you want to go to your Live Dashboard?", {
-        actionLabel: "Go",
-        onAction: () => {
-          navigation.navigate("MainTabs" as any, {
-            screen: "HomeTab",
-            params: { screen: "LiveDashboard" },
-          });
-        },
-        variant: "error",
-        duration: 8,
-      });
-    }
-  }, [userIsLive, noLivePopupRoutes]);
 
   // Animate content margin when sidebar is active (web only)
   const animatedContentStyle = useAnimatedStyle(() => {
@@ -697,6 +646,9 @@ export default function Shell() {
             }),
             headerTitleStyle: {
               fontFamily: z.theme.typography.universal.base.fontFamily,
+            },
+            headerStyle: {
+              backgroundColor: z.theme.colors.background,
             },
           }}
         >

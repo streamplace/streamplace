@@ -191,7 +191,7 @@ type Model interface {
 
 // DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
 // WHICH ALSO SHOULD NOT HAPPEN
-var DBRevision = 4
+var DBRevision = 5
 
 func MakeDB(dbURL string) (Model, error) {
 	sqliteSuffix := dbURL

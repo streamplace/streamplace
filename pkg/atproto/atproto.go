@@ -73,7 +73,7 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
 	}
 	if oldRepo != nil && oldRepo.Version != "" {
-		log.Log(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
+		log.Debug(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
 		return oldRepo, nil
 	}
 	if oldRepo != nil {

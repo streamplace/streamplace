@@ -13,12 +13,15 @@ import (
 // revCASAttempts is how many times a commit tries to place itself on the repo
 // row before concluding it found a gap.
 //
-// One attempt is the whole story when commits arrive in order. They do not:
-// events are handled one goroutine each, so two commits on one repo race, and
-// the older one can win the CAS after the newer one has already missed it. A
-// second look then finds the row exactly where the newer commit expected it.
-// Three is one more than that story needs; a lost race past it costs one
-// unnecessary repair, never a missed record.
+// One attempt is the whole story when commits arrive in order. Within a single
+// relay they now do -- the parallel scheduler chains same-DID events through a
+// per-repo queue -- but this node consumes several relays at once, each with a
+// scheduler of its own, and the deduper only guarantees that a given commit is
+// handled once, not that two commits on one repo are handled in order. So they
+// still race, and the older one can win the CAS after the newer one has already
+// missed it. A second look then finds the row exactly where the newer commit
+// expected it. Three is one more than that story needs; a lost race past it
+// costs one unnecessary repair, never a missed record.
 const revCASAttempts = 3
 
 // repairSlack is how far before the last known rev a repair starts reading.

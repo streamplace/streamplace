@@ -73,14 +73,14 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
 	}
 	if oldRepo != nil && oldRepo.Version != "" {
-		log.Debug(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
+		log.Debug(ctx, "found existing DID record", "did", oldRepo.DID, "handle", oldRepo.Handle, "version", oldRepo.Version)
 		return oldRepo, nil
 	}
 	if oldRepo != nil {
 		// A placeholder from a backfill that never finished: the repo is
 		// half-indexed, so sync it again rather than leaving it that way
 		// forever. The placeholder row is already there, don't rewrite it.
-		log.Log(ctx, "found incomplete DID record, re-syncing", "did", oldRepo.DID)
+		log.Log(ctx, "found incomplete DID record, re-syncing", "did", oldRepo.DID, "handle", oldRepo.Handle)
 	} else {
 		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
 		// any new follows and such from this user while we're syncing, which can take a long time

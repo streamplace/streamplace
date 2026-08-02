@@ -28,6 +28,12 @@ var maxDeepenRounds = len(backfillSpans) + 3
 // to and with which half of its lane's program it starts in.
 type sweepItem struct {
 	DID string
+	// Handle is the repo's handle as the index last knew it, carried purely so
+	// the sweep's log lines name an account a human recognizes. It comes off the
+	// same row the plan already read, so it costs no query; it is empty for a
+	// repo we have no row for yet, and may be stale, which for a log line is
+	// fine.
+	Handle string
 	// Lane is what work is grouped by: the repo's PDS host. Everything a sweep
 	// spends its time on is a remote server, so the host is the only shape of
 	// the work that matters.
@@ -137,7 +143,7 @@ func (atsync *ATProtoSynchronizer) feedUnresolved(ctx context.Context, items []s
 					item.Lane = reposync.HostKey(ident.PDSEndpoint())
 					resolved.Add(1)
 				} else {
-					log.Debug(gctx, "could not resolve a repo's PDS for sharding", "did", item.DID, "err", err)
+					log.Debug(gctx, "could not resolve a repo's PDS for sharding", "did", item.DID, "handle", item.Handle, "err", err)
 				}
 			}
 			if item.Lane == "" {
@@ -571,7 +577,7 @@ func (atsync *ATProtoSynchronizer) sweepSync(ctx context.Context, progress *swee
 	attempted.Add(1)
 	repo, err := atsync.SyncBlueskyRepoCached(ctx, step.DID)
 	if err != nil {
-		log.Error(ctx, "failed to sync repo", "did", step.DID, "err", err)
+		log.Error(ctx, "failed to sync repo", "did", step.DID, "handle", step.Handle, "err", err)
 		failed.Add(1)
 		// A repo whose shallow sync failed is left alone for the rest of the
 		// sweep: it has no Version, so deepening it would fetch the wrong
@@ -591,13 +597,13 @@ func (atsync *ATProtoSynchronizer) sweepSync(ctx context.Context, progress *swee
 func (atsync *ATProtoSynchronizer) sweepWindow(ctx context.Context, progress *sweepProgress, step sweepStep) bool {
 	done, floor, err := atsync.DeepenRepo(ctx, step.DID)
 	if err != nil {
-		log.Error(ctx, "failed to deepen repo history", "did", step.DID, "err", err)
+		log.Error(ctx, "failed to deepen repo history", "did", step.DID, "handle", step.Handle, "err", err)
 		return false
 	}
 	progress.window(step.DID, backfillFloorTime(floor))
 	if done {
 		progress.deepened(step.DID)
-		log.Log(ctx, "finished deepening repo history", "did", step.DID, "windows", step.Windows+1)
+		log.Log(ctx, "finished deepening repo history", "did", step.DID, "handle", step.Handle, "windows", step.Windows+1)
 		return false
 	}
 	return true
@@ -728,22 +734,22 @@ func (atsync *ATProtoSynchronizer) sweepPlan(dids []string) (*sweepPlan, error) 
 		switch {
 		case repo == nil || repo.Version == "":
 			plan.shallow++
-			pds := ""
+			pds, handle := "", ""
 			if repo != nil {
-				pds = repo.PDS
+				pds, handle = repo.PDS, repo.Handle
 			}
 			// A row that does not name a host does not get a lane of its own
 			// here: feedUnresolved finds those hosts in the background rather
 			// than letting each become a lane.
 			if host := reposync.HostKey(pds); host != "" {
-				plan.ready = append(plan.ready, sweepItem{DID: did, Lane: host})
+				plan.ready = append(plan.ready, sweepItem{DID: did, Handle: handle, Lane: host})
 			} else {
-				plan.unresolved = append(plan.unresolved, sweepItem{DID: did})
+				plan.unresolved = append(plan.unresolved, sweepItem{DID: did, Handle: handle})
 			}
 		case repo.TerminalStatus():
 		default:
 			plan.checks++
-			plan.ready = append(plan.ready, sweepItem{DID: did, Lane: sweepLane(did, repo.PDS), Check: true})
+			plan.ready = append(plan.ready, sweepItem{DID: did, Handle: repo.Handle, Lane: sweepLane(did, repo.PDS), Check: true})
 			if !repo.BackfillDone {
 				// It joins its lane's ladder once its head checks out, but the
 				// horizon it holds is true from the moment the sweep starts.

@@ -55,7 +55,7 @@ func (atsync *ATProtoSynchronizer) sweepCheck(ctx context.Context, progress *swe
 
 	repo, err := atsync.Model.GetRepo(step.DID)
 	if err != nil {
-		log.Error(ctx, "failed to get repo", "did", step.DID, "err", err)
+		log.Error(ctx, "failed to get repo", "did", step.DID, "handle", step.Handle, "err", err)
 		return false
 	}
 	if repo == nil || repo.Version == "" || repo.TerminalStatus() {
@@ -68,7 +68,7 @@ func (atsync *ATProtoSynchronizer) sweepCheck(ctx context.Context, progress *swe
 	rev, err := atsync.headRev(ctx, step.DID)
 	if err != nil {
 		if parked := parkTerminalRepo(ctx, atsync.Model, step.DID, err); parked == nil {
-			log.Warn(ctx, "failed to check repo head", "did", step.DID, "err", err)
+			log.Warn(ctx, "failed to check repo head", "did", step.DID, "handle", repo.Handle, "err", err)
 		}
 		return false
 	}
@@ -76,11 +76,11 @@ func (atsync *ATProtoSynchronizer) sweepCheck(ctx context.Context, progress *swe
 		return !repo.BackfillDone
 	}
 
-	log.Log(ctx, "repo has drifted from its host", "did", step.DID,
+	log.Log(ctx, "repo has drifted from its host", "did", step.DID, "handle", repo.Handle,
 		"ourRev", repo.Version, "hostRev", rev)
 	marked, err := atsync.Model.MarkRepoForRepair(ctx, step.DID, repo.Version)
 	if err != nil {
-		log.Error(ctx, "failed to mark repo for repair", "did", step.DID, "err", err)
+		log.Error(ctx, "failed to mark repo for repair", "did", step.DID, "handle", repo.Handle, "err", err)
 		return !repo.BackfillDone
 	}
 	if !marked {
@@ -88,6 +88,6 @@ func (atsync *ATProtoSynchronizer) sweepCheck(ctx context.Context, progress *swe
 		return false
 	}
 	progress.repairing()
-	enqueue(sweepItem{DID: step.DID, Lane: step.Lane})
+	enqueue(sweepItem{DID: step.DID, Handle: step.Handle, Lane: step.Lane})
 	return false
 }

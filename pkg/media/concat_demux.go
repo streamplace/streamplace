@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -15,6 +16,9 @@ import (
 
 // silly technique to avoid leaking pads
 func doNothing(self *gst.Element, pad *gst.Pad) {}
+
+// doNothing for signals without a pad argument
+func doNothingElement(self *gst.Element) {}
 
 // Function for demuxing a single segment. Needs to be handled very carefully.
 // In particular: users of this MUST cancel the passed context when they're
@@ -170,15 +174,26 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 	}
 
 	needed := 2
+	videoLinked := false
+	audioLinked := false
 
-	var padAdded func(self *gst.Element, pad *gst.Pad)
-	// the defer funcs are needed to avoid leaking pads for some reason
-	padAdded = func(self *gst.Element, pad *gst.Pad) {
+	// The signal handlers below are swapped for no-ops once they've done
+	// their job (or the ctx ends, whichever comes first) so their closures
+	// release the mq pads — and, via the pads' sticky events, tag lists and
+	// samples — that they capture; without the swap those leak. The swap
+	// happens on the ctx goroutine while the demux's dispatch thread reads
+	// the same slot, so both sides go through an atomic (a plain assignment
+	// here is a data race; a mutex held across dispatch risks blocking the
+	// swap behind a stuck handler, pinning the closures).
+	var padAdded atomic.Value
+	padAdded.Store(func(self *gst.Element, pad *gst.Pad) {
 		var downstreamPad *gst.Pad
 		if strings.HasPrefix(pad.GetName(), "video_") {
 			downstreamPad = mqVideoSink
+			videoLinked = true
 		} else if strings.HasPrefix(pad.GetName(), "audio_") {
 			downstreamPad = mqAudioSink
+			audioLinked = true
 		} else {
 			log.Error(ctx, "unknown pad", "name", pad.GetName(), "direction", pad.GetDirection())
 			// cancel()
@@ -192,24 +207,54 @@ func ConcatDemuxBin(ctx context.Context, seg *bus.Seg, doH264Parse bool) (*gst.B
 		}
 		needed--
 		if needed == 0 {
-			padAdded = doNothing
+			padAdded.Store(doNothing)
 		}
-	}
+	})
 	outerPadAdded := func(self *gst.Element, pad *gst.Pad) {
-		padAdded(self, pad)
+		padAdded.Load().(func(self *gst.Element, pad *gst.Pad))(self, pad)
+	}
+
+	// Both branches are wired up before the demux runs, but the segment may
+	// not have both tracks: a stream whose encoder is shedding everything but
+	// keyframes under bandwidth pressure can produce a segment with video and
+	// no audio (or, in principle, the reverse). The demux only EOSes pads it
+	// created, so a branch whose pad never appears would never see data OR
+	// EOS — its sink never finishes, the pipeline never completes, and the
+	// caller hangs until its timeout. When the demux declares it's done making
+	// pads, flush any branch left orphaned with an EOS so the pipeline can
+	// drain. Fires on the demux's streaming thread, same as pad-added, so the
+	// linked flags need no synchronization.
+	var noMorePads atomic.Value
+	noMorePads.Store(func(self *gst.Element) {
+		if !videoLinked {
+			log.Warn(ctx, "segment has no video track; completing video branch with EOS")
+			mqVideoSink.SendEvent(gst.NewEOSEvent())
+		}
+		if !audioLinked {
+			log.Warn(ctx, "segment has no audio track; completing audio branch with EOS")
+			mqAudioSink.SendEvent(gst.NewEOSEvent())
+		}
+		noMorePads.Store(doNothingElement)
+	})
+	outerNoMorePads := func(self *gst.Element) {
+		noMorePads.Load().(func(self *gst.Element))(self)
 	}
 
 	// Necessary to avoid leaking `mqVideoSink` and `mqAudioSink` from the
-	// pad-added function in the case where we hit invalid data and
-	// pad-added never fires.
+	// handlers in the case where we hit invalid data and they never fire.
 	go func() {
 		<-ctx.Done()
-		padAdded = doNothing
+		padAdded.Store(doNothing)
+		noMorePads.Store(doNothingElement)
 	}()
 
 	_, err = demux.Connect("pad-added", outerPadAdded)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect demux pad-added signal: %w", err)
+	}
+	_, err = demux.Connect("no-more-pads", outerNoMorePads)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect demux no-more-pads signal: %w", err)
 	}
 
 	ok := bin.AddPad(videoGhost.Pad)

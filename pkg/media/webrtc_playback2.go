@@ -172,10 +172,35 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 					} else if !audioOnly {
 						log.Warn(ctx, "no video samples to write")
 					}
+					// The audio path deliberately keeps the original
+					// uniform-duration ticker instead of writeSamples: Opus
+					// packets are a constant 20ms, so the uniform split is
+					// exact, and this path is proven in production — audio
+					// timing regressions are immediately audible as garbling.
+					// Video is the track that needs per-sample durations (its
+					// spacing goes non-uniform when an encoder sheds frames).
+					var audioDur time.Duration
 					if len(packet.Audio) > 0 {
+						audioDur = packet.Duration / time.Duration(len(packet.Audio))
+					}
+					if audioDur > 0 {
 						wroteAny = true
 						g.Go(func() error {
-							return writeSamples(ctx, audioTrack, packet.Audio, scalar)
+							ticker := time.NewTicker(time.Duration(float64(audioDur) * (1 / scalar)))
+							defer ticker.Stop()
+							for _, audio := range packet.Audio {
+								err := audioTrack.WriteSample(media.Sample{Data: audio.Data, Duration: audioDur})
+								if err != nil {
+									return fmt.Errorf("failed to write audio sample: %w", err)
+								}
+								select {
+								case <-ctx.Done():
+									return nil
+								case <-ticker.C:
+									continue
+								}
+							}
+							return nil
 						})
 					} else {
 						log.Warn(ctx, "no audio samples to write")
@@ -253,12 +278,22 @@ func (mm *MediaManager) WebRTCPlayback2(ctx context.Context, user string, rendit
 // stays real even while catch-up (scalar > 1) speeds the pacing: the
 // receiver's clock is authoritative for playout, sending faster just refills
 // its buffer.
+//
+// Pacing is against a wall-clock schedule, NOT a per-sample sleep: each sleep
+// overshoots by scheduler latency, and chaining sleeps accumulates that
+// overshoot into real drift (hundreds of ms per segment at high sample rates
+// — enough to starve the receiver's jitter buffer). Sleeping until the
+// scheduled deadline instead absorbs overshoot in the next iteration, like a
+// ticker does.
 func writeSamples(ctx context.Context, track *webrtc.TrackLocalStaticSample, samples []bus.PacketizedSample, scalar float64) error {
+	start := time.Now()
+	var scheduled time.Duration
 	for _, s := range samples {
 		if err := track.WriteSample(media.Sample{Data: s.Data, Duration: s.Duration}); err != nil {
 			return fmt.Errorf("failed to write sample: %w", err)
 		}
-		wait := time.Duration(float64(s.Duration) / scalar)
+		scheduled += time.Duration(float64(s.Duration) / scalar)
+		wait := scheduled - time.Since(start)
 		if wait <= 0 {
 			continue
 		}

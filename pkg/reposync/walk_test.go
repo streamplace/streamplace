@@ -474,6 +474,68 @@ func TestWalkResume(t *testing.T) {
 	}
 }
 
+// A failed checkpoint must leave the frontier at the last successfully
+// checkpointed step. The caller modeled here commits visitor effects inside
+// Checkpoint and loses the staged batch when the commit fails, so if the
+// frontier stayed advanced, the failed step's records would never be emitted
+// again and the final index would be incomplete.
+func TestWalkFailedCheckpointRollsBack(t *testing.T) {
+	ctx := context.Background()
+	paths := exactnessPaths()
+	for i := 0; i < 300; i++ {
+		paths = append(paths, fmt.Sprintf("place.stream.media.origin/3lbmedia%06d", i))
+	}
+	tr := buildRepo(t, paths)
+	want := expectedInRange(paths, "place.stream.")
+
+	// Transactional caller: the visitor stages records, Checkpoint commits the
+	// stage together with the frontier. One commit fails, discarding its stage
+	// the way a rolled-back transaction would.
+	durable := map[string]cid.Cid{}
+	var staged []emission
+	errBoom := errors.New("simulated checkpoint failure")
+	failed := false
+	w := &Walker{
+		Fetcher:   newTestFetcher(tr),
+		BatchSize: 4,
+		Checkpoint: func(fr *Frontier) error {
+			if !failed && len(staged) > 0 {
+				failed = true
+				staged = nil
+				return errBoom
+			}
+			for _, e := range staged {
+				durable[e.path] = e.cid
+			}
+			staged = nil
+			return nil
+		},
+	}
+
+	fr := &Frontier{
+		Root:    tr.root,
+		Ranges:  []KeyRange{PrefixRange("place.stream.")},
+		Pending: []pendingEntry{{CID: tr.root}},
+	}
+	err := w.Resume(ctx, fr, collectVisitor(&staged))
+	require.ErrorIs(t, err, errBoom)
+	require.True(t, failed, "no checkpoint call ever had staged records")
+	require.False(t, fr.Done())
+
+	require.NoError(t, w.Resume(ctx, fr, collectVisitor(&staged)))
+	require.True(t, fr.Done())
+
+	got := make([]string, 0, len(durable))
+	for p := range durable {
+		got = append(got, p)
+	}
+	sort.Strings(got)
+	require.Equal(t, want, got)
+	for _, p := range want {
+		require.Equal(t, tr.records[p], durable[p])
+	}
+}
+
 // A warm cache makes a repeat walk entirely local.
 func TestWalkCachedFetcherWarmCacheDoesNoRemoteWork(t *testing.T) {
 	ctx := context.Background()

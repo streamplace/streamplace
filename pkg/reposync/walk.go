@@ -221,7 +221,9 @@ type Walker struct {
 	BatchSize int
 	// Checkpoint, if set, is called with the frontier after every completed
 	// step (that is, after that step's records have been emitted). Returning an
-	// error aborts the walk.
+	// error aborts the walk and rolls the frontier back to before the step, so
+	// a retried Resume re-emits the step's records; this makes it safe to
+	// commit visitor effects and the frontier together inside Checkpoint.
 	Checkpoint func(*Frontier) error
 }
 
@@ -248,7 +250,8 @@ func (w *Walker) WalkRanges(ctx context.Context, root cid.Cid, ranges []KeyRange
 
 // Resume continues a walk from a checkpointed frontier. fr is updated in place
 // as the walk progresses, so an aborted Resume leaves fr at the last completed
-// step and can be called again.
+// step — where a step only counts as completed once its Checkpoint call (if
+// any) has succeeded — and can be called again.
 func (w *Walker) Resume(ctx context.Context, fr *Frontier, visit RecordVisitor) error {
 	if fr == nil {
 		return errors.New("nil frontier")
@@ -344,9 +347,15 @@ func (w *Walker) step(ctx context.Context, fr *Frontier, visit RecordVisitor) er
 		}
 	}
 
+	prev := fr.Pending
 	fr.Pending = next
 	if w.Checkpoint != nil {
 		if err := w.Checkpoint(fr); err != nil {
+			// Roll back so a retried Resume re-emits this step's records. A
+			// caller that commits visitor effects inside Checkpoint would
+			// otherwise lose them: the failed commit discards the effects and
+			// the advanced frontier would never emit those records again.
+			fr.Pending = prev
 			return fmt.Errorf("checkpointing frontier: %w", err)
 		}
 	}

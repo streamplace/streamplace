@@ -59,7 +59,7 @@ func GetValidBadges(ctx context.Context, userDID, streamerDID, issuerDID string,
 
 	for _, label := range spChatProfile.SelfLabels {
 		if label == constants.SelfLabelBot {
-			log.Warn(ctx, "user self-labels as bot", "userDID", userDID)
+			log.Debug(ctx, "user self-labels as bot", "userDID", userDID)
 			badges = append(badges, placestream.BadgeDefs_BadgeView{
 				BadgeType: constants.BadgeTypeBot,
 				Issuer:    issuerDID,

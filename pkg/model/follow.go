@@ -16,6 +16,9 @@ type Follow struct {
 	CreatedAt  time.Time
 }
 
+// CreateFollow records a follow edge. Keyed by (user, subject) with no CID
+// column, so Save (upsert) is already redelivery-safe: the same follow arriving
+// twice rewrites the same row.
 func (m *DBModel) CreateFollow(ctx context.Context, userDID, rkey string, follow appbsky.GraphFollow) error {
 	at, err := aqtime.FromString(follow.CreatedAt)
 	if err != nil {

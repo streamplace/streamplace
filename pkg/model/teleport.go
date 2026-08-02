@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Teleport struct {
@@ -24,11 +23,11 @@ type Teleport struct {
 	Target          *Repo     `json:"target,omitempty" gorm:"foreignKey:DID;references:TargetDID"`
 }
 
+// CreateTeleport upserts a teleport record. As with livestreams, an unchanged
+// record is now a no-op: re-indexing one used to reschedule its arrival
+// notification and re-publish it to the bus.
 func (m *DBModel) CreateTeleport(ctx context.Context, tp *Teleport) error {
-	return m.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "uri"}},
-		DoUpdates: clause.AssignmentColumns([]string{"cid", "starts_at", "duration_seconds", "viewer_count", "teleport", "repo_did", "target_did"}),
-	}).Create(tp).Error
+	return createOrVerify(ctx, m, tp, map[string]any{"uri": tp.URI})
 }
 
 func (m *DBModel) GetLatestTeleportForRepo(repoDID string) (*Teleport, error) {

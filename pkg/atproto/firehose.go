@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -45,13 +46,17 @@ import (
 const dedupWindow = 5 * time.Minute
 
 type ATProtoSynchronizer struct {
-	CLI                *config.CLI
-	Model              model.Model
-	StatefulDB         *statedb.StatefulDB
-	Noter              notificationpkg.Notifier
-	Bus                *bus.Bus
+	CLI        *config.CLI
+	Model      model.Model
+	StatefulDB *statedb.StatefulDB
+	Noter      notificationpkg.Notifier
+	Bus        *bus.Bus
+	// The identity directories, built on first use behind dirMu; read them
+	// through [ATProtoSynchronizer.directory] rather than directly. Set them
+	// before the synchronizer is used and they are taken as given.
 	PLCDirectory       identity.Directory
 	CachedPLCDirectory identity.Directory
+	dirMu              sync.Mutex
 	OATProxy           *oatproxy.OATProxy
 
 	// firehose liveness, written from every relay consumer concurrently
@@ -65,6 +70,10 @@ type ATProtoSynchronizer struct {
 	// top of StartFirehose.
 	commitDedup   *firehoseDeduper
 	identityDedup *firehoseDeduper
+
+	// sweeping is held for the length of a sweep, so the periodic ticker
+	// cannot start a second one on top of the first.
+	sweeping atomic.Bool
 }
 
 func (atsync *ATProtoSynchronizer) markSeen() {
@@ -486,6 +495,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "failed to get repo", "err", err)
 			continue
 		}
+		atsync.reviveRepo(ctx, r)
 		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
 
 		ek := repomgr.EventKind(op.Action)
@@ -708,6 +718,31 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 			log.Error(ctx, "unexpected record op kind")
 		}
 	}
+
+	// Every op in this commit is indexed, so the index can claim this commit.
+	// Only reached on a clean pass: an event we bailed out of half-applied
+	// leaves the stored rev where it was, and the next commit for that repo
+	// notices the hole and orders a repair.
+	atsync.trackCommitRev(ctx, evt)
+}
+
+// reviveRepo un-parks a repo we had written off. A commit event is proof the
+// account is back -- a deactivated, suspended, or deleted repo cannot write --
+// so the terminal status goes away and the ordinary wedge logic (an empty
+// Version means "backfill me") takes it from there.
+//
+// It is called from the commit path with the row that path already loaded, so
+// the common case costs one comparison and no query at all.
+func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo) {
+	if !r.TerminalStatus() {
+		return
+	}
+	log.Log(ctx, "repo committed while parked, clearing terminal status", "did", r.DID, "status", r.Status)
+	if err := atsync.Model.SetRepoStatus(ctx, r.DID, model.RepoStatusOK); err != nil {
+		log.Error(ctx, "failed to clear repo status", "did", r.DID, "err", err)
+		return
+	}
+	r.Status = model.RepoStatusOK
 }
 
 func (atsync *ATProtoSynchronizer) handleIdentityEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Identity) {

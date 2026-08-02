@@ -4470,6 +4470,160 @@
         ]
       }
     },
+    "/xrpc/com.atproto.sync.getBlocks": {
+      "get": {
+        "summary": "Get data blocks from a given repo, by CID. For example, intermediate MST nodes, or records. Does not require auth; implemented by PDS.",
+        "operationId": "com.atproto.sync.getBlocks",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/vnd.ipld.car": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "BlockNotFound"
+                        },
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "cids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "cid"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/xrpc/com.atproto.sync.getLatestCommit": {
+      "get": {
+        "summary": "Get the current commit CID & revision of the specified repo. Does not require auth.",
+        "operationId": "com.atproto.sync.getLatestCommit",
+        "tags": ["com.atproto.sync"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cid": {
+                      "type": "string",
+                      "format": "cid"
+                    },
+                    "rev": {
+                      "type": "string",
+                      "format": "tid"
+                    }
+                  },
+                  "required": ["cid", "rev"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "RepoNotFound"
+                        },
+                        {
+                          "const": "RepoTakendown"
+                        },
+                        {
+                          "const": "RepoSuspended"
+                        },
+                        {
+                          "const": "RepoDeactivated"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "did",
+            "in": "query",
+            "required": true,
+            "description": "The DID of the repo.",
+            "schema": {
+              "type": "string",
+              "description": "The DID of the repo.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/com.atproto.sync.getRecord": {
       "get": {
         "summary": "Get data blocks needed to prove the existence or non-existence of record in the current version of repo. Does not require auth.",

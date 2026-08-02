@@ -127,6 +127,32 @@ func LexiconRepoGetRecord(ctx context.Context, repo string, collection string, r
 	}, nil
 }
 
+// LexiconRepoLatestCommit returns the lexicon repo's current commit CID and
+// revision. Same single-snapshot rule as ServerRepoLatestCommit.
+func LexiconRepoLatestCommit(ctx context.Context) (cid.Cid, string, error) {
+	repoLock.Lock()
+	defer repoLock.Unlock()
+
+	r, ses, err := OpenLexiconRepo(ctx)
+	if err != nil {
+		return cid.Undef, "", fmt.Errorf("LexiconRepoLatestCommit: %w", err)
+	}
+	return ses.BaseCid(), r.SignedCommit().Rev, nil
+}
+
+// LexiconRepoGetBlocks returns the requested blocks of the lexicon repo as a
+// rootless CARv1. See getBlocksCAR.
+func LexiconRepoGetBlocks(ctx context.Context, cids []cid.Cid) ([]byte, error) {
+	repoLock.Lock()
+	defer repoLock.Unlock()
+
+	_, ses, err := OpenLexiconRepo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("LexiconRepoGetBlocks: %w", err)
+	}
+	return getBlocksCAR(ctx, ses, cids)
+}
+
 func LexiconRepoGetRepo(ctx context.Context, since string) ([]byte, error) {
 	buf := bytes.Buffer{}
 

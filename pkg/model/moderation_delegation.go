@@ -80,7 +80,7 @@ func (m *DBModel) CreateModerationDelegation(ctx context.Context, rec placestrea
 		IndexedAt:    now.Time().UTC(),
 	}
 
-	return m.DB.WithContext(ctx).Create(delegation).Error
+	return createOrVerify(ctx, m, delegation, map[string]any{"rkey": rkey})
 }
 
 func (m *DBModel) DeleteModerationDelegation(ctx context.Context, rkey string) error {

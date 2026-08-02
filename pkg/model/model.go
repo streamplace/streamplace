@@ -38,6 +38,11 @@ type Model interface {
 	GetAllRepos() ([]Repo, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
+	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error
+	AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error)
+	MarkRepoForRepair(ctx context.Context, did, from string) (bool, error)
+	SetRepoStatus(ctx context.Context, did string, status string) error
+	TerminalRepoDIDs(ctx context.Context) ([]string, error)
 
 	UpdateSigningKey(key *SigningKey) error
 	GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error)
@@ -218,6 +223,9 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error setting journal mode: %w", err)
 	}
+	if err := SetSQLiteBusyTimeout(db); err != nil {
+		return nil, err
+	}
 
 	err = db.Use(prometheus.New(prometheus.Config{
 		DBName:          "index",
@@ -274,4 +282,24 @@ func MakeDB(dbURL string) (Model, error) {
 		}
 	}
 	return &DBModel{DB: db}, nil
+}
+
+// SQLiteBusyTimeout is how long a sqlite connection waits for a lock another
+// process holds before giving up with SQLITE_BUSY.
+//
+// Within one process the single connection (SetMaxOpenConns(1)) serializes
+// everything, so this is entirely about the second process: `streamplace sync`
+// warms a new index revision while the server runs, and a writer that meets a
+// checkpointing writer must wait rather than fail the query.
+const SQLiteBusyTimeout = 5 * time.Second
+
+// SetSQLiteBusyTimeout applies [SQLiteBusyTimeout] to an open sqlite database.
+// It is a per-connection setting, which is why it is set on the pool rather
+// than being part of the DSN nothing else in here uses.
+func SetSQLiteBusyTimeout(db *gorm.DB) error {
+	ms := SQLiteBusyTimeout.Milliseconds()
+	if err := db.Exec(fmt.Sprintf("PRAGMA busy_timeout = %d;", ms)).Error; err != nil {
+		return fmt.Errorf("error setting busy timeout: %w", err)
+	}
+	return nil
 }

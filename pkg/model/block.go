@@ -50,7 +50,7 @@ func (b *Block) ToStreamplaceBlock() (placestream.Defs_BlockView, error) {
 }
 
 func (m *DBModel) CreateBlock(ctx context.Context, block *Block) error {
-	return m.DB.Create(block).Error
+	return createOrVerify(ctx, m, block, map[string]any{"rkey": block.RKey})
 }
 
 func (m *DBModel) DeleteBlock(ctx context.Context, rkey string) error {

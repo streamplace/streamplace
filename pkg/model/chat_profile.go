@@ -27,6 +27,10 @@ func (m *ChatProfile) ToStreamplaceChatProfile() (placestream.ChatProfile, error
 	return scp, nil
 }
 
+// CreateChatProfile stores a user's chat profile. There is one row per repo and
+// no CID column to compare against, so Save (upsert, last write wins) is already
+// redelivery-safe: re-storing the same record rewrites the same bytes. Nothing
+// downstream fans out on it either, so it does not report ErrAlreadyIndexed.
 func (m *DBModel) CreateChatProfile(ctx context.Context, profile *ChatProfile) error {
 	err := m.DB.Save(profile).Error
 	if err != nil {

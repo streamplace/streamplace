@@ -268,15 +268,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Noter:      noter,
 		Bus:        b,
 	}
-	// Sync every repo we know about, at boot and every --sweep-interval after:
-	// a repair pass for repos left half-indexed by a previous run, a head check
-	// that finds the ones that drifted while we were not listening, and history
-	// deepening, which on a fresh node runs for as long as the network is big.
-	// Nothing below depends on it, so it runs in the background off the serve
-	// context -- shutdown cancels it -- and the node is up and serving in the
-	// meantime.
-	go atsync.SweepForever(ctx)
-
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
 		return err
@@ -339,6 +330,20 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Public:             cli.PublicOAuth,
 	})
 	state.OATProxy = op
+	// The synchronizer uses stored sessions to act as a streamer (e.g. ending
+	// the source livestream when a teleport fires); without this it would
+	// nil-deref the first time a teleport arrives for a logged-in streamer.
+	atsync.OATProxy = op
+
+	// Sync every repo we know about, at boot and every --sweep-interval after:
+	// a repair pass for repos left half-indexed by a previous run, a head check
+	// that finds the ones that drifted while we were not listening, and history
+	// deepening, which on a fresh node runs for as long as the network is big.
+	// Nothing below depends on it, so it runs in the background off the serve
+	// context -- shutdown cancels it -- and the node is up and serving in the
+	// meantime. Started only now that atsync is fully wired (OATProxy above):
+	// the sweep can index records and schedule callbacks that use every field.
+	go atsync.SweepForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {

@@ -2,6 +2,7 @@ package atproto
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/bluesky-social/indigo/util"
 	"github.com/bluesky-social/indigo/xrpc"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
+	"gorm.io/gorm"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 
@@ -40,8 +42,10 @@ import (
 //
 // Best-effort: any failure only logs and returns. It never blocks the teleport
 // arrival notification (the caller publishes that before invoking this). It is a
-// no-op when there is no stored session, no origin livestream strongRef, the
-// referenced record is gone, or the livestream is already ended.
+// no-op when there is no stored session, no OAuth proxy to act through (the
+// `streamplace sync` subcommand runs the synchronizer without one), no origin
+// livestream strongRef, the referenced record is gone, or the livestream is
+// already ended.
 func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context, repoDID string, livestreamRef *comatproto.RepoStrongRef) {
 	// A teleport without an origin livestream strongRef (the field is
 	// optional, and records from before it existed won't have one) cannot be
@@ -57,12 +61,24 @@ func (atsync *ATProtoSynchronizer) endLivestreamForTeleport(ctx context.Context,
 	// this node (e.g. multi-node setups). Without a stored session we have no
 	// credentials to write the record update, so there is nothing to do.
 	session, err := atsync.StatefulDB.GetSessionByDID(repoDID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Debug(ctx, "no stored session for streamer, cannot end livestream for teleport")
+		return
+	}
 	if err != nil {
 		log.Error(ctx, "failed to get streamer session for teleport stream-end", "err", err)
 		return
 	}
 	if session == nil {
 		log.Debug(ctx, "no stored session for streamer, cannot end livestream for teleport")
+		return
+	}
+
+	// Some synchronizers run without an OAuth proxy (`streamplace sync`), and
+	// this is a best-effort callback on a timer goroutine — a panic here takes
+	// down the whole process, so a missing proxy is a logged no-op.
+	if atsync.OATProxy == nil {
+		log.Error(ctx, "no OAuth proxy configured, cannot end livestream for teleport")
 		return
 	}
 

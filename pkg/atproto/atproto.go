@@ -73,14 +73,14 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("failed to get DID record for %s: %w", ident.DID.String(), err)
 	}
 	if oldRepo != nil && oldRepo.Version != "" {
-		log.Debug(ctx, "found existing DID record", "did", oldRepo.DID, "version", oldRepo.Version)
+		log.Debug(ctx, "found existing DID record", "did", oldRepo.DID, "handle", oldRepo.Handle, "version", oldRepo.Version)
 		return oldRepo, nil
 	}
 	if oldRepo != nil {
 		// A placeholder from a backfill that never finished: the repo is
 		// half-indexed, so sync it again rather than leaving it that way
 		// forever. The placeholder row is already there, don't rewrite it.
-		log.Log(ctx, "found incomplete DID record, re-syncing", "did", oldRepo.DID)
+		log.Log(ctx, "found incomplete DID record, re-syncing", "did", oldRepo.DID, "handle", oldRepo.Handle)
 	} else {
 		// create an empty repo while we sync. this is useful because we'll start monitoring the firehose for
 		// any new follows and such from this user while we're syncing, which can take a long time
@@ -347,6 +347,33 @@ func (atsync *ATProtoSynchronizer) directory(cached bool) identity.Directory {
 		return atsync.CachedPLCDirectory
 	}
 	return atsync.PLCDirectory
+}
+
+// resetIdentCache throws away every cached identity resolution. For when the
+// node has knowingly skipped firehose it can never replay: any number of
+// #identity events may sit in that gap, and a cache entry from before it
+// agrees with the equally-stale repo row — hiding exactly the drift the next
+// sweep's head check is being asked to find. Starting the cache over makes
+// that sweep's resolutions authoritative. (A restart gets this for free; the
+// cache lives in process memory.)
+func (atsync *ATProtoSynchronizer) resetIdentCache() {
+	atsync.dirMu.Lock()
+	defer atsync.dirMu.Unlock()
+	atsync.CachedPLCDirectory = nil
+}
+
+// purgeIdentCache drops a DID's cached identity, so the next cached resolve
+// re-reads the directory instead of serving an entry we just proved stale.
+func (atsync *ATProtoSynchronizer) purgeIdentCache(ctx context.Context, did string) {
+	atid, err := syntax.ParseAtIdentifier(did)
+	if err != nil {
+		return
+	}
+	if cd, ok := atsync.directory(true).(*identity.CacheDirectory); ok {
+		if err := cd.Purge(ctx, *atid); err != nil {
+			log.Debug(ctx, "failed to purge cached identity", "did", did, "err", err)
+		}
+	}
 }
 
 func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {

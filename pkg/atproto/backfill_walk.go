@@ -258,7 +258,7 @@ func (atsync *ATProtoSynchronizer) backfillRepo(ctx context.Context, ident *iden
 		return backfillResult{}, err
 	}
 	log.Warn(ctx, "host does not support sync.getBlocks, falling back to full getRepo",
-		"pds", xrpcc.Host, "did", ident.DID.String(), "err", err)
+		"pds", xrpcc.Host, "did", ident.DID.String(), "handle", ident.Handle.String(), "err", err)
 	rev, err = atsync.legacyBackfill(ctx, ident, xrpcc)
 	if err != nil {
 		return backfillResult{}, err
@@ -332,7 +332,7 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 		return "", "", err
 	}
 
-	log.Log(ctx, "walked repo", "did", did, "rev", head.Rev, "root", head.Root.String(), "records", records)
+	log.Log(ctx, "walked repo", "did", did, "handle", ident.Handle.String(), "rev", head.Rev, "root", head.Root.String(), "records", records)
 	return head.Rev, head.Root.String(), nil
 }
 

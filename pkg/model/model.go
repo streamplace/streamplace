@@ -38,6 +38,7 @@ type Model interface {
 	GetAllRepos() ([]Repo, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
+	UpdateRepoIdentity(did, handle, pds string) error
 	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error
 	AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error)
 	MarkRepoForRepair(ctx context.Context, did, from string) (bool, error)
@@ -109,7 +110,7 @@ type Model interface {
 	UpdateLabelerCursor(did string, cursor int64) error
 
 	GetRelayCursor(host string) (*RelayCursor, error)
-	UpsertRelayCursor(host string, cursor int64) error
+	UpsertRelayCursor(host string, cursor int64, lastEventTime int64) error
 
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)

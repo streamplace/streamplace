@@ -242,16 +242,58 @@ func (atsync *ATProtoSynchronizer) consumeRelay(ctx context.Context, relay strin
 	}
 }
 
+// firehoseReplayWindow is how stale a stored relay cursor may be and still be
+// worth replaying from. Zero (or negative) disables the cap, so every connect
+// resumes from whatever is stored.
+func (atsync *ATProtoSynchronizer) firehoseReplayWindow() time.Duration {
+	if atsync.CLI == nil {
+		return config.DefaultFirehoseReplayWindow
+	}
+	return atsync.CLI.FirehoseReplayWindow
+}
+
+// dropStaleCursor abandons a relay cursor too old to be worth replaying from,
+// and orders a sweep to heal the gap that leaves.
+//
+// The kick matters: without it the gap sits there until the next scheduled
+// sweep, up to --sweep-interval away, which is the one way dropping the cursor
+// could be worse than replaying it. sweepOnce skips if a sweep is already
+// running, so several relays deciding this at once costs nothing.
+func (atsync *ATProtoSynchronizer) dropStaleCursor(ctx context.Context, cursor *relayCursor) {
+	if !cursor.dropIfStale(ctx, atsync.firehoseReplayWindow()) {
+		return
+	}
+	// The skipped span may hold #identity events as well as commits. Commits
+	// the head check finds by asking hosts, but identity drift it can only see
+	// by resolving — and a cached resolution from before the gap agrees with
+	// the equally-stale repo row, hiding the change until the cache entry ages
+	// out. Starting the cache over makes the healing sweep's resolutions
+	// authoritative.
+	atsync.resetIdentCache()
+	if atsync.StatefulDB == nil {
+		// No index to sweep (tests that exercise the firehose on its own).
+		return
+	}
+	log.Log(ctx, "kicking off a sweep to heal the skipped firehose replay")
+	go atsync.sweepOnce(ctx, atsync.Sweep)
+}
+
 // connectRelay dials one relay and pumps its firehose until the connection
-// drops or ctx is cancelled. Event handlers are spawned on the parent ctx (not
-// the per-connection one) so an in-flight commit keeps indexing across a
-// reconnect — important because dedup has already claimed it, so no other relay
-// will re-deliver it to us.
+// drops or ctx is cancelled. Event handlers run on the parent ctx (not the
+// per-connection one) so an in-flight commit keeps indexing across a reconnect
+// — important because dedup has already claimed it, so no other relay will
+// re-deliver it to us.
 func (atsync *ATProtoSynchronizer) connectRelay(ctx context.Context, relay string, cursor *relayCursor) error {
 	u, err := url.Parse(relay)
 	if err != nil {
 		return fmt.Errorf("invalid relay URI %q: %w", relay, err)
 	}
+	// A cursor whose newest event is hours old asks the relay to re-send hours
+	// of the whole network's traffic, at full speed, to a node that indexes a
+	// fraction of a percent of it. Checked here rather than once at load
+	// because a long backoff stretch ages a cursor that was fresh when we
+	// started.
+	atsync.dropStaleCursor(ctx, cursor)
 	// MoQ relays (moqt:// and aliases) are consumed over QUIC instead of
 	// WebSocket. Everything downstream of frame-decode — dedup, cursor,
 	// handlers, backoff — is shared, so this is just a transport swap.
@@ -328,10 +370,44 @@ func relayProtocol(relay string) string {
 
 // repoStreamCallbacks builds the event callbacks shared by the WebSocket and
 // MoQ transports: per-relay metrics, liveness marking, cursor advance,
-// cross-relay dedup, and spawning the indexing handlers on the parent ctx.
-// cancel ends the current connection when the relay sends an error frame. The
-// handlers run on ctx (not the per-connection context) so an in-flight commit
-// keeps indexing across a reconnect.
+// cross-relay dedup, and running the indexing handlers. cancel ends the current
+// connection when the relay sends an error frame.
+//
+// The handlers run INLINE, on the callback's own goroutine, which is one of
+// indigo's parallel-scheduler workers. That is deliberate and load-bearing.
+// Spawning a goroutine per event here — which this used to do — returns from
+// the callback instantly and so defeats every bound the scheduler exists to
+// provide. Running them inline gets all three back:
+//
+//   - Concurrency is capped at the scheduler's worker count, instead of one
+//     goroutine per event. A relay replaying a backlog at full send rate is
+//     what turned that into millions of goroutines all queued behind a single
+//     sqlite write connection.
+//   - Events for one repo are handled in the order the relay sent them: the
+//     scheduler chains same-DID tasks through a per-repo queue, so at most one
+//     is in flight per repo. The per-event goroutines had silently dropped that
+//     guarantee. It is per-relay, not global — each relay has its own scheduler,
+//     so see revCASAttempts for the cross-relay race that remains.
+//   - Backpressure. The scheduler's feeder channel is unbuffered, so once every
+//     worker is busy, AddWork for a new repo blocks, HandleRepoStream (or the
+//     moq read loop) stops reading the socket, and TCP tells the relay to slow
+//     down. Overload degrades to "the firehose lags", which the sweep covers,
+//     instead of to an OOM.
+//
+// Both transports feed the same scheduler (connectRelayMoq → dispatchMoqFrame →
+// scheduler.AddWork), so this holds for websocket and moq alike.
+//
+// The handlers keep using the captured ctx rather than the one the scheduler
+// hands them: parallel workers call the event handler with context.TODO(), and
+// the captured ctx is where our log values and shutdown cancellation live. It
+// is the parent ctx and not the per-connection one so an in-flight commit keeps
+// indexing across a reconnect.
+//
+// The tradeoff, accepted: on disconnect both transports defer
+// scheduler.Shutdown(), which lets in-flight handlers finish but drops tasks
+// still queued behind them — whose dedup claim has already been made, so no
+// other relay will re-deliver them. That is a small silent gap, and healing
+// exactly this kind of gap is what the head check and sweep are for.
 func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, relay string, cursor *relayCursor, cancel context.CancelFunc) *events.RepoStreamCallbacks {
 	protocol := relayProtocol(relay)
 	// observeSeq advances the cursor and republishes the per-relay high-water
@@ -354,27 +430,41 @@ func (atsync *ATProtoSynchronizer) repoStreamCallbacks(ctx context.Context, rela
 		cursor.observe(seq)
 		spmetrics.FirehoseRelayHighSeq.WithLabelValues(relay, protocol).Set(float64(cursor.highSeq()))
 	}
+	// observeTime records how current this relay is. Unlike the seq it applies
+	// to every transport — an event's stamp means the same thing whoever
+	// carried it — and it is recorded before dedup, because a duplicate is
+	// still proof of how far along this relay is. One small parse per event; an
+	// unparsable stamp is simply not an observation.
+	observeTime := func(t string) {
+		aqt, err := aqtime.FromString(t)
+		if err != nil {
+			return
+		}
+		cursor.observeTime(aqt.Time())
+	}
 	return &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *indigoatproto.SyncSubscribeRepos_Commit) error {
 			atsync.markSeen()
 			observeSeq(evt.Seq)
+			observeTime(evt.Time)
 			spmetrics.FirehoseEventsReceivedTotal.WithLabelValues(relay, protocol, "commit").Inc()
 			if atsync.commitDedup.seen(evt.Commit.String()) {
 				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues(relay, protocol, "commit").Inc()
 				return nil
 			}
-			go atsync.handleCommitEventOps(ctx, evt)
+			atsync.handleCommitEventOps(ctx, evt)
 			return nil
 		},
 		RepoIdentity: func(evt *indigoatproto.SyncSubscribeRepos_Identity) error {
 			atsync.markSeen()
 			observeSeq(evt.Seq)
+			observeTime(evt.Time)
 			spmetrics.FirehoseEventsReceivedTotal.WithLabelValues(relay, protocol, "identity").Inc()
 			if atsync.identityDedup.seen(identityDedupKey(evt)) {
 				spmetrics.FirehoseEventsDedupedTotal.WithLabelValues(relay, protocol, "identity").Inc()
 				return nil
 			}
-			go atsync.handleIdentityEventOps(ctx, evt)
+			atsync.handleIdentityEventOps(ctx, evt)
 			return nil
 		},
 		Error: func(evt *events.ErrorFrame) error {
@@ -449,6 +539,44 @@ var CollectionFilter = []string{
 	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
 }
 
+// indexedCollection reports whether we index anything in this collection: the
+// explicit [CollectionFilter] list plus everything under place.stream., which is
+// our own namespace and always ours to index. An empty filter means "index
+// everything", as it always has.
+func indexedCollection(collection string) bool {
+	if len(CollectionFilter) == 0 {
+		return true
+	}
+	if slices.Contains(CollectionFilter, collection) {
+		return true
+	}
+	return strings.HasPrefix(collection, "place.stream.")
+}
+
+// commitHasIndexedOps reports whether a commit touches anything we index, from
+// the op paths alone — no CAR parsing.
+//
+// This is what lets handleCommitEventOps skip the CAR parse for the large
+// majority of firehose traffic (the whole network's posts, likes and follows on
+// repos we have never heard of). Handlers run on a bounded worker pool now, so
+// that parse is no longer paid by a throwaway goroutine: it is paid out of the
+// pool, and directly caps how fast the node can catch up.
+//
+// An op whose path does not parse counts as indexed, so that the main loop
+// reaches it and logs the same error it always has.
+func commitHasIndexedOps(evt *indigoatproto.SyncSubscribeRepos_Commit) bool {
+	for _, op := range evt.Ops {
+		collection, _, err := syntax.ParseRepoPath(op.Path)
+		if err != nil {
+			return true
+		}
+		if indexedCollection(collection.String()) {
+			return true
+		}
+	}
+	return false
+}
+
 func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Commit) {
 	ctx = log.WithLogValues(ctx, "event", "commit", "did", evt.Repo, "rev", evt.Rev, "seq", fmt.Sprintf("%d", evt.Seq), "func", "handleCommitEventOps")
 
@@ -457,10 +585,34 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		return
 	}
 
+	// A commit with nothing we index still has to be tracked: trackCommitRev
+	// follows the rev chain for repos we DO track, and a tracked repo posting a
+	// like is a commit whose ops are all filtered. Skipping it there would
+	// leave our stored rev behind, and the next commit we did care about would
+	// look like a hole and order a pointless repair. So the ops are what get
+	// skipped, not the event — and trackCommitRev never needed the CAR anyway.
+	if commitHasIndexedOps(evt) && !atsync.handleIndexedOps(ctx, evt) {
+		return
+	}
+
+	// Every op in this commit is indexed, so the index can claim this commit.
+	// Only reached on a clean pass: an event we bailed out of half-applied
+	// leaves the stored rev where it was, and the next commit for that repo
+	// notices the hole and orders a repair.
+	atsync.trackCommitRev(ctx, evt)
+}
+
+// handleIndexedOps reads the commit's CAR and applies the ops we index,
+// reporting whether it got all the way through. It is split out of
+// handleCommitEventOps so that a commit with nothing for us can skip the CAR
+// parse entirely while still having its rev tracked; a bail-out here (an
+// unreadable CAR, an unparsable path) reports false and so leaves the repo's
+// stored rev where it was, exactly as before, so the next commit finds the hole.
+func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *indigoatproto.SyncSubscribeRepos_Commit) bool {
 	rr, err := repo.ReadRepoFromCar(ctx, bytes.NewReader(evt.Blocks))
 	if err != nil {
 		log.Error(ctx, "failed to read repo from car", "err", err)
-		return
+		return false
 	}
 
 	for _, op := range evt.Ops {
@@ -468,18 +620,12 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		uri := fmt.Sprintf("at://%s/%s", evt.Repo, op.Path)
 		if err != nil {
 			log.Error(ctx, "invalid path in repo op", "eventKind", op.Action, "path", op.Path)
-			return
+			return false
 		}
 		ctx := log.WithLogValues(ctx, "eventKind", op.Action, "collection", collection.String(), "rkey", rkey.String())
 
-		if len(CollectionFilter) > 0 {
-			keep := slices.Contains(CollectionFilter, collection.String())
-			if strings.HasPrefix(collection.String(), "place.stream.") {
-				keep = true
-			}
-			if !keep {
-				continue
-			}
+		if !indexedCollection(collection.String()) {
+			continue
 		}
 
 		aqt, err := aqtime.FromString(evt.Time)
@@ -494,6 +640,13 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		if err != nil {
 			log.Error(ctx, "failed to get repo", "err", err)
 			continue
+		}
+		if r != nil {
+			// One enrichment here gives every line under this op a handle to go
+			// with the DID -- the dispatch switch below, the contiguity checks,
+			// and everything reviveRepo and handleCreateUpdate log through ctx
+			// -- without any of them doing a lookup of their own.
+			ctx = log.WithLogValues(ctx, "handle", r.Handle)
 		}
 		atsync.reviveRepo(ctx, r)
 		// log.Warn(ctx, "got record we care about", "collection", collection, "rkey", rkey)
@@ -719,11 +872,7 @@ func (atsync *ATProtoSynchronizer) handleCommitEventOps(ctx context.Context, evt
 		}
 	}
 
-	// Every op in this commit is indexed, so the index can claim this commit.
-	// Only reached on a clean pass: an event we bailed out of half-applied
-	// leaves the stored rev where it was, and the next commit for that repo
-	// notices the hole and orders a repair.
-	atsync.trackCommitRev(ctx, evt)
+	return true
 }
 
 // reviveRepo un-parks a repo we had written off. A commit event is proof the
@@ -737,9 +886,9 @@ func (atsync *ATProtoSynchronizer) reviveRepo(ctx context.Context, r *model.Repo
 	if !r.TerminalStatus() {
 		return
 	}
-	log.Log(ctx, "repo committed while parked, clearing terminal status", "did", r.DID, "status", r.Status)
+	log.Log(ctx, "repo committed while parked, clearing terminal status", "did", r.DID, "handle", r.Handle, "status", r.Status)
 	if err := atsync.Model.SetRepoStatus(ctx, r.DID, model.RepoStatusOK); err != nil {
-		log.Error(ctx, "failed to clear repo status", "did", r.DID, "err", err)
+		log.Error(ctx, "failed to clear repo status", "did", r.DID, "handle", r.Handle, "err", err)
 		return
 	}
 	r.Status = model.RepoStatusOK

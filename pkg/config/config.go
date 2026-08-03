@@ -172,6 +172,7 @@ type CLI struct {
 	MaximumLiveBitrate          int
 	SweepConcurrency            int
 	SweepInterval               time.Duration
+	FirehoseReplayWindow        time.Duration
 }
 
 // DefaultSweepInterval is how often the atproto sweep re-runs when
@@ -193,6 +194,21 @@ const DefaultSweepInterval = 6 * time.Hour
 // per second spread across the whole network, and no more than one walk (5-7
 // requests per second) against any single PDS.
 const DefaultSweepConcurrency = 32
+
+// DefaultFirehoseReplayWindow is how stale a stored relay cursor may be before
+// this node stops trying to replay from it and tails the live edge instead.
+//
+// The firehose is a latency optimization, not the sync engine: the sweep's head
+// check asks every repo's host one question and repairs the ones that have
+// drifted, so a gap of hours costs a few thousand cheap requests spread across
+// hundreds of hosts. Replaying that same gap costs the relay a full-rate flood
+// of every commit on the network -- including the overwhelming majority from
+// repos this node has never heard of -- which is how a two-hour-old cursor once
+// buried a node under millions of queued events. Fifteen minutes is long enough
+// to cover an ordinary restart or deploy, where replay genuinely is the cheaper
+// answer, and short enough that anything worse is handed to the mechanism built
+// for it. 0 disables the cap and always replays from the stored cursor.
+const DefaultFirehoseReplayWindow = 15 * time.Minute
 
 // ContentFilters represents the content filtering configuration
 type ContentFilters struct {
@@ -847,6 +863,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       DefaultSweepInterval,
 				Destination: &cli.SweepInterval,
 				Sources:     urfavecli.EnvVars("SP_SWEEP_INTERVAL"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "firehose-replay-window",
+				Usage:       "how old a stored relay cursor may be and still be replayed from on connect. A cursor whose newest event is older than this is discarded and we tail the relay's live edge instead, leaving the gap for the sweep's head check to repair -- which is far cheaper than making the relay re-send every commit on the network. 0 always replays from the stored cursor",
+				Value:       DefaultFirehoseReplayWindow,
+				Destination: &cli.FirehoseReplayWindow,
+				Sources:     urfavecli.EnvVars("SP_FIREHOSE_REPLAY_WINDOW"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "maximum-live-bitrate",

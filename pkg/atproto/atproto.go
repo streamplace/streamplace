@@ -349,6 +349,20 @@ func (atsync *ATProtoSynchronizer) directory(cached bool) identity.Directory {
 	return atsync.PLCDirectory
 }
 
+// purgeIdentCache drops a DID's cached identity, so the next cached resolve
+// re-reads the directory instead of serving an entry we just proved stale.
+func (atsync *ATProtoSynchronizer) purgeIdentCache(ctx context.Context, did string) {
+	atid, err := syntax.ParseAtIdentifier(did)
+	if err != nil {
+		return
+	}
+	if cd, ok := atsync.directory(true).(*identity.CacheDirectory); ok {
+		if err := cd.Purge(ctx, *atid); err != nil {
+			log.Debug(ctx, "failed to purge cached identity", "did", did, "err", err)
+		}
+	}
+}
+
 func (atsync *ATProtoSynchronizer) resolveIdent(ctx context.Context, arg string, cached bool) (*identity.Identity, error) {
 	dir := atsync.directory(cached)
 	id, err := syntax.ParseAtIdentifier(arg)

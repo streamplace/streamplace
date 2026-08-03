@@ -114,6 +114,15 @@ func (m *DBModel) UpdateRepo(repo *Repo) error {
 	return m.DB.Save(repo).Error
 }
 
+// UpdateRepoIdentity writes just a repo's identity columns. Everything else on
+// the row belongs to the sync engine — Version is CAS-advanced by the firehose,
+// the backfill columns by the sweep — so a full-row Save here could stomp a
+// concurrent advance; a two-column update cannot.
+func (m *DBModel) UpdateRepoIdentity(did, handle, pds string) error {
+	return m.DB.Model(&Repo{}).Where("did = ?", did).
+		Select("Handle", "PDS").Updates(&Repo{Handle: handle, PDS: pds}).Error
+}
+
 // SetRepoStatus parks (or un-parks) a repo's account lifecycle state without
 // touching the sync state in the rest of the row.
 func (m *DBModel) SetRepoStatus(ctx context.Context, did string, status string) error {

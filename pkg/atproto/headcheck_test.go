@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/bluesky-social/indigo/atproto/identity"
+	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/devenv"
 	"stream.place/streamplace/pkg/placestream"
@@ -129,4 +131,41 @@ func TestSweepRefreshesDriftedIdentity(t *testing.T) {
 	require.Equal(t, indexed.PDS, healed.PDS, "and the drifted PDS")
 	require.Equal(t, indexed.Version, healed.Version, "identity refresh left the sync state alone")
 	require.Equal(t, indexed.BackfillDone, healed.BackfillDone)
+}
+
+// TestResetIdentCacheDropsCachedResolutions proves the reset is real: a warm
+// cache serves hits until resetIdentCache (what dropping a stale cursor
+// calls), after which the next resolve goes back to the directory. Combined
+// with TestSweepRefreshesDriftedIdentity above — a resolution that disagrees
+// with the row heals it — this is the full path by which an identity change
+// hidden inside a skipped replay reaches the row: the reset makes the healing
+// sweep's resolutions fresh, and a fresh resolution that disagrees with the
+// row rewrites it.
+//
+// (A true end-to-end rename is not observable in the dev environment: handle
+// verification cannot complete there, so every account resolves as
+// handle.invalid and a rename changes nothing the directory reports.)
+func TestResetIdentCacheDropsCachedResolutions(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, _ := backfillTestSynchronizer(t, dev)
+	user := dev.CreateAccount(t)
+
+	_, err := atsync.resolveIdent(ctx, user.DID, true)
+	require.NoError(t, err)
+	did, err := syntax.ParseDID(user.DID)
+	require.NoError(t, err)
+	cd, ok := atsync.directory(true).(*identity.CacheDirectory)
+	require.True(t, ok)
+	_, hit, err := cd.LookupDIDWithCacheState(ctx, did)
+	require.NoError(t, err)
+	require.True(t, hit, "the resolve above warmed the cache")
+
+	atsync.resetIdentCache()
+
+	cd, ok = atsync.directory(true).(*identity.CacheDirectory)
+	require.True(t, ok)
+	_, hit, err = cd.LookupDIDWithCacheState(ctx, did)
+	require.NoError(t, err)
+	require.False(t, hit, "the reset cache resolves from the directory again")
 }

@@ -263,6 +263,13 @@ func (atsync *ATProtoSynchronizer) dropStaleCursor(ctx context.Context, cursor *
 	if !cursor.dropIfStale(ctx, atsync.firehoseReplayWindow()) {
 		return
 	}
+	// The skipped span may hold #identity events as well as commits. Commits
+	// the head check finds by asking hosts, but identity drift it can only see
+	// by resolving — and a cached resolution from before the gap agrees with
+	// the equally-stale repo row, hiding the change until the cache entry ages
+	// out. Starting the cache over makes the healing sweep's resolutions
+	// authoritative.
+	atsync.resetIdentCache()
 	if atsync.StatefulDB == nil {
 		// No index to sweep (tests that exercise the firehose on its own).
 		return

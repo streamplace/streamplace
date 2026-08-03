@@ -349,6 +349,19 @@ func (atsync *ATProtoSynchronizer) directory(cached bool) identity.Directory {
 	return atsync.PLCDirectory
 }
 
+// resetIdentCache throws away every cached identity resolution. For when the
+// node has knowingly skipped firehose it can never replay: any number of
+// #identity events may sit in that gap, and a cache entry from before it
+// agrees with the equally-stale repo row — hiding exactly the drift the next
+// sweep's head check is being asked to find. Starting the cache over makes
+// that sweep's resolutions authoritative. (A restart gets this for free; the
+// cache lives in process memory.)
+func (atsync *ATProtoSynchronizer) resetIdentCache() {
+	atsync.dirMu.Lock()
+	defer atsync.dirMu.Unlock()
+	atsync.CachedPLCDirectory = nil
+}
+
 // purgeIdentCache drops a DID's cached identity, so the next cached resolve
 // re-reads the directory instead of serving an entry we just proved stale.
 func (atsync *ATProtoSynchronizer) purgeIdentCache(ctx context.Context, did string) {

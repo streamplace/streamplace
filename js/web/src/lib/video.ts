@@ -2,12 +2,6 @@
 
 import { place } from "streamplace";
 
-// The DID lives in the second path segment of an at:// URI:
-// at://<did>/place.stream.video/<tid>
-export function getDidFromAtUri(uri: string): string {
-  return uri.split("/")[2] ?? "";
-}
-
 // The record key (tid) is the final segment of the at:// URI.
 export function getTidFromAtUri(uri: string): string {
   return uri.split("/").pop() ?? "";
@@ -21,7 +15,9 @@ export function getVideoThumbnailUrl(
   did: string,
 ): string | undefined {
   const ref = (record?.thumb as any)?.ref as { $link?: string } | undefined;
-  const cid = ref?.$link ?? ((record?.thumb as any)?.ref?.toString?.() as string | undefined);
+  const cid =
+    ref?.$link ??
+    ((record?.thumb as any)?.ref?.toString?.() as string | undefined);
   if (!cid || !did) return undefined;
   return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`;
 }

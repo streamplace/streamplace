@@ -1,11 +1,12 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDidFromAtUri } from "@/lib/game";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronLeft, ImagePlus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 export const Route = createFileRoute("/settings/badge-issuer")({
@@ -32,11 +33,6 @@ interface BadgeDefItem {
     badgeType: string;
     image?: { ref: { toString(): string } };
   };
-}
-
-function getDidFromAtUri(uri: string) {
-  const parts = uri.split("/");
-  return parts.length >= 3 ? parts[2] : null;
 }
 
 function BadgeIssuerPanel() {

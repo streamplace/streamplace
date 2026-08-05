@@ -5,6 +5,7 @@
 // sibling of this file with the same shape.
 import Hls, { type Level } from "hls.js";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlayerBackendHandle, PlayerStats, QualityOption } from "./player";
 import { readQualityPreference } from "./player";
 
@@ -43,6 +44,7 @@ export function HLSPlayer({
   ref?: RefObject<PlayerBackendHandle | null>;
 }) {
   const hlsRef = useRef<Hls | null>(null);
+  const { t } = useTranslation();
   // Ref so the stats-polling interval (a child of the main effect) can
   // call the latest onStatsChange without re-creating the interval on
   // every parent render.
@@ -80,7 +82,7 @@ export function HLSPlayer({
       hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
-        onQualitiesChange?.(buildQualities(hls.levels));
+        onQualitiesChange?.(buildQualities(hls.levels, t));
         // Restore persisted quality preference.
         const saved = readQualityPreference();
         if (saved !== null && saved >= -1 && saved < hls.levels.length) {
@@ -99,17 +101,17 @@ export function HLSPlayer({
         if (!data.fatal) return;
         const status = (data.response as Response | undefined)?.status;
         if (status === 404) {
-          onError?.("Stream not live");
+          onError?.(t("player-error-stream-not-live"));
           hls.stopLoad();
           return;
         }
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            onError?.("Network error. Retrying.");
+            onError?.(t("player-error-network-retrying"));
             hls.startLoad();
             return;
           case Hls.ErrorTypes.MEDIA_ERROR:
-            onError?.("Media error. Recovering.");
+            onError?.(t("player-error-media-recovering"));
             hls.recoverMediaError();
             return;
           default:
@@ -148,7 +150,7 @@ export function HLSPlayer({
         video.load();
       };
     } else {
-      onError?.("Your browser doesn't support HLS playback.");
+      onError?.(t("player-error-hls-unsupported"));
     }
   }, [
     src,
@@ -231,13 +233,16 @@ export function HLSPlayer({
   return null;
 }
 
-function buildQualities(levels: Level[]): QualityOption[] {
+function buildQualities(
+  levels: Level[],
+  t: (key: string) => string,
+): QualityOption[] {
   const explicit = levels.map((level, index) => ({
     index,
     label: labelForLevel(level, index),
   }));
   // "Auto" maps to hls.js currentLevel = -1.
-  return [{ index: -1, label: "Auto" }, ...explicit];
+  return [{ index: -1, label: t("player-quality-auto") }, ...explicit];
 }
 
 function labelForLevel(level: Level, index: number): string {

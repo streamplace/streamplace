@@ -67,6 +67,7 @@
   "languages": "語言",
   "privacy-security": "隱私與安全",
   "streaming": "串流",
+  "notifications": "通知",
   "sign-in": "登入",
   "log-out": "登出",
   "account-greeting": "嗨，@{$handle}。",

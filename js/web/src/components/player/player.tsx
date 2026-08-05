@@ -13,6 +13,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { HLSPlayer } from "./hls-player";
 import { PlayerControls } from "./player-controls";
@@ -152,6 +153,7 @@ export function Player({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useTranslation();
 
   const [playing, setPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -230,12 +232,12 @@ export function Player({
       if (code === 1) return;
       surfaceError(
         code === 2
-          ? "Network error"
+          ? t("player-error-network")
           : code === 3
-            ? "Playback error"
+            ? t("player-error-playback")
             : code === 4
-              ? "Stream format not supported"
-              : "Playback error",
+              ? t("player-error-format")
+              : t("player-error-playback"),
       );
     };
 
@@ -363,8 +365,12 @@ export function Player({
       {active && showStats && stats && (
         <StatsOverlay
           stats={stats}
-          protocol={useWebRTC ? "WebRTC" : "HLS"}
-          latencyMode={useWebRTC ? "Low Latency" : "Standard"}
+          protocol={
+            useWebRTC ? t("player-protocol-webrtc") : t("player-protocol-hls")
+          }
+          latencyMode={
+            useWebRTC ? t("player-latency-low") : t("player-latency-standard")
+          }
           sessionId={sessionId}
         />
       )}
@@ -442,10 +448,11 @@ function StatsOverlay({
   sessionId,
 }: {
   stats: PlayerStats;
-  protocol: "HLS" | "WebRTC";
-  latencyMode: "Standard" | "Low Latency";
+  protocol: string;
+  latencyMode: string;
   sessionId: string;
 }) {
+  const { t } = useTranslation();
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
@@ -489,7 +496,7 @@ function StatsOverlay({
   return (
     <div
       role="dialog"
-      aria-label="Player stats"
+      aria-label={t("player-stats")}
       // Stop the synthetic click from bubbling to the player's
       // click-to-toggle when the user just taps the panel (no drag).
       onClick={(e) => e.stopPropagation()}
@@ -509,12 +516,15 @@ function StatsOverlay({
         Stats
       </div>
       <div className="px-2.5 py-1.5">
-        <Row label="Resolution" value={`${stats.width}×${stats.height}`} />
         <Row
-          label="Viewport"
+          label={t("player-stats-resolution")}
+          value={`${stats.width}×${stats.height}`}
+        />
+        <Row
+          label={t("player-stats-viewport")}
           value={`${stats.viewportWidth}×${stats.viewportHeight}`}
         />
-        <Row label="Bitrate" value={bitrateDisplay} />
+        <Row label={t("player-stats-bitrate")} value={bitrateDisplay} />
         {stats.ttfbEstimate !== undefined && stats.ttfbEstimate > 0 && (
           <Row label="TTFB" value={`${Math.round(stats.ttfbEstimate)} ms`} />
         )}
@@ -525,24 +535,29 @@ function StatsOverlay({
           }
         />
         <Row
-          label="Skipped"
+          label={t("player-stats-skipped")}
           value={`${stats.droppedFrames} / ${stats.totalFrames}`}
         />
-        <Row label="Buffer" value={`${stats.buffered.toFixed(2)} sec`} />
+        <Row
+          label={t("player-stats-buffer")}
+          value={`${stats.buffered.toFixed(2)} sec`}
+        />
         {stats.latencyToBroadcaster !== undefined && (
           <Row
-            label="Latency"
+            label={t("player-latency")}
             value={`${stats.latencyToBroadcaster.toFixed(2)} sec`}
           />
         )}
-        {stats.codecs && <Row label="Codecs" value={stats.codecs} />}
-        <Row label="Protocol" value={protocol} />
-        <Row label="Latency Mode" value={latencyMode} />
-        <Row label="Render Surface" value="video" />
+        {stats.codecs && (
+          <Row label={t("player-stats-codecs")} value={stats.codecs} />
+        )}
+        <Row label={t("player-stats-protocol")} value={protocol} />
+        <Row label={t("player-stats-latency-mode")} value={latencyMode} />
+        <Row label={t("player-stats-render-surface")} value="video" />
         {stats.hlsVersion && (
           <Row label="hls.js version" value={stats.hlsVersion} />
         )}
-        <Row label="Session" value={sessionId} />
+        <Row label={t("player-stats-session")} value={sessionId} />
       </div>
     </div>
   );

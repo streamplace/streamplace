@@ -14,6 +14,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { type RefObject, useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import { cn } from "../../lib/utils";
 import MuIcon from "../svg/mu";
@@ -95,6 +96,7 @@ export function PlayerControls({
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const { theatre, setTheatre } = useFullscreen();
+  const { t } = useTranslation();
 
   // Mirror video element state into React.
   useEffect(() => {
@@ -276,13 +278,13 @@ export function PlayerControls({
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0",
         )}
-        aria-label="Play"
+        aria-label={t("player-play")}
         aria-hidden={!bigPlay}
         tabIndex={bigPlay ? 0 : -1}
       >
         <div className="flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-3 backdrop-blur transition-colors hover:bg-white/20">
           <Play className="h-6 w-6 fill-white text-white" />
-          <span className="font-medium text-white">Play</span>
+          <span className="font-medium text-white">{t("player-play")}</span>
         </div>
       </button>
 
@@ -298,7 +300,7 @@ export function PlayerControls({
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0",
         )}
-        aria-label="Unmute"
+        aria-label={t("player-unmute")}
         aria-hidden={!showUnmutePrompt}
         tabIndex={showUnmutePrompt ? 0 : -1}
       >
@@ -307,7 +309,7 @@ export function PlayerControls({
             <VolumeX className="h-6 w-6 text-white" />
             <Volume2 className="text-success h-6 w-6" />
           </div>
-          <span className="font-medium text-white">Unmute</span>
+          <span className="font-medium text-white">{t("player-unmute")}</span>
         </div>
       </button>
 
@@ -325,7 +327,7 @@ export function PlayerControls({
             value={currentTime}
             onValueChange={onSeekInput}
             className="h-1 w-full min-w-full cursor-pointer sm:w-48"
-            aria-label="Seek"
+            aria-label={t("player-seek")}
           />
         )}
         <div className="flex items-center gap-2">
@@ -333,7 +335,7 @@ export function PlayerControls({
             type="button"
             onClick={togglePlay}
             className="p-1 text-white transition-colors hover:text-white/80"
-            aria-label={playing ? "Pause" : "Play"}
+            aria-label={playing ? t("player-pause") : t("player-play")}
           >
             {playing ? (
               <Pause className="h-5 w-5 fill-white" />
@@ -359,7 +361,7 @@ export function PlayerControls({
               type="button"
               onClick={toggleMute}
               className="p-1 text-white transition-colors hover:text-white/80"
-              aria-label={muted ? "Unmute" : "Mute"}
+              aria-label={muted ? t("player-unmute") : t("player-mute")}
             >
               {muted || volume === 0 ? (
                 <VolumeX className="h-5 w-5" />
@@ -387,9 +389,7 @@ export function PlayerControls({
                 "p-1 transition-colors",
                 isPiP ? "text-white" : "text-white/40 hover:text-white/80",
               )}
-              aria-label={
-                isPiP ? "Exit picture-in-picture" : "Picture-in-picture"
-              }
+              aria-label={isPiP ? t("player-exit-pip") : t("player-pip")}
             >
               <PictureInPicture className="h-5 w-5" />
             </button>
@@ -402,7 +402,9 @@ export function PlayerControls({
               "p-1 transition-colors",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
             )}
-            aria-label={theatre ? "Exit theatre mode" : "Theatre mode"}
+            aria-label={
+              theatre ? t("player-exit-theatre") : t("player-theatre")
+            }
           >
             <RectangleHorizontal className="h-5 w-5" />
           </button>
@@ -414,7 +416,9 @@ export function PlayerControls({
               "p-1 transition-colors",
               showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
             )}
-            aria-label={showDanmu ? "Disable danmu" : "Enable danmu"}
+            aria-label={
+              showDanmu ? t("player-disable-danmu") : t("player-enable-danmu")
+            }
           >
             <MuIcon size={20} />
           </button>
@@ -422,7 +426,7 @@ export function PlayerControls({
           <DropdownMenu onOpenChange={setSettingsOpen}>
             <DropdownMenuTrigger
               className="p-1 text-white transition-colors hover:text-white/80"
-              aria-label="Settings"
+              aria-label={t("player-settings")}
             >
               <Settings
                 className={cn(
@@ -437,7 +441,7 @@ export function PlayerControls({
               className="border-white/10 bg-black/85 backdrop-blur"
             >
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Latency</DropdownMenuLabel>
+                <DropdownMenuLabel>{t("player-latency")}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup
                   value={useWebRTC ? "webrtc" : "hls"}
                   onValueChange={(v) => onUseWebRTCChange(v === "webrtc")}
@@ -455,7 +459,7 @@ export function PlayerControls({
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuLabel>Quality</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("player-quality")}</DropdownMenuLabel>
                     <DropdownMenuRadioGroup
                       value={String(currentQuality)}
                       onValueChange={(v) => onQualityChange(Number(v))}
@@ -487,7 +491,11 @@ export function PlayerControls({
             type="button"
             onClick={toggleFullscreen}
             className="p-1 text-white transition-colors hover:text-white/80"
-            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            aria-label={
+              isFullscreen
+                ? t("player-exit-fullscreen")
+                : t("player-fullscreen")
+            }
           >
             {isFullscreen ? (
               <Minimize className="h-5 w-5" />

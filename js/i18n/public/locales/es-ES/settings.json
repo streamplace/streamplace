@@ -67,6 +67,7 @@
   "languages": "Idiomas",
   "privacy-security": "Privacidad y Seguridad",
   "streaming": "Transmisión",
+  "notifications": "Notificaciones",
   "sign-in": "Iniciar Sesión",
   "log-out": "Cerrar sesión",
   "account-greeting": "Hola, @{$handle}.",

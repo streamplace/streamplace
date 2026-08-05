@@ -32,6 +32,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useEmojiData } from "../../lib/emoji-data";
 
 const CATEGORY_ICONS: { label: string; Icon: LucideIcon }[] = [
@@ -151,6 +152,7 @@ export function SkinToneTrigger({
   setOpen,
   skinTone,
 }: SkinTonePickerOpen & { skinTone: SkinTone }) {
+  const { t } = useTranslation();
   const [, , skinToneVariations] = useFrimousseSkinTone("👋");
   const current =
     skinToneVariations.find((v) => v.skinTone === skinTone) ??
@@ -159,7 +161,7 @@ export function SkinToneTrigger({
   return (
     <button
       onClick={() => setOpen((o) => !o)}
-      title="Skin tone"
+      title={t("emoji-skin-tone")}
       style={{
         display: "flex",
         alignItems: "center",
@@ -198,6 +200,7 @@ export function EmojiPicker({
   onSkinToneChange,
   anchorRef,
 }: EmojiPickerProps) {
+  const { t } = useTranslation();
   const emojiData = useEmojiData();
   const [skinToneOpen, setSkinToneOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState(0);
@@ -463,7 +466,7 @@ export function EmojiPicker({
             width: "calc(100% - 16px - 10px)",
             boxSizing: "border-box",
           }}
-          placeholder="Search emoji…"
+          placeholder={t("emoji-search")}
         />
         <div
           style={{

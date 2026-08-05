@@ -67,6 +67,7 @@
   "languages": "Langues",
   "privacy-security": "Confidentialité et Sécurité",
   "streaming": "Diffusion",
+  "notifications": "Notifications",
   "sign-in": "Se connecter",
   "log-out": "Se déconnecter",
   "account-greeting": "Salut, @{$handle}.",

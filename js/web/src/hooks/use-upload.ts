@@ -1,5 +1,6 @@
 // Upload state machine for VOD uploads.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import * as tus from "tus-js-client";
 import { usePDSAgent } from "../lib/store/hooks";
@@ -74,6 +75,7 @@ export async function validateVideoFile(file: File): Promise<string | null> {
 
 export function useUpload() {
   const agent = usePDSAgent();
+  const { t } = useTranslation();
   const uploadRef = useRef<tus.Upload | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Generation token: each polling run gets a unique ID. After every
@@ -179,14 +181,17 @@ export function useUpload() {
           if (gen !== pollGenRef.current) return;
           setPhase({
             kind: "error",
-            message: "Processing timed out. Please try again later.",
+            message: t("upload-error-timeout"),
           });
           return;
         }
         try {
-          const res = await agent.client.call(place.stream.media.getUploadStatus, {
-            uploadId,
-          });
+          const res = await agent.client.call(
+            place.stream.media.getUploadStatus,
+            {
+              uploadId,
+            },
+          );
           if (gen !== pollGenRef.current) return;
           const data = res;
 
@@ -202,7 +207,7 @@ export function useUpload() {
           if (data.status === "error") {
             setPhase({
               kind: "error",
-              message: data.error ?? "Processing failed",
+              message: data.error ?? t("upload-error-processing"),
             });
             return;
           }
@@ -220,7 +225,7 @@ export function useUpload() {
       };
       check();
     },
-    [agent],
+    [agent, t],
   );
 
   // ── upload ────────────────────────────────────────────────────────────────
@@ -228,12 +233,12 @@ export function useUpload() {
   const startUpload = useCallback(async () => {
     if (!agent || !file) return;
     if (!agent.did) {
-      setPhase({ kind: "error", message: "Not logged in" });
+      setPhase({ kind: "error", message: t("upload-error-not-logged-in") });
       return;
     }
     const validationError = await validateVideoFile(file);
     if (validationError) {
-      setPhase({ kind: "error", message: validationError });
+      setPhase({ kind: "error", message: t("upload-error-format") });
       return;
     }
     const mimeType = file.type.startsWith("video/") ? file.type : "video/mp4";
@@ -277,7 +282,7 @@ export function useUpload() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [agent, file, pollStatus]);
+  }, [agent, file, pollStatus, t]);
 
   const cancelUpload = useCallback(() => {
     pollGenRef.current++;
@@ -297,7 +302,7 @@ export function useUpload() {
 
       const record = {
         $type: "place.stream.video",
-        title: title.trim() || file?.name || "Untitled",
+        title: title.trim() || file?.name || t("upload-title-untitled"),
         createdAt: new Date().toISOString() as any,
         durationMs,
         source: {
@@ -370,6 +375,7 @@ export function useUpload() {
     warnings,
     license,
     file,
+    t,
   ]);
 
   // ── derived state ─────────────────────────────────────────────────────────

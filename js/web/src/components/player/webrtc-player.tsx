@@ -4,7 +4,8 @@
 // shared across backends. This is a sibling of hls-player.tsx with the same
 // prop shape so the dispatch in PlayerBackend is a single conditional.
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
-import { type StreamplaceAgent, place } from "streamplace";
+import { useTranslation } from "react-i18next";
+import { place, type StreamplaceAgent } from "streamplace";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import type { PlayerBackendHandle, PlayerStats } from "./player";
 
@@ -118,6 +119,7 @@ export function WebRTCPlayer({
   activeRef.current = active;
   onErrorRef.current = onError;
   onStatsChangeRef.current = onStatsChange;
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!active) return;
@@ -151,7 +153,7 @@ export function WebRTCPlayer({
       reconnectAttemptsRef.current += 1;
       if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
         gaveUpRef.current = true;
-        onErrorRef.current?.("Stream unavailable. Stopped reconnecting.");
+        onErrorRef.current?.(t("player-error-stream-unavailable"));
         return;
       }
       reconnectTimerRef.current = setTimeout(() => {
@@ -172,7 +174,7 @@ export function WebRTCPlayer({
           offerToReceiveVideo: true,
         });
         if (!offer.sdp) {
-          onErrorRef.current?.("Failed to create SDP offer");
+          onErrorRef.current?.(t("player-error-sdp-failed"));
           return;
         }
 
@@ -181,7 +183,7 @@ export function WebRTCPlayer({
         // Wait for ICE gathering to complete (or time out).
         const gatheredOffer = await waitForICE(pc);
         if (!gatheredOffer || !gatheredOffer.sdp) {
-          onErrorRef.current?.("Failed to gather ICE candidates");
+          onErrorRef.current?.(t("player-error-ice-failed"));
           return;
         }
 
@@ -189,7 +191,8 @@ export function WebRTCPlayer({
         if (cancelled) return;
 
         // POST the offer via the WHEP endpoint.
-        const response = await agent.client.call(place.stream.playback.whep, 
+        const response = await agent.client.call(
+          place.stream.playback.whep,
           gatheredOffer.sdp as any,
           {
             params: { rendition: "source", streamer },
@@ -209,7 +212,7 @@ export function WebRTCPlayer({
       } catch (err) {
         if (cancelled) return;
         console.error("WebRTC negotiation failed:", err);
-        onErrorRef.current?.("WebRTC negotiation failed");
+        onErrorRef.current?.(t("player-error-negotiation-failed"));
         scheduleReconnect();
       }
     }
@@ -276,7 +279,7 @@ export function WebRTCPlayer({
           }
 
           if (hasReceivedFrames && now - lastChangeTime > STUCK_THRESHOLD_MS) {
-            onErrorRef.current?.("Stream stalled. Reconnecting.");
+            onErrorRef.current?.(t("player-error-stream-stalled"));
             scheduleReconnect();
             return;
           }
@@ -375,7 +378,7 @@ export function WebRTCPlayer({
           state === "closed" ||
           state === "disconnected"
         ) {
-          onErrorRef.current?.("Connection lost. Reconnecting.");
+          onErrorRef.current?.(t("player-error-connection-lost"));
           scheduleReconnect();
         }
       });

@@ -193,11 +193,15 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	}
 
 	// The same lock a full sync takes, so the two cannot walk one repo at once.
-	// Nothing re-enters it: indexing a record calls SyncBlueskyRepoCached, which
-	// short-circuits on the Version this row already has.
+	// Indexing a record re-enters SyncBlueskyRepoCached for this same DID, and
+	// the Version check above is not enough to keep that from walking in here:
+	// a firehose gap detected mid-walk marks the repo for repair, which blanks
+	// Version. The in-flight mark is what holds regardless — without it, the
+	// re-entry takes this very lock and deadlocks the lane forever.
 	handleLock := handleLocks.GetLock(did)
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	defer markSyncInFlight(did)()
 
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
@@ -230,8 +234,16 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 		return false, "", err
 	}
 
-	if err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis); err != nil {
+	applied, err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis)
+	if err != nil {
 		return false, "", fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
+	}
+	if !applied {
+		// A repair wedged this repo while its window was being walked. The
+		// wedge wins: the window goes unrecorded, the repair re-syncs the repo,
+		// and the sweep ladders it again from the floor it already had.
+		log.Log(ctx, "repo was marked for repair mid-deepen; leaving it wedged")
+		return false, repo.BackfillFloor, nil
 	}
 	// Debug: at one line per repo per window this is thousands of lines per
 	// sweep. The sweep logs one Info summary per repo when its ladder finishes.

@@ -78,7 +78,9 @@ func (a *StreamplaceAPI) InternalHandler(ctx context.Context) (http.Handler, err
 		// MKVExec process (`streamplace live` POSTing MKV back to /live): fMP4
 		// carries real decode timestamps, so ingest no longer reconstructs DTS.
 		// Mist accepts the push right after this trigger returns, so the pull
-		// retries briefly while the stream boots (mistPullConnect).
+		// retries briefly while the stream boots — including waiting for a
+		// header with tracks, since an encoder can connect before its media
+		// registers (mistPullConnect).
 		go func() {
 			if perr := a.MediaManager.MistPullIngest(serverCtx, out, mediaSigner); perr != nil {
 				log.Error(serverCtx, "mist pull ingest ended", "mist-stream", out, "streamer", mediaSigner.Streamer(), "error", perr)

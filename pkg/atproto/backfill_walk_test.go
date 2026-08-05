@@ -852,30 +852,20 @@ func createBackfillRecord(t *testing.T, acct *devenv.DevEnvAccount, collection, 
 	return collection + "/" + out.Uri[strings.LastIndex(out.Uri, "/")+1:]
 }
 
-// wedgeOnGetBlocks marks a repo for repair the first time a sync fetch goes
-// out, which lands in exactly the window a live firehose gap detection can
-// fire in: after DeepenRepo's entry check of Version, while its walk is in
-// flight and the per-DID lock is held.
+// wedgeOnGetBlocks runs a hook the first time a sync fetch goes out, which
+// lands in exactly the window a concurrent actor can strike in: after
+// DeepenRepo's entry check of the row, while its walk is in flight and the
+// per-DID lock is held.
 type wedgeOnGetBlocks struct {
 	base http.RoundTripper
 	once sync.Once
-	mod  model.Model
-	ctx  context.Context
-	did  string
-	from string
+	hook func() error
 	err  error
 }
 
 func (w *wedgeOnGetBlocks) RoundTrip(req *http.Request) (*http.Response, error) {
 	if strings.Contains(req.URL.Path, "com.atproto.sync.getBlocks") {
-		w.once.Do(func() {
-			marked, err := w.mod.MarkRepoForRepair(w.ctx, w.did, w.from)
-			if err != nil {
-				w.err = fmt.Errorf("wedging repo: %w", err)
-			} else if !marked {
-				w.err = fmt.Errorf("wedging repo: CAS did not apply")
-			}
-		})
+		w.once.Do(func() { w.err = w.hook() })
 	}
 	return w.base.RoundTrip(req)
 }
@@ -912,8 +902,18 @@ func TestDeepenSurvivesMidWalkRepair(t *testing.T) {
 	require.NotEmpty(t, synced.Version)
 	require.False(t, synced.BackfillDone, "the old message leaves history to deepen")
 
-	// From here on the next sync fetch is the deepen's: wedge the repo there.
-	wedge := &wedgeOnGetBlocks{base: SyncHTTPClient.Transport, mod: mod, ctx: ctx, did: user.DID, from: synced.Version}
+	// From here on the next sync fetch is the deepen's: wedge the repo there,
+	// the way a live firehose gap detection does.
+	wedge := &wedgeOnGetBlocks{base: SyncHTTPClient.Transport, hook: func() error {
+		marked, err := mod.MarkRepoForRepair(ctx, user.DID, synced.Version)
+		if err != nil {
+			return fmt.Errorf("wedging repo: %w", err)
+		}
+		if !marked {
+			return fmt.Errorf("wedging repo: CAS did not apply")
+		}
+		return nil
+	}}
 	SyncHTTPClient.Transport = wedge
 	t.Cleanup(func() { SyncHTTPClient.Transport = wedge.base })
 
@@ -939,4 +939,63 @@ func TestDeepenSurvivesMidWalkRepair(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, wedged.Version, "the repair wedge survives the deepen")
 	require.Equal(t, synced.Version, wedged.RepairFrom, "and still knows where the missed span starts")
+}
+
+// TestDeepenSurvivesMidWalkRowDeletion is the second trigger of the same
+// deadlock, performed in production by an operator: deleting a repo's row was
+// the old system's way to force a full resync, and doing it while a deepen
+// held the row's lock left the walk's visitor with no row at all -- which
+// falls through SyncBlueskyRepoCached's guard (it needs a row to consult) into
+// a full sync that locks the mutex its caller holds. The nil-row in-flight
+// guard in SyncBlueskyRepo is what turns that into a per-record error the walk
+// shrugs off. Afterwards, the delete does what the operator wanted all along:
+// the next touch resyncs the repo from scratch.
+func TestDeepenSurvivesMidWalkRowDeletion(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, mod := backfillTestSynchronizer(t, dev)
+
+	user := dev.CreateAccount(t)
+	createBackfillRecord(t, user, "place.stream.chat.profile", "self", &placestream.ChatProfile{})
+	oldRkey := reposync.TIDForTime(time.Now().Add(-72 * time.Hour))
+	createBackfillRecord(t, user, "place.stream.chat.message", oldRkey,
+		chatMessageRecord(user.DID, "from the deep window"))
+
+	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
+	require.NoError(t, err)
+	synced, err := mod.GetRepo(user.DID)
+	require.NoError(t, err)
+	require.NotEmpty(t, synced.Version)
+	require.False(t, synced.BackfillDone)
+
+	// Mid-walk, the operator deletes the row to "force a resync".
+	wedge := &wedgeOnGetBlocks{base: SyncHTTPClient.Transport, hook: func() error {
+		return mod.(*model.DBModel).DB.Exec("DELETE FROM repos WHERE did = ?", user.DID).Error
+	}}
+	SyncHTTPClient.Transport = wedge
+	t.Cleanup(func() { SyncHTTPClient.Transport = wedge.base })
+
+	type result struct {
+		done bool
+		err  error
+	}
+	got := make(chan result, 1)
+	go func() {
+		done, _, err := atsync.DeepenRepo(ctx, user.DID)
+		got <- result{done, err}
+	}()
+	select {
+	case r := <-got:
+		require.NoError(t, r.err)
+		require.False(t, r.done, "a deleted row records nothing")
+	case <-time.After(30 * time.Second):
+		t.Fatal("DeepenRepo deadlocked on its own per-DID lock")
+	}
+	require.NoError(t, wedge.err)
+
+	// The lock is free again, so the delete now means what it used to: the
+	// next touch resyncs the account from scratch.
+	resynced, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
+	require.NoError(t, err)
+	require.NotEmpty(t, resynced.Version)
 }

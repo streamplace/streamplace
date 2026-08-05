@@ -58,6 +58,18 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 
 	ctx = log.WithLogValues(ctx, "did", ident.DID.String(), "handle", ident.Handle.String())
 
+	// The nil-row flavour of SyncBlueskyRepoCached's re-entrancy guard. That
+	// guard can only consult the in-flight mark when it has a row to hand
+	// back, and a row can vanish mid-walk — an operator deleting it to force
+	// a resync is a long-standing habit. With no row, the walk's own record
+	// visitor falls through to here and would lock the mutex its caller
+	// already holds. An in-flight DID never wants a second sync started
+	// anyway; the record this call was serving is re-indexed by whatever
+	// sync runs next.
+	if syncInFlight(ident.DID.String()) {
+		return nil, fmt.Errorf("sync already in flight for %s", ident.DID.String())
+	}
+
 	handleLock := handleLocks.GetLock(ident.DID.String())
 	handleLock.Lock()
 	defer handleLock.Unlock()

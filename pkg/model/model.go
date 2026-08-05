@@ -39,7 +39,7 @@ type Model interface {
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
 	UpdateRepoIdentity(did, handle, pds string) error
-	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error
+	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) (bool, error)
 	AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error)
 	MarkRepoForRepair(ctx context.Context, did, from string) (bool, error)
 	SetRepoStatus(ctx context.Context, did string, status string) error

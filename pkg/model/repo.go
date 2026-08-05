@@ -131,22 +131,32 @@ func (m *DBModel) SetRepoStatus(ctx context.Context, did string, status string) 
 
 // AdvanceRepoBackfill records the outcome of one deepening window: the repo is
 // now indexed from floor forward (empty floor meaning all the way back), at the
-// revision that window was read at.
+// revision that window was read at. It reports whether the record applied.
 //
 // It writes exactly those four columns rather than the whole row, so a
 // concurrent handle change or status update cannot be rolled back by a sweep
 // that read the row minutes ago. Select names the fields explicitly, which is
 // also what makes the zero values -- an empty floor, a false flag -- get
 // written instead of skipped.
-func (m *DBModel) AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) error {
-	return m.DB.WithContext(ctx).Model(&Repo{}).Where("did = ?", did).
+//
+// A repo whose Version has been blanked is left alone, and the write reports
+// false: an empty Version is a repair somebody has evidence for, marked while
+// this window was being walked, and writing a Version here would quietly
+// cancel it. The wedge wins; the window goes unrecorded and is re-walked
+// after the repair.
+func (m *DBModel) AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) (bool, error) {
+	res := m.DB.WithContext(ctx).Model(&Repo{}).Where("did = ? AND version <> ''", did).
 		Select("Version", "RootCID", "BackfillFloor", "BackfillDone").
 		Updates(Repo{
 			Version:       version,
 			RootCID:       rootCID,
 			BackfillFloor: floor,
 			BackfillDone:  done,
-		}).Error
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // AdvanceRepoVersion moves a repo's revision from one value to another, and

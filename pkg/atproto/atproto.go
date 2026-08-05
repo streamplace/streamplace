@@ -58,9 +58,24 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 
 	ctx = log.WithLogValues(ctx, "did", ident.DID.String(), "handle", ident.Handle.String())
 
+	// The nil-row flavour of SyncBlueskyRepoCached's re-entrancy guard. That
+	// guard can only consult the in-flight mark when it has a row to hand
+	// back, and a row can vanish mid-walk — an operator deleting it to force
+	// a resync is a long-standing habit. With no row, the walk's own record
+	// visitor falls through to here and would lock the mutex its caller
+	// already holds. The ctx marker identifies exactly that call tree and
+	// nothing else: an unrelated caller racing this DID's first sync still
+	// waits on the lock like it always has, instead of getting an error for
+	// a microsecond coincidence. The record the refused call was serving is
+	// re-indexed by whatever sync runs next.
+	if walkingDID(ctx) == ident.DID.String() {
+		return nil, fmt.Errorf("refusing re-entrant sync of %s inside its own walk", ident.DID.String())
+	}
+
 	handleLock := handleLocks.GetLock(ident.DID.String())
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	ctx = markWalking(ctx, ident.DID.String())
 
 	// Tell re-entrant callers (handleCreateUpdate syncs the repos it sees
 	// records from) that this DID's placeholder row is being filled in right
@@ -193,11 +208,16 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 	}
 
 	// The same lock a full sync takes, so the two cannot walk one repo at once.
-	// Nothing re-enters it: indexing a record calls SyncBlueskyRepoCached, which
-	// short-circuits on the Version this row already has.
+	// Indexing a record re-enters SyncBlueskyRepoCached for this same DID, and
+	// the Version check above is not enough to keep that from walking in here:
+	// a firehose gap detected mid-walk marks the repo for repair, which blanks
+	// Version. The in-flight mark is what holds regardless — without it, the
+	// re-entry takes this very lock and deadlocks the lane forever.
 	handleLock := handleLocks.GetLock(did)
 	handleLock.Lock()
 	defer handleLock.Unlock()
+	defer markSyncInFlight(did)()
+	ctx = markWalking(ctx, did)
 
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
@@ -230,13 +250,39 @@ func (atsync *ATProtoSynchronizer) DeepenRepo(ctx context.Context, did string) (
 		return false, "", err
 	}
 
-	if err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis); err != nil {
+	applied, err := atsync.Model.AdvanceRepoBackfill(ctx, did, rev, root, window.Lo, window.Genesis)
+	if err != nil {
 		return false, "", fmt.Errorf("failed to record backfill watermark for %s: %w", did, err)
+	}
+	if !applied {
+		// A repair wedged this repo while its window was being walked. The
+		// wedge wins: the window goes unrecorded, the repair re-syncs the repo,
+		// and the sweep ladders it again from the floor it already had.
+		log.Log(ctx, "repo was marked for repair mid-deepen; leaving it wedged")
+		return false, repo.BackfillFloor, nil
 	}
 	// Debug: at one line per repo per window this is thousands of lines per
 	// sweep. The sweep logs one Info summary per repo when its ladder finishes.
 	log.Debug(ctx, "deepened repo history", "rev", rev, "floor", window.Lo, "done", window.Genesis)
 	return window.Genesis, window.Lo, nil
+}
+
+// walkingDIDKey carries, on a ctx, the DID whose repo walk this call tree is
+// performing. It is how a re-entrant sync attempt for that DID — a record
+// visitor calling back into SyncBlueskyRepo after the row vanished out from
+// under its walk — can be refused instead of deadlocking on the per-DID lock
+// its own caller holds. A ctx value rather than a registry on purpose: it
+// names one call tree, so unrelated concurrent callers are never mistaken for
+// re-entry.
+type walkingDIDKey struct{}
+
+func markWalking(ctx context.Context, did string) context.Context {
+	return context.WithValue(ctx, walkingDIDKey{}, did)
+}
+
+func walkingDID(ctx context.Context) string {
+	s, _ := ctx.Value(walkingDIDKey{}).(string)
+	return s
 }
 
 // syncsInFlight holds the DIDs whose backfill is running in this process right

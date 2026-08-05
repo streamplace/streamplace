@@ -665,7 +665,15 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 				break
 			}
 
-			err = atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false)
+			// Defense-in-depth: handleCreateUpdate decodes arbitrary CBOR
+			// and dispatches across every record type, so a malformed record
+			// or a bug in any one handler can panic. Recover it so one bad
+			// event can't crash the firehose consumer goroutine (which would
+			// tear down event processing for the whole node). The error is
+			// logged and the loop moves on to the next op.
+			err = log.Recover(ctx, func() error {
+				return atsync.handleCreateUpdate(ctx, evt.Repo, rkey, recCBOR, op.Cid.String(), collection, ek == repomgr.EvtKindUpdateRecord, false)
+			})
 			if err != nil {
 				log.Error(ctx, "failed to handle create update", "err", err)
 				continue

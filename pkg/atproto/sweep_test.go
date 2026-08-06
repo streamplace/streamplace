@@ -816,6 +816,12 @@ func TestSweepBootDelay(t *testing.T) {
 	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: "did:plc:warmbootdelaytest", Version: "rev"}))
 	require.Equal(t, 42*time.Minute, atsync.sweepBootDelay(ctx), "a warm index waits")
 
+	atsync.CLI.SweepBootDelay = 42 * time.Minute
+	atsync.CLI.NoFirehose = true
+	require.Equal(t, time.Duration(0), atsync.sweepBootDelay(ctx),
+		"without a firehose there is no replay to heal the gap; the sweep is all this node has")
+	atsync.CLI.NoFirehose = false
+
 	atsync.CLI.SweepBootDelay = 0
 	require.Equal(t, time.Duration(0), atsync.sweepBootDelay(ctx), "0 disables the hold")
 }

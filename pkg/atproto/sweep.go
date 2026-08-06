@@ -452,6 +452,11 @@ func (atsync *ATProtoSynchronizer) sweepBootDelay(ctx context.Context) time.Dura
 	delay := config.DefaultSweepBootDelay
 	if atsync.CLI != nil {
 		delay = atsync.CLI.SweepBootDelay
+		if atsync.CLI.NoFirehose {
+			// No firehose means no replay to heal the restart's gap: the boot
+			// sweep is this node's only reconciliation, so it does not wait.
+			return 0
+		}
 	}
 	if delay <= 0 {
 		return 0

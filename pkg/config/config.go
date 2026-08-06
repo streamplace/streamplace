@@ -882,7 +882,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.DurationFlag{
 				Name:        "sweep-boot-delay",
-				Usage:       "how long a node with a warm index waits after boot before its first sweep, so the sweep's reindexing does not compound the busiest minutes of a restart. A fresh (empty) index always sweeps immediately, and 0 sweeps immediately in every case",
+				Usage:       "how long a node with a warm index waits after boot before its first sweep, so the sweep's reindexing does not compound the busiest minutes of a restart. A fresh (empty) index always sweeps immediately, as does a --no-firehose node (no replay heals its gap), and 0 sweeps immediately in every case",
 				Value:       DefaultSweepBootDelay,
 				Destination: &cli.SweepBootDelay,
 				Sources:     urfavecli.EnvVars("SP_SWEEP_BOOT_DELAY"),

@@ -108,8 +108,8 @@ type NewSegmentNotification struct {
 	// Bitrate enforcement measures this — the streamer's actual contribution —
 	// rather than the node-augmented distribution artifact.
 	SourceSize int
-	Metadata *SegmentMetadata
-	Local    bool
+	Metadata   *SegmentMetadata
+	Local      bool
 }
 
 func RunSelfTest(ctx context.Context) error {

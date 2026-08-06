@@ -210,7 +210,35 @@ func MakeDB(dbURL string) (Model, error) {
 		}
 	}
 	log.Log(context.Background(), "starting database", "dbURL", sqliteSuffix)
-	dial := sqlite.Open(sqliteSuffix)
+	// The pragmas ride in the DSN because they are per-connection settings and
+	// this pool has more than one: an Exec would configure whichever connection
+	// happened to serve it and leave the rest at defaults.
+	//
+	//   - _busy_timeout: wait for a lock another connection (or the second
+	//     process: `streamplace sync` warming a new index) holds, instead of
+	//     failing the query with SQLITE_BUSY.
+	//   - _journal_mode=WAL: readers run against a snapshot while a writer
+	//     writes. This is what lets a boot-time reindex proceed without
+	//     blocking the requests the node is serving.
+	//   - _synchronous=NORMAL: WAL's standard pairing -- fsync at checkpoints
+	//     rather than every commit. A power loss can cost the tail since the
+	//     last checkpoint, which this index is allowed to lose: everything in
+	//     it is re-derivable from the network, and the sweep re-derives it.
+	//   - _txlock=immediate: explicit transactions take the write lock up
+	//     front instead of upgrading mid-transaction, which is the classic
+	//     multi-connection sqlite deadlock.
+	dsn := sqliteSuffix
+	pool := IndexDBPoolSize
+	if sqliteSuffix == ":memory:" {
+		// A pool of :memory: connections would each open a PRIVATE empty
+		// database -- with :memory:, one connection IS the database. Tests use
+		// this; they keep the old single-connection arrangement.
+		pool = 1
+	} else {
+		dsn = fmt.Sprintf("file:%s?_busy_timeout=%d&_journal_mode=WAL&_synchronous=NORMAL&_txlock=immediate",
+			sqliteSuffix, SQLiteBusyTimeout.Milliseconds())
+	}
+	dial := sqlite.Open(dsn)
 
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,
@@ -241,7 +269,8 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting database: %w", err)
 	}
-	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxOpenConns(pool)
+	sqlDB.SetMaxIdleConns(pool)
 	for _, model := range []any{
 		PlayerEvent{},
 		Identity{},
@@ -286,13 +315,22 @@ func MakeDB(dbURL string) (Model, error) {
 }
 
 // SQLiteBusyTimeout is how long a sqlite connection waits for a lock another
-// process holds before giving up with SQLITE_BUSY.
-//
-// Within one process the single connection (SetMaxOpenConns(1)) serializes
-// everything, so this is entirely about the second process: `streamplace sync`
-// warms a new index revision while the server runs, and a writer that meets a
-// checkpointing writer must wait rather than fail the query.
+// connection holds before giving up with SQLITE_BUSY. That other connection
+// is usually a sibling in this process's own pool (writers serialize on
+// sqlite's write lock; readers never wait under WAL), and occasionally a
+// second process: `streamplace sync` warming a new index revision while the
+// server runs.
 const SQLiteBusyTimeout = 5 * time.Second
+
+// IndexDBPoolSize is how many connections the index database keeps open.
+//
+// More than one is what makes WAL worth having: reads run against a snapshot
+// on their own connections while a writer writes, so a boot-time reindex or a
+// busy sweep stops queueing every request behind it. Writes still serialize --
+// on sqlite's write lock, waiting up to [SQLiteBusyTimeout] -- so raising this
+// helps read concurrency only, and modestly: past a handful of connections the
+// single write lock is the ceiling.
+const IndexDBPoolSize = 8
 
 // SetSQLiteBusyTimeout applies [SQLiteBusyTimeout] to an open sqlite database.
 // It is a per-connection setting, which is why it is set on the pool rather

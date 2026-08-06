@@ -755,8 +755,21 @@ func TestSweepLoopRepeats(t *testing.T) {
 
 	// A disabled ticker still sweeps once at boot.
 	var once atomic.Int64
-	atsync.sweepLoop(context.Background(), 0, func(context.Context) { once.Add(1) })
+	atsync.sweepLoop(context.Background(), 0, 0, func(context.Context) { once.Add(1) })
 	require.Equal(t, int64(1), once.Load())
+
+	// A boot delay holds that first sweep, and a cancelled ctx during the
+	// delay means no sweep at all.
+	var held atomic.Int64
+	start := time.Now()
+	atsync.sweepLoop(context.Background(), 50*time.Millisecond, 0, func(context.Context) { held.Add(1) })
+	require.Equal(t, int64(1), held.Load())
+	require.GreaterOrEqual(t, time.Since(start), 50*time.Millisecond)
+	cancelled, cancelNow := context.WithCancel(context.Background())
+	cancelNow()
+	var never atomic.Int64
+	atsync.sweepLoop(cancelled, time.Hour, 0, func(context.Context) { never.Add(1) })
+	require.Equal(t, int64(0), never.Load())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -764,7 +777,7 @@ func TestSweepLoopRepeats(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		atsync.sweepLoop(ctx, time.Millisecond, func(context.Context) {
+		atsync.sweepLoop(ctx, 0, time.Millisecond, func(context.Context) {
 			select {
 			case runs <- struct{}{}:
 			default:
@@ -784,6 +797,27 @@ func TestSweepLoopRepeats(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("the sweep loop outlived its context")
 	}
+}
+
+// TestSweepBootDelay: a warm index holds its boot sweep for --sweep-boot-delay
+// (the firehose replay is what heals an ordinary restart), a fresh index
+// sweeps immediately (that sweep IS the boot work), and 0 disables the hold.
+func TestSweepBootDelay(t *testing.T) {
+	ctx := context.Background()
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	atsync := &ATProtoSynchronizer{
+		Model: mod,
+		CLI:   &config.CLI{SweepBootDelay: 42 * time.Minute},
+	}
+
+	require.Equal(t, time.Duration(0), atsync.sweepBootDelay(ctx), "an empty index sweeps now")
+
+	require.NoError(t, mod.UpdateRepo(&model.Repo{DID: "did:plc:warmbootdelaytest", Version: "rev"}))
+	require.Equal(t, 42*time.Minute, atsync.sweepBootDelay(ctx), "a warm index waits")
+
+	atsync.CLI.SweepBootDelay = 0
+	require.Equal(t, time.Duration(0), atsync.sweepBootDelay(ctx), "0 disables the hold")
 }
 
 // TestSweepOnceSkipsWhileRunning: a sweep of a large index can take longer than

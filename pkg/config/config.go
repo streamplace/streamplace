@@ -172,7 +172,9 @@ type CLI struct {
 	MaximumLiveBitrate          int
 	SweepConcurrency            int
 	SweepInterval               time.Duration
+	SweepBootDelay              time.Duration
 	FirehoseReplayWindow        time.Duration
+	IndexDBConnections          int
 }
 
 // DefaultSweepInterval is how often the atproto sweep re-runs when
@@ -209,6 +211,20 @@ const DefaultSweepConcurrency = 32
 // answer, and short enough that anything worse is handed to the mechanism built
 // for it. 0 disables the cap and always replays from the stored cursor.
 const DefaultFirehoseReplayWindow = 15 * time.Minute
+
+// DefaultIndexDBConnections is how many sqlite connections the index database
+// pool holds. See --index-db-connections; 1 is the fallback to the historical
+// single-connection arrangement.
+const DefaultIndexDBConnections = 8
+
+// DefaultSweepBootDelay is how long a warm-index boot holds its first sweep.
+// An ordinary upgrade-restart's gap is healed by the firehose replaying from
+// the stored cursor, so the boot sweep is insurance, not repair -- it can wait
+// out the busiest minutes of a restart instead of compounding them. A fresh
+// index sweeps immediately regardless, and a cursor too stale to replay kicks
+// its own sweep, so the two cases that genuinely need boot-time sweeping keep
+// it.
+const DefaultSweepBootDelay = 30 * time.Minute
 
 // ContentFilters represents the content filtering configuration
 type ContentFilters struct {
@@ -856,6 +872,20 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       DefaultSweepConcurrency,
 				Destination: &cli.SweepConcurrency,
 				Sources:     urfavecli.EnvVars("SP_SWEEP_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "index-db-connections",
+				Usage:       "how many sqlite connections the index database pool holds. More than one lets reads run beside a reindex under WAL; 1 restores the old slower-but-safer single-connection arrangement; 0 for the default",
+				Value:       DefaultIndexDBConnections,
+				Destination: &cli.IndexDBConnections,
+				Sources:     urfavecli.EnvVars("SP_INDEX_DB_CONNECTIONS"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "sweep-boot-delay",
+				Usage:       "how long a node with a warm index waits after boot before its first sweep, so the sweep's reindexing does not compound the busiest minutes of a restart. A fresh (empty) index always sweeps immediately, and 0 sweeps immediately in every case",
+				Value:       DefaultSweepBootDelay,
+				Destination: &cli.SweepBootDelay,
+				Sources:     urfavecli.EnvVars("SP_SWEEP_BOOT_DELAY"),
 			},
 			&urfavecli.DurationFlag{
 				Name:        "sweep-interval",

@@ -36,6 +36,7 @@ type Model interface {
 	GetRepoByHandleOrDID(arg string) (*Repo, error)
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	GetAllRepos() ([]Repo, error)
+	CountRepos() (int64, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
 	UpdateRepoIdentity(did, handle, pds string) error
@@ -194,7 +195,17 @@ type Model interface {
 // WHICH ALSO SHOULD NOT HAPPEN
 var DBRevision = 5
 
+// MakeDB opens the index with the default connection pool. Callers with a
+// configured pool size (--index-db-connections) use [MakeDBConns].
 func MakeDB(dbURL string) (Model, error) {
+	return MakeDBConns(dbURL, config.DefaultIndexDBConnections)
+}
+
+// MakeDBConns opens the index with a pool of conns sqlite connections.
+// conns <= 0 means the default. conns == 1 deliberately restores the
+// historical single-connection arrangement -- pragmas applied by Exec, default
+// synchronous level -- as the slower-but-safer fallback.
+func MakeDBConns(dbURL string, conns int) (Model, error) {
 	sqliteSuffix := dbURL
 	if dbURL != ":memory:" {
 		// Ensure dbURL exists as a directory on the filesystem
@@ -212,7 +223,10 @@ func MakeDB(dbURL string) (Model, error) {
 	log.Log(context.Background(), "starting database", "dbURL", sqliteSuffix)
 	// The pragmas ride in the DSN because they are per-connection settings and
 	// this pool has more than one: an Exec would configure whichever connection
-	// happened to serve it and leave the rest at defaults.
+	// happened to serve it and leave the rest at defaults. (That, historically,
+	// is exactly what produced the "database is locked" 500s that forced the
+	// single-connection era: one connection had the busy timeout, the rest had
+	// zero and failed instantly on any collision.)
 	//
 	//   - _busy_timeout: wait for a lock another connection (or the second
 	//     process: `streamplace sync` warming a new index) holds, instead of
@@ -227,14 +241,18 @@ func MakeDB(dbURL string) (Model, error) {
 	//   - _txlock=immediate: explicit transactions take the write lock up
 	//     front instead of upgrading mid-transaction, which is the classic
 	//     multi-connection sqlite deadlock.
-	dsn := sqliteSuffix
-	pool := IndexDBPoolSize
+	pool := conns
+	if pool <= 0 {
+		pool = config.DefaultIndexDBConnections
+	}
 	if sqliteSuffix == ":memory:" {
 		// A pool of :memory: connections would each open a PRIVATE empty
 		// database -- with :memory:, one connection IS the database. Tests use
 		// this; they keep the old single-connection arrangement.
 		pool = 1
-	} else {
+	}
+	dsn := sqliteSuffix
+	if pool > 1 {
 		dsn = fmt.Sprintf("file:%s?_busy_timeout=%d&_journal_mode=WAL&_synchronous=NORMAL&_txlock=immediate",
 			sqliteSuffix, SQLiteBusyTimeout.Milliseconds())
 	}
@@ -322,15 +340,13 @@ func MakeDB(dbURL string) (Model, error) {
 // server runs.
 const SQLiteBusyTimeout = 5 * time.Second
 
-// IndexDBPoolSize is how many connections the index database keeps open.
-//
-// More than one is what makes WAL worth having: reads run against a snapshot
-// on their own connections while a writer writes, so a boot-time reindex or a
-// busy sweep stops queueing every request behind it. Writes still serialize --
-// on sqlite's write lock, waiting up to [SQLiteBusyTimeout] -- so raising this
+// A pool larger than one is what makes WAL worth having: reads run against a
+// snapshot on their own connections while a writer writes, so a boot-time
+// reindex or a busy sweep stops queueing every request behind it. Writes still
+// serialize -- on sqlite's write lock, waiting up to [SQLiteBusyTimeout] -- so
+// the pool size (--index-db-connections, [config.DefaultIndexDBConnections])
 // helps read concurrency only, and modestly: past a handful of connections the
 // single write lock is the ceiling.
-const IndexDBPoolSize = 8
 
 // SetSQLiteBusyTimeout applies [SQLiteBusyTimeout] to an open sqlite database.
 // It is a per-connection setting, which is why it is set on the pool rather

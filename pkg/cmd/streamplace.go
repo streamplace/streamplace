@@ -195,7 +195,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 	if err != nil {
 		return err
 	}
@@ -1202,7 +1202,7 @@ func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Comma
 	if err := os.MkdirAll(cli.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error creating streamplace dir at %s: %w", cli.DataDir, err)
 	}
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 	if err != nil {
 		return err
 	}

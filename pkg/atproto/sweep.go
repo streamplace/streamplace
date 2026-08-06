@@ -435,15 +435,50 @@ func (s *laneScheduler) wait() (lanes int, err error) {
 // started listening after the accounts it inherited had already moved -- is
 // found and repaired within an interval instead of never.
 func (atsync *ATProtoSynchronizer) SweepForever(ctx context.Context) {
-	atsync.sweepLoop(ctx, atsync.sweepInterval(), func(ctx context.Context) {
+	atsync.sweepLoop(ctx, atsync.sweepBootDelay(ctx), atsync.sweepInterval(), func(ctx context.Context) {
 		atsync.sweepOnce(ctx, atsync.Sweep)
 	})
 }
 
-// sweepLoop runs run now and every interval after, until ctx ends. A
-// non-positive interval runs it exactly once: the boot sweep is not optional,
-// only repeating it is.
-func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, interval time.Duration, run func(context.Context)) {
+// sweepBootDelay is how long SweepForever holds its first sweep.
+//
+// Zero on a fresh index: nothing is indexed yet, so that sweep IS the boot
+// work. On a warm index an ordinary restart's gap is healed by the firehose
+// replaying from its stored cursor, so the first sweep is insurance -- it can
+// wait out the busiest minutes of boot instead of compounding them. The other
+// case that genuinely needs immediate sweeping, a cursor too stale to replay,
+// kicks its own sweep and never waits on this.
+func (atsync *ATProtoSynchronizer) sweepBootDelay(ctx context.Context) time.Duration {
+	delay := config.DefaultSweepBootDelay
+	if atsync.CLI != nil {
+		delay = atsync.CLI.SweepBootDelay
+	}
+	if delay <= 0 {
+		return 0
+	}
+	repos, err := atsync.Model.CountRepos()
+	if err != nil {
+		log.Error(ctx, "failed to count indexed repos; sweeping immediately", "err", err)
+		return 0
+	}
+	if repos == 0 {
+		log.Log(ctx, "index is empty; the boot sweep starts now")
+		return 0
+	}
+	log.Log(ctx, "index is warm; holding the boot sweep", "repos", repos, "delay", delay)
+	return delay
+}
+
+// sweepLoop runs run after bootDelay, then every interval, until ctx ends. A
+// non-positive interval runs it exactly once.
+func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, bootDelay, interval time.Duration, run func(context.Context)) {
+	if bootDelay > 0 {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(bootDelay):
+		}
+	}
 	run(ctx)
 	if interval <= 0 || ctx.Err() != nil {
 		return

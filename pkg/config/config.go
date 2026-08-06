@@ -173,6 +173,7 @@ type CLI struct {
 	SweepConcurrency            int
 	SweepInterval               time.Duration
 	SweepBootDelay              time.Duration
+	DeepenRate                  int
 	FirehoseReplayWindow        time.Duration
 	IndexDBConnections          int
 }
@@ -196,6 +197,22 @@ const DefaultSweepInterval = 6 * time.Hour
 // per second spread across the whole network, and no more than one walk (5-7
 // requests per second) against any single PDS.
 const DefaultSweepConcurrency = 32
+
+// DefaultDeepenRate is how many history windows a node walks per minute when
+// --deepen-rate is unset.
+//
+// History acquisition is the one part of the sync engine nothing waits for: a
+// repo's recent records are indexed by its shallow sync in seconds, and
+// everything older is a background trickle. Running it flat out is what a node
+// does exactly once -- at boot, where it replays years of every account's chat
+// as fast as the network allows and buries the reconciliation the node actually
+// serves from. So it is paced instead: 60 windows a minute is one window a
+// second across the whole node, which a fresh 20k-repo index's full history
+// (four to five windows a repo, 100k of them) trickles in over roughly a day.
+// Deliberately: nothing is waiting for it. 0 removes the cap entirely, which is
+// what an operator uses to rush an initial build in place; negative means this
+// default.
+const DefaultDeepenRate = 60
 
 // DefaultFirehoseReplayWindow is how stale a stored relay cursor may be before
 // this node stops trying to replay from it and tails the live edge instead.
@@ -872,6 +889,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       DefaultSweepConcurrency,
 				Destination: &cli.SweepConcurrency,
 				Sources:     urfavecli.EnvVars("SP_SWEEP_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "deepen-rate",
+				Usage:       "how many history windows per minute this node walks in the background. History deepening is decoupled from the sweep -- the sweep checks and repairs, this fetches the past -- and nothing on the node waits for it, so it is paced rather than run flat out; 0 removes the cap (an initial build in a hurry), negative for the default",
+				Value:       DefaultDeepenRate,
+				Destination: &cli.DeepenRate,
+				Sources:     urfavecli.EnvVars("SP_DEEPEN_RATE"),
 			},
 			&urfavecli.IntFlag{
 				Name:        "index-db-connections",

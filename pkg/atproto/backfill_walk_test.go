@@ -999,3 +999,51 @@ func TestDeepenSurvivesMidWalkRowDeletion(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resynced.Version)
 }
+
+// TestBackfillBroadcastsOnlyLiveChat: an indexing walk delivers history, and
+// history must not be broadcast -- a backfill, deepen, or replay that
+// published every message it indexed would spray hours of scroll at whatever
+// chat websockets happen to be open, rendering it as if it were arriving
+// right now. But a message young enough to still be "now" must broadcast even
+// from a walk: a brand-new user's first message is indexed by the very walk
+// it triggers, and the live firehose event then finds it already indexed and
+// stays quiet.
+func TestBackfillBroadcastsOnlyLiveChat(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, mod := backfillTestSynchronizer(t, dev)
+
+	user := dev.CreateAccount(t)
+	createBackfillRecord(t, user, "place.stream.chat.profile", "self", &placestream.ChatProfile{})
+	old := &placestream.ChatMessage{
+		LexiconTypeID: "place.stream.chat.message",
+		Text:          "hours-old scroll",
+		CreatedAt:     time.Now().Add(-3 * time.Hour).UTC().Format(util.ISO8601),
+		Streamer:      user.DID,
+	}
+	createBackfillRecord(t, user, "place.stream.chat.message", reposync.TIDForTime(time.Now().Add(-3*time.Hour)), old)
+	createBackfillRecord(t, user, "place.stream.chat.message", "", chatMessageRecord(user.DID, "live right now"))
+
+	ch := atsync.Bus.Subscribe(user.DID)
+	defer atsync.Bus.Unsubscribe(user.DID, ch)
+
+	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
+	require.NoError(t, err)
+	messages, err := mod.MostRecentChatMessages(user.DID)
+	require.NoError(t, err)
+	require.Len(t, messages, 2, "the walk indexed both messages")
+
+	select {
+	case m := <-ch:
+		view := m.(*placestream.ChatDefs_MessageView)
+		require.Equal(t, "live right now", view.Record.Val.(*placestream.ChatMessage).Text,
+			"only the fresh message broadcasts")
+	case <-time.After(10 * time.Second):
+		t.Fatal("the fresh message never reached the live chat bus")
+	}
+	select {
+	case m := <-ch:
+		t.Fatalf("the walk published history to the live chat bus: %+v", m)
+	case <-time.After(time.Second):
+	}
+}

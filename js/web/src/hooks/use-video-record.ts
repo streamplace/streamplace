@@ -1,12 +1,12 @@
 // Fetches a single video record by at:// URI for the VOD page.
 import { useEffect, useState } from "react";
-import type { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 import { useStore } from "../lib/store";
 
 export function useVideoRecord(user: string, tid: string) {
   const streamplaceUrl = useStore((state) => state.url);
   const anonPDSAgent = useStore((state) => state.anonPDSAgent);
-  const [record, setRecord] = useState<PlaceStreamVideo.Record | null>(null);
+  const [record, setRecord] = useState<place.stream.video.Main | null>(null);
   const [author, setAuthor] = useState<{
     did: string;
     handle?: string;
@@ -43,7 +43,7 @@ export function useVideoRecord(user: string, tid: string) {
         }
 
         if (cancelled) return;
-        setRecord(data.value as PlaceStreamVideo.Record);
+        setRecord(data.value as place.stream.video.Main);
 
         // Try to get profile info from the repo itself.
         // The AT Protocol getRecord doesn't include author info, so we

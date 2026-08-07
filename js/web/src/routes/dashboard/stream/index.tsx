@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
 import { Admonition } from "@/components/ui/admonition";
 import { Button } from "@/components/ui/button";
@@ -597,11 +598,11 @@ function StreamKeySection() {
   // Fetch ingest URLs
   useEffect(() => {
     if (!pdsAgent) return;
-    pdsAgent.place.stream.ingest
-      .getIngestUrls({})
-      .then((res) => {
+    pdsAgent.client
+      .call(place.stream.ingest.getIngestUrls, {})
+      .then((res: any) => {
         setIngestUrls(
-          res.data.ingests
+          res.ingests
             .map((i: any) => ({ type: i.type || "unknown", url: i.url }))
             .filter((i) => i.url),
         );

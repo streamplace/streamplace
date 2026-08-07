@@ -5,7 +5,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import type { PlaceStreamDefs, PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 import { formatViewers } from "../../lib/format";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
@@ -34,29 +34,29 @@ function displayTag(tag: string): string {
 }
 
 export function getStreamActivity(
-  record: PlaceStreamLivestream.Record,
+  record: place.stream.livestream.Main,
   t: (key: string) => string,
 ): string | undefined {
   if (!record.activity) return undefined;
   const act = record.activity;
   if (act.$type === "place.stream.defs#activityGame") {
-    return (act as PlaceStreamDefs.ActivityGame).name ?? undefined;
+    return (act as place.stream.defs.ActivityGame).name ?? undefined;
   }
   if (act.$type === "place.stream.defs#activityLabel") {
-    const label = act as PlaceStreamDefs.ActivityLabel;
+    const label = act as place.stream.defs.ActivityLabel;
     return t(ACTIVITY_I18N_KEYS[label.label] ?? label.label);
   }
   return undefined;
 }
 
 interface StreamCardProps {
-  stream: PlaceStreamLivestream.LivestreamView;
+  stream: place.stream.livestream.LivestreamView;
   avatarUrl?: string;
 }
 
 export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   const { t } = useTranslation("common");
-  const record = stream.record as PlaceStreamLivestream.Record;
+  const record = stream.record as place.stream.livestream.Main;
   const handle = stream.author.handle || stream.author.did;
   const title = record.title || t("default-stream-title");
   const activity = getStreamActivity(record, t);

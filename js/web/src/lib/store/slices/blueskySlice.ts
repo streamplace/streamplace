@@ -28,10 +28,8 @@ import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/li
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
 import {
-  PlaceStreamChatProfile,
-  PlaceStreamLivestream,
-  PlaceStreamServerSettings,
   StreamplaceAgent,
+  place,
 } from "streamplace";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../oauth";
@@ -42,7 +40,7 @@ import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 type NewLivestream = {
   loading: boolean;
   error: string | null;
-  record: PlaceStreamLivestream.Record | null;
+  record: place.stream.livestream.Main | null;
 };
 
 export interface BlueskySlice {
@@ -75,9 +73,9 @@ export interface BlueskySlice {
   chatProfile: {
     loading: boolean;
     error: null | string;
-    profile: null | PlaceStreamChatProfile.Record;
+    profile: null | place.stream.chat.profile.Main;
   };
-  serverSettings: null | PlaceStreamServerSettings.Record;
+  serverSettings: null | place.stream.server.settings.Main;
   returnRoute: null | { name: string; params?: any };
   notification: {
     message: string;
@@ -121,13 +119,13 @@ export interface BlueskySlice {
   createLivestreamRecord: (
     title: string,
     customThumbnail?: Blob,
-    activity?: PlaceStreamLivestream.Record["activity"],
+    activity?: place.stream.livestream.Main["activity"],
     tags?: string[],
   ) => Promise<void>;
   updateLivestreamRecord: (
     title: string,
     livestream: any,
-    activity?: PlaceStreamLivestream.Record["activity"],
+    activity?: place.stream.livestream.Main["activity"],
     tags?: string[],
   ) => Promise<void>;
   getChatProfileRecordFromPDS: () => Promise<void>;
@@ -703,12 +701,12 @@ export const createBlueskySlice: StateCreator<
         throw new Error("Failed to get chat profile record");
       }
 
-      if (PlaceStreamChatProfile.isRecord(res.data.value)) {
+      if (place.stream.chat.profile.$isTypeOf(res.data.value)) {
         set({
           chatProfile: {
             loading: false,
             error: null,
-            profile: res.data.value,
+            profile: res.data.value as any,
           },
         });
       } else {
@@ -744,7 +742,7 @@ export const createBlueskySlice: StateCreator<
       }
 
       const existingProfile = (get() as BlueskySlice).chatProfile?.profile;
-      const chatProfile: PlaceStreamChatProfile.Record = {
+      const chatProfile: place.stream.chat.profile.Main = {
         ...existingProfile,
         $type: "place.stream.chat.profile",
         color: {
@@ -844,9 +842,9 @@ export const createBlueskySlice: StateCreator<
       throw new Error("Failed to get server settings record");
     }
 
-    if (PlaceStreamServerSettings.isRecord(res.data.value)) {
+    if (place.stream.server.settings.$isTypeOf(res.data.value)) {
       set({
-        serverSettings: res.data.value as PlaceStreamServerSettings.Record,
+        serverSettings: res.data.value as place.stream.server.settings.Main,
       });
     } else {
       console.log("not a record", res.data.value);
@@ -864,7 +862,7 @@ export const createBlueskySlice: StateCreator<
     }
     const streamplaceUrl = get().url;
     const u = new URL(streamplaceUrl);
-    const serverSettings: PlaceStreamServerSettings.Record = {
+    const serverSettings: place.stream.server.settings.Main = {
       $type: "place.stream.server.settings",
       debugRecording: debugRecording,
     };

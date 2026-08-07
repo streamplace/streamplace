@@ -3,10 +3,10 @@
 // so navigating away from the home screen stops the requests.
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 import { useStore } from "../lib/store";
 
-export type LivestreamView = PlaceStreamLivestream.LivestreamView;
+export type LivestreamView = place.stream.livestream.LivestreamView;
 
 const REFETCH_INTERVAL = 30_000;
 
@@ -24,7 +24,7 @@ export function useLiveUsers() {
     queryKey: ["liveUsers"],
     queryFn: async (): Promise<LivestreamView[]> => {
       const agent = await getAgent();
-      const result = await agent.place.stream.live.getLiveUsers();
+      const result = await agent.client.call(place.stream.live.getLiveUsers, );
       return (result.data.streams ?? []) as LivestreamView[];
     },
     refetchInterval: REFETCH_INTERVAL,

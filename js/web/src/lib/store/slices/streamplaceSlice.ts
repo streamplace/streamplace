@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 // Streamplace server URL, mute flag, chat-warning state.
 // Mirrors js/app/store/slices/streamplaceSlice.ts.
 //
@@ -116,7 +117,7 @@ export const createStreamplaceSlice: StateCreator<
     if (!pdsAgent) {
       throw new Error("no pdsAgent");
     }
-    const result = await pdsAgent.place.stream.live.getRecommendations({
+    const result = await pdsAgent.client.call(place.stream.live.getRecommendations, {
       userDID,
     });
     return result.data;

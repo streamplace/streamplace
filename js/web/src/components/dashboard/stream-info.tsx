@@ -15,7 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 import { useStore } from "zustand";
 import {
   usePDSAgent,
@@ -75,7 +75,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
   // Form state
   const [title, setTitle] = useState("");
   const [activity, setActivity] = useState<
-    PlaceStreamLivestream.Record["activity"] | undefined
+    place.stream.livestream.Main["activity"] | undefined
   >(undefined);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -96,7 +96,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     if (livestream.record.title) setTitle(livestream.record.title);
     if (livestream.record.activity) {
       setActivity(
-        livestream.record.activity as PlaceStreamLivestream.Record["activity"],
+        livestream.record.activity as place.stream.livestream.Main["activity"],
       );
     }
     if (livestream.record.tags) setTags(livestream.record.tags as string[]);
@@ -170,7 +170,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     setLoading(true);
 
     try {
-      const record: PlaceStreamLivestream.Record = {
+      const record: place.stream.livestream.Main = {
         $type: "place.stream.livestream",
         title: title.trim(),
         url: `${url}/${agent.did}`,
@@ -195,7 +195,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
       if (!hasLivestream || isEnded) {
         // Create new livestream
-        const result = await agent.place.stream.live.startLivestream({
+        const result = await agent.client.call(place.stream.live.startLivestream, {
           livestream: record,
           streamer: agent.did,
           createBlueskyPost: createPost,
@@ -259,7 +259,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     if (!agent || !canEnd) return;
     setEndingLivestream(true);
     try {
-      await agent.place.stream.live.stopLivestream({});
+      await agent.client.call(place.stream.live.stopLivestream, {});
       toast.success(
         t("livestream-ended", { defaultValue: "Livestream ended" }),
       );

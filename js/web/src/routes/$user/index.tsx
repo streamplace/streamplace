@@ -318,9 +318,9 @@ function MobileStreamBar({
                 <ExternalLink className="h-4 w-4" />
               </a>
             </div>
-            {record?.description ? (
+            {(record as any)?.description ? (
               <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
-                {record.description as string}
+                {(record as any).description as string}
               </p>
             ) : null}
           </div>

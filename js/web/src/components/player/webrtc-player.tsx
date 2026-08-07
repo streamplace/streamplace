@@ -4,7 +4,7 @@
 // shared across backends. This is a sibling of hls-player.tsx with the same
 // prop shape so the dispatch in PlayerBackend is a single conditional.
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
-import type { StreamplaceAgent } from "streamplace";
+import { type StreamplaceAgent, place } from "streamplace";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import type { PlayerBackendHandle, PlayerStats } from "./player";
 
@@ -213,7 +213,7 @@ export function WebRTCPlayer({
         if (cancelled) return;
 
         // POST the offer via the WHEP endpoint.
-        const response = await agent.place.stream.playback.whep(
+        const response = await agent.client.call(place.stream.playback.whep, 
           gatheredOffer.sdp,
           {
             qp: { rendition: "source", streamer },

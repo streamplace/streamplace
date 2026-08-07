@@ -4,10 +4,10 @@
 // uploader; omit it for the global newest-first feed.
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
-import { PlaceStreamMediaGetVideo } from "streamplace";
+import { place } from "streamplace";
 import { useStore } from "../lib/store";
 
-export type VideoView = PlaceStreamMediaGetVideo.VideoView;
+export type VideoView = place.stream.media.getVideo.VideoView;
 
 const PAGE_SIZE = 24;
 
@@ -30,7 +30,7 @@ export function useVideoList(repo?: string) {
     queryKey: ["videoList", repo ?? null],
     queryFn: async ({ pageParam }): Promise<VideoPage> => {
       const agent = await getAgent();
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         ...(repo ? { repo } : {}),
         limit: PAGE_SIZE,
         ...(pageParam ? { cursor: pageParam } : {}),

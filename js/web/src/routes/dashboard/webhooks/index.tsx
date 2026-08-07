@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -81,7 +82,7 @@ function WebhookManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.place.stream.server.listWebhooks({
+      const response = await agent.client.call(place.stream.server.listWebhooks, {
         limit: 50,
       });
       const hooks = (response.data.webhooks as Webhook[] | undefined) ?? [];
@@ -128,12 +129,12 @@ function WebhookManager() {
       };
 
       if (editingWebhook) {
-        await agent.place.stream.server.updateWebhook({
+        await agent.client.call(place.stream.server.updateWebhook, {
           id: editingWebhook.id,
           ...payload,
         });
       } else {
-        await agent.place.stream.server.createWebhook(payload);
+        await agent.client.call(place.stream.server.createWebhook, payload);
       }
 
       setShowForm(false);
@@ -151,7 +152,7 @@ function WebhookManager() {
     if (!agent || !deleteTarget) return;
     try {
       setDeletingIds((prev) => new Set(prev).add(deleteTarget.id));
-      await agent.place.stream.server.deleteWebhook({ id: deleteTarget.id });
+      await agent.client.call(place.stream.server.deleteWebhook, { id: deleteTarget.id });
       setDeleteTarget(null);
       await loadWebhooks();
     } catch (error: any) {

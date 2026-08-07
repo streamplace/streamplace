@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { UploadForm } from "@/components/dashboard/upload-form";
 import { useUpload } from "@/hooks/use-upload";
 import { useSession } from "@/lib/session";
@@ -37,7 +38,7 @@ function DashboardVideosPage() {
     if (!agent?.did) return;
     setVideosLoading(true);
     try {
-      const res = await agent.place.stream.media.getVideoList({
+      const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
       setUserVideos(res.data.videos || []);

@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -245,7 +246,7 @@ function RecommendationsManager() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q: query,
           limit: 10,
         });

@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -50,7 +51,7 @@ export default function Header() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q,
           limit: 8,
         });

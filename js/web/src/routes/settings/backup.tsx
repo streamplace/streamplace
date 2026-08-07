@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -59,7 +60,7 @@ function BackupSettings() {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.place.stream.server.getStorage();
+      const response = await agent.client.call(place.stream.server.getStorage, );
       if (response.data.storage) {
         setOriginalUrl(response.data.storage.url);
         setEnabled(response.data.storage.isActive);
@@ -90,7 +91,7 @@ function BackupSettings() {
     const previous = enabled;
     setEnabled(value);
     try {
-      await agent.place.stream.server.upsertStorage({ isActive: value });
+      await agent.client.call(place.stream.server.upsertStorage, { isActive: value });
     } catch (err: any) {
       console.error("Failed to toggle backup:", err);
       setEnabled(previous);
@@ -151,7 +152,7 @@ function BackupSettings() {
         }
       }
 
-      await agent.place.stream.server.upsertStorage(payload);
+      await agent.client.call(place.stream.server.upsertStorage, payload);
       await loadStorage();
       toast.success("Backup settings saved");
     } catch (error: any) {

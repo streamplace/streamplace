@@ -5,7 +5,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import type { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 import type { VideoView } from "../../hooks/use-video-list";
 import {
   formatDuration,
@@ -21,7 +21,7 @@ export function VideoCard({
   avatarUrl?: string;
 }) {
   const { t } = useTranslation("common");
-  const record = video.record as PlaceStreamVideo.Record;
+  const record = video.record as place.stream.video.Main;
   const author = video.author;
   const user = author.handle || author.did;
   const tid = getTidFromAtUri(video.uri);

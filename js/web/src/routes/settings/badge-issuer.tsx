@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
@@ -67,7 +68,7 @@ function BadgeIssuerPanel() {
     if (!agent?.did) return;
     setLoadingDefs(true);
     try {
-      const res = await agent.place.stream.badge.def.list({
+      const res = await agent.client.list(place.stream.badge.def, {
         repo: agent.did,
         limit: 100,
       });
@@ -123,7 +124,7 @@ function BadgeIssuerPanel() {
         imageBlob = uploaded.data.blob;
       }
 
-      await agent.place.stream.badge.def.create(
+      await agent.client.create(place.stream.badge.def, 
         { repo: agent.did },
         {
           name: createName.trim(),
@@ -156,7 +157,7 @@ function BadgeIssuerPanel() {
     if (!agent?.did || !selectedDef || !recipientDid.trim() || working) return;
     setWorking(true);
     try {
-      await agent.place.stream.badge.issuance.create(
+      await agent.client.create(place.stream.badge.issuance, 
         { repo: agent.did },
         {
           did: recipientDid.trim(),

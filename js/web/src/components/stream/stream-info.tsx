@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { PlaceStreamDefs } from "streamplace";
+import { place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Liveness } from "../../hooks/use-liveness-state";
@@ -34,8 +34,8 @@ const ACTIVITY_I18N_KEYS: Record<string, string> = {
 
 export function activityLabel(
   activity:
-    | PlaceStreamDefs.ActivityGame
-    | PlaceStreamDefs.ActivityLabel
+    | place.stream.defs.ActivityGame
+    | place.stream.defs.ActivityLabel
     | { $type: string }
     | undefined,
   t: (key: string) => string,

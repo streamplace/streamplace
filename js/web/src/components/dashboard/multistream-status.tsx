@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { Globe, Loader2 } from "lucide-react";
@@ -69,7 +70,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.place.stream.multistream.listTargets({
+      const response = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
       setTargets(response.data.targets as unknown as MultistreamTarget[]);
@@ -86,7 +87,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
       if (!agent) return;
       try {
         setToggling((prev) => new Set(prev).add(target.uri));
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             ...target.record,
             $type: "place.stream.multistream.target" as const,

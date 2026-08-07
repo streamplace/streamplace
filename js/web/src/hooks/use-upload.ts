@@ -1,7 +1,7 @@
 // Upload state machine for VOD uploads. Mirrors the RN upload flow but
 // simplified for the web (no expo-document-picker, no expo-file-system).
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PlaceStreamVideo } from "streamplace";
+import { place } from "streamplace";
 import * as tus from "tus-js-client";
 import { usePDSAgent } from "../lib/store/hooks";
 
@@ -166,7 +166,7 @@ export function useUpload() {
       if (!agent) return;
       const check = async () => {
         try {
-          const res = await agent.place.stream.media.getUploadStatus({
+          const res = await agent.client.call(place.stream.media.getUploadStatus, {
             uploadId,
           });
           const data = res.data;
@@ -219,7 +219,7 @@ export function useUpload() {
     const mimeType = file.type.startsWith("video/") ? file.type : "video/mp4";
     setPhase({ kind: "creating" });
     try {
-      const res = await agent.place.stream.media.createUpload({
+      const res = await agent.client.call(place.stream.media.createUpload, {
         size: file.size,
         mimeType,
         filename: file.name,
@@ -275,7 +275,7 @@ export function useUpload() {
     try {
       const { tracks, durationMs } = phase;
 
-      const record: PlaceStreamVideo.Record = {
+      const record: place.stream.video.Main = {
         $type: "place.stream.video",
         title: title.trim() || file?.name || "Untitled",
         createdAt: new Date().toISOString(),
@@ -328,7 +328,7 @@ export function useUpload() {
         }
       }
 
-      const res = await agent.place.stream.media.publishVideo({
+      const res = await agent.client.call(place.stream.media.publishVideo, {
         uploadId: phase.uploadId,
         record,
       });

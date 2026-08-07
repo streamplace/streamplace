@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
@@ -42,7 +43,7 @@ function BrandingAdmin() {
       setUploading(true);
       const textBytes = new TextEncoder().encode(value.trim());
       const base64Data = btoa(String.fromCharCode(...textBytes));
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
         broadcaster: broadcasterDID || undefined,
         data: base64Data,
@@ -84,7 +85,7 @@ function BrandingAdmin() {
         });
       }
 
-      await agent.place.stream.branding.updateBlob({
+      await agent.client.call(place.stream.branding.updateBlob, {
         key,
         broadcaster: broadcasterDID || undefined,
         data: base64Data,
@@ -104,7 +105,7 @@ function BrandingAdmin() {
     if (!agent) return;
     try {
       setUploading(true);
-      await agent.place.stream.branding.deleteBlob({
+      await agent.client.call(place.stream.branding.deleteBlob, {
         key,
         broadcaster: broadcasterDID || undefined,
       });

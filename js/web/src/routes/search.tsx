@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 // Search page. Searches actors via searchActorsTypeahead and shows
 // results as profile cards linking to their streams.
 import useAvatars from "@/hooks/use-avatars";
@@ -44,7 +45,7 @@ function SearchPage() {
       }
       try {
         setSearching(true);
-        const response = await agent.place.stream.live.searchActorsTypeahead({
+        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
           q,
           limit: 20,
         });

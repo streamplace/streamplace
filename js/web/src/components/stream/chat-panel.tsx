@@ -8,10 +8,7 @@ import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type {
-  ChatMessageViewHydrated,
-  PlaceStreamBadgeDefs,
-} from "streamplace";
+import { type ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSession } from "../../lib/session";
@@ -379,7 +376,7 @@ function UserHandle({
 }: {
   author: ChatMessageViewHydrated["author"];
   color: { red: number; green: number; blue: number } | undefined;
-  badges?: PlaceStreamBadgeDefs.BadgeView[];
+  badges?: place.stream.badge.defs.BadgeView[];
 }) {
   const { t } = useTranslation("common");
   const name = author.displayName || author.handle || author.did;
@@ -542,7 +539,7 @@ function shortDid(did: string): string {
 }
 
 function issuerLabel(
-  badge: PlaceStreamBadgeDefs.BadgeView,
+  badge: place.stream.badge.defs.BadgeView,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
   if (badge.issuer && badge.issuer.startsWith("did:web:")) {
@@ -554,7 +551,7 @@ function issuerLabel(
   return t("badge-issued");
 }
 
-function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
+function BadgeIcon({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
   if (!src) return null;
   return (
@@ -566,7 +563,7 @@ function BadgeIcon({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
   );
 }
 
-function BadgeRow({ badge }: { badge: PlaceStreamBadgeDefs.BadgeView }) {
+function BadgeRow({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
   const { t } = useTranslation("common");
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
   const i18nKey = BADGE_I18N_KEYS[badge.badgeType];

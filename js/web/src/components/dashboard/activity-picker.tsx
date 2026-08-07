@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { PlaceStreamLivestream } from "streamplace";
+import { place } from "streamplace";
 
 /**
  * Activity picker for livestreams. Mirrors the RN's ActivityPicker:
@@ -38,9 +38,9 @@ const ACTIVITY_LABELS: Array<{ value: string; display: string }> = [
 type Mode = "game" | "label";
 
 interface ActivityPickerProps {
-  value: PlaceStreamLivestream.Record["activity"] | undefined;
+  value: place.stream.livestream.Main["activity"] | undefined;
   onChange: (
-    activity: PlaceStreamLivestream.Record["activity"] | undefined,
+    activity: place.stream.livestream.Main["activity"] | undefined,
   ) => void;
 }
 
@@ -85,7 +85,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await agent.place.stream.game.search({
+        const res = await agent.client.call(place.stream.game.search, {
           q: query,
           limit: 8,
         });
@@ -129,7 +129,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
       $type: "place.stream.defs#activityGame",
       uri: game.uri,
       name: game.name,
-    } as unknown as PlaceStreamLivestream.Record["activity"]);
+    } as unknown as place.stream.livestream.Main["activity"]);
     setQuery("");
     setResults([]);
   };
@@ -249,7 +249,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
                       : ({
                           $type: "place.stream.defs#activityLabel",
                           label: labelValue,
-                        } as unknown as PlaceStreamLivestream.Record["activity"]),
+                        } as unknown as place.stream.livestream.Main["activity"]),
                   )
                 }
                 className={cn(

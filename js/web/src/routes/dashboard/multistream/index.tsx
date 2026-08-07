@@ -1,3 +1,4 @@
+import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,7 +71,7 @@ function MultistreamManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const res = await agent.place.stream.multistream.listTargets({
+      const res = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
       setTargets(res.data.targets as unknown as MultistreamTarget[]);
@@ -105,7 +106,7 @@ function MultistreamManager() {
       setFormError("");
 
       if (editingTarget) {
-        await agent.place.stream.multistream.putTarget({
+        await agent.client.call(place.stream.multistream.putTarget, {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
@@ -116,7 +117,7 @@ function MultistreamManager() {
           rkey: editingTarget.uri.split("/").pop() || "",
         });
       } else {
-        await agent.place.stream.multistream.createTarget({
+        await agent.client.call(place.stream.multistream.createTarget, {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
@@ -144,7 +145,7 @@ function MultistreamManager() {
     if (!agent) return;
     try {
       setTogglingUris((prev) => new Set(prev).add(target.uri));
-      await agent.place.stream.multistream.putTarget({
+      await agent.client.call(place.stream.multistream.putTarget, {
         multistreamTarget: {
           ...target.record,
           $type: "place.stream.multistream.target" as const,
@@ -168,7 +169,7 @@ function MultistreamManager() {
     if (!agent || !deleteTarget) return;
     try {
       setDeletingUris((prev) => new Set(prev).add(deleteTarget.uri));
-      await agent.place.stream.multistream.deleteTarget({
+      await agent.client.call(place.stream.multistream.deleteTarget, {
         rkey: deleteTarget.uri.split("/").pop() || "",
       });
       setDeleteTarget(null);

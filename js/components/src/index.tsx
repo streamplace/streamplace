@@ -2,6 +2,9 @@
 import "./crypto-polyfill";
 
 export * from "./livestream-provider";
+// React layer for the livestream store (hooks, context). The pure
+// state/factory/reducer is in @streamplace/core and re-exported through
+// this local barrel.
 export * from "./livestream-store";
 export * from "./player-store";
 export * from "./streamplace-provider";
@@ -92,4 +95,7 @@ export * from "./components/vod/vod-comments";
 export * from "./components/vod/vod-mobile-metadata";
 export * from "./components/vod/vod-player";
 export * from "./components/vod/vod-section";
-export * from "./vod-store/vod-interactions";
+// React layer for vod-store (React hooks). Pure VOD interaction
+// functions are in @streamplace/core and re-exported through this
+// local barrel.
+export * from "./vod-store";

@@ -17,6 +17,7 @@
     "release": "lerna version --force-publish=@streamplace/app",
     "precommit": "make precommit",
     "app": "cd js/app && pnpm run",
+    "web": "cd js/web && pnpm run",
     "components": "cd js/components && pnpm run",
     "desktop": "cd js/desktop && pnpm run",
     "docs": "cd js/docs && pnpm run",
@@ -33,7 +34,7 @@
     "knip": "^5.59.1",
     "lerna": "^8.2.2",
     "lint-staged": "^15.2.10",
-    "prettier": "^3.8.4",
+    "prettier": "3.8.4",
     "typescript": "^5.8.3"
   },
   "workspaces": [

@@ -1,3 +1,4 @@
+import { RichtextSegment, segmentize } from "@streamplace/core";
 import { EyeOff, Pin, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
@@ -9,7 +10,6 @@ import {
   useTheme,
   zero,
 } from "../../";
-import { RichtextSegment, segmentize } from "../../lib/facet";
 import * as tokens from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 

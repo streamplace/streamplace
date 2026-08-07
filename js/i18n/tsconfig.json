@@ -1,0 +1,13 @@
+{
+  "extends": "../app/tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "resolveJsonModule": true
+  },
+  "include": ["./src", "./locales"]
+}

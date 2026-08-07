@@ -16,6 +16,7 @@
     // .d.ts are unused. Skipping declaration emit avoids TS2742 portability
     // errors from hook return types that reference @atproto/lex-client internals.
     "declaration": false,
+    "declarationMap": false,
     "sourceMap": true,
     "resolveJsonModule": true
   },

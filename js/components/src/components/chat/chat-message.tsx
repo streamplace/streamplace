@@ -3,11 +3,11 @@ import {
   Link,
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
+import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
 import { memo, useCallback } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
-import { Facet, RichtextSegment, segmentize } from "../../lib/facet";
-import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
 import { tabularNums, textAlphas } from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import {

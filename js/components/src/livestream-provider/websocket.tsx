@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import useWebSocket from "react-use-websocket";
-import { useHandleWebsocketMessages } from "../livestream-store";
+import { useHandleWebsocketMessages } from "../livestream-store/use-store";
 import { useUrl } from "../streamplace-store";
 
 export function useLivestreamWebsocket(src: string) {

@@ -361,7 +361,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                 </Admonition>
                 <Admonition variant="warning" size="sm">
                   <Text size="sm">
-                    Your node may prohibit some of this content. Read the
+                    Your node may prohibit some of this content. Read their
                     community guidelines to make sure.{" "}
                     <Pressable
                       onPress={() =>

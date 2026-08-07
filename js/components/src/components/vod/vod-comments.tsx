@@ -11,7 +11,7 @@ import { useTheme } from "../../ui";
 import {
   useCreateVodComment,
   useGetVodComments,
-} from "../../vod-store/vod-interactions";
+} from "../../vod-store";
 import { Button } from "../ui/button";
 import { Text } from "../ui/text";
 import { Textarea } from "../ui/textarea";

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
+	web "stream.place/streamplace/js/web"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
@@ -268,23 +270,14 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 			},
 		}
 	} else {
-		files, err := app.Files()
+		// Always load both frontends. The NotFound dispatcher picks one per
+		// request based on the sp_web_beta cookie (or the --frontend CLI
+		// flag, which forces web for everyone).
+		frontends, err := a.loadFrontends(ctx)
 		if err != nil {
 			return nil, err
 		}
-		index, err := files.Open("index.html")
-		if err != nil {
-			return nil, err
-		}
-		bs, err := io.ReadAll(index)
-		if err != nil {
-			return nil, err
-		}
-		linker, err := linking.NewLinker(ctx, bs, a.StatefulDB, a.CLI)
-		if err != nil {
-			return nil, err
-		}
-		linkingHandler, err := a.NotFoundLinkingHandler(ctx, linker)
+		linkingHandler, err := a.NotFoundLinkingHandler(ctx, frontends, a.CLI.Frontend == "web")
 		if err != nil {
 			return nil, err
 		}
@@ -344,22 +337,87 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-// handler that takes care of static files and otherwise returns the index.html with the correct link card data
-func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, linker *linking.Linker) (http.HandlerFunc, error) {
-	files, err := app.Files()
+// frontendSet holds a per-frontend linking handler so the NotFound
+// dispatcher can pick which one to serve per request. The legacy RN app
+// and the new Vite web app each get their own; the sp_web_beta cookie
+// opts a user into the new one unless the operator forced it via
+// --frontend=web (in which case forceWeb is true on pick).
+type frontendSet struct {
+	app http.HandlerFunc
+	web http.HandlerFunc
+}
+
+func (f *frontendSet) pick(r *http.Request, forceWeb bool) http.HandlerFunc {
+	if forceWeb {
+		return f.web
+	}
+	if c, err := r.Cookie("sp_web_beta"); err == nil && c.Value == "1" {
+		return f.web
+	}
+	return f.app
+}
+
+func (a *StreamplaceAPI) loadFrontends(ctx context.Context) (*frontendSet, error) {
+	appHandler, err := a.buildLinkingHandler(ctx, app.Files)
+	if err != nil {
+		return nil, fmt.Errorf("loading app frontend: %w", err)
+	}
+	webHandler, err := a.buildLinkingHandler(ctx, web.Files)
+	if err != nil {
+		return nil, fmt.Errorf("loading web frontend: %w", err)
+	}
+	return &frontendSet{app: appHandler, web: webHandler}, nil
+}
+
+// buildLinkingHandler builds the static-file + link-card handler for a
+// single frontend.
+func (a *StreamplaceAPI) buildLinkingHandler(ctx context.Context, load func() (fs.FS, error)) (http.HandlerFunc, error) {
+	frontendFS, err := load()
 	if err != nil {
 		return nil, err
 	}
-	fs := AppHostingFS{http.FS(files)}
+	index, err := frontendFS.Open("index.html")
+	if err != nil {
+		return nil, err
+	}
+	bs, err := io.ReadAll(index)
+	if err != nil {
+		return nil, err
+	}
+	linker, err := linking.NewLinker(ctx, bs, a.StatefulDB, a.CLI)
+	if err != nil {
+		return nil, err
+	}
+	return a.notFoundLinkingHandler(ctx, linker, frontendFS)
+}
 
-	fileHandler := a.FileHandler(ctx, http.FileServer(fs))
+// NotFoundLinkingHandler dispatches to the per-frontend handler that
+// matches the current request. The sp_web_beta cookie opts users into the
+// new web frontend; forceWeb (driven by --frontend=web) makes it stick
+// for everyone. The dev proxy (--dev-frontend-proxy) is handled upstream
+// and never reaches this handler.
+func (a *StreamplaceAPI) NotFoundLinkingHandler(ctx context.Context, frontends *frontendSet, forceWeb bool) (http.HandlerFunc, error) {
+	return func(w http.ResponseWriter, req *http.Request) {
+		frontends.pick(req, forceWeb)(w, req)
+	}, nil
+}
+
+// notFoundLinkingHandler serves static files and link cards for a single
+// frontend. Each frontend gets its own linker (built from that
+// frontend's index.html) so OpenGraph cards match the look of whichever
+// site the user is on.
+func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *linking.Linker, frontendFS fs.FS) (http.HandlerFunc, error) {
+	files := frontendFS
+	fsys := AppHostingFS{http.FS(files)}
+
+	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
 	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
 			f += "index.html"
 		}
-		_, err := fs.Open(f)
+		_, err := fsys.Open(f)
 		if err == nil {
 			fileHandler.ServeHTTP(w, req)
 			return

@@ -8,8 +8,7 @@ import {
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
 import { statusColors, textAlphas } from "../../lib/theme/tokens";
-import { useLivestreamStore } from "../../livestream-store";
-import { LivestreamProblem } from "../../livestream-store/livestream-state";
+import { LivestreamProblem, useLivestreamStore } from "../../livestream-store";
 import * as zero from "../../ui";
 import { Button, Text, useTheme } from "../ui";
 

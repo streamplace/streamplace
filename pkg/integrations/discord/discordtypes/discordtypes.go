@@ -1,12 +1,11 @@
 package discordtypes
 
 type Webhook struct {
-	DID     string            `json:"did"`
-	URL     string            `json:"url"`
-	Type    string            `json:"type"`
-	Rewrite []*WebhookRewrite `json:"rewrite,omitempty"`
-	Prefix  string            `json:"prefix,omitempty"`
-	Suffix  string            `json:"suffix,omitempty"`
+	URL               string            `json:"url"`
+	Rewrite           []*WebhookRewrite `json:"rewrite,omitempty"`
+	Prefix            string            `json:"prefix,omitempty"`
+	Suffix            string            `json:"suffix,omitempty"`
+	StreamplaceFormat bool              `json:"streamplaceFormat"`
 }
 
 type WebhookRewrite struct {

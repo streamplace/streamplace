@@ -94,6 +94,8 @@ type ServerDefs_Webhook struct {
 	Prefix *string `json:"prefix,omitempty"`
 	// rewrite: Text replacement rules for webhook messages.
 	Rewrite []ServerDefs_RewriteRule `json:"rewrite,omitempty"`
+	// streamplaceFormat: Post chat messages as "[Streamplace]" with the sender's handle inline (e.g. "**@handle**: message") instead of using the sender's handle as the webhook name.
+	StreamplaceFormat *bool `json:"streamplaceFormat,omitempty"`
 	// suffix: Text to append to webhook messages.
 	Suffix *string `json:"suffix,omitempty"`
 	// updatedAt: When this webhook was last updated.

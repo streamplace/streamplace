@@ -17,22 +17,23 @@ A webhook configuration for receiving Streamplace events.
 
 **Properties:**
 
-| Name            | Type                                    | Req'd | Description                                                                                           | Constraints        |
-| --------------- | --------------------------------------- | ----- | ----------------------------------------------------------------------------------------------------- | ------------------ |
-| `id`            | `string`                                | ✅    | Unique identifier for this webhook.                                                                   |                    |
-| `url`           | `string`                                | ✅    | The webhook URL where events will be sent.                                                            | Format: `uri`      |
-| `events`        | Array of `string`                       | ✅    | The types of events this webhook should receive.                                                      |                    |
-| `active`        | `boolean`                               | ✅    | Whether this webhook is currently active.                                                             |                    |
-| `prefix`        | `string`                                | ❌    | Text to prepend to webhook messages.                                                                  | Max Length: 100    |
-| `suffix`        | `string`                                | ❌    | Text to append to webhook messages.                                                                   | Max Length: 100    |
-| `rewrite`       | Array of [`#rewriteRule`](#rewriterule) | ❌    | Text replacement rules for webhook messages.                                                          |                    |
-| `createdAt`     | `string`                                | ✅    | When this webhook was created.                                                                        | Format: `datetime` |
-| `updatedAt`     | `string`                                | ❌    | When this webhook was last updated.                                                                   | Format: `datetime` |
-| `name`          | `string`                                | ❌    | A user-friendly name for this webhook.                                                                | Max Length: 100    |
-| `description`   | `string`                                | ❌    | A description of what this webhook is used for.                                                       | Max Length: 500    |
-| `lastTriggered` | `string`                                | ❌    | When this webhook was last triggered.                                                                 | Format: `datetime` |
-| `errorCount`    | `integer`                               | ❌    | Number of consecutive errors for this webhook.                                                        |                    |
-| `muteWords`     | Array of `string`                       | ❌    | Words to filter out from chat messages. Messages containing any of these words will not be forwarded. |                    |
+| Name                | Type                                    | Req'd | Description                                                                                                                                                   | Constraints        |
+| ------------------- | --------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `id`                | `string`                                | ✅    | Unique identifier for this webhook.                                                                                                                           |                    |
+| `url`               | `string`                                | ✅    | The webhook URL where events will be sent.                                                                                                                    | Format: `uri`      |
+| `events`            | Array of `string`                       | ✅    | The types of events this webhook should receive.                                                                                                              |                    |
+| `active`            | `boolean`                               | ✅    | Whether this webhook is currently active.                                                                                                                     |                    |
+| `streamplaceFormat` | `boolean`                               | ❌    | Post chat messages as "[Streamplace]" with the sender's handle inline (e.g. "**@handle**: message") instead of using the sender's handle as the webhook name. | Default: `false`   |
+| `prefix`            | `string`                                | ❌    | Text to prepend to webhook messages.                                                                                                                          | Max Length: 100    |
+| `suffix`            | `string`                                | ❌    | Text to append to webhook messages.                                                                                                                           | Max Length: 100    |
+| `rewrite`           | Array of [`#rewriteRule`](#rewriterule) | ❌    | Text replacement rules for webhook messages.                                                                                                                  |                    |
+| `createdAt`         | `string`                                | ✅    | When this webhook was created.                                                                                                                                | Format: `datetime` |
+| `updatedAt`         | `string`                                | ❌    | When this webhook was last updated.                                                                                                                           | Format: `datetime` |
+| `name`              | `string`                                | ❌    | A user-friendly name for this webhook.                                                                                                                        | Max Length: 100    |
+| `description`       | `string`                                | ❌    | A description of what this webhook is used for.                                                                                                               | Max Length: 500    |
+| `lastTriggered`     | `string`                                | ❌    | When this webhook was last triggered.                                                                                                                         | Format: `datetime` |
+| `errorCount`        | `integer`                               | ❌    | Number of consecutive errors for this webhook.                                                                                                                |                    |
+| `muteWords`         | Array of `string`                       | ❌    | Words to filter out from chat messages. Messages containing any of these words will not be forwarded.                                                         |                    |
 
 ---
 
@@ -106,6 +107,11 @@ S3 storage configuration for backups.
         "active": {
           "type": "boolean",
           "description": "Whether this webhook is currently active."
+        },
+        "streamplaceFormat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Post chat messages as \"[Streamplace]\" with the sender's handle inline (e.g. \"**@handle**: message\") instead of using the sender's handle as the webhook name."
         },
         "prefix": {
           "type": "string",

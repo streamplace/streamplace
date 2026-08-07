@@ -72,10 +72,16 @@ func webhookToDiscordWebhook(webhook *placestream.ServerDefs_Webhook) (*discordt
 		suffix = *webhook.Suffix
 	}
 
+	var streamplaceFormat bool
+	if webhook.StreamplaceFormat != nil {
+		streamplaceFormat = *webhook.StreamplaceFormat
+	}
+
 	return &discordtypes.Webhook{
-		URL:     webhook.Url,
-		Prefix:  prefix,
-		Suffix:  suffix,
-		Rewrite: rewriteRules,
+		URL:               webhook.Url,
+		Prefix:            prefix,
+		Suffix:            suffix,
+		Rewrite:           rewriteRules,
+		StreamplaceFormat: streamplaceFormat,
 	}, nil
 }

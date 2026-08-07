@@ -24,18 +24,19 @@ Update an existing webhook configuration.
 
 **Schema Type:** `object`
 
-| Name          | Type                                                                                                   | Req'd | Description                                                                                           | Constraints     |
-| ------------- | ------------------------------------------------------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------- | --------------- |
-| `id`          | `string`                                                                                               | ✅    | The ID of the webhook to update.                                                                      |                 |
-| `url`         | `string`                                                                                               | ❌    | The webhook URL where events will be sent.                                                            | Format: `uri`   |
-| `events`      | Array of `string`                                                                                      | ❌    | The types of events this webhook should receive.                                                      |                 |
-| `active`      | `boolean`                                                                                              | ❌    | Whether this webhook should be active.                                                                |                 |
-| `prefix`      | `string`                                                                                               | ❌    | Text to prepend to webhook messages.                                                                  | Max Length: 100 |
-| `suffix`      | `string`                                                                                               | ❌    | Text to append to webhook messages.                                                                   | Max Length: 100 |
-| `rewrite`     | Array of [`place.stream.server.defs#rewriteRule`](/lex-reference/place-stream-server-defs#rewriterule) | ❌    | Text replacement rules for webhook messages.                                                          |                 |
-| `name`        | `string`                                                                                               | ❌    | A user-friendly name for this webhook.                                                                | Max Length: 100 |
-| `description` | `string`                                                                                               | ❌    | A description of what this webhook is used for.                                                       | Max Length: 500 |
-| `muteWords`   | Array of `string`                                                                                      | ❌    | Words to filter out from chat messages. Messages containing any of these words will not be forwarded. |                 |
+| Name                | Type                                                                                                   | Req'd | Description                                                                                                                                                   | Constraints      |
+| ------------------- | ------------------------------------------------------------------------------------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `id`                | `string`                                                                                               | ✅    | The ID of the webhook to update.                                                                                                                              |                  |
+| `url`               | `string`                                                                                               | ❌    | The webhook URL where events will be sent.                                                                                                                    | Format: `uri`    |
+| `events`            | Array of `string`                                                                                      | ❌    | The types of events this webhook should receive.                                                                                                              |                  |
+| `active`            | `boolean`                                                                                              | ❌    | Whether this webhook should be active.                                                                                                                        |                  |
+| `streamplaceFormat` | `boolean`                                                                                              | ❌    | Post chat messages as "[Streamplace]" with the sender's handle inline (e.g. "**@handle**: message") instead of using the sender's handle as the webhook name. | Default: `false` |
+| `prefix`            | `string`                                                                                               | ❌    | Text to prepend to webhook messages.                                                                                                                          | Max Length: 100  |
+| `suffix`            | `string`                                                                                               | ❌    | Text to append to webhook messages.                                                                                                                           | Max Length: 100  |
+| `rewrite`           | Array of [`place.stream.server.defs#rewriteRule`](/lex-reference/place-stream-server-defs#rewriterule) | ❌    | Text replacement rules for webhook messages.                                                                                                                  |                  |
+| `name`              | `string`                                                                                               | ❌    | A user-friendly name for this webhook.                                                                                                                        | Max Length: 100  |
+| `description`       | `string`                                                                                               | ❌    | A description of what this webhook is used for.                                                                                                               | Max Length: 500  |
+| `muteWords`         | Array of `string`                                                                                      | ❌    | Words to filter out from chat messages. Messages containing any of these words will not be forwarded.                                                         |                  |
 
 **Output:**
 
@@ -99,6 +100,11 @@ Update an existing webhook configuration.
             "active": {
               "type": "boolean",
               "description": "Whether this webhook should be active."
+            },
+            "streamplaceFormat": {
+              "type": "boolean",
+              "default": false,
+              "description": "Post chat messages as \"[Streamplace]\" with the sender's handle inline (e.g. \"**@handle**: message\") instead of using the sender's handle as the webhook name."
             },
             "prefix": {
               "type": "string",

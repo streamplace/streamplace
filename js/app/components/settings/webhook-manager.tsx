@@ -53,6 +53,7 @@ interface Webhook {
   url: string;
   events: string[];
   active: boolean;
+  streamplaceFormat?: boolean;
   prefix?: string;
   suffix?: string;
   rewrite?: Array<{ from: string; to: string }>;
@@ -69,6 +70,7 @@ interface WebhookFormData {
   url: string;
   events: string[];
   active: boolean;
+  streamplaceFormat: boolean;
   prefix: string;
   suffix: string;
   rewrite: Array<{ from: string; to: string }>;
@@ -235,6 +237,7 @@ function WebhookForm({
     url: webhook?.url || "",
     events: webhook?.events || ["livestream"],
     active: webhook?.active ?? true,
+    streamplaceFormat: webhook?.streamplaceFormat || false,
     prefix: webhook?.prefix || "",
     suffix: webhook?.suffix || "",
     rewrite: webhook?.rewrite || [{ from: "", to: "" }],
@@ -253,6 +256,7 @@ function WebhookForm({
         url: webhook.url || "",
         events: webhook.events || ["livestream"],
         active: webhook.active ?? true,
+        streamplaceFormat: webhook.streamplaceFormat || false,
         prefix: webhook.prefix || "",
         suffix: webhook.suffix || "",
         rewrite: webhook.rewrite || [{ from: "", to: "" }],
@@ -266,6 +270,7 @@ function WebhookForm({
         url: "",
         events: ["livestream"],
         active: true,
+        streamplaceFormat: false,
         prefix: "",
         suffix: "",
         rewrite: [{ from: "", to: "" }],
@@ -568,6 +573,45 @@ function WebhookForm({
           />
         </View>
 
+        {/* Streamplace format toggle */}
+        <View style={[mb[4]]}>
+          <Pressable
+            style={[layout.flex.row, layout.flex.alignCenter]}
+            onPress={() =>
+              setFormData((prev) => ({
+                ...prev,
+                streamplaceFormat: !prev.streamplaceFormat,
+              }))
+            }
+          >
+            <View
+              style={[
+                w[5],
+                h[5],
+                borders.width.thin,
+                borders.color.gray[300],
+                r[1],
+                mr[3],
+                layout.flex.center,
+                formData.streamplaceFormat && bg.blue[500],
+              ]}
+            >
+              {formData.streamplaceFormat && (
+                <Text style={[text.white, { fontSize: 12 }]}>✓</Text>
+              )}
+            </View>
+            <View style={[flex.values[1]]}>
+              <Text style={[text.gray[300], { fontSize: 14 }]}>
+                Post chat messages as [Streamplace]
+              </Text>
+              <Text style={[text.gray[400], mt[1], { fontSize: 12 }]}>
+                Shows the sender's handle inline instead of as the webhook name.
+                Example: **@handle**: message
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
         {/* Example message text */}
         <View style={[mb[4]]}>
           <Text
@@ -584,10 +628,15 @@ function WebhookForm({
               borders.color.gray[200],
             ]}
           >
+            <Text style={[text.white, { fontSize: 14, fontWeight: "600" }]}>
+              {formData.streamplaceFormat ? "[Streamplace]" : "@{username}"}
+            </Text>
             <Text style={[text.gray[400], { fontSize: 14 }]}>
-              {formData.prefix}
-              <Text style={[text.blue[400]]}>{"{username}"}</Text>
-              {formData.suffix}
+              {formData.streamplaceFormat && (
+                <Text style={[text.blue[400]]}>{"**@handle**"}</Text>
+              )}
+              {formData.streamplaceFormat ? ": " : ""}
+              {formData.prefix}message{formData.suffix}
             </Text>
           </View>
         </View>
@@ -694,6 +743,7 @@ export default function WebhookManager() {
         url: data.url as any,
         events: data.events as WebhookEvent[],
         active: data.active,
+        streamplaceFormat: data.streamplaceFormat,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,
         rewrite: rewriteRules.length > 0 ? rewriteRules : undefined,
@@ -731,6 +781,8 @@ export default function WebhookManager() {
         url: data.url as any,
         events: data.events as WebhookEvent[],
         active: data.active,
+        // always send so unchecking the box persists
+        streamplaceFormat: data.streamplaceFormat,
         prefix: data.prefix || undefined,
         suffix: data.suffix || undefined,
         rewrite: rewriteRules.length > 0 ? rewriteRules : undefined,

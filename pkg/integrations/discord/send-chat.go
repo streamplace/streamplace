@@ -21,36 +21,25 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 		return fmt.Errorf("failed to cast chat message to streamplace chat message")
 	}
 
-	avatarURL, err := GetAvatarURL(ctx, did)
-	if err != nil {
-		log.Warn(ctx, "failed to get avatar URL", "err", err)
+	// The sender's avatar only shows in the default format; the streamplace
+	// format uses the webhook's own avatar, so skip the network fetch.
+	var avatarURL string
+	var err error
+	if !w.StreamplaceFormat {
+		avatarURL, err = GetAvatarURL(ctx, did)
+		if err != nil {
+			log.Warn(ctx, "failed to get avatar URL", "err", err)
+		}
 	}
 
-	payload := discordtypes.Payload{
-		Username: fmt.Sprintf("@%s", scm.Author.Handle),
-		Content:  fmt.Sprintf("%s%s%s", w.Prefix, msg.Text, w.Suffix),
-	}
-	if avatarURL != "" {
-		payload.AvatarURL = avatarURL
-	}
-
-	// apply default anti-ping rewrites
-	payload.Content = strings.ReplaceAll(payload.Content, "@here", "@\u200Bhere")
-	payload.Content = strings.ReplaceAll(payload.Content, "@everyone", "@\u200Beveryone")
-	// and for <@{userid/roleid}>
-	payload.Content = strings.ReplaceAll(payload.Content, "<@", "<@\u200B")
-
-	// then apply custom rewrites, in case user wants to undo the above or do something else
-	for _, rewrite := range w.Rewrite {
-		payload.Content = strings.ReplaceAll(payload.Content, rewrite.From, rewrite.To)
-	}
+	payload := buildChatPayload(w, scm.Author.Handle, msg, avatarURL)
 
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	log.Warn(ctx, "sending chat to discord", "payload", string(jsonPayload), "for_did", w.DID)
+	log.Debug(ctx, "sending chat to discord", "payload", string(jsonPayload), "for_did", did)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", w.URL, bytes.NewReader(jsonPayload))
 	if err != nil {
@@ -75,4 +64,38 @@ func SendChat(ctx context.Context, w *discordtypes.Webhook, did string, scm *pla
 	}
 
 	return nil
+}
+
+// buildChatPayload builds the Discord webhook payload for a chat message.
+//
+// By default the message is posted under the chatter's handle ("@handle",
+// with their avatar). With StreamplaceFormat set, it is posted as
+// "[Streamplace]" using the webhook's own avatar, with the handle inline:
+// "**@handle**: text". The avatar URL is only used in the default format.
+func buildChatPayload(w *discordtypes.Webhook, handle string, msg *placestream.ChatMessage, avatarURL string) discordtypes.Payload {
+	payload := discordtypes.Payload{
+		Content: fmt.Sprintf("%s%s%s", w.Prefix, msg.Text, w.Suffix),
+	}
+	if w.StreamplaceFormat {
+		payload.Username = "[Streamplace]"
+		payload.Content = fmt.Sprintf("**@%s**: %s", handle, payload.Content)
+	} else {
+		payload.Username = fmt.Sprintf("@%s", handle)
+		if avatarURL != "" {
+			payload.AvatarURL = avatarURL
+		}
+	}
+
+	// apply default anti-ping rewrites
+	payload.Content = strings.ReplaceAll(payload.Content, "@here", "@\u200Bhere")
+	payload.Content = strings.ReplaceAll(payload.Content, "@everyone", "@\u200Beveryone")
+	// and for <@{userid/roleid}>
+	payload.Content = strings.ReplaceAll(payload.Content, "<@", "<@\u200B")
+
+	// then apply custom rewrites, in case user wants to undo the above or do something else
+	for _, rewrite := range w.Rewrite {
+		payload.Content = strings.ReplaceAll(payload.Content, rewrite.From, rewrite.To)
+	}
+
+	return payload
 }

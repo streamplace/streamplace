@@ -198,6 +198,9 @@ func (s *Server) handlePlaceStreamServerUpdateWebhook(ctx context.Context, input
 	if input.Active != nil {
 		updates["active"] = *input.Active
 	}
+	if input.StreamplaceFormat != nil {
+		updates["streamplace_format"] = *input.StreamplaceFormat
+	}
 	if input.Prefix != nil {
 		updates["prefix"] = *input.Prefix
 	}

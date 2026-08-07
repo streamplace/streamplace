@@ -17,18 +17,19 @@ type Webhook struct {
 	UserDID string `gorm:"column:user_did;not null;index"`
 	URL     string `gorm:"column:url;not null"`
 
-	Events        json.RawMessage `gorm:"column:events;type:json"`
-	Active        bool            `gorm:"column:active;default:false"`
-	Prefix        string          `gorm:"column:prefix"`
-	Suffix        string          `gorm:"column:suffix"`
-	Rewrite       json.RawMessage `gorm:"column:rewrite;type:json"`
-	MuteWords     json.RawMessage `gorm:"column:mute_words;type:json"`
-	Name          string          `gorm:"column:name"`
-	Description   string          `gorm:"column:description"`
-	CreatedAt     time.Time       `gorm:"column:created_at"`
-	UpdatedAt     time.Time       `gorm:"column:updated_at"`
-	LastTriggered *time.Time      `gorm:"column:last_triggered"`
-	ErrorCount    int             `gorm:"column:error_count;default:0"`
+	Events            json.RawMessage `gorm:"column:events;type:json"`
+	Active            bool            `gorm:"column:active;default:false"`
+	StreamplaceFormat bool            `gorm:"column:streamplace_format;default:false"`
+	Prefix            string          `gorm:"column:prefix"`
+	Suffix            string          `gorm:"column:suffix"`
+	Rewrite           json.RawMessage `gorm:"column:rewrite;type:json"`
+	MuteWords         json.RawMessage `gorm:"column:mute_words;type:json"`
+	Name              string          `gorm:"column:name"`
+	Description       string          `gorm:"column:description"`
+	CreatedAt         time.Time       `gorm:"column:created_at"`
+	UpdatedAt         time.Time       `gorm:"column:updated_at"`
+	LastTriggered     *time.Time      `gorm:"column:last_triggered"`
+	ErrorCount        int             `gorm:"column:error_count;default:0"`
 }
 
 func (w *Webhook) TableName() string {
@@ -192,6 +193,10 @@ func (w *Webhook) ToLexicon() (placestream.ServerDefs_Webhook, error) {
 		Rewrite:   rewriteRules,
 	}
 
+	if w.StreamplaceFormat {
+		webhook.StreamplaceFormat = &w.StreamplaceFormat
+	}
+
 	if w.Prefix != "" {
 		webhook.Prefix = &w.Prefix
 	}
@@ -284,6 +289,9 @@ func WebhookFromLexiconInput(input placestream.ServerCreateWebhook_Input, userDI
 	}
 	if input.Suffix != nil {
 		webhook.Suffix = *input.Suffix
+	}
+	if input.StreamplaceFormat != nil {
+		webhook.StreamplaceFormat = *input.StreamplaceFormat
 	}
 	if input.Name != nil {
 		webhook.Name = *input.Name

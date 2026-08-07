@@ -38,6 +38,10 @@ We'd recommend also filling out these optional fields:
   "[Streamplace] "). Will apply to both Chat and Livestream events!
 - Suffix: A suffix to add to each message sent by this webhook (e.g., "is now
   live!"). Will apply to both Chat and Livestream events!
+- Post chat messages as [Streamplace]: By default, chat messages are posted
+  under the sender's handle (e.g., as `@handle` with their avatar). Check this
+  box to post them as `[Streamplace]` instead, with the sender's handle inline
+  in the message: `**@handle**: message`.
 - Text replacements: A list of text replacements to apply to chat messages sent
   by this webhook. Each replacement consists of a "from" string and a "to"
   string. For example, you could replace all instances of "foo" with "bar".

@@ -34,6 +34,11 @@
           "type": "boolean",
           "description": "Whether this webhook is currently active."
         },
+        "streamplaceFormat": {
+          "type": "boolean",
+          "default": false,
+          "description": "Post chat messages as \"[Streamplace]\" with the sender's handle inline (e.g. \"**@handle**: message\") instead of using the sender's handle as the webhook name."
+        },
         "prefix": {
           "type": "string",
           "maxLength": 100,

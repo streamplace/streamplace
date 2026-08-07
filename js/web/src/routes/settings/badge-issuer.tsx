@@ -69,7 +69,7 @@ function BadgeIssuerPanel() {
     setLoadingDefs(true);
     try {
       const res = await agent.client.list(place.stream.badge.def, {
-        repo: agent.did,
+        repo: agent.did as any,
         limit: 100,
       });
       setDefs(
@@ -125,14 +125,14 @@ function BadgeIssuerPanel() {
       }
 
       await agent.client.create(place.stream.badge.def, 
-        { repo: agent.did },
         {
           name: createName.trim(),
           description: createDescription.trim() || undefined,
           badgeType: createBadgeType,
           image: imageBlob,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date().toISOString() as any,
         },
+        { repo: agent.did as any },
       );
 
       setLastResult({
@@ -158,12 +158,12 @@ function BadgeIssuerPanel() {
     setWorking(true);
     try {
       await agent.client.create(place.stream.badge.issuance, 
-        { repo: agent.did },
         {
-          did: recipientDid.trim(),
-          badge: { uri: selectedDef.uri, cid: selectedDef.cid },
-          createdAt: new Date().toISOString(),
+          did: recipientDid.trim() as any,
+          badge: { uri: selectedDef.uri as any, cid: selectedDef.cid },
+          createdAt: new Date().toISOString() as any,
         },
+        { repo: agent.did as any },
       );
       setLastResult({
         label: `Issued to ${recipientDid.trim()}`,

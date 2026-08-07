@@ -90,7 +90,7 @@ export function ActivityPicker({ value, onChange }: ActivityPickerProps) {
           limit: 8,
         });
         const games: GameResult[] = [];
-        for (const result of res.data.results ?? []) {
+        for (const result of res.results ?? []) {
           // Type guard: only game summary views have the fields we need
           if (!result || typeof result !== "object" || !("name" in result)) {
             continue;

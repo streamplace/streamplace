@@ -85,7 +85,7 @@ function WebhookManager() {
       const response = await agent.client.call(place.stream.server.listWebhooks, {
         limit: 50,
       });
-      const hooks = (response.data.webhooks as Webhook[] | undefined) ?? [];
+      const hooks = (response.webhooks as Webhook[] | undefined) ?? [];
       setWebhooks(hooks);
     } catch (error: any) {
       console.error("Failed to load webhooks:", error);
@@ -118,7 +118,7 @@ function WebhookManager() {
       );
       const payload = {
         name: data.name || undefined,
-        url: data.url,
+        url: data.url as any,
         events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
         active: data.active,
         prefix: data.prefix || undefined,

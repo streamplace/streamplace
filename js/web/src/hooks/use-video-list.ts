@@ -36,8 +36,8 @@ export function useVideoList(repo?: string) {
         ...(pageParam ? { cursor: pageParam } : {}),
       });
       return {
-        videos: (res.data.videos ?? []) as VideoView[],
-        cursor: res.data.cursor as string | undefined,
+        videos: (res.videos ?? []) as VideoView[],
+        cursor: res.cursor as string | undefined,
       };
     },
     initialPageParam: undefined as string | undefined,

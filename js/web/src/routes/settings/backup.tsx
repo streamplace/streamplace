@@ -61,10 +61,10 @@ function BackupSettings() {
     try {
       setLoading(true);
       const response = await agent.client.call(place.stream.server.getStorage, );
-      if (response.data.storage) {
-        setOriginalUrl(response.data.storage.url);
-        setEnabled(response.data.storage.isActive);
-        const parsed = parseS3Url(response.data.storage.url);
+      if (response.storage) {
+        setOriginalUrl(response.storage.url);
+        setEnabled(response.storage.isActive);
+        const parsed = parseS3Url(response.storage.url);
         if (parsed) {
           setConfig(parsed);
           setFullUrl(buildS3Url(parsed, showPassword));

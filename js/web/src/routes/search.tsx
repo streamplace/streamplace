@@ -50,7 +50,7 @@ function SearchPage() {
           limit: 20,
         });
         setResults(
-          response.data.actors.map((a: any) => ({
+          response.actors.map((a: any) => ({
             did: a.did,
             handle: a.handle,
             displayName: a.displayName,

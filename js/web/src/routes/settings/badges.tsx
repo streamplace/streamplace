@@ -41,8 +41,8 @@ function BadgeSelectionManager() {
     try {
       setLoading(true);
       const res = await agent.client.call(place.stream.badge.getIssuedBadges, {});
-      setStreamerSlot(res.data.streamer as BadgeSlot | null);
-      setUserSlot(res.data.user as BadgeSlot | null);
+      setStreamerSlot(res.streamer as BadgeSlot | null);
+      setUserSlot(res.user as BadgeSlot | null);
     } catch (error: any) {
       toast.error(error.message || "Failed to load badges");
     } finally {

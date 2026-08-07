@@ -41,7 +41,7 @@ function DashboardVideosPage() {
       const res = await agent.client.call(place.stream.media.getVideoList, {
         repo: agent.did,
       });
-      setUserVideos(res.data.videos || []);
+      setUserVideos(res.videos || []);
     } catch (err) {
       console.error("Failed to fetch videos", err);
     } finally {

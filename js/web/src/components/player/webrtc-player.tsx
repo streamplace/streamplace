@@ -214,18 +214,18 @@ export function WebRTCPlayer({
 
         // POST the offer via the WHEP endpoint.
         const response = await agent.client.call(place.stream.playback.whep, 
-          gatheredOffer.sdp,
+          gatheredOffer.sdp as any,
           {
-            qp: { rendition: "source", streamer },
+            params: { rendition: "source", streamer },
           },
         );
 
         if (cancelled) return;
 
         const answerSdp =
-          typeof response.data === "string"
-            ? response.data
-            : new TextDecoder().decode(response.data as BufferSource);
+          typeof response === "string"
+            ? response
+            : new TextDecoder().decode(response as BufferSource);
 
         await pc.setRemoteDescription(
           new RTCSessionDescription({ type: "answer", sdp: answerSdp }),

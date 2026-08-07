@@ -21,8 +21,9 @@ export function getVideoThumbnailUrl(
   record: place.stream.video.Main | undefined,
   did: string,
 ): string | undefined {
-  const ref = record?.thumb?.ref as { $link?: string } | undefined;
-  const cid = ref?.$link ?? record?.thumb?.ref?.toString();
+  const thumb = record?.thumb as any;
+  const ref = thumb?.ref as { $link?: string } | undefined;
+  const cid = ref?.$link ?? thumb?.ref?.toString();
   if (!cid || !did) return undefined;
   return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`;
 }

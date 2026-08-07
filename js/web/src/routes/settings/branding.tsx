@@ -45,7 +45,7 @@ function BrandingAdmin() {
       const base64Data = btoa(String.fromCharCode(...textBytes));
       await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: "text/plain",
       });
@@ -87,7 +87,7 @@ function BrandingAdmin() {
 
       await agent.client.call(place.stream.branding.updateBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
         data: base64Data,
         mimeType: file.type,
         width,
@@ -107,7 +107,7 @@ function BrandingAdmin() {
       setUploading(true);
       await agent.client.call(place.stream.branding.deleteBlob, {
         key,
-        broadcaster: broadcasterDID || undefined,
+        broadcaster: (broadcasterDID || undefined) as any,
       });
       toast.success(`${key} deleted`);
     } catch (error: any) {

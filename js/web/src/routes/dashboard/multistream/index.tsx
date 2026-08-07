@@ -74,7 +74,7 @@ function MultistreamManager() {
       const res = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
-      setTargets(res.data.targets as unknown as MultistreamTarget[]);
+      setTargets(res.targets as unknown as MultistreamTarget[]);
     } catch (error: any) {
       console.error("Failed to load multistream targets:", error);
       toast.error(error.message || "Failed to load targets");
@@ -110,9 +110,9 @@ function MultistreamManager() {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
-            url: data.url,
+            url: data.url as any,
             active: data.active,
-            createdAt: editingTarget.record.createdAt,
+            createdAt: editingTarget.record.createdAt as any,
           },
           rkey: editingTarget.uri.split("/").pop() || "",
         });
@@ -121,9 +121,9 @@ function MultistreamManager() {
           multistreamTarget: {
             $type: "place.stream.multistream.target" as const,
             name: data.name || undefined,
-            url: data.url,
+            url: data.url as any,
             active: data.active,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString() as any,
           },
         });
       }
@@ -150,7 +150,7 @@ function MultistreamManager() {
           ...target.record,
           $type: "place.stream.multistream.target" as const,
           active: newActive,
-        },
+        } as any,
         rkey: target.uri.split("/").pop() || "",
       });
       await loadTargets();

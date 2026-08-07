@@ -201,7 +201,7 @@ function RecommendationsManager() {
         collection: "place.stream.live.recommendations",
         rkey: "self",
       });
-      const record = response.data.value as { streamers?: string[] };
+      const record = (response as any).value as { streamers?: string[] };
       setStreamers(record.streamers || []);
     } catch (error: any) {
       if (error.status !== 404) {
@@ -251,7 +251,7 @@ function RecommendationsManager() {
           limit: 10,
         });
         setSearchResults(
-          response.data.actors.map((a: any) => ({
+          response.actors.map((a: any) => ({
             did: a.did,
             handle: a.handle,
           })),

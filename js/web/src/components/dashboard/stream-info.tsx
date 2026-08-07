@@ -173,9 +173,9 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
       const record: place.stream.livestream.Main = {
         $type: "place.stream.livestream",
         title: title.trim(),
-        url: `${url}/${agent.did}`,
-        createdAt: new Date().toISOString(),
-        lastSeenAt: new Date().toISOString(),
+        url: `${url}/${agent.did}` as any,
+        createdAt: new Date().toISOString() as any,
+        lastSeenAt: new Date().toISOString() as any,
         idleTimeoutSeconds: idleTimeout ? 300 : 0,
         activity,
         tags: tags.length > 0 ? tags : undefined,
@@ -186,7 +186,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         try {
           const uploaded = await agent.uploadBlob(thumbnail);
           if (uploaded.success) {
-            record.thumb = uploaded.data.blob;
+            record.thumb = uploaded.data.blob as any;
           }
         } catch (e) {
           console.error("Thumbnail upload failed:", e);
@@ -197,10 +197,9 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         // Create new livestream
         const result = await agent.client.call(place.stream.live.startLivestream, {
           livestream: record,
-          streamer: agent.did,
+          streamer: agent.did as any,
           createBlueskyPost: createPost,
         });
-        if (!result.success) throw new Error("Failed to start livestream");
         toast.success(
           t("livestream-announced", { defaultValue: "Livestream announced" }),
         );

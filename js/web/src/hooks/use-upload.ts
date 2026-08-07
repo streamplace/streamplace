@@ -169,7 +169,7 @@ export function useUpload() {
           const res = await agent.client.call(place.stream.media.getUploadStatus, {
             uploadId,
           });
-          const data = res.data;
+          const data = res;
 
           if (data.status === "done" && data.tracks) {
             setPhase({
@@ -224,8 +224,7 @@ export function useUpload() {
         mimeType,
         filename: file.name,
       });
-      if (!res.success) throw new Error("createUpload failed");
-      const { uploadUrl, uploadToken, uploadId } = res.data;
+      const { uploadUrl, uploadToken, uploadId } = res;
 
       await new Promise<void>((resolve, reject) => {
         const upload = new tus.Upload(file, {
@@ -278,7 +277,7 @@ export function useUpload() {
       const record: place.stream.video.Main = {
         $type: "place.stream.video",
         title: title.trim() || file?.name || "Untitled",
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString() as any,
         durationMs,
         source: {
           $type: "place.stream.media.defs#sourceTracks",
@@ -286,7 +285,7 @@ export function useUpload() {
             $type: "com.atproto.repo.strongRef",
             uri: t.uri,
             cid: t.cid,
-          })),
+          })) as any,
         },
       };
 
@@ -333,8 +332,7 @@ export function useUpload() {
         record,
       });
 
-      if (!res.success) throw new Error("publishVideo failed");
-      setPhase({ kind: "done", videoUri: res.data.uri });
+      setPhase({ kind: "done", videoUri: res.uri });
     } catch (err) {
       setPhase({
         kind: "error",

@@ -73,7 +73,7 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
       const response = await agent.client.call(place.stream.multistream.listTargets, {
         limit: 50,
       });
-      setTargets(response.data.targets as unknown as MultistreamTarget[]);
+      setTargets(response.targets as unknown as MultistreamTarget[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);
       setTargets([]);

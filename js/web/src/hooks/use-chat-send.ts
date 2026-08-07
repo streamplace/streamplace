@@ -60,20 +60,20 @@ export function useChatSend(store: LivestreamStore) {
         : undefined;
 
       const localMessage: ChatMessageViewHydrated = {
-        uri: localUri,
+        uri: localUri as any,
         cid: "",
-        author: { did, handle: did },
+        author: { did: did as any, handle: did as any },
         record: {
           $type: "place.stream.chat.message",
           text: trimmed,
-          createdAt,
+          createdAt: createdAt as any,
           streamer: streamerDid,
           ...(replyRef ? { reply: replyRef } : {}),
           ...(facets
             ? { facets: facets as ChatMessageViewHydrated["record"]["facets"] }
             : {}),
         },
-        indexedAt: createdAt,
+        indexedAt: createdAt as any,
         ...(replyTo
           ? {
               replyTo: {

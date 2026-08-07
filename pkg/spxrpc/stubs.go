@@ -427,6 +427,9 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.branding.getBranding", s.HandlePlaceStreamBrandingGetBranding)
 	e.POST("/xrpc/place.stream.branding.updateBlob", s.HandlePlaceStreamBrandingUpdateBlob)
 	e.GET("/xrpc/place.stream.broadcast.getBroadcaster", s.HandlePlaceStreamBroadcastGetBroadcaster)
+	e.POST("/xrpc/place.stream.clip.cancel", s.HandlePlaceStreamClipCancel)
+	e.POST("/xrpc/place.stream.clip.create", s.HandlePlaceStreamClipCreate)
+	e.POST("/xrpc/place.stream.clip.publish", s.HandlePlaceStreamClipPublish)
 	e.GET("/xrpc/place.stream.config.getEnv", s.HandlePlaceStreamConfigGetEnv)
 	e.GET("/xrpc/place.stream.game.getGame", s.HandlePlaceStreamGameGetGame)
 	e.GET("/xrpc/place.stream.game.search", s.HandlePlaceStreamGameSearch)
@@ -448,10 +451,12 @@ func (s *Server) RegisterHandlersPlacestream(e *echo.Echo) error {
 	e.GET("/xrpc/place.stream.media.getVideoList", s.HandlePlaceStreamMediaGetVideoList)
 	e.POST("/xrpc/place.stream.media.publishVideo", s.HandlePlaceStreamMediaPublishVideo)
 	e.POST("/xrpc/place.stream.moderation.createBlock", s.HandlePlaceStreamModerationCreateBlock)
+	e.POST("/xrpc/place.stream.moderation.createClipGate", s.HandlePlaceStreamModerationCreateClipGate)
 	e.POST("/xrpc/place.stream.moderation.createGate", s.HandlePlaceStreamModerationCreateGate)
 	e.POST("/xrpc/place.stream.moderation.createPin", s.HandlePlaceStreamModerationCreatePin)
 	e.POST("/xrpc/place.stream.moderation.createVodGate", s.HandlePlaceStreamModerationCreateVodGate)
 	e.POST("/xrpc/place.stream.moderation.deleteBlock", s.HandlePlaceStreamModerationDeleteBlock)
+	e.POST("/xrpc/place.stream.moderation.deleteClipGate", s.HandlePlaceStreamModerationDeleteClipGate)
 	e.POST("/xrpc/place.stream.moderation.deleteGate", s.HandlePlaceStreamModerationDeleteGate)
 	e.POST("/xrpc/place.stream.moderation.deletePin", s.HandlePlaceStreamModerationDeletePin)
 	e.POST("/xrpc/place.stream.moderation.deleteVodGate", s.HandlePlaceStreamModerationDeleteVodGate)
@@ -598,6 +603,57 @@ func (s *Server) HandlePlaceStreamBroadcastGetBroadcaster(c echo.Context) error 
 	var handleErr error
 	// func (s *Server) handlePlaceStreamBroadcastGetBroadcaster(ctx context.Context) (*placestream.BroadcastGetBroadcaster_Output, error)
 	out, handleErr = s.handlePlaceStreamBroadcastGetBroadcaster(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamClipCancel(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamClipCancel")
+	defer span.End()
+	var body placestream.ClipCancel_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ClipCancel_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamClipCancel(ctx context.Context,body *placestream.ClipCancel_Input) (*placestream.ClipCancel_Output, error)
+	out, handleErr = s.handlePlaceStreamClipCancel(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamClipCreate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamClipCreate")
+	defer span.End()
+	var body placestream.ClipCreate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ClipCreate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamClipCreate(ctx context.Context,body *placestream.ClipCreate_Input) (*placestream.ClipCreate_Output, error)
+	out, handleErr = s.handlePlaceStreamClipCreate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamClipPublish(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamClipPublish")
+	defer span.End()
+	var body placestream.ClipPublish_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ClipPublish_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamClipPublish(ctx context.Context,body *placestream.ClipPublish_Input) (*placestream.ClipPublish_Output, error)
+	out, handleErr = s.handlePlaceStreamClipPublish(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}
@@ -970,6 +1026,23 @@ func (s *Server) HandlePlaceStreamModerationCreateBlock(c echo.Context) error {
 	return c.JSON(200, out)
 }
 
+func (s *Server) HandlePlaceStreamModerationCreateClipGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateClipGate")
+	defer span.End()
+	var body placestream.ModerationCreateClipGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationCreateClipGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationCreateClipGate(ctx context.Context,body *placestream.ModerationCreateClipGate_Input) (*placestream.ModerationCreateClipGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationCreateClipGate(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
 func (s *Server) HandlePlaceStreamModerationCreateGate(c echo.Context) error {
 	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationCreateGate")
 	defer span.End()
@@ -1032,6 +1105,23 @@ func (s *Server) HandlePlaceStreamModerationDeleteBlock(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handlePlaceStreamModerationDeleteBlock(ctx context.Context,body *placestream.ModerationDeleteBlock_Input) (*placestream.ModerationDeleteBlock_Output, error)
 	out, handleErr = s.handlePlaceStreamModerationDeleteBlock(ctx, &body)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandlePlaceStreamModerationDeleteClipGate(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandlePlaceStreamModerationDeleteClipGate")
+	defer span.End()
+	var body placestream.ModerationDeleteClipGate_Input
+	if err := c.Bind(&body); err != nil {
+		return err
+	}
+	var out *placestream.ModerationDeleteClipGate_Output
+	var handleErr error
+	// func (s *Server) handlePlaceStreamModerationDeleteClipGate(ctx context.Context,body *placestream.ModerationDeleteClipGate_Input) (*placestream.ModerationDeleteClipGate_Output, error)
+	out, handleErr = s.handlePlaceStreamModerationDeleteClipGate(ctx, &body)
 	if handleErr != nil {
 		return handleErr
 	}

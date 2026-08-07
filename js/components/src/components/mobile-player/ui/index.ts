@@ -1,5 +1,7 @@
 export * from "./audio-only-overlay";
 export * from "./autoplay-button";
+export * from "./clip-button";
+export * from "./clip-editor";
 export * from "./countdown";
 export * from "./input";
 export * from "./metrics";

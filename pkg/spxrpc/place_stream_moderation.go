@@ -547,3 +547,96 @@ func (s *Server) handlePlaceStreamModerationDeleteVodGate(ctx context.Context, i
 
 	return &placestream.ModerationDeleteVodGate_Output{}, nil
 }
+
+// handlePlaceStreamModerationCreateClipGate creates a gate (hide clip) on behalf of a streamer
+func (s *Server) handlePlaceStreamModerationCreateClipGate(ctx context.Context, input *placestream.ModerationCreateClipGate_Input) (*placestream.ModerationCreateClipGate_Output, error) {
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.ClipUri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid clip URI: %v", err))
+	}
+	if input.ClipCid == nil || *input.ClipCid == "" {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "clipCid is required")
+	}
+
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "createClipGate")
+	if err != nil {
+		return nil, err
+	}
+
+	gate := placestream.ClipGate{
+		HiddenClip: comatproto.RepoStrongRef{
+			Uri: input.ClipUri,
+			Cid: *input.ClipCid,
+		},
+	}
+
+	createInput := comatproto.RepoCreateRecord_Input{
+		Collection: constants.PLACE_STREAM_CLIP_GATE,
+		Record:     &glex.LexiconTypeDecoder{Val: &gate},
+		Repo:       input.Streamer,
+	}
+	createOutput := comatproto.RepoCreateRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.createRecord", map[string]any{}, createInput, &createOutput)
+	if err != nil {
+		log.Error(ctx, "failed to create clip gate record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createClipGate", input.ClipUri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to create clip gate: %v", err))
+	}
+
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "createClipGate", input.ClipUri, "", createOutput.Uri, true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &placestream.ModerationCreateClipGate_Output{
+		Uri: createOutput.Uri,
+		Cid: createOutput.Cid,
+	}, nil
+}
+
+// handlePlaceStreamModerationDeleteClipGate deletes a gate (unhide clip) on behalf of a streamer
+func (s *Server) handlePlaceStreamModerationDeleteClipGate(ctx context.Context, input *placestream.ModerationDeleteClipGate_Input) (*placestream.ModerationDeleteClipGate_Output, error) {
+	if err := validateDID(input.Streamer); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid streamer DID: %v", err))
+	}
+	if err := validateATURI(input.Uri); err != nil {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("invalid gate URI: %v", err))
+	}
+
+	modCtx, err := s.GetDelegatedModerationContext(ctx, input.Streamer, "deleteClipGate")
+	if err != nil {
+		return nil, err
+	}
+
+	rkey, err := extractRKey(input.Uri)
+	if err != nil {
+		log.Error(ctx, "failed to extract rkey from gateUri", "uri", input.Uri, "err", err)
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid gateUri format")
+	}
+
+	deleteInput := comatproto.RepoDeleteRecord_Input{
+		Collection: constants.PLACE_STREAM_CLIP_GATE,
+		Rkey:       rkey,
+		Repo:       input.Streamer,
+	}
+	deleteOutput := comatproto.RepoDeleteRecord_Output{}
+
+	err = modCtx.StreamerClient.Do(ctx, xrpc.Procedure, "application/json", "com.atproto.repo.deleteRecord", map[string]any{}, deleteInput, &deleteOutput)
+	if err != nil {
+		log.Error(ctx, "failed to delete clip gate record", "err", err)
+		if auditErr := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteClipGate", input.Uri, "", "", false, err.Error()); auditErr != nil {
+			log.Error(ctx, "failed to create audit log", "error", auditErr)
+		}
+		return nil, echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to delete clip gate: %v", err))
+	}
+
+	if err := s.logAudit(ctx, input.Streamer, modCtx.ModeratorDID, "deleteClipGate", input.Uri, "", "", true, ""); err != nil {
+		log.Error(ctx, "failed to create audit log", "error", err)
+	}
+
+	return &placestream.ModerationDeleteClipGate_Output{}, nil
+}

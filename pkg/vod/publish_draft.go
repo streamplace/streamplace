@@ -208,6 +208,26 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 	if upload == nil {
 		return nil, nil
 	}
+	tracks, err := PublishTracksForUpload(ctx, client, did, upload)
+	if err != nil {
+		return nil, err
+	}
+	if len(tracks) == 0 {
+		return nil, nil
+	}
+	log.Log(ctx, "published media.track records (deferred to publish)",
+		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
+	return &placestream.MediaDefs_SourceTracks{
+		LexiconTypeID: "place.stream.media.defs#sourceTracks",
+		Tracks:        tracks,
+	}, nil
+}
+
+// PublishTracksForUpload publishes the place.stream.media.track records for an
+// upload's probe metadata + signing key, returning the fresh strongRefs to use
+// as the video record's source. Returns an empty slice when the probe has no
+// A/V streams. Shared by the draft publish path and the clip publish path.
+func PublishTracksForUpload(ctx context.Context, client XRPCClient, did string, upload *statedb.Upload) ([]comatproto.RepoStrongRef, error) {
 	probe, err := unmarshalProbe(upload.ProbeJSON)
 	if err != nil {
 		return nil, err
@@ -230,15 +250,7 @@ func publishTracksFromUpload(ctx context.Context, state *statedb.StatefulDB, cli
 		}
 		tracks = append(tracks, *ref)
 	}
-	if len(tracks) == 0 {
-		return nil, nil
-	}
-	log.Log(ctx, "published media.track records (deferred to publish)",
-		"uploadId", upload.ID, "cid", upload.ContentCID, "tracks", len(tracks))
-	return &placestream.MediaDefs_SourceTracks{
-		LexiconTypeID: "place.stream.media.defs#sourceTracks",
-		Tracks:        tracks,
-	}, nil
+	return tracks, nil
 }
 
 func derefInt64(p *int64) int64 {

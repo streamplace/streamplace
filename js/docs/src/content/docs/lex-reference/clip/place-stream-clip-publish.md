@@ -1,0 +1,152 @@
+---
+title: place.stream.clip.publish
+description: Reference for the place.stream.clip.publish lexicon
+---
+
+**Lexicon Version:** 1
+
+## Definitions
+
+<a name="main"></a>
+
+### `main`
+
+**Type:** `procedure`
+
+Publish a clip from an existing ephemeral draft. Creates two records in the clipper's repository: first a place.stream.video (the standalone content, uploaded as a blob), then a place.stream.clip.entry (metadata referencing the video and the source livestream). The clip record is authoritative for title and description; both are copied to the video record. If the clip record creation fails, the video URI is returned so the client can retry.
+
+**Parameters:** _(None defined)_
+
+**Input:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name          | Type      | Req'd | Description                                                         | Constraints                               |
+| ------------- | --------- | ----- | ------------------------------------------------------------------- | ----------------------------------------- |
+| `clipId`      | `string`  | ✅    | The clip ID returned by place.stream.clip.create.                   |                                           |
+| `livestream`  | `string`  | ✅    | AT URI of the place.stream.livestream this clip was created from.   | Format: `at-uri`                          |
+| `start`       | `integer` | ✅    | Start time of the clip in the original livestream, in milliseconds. |                                           |
+| `end`         | `integer` | ✅    | End time of the clip in the original livestream, in milliseconds.   |                                           |
+| `title`       | `string`  | ✅    | Title of the clip. Authoritative; copied to the video record.       | Max Length: 1400<br/>Max Graphemes: 140   |
+| `description` | `string`  | ❌    | Description of the clip. Authoritative; copied to the video record. | Max Length: 50000<br/>Max Graphemes: 5000 |
+
+**Output:**
+
+- **Encoding:** `application/json`
+- **Schema:**
+
+**Schema Type:** `object`
+
+| Name       | Type     | Req'd | Description                                                                                                      | Constraints      |
+| ---------- | -------- | ----- | ---------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `videoUri` | `string` | ✅    | AT URI of the created place.stream.video record.                                                                 | Format: `at-uri` |
+| `videoCid` | `string` | ✅    | CID of the created place.stream.video record.                                                                    | Format: `cid`    |
+| `clipUri`  | `string` | ❌    | AT URI of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded. | Format: `at-uri` |
+| `clipCid`  | `string` | ❌    | CID of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded.    | Format: `cid`    |
+
+**Possible Errors:**
+
+- `Unauthorized`: The request lacks valid authentication credentials.
+- `DraftNotFound`: No draft with the given URI belongs to the authenticated user, or it has expired.
+- `DraftExpired`: The ephemeral clip has passed its 10-minute TTL and can no longer be published.
+
+---
+
+## Lexicon Source
+
+```json
+{
+  "lexicon": 1,
+  "id": "place.stream.clip.publish",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Publish a clip from an existing ephemeral draft. Creates two records in the clipper's repository: first a place.stream.video (the standalone content, uploaded as a blob), then a place.stream.clip.entry (metadata referencing the video and the source livestream). The clip record is authoritative for title and description; both are copied to the video record. If the clip record creation fails, the video URI is returned so the client can retry.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["clipId", "livestream", "start", "end", "title"],
+          "properties": {
+            "clipId": {
+              "type": "string",
+              "description": "The clip ID returned by place.stream.clip.create."
+            },
+            "livestream": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT URI of the place.stream.livestream this clip was created from."
+            },
+            "start": {
+              "type": "integer",
+              "description": "Start time of the clip in the original livestream, in milliseconds."
+            },
+            "end": {
+              "type": "integer",
+              "description": "End time of the clip in the original livestream, in milliseconds."
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 1400,
+              "maxGraphemes": 140,
+              "description": "Title of the clip. Authoritative; copied to the video record."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 50000,
+              "maxGraphemes": 5000,
+              "description": "Description of the clip. Authoritative; copied to the video record."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["videoUri", "videoCid"],
+          "properties": {
+            "videoUri": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT URI of the created place.stream.video record."
+            },
+            "videoCid": {
+              "type": "string",
+              "format": "cid",
+              "description": "CID of the created place.stream.video record."
+            },
+            "clipUri": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "AT URI of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded."
+            },
+            "clipCid": {
+              "type": "string",
+              "format": "cid",
+              "description": "CID of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The request lacks valid authentication credentials."
+        },
+        {
+          "name": "DraftNotFound",
+          "description": "No draft with the given URI belongs to the authenticated user, or it has expired."
+        },
+        {
+          "name": "DraftExpired",
+          "description": "The ephemeral clip has passed its 10-minute TTL and can no longer be published."
+        }
+      ]
+    }
+  }
+}
+```

@@ -53,6 +53,8 @@ type Server struct {
 	// --view-log-flush-interval is 0 or no playback store is wired.
 	viewLog *viewlog.Writer
 	aliases map[string]string
+	// clipLimiter enforces per-viewer and per-stream rate limits for clip creation.
+	clipLimiter *clipRateLimiter
 }
 
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
@@ -75,6 +77,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 		playbackStore:   playbackStore,
 		viewLog:         viewLog,
 		aliases:         aliases,
+		clipLimiter:     newClipRateLimiter(),
 	}
 	e.Use(s.ErrorHandlingMiddleware())
 	e.Use(s.ContextPreservingMiddleware())

@@ -57,7 +57,8 @@ Record granting moderation permissions to a user for this streamer's content.
                 "hide",
                 "livestream.manage",
                 "message.pin",
-                "vod.comment.hide"
+                "vod.comment.hide",
+                "clip.hide"
               ]
             },
             "description": "Array of permissions granted to this moderator. 'ban' covers blocks/bans (with optional expiration), 'hide' covers message gates, 'livestream.manage' allows updating livestream metadata."

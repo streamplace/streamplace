@@ -47,6 +47,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useStore } from "store";
 import { MobileChatPanel } from "./chat";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
@@ -67,6 +68,7 @@ export function MobileUi({
 }) {
   const { theme } = useTheme();
   const navigation = useNavigation();
+  const openLoginModal = useStore((state) => state.openLoginModal);
   const {
     ingest,
     title,
@@ -232,6 +234,12 @@ export function MobileUi({
                     >
                       <PlayerUI.Viewers />
                     </View>
+
+                    {/* Only offer clipping while watching someone else's live
+                        stream — not VOD, not your own ingest. */}
+                    {mode !== "vod" && ls !== null && ingest === null && (
+                      <PlayerUI.ClipButton onLoginRequired={openLoginModal} />
+                    )}
                   </View>
 
                   <RightControlsPanel

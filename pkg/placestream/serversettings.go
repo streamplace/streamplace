@@ -21,6 +21,8 @@ type ServerSettings struct {
 	LexiconTypeID string `json:"$type,omitempty"`
 	// debugRecording: Whether this node may archive your livestream for improving the service
 	DebugRecording *bool `json:"debugRecording,omitempty"`
+	// livestreamClipping: Whether viewers can create clips from your live broadcasts
+	LivestreamClipping *bool `json:"livestreamClipping,omitempty"`
 	// livestreamRecording: Whether this node should record your livestreams into VODs that you can publish
 	LivestreamRecording *bool `json:"livestreamRecording,omitempty"`
 }

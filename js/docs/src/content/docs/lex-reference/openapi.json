@@ -1962,6 +1962,90 @@
         }
       }
     },
+    "/xrpc/place.stream.moderation.createClipGate": {
+      "post": {
+        "summary": "Create a gate (hide clip) on behalf of a streamer. Requires 'clip.hide' permission. Creates a place.stream.clip.gate record in the streamer's repository.",
+        "operationId": "place.stream.moderation.createClipGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "uri": {
+                      "type": "string",
+                      "description": "The AT-URI of the created gate record.",
+                      "format": "uri"
+                    },
+                    "cid": {
+                      "type": "string",
+                      "description": "The CID of the created gate record.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["uri", "cid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "clipUri": {
+                    "type": "string",
+                    "description": "The AT-URI of the place.stream.clip.entry record to hide.",
+                    "format": "uri"
+                  },
+                  "clipCid": {
+                    "type": "string",
+                    "description": "The CID of the place.stream.clip.entry record to hide.",
+                    "format": "cid"
+                  }
+                },
+                "required": ["streamer", "clipUri"]
+              }
+            }
+          }
+        }
+      }
+    },
     "/xrpc/place.stream.moderation.createGate": {
       "post": {
         "summary": "Create a gate (hide message) on behalf of a streamer. Requires 'hide' permission. Creates a place.stream.chat.gate record in the streamer's repository.",
@@ -2289,6 +2373,73 @@
                   }
                 },
                 "required": ["streamer", "blockUri"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.moderation.deleteClipGate": {
+      "post": {
+        "summary": "Delete a clip gate on behalf of a streamer. Requires 'clip.hide' permission. Deletes the place.stream.clip.gate record from the streamer's repository.",
+        "operationId": "place.stream.moderation.deleteClipGate",
+        "tags": ["place.stream.moderation"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer.",
+                    "format": "did"
+                  },
+                  "uri": {
+                    "type": "string",
+                    "description": "The AT-URI of the gate record to delete.",
+                    "format": "uri"
+                  }
+                },
+                "required": ["streamer", "uri"]
               }
             }
           }
@@ -3793,6 +3944,296 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.clip.cancel": {
+      "post": {
+        "summary": "Cancel an unpublished clip draft: deletes the ephemeral muxed file immediately instead of waiting for the 10-minute TTL sweep, and removes the draft row. Fails if the draft was already published.",
+        "operationId": "place.stream.clip.cancel",
+        "tags": ["place.stream.clip"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "cancelled": {
+                      "type": "boolean",
+                      "description": "True when the draft's ephemeral file was deleted."
+                    }
+                  },
+                  "required": ["cancelled"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "DraftNotFound"
+                        },
+                        {
+                          "const": "AlreadyPublished"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clipId": {
+                    "type": "string",
+                    "description": "The clip ID returned by place.stream.clip.create."
+                  }
+                },
+                "required": ["clipId"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.clip.create": {
+      "post": {
+        "summary": "Create an ephemeral clip from a streamer's live broadcast. Grabs the last N milliseconds from the streamer's moderation buffer, muxes it into a temporary MP4, and creates a VOD draft pre-filled with the muxed content. The clipper has 10 minutes to edit and publish before the ephemeral file is deleted. Requires the streamer to have clipping enabled (livestreamClipping setting). Rate-limited per viewer and per stream.",
+        "operationId": "place.stream.clip.create",
+        "tags": ["place.stream.clip"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "clipId": {
+                      "type": "string",
+                      "description": "ID of the created ephemeral clip. Pass to place.stream.clip.publish within 10 minutes."
+                    },
+                    "previewUrl": {
+                      "type": "string",
+                      "description": "URL to the ephemeral MP4 for preview in the clip editor. Valid until expiresAt."
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "description": "When the ephemeral clip file and draft will be deleted. Always 10 minutes from creation.",
+                      "format": "date-time"
+                    },
+                    "durationMs": {
+                      "type": "integer",
+                      "description": "Actual duration of the muxed content, in milliseconds. May be less than requested if the buffer had fewer segments."
+                    }
+                  },
+                  "required": [
+                    "clipId",
+                    "previewUrl",
+                    "expiresAt",
+                    "durationMs"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "ClippingDisabled"
+                        },
+                        {
+                          "const": "RateLimited"
+                        },
+                        {
+                          "const": "NotLive"
+                        },
+                        {
+                          "const": "NoContent"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "streamer": {
+                    "type": "string",
+                    "description": "The DID of the streamer whose live broadcast is being clipped.",
+                    "format": "did"
+                  },
+                  "durationMs": {
+                    "type": "integer",
+                    "description": "Duration of content to grab from the buffer, in milliseconds. Defaults to 60 seconds. Maximum is the buffer window (120 seconds).",
+                    "default": 60000,
+                    "minimum": 1000,
+                    "maximum": 120000
+                  }
+                },
+                "required": ["streamer"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/xrpc/place.stream.clip.publish": {
+      "post": {
+        "summary": "Publish a clip from an existing ephemeral draft. Creates two records in the clipper's repository: first a place.stream.video (the standalone content, uploaded as a blob), then a place.stream.clip.entry (metadata referencing the video and the source livestream). The clip record is authoritative for title and description; both are copied to the video record. If the clip record creation fails, the video URI is returned so the client can retry.",
+        "operationId": "place.stream.clip.publish",
+        "tags": ["place.stream.clip"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "videoUri": {
+                      "type": "string",
+                      "description": "AT URI of the created place.stream.video record.",
+                      "format": "uri"
+                    },
+                    "videoCid": {
+                      "type": "string",
+                      "description": "CID of the created place.stream.video record.",
+                      "format": "cid"
+                    },
+                    "clipUri": {
+                      "type": "string",
+                      "description": "AT URI of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded.",
+                      "format": "uri"
+                    },
+                    "clipCid": {
+                      "type": "string",
+                      "description": "CID of the created place.stream.clip.entry record. Absent if clip record creation failed but video succeeded.",
+                      "format": "cid"
+                    }
+                  },
+                  "required": ["videoUri", "videoCid"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "DraftNotFound"
+                        },
+                        {
+                          "const": "DraftExpired"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "clipId": {
+                    "type": "string",
+                    "description": "The clip ID returned by place.stream.clip.create."
+                  },
+                  "livestream": {
+                    "type": "string",
+                    "description": "AT URI of the place.stream.livestream this clip was created from.",
+                    "format": "uri"
+                  },
+                  "start": {
+                    "type": "integer",
+                    "description": "Start time of the clip in the original livestream, in milliseconds."
+                  },
+                  "end": {
+                    "type": "integer",
+                    "description": "End time of the clip in the original livestream, in milliseconds."
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Title of the clip. Authoritative; copied to the video record.",
+                    "maxLength": 1400
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the clip. Authoritative; copied to the video record.",
+                    "maxLength": 50000
+                  }
+                },
+                "required": ["clipId", "livestream", "start", "end", "title"]
               }
             }
           }

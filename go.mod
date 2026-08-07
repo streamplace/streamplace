@@ -20,6 +20,7 @@ require (
 	github.com/NYTimes/gziphandler v1.1.1
 	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/ThalesGroup/crypto11 v0.0.0-00010101000000-000000000000
+	github.com/abema/go-mp4 v1.4.1
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
 	github.com/aws/aws-sdk-go-v2 v1.41.4
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.12
@@ -159,7 +160,6 @@ require (
 	github.com/RussellLuo/slidingwindow v0.0.0-20200528002341-535bb99d338b // indirect
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.13.0 // indirect
-	github.com/abema/go-mp4 v1.4.1 // indirect
 	github.com/agnivade/levenshtein v1.2.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.17.2 // indirect
 	github.com/alecthomas/go-check-sumtype v0.3.1 // indirect

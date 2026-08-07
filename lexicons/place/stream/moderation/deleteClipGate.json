@@ -1,0 +1,43 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.moderation.deleteClipGate",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Delete a clip gate on behalf of a streamer. Requires 'clip.hide' permission. Deletes the place.stream.clip.gate record from the streamer's repository.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["streamer", "uri"],
+          "properties": {
+            "streamer": {
+              "type": "string",
+              "format": "did",
+              "description": "The DID of the streamer."
+            },
+            "uri": {
+              "type": "string",
+              "format": "at-uri",
+              "description": "The AT-URI of the gate record to delete."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [],
+          "properties": {}
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The request lacks valid authentication credentials."
+        }
+      ]
+    }
+  }
+}

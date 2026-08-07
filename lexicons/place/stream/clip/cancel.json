@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.clip.cancel",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Cancel an unpublished clip draft: deletes the ephemeral muxed file immediately instead of waiting for the 10-minute TTL sweep, and removes the draft row. Fails if the draft was already published.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["clipId"],
+          "properties": {
+            "clipId": {
+              "type": "string",
+              "description": "The clip ID returned by place.stream.clip.create."
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["cancelled"],
+          "properties": {
+            "cancelled": {
+              "type": "boolean",
+              "description": "True when the draft's ephemeral file was deleted."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The request lacks valid authentication credentials."
+        },
+        {
+          "name": "DraftNotFound",
+          "description": "No unpublished draft with the given ID belongs to the authenticated user."
+        },
+        {
+          "name": "AlreadyPublished",
+          "description": "The draft has already been published and cannot be cancelled."
+        }
+      ]
+    }
+  }
+}

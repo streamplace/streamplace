@@ -125,7 +125,7 @@ func sourceTracksFromUpload(upload *statedb.Upload) ([]comatproto.RepoStrongRef,
 	if upload.TrackURIs == "" {
 		return nil, nil
 	}
-	var refs []trackRefJSON
+	var refs []TrackRefJSON
 	if err := json.Unmarshal([]byte(upload.TrackURIs), &refs); err != nil {
 		return nil, fmt.Errorf("decode track refs: %w", err)
 	}

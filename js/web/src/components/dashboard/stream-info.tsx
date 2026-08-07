@@ -195,11 +195,14 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
 
       if (!hasLivestream || isEnded) {
         // Create new livestream
-        const result = await agent.client.call(place.stream.live.startLivestream, {
-          livestream: record,
-          streamer: agent.did as any,
-          createBlueskyPost: createPost,
-        });
+        const result = await agent.client.call(
+          place.stream.live.startLivestream,
+          {
+            livestream: record,
+            streamer: agent.did as any,
+            createBlueskyPost: createPost,
+          },
+        );
         toast.success(
           t("livestream-announced", { defaultValue: "Livestream announced" }),
         );

@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { UploadForm } from "@/components/dashboard/upload-form";
 import { useUpload } from "@/hooks/use-upload";
 import { useSession } from "@/lib/session";
@@ -13,6 +12,7 @@ import {
   Video,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { place } from "streamplace";
 
 export const Route = createFileRoute("/dashboard/videos")({
   component: DashboardVideosPage,

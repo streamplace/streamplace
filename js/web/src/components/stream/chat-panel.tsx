@@ -8,7 +8,7 @@ import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { type ChatMessageViewHydrated, place } from "streamplace";
+import { place, type ChatMessageViewHydrated } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSession } from "../../lib/session";

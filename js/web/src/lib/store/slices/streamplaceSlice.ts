@@ -117,9 +117,12 @@ export const createStreamplaceSlice: StateCreator<
     if (!pdsAgent) {
       throw new Error("no pdsAgent");
     }
-    const result = await pdsAgent.client.call(place.stream.live.getRecommendations, {
-      userDID: userDID as any,
-    });
+    const result = await pdsAgent.client.call(
+      place.stream.live.getRecommendations,
+      {
+        userDID: userDID as any,
+      },
+    );
     return result;
   },
 });

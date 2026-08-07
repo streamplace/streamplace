@@ -1,9 +1,9 @@
-import { place } from "streamplace";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 export const Route = createFileRoute("/settings/badges")({
@@ -40,7 +40,10 @@ function BadgeSelectionManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const res = await agent.client.call(place.stream.badge.getIssuedBadges, {});
+      const res = await agent.client.call(
+        place.stream.badge.getIssuedBadges,
+        {},
+      );
       setStreamerSlot(res.streamer as BadgeSlot | null);
       setUserSlot(res.user as BadgeSlot | null);
     } catch (error: any) {

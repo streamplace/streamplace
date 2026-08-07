@@ -166,9 +166,12 @@ export function useUpload() {
       if (!agent) return;
       const check = async () => {
         try {
-          const res = await agent.client.call(place.stream.media.getUploadStatus, {
-            uploadId,
-          });
+          const res = await agent.client.call(
+            place.stream.media.getUploadStatus,
+            {
+              uploadId,
+            },
+          );
           const data = res;
 
           if (data.status === "done" && data.tracks) {

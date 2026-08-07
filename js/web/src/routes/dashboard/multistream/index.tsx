@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +13,7 @@ import { Edit2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../../lib/store/hooks";
 
 export const Route = createFileRoute("/dashboard/multistream/")({
@@ -71,9 +71,12 @@ function MultistreamManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const res = await agent.client.call(place.stream.multistream.listTargets, {
-        limit: 50,
-      });
+      const res = await agent.client.call(
+        place.stream.multistream.listTargets,
+        {
+          limit: 50,
+        },
+      );
       setTargets(res.targets as unknown as MultistreamTarget[]);
     } catch (error: any) {
       console.error("Failed to load multistream targets:", error);

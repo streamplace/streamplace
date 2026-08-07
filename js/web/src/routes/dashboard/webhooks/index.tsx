@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -15,6 +14,7 @@ import { Edit2, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../../lib/store/hooks";
 
 export const Route = createFileRoute("/dashboard/webhooks/")({
@@ -82,9 +82,12 @@ function WebhookManager() {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.client.call(place.stream.server.listWebhooks, {
-        limit: 50,
-      });
+      const response = await agent.client.call(
+        place.stream.server.listWebhooks,
+        {
+          limit: 50,
+        },
+      );
       const hooks = (response.webhooks as Webhook[] | undefined) ?? [];
       setWebhooks(hooks);
     } catch (error: any) {
@@ -152,7 +155,9 @@ function WebhookManager() {
     if (!agent || !deleteTarget) return;
     try {
       setDeletingIds((prev) => new Set(prev).add(deleteTarget.id));
-      await agent.client.call(place.stream.server.deleteWebhook, { id: deleteTarget.id });
+      await agent.client.call(place.stream.server.deleteWebhook, {
+        id: deleteTarget.id,
+      });
       setDeleteTarget(null);
       await loadWebhooks();
     } catch (error: any) {

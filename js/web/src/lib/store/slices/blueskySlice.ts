@@ -27,10 +27,7 @@ import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/act
 import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
-import {
-  StreamplaceAgent,
-  place,
-} from "streamplace";
+import { StreamplaceAgent, place } from "streamplace";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../oauth";
 import { storage } from "../../storage";

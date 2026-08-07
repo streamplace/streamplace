@@ -1,10 +1,10 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 export const Route = createFileRoute("/settings/branding")({

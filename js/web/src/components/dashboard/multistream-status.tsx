@@ -1,9 +1,9 @@
-import { place } from "streamplace";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
 import { Globe, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 interface MultistreamTarget {
@@ -70,9 +70,12 @@ export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
     if (!agent) return;
     try {
       setLoading(true);
-      const response = await agent.client.call(place.stream.multistream.listTargets, {
-        limit: 50,
-      });
+      const response = await agent.client.call(
+        place.stream.multistream.listTargets,
+        {
+          limit: 50,
+        },
+      );
       setTargets(response.targets as unknown as MultistreamTarget[]);
     } catch (error) {
       console.error("Failed to load multistream targets:", error);

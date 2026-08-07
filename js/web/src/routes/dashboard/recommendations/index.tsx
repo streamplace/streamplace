@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
 import {
@@ -31,6 +30,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../../lib/store/hooks";
 
 export const Route = createFileRoute("/dashboard/recommendations/")({
@@ -246,10 +246,13 @@ function RecommendationsManager() {
       }
       try {
         setSearching(true);
-        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
-          q: query,
-          limit: 10,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q: query,
+            limit: 10,
+          },
+        );
         setSearchResults(
           response.actors.map((a: any) => ({
             did: a.did,

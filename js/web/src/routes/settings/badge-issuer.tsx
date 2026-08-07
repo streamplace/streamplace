@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createFileRoute } from "@tanstack/react-router";
@@ -6,6 +5,7 @@ import { Check, ChevronLeft, ImagePlus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { usePDSAgent } from "../../lib/store/hooks";
 
 export const Route = createFileRoute("/settings/badge-issuer")({
@@ -124,7 +124,8 @@ function BadgeIssuerPanel() {
         imageBlob = uploaded.data.blob;
       }
 
-      await agent.client.create(place.stream.badge.def, 
+      await agent.client.create(
+        place.stream.badge.def,
         {
           name: createName.trim(),
           description: createDescription.trim() || undefined,
@@ -157,7 +158,8 @@ function BadgeIssuerPanel() {
     if (!agent?.did || !selectedDef || !recipientDid.trim() || working) return;
     setWorking(true);
     try {
-      await agent.client.create(place.stream.badge.issuance, 
+      await agent.client.create(
+        place.stream.badge.issuance,
         {
           did: recipientDid.trim() as any,
           badge: { uri: selectedDef.uri as any, cid: selectedDef.cid },

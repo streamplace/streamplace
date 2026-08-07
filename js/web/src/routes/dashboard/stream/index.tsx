@@ -1,4 +1,3 @@
-import { place } from "streamplace";
 import { useDashboardStore } from "@/components/dashboard/dashboard-store-context";
 import { Admonition } from "@/components/ui/admonition";
 import { Button } from "@/components/ui/button";
@@ -34,6 +33,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { place } from "streamplace";
 import { useStore as useZustandStore } from "zustand";
 
 export const Route = createFileRoute("/dashboard/stream/")({

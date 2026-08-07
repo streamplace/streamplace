@@ -1,8 +1,8 @@
-import { place } from "streamplace";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { place } from "streamplace";
 import useAvatars from "../hooks/use-avatars";
 import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
 import { useSession } from "../lib/session";
@@ -51,10 +51,13 @@ export default function Header() {
       }
       try {
         setSearching(true);
-        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
-          q,
-          limit: 8,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q,
+            limit: 8,
+          },
+        );
         setResults(
           response.actors.map((a: any) => ({
             did: a.did,

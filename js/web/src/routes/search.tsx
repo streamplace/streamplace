@@ -45,10 +45,13 @@ function SearchPage() {
       }
       try {
         setSearching(true);
-        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
-          q,
-          limit: 20,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q,
+            limit: 20,
+          },
+        );
         setResults(
           response.actors.map((a: any) => ({
             did: a.did,

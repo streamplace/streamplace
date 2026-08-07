@@ -24,7 +24,7 @@ export function useLiveUsers() {
     queryKey: ["liveUsers"],
     queryFn: async (): Promise<LivestreamView[]> => {
       const agent = await getAgent();
-      const result = await agent.client.call(place.stream.live.getLiveUsers, );
+      const result = await agent.client.call(place.stream.live.getLiveUsers);
       return (result.streams ?? []) as LivestreamView[];
     },
     refetchInterval: REFETCH_INTERVAL,

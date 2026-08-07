@@ -135,7 +135,7 @@ export default function () {
       android: {
         adaptiveIcon: {
           foregroundImage: "./assets/images/adaptive-icon.png",
-          backgroundColor: "#ffffff",
+          backgroundColor: "#111113",
         },
         package: bundle,
         edgeToEdgeEnabled: true,

@@ -1,4 +1,4 @@
-import { Button, Icon, Text, zero } from "@streamplace/components";
+import { Button, Icon, Text, useTheme, zero } from "@streamplace/components";
 import { Plus } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -27,6 +27,7 @@ const FollowButton: React.FC<FollowButtonProps> = ({
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [followUri, setFollowUri] = useState<string | null>(null);
+  const { theme } = useTheme();
   const streamplaceUrl = useStreamplaceUrl();
   const followUser = useStore((state) => state.followUser);
   const unfollowUser = useStore((state) => state.unfollowUser);
@@ -123,7 +124,9 @@ const FollowButton: React.FC<FollowButtonProps> = ({
         disabled={isFollowing === null}
         loading={isFollowing === null}
         leftIcon={!isFollowing && <Icon icon={Plus} size="sm" />}
-        hoverStyle={isFollowing ? { backgroundColor: "#dc2626" } : undefined}
+        hoverStyle={
+          isFollowing ? { backgroundColor: theme.colors.danger } : undefined
+        }
       >
         {isFollowing === null
           ? "Loading..."
@@ -131,7 +134,11 @@ const FollowButton: React.FC<FollowButtonProps> = ({
             ? "Following"
             : "Follow"}
       </Button>
-      {error && <Text style={[{ color: "#c00" }, zero.ml[2]]}>{error}</Text>}
+      {error && (
+        <Text style={[{ color: theme.colors.danger }, zero.ml[2]]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 };

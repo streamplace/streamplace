@@ -1,6 +1,7 @@
 import { useNavigation } from "@react-navigation/native";
 import {
   ContentWarningBadge,
+  hexToRgba,
   PlayerStatus,
   PlayerUI,
   Slider,
@@ -24,6 +25,13 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  colors,
+  motion,
+  scrims,
+  statusColors,
+  textAlphas,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { px, py } from "@streamplace/components/src/ui";
 import { Image } from "expo-image";
 import {
@@ -117,19 +125,20 @@ export function MobileUi({
   const isSelfAndNotLive = ingest !== null && ls === null;
   const isSelfAndLive = ingest !== null && ls !== null;
 
-  const FADE_OUT_DELAY = 4000;
+  // Controls auto-hide after 3s of inactivity (design-system standard)
+  const FADE_OUT_DELAY = 3000;
   const internalFadeOpacity = useSharedValue(1);
   const fadeOpacity = sharedFadeOpacity ?? internalFadeOpacity;
   const fadeTimeout = useRef<NodeJS.Timeout | null>(null);
   const selectedRendition = usePlayerStore((state) => state.selectedRendition);
 
   const resetFadeTimer = () => {
-    fadeOpacity.value = withTiming(1, { duration: 200 });
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
     fadeTimeout.current = setTimeout(() => {
-      fadeOpacity.value = withTiming(0, { duration: 400 });
+      fadeOpacity.value = withTiming(0, { duration: motion.slow });
     }, FADE_OUT_DELAY);
   };
 
@@ -142,7 +151,7 @@ export function MobileUi({
 
   const showUI = () => {
     "worklet";
-    fadeOpacity.value = withTiming(1, { duration: 200 });
+    fadeOpacity.value = withTiming(1, { duration: motion.base });
   };
 
   const onPlayerHover = () => {
@@ -224,7 +233,7 @@ export function MobileUi({
                       style={[
                         {
                           padding: 9,
-                          backgroundColor: "rgba(90,90,90, 0.3)",
+                          backgroundColor: scrims.light,
                           borderRadius: 12,
                         },
                         r[2],
@@ -350,7 +359,7 @@ function LeftControlsPanel({
           {
             padding: 3,
             paddingRight: 8,
-            backgroundColor: "rgba(90,90,90, 0.25)",
+            backgroundColor: scrims.light,
             borderRadius: 12,
             alignSelf: "flex-start",
           },
@@ -365,7 +374,7 @@ function LeftControlsPanel({
                 : navigation.navigate("MainTabs" as any, { screen: "HomeTab" });
             }}
           >
-            <ChevronLeft color="white" />
+            <ChevronLeft color={colors.white} />
           </Pressable>
           <Image
             source={
@@ -411,14 +420,17 @@ function LeftControlsPanel({
             style={[
               {
                 padding: 4,
-                backgroundColor: "rgba(50, 30, 30, 0.4)",
+                backgroundColor: scrims.light,
                 borderRadius: 999,
                 borderWidth: 2,
-                borderColor: "rgba(255, 120, 120, 0.2)",
+                borderColor: hexToRgba(statusColors.dark.danger, 0.2),
               },
             ]}
           >
-            <VolumeX size="24" color="rgba(255,120,120,0.8)" />
+            <VolumeX
+              size="24"
+              color={hexToRgba(statusColors.dark.danger, 0.8)}
+            />
           </View>
           <Text color="muted" size="sm">
             Tap to unmute
@@ -485,7 +497,7 @@ function RightControlsPanel({
       <View
         style={[
           {
-            backgroundColor: "rgba(90,90,90, 0.3)",
+            backgroundColor: scrims.light,
             borderRadius: 12,
             paddingVertical: 2.25 * 4,
           },
@@ -566,9 +578,9 @@ function RightControlsPanel({
             }}
           >
             {showChat ? (
-              <ChevronRight color="white" size={20} />
+              <ChevronRight color={colors.white} size={20} />
             ) : (
-              <ChevronLeft color="white" size={20} />
+              <ChevronLeft color={colors.white} size={20} />
             )}
           </Pressable>
         )}
@@ -579,7 +591,7 @@ function RightControlsPanel({
           style={[
             {
               padding: 10,
-              backgroundColor: "rgba(90,90,90, 0.9)",
+              backgroundColor: scrims.dark,
               borderRadius: 12,
               width: 150,
               height: 36,
@@ -610,7 +622,7 @@ function RightControlsPanel({
                 position: "absolute",
                 width: "100%",
                 height: 3,
-                backgroundColor: "rgba(255,255,255,0.3)",
+                backgroundColor: textAlphas.dark[4],
                 borderRadius: 999,
                 top: "50%",
                 transform: [{ translateY: -1.5 }],
@@ -619,7 +631,7 @@ function RightControlsPanel({
               <Slider.Range
                 style={{
                   position: "absolute",
-                  backgroundColor: "white",
+                  backgroundColor: colors.white,
                   borderRadius: 999,
                   height: 3,
                   top: 0,
@@ -631,7 +643,7 @@ function RightControlsPanel({
                   width: 16,
                   height: 16,
                   borderRadius: 8,
-                  backgroundColor: "white",
+                  backgroundColor: colors.white,
                   top: -6.5,
                   transform: [{ translateX: -8 }],
                 }}

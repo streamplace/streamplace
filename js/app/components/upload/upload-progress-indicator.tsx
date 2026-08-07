@@ -128,11 +128,7 @@ export default function UploadProgressIndicator() {
           borderRadius: 12,
           padding: 12,
           gap: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25,
-          shadowRadius: 12,
-          elevation: 8,
+          ...theme.shadows.lg,
         }}
       >
         {jobs.map((job) => (

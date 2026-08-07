@@ -51,8 +51,7 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
   ) => {
     const [isFocused, setIsFocused] = React.useState(false);
     const { theme } = useTheme();
-    const placeholderTextColor =
-      placeholderTextColorProp ?? theme.colors.textMuted;
+    const placeholderTextColor = placeholderTextColorProp ?? theme.colors.text3;
 
     let isInBottomSheet = false;
     try {
@@ -100,7 +99,13 @@ export const InputRoot = forwardRef<any, InputPrimitiveProps>(
     );
 
     const colorStyles = {
-      borderColor: error ? theme.colors.destructive : theme.colors.border,
+      borderColor: error
+        ? theme.colors.danger
+        : isFocused
+          ? theme.colors.ring
+          : theme.colors.border,
+      backgroundColor: theme.colors.input,
+      color: theme.colors.text1,
       ...(disabled && {
         backgroundColor: theme.colors.muted,
         opacity: 0.6,
@@ -148,11 +153,11 @@ export const InputContainer = forwardRef<View, InputContainerProps>(
 
     const colorStyles = {
       borderColor: error
-        ? theme.colors.destructive
+        ? theme.colors.danger
         : focused
           ? theme.colors.ring
           : theme.colors.border,
-      backgroundColor: theme.colors.background,
+      backgroundColor: theme.colors.input,
       ...(disabled && {
         backgroundColor: theme.colors.muted,
         opacity: 0.6,
@@ -364,20 +369,22 @@ InputGroup.displayName = "InputGroup";
 
 const structuralStyles = StyleSheet.create({
   input: {
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 16,
+    minHeight: tokens.touchTargets.minimum,
+    paddingHorizontal: tokens.spacing[3],
+    paddingVertical: tokens.spacing[2],
+    // 16px (typeScale.md), not base — inputs under 16px trigger zoom-on-focus
+    // in mobile web browsers
+    fontSize: tokens.typeScale.md.fontSize,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: tokens.borderRadius.md,
     boxShadow: "none",
     fontFamily: tokens.fontFamilies.regular,
     ...Platform.select({
       ios: {
-        paddingVertical: 12,
+        paddingVertical: tokens.spacing[3],
       },
       android: {
-        paddingVertical: 8,
+        paddingVertical: tokens.spacing[2],
         textAlignVertical: "center",
       },
     }),
@@ -386,33 +393,37 @@ const structuralStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    minHeight: 44,
+    borderRadius: tokens.borderRadius.md,
+    paddingHorizontal: tokens.spacing[3],
+    minHeight: tokens.touchTargets.minimum,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    marginBottom: 4,
+    fontSize: tokens.typeScale.sm.fontSize,
+    lineHeight: tokens.typeScale.sm.lineHeight,
+    fontWeight: tokens.fontWeights.medium,
+    fontFamily: tokens.fontFamilies.medium,
+    marginBottom: tokens.spacing[1],
   },
   description: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: tokens.typeScale.xs.fontSize,
+    lineHeight: tokens.typeScale.xs.lineHeight,
+    marginTop: tokens.spacing[1],
   },
   error: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: tokens.typeScale.xs.fontSize,
+    lineHeight: tokens.typeScale.xs.lineHeight,
+    marginTop: tokens.spacing[1],
   },
   addon: {
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: tokens.spacing[2],
   },
   addonLeft: {
-    marginRight: 8,
+    marginRight: tokens.spacing[2],
   },
   addonRight: {
-    marginLeft: 8,
+    marginLeft: tokens.spacing[2],
   },
   group: {
     flexDirection: "column",

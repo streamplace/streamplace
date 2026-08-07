@@ -141,12 +141,12 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
       onOpenChange={onOpenChange}
       showCloseButton={false}
       variant="default"
-      size="sm"
+      size="md"
       dismissible={false}
       position="center"
     >
-      <View style={[{ maxWidth: 500 }]}>
-        <View style={[zero.my[4]]}>
+      <View style={[{ width: "100%", maxWidth: 640 }]}>
+        <View style={[zero.mt[2], zero.mb[3]]}>
           <Text size="2xl" style={[zero.mb[2]]}>
             {t("pds-selector-title")}
           </Text>
@@ -155,26 +155,76 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
           </Text>
         </View>
         <View style={[zero.pb[2]]}>
-          {SHUFFLED_PDS_HOSTS.map((host, index) => (
+          <View
+            style={[
+              zero.layout.flex.row,
+              { flexWrap: "wrap" },
+              zero.gap.all[2],
+            ]}
+          >
+            {SHUFFLED_PDS_HOSTS.map((host) => (
+              <Pressable
+                key={host.value}
+                onPress={() => handleSelectHost(host.value)}
+                style={[
+                  zero.py[2],
+                  zero.px[3],
+                  zero.r.lg,
+                  { flexGrow: 1, flexBasis: "46%", minWidth: 200 },
+                  {
+                    borderWidth: 1,
+                    borderColor:
+                      !useCustom && selectedHost === host.value
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                    backgroundColor:
+                      !useCustom && selectedHost === host.value
+                        ? theme.colors.surface2
+                        : "transparent",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    zero.layout.flex.row,
+                    zero.layout.flex.spaceBetween,
+                    zero.layout.flex.alignCenter,
+                  ]}
+                >
+                  <View style={[zero.flex[1]]}>
+                    <Text>{host.label}</Text>
+                    <Text
+                      style={[
+                        zero.mt[1],
+                        { fontSize: 14, color: theme.colors.textMuted },
+                      ]}
+                    >
+                      {host.description}
+                    </Text>
+                  </View>
+                  {!useCustom && selectedHost === host.value && (
+                    <Check size={20} color={theme.colors.primary} />
+                  )}
+                </View>
+              </Pressable>
+            ))}
+
             <Pressable
-              key={host.value}
-              onPress={() => handleSelectHost(host.value)}
+              onPress={handleSelectCustom}
               style={[
                 zero.py[2],
                 zero.px[3],
                 zero.r.lg,
+                { flexGrow: 1, flexBasis: "46%", minWidth: 200 },
                 {
                   borderWidth: 1,
-                  borderColor:
-                    !useCustom && selectedHost === host.value
-                      ? theme.colors.primary
-                      : theme.colors.border,
-                  backgroundColor:
-                    !useCustom && selectedHost === host.value
-                      ? "rgba(0, 122, 255, 0.05)"
-                      : "transparent",
+                  borderColor: useCustom
+                    ? theme.colors.primary
+                    : theme.colors.border,
+                  backgroundColor: useCustom
+                    ? theme.colors.surface2
+                    : "transparent",
                 },
-                index > 0 && zero.mt[2],
               ]}
             >
               <View
@@ -185,64 +235,22 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
                 ]}
               >
                 <View style={[zero.flex[1]]}>
-                  <Text>{host.label}</Text>
+                  <Text>{t("pds-selector-custom-label")}</Text>
                   <Text
                     style={[
                       zero.mt[1],
                       { fontSize: 14, color: theme.colors.textMuted },
                     ]}
                   >
-                    {host.description}
+                    {t("pds-selector-custom-description")}
                   </Text>
                 </View>
-                {!useCustom && selectedHost === host.value && (
-                  <Check size={20} color={theme.colors.primary} />
-                )}
+                {useCustom && <Check size={20} color={theme.colors.primary} />}
               </View>
             </Pressable>
-          ))}
+          </View>
 
-          <Pressable
-            onPress={handleSelectCustom}
-            style={[
-              zero.py[2],
-              zero.px[3],
-              zero.r.lg,
-              zero.mt[2],
-              {
-                borderWidth: 1,
-                borderColor: useCustom
-                  ? theme.colors.primary
-                  : theme.colors.border,
-                backgroundColor: useCustom
-                  ? "rgba(0, 122, 255, 0.05)"
-                  : "transparent",
-              },
-            ]}
-          >
-            <View
-              style={[
-                zero.layout.flex.row,
-                zero.layout.flex.spaceBetween,
-                zero.layout.flex.alignCenter,
-              ]}
-            >
-              <View style={[zero.flex[1]]}>
-                <Text>{t("pds-selector-custom-label")}</Text>
-                <Text
-                  style={[
-                    zero.mt[1],
-                    { fontSize: 14, color: theme.colors.textMuted },
-                  ]}
-                >
-                  {t("pds-selector-custom-description")}
-                </Text>
-              </View>
-              {useCustom && <Check size={20} color={theme.colors.primary} />}
-            </View>
-          </Pressable>
-
-          <View style={[zero.mt[4]]}>
+          <View style={[zero.mt[3]]}>
             <Pressable
               onPress={handleLearnMore}
               style={[
@@ -273,7 +281,7 @@ export const PdsHostSelectorModal: React.FC<PdsHostSelectorModalProps> = ({
               />
             </View>
           )}
-          <Admonition variant="info" style={[zero.my[4]] as any}>
+          <Admonition variant="info" style={[zero.my[3]] as any}>
             <Text style={[zero.mb[2]]}>{t("pds-selector-info")}</Text>
             {!useCustom && (
               <Text style={[zero.mb[2]]}>

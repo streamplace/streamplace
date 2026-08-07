@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
+import { colors as tokensColors } from "../../lib/theme/tokens";
 import { PlayerProvider } from "../../player-store/player-provider";
 import { usePlayerStore } from "../../player-store/player-store";
 import { useMuted, useSetMuted } from "../../streamplace-store";
@@ -78,7 +79,13 @@ function VodPlayerInner({
   }, [mutedProp]);
 
   return (
-    <View style={{ width: "100%", height: "100%", backgroundColor: "#000" }}>
+    <View
+      style={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: tokensColors.black,
+      }}
+    >
       {storeSrc === src ? (
         <Video
           objectFit={objectFit}

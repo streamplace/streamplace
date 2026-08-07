@@ -3,6 +3,7 @@ import {
   Input,
   Slider,
   Text,
+  useTheme,
   View,
   zero,
 } from "@streamplace/components";
@@ -12,6 +13,7 @@ import { Platform, ScrollView, useWindowDimensions } from "react-native";
 import { SettingToggle } from "./components/setting-toggle";
 
 export function DanmuCategorySettings() {
+  const { theme } = useTheme();
   const { t } = useTranslation("settings");
   const {
     danmuEnabled,
@@ -110,7 +112,7 @@ export function DanmuCategorySettings() {
                   <Slider.Track
                     style={{
                       height: 4,
-                      backgroundColor: "#374151",
+                      backgroundColor: theme.colors.surface3,
                       borderRadius: 2,
                       width: "100%",
                     }}
@@ -126,7 +128,7 @@ export function DanmuCategorySettings() {
                         width: 20,
                         height: 20,
                         borderRadius: 10,
-                        backgroundColor: "#3b82f6",
+                        backgroundColor: theme.colors.primary,
                         transform: [{ translateY: -8 }],
                       }}
                     />
@@ -207,7 +209,7 @@ export function DanmuCategorySettings() {
                   <Slider.Track
                     style={{
                       height: 4,
-                      backgroundColor: "#374151",
+                      backgroundColor: theme.colors.surface3,
                       borderRadius: 2,
                       width: "100%",
                     }}
@@ -223,7 +225,7 @@ export function DanmuCategorySettings() {
                         width: 20,
                         height: 20,
                         borderRadius: 10,
-                        backgroundColor: "#3b82f6",
+                        backgroundColor: theme.colors.primary,
                         transform: [{ translateY: -8 }],
                       }}
                     />
@@ -300,7 +302,7 @@ export function DanmuCategorySettings() {
                   <Slider.Track
                     style={{
                       height: 4,
-                      backgroundColor: "#374151",
+                      backgroundColor: theme.colors.surface3,
                       borderRadius: 2,
                       width: "100%",
                     }}
@@ -316,7 +318,7 @@ export function DanmuCategorySettings() {
                         width: 20,
                         height: 20,
                         borderRadius: 10,
-                        backgroundColor: "#3b82f6",
+                        backgroundColor: theme.colors.primary,
                         transform: [{ translateY: -8 }],
                       }}
                     />
@@ -393,7 +395,7 @@ export function DanmuCategorySettings() {
                   <Slider.Track
                     style={{
                       height: 4,
-                      backgroundColor: "#374151",
+                      backgroundColor: theme.colors.surface3,
                       borderRadius: 2,
                       width: "100%",
                     }}
@@ -409,7 +411,7 @@ export function DanmuCategorySettings() {
                         width: 20,
                         height: 20,
                         borderRadius: 10,
-                        backgroundColor: "#3b82f6",
+                        backgroundColor: theme.colors.primary,
                         transform: [{ translateY: -8 }],
                       }}
                     />

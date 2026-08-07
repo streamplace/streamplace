@@ -21,6 +21,11 @@ import {
   VodSection,
 } from "@streamplace/components";
 import { gap, h, pt, w } from "@streamplace/components/src/lib/theme/atoms";
+import {
+  motion,
+  borderRadius as radiusTokens,
+  spacing as spacingTokens,
+} from "@streamplace/components/src/lib/theme/tokens";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import { ArrowLeft } from "lucide-react-native";
@@ -82,7 +87,10 @@ function PlayerWithProvider(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
   },
 ) {
-  let [showChat, setShowChat] = useState(true);
+  // Chat visibility is a persisted preference (survives reloads), except VOD
+  // playback which never shows the live chat panel.
+  const setShowChat = useStore((state) => state.setChatVisible);
+  let showChat = useStore((state) => state.chatVisible);
   if (props.mode === "vod") {
     showChat = false;
   }
@@ -173,9 +181,14 @@ function PlayerWithProvider(
   if (props.mode === "vod") {
     chatSection = null;
   } else if (isPortraitLandscapeCase) {
+    // Mobile portrait watching a landscape stream: YouTube grammar —
+    // video on top, title/streamer row beneath, chat below that.
     chatSection = (
       <>
         <MobileUi hideMobileChat={true} showChat />
+        {!props.ingest && !showUnavailable && (
+          <BottomMetadata compact setShowChat={setShowChat} showChat />
+        )}
         <MobileChatPanel isPlayerRatioGreater={true} fixed={true} />
       </>
     );
@@ -309,7 +322,11 @@ export function PlayerInner(
     contentWidth,
     availableHeight,
   } = useResponsiveLayout({
-    sidebarWidth: sb.animatedWidth,
+    // The actual horizontal space the sidebar reserves from content — 0 in
+    // overlay mode (detail views), so the player fills the width up to the chat.
+    // Plain reactive number (not the shared value) so the width is correct on
+    // the first render, including a direct page load.
+    sidebarWidth: sb.contentMargin,
     sidebarHidden: !sb.isActive,
     showChatSidePanelOnLandscape: props.showChat,
   });
@@ -339,9 +356,9 @@ export function PlayerInner(
 
   useEffect(() => {
     if (props.showUnavailable) {
-      heightMultiplier.value = withTiming(0.65, { duration: 500 });
+      heightMultiplier.value = withTiming(0.65, { duration: motion.slow });
     } else {
-      heightMultiplier.value = withTiming(1, { duration: 500 });
+      heightMultiplier.value = withTiming(1, { duration: motion.slow });
     }
   }, [props.showUnavailable]);
 
@@ -382,16 +399,27 @@ export function PlayerInner(
   const maxDesktopHeight = availableHeight * 0.8;
   const chatVisible = shouldShowChatSidePanel && props.showChat;
 
-  const calculatedWidth = chatVisible
-    ? contentWidth - chatPanelWidth
-    : contentWidth;
+  const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
+  const isLandscape = aspectRatio > 1;
+
+  // Desktop theater framing: the player floats in a padded well with
+  // rounded corners (YouTube grammar) instead of running edge-to-edge.
+  const playerPad = showFullDesktopMode && !fullscreen ? spacingTokens[6] : 0;
+
+  // Web VOD pages have a sticky translucent header (56px) rendered by the shell;
+  // reserve space so the video starts below it and scrolls under it.
+  const vodHeaderPad =
+    Platform.OS === "web" && props.mode === "vod" && sb.isActive && !fullscreen
+      ? 56
+      : 0;
+
+  const calculatedWidth =
+    (chatVisible ? contentWidth - chatPanelWidth : contentWidth) -
+    playerPad * 2;
 
   const calculatedHeight = isDesktopMode
     ? Math.min(calculatedWidth / aspectRatio, maxDesktopHeight)
     : height;
-
-  const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
-  const isLandscape = aspectRatio > 1;
 
   // When fullscreen or the device is rotated to landscape, a width-100% +
   // aspectRatio VOD box is taller than the screen and clips off the bottom.
@@ -448,7 +476,7 @@ export function PlayerInner(
   // description can't flex-shrink the player.
   if (props.mode === "vod" && !showFullDesktopMode && !fullscreen) {
     return (
-      <View style={{ flex: 1, paddingTop: safeAreaInsets.top }}>
+      <View style={{ flex: 1, paddingTop: safeAreaInsets.top + vodHeaderPad }}>
         <Reanimated.View
           style={{
             width: "100%",
@@ -476,16 +504,25 @@ export function PlayerInner(
       style={{
         height: showFullDesktopMode ? "100%" : undefined,
         flex: 1,
-        maxWidth: calculatedWidth,
+        maxWidth: calculatedWidth + playerPad * 2,
       }}
       contentContainerStyle={
         showFullDesktopMode
           ? {
               flexGrow: 1, // This makes content expand to fill available space
               minHeight: "100%", // Ensures minimum height
+              ...(fullscreen
+                ? {}
+                : {
+                    paddingHorizontal: playerPad,
+                    paddingTop: spacingTokens[4] + vodHeaderPad,
+                  }),
             }
           : props.mode === "vod"
-            ? { flexGrow: 1, paddingTop: safeAreaInsets.top }
+            ? {
+                flexGrow: 1,
+                paddingTop: safeAreaInsets.top + vodHeaderPad,
+              }
             : {
                 flex: 1,
               }
@@ -499,6 +536,12 @@ export function PlayerInner(
           showFullDesktopMode
             ? {
                 width: calculatedWidth,
+                ...(fullscreen
+                  ? {}
+                  : {
+                      borderRadius: radiusTokens.lg,
+                      overflow: "hidden" as const,
+                    }),
               }
             : props.mode === "vod"
               ? vodFillScreen
@@ -583,7 +626,7 @@ export function LivestreamWarning() {
               // we want to keep loading until the firehose tells us the stream is stopped
             }
           }}
-          variant="destructive"
+          variant="danger"
           disabled={loading}
         >
           <View

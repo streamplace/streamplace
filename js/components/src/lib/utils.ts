@@ -83,7 +83,7 @@ export function hexToRgba(hex: string, alpha: number = 1): string {
   const g = parseInt(result[2], 16);
   const b = parseInt(result[3], 16);
 
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`; // token-ok: color utility implementation
 }
 
 /**

@@ -7,23 +7,25 @@ import {
 } from "lucide-react-native";
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { Linking, Pressable, View } from "react-native";
+import { statusColors, textAlphas } from "../../lib/theme/tokens";
 import { useLivestreamStore } from "../../livestream-store";
 import { LivestreamProblem } from "../../livestream-store/livestream-state";
 import * as zero from "../../ui";
-import { Button, Text } from "../ui";
+import { Button, Text, useTheme } from "../ui";
 
-const { bg, r, borders, p, text, layout, gap } = zero;
+const { r, p, layout, gap } = zero;
 
+// Linear-style severity: colored icon, no heavy tinted fills
 const getIcon = (severity: string) => {
   switch (severity) {
     case "error":
-      return <CircleX size={24} color="white" />;
+      return <CircleX size={20} color={statusColors.dark.danger} />;
     case "warning":
-      return <CircleAlert size={24} color="white" />;
+      return <CircleAlert size={20} color={statusColors.dark.warning} />;
     case "info":
-      return <Info size={24} color="white" />;
+      return <Info size={20} color={textAlphas.dark[2]} />;
     default:
-      return <Sparkle size={24} color="white" />;
+      return <Sparkle size={20} color={textAlphas.dark[2]} />;
   }
 };
 
@@ -34,13 +36,14 @@ const Problems = ({
   probs: LivestreamProblem[];
   onIgnore: () => void;
 }) => {
+  const { theme } = useTheme();
   return (
     <View style={[gap.all[4]]}>
       <View style={[gap.all[2]]}>
-        <Text size="2xl" style={[text.white, { fontWeight: "600" }]}>
+        <Text size="xl" weight="semibold">
           Optimize Your Stream
         </Text>
-        <Text style={[text.gray[300]]}>
+        <Text size="sm" color="muted">
           We've found a few things that could improve your stream's reliability.
         </Text>
       </View>
@@ -54,25 +57,10 @@ const Problems = ({
               { gap: 8, alignItems: "flex-start" },
             ]}
           >
-            <View
-              style={[
-                zero.r.full,
-                zero.p[1],
-                {
-                  backgroundColor:
-                    p.severity === "error"
-                      ? "#7f1d1d"
-                      : p.severity === "warning"
-                        ? "#7c2d12"
-                        : "#1e3a8a",
-                },
-              ]}
-            >
-              {getIcon(p.severity)}
-            </View>
+            <View style={[zero.p[1]]}>{getIcon(p.severity)}</View>
             <View style={[{ flex: 1 }, gap.all[1]]}>
-              <Text style={[text.white, { fontWeight: "600" }]}>{p.code}</Text>
-              <Text style={[text.gray[400], { fontSize: 14 }]}>
+              <Text weight="semibold">{p.code}</Text>
+              <Text size="sm" color="muted">
                 {p.message}
               </Text>
               {p.link && (
@@ -84,10 +72,10 @@ const Problems = ({
                       gap.all[2],
                     ]}
                   >
-                    <Text style={[{ color: "#3b82f6", fontSize: 14 }]}>
+                    <Text size="sm" style={{ color: theme.colors.primary }}>
                       Learn More
                     </Text>
-                    <ExternalLink size={12} color="#3b82f6" />
+                    <ExternalLink size={12} color={theme.colors.primary} />
                   </View>
                 </Pressable>
               )}
@@ -96,8 +84,8 @@ const Problems = ({
         </View>
       ))}
       <View style={[layout.flex.row, layout.flex.justify.end]}>
-        <Button onPress={onIgnore} variant="secondary">
-          <Text style={[text.white, { fontWeight: "600" }]}>Acknowledge</Text>
+        <Button onPress={onIgnore} variant="secondary" width="min">
+          Acknowledge
         </Button>
       </View>
     </View>
@@ -114,6 +102,7 @@ export const ProblemsWrapper = forwardRef<
     children: React.ReactElement;
   }
 >(({ children }, ref) => {
+  const { theme } = useTheme();
   const problems = useLivestreamStore((x) => x.problems);
   const [dismiss, setDismiss] = useState(false);
 
@@ -133,7 +122,7 @@ export const ProblemsWrapper = forwardRef<
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.8)",
+              backgroundColor: theme.colors.overlay,
               zIndex: 100,
             },
             layout.flex.center,
@@ -143,12 +132,15 @@ export const ProblemsWrapper = forwardRef<
         >
           <View
             style={[
-              bg.neutral[900],
-              borders.color.neutral[700],
-              borders.width.thin,
               r.lg,
               p[8],
-              { maxWidth: 700, width: "100%" },
+              {
+                backgroundColor: theme.colors.surface2,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSubtle,
+                maxWidth: 700,
+                width: "100%",
+              },
             ]}
           >
             <Problems probs={problems} onIgnore={() => setDismiss(true)} />

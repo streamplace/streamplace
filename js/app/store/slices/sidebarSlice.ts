@@ -8,9 +8,16 @@ export interface SidebarSlice {
   isHidden: boolean;
   targetWidth: number;
   isLoaded: boolean;
+  // Overlay/drawer mode — on detail views (Stream, Video) the sidebar leaves
+  // the flow and opens as a drawer over the dimmed content instead of pushing.
+  overlay: boolean;
+  drawerOpen: boolean;
   setSidebarHidden: () => void;
   setSidebarUnhidden: () => void;
   toggleSidebar: () => void;
+  setOverlay: (overlay: boolean) => void;
+  toggleDrawer: () => void;
+  closeDrawer: () => void;
   loadStateFromStorage: () => Promise<void>;
 }
 
@@ -42,6 +49,21 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
   isHidden: false,
   targetWidth: 250,
   isLoaded: false,
+  overlay: false,
+  drawerOpen: false,
+  setOverlay: (overlay: boolean) => {
+    set((state) => {
+      if ((state as SidebarSlice).overlay === overlay) return {};
+      // Entering or leaving overlay mode always starts with the drawer closed.
+      return { overlay, drawerOpen: false };
+    });
+  },
+  toggleDrawer: () => {
+    set((state) => ({ drawerOpen: !(state as SidebarSlice).drawerOpen }));
+  },
+  closeDrawer: () => {
+    set({ drawerOpen: false });
+  },
   setSidebarHidden: () => {
     set((state) => {
       const isHidden = true;

@@ -1,3 +1,4 @@
+import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
@@ -49,14 +50,14 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 999,
-    backgroundColor: "red",
+    backgroundColor: statusColors.live,
     position: "absolute",
   },
   pulseDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "red",
+    backgroundColor: statusColors.live,
     position: "absolute",
   },
 });

@@ -7,14 +7,13 @@ import { memo, useCallback } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Facet, RichtextSegment, segmentize } from "../../lib/facet";
-import { borders, flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
+import { tabularNums, textAlphas } from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  atoms,
-  colors,
   layout,
   useTheme,
 } from "../ui";
@@ -28,8 +27,58 @@ import {
   useProfileCardData,
 } from "./user-profile-card";
 
-const getRgbColor = (color?: { red: number; green: number; blue: number }) =>
-  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : colors.gray[500];
+// Deterministic per-user color, clamped for contrast against the near-black
+// chat surface: colors that are too dark get mixed toward white until they
+// clear a minimum luminance. Same input always yields the same output.
+const MIN_LUMA = 110; // 0-255 relative luminance floor
+const clampChannel = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+const getRgbColor = (color?: {
+  red: number;
+  green: number;
+  blue: number;
+}): string => {
+  if (!color) return textAlphas.dark[2];
+  let { red, green, blue } = color;
+  const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  if (luma < MIN_LUMA) {
+    // mix toward white just enough to reach the floor
+    const t = (MIN_LUMA - luma) / (255 - luma || 1);
+    red = red + (255 - red) * t;
+    green = green + (255 - green) * t;
+    blue = blue + (255 - blue) * t;
+  }
+  return `rgb(${clampChannel(red)}, ${clampChannel(green)}, ${clampChannel(blue)})`; // token-ok: dynamic user color / soft shadow
+};
+
+const LinkSegment = ({
+  seg,
+  index,
+}: {
+  seg: RichtextSegment;
+  index: number;
+}) => {
+  const { theme } = useTheme();
+  const linkFtr = seg.features?.[0] as $Typed<Link>;
+  return (
+    <Text
+      key={`link-${index}`}
+      style={{ color: theme.colors.info, cursor: "pointer" }}
+      // @ts-ignore href renders as <a> on web
+      href={Platform.OS === "web" ? linkFtr.uri : undefined}
+      accessibilityRole="link"
+      onPress={(e) => {
+        if (Platform.OS === "web") {
+          e.preventDefault();
+          window.open(linkFtr.uri, "_blank");
+        } else {
+          Linking.openURL(linkFtr.uri || "");
+        }
+      }}
+    >
+      {seg.text}
+    </Text>
+  );
+};
 
 const renderSegment = (
   seg: RichtextSegment,
@@ -43,26 +92,7 @@ const renderSegment = (
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#link") {
-    const linkFtr = ftr as $Typed<Link>;
-    return (
-      <Text
-        key={`link-${index}`}
-        style={{ color: atoms.colors.ios.systemBlue, cursor: "pointer" }}
-        // @ts-ignore href renders as <a> on web
-        href={Platform.OS === "web" ? linkFtr.uri : undefined}
-        accessibilityRole="link"
-        onPress={(e) => {
-          if (Platform.OS === "web") {
-            e.preventDefault();
-            window.open(linkFtr.uri, "_blank");
-          } else {
-            Linking.openURL(linkFtr.uri || "");
-          }
-        }}
-      >
-        {seg.text}
-      </Text>
-    );
+    return <LinkSegment key={`link-${index}`} seg={seg} index={index} />;
   }
 
   if (ftr.$type === "app.bsky.richtext.facet#mention") {
@@ -100,9 +130,10 @@ export const RichTextMessage = ({
 
 // Web flows the whole message inline inside a single <Text>, with the badges +
 // handle rendered as an inline-block via display: "inline".
+// Chat is dense but legible: 13px (size sm), handles in medium weight.
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   return (
-    <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+    <Text size="sm" style={[flex.shrink[1], { minWidth: 0 }]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
         <View
           style={
@@ -117,6 +148,8 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
         >
           <BadgeDisplayRow badges={item.badges} />
           <Text
+            size="sm"
+            weight="medium"
             style={{
               cursor: "pointer",
               color: getRgbColor(item.chatProfile?.color),
@@ -126,7 +159,9 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
           </Text>
         </View>
       </UserProfileCard>
-      <Text color="default">{": "}</Text>
+      <Text size="sm" color="default">
+        {": "}
+      </Text>
       <RichTextMessage
         text={item.record.text}
         facets={item.record.facets || []}
@@ -155,8 +190,8 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              // match the base text line height so badges center on the first line
-              height: 24,
+              // match the sm text line height so badges center on the first line
+              height: 18,
               // iOS centers glyphs higher in the line box than Android
               marginTop: Platform.OS === "ios" ? -2 : 0,
             }}
@@ -165,13 +200,19 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
           </Pressable>
         </DropdownMenuTrigger>
       )}
-      <Text style={[flex.shrink[1], { minWidth: 0 }]}>
+      <Text size="sm" style={[flex.shrink[1], { minWidth: 0 }]}>
         <DropdownMenuTrigger asChild>
-          <Text style={{ color: getRgbColor(item.chatProfile?.color) }}>
+          <Text
+            size="sm"
+            weight="medium"
+            style={{ color: getRgbColor(item.chatProfile?.color) }}
+          >
             {formatHandleWithAt(item.author)}
           </Text>
         </DropdownMenuTrigger>
-        <Text color="default">{": "}</Text>
+        <Text size="sm" color="default">
+          {": "}
+        </Text>
         <RichTextMessage
           text={item.record.text}
           facets={item.record.facets || []}
@@ -195,6 +236,7 @@ export const RenderChatMessage = memo(
     showReply?: boolean;
     showTime?: boolean;
   }) {
+    const { theme } = useTheme();
     const formatTime = useCallback((dateString: string) => {
       return new Date(dateString).toLocaleString(undefined, {
         hour: "2-digit",
@@ -211,14 +253,17 @@ export const RenderChatMessage = memo(
               gap.all[2],
               layout.flex.row,
               { minWidth: 0, maxWidth: "100%" },
-              borders.left.width.medium,
-              borders.left.color.gray[700],
+              {
+                borderLeftWidth: 2,
+                borderLeftColor: theme.colors.borderStrong,
+              },
               ml[4],
               pl[4],
               opacity[80],
             ]}
           >
             <Text
+              size="xs"
               numberOfLines={1}
               style={[
                 flex.shrink[1],
@@ -227,16 +272,18 @@ export const RenderChatMessage = memo(
               ]}
             >
               <Text
+                size="xs"
+                weight="medium"
                 style={{
                   color: getRgbColor(replyTo.chatProfile?.color),
-                  fontWeight: "thin",
                 }}
               >
                 {formatHandleWithAt(replyTo.author)}
               </Text>{" "}
               <Text
+                size="xs"
                 style={{
-                  color: colors.gray[300],
+                  color: theme.colors.text3,
                   fontStyle: "italic",
                 }}
               >
@@ -248,11 +295,12 @@ export const RenderChatMessage = memo(
         <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
           {showTime && (
             <Text
+              size="xs"
               style={{
-                fontVariant: ["tabular-nums"],
-                color: colors.gray[400],
+                ...tabularNums,
+                color: theme.colors.text3,
                 marginRight: 8,
-                marginTop: Platform.OS === "web" ? 1 : 2,
+                marginTop: Platform.OS === "web" ? 2 : 3,
               }}
             >
               {formatTime(item.record.createdAt)}

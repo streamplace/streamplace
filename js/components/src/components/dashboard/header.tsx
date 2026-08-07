@@ -1,99 +1,37 @@
-import { AlertCircle, Radio } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
+import {
+  borderAlphas,
+  fontFamilies,
+  surfaces,
+  textAlphas,
+} from "../../lib/theme/tokens";
 import * as zero from "../../ui";
+import { Badge, LiveBadge } from "../ui/badge";
 
-const { bg, r, borders, px, py, text, layout, gap } = zero;
+const { r, borders, px, py, text, layout, gap } = zero;
 
-interface MetricItemProps {
-  icon: any;
-  label: string;
-  value: string;
-  status?: "good" | "warning" | "error" | "pre-live";
-}
-
-function MetricItem({ icon: Icon, label, value, status }: MetricItemProps) {
-  const statusColors = {
-    good: text.green[400],
-    warning: text.yellow[400],
-    error: text.red[400],
-  };
-
-  const statusColor = status ? statusColors[status] : text.gray[300];
-
+// A single console readout — uppercase micro-label over a GeistMono value.
+function MetaReadout({ label, value }: { label: string; value: string }) {
   return (
-    <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-      <Icon size={16} color="#9ca3af" />
-      <View style={[layout.flex.column]}>
-        <Text style={[text.gray[400], { fontSize: 11, fontWeight: "500" }]}>
-          {label}
-        </Text>
-        <Text style={[statusColor, { fontSize: 13, fontWeight: "600" }]}>
-          {value}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-interface StatusIndicatorProps {
-  status: "excellent" | "good" | "poor" | "offline" | "pre-live";
-  isLive: boolean;
-}
-
-function StatusIndicator({ status, isLive }: StatusIndicatorProps) {
-  const getStatusColor = () => {
-    if (!isLive) return bg.gray[500];
-    switch (status) {
-      case "pre-live":
-        return bg.blue[500];
-      case "excellent":
-        return bg.green[500];
-      case "good":
-        return bg.yellow[500];
-      case "poor":
-        return bg.orange[500];
-      case "offline":
-        return bg.red[500];
-      default:
-        return bg.gray[500];
-    }
-  };
-
-  const getStatusText = () => {
-    if (!isLive) return "OFFLINE";
-    switch (status) {
-      case "pre-live":
-        return "NOT LIVE";
-      case "excellent":
-        return "EXCELLENT";
-      case "good":
-        return "GOOD";
-      case "poor":
-        return "POOR";
-      case "offline":
-        return "OFFLINE";
-      default:
-        return "UNKNOWN";
-    }
-  };
-
-  return (
-    <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-      <View
-        style={[
-          { width: 8, height: 8, borderRadius: 4 },
-          getStatusColor(),
-          !isLive && { opacity: 0.6 },
-        ]}
-      />
+    <View style={{ gap: 2 }}>
+      <Text
+        style={{
+          color: textAlphas.dark[3],
+          fontSize: 11,
+          fontWeight: "500",
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Text>
       <Text
         style={[
           text.white,
-          { fontSize: 12, fontWeight: "700", letterSpacing: 0.5 },
-          !isLive && text.gray[400],
+          { fontSize: 14, fontFamily: fontFamilies.monoMedium },
         ]}
       >
-        {getStatusText()}
+        {value}
       </Text>
     </View>
   );
@@ -108,6 +46,7 @@ interface HeaderProps {
   connectionStatus?: "excellent" | "good" | "poor" | "offline" | "pre-live";
   problemsCount?: number;
   onProblemsPress?: () => void;
+  avatarUrl?: string;
 }
 
 export default function Header({
@@ -115,16 +54,23 @@ export default function Header({
   streamTitle = "Live Stream",
   uptime = "00:00:00",
   bitrate = "0 mbps",
-  timeBetweenSegments = 0,
-  connectionStatus = "offline",
+  connectionStatus,
   problemsCount = 0,
   onProblemsPress,
+  avatarUrl,
 }: HeaderProps) {
-  const getConnectionQuality = (): "good" | "warning" | "error" => {
-    if (timeBetweenSegments <= 1500) return "good";
-    if (timeBetweenSegments <= 3000) return "warning";
-    return "error";
-  };
+  // Three distinct states, so the badge never contradicts the preview/health:
+  //   offline  — no ingest
+  //   preview  — segments flowing but not published ("Start Livestream!" unpressed)
+  //   live     — published to the network (red, reserved)
+  const isPreview = isLive && connectionStatus === "pre-live";
+  const isTrulyLive = isLive && !isPreview;
+
+  // Uptime is only meaningful once we have a real start; OBS ingest never sets
+  // the app's ingest clock, so it reads a dead "00:00:00" — drop it then.
+  const showUptime = isTrulyLive && uptime !== "00:00:00";
+  // Bitrate confirms signal in both preview and live.
+  const showBitrate = isLive && bitrate !== "0 mbps";
 
   return (
     <View
@@ -134,62 +80,59 @@ export default function Header({
         r.lg,
         layout.flex.row,
         layout.flex.spaceBetween,
-        bg.neutral[900],
+        layout.flex.alignCenter,
+        { backgroundColor: surfaces.dark[1] },
         borders.width.thin,
-        borders.color.neutral[700],
+        { borderColor: borderAlphas.dark.strong },
       ]}
     >
-      {/* Left side - Stream title and status */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[4]]}>
-        <View>
-          <Text style={[text.white, { fontSize: 18, fontWeight: "600" }]}>
+      {/* Identity + status */}
+      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              backgroundColor: surfaces.dark[2],
+            }}
+          />
+        ) : null}
+        <View style={{ gap: 5 }}>
+          <Text
+            style={[text.white, { fontSize: 15, fontWeight: "600" }]}
+            numberOfLines={1}
+          >
             {streamTitle}
           </Text>
-          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-            <StatusIndicator status={connectionStatus} isLive={isLive} />
-            {problemsCount > 0 && (
-              <Pressable onPress={onProblemsPress}>
-                <View
-                  style={[
-                    layout.flex.row,
-                    layout.flex.alignCenter,
-                    gap.all[1],
-                    px[2],
-                    py[1],
-                    r.md,
-                    bg.orange[900],
-                    borders.width.thin,
-                    borders.color.orange[700],
-                    { marginVertical: -8 },
-                  ]}
-                >
-                  <AlertCircle size={14} color="#fb923c" />
-                  <Text
-                    style={[
-                      text.orange[400],
-                      { fontSize: 11, fontWeight: "600" },
-                    ]}
-                  >
-                    {problemsCount} {problemsCount === 1 ? "Issue" : "Issues"}
-                  </Text>
-                </View>
-              </Pressable>
+          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
+            {isTrulyLive ? (
+              <LiveBadge />
+            ) : isPreview ? (
+              <Badge variant="accent">PREVIEW</Badge>
+            ) : (
+              <Badge>OFFLINE</Badge>
             )}
+            {problemsCount > 0 ? (
+              <Pressable onPress={onProblemsPress}>
+                <Badge variant="warning">
+                  {problemsCount} {problemsCount === 1 ? "Issue" : "Issues"}
+                </Badge>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </View>
 
-      {/* Right side - Stream metrics */}
-      <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[6]]}>
-        {!isLive && (
-          <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-            <Radio size={16} color="#6b7280" />
-            <Text style={[text.gray[400], { fontSize: 13 }]}>
-              Stream offline
-            </Text>
-          </View>
-        )}
-      </View>
+      {/* Live meta — mono readouts. Bitrate shows in preview too (signal check);
+          uptime only once truly live with a real clock. */}
+      {showUptime || showBitrate ? (
+        <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[6]]}>
+          {showUptime ? <MetaReadout label="Uptime" value={uptime} /> : null}
+          {showBitrate ? <MetaReadout label="Bitrate" value={bitrate} /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }

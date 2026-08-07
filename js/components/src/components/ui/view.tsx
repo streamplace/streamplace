@@ -285,23 +285,14 @@ export const View = forwardRef<RNView, ViewProps>(
 View.displayName = "View";
 
 // Convenience components
-export const Card = forwardRef<RNView, Omit<ViewProps, "variant">>(
-  (props, ref) => <View ref={ref} variant="card" {...props} />,
-);
-
-Card.displayName = "Card";
+// NOTE: the old `Card`/`Surface` View-variant wrappers moved to
+// ./surface.tsx as level-based components (see MIGRATION.md).
 
 export const Container = forwardRef<RNView, Omit<ViewProps, "variant">>(
   (props, ref) => <View ref={ref} variant="container" {...props} />,
 );
 
 Container.displayName = "Container";
-
-export const Surface = forwardRef<RNView, Omit<ViewProps, "variant">>(
-  (props, ref) => <View ref={ref} variant="surface" {...props} />,
-);
-
-Surface.displayName = "Surface";
 
 export const Overlay = forwardRef<RNView, Omit<ViewProps, "variant">>(
   (props, ref) => <View ref={ref} variant="overlay" {...props} />,

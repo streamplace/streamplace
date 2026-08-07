@@ -62,6 +62,7 @@ export default function ActivityPicker({
   >();
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
+  const [labelsExpanded, setLabelsExpanded] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputContainerRef = useRef<View>(null);
 
@@ -75,6 +76,13 @@ export default function ActivityPicker({
       : null;
 
   const showResults = searching || results.length > 0;
+
+  // The Game ⇄ Other Activity toggle only earns its place when both modes exist.
+  // With games disabled it's a single orphaned control, so we drop it and show
+  // the label chips directly.
+  const availableModes = (["game", "label"] as const).filter(
+    (m) => m !== "game" || gamesEnabled,
+  );
 
   useEffect(() => {
     if (!selectedGame || !agent || selectedCoverUrl !== undefined) return;
@@ -200,10 +208,9 @@ export default function ActivityPicker({
 
   return (
     <View style={[gap.all[2]]}>
-      <View style={[layout.flex.row, gap.all[2]]}>
-        {(["game", "label"] as const)
-          .filter((m) => m !== "game" || gamesEnabled)
-          .map((m) => (
+      {availableModes.length > 1 && (
+        <View style={[layout.flex.row, gap.all[2]]}>
+          {availableModes.map((m) => (
             <Pressable
               key={m}
               onPress={() => {
@@ -231,7 +238,8 @@ export default function ActivityPicker({
               </Text>
             </Pressable>
           ))}
-      </View>
+        </View>
+      )}
 
       {mode === "game" && (
         <View>
@@ -367,44 +375,73 @@ export default function ActivityPicker({
         </View>
       )}
 
-      {mode === "label" && (
-        <View style={[{ flexDirection: "row", flexWrap: "wrap" }, gap.all[2]]}>
-          {ACTIVITY_LABELS.map(({ value: labelValue, display }) => {
-            const selected = selectedLabel?.label === labelValue;
-            return (
-              <Pressable
-                key={labelValue}
-                onPress={() =>
-                  onChange(
-                    selected
-                      ? undefined
-                      : {
-                          $type: "place.stream.defs#activityLabel",
-                          label: labelValue,
-                        },
-                  )
-                }
-                style={[
-                  px[3],
-                  borders.width.thin,
-                  { paddingVertical: 6, borderRadius: 16 },
-                  { borderColor: selected ? c.primary : c.border },
-                  { backgroundColor: selected ? c.primary : "transparent" },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: selected ? c.primaryForeground : c.foreground,
-                    fontSize: 13,
-                  }}
+      {mode === "label" &&
+        (() => {
+          // Collapse the category cloud so it doesn't dominate the panel: show
+          // the first row's worth, always keep the selected chip visible, and
+          // expand the rest behind a "+N more".
+          const COLLAPSED_COUNT = 6;
+          const base = labelsExpanded
+            ? ACTIVITY_LABELS
+            : ACTIVITY_LABELS.slice(0, COLLAPSED_COUNT);
+          const selectedHidden =
+            selectedLabel && !base.some((l) => l.value === selectedLabel.label)
+              ? ACTIVITY_LABELS.find((l) => l.value === selectedLabel.label)
+              : undefined;
+          const shown = selectedHidden ? [...base, selectedHidden] : base;
+          const hiddenCount = ACTIVITY_LABELS.length - COLLAPSED_COUNT;
+
+          return (
+            <View
+              style={[{ flexDirection: "row", flexWrap: "wrap" }, gap.all[2]]}
+            >
+              {shown.map(({ value: labelValue, display }) => {
+                const selected = selectedLabel?.label === labelValue;
+                return (
+                  <Pressable
+                    key={labelValue}
+                    onPress={() =>
+                      onChange(
+                        selected
+                          ? undefined
+                          : {
+                              $type: "place.stream.defs#activityLabel",
+                              label: labelValue,
+                            },
+                      )
+                    }
+                    style={[
+                      px[3],
+                      borders.width.thin,
+                      { paddingVertical: 6, borderRadius: 16 },
+                      { borderColor: selected ? c.primary : c.border },
+                      { backgroundColor: selected ? c.primary : "transparent" },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: selected ? c.primaryForeground : c.foreground,
+                        fontSize: 13,
+                      }}
+                    >
+                      {display}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+              {hiddenCount > 0 && (
+                <Pressable
+                  onPress={() => setLabelsExpanded((v) => !v)}
+                  style={[px[3], { paddingVertical: 6, borderRadius: 16 }]}
                 >
-                  {display}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
+                  <Text style={{ color: c.mutedForeground, fontSize: 13 }}>
+                    {labelsExpanded ? "Show less" : `+${hiddenCount} more`}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          );
+        })()}
     </View>
   );
 }

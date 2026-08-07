@@ -5,6 +5,7 @@ import {
   VodPlayer,
   zero,
 } from "@streamplace/components";
+import { colors } from "@streamplace/components/src/lib/theme/tokens";
 import { Redirect } from "components/aqlink";
 import { DesktopUi } from "components/mobile/desktop-ui";
 import { useEffect } from "react";
@@ -33,7 +34,7 @@ export default function VodEmbedScreen({
   return (
     <VideoProvider aturi={aturi}>
       <LivestreamProvider src={aturi}>
-        <View style={[zero.flex.values[1], { backgroundColor: "#000" }]}>
+        <View style={[zero.flex.values[1], { backgroundColor: colors.black }]}>
           <VodPlayer src={aturi} embedded={true}>
             <DesktopUi />
           </VodPlayer>

@@ -8,6 +8,7 @@ import {
   animations,
   borderRadius,
   colors as rawColors,
+  scrims,
   shadows,
   spacing,
   touchTargets,
@@ -702,7 +703,8 @@ export const layouts = {
     alignItems: "center" as const,
   },
 
-  // Centered modal/overlay
+  // Centered modal/overlay (scrim color: prefer theme.colors.overlay so the
+  // scrim adapts to the color scheme)
   overlay: {
     position: "absolute" as const,
     top: 0,
@@ -711,7 +713,7 @@ export const layouts = {
     bottom: 0,
     justifyContent: "center" as const,
     alignItems: "center" as const,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: scrims.dark,
   },
 
   // Safe area friendly

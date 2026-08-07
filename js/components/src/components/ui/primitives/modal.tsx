@@ -94,6 +94,7 @@ export const ModalOverlay = forwardRef<
     },
     ref,
   ) => {
+    const { theme } = useTheme();
     const handlePress = React.useCallback(
       (event: GestureResponderEvent) => {
         if (dismissible && onDismiss) {
@@ -109,7 +110,11 @@ export const ModalOverlay = forwardRef<
     return (
       <TouchableOpacity
         ref={ref}
-        style={[primitiveStyles.overlay, style]}
+        style={[
+          primitiveStyles.overlay,
+          { backgroundColor: theme.colors.overlay },
+          style,
+        ]}
         activeOpacity={activeOpacity}
         onPress={handlePress}
         {...props}
@@ -335,7 +340,6 @@ const primitiveStyles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: 16,

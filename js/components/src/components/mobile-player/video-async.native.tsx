@@ -23,7 +23,6 @@ import {
 } from "../..";
 import {
   borderRadius,
-  colors,
   fontWeight,
   gap,
   h,
@@ -31,6 +30,7 @@ import {
   m,
   p,
 } from "../../lib/theme/atoms";
+import { statusColors } from "../../lib/theme/tokens";
 import { srcToUrl } from "./shared";
 import useWebRTC, { useWebRTCIngest } from "./use-webrtc";
 import { mediaDevices, WebRTCMediaStream } from "./webrtc-primitives.native";
@@ -471,7 +471,7 @@ export function NativeIngestPlayer(props?: {
   if (error) {
     return (
       <View
-        backgroundColor={colors.destructive[900]}
+        backgroundColor={statusColors.dark.danger}
         style={[p[4], m[4], gap.all[2], { borderRadius: borderRadius.md }]}
       >
         <View>

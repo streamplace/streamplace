@@ -10,17 +10,38 @@ import {
   Zap,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { LayoutChangeEvent, Text, TouchableOpacity, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Pressable,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Svg, { Path, Line as SvgLine, Text as SvgText } from "react-native-svg";
 import { useAQState } from "../../hooks";
-import { useLivestream, useSegment, useViewers } from "../../livestream-store";
+import {
+  borderAlphas,
+  colors,
+  statusColors,
+  surfaces,
+  tabularNums,
+  textAlphas,
+} from "../../lib/theme/tokens";
+import {
+  useLivestream,
+  useLivestreamStore,
+  useSegment,
+  useViewers,
+} from "../../livestream-store";
 import * as zero from "../../ui";
-import { InfoBox, InfoRow } from "../ui";
+import { Badge, InfoBox, InfoRow } from "../ui";
 
 interface InformationWidgetProps {
   embedMode?: boolean;
   wideMode?: boolean;
   showChart?: boolean;
+  /** Re-open the "Optimize Your Stream" panel (relocated here from the old header). */
+  onShowProblems?: () => void;
 }
 
 const BITRATE_HISTORY_LENGTH = 30;
@@ -31,6 +52,7 @@ export default function InformationWidget({
   embedMode = false,
   wideMode, // Optional override
   showChart = true,
+  onShowProblems,
 }: InformationWidgetProps) {
   const [bitrateHistory, setBitrateHistory] = useState<number[]>(
     Array.from({ length: BITRATE_HISTORY_LENGTH }, () => 0),
@@ -45,9 +67,20 @@ export default function InformationWidget({
 
   const isCompactHeight = layoutMeasured && componentHeight < 350;
 
+  // The chart fills whatever height is left after the title + metric tiles, so
+  // it can never spill past the card border. Clamped to stay legible and to not
+  // balloon on tall layouts. (Fixed content above ≈ 172 compact / 200 wide.)
+  const chartHeight = Math.round(
+    Math.max(
+      64,
+      Math.min(150, componentHeight - (isCompactHeight ? 172 : 200)),
+    ),
+  );
+
   const seg = useSegment();
   const livestream = useLivestream();
   const viewers = useViewers();
+  const problems = useLivestreamStore((x) => x.problems);
 
   const getBitrate = useCallback((): number => {
     if (!seg?.size || !seg?.duration) return 0;
@@ -64,11 +97,14 @@ export default function InformationWidget({
         videoTrack?.width && videoTrack?.height
           ? `${videoTrack.width}x${videoTrack.height}`
           : "Unknown",
-      fps: videoTrack?.framerate
-        ? `${(videoTrack.framerate.num / videoTrack.framerate.den).toFixed(
-            2,
-          )} FPS`
-        : "Unknown",
+      fps: (() => {
+        const fr = videoTrack?.framerate;
+        if (!fr?.num || !fr?.den) return "Unknown";
+        const v = fr.num / fr.den;
+        // Guard against NaN/Infinity (e.g. a momentary 0-denominator segment)
+        // so the tile never shows a literal "NaN FPS".
+        return Number.isFinite(v) ? `${v.toFixed(2)} FPS` : "Unknown";
+      })(),
       videoCodec: videoTrack?.codec
         ? videoTrack.codec.toUpperCase()
         : "Unknown",
@@ -121,7 +157,6 @@ export default function InformationWidget({
 
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
-    console.log("InformationWidget onLayout - size:", `${width}x${height}`);
     if (width > 0 && height > 0) {
       setComponentWidth(width);
       setComponentHeight(height);
@@ -134,10 +169,10 @@ export default function InformationWidget({
       onLayout={handleLayout}
       style={[
         embedMode
-          ? { backgroundColor: "rgba(23, 23, 23, 0.9)" }
-          : bg.neutral[900],
+          ? { backgroundColor: "rgba(23, 23, 23, 0.9)" } // token-ok: translucent panel over OBS content
+          : { backgroundColor: surfaces.dark[1] },
         embedMode ? undefined : borders.width.thin,
-        embedMode ? undefined : borders.color.neutral[700],
+        embedMode ? undefined : { borderColor: borderAlphas.dark.strong },
         r.lg,
         px[4],
         py[4],
@@ -146,6 +181,7 @@ export default function InformationWidget({
         {
           minWidth: isWideMode ? 500 : 220,
           width: "100%",
+          overflow: "hidden",
         },
       ]}
     >
@@ -158,7 +194,7 @@ export default function InformationWidget({
       >
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[1]]}>
           <Text
-            style={[text.white, { fontSize: 18, fontWeight: "700" }]}
+            style={[text.white, { fontSize: 15, fontWeight: "600" }]}
             numberOfLines={1}
           >
             Stream Health
@@ -170,20 +206,33 @@ export default function InformationWidget({
                 height: 8,
                 borderRadius: 4,
                 backgroundColor: !livestream
-                  ? "#3b82f6"
+                  ? colors.primary[400] // token-ok: static accent, may render outside ThemeProvider (OBS)
                   : getConnectionStatus() === "good"
-                    ? "#22c55e"
+                    ? statusColors.dark.success
                     : getConnectionStatus() === "warning"
-                      ? "#f59e0b"
-                      : "#ef4444",
+                      ? statusColors.dark.warning
+                      : statusColors.dark.danger,
               },
             ]}
           />
           {!livestream && (
-            <Text style={[text.blue[400], { fontSize: 13, fontWeight: "600" }]}>
+            <Text
+              style={{
+                color: textAlphas.dark[3],
+                fontSize: 13,
+                fontWeight: "500",
+              }}
+            >
               (not live)
             </Text>
           )}
+          {problems.length > 0 && onShowProblems ? (
+            <Pressable onPress={onShowProblems} style={{ marginLeft: 4 }}>
+              <Badge variant="warning">
+                {`${problems.length} ${problems.length === 1 ? "Issue" : "Issues"}`}
+              </Badge>
+            </Pressable>
+          ) : null}
         </View>
         <TouchableOpacity
           onPress={() => setShowViewers(!showViewers)}
@@ -196,14 +245,15 @@ export default function InformationWidget({
         >
           <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
             {showViewers ? (
-              <Eye size={14} color="#9ca3af" />
+              <Eye size={14} color={textAlphas.dark[3]} />
             ) : (
-              <EyeClosed size={14} color="#9ca3af" />
+              <EyeClosed size={14} color={textAlphas.dark[3]} />
             )}
             <Text
               style={[
                 text.white,
-                { fontSize: 16, fontWeight: "600", textAlign: "center" },
+                tabularNums,
+                { fontSize: 14, fontWeight: "600", textAlign: "center" },
               ]}
             >
               {showViewers ? `${viewerCount}` : "..."} viewer
@@ -301,6 +351,7 @@ export default function InformationWidget({
                       <Text
                         style={[
                           text.white,
+                          tabularNums,
                           { fontSize: 13, fontWeight: "600" },
                         ]}
                       >
@@ -316,8 +367,10 @@ export default function InformationWidget({
               <BitrateChart
                 data={bitrateHistory}
                 width={componentWidth - 40}
-                height={120}
-                color={livestream ? "#22c55e" : "#3b82f6"}
+                height={chartHeight}
+                color={
+                  livestream ? statusColors.dark.success : colors.primary[400] // token-ok
+                }
               />
             </View>
           )}
@@ -337,7 +390,7 @@ export default function InformationWidget({
               <View
                 style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}
               >
-                <Eye size={16} color="#9ca3af" />
+                <Eye size={16} color={textAlphas.dark[3]} />
                 <Text
                   style={[text.gray[300], { fontSize: 13, fontWeight: "500" }]}
                 >
@@ -350,15 +403,16 @@ export default function InformationWidget({
                 <Text
                   style={[
                     showViewers ? text.green[400] : text.white,
+                    tabularNums,
                     { fontSize: 13, fontWeight: "600" },
                   ]}
                 >
                   {showViewers ? `${viewerCount} watching` : "•••"}
                 </Text>
                 {showViewers ? (
-                  <ChevronUp size={14} color="#9ca3af" />
+                  <ChevronUp size={14} color={textAlphas.dark[3]} />
                 ) : (
-                  <ChevronDown size={14} color="#9ca3af" />
+                  <ChevronDown size={14} color={textAlphas.dark[3]} />
                 )}
               </View>
             </TouchableOpacity>
@@ -398,7 +452,9 @@ export default function InformationWidget({
                 data={bitrateHistory}
                 width={componentWidth - 40}
                 height={isCompactHeight ? 80 : 120}
-                color={livestream ? "#22c55e" : "#3b82f6"}
+                color={
+                  livestream ? statusColors.dark.success : colors.primary[400] // token-ok
+                }
               />
             </View>
           )}
@@ -436,7 +492,7 @@ function BitrateChart({
   data,
   width,
   height,
-  color = "#22c55e",
+  color = statusColors.dark.success,
 }: {
   data: number[];
   width: number;
@@ -493,7 +549,7 @@ function BitrateChart({
               y1={tick.y}
               x2={width}
               y2={tick.y}
-              stroke="rgba(255,255,255,0.1)"
+              stroke={borderAlphas.dark.strong}
               strokeWidth="1"
             />
             <SvgText
@@ -501,7 +557,7 @@ function BitrateChart({
               y={tick.y + 4}
               fontSize={10}
               fontFamily="sans-serif"
-              fill="#9ca3af"
+              fill={textAlphas.dark[3]}
               textAnchor="end"
             >
               {(tick.value / 1000).toLocaleString()}
@@ -514,7 +570,7 @@ function BitrateChart({
           transform={`rotate(-90, 12, ${height / 2})`}
           fontSize={10}
           fontFamily="sans-serif"
-          fill="#9ca3af"
+          fill={textAlphas.dark[3]}
           textAnchor="middle"
         >
           mbits/s

@@ -10,10 +10,14 @@ import {
   zero,
 } from "../../";
 import { RichtextSegment, segmentize } from "../../lib/facet";
+import * as tokens from "../../lib/theme/tokens";
 import { formatHandleWithAt } from "../../utils/format-handle";
 
+// static link accent — this overlay can render outside a ThemeProvider (OBS)
+const LINK_ACCENT = tokens.colors.primary[400]; // token-ok
+
 const getRgbColor = (color?: place.stream.chat.profile.Color) =>
-  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined;
+  color ? `rgb(${color.red}, ${color.green}, ${color.blue})` : undefined; // token-ok: dynamic user color / soft shadow
 
 function renderSegment(segment: RichtextSegment, index: number) {
   if (segment.features && segment.features.length > 0) {
@@ -22,7 +26,7 @@ function renderSegment(segment: RichtextSegment, index: number) {
       return (
         <Text
           key={index}
-          style={[{ color: "#007AFF" }]}
+          style={[{ color: LINK_ACCENT }]}
           onPress={() => Linking.openURL((ftr as any).uri || "")}
         >
           {segment.text}
@@ -31,7 +35,7 @@ function renderSegment(segment: RichtextSegment, index: number) {
     }
     if (ftr.$type === "app.bsky.richtext.facet#mention") {
       return (
-        <Text key={index} style={[{ color: "#007AFF" }]}>
+        <Text key={index} style={[{ color: LINK_ACCENT }]}>
           {segment.text}
         </Text>
       );
@@ -51,7 +55,8 @@ export function PinnedCommentNotification({
 }) {
   const z = useTheme();
   const message = pinnedComment.message;
-  const pinnedByColor = (pinnedComment.pinnedBy as any)?.color || "#bebebe";
+  const pinnedByColor =
+    (pinnedComment.pinnedBy as any)?.color || tokens.textAlphas.dark[2];
   const record = pinnedComment.record;
 
   const currentStreamer = useLivestreamStore((state) => state.profile?.did);
@@ -110,7 +115,7 @@ export function PinnedCommentNotification({
               style={[
                 {
                   fontWeight: "600",
-                  color: authorColor || zero.colors.gray[200],
+                  color: authorColor || tokens.textAlphas.dark[1],
                 },
               ]}
             >
@@ -122,11 +127,11 @@ export function PinnedCommentNotification({
         <View style={[zero.layout.flex.row, { gap: 4 }]}>
           {canActuallyPin && (
             <Pressable onPress={onUnpin} style={{ padding: 4 }}>
-              <X size={16} color={zero.colors.gray[400]} />
+              <X size={16} color={tokens.textAlphas.dark[2]} />
             </Pressable>
           )}
           <Pressable onPress={onDismiss} style={{ padding: 4 }}>
-            <EyeOff size={16} color={zero.colors.gray[400]} />
+            <EyeOff size={16} color={tokens.textAlphas.dark[2]} />
           </Pressable>
         </View>
       </View>

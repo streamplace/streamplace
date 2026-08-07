@@ -16,10 +16,12 @@ export function StreamplaceProvider({
   children,
   url,
   oauthSession,
+  onNeedsLogin,
 }: {
   children: React.ReactNode;
   url: string;
   oauthSession?: SessionManager | null;
+  onNeedsLogin?: () => void;
 }) {
   // todo: handle url changes?
   const store = useRef(makeStreamplaceStore({ url })).current;
@@ -31,6 +33,10 @@ export function StreamplaceProvider({
   useEffect(() => {
     store.setState({ oauthSession });
   }, [oauthSession]);
+
+  useEffect(() => {
+    store.setState({ onNeedsLogin: onNeedsLogin ?? null });
+  }, [onNeedsLogin]);
 
   return (
     <StreamplaceContext.Provider value={{ store: store }}>

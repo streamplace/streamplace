@@ -15,6 +15,7 @@ import BlueskyProvider from "features/bluesky/blueskyProvider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
+import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
 import { i18n } from "@streamplace/components";
@@ -115,8 +116,13 @@ export const NewStreamplaceProvider = ({
 }) => {
   const { url } = useStreamplaceNode();
   const oauthSession = useOAuthSession();
+  const openLoginModal = useStore((s) => s.openLoginModal);
   return (
-    <ZustandStreamplaceProvider url={url} oauthSession={oauthSession}>
+    <ZustandStreamplaceProvider
+      url={url}
+      oauthSession={oauthSession}
+      onNeedsLogin={openLoginModal ? () => openLoginModal() : undefined}
+    >
       {children}
     </ZustandStreamplaceProvider>
   );
@@ -124,20 +130,15 @@ export const NewStreamplaceProvider = ({
 
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
   const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans Serif) fonts
-    "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Light": require("../../assets/fonts/AtkinsonHyperlegibleNext-Light.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraLight": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraLight.ttf"),
-    "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
-    "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
-    "AtkinsonHyperlegibleNext-Bold": require("../../assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraBold.ttf"),
+    // Geist (Sans Serif) — the design system uses exactly three weights
+    "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+    "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+    "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
 
-    // Atkinson Hyperlegible Mono fonts
-    "AtkinsonHyperlegibleMono-Regular": require("../../assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf"),
-    "AtkinsonHyperlegibleMono-Medium": require("../../assets/fonts/AtkinsonHyperlegibleMono-Medium.ttf"),
-    "AtkinsonHyperlegibleMono-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleMono-SemiBold.ttf"),
-    "AtkinsonHyperlegibleMono-Bold": require("../../assets/fonts/AtkinsonHyperlegibleMono-Bold.ttf"),
+    // Geist Mono — stream keys, ingest URLs, timers
+    "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+    "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+    "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
   });
 
   if (!fontLoaded && !fontError) {

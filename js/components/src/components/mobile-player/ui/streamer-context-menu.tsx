@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useLivestreamInfo, zero } from "../../..";
+import { surfaces } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
 import {
   DropdownMenu,
@@ -92,7 +93,7 @@ export function StreamContextMenu({
               position: "absolute",
               right: 30,
               top: 0,
-              backgroundColor: "rgba(64,64,64,0.95)",
+              backgroundColor: surfaces.dark[3],
               borderRadius: 8,
               paddingHorizontal: 8,
               paddingRight: 12,

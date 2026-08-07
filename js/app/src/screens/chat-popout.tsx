@@ -120,13 +120,14 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
               zero.r.xl,
               {
                 padding: 18,
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                // intentional translucency over arbitrary OBS content
+                backgroundColor: "rgba(255, 255, 255, 0.1)", // token-ok
                 maxWidth: tokens.breakpoints.sm,
               },
             ]}
           >
             <Text>Log in or sign up to chat</Text>
-            <ArrowRight />
+            <ArrowRight color="#fff" size={20} />
           </Pressable>
         ))}
     </View>

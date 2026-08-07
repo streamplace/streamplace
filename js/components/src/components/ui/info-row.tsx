@@ -1,7 +1,14 @@
 import { Text, View } from "react-native";
+import { useTheme } from "../../lib/theme/theme";
+import {
+  fontFamilies,
+  fontWeights,
+  tabularNums,
+  typeScale,
+} from "../../lib/theme/tokens";
 import * as zero from "../../ui";
 
-const { text, layout, py, gap } = zero;
+const { layout, py, gap } = zero;
 
 interface InfoRowProps {
   icon: any;
@@ -10,20 +17,22 @@ interface InfoRowProps {
   status?: "good" | "warning" | "error" | "neutral";
 }
 
+/** Dashboard row: icon + label left, tabular status value right. */
 export function InfoRow({
   icon: Icon,
   label,
   value,
   status = "neutral",
 }: InfoRowProps) {
-  const statusColors = {
-    good: text.green[400],
-    warning: text.yellow[400],
-    error: text.red[400],
-    neutral: text.white,
-  };
+  const { theme } = useTheme();
+  const c = theme.colors;
 
-  const statusColor = statusColors[status];
+  const statusColor = {
+    good: c.success,
+    warning: c.warning,
+    error: c.danger,
+    neutral: c.text1,
+  }[status];
 
   return (
     <View
@@ -35,12 +44,29 @@ export function InfoRow({
       ]}
     >
       <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[3]]}>
-        <Icon size={16} color="#9ca3af" />
-        <Text style={[text.gray[300], { fontSize: 13, fontWeight: "500" }]}>
+        <Icon size={16} color={c.text3} />
+        <Text
+          style={{
+            color: c.text2,
+            fontSize: typeScale.sm.fontSize,
+            lineHeight: typeScale.sm.lineHeight,
+            fontWeight: fontWeights.medium,
+            fontFamily: fontFamilies.medium,
+          }}
+        >
           {label}
         </Text>
       </View>
-      <Text style={[statusColor, { fontSize: 13, fontWeight: "600" }]}>
+      <Text
+        style={{
+          color: statusColor,
+          fontSize: typeScale.sm.fontSize,
+          lineHeight: typeScale.sm.lineHeight,
+          fontWeight: fontWeights.semibold,
+          fontFamily: fontFamilies.semiBold,
+          ...tabularNums,
+        }}
+      >
         {value}
       </Text>
     </View>

@@ -35,19 +35,19 @@ export const createSystemMessage = (
   const uniqueId = `${now.getTime()}-${systemMessageCounter++}`;
 
   return {
-    uri: `at://did:sys:system/place.stream.chat.message/${uniqueId}`,
-    cid: `system-${uniqueId}`,
+    uri: `at://did:sys:system/place.stream.chat.message/${uniqueId}` as any,
+    cid: `system-${uniqueId}` as any,
     author: {
-      did: "did:sys:system",
-      handle: type, // Use handle to specify the type of system message
+      did: "did:sys:system" as any,
+      handle: type as any, // Use handle to specify the type of system message
     },
     record: {
       text,
-      createdAt: now.toISOString(),
-      streamer: "system",
+      createdAt: now.toISOString() as any,
+      streamer: "system" as any,
       $type: "place.stream.chat.message",
     },
-    indexedAt: now.toISOString(),
+    indexedAt: now.toISOString() as any,
     chatProfile: {
       color: { red: 128, green: 128, blue: 128 }, // Gray color for system messages
       $type: "place.stream.chat.profile",
@@ -110,7 +110,7 @@ export const SystemMessages = {
           features: [
             {
               $type: "app.bsky.richtext.facet#mention",
-              did: streamerDid,
+              did: streamerDid as any,
             },
           ],
         },

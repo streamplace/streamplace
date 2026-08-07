@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PlaceStreamModerationPermission } from "streamplace";
+import { place } from "streamplace";
 import { useLivestreamStore } from "../livestream-store";
 import { usePDSAgent } from "./xrpc";
 
@@ -76,7 +76,7 @@ export function useCanModerate(
         });
 
         const records = result.data.records || [];
-        const permissionRecords: PlaceStreamModerationPermission.Record[] =
+        const permissionRecords: place.stream.moderation.permission.Main[] =
           records
             .map((r: { value: any }) => r.value)
             .filter(
@@ -120,7 +120,7 @@ export function useCanModerate(
           });
 
           const records = result.data.records || [];
-          const permissionRecords: PlaceStreamModerationPermission.Record[] =
+          const permissionRecords: place.stream.moderation.permission.Main[] =
             records
               .map((r: { value: any }) => r.value)
               .filter(

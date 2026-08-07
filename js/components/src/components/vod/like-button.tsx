@@ -69,7 +69,7 @@ export function LikeButton({ subjectUri }: { subjectUri: string }) {
       } else {
         const result = await createLike(subjectUri);
         setUserLiked(true);
-        setUserLikeUri(result.uri);
+        setUserLikeUri((result as any).uri ?? (result as any)?.data?.uri);
         setLikeCount((c) => c + 1);
       }
     } catch (e) {

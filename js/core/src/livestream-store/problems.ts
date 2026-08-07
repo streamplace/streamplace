@@ -1,11 +1,11 @@
-import { PlaceStreamSegment } from "streamplace";
+import { place } from "streamplace";
 import { LivestreamProblem } from "./state";
 
 const VARIANCE_THRESHOLD = 0.5;
 const DURATION_THRESHOLD = 5000000000; // 5s in ns
 
 const detectVariableSegmentLength = (
-  segments: PlaceStreamSegment.Record[],
+  segments: place.stream.segment.Main[],
 ): { variable: boolean; duration: boolean } => {
   if (segments.length < 3) {
     // Need at least 3 segments to detect variability
@@ -47,7 +47,7 @@ const detectVariableSegmentLength = (
 };
 
 export const findProblems = (
-  segments: PlaceStreamSegment.Record[],
+  segments: place.stream.segment.Main[],
 ): LivestreamProblem[] => {
   const problems: LivestreamProblem[] = [];
   let hasBFrames = false;

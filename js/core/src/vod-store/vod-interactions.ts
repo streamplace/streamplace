@@ -3,17 +3,10 @@
 // Each function takes a PDS agent and the user's DID as explicit
 // arguments. The React hook wrappers (useCreateVodComment, etc.) live
 // in @streamplace/components.
-import {
-  PlaceStreamGetLikes,
-  PlaceStreamLike,
-  PlaceStreamVodComment,
-  PlaceStreamVodDefs,
-  PlaceStreamVodGetComments,
-  StreamplaceAgent,
-} from "streamplace";
+import { place, StreamplaceAgent } from "streamplace";
 
-export type VodCommentHydrated = PlaceStreamVodDefs.CommentView & {
-  record: PlaceStreamVodComment.Record;
+export type VodCommentHydrated = place.stream.vod.defs.CommentView & {
+  record: place.stream.vod.comment.Main;
 };
 
 export async function createVodComment(
@@ -21,11 +14,11 @@ export async function createVodComment(
   userDID: string,
   params: { text: string; video: string },
 ) {
-  const record: PlaceStreamVodComment.Record = {
+  const record: place.stream.vod.comment.Main = {
     $type: "place.stream.vod.comment",
     text: params.text,
-    createdAt: new Date().toISOString(),
-    video: params.video,
+    createdAt: new Date().toISOString() as any,
+    video: params.video as any,
   };
 
   return await pdsAgent.com.atproto.repo.createRecord({
@@ -54,10 +47,10 @@ export async function createLike(
   userDID: string,
   subject: string,
 ) {
-  const record: PlaceStreamLike.Record = {
+  const record: place.stream.like.Main = {
     $type: "place.stream.like",
-    subject,
-    createdAt: new Date().toISOString(),
+    subject: subject as any,
+    createdAt: new Date().toISOString() as any,
   };
 
   return await pdsAgent.com.atproto.repo.createRecord({
@@ -86,13 +79,13 @@ export async function getVodComments(
   video: string,
   limit?: number,
   cursor?: string,
-): Promise<PlaceStreamVodGetComments.OutputSchema> {
-  const res = await pdsAgent.place.stream.vod.getComments({
-    video,
+): Promise<place.stream.vod.getComments.$OutputBody> {
+  const res = await pdsAgent.client.call(place.stream.vod.getComments, {
+    video: video as any,
     limit,
     cursor,
   });
-  return res.data;
+  return res;
 }
 
 export async function getLikes(
@@ -100,22 +93,22 @@ export async function getLikes(
   subject: string,
   limit?: number,
   cursor?: string,
-): Promise<PlaceStreamGetLikes.OutputSchema> {
-  const res = await pdsAgent.place.stream.getLikes({
-    subject,
+): Promise<place.stream.getLikes.$OutputBody> {
+  const res = await pdsAgent.client.call(place.stream.getLikes, {
+    subject: subject as any,
     limit,
     cursor,
   });
-  return res.data;
+  return res;
 }
 
 export async function getLikeCount(
   pdsAgent: StreamplaceAgent,
   subject: string,
 ): Promise<number> {
-  const res = await pdsAgent.place.stream.getLikes({
-    subject,
+  const res = await pdsAgent.client.call(place.stream.getLikes, {
+    subject: subject as any,
     limit: 1,
   });
-  return res.data.count;
+  return res.count;
 }

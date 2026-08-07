@@ -8,7 +8,7 @@ import {
   reduceChat,
 } from "@streamplace/core";
 import { useCallback } from "react";
-import { ChatMessageViewHydrated, PlaceStreamChatMessage } from "streamplace";
+import { ChatMessageViewHydrated, place } from "streamplace";
 import { useChatProfile, useDID, useHandle } from "../streamplace-store";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { getStoreFromContext, useLivestreamStore } from "./use-store";
@@ -111,37 +111,37 @@ export const useCreateChatMessage = () => {
       );
     });
 
-    const record: PlaceStreamChatMessage.Record = {
+    const record: place.stream.chat.message.Main = {
       $type: "place.stream.chat.message",
       text: msg.text,
-      createdAt: new Date().toISOString(),
-      streamer: streamerProfile.did,
-      facets: rt.facets as PlaceStreamChatMessage.Record["facets"],
+      createdAt: new Date().toISOString() as any,
+      streamer: streamerProfile.did as any,
+      facets: rt.facets as place.stream.chat.message.Main["facets"],
       ...(msg.reply
         ? {
             reply: {
               root: {
                 cid: msg.reply.cid,
-                uri: msg.reply.uri,
+                uri: msg.reply.uri as any,
               },
               parent: {
                 cid: msg.reply.cid,
-                uri: msg.reply.uri,
+                uri: msg.reply.uri as any,
               },
-            },
+            } as any,
           }
         : {}),
     };
 
     const localChat: ChatMessageViewHydrated = {
-      uri: `local-${Date.now()}`,
-      cid: "",
+      uri: `local-${Date.now()}` as any,
+      cid: "" as any,
       author: {
-        did: userDID,
-        handle: userHandle || userDID,
+        did: userDID as any,
+        handle: (userHandle || userDID) as any,
       },
       record: record,
-      indexedAt: new Date().toISOString(),
+      indexedAt: new Date().toISOString() as any,
       chatProfile: chatProfile || undefined,
     };
 
@@ -304,11 +304,11 @@ export const usePinChatMessage = () => {
     }
 
     // Otherwise, use delegated moderation endpoint
-    const result = await agent.place.stream.moderation.createPin({
-      streamer: streamerDID,
-      messageUri,
+    const result = await agent.client.call(place.stream.moderation.createPin, {
+      streamer: streamerDID as any,
+      messageUri: messageUri as any,
       ...(expiresAt ? { expiresAt } : {}),
-    });
+    } as any);
     return result;
   };
 };
@@ -340,10 +340,10 @@ export const useUnpinChatMessage = () => {
     }
 
     // Otherwise, use delegated moderation endpoint
-    await agent.place.stream.moderation.deletePin({
-      streamer: streamerDID,
-      pinUri,
-    });
+    await agent.client.call(place.stream.moderation.deletePin, {
+      streamer: streamerDID as any,
+      pinUri: pinUri as any,
+    } as any);
     // Optimistically clear the pinned comment
     store.setState({ pinnedComment: null });
   };

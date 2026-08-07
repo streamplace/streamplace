@@ -6,7 +6,7 @@ import "@streamplace/components/src/crypto-polyfill";
 import { bytesToMultibase, Secp256k1Keypair } from "@atproto/crypto";
 import { getBrowserName, getPlatform } from "@streamplace/core";
 import { useEffect, useState } from "react";
-import { PlaceStreamKey } from "streamplace";
+import { place } from "streamplace";
 import { privateKeyToAccount } from "viem/accounts";
 import { usePDSAgent } from "../streamplace-store/xrpc";
 import { useLivestreamStore } from "./use-store";
@@ -78,10 +78,10 @@ export const useStreamKey = (): {
         platform = "Windows";
       }
 
-      const record: PlaceStreamKey.Record = {
+      const record: place.stream.key.Main = {
         $type: "place.stream.key",
-        signingKey: keypair.did(),
-        createdAt: new Date().toISOString(),
+        signingKey: keypair.did() as any,
+        createdAt: new Date().toISOString() as any,
         createdBy: "Streamplace on " + platform,
       };
       await pdsAgent.com.atproto.repo.createRecord({

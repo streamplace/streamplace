@@ -4,7 +4,7 @@
 // and returns a new state. Used by the websocket consumer, the React hooks
 // (in @streamplace/components), and any other consumer that wants to apply
 // chat updates to a LivestreamStore.
-import { ChatMessageViewHydrated, PlaceStreamDefs } from "streamplace";
+import { ChatMessageViewHydrated, place } from "streamplace";
 import { LivestreamState } from "./state";
 
 export type NewChatMessage = {
@@ -56,7 +56,7 @@ const profileIsDifferent = (
 export const reduceChat = (
   state: LivestreamState,
   newMessages: ChatMessageViewHydrated[],
-  blocks: PlaceStreamDefs.BlockView[],
+  blocks: place.stream.defs.BlockView[],
   hideUris: string[] = [],
 ): LivestreamState => {
   if (

@@ -199,7 +199,7 @@ function compileTranslations() {
         const outputPath = path.join(localeOutputDir, `${namespace}.json`);
         fs.writeFileSync(
           outputPath,
-          JSON.stringify(messages, null, 2),
+          JSON.stringify(messages, null, 2) + "\n",
           "utf-8",
         );
 

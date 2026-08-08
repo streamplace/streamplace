@@ -255,16 +255,6 @@ function ChatMessage({
           </span>
         )}
         <div className="min-w-0 flex-1 flex-wrap items-center gap-1">
-          {!isGrouped &&
-            message.badges?.map((badge, i) => (
-              <span
-                key={i}
-                className="inline-block items-end justify-end gap-0.5"
-              >
-                <BadgeIcon key={i} badge={badge} />
-              </span>
-            ))}
-
           {!isGrouped && (
             <UserHandle
               author={message.author}
@@ -549,18 +539,6 @@ function issuerLabel(
     return t("badge-issued-by", { issuer: shortDid(badge.issuer) });
   }
   return t("badge-issued");
-}
-
-function BadgeIcon({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
-  const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
-  if (!src) return null;
-  return (
-    <img
-      src={src}
-      alt={badge.badgeType}
-      className="relative top-0.5 mr-1 inline-block h-4 w-4 rounded-xs align-middle"
-    />
-  );
 }
 
 function BadgeRow({ badge }: { badge: place.stream.badge.defs.BadgeView }) {

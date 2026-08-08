@@ -202,7 +202,7 @@ export function replaceLeafWithSplit(
  * remains a valid layout (splits have >= 2 children).
  *
  * If the path points at the root leaf (path length 0), the root is
- * returned unchanged — there's no sensible empty layout to produce.
+ * returned unchanged; there's no sensible empty layout to produce.
  */
 export function removeLeafAt(root: LayoutNode, path: number[]): LayoutNode {
   if (path.length === 0) return root;

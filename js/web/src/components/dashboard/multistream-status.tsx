@@ -57,7 +57,7 @@ function statusColor(target: MultistreamTarget): string {
 
 /**
  * Lists multistream targets with active/inactive toggles and connection
- * status. Port of MultistreamStatus from the RN app.
+ * status.
  */
 export function MultistreamStatusWidget({ store }: { store: LivestreamStore }) {
   const { t } = useTranslation("common");

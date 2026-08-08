@@ -4,9 +4,18 @@
 // avatar, title, handle, activity label, and tags. Links to /$user.
 
 import { Link } from "@tanstack/react-router";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import { formatViewers } from "../../lib/format";
+import { useStreamplaceUrl } from "../../lib/store/hooks";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
   events: "activity-events",
@@ -56,6 +65,7 @@ interface StreamCardProps {
 
 export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   const { t } = useTranslation("common");
+  const streamplaceUrl = useStreamplaceUrl();
   const record = stream.record as place.stream.livestream.Main;
   const handle = stream.author.handle || stream.author.did;
   const title = record.title || t("default-stream-title");
@@ -64,18 +74,97 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   const viewers = stream.viewerCount?.count;
   const user = handle;
 
+  // Deterministic per-streamer border color. Hash the handle to a hue
+  // and render it at a fixed saturation/lightness so every streamer
+  // gets a unique accent without needing color extraction. The border
+  // always sits on the black thumbnail background, so the color is
+  // legible in both light and dark mode without per-theme tuning.
+  const borderColor = useMemo(() => {
+    let h = 0;
+    for (let i = 0; i < user.length; i++) {
+      h = (h * 31 + user.charCodeAt(i)) | 0;
+    }
+    const hue = ((h % 360) + 360) % 360;
+    return `hsl(${hue} 60% 55%)`;
+  }, [user]);
+
+  // Bounds-measuring one-row tag layout. Same approach as the app's
+  // StreamCard: each item reports its measured width via a ref, and
+  // we compute how many tags fit in the row's available width. Items
+  // past the limit are not rendered, so the row is always exactly
+  // one line tall. Widths are reset when activity or tags change;
+  // rowWidth is re-measured via ResizeObserver when the card resizes.
+  const tagsRowRef = useRef<HTMLDivElement>(null);
+  const [rowWidth, setRowWidth] = useState(0);
+  const [itemWidths, setItemWidths] = useState<Record<string, number>>({});
+
+  const tagsKey = useMemo(() => tags.join(","), [tags]);
+
+  useEffect(() => {
+    setItemWidths({});
+  }, [activity, tagsKey]);
+
+  useLayoutEffect(() => {
+    const el = tagsRowRef.current;
+    if (!el) return;
+    const update = () => setRowWidth(el.offsetWidth);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const visibleTagCount = useMemo(() => {
+    if (rowWidth === 0) return tags.length;
+    const activityW = activity ? (itemWidths["activity"] ?? 0) : 0;
+    let used = activityW;
+    let count = 0;
+    for (let i = 0; i < tags.length; i++) {
+      const w = itemWidths[`tag-${i}`];
+      if (w === undefined) {
+        // Not measured yet
+        count++;
+        continue;
+      }
+      const gap = used > 0 ? 6 : 0; // matches gap-1.5 (0.375rem = 6px)
+      // Strict < (not <=) so a tag that fits with exactly 0px to spare
+      // doesn't get clipped mid-word by the row's overflow-hidden.
+      if (used + gap + w < rowWidth) {
+        used += gap + w;
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }, [rowWidth, itemWidths, tags, activity]);
+
+  // Ref callback for measuring an item's width
+  const measureItem = (key: string, el: HTMLElement | null) => {
+    if (el && el.offsetWidth > 0 && el.offsetWidth !== itemWidths[key]) {
+      setItemWidths((prev) => ({ ...prev, [key]: el.offsetWidth }));
+    }
+  };
+
   return (
-    <Link
-      to="/$user"
-      params={{ user }}
-      className="group flex flex-col overflow-hidden rounded-xl border border-(--color-border) bg-(--color-bg-elevated) transition-colors hover:border-(--color-border-strong)"
-    >
+    <Link to="/$user" params={{ user }} className="group flex flex-col">
       {/* Thumbnail */}
-      <div className="relative aspect-video bg-black">
+      <div
+        className="outline-border/40 relative aspect-video overflow-clip bg-black ring-0 outline transition-shadow duration-200 group-hover:ring-4"
+        style={{ "--tw-ring-color": borderColor } as CSSProperties}
+      >
         <img
-          src={`/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover opacity-50 blur-sm"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+          }}
+        />
+        <img
+          src={`${streamplaceUrl}/api/playback/${user}/stream.jpg?ts=${(Date.now() / 120000).toFixed(0)}`}
+          alt=""
+          className="absolute inset-0 h-full w-full object-contain"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
           }}
@@ -94,7 +183,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
       </div>
 
       {/* Content */}
-      <div className="flex items-start gap-3 px-3 py-2.5">
+      <div className="mt-3 flex items-start gap-3">
         {/* Avatar */}
         <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-(--color-border) bg-(--color-bg-overlay)">
           {avatarUrl ? (
@@ -115,23 +204,30 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
 
         {/* Text */}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-(--color-fg)">
+          <div className="truncate text-sm font-medium text-(--color-fg) transition-colors group-hover:text-(--color-accent)">
             {title}
           </div>
           <div className="mt-0.5 truncate text-xs text-(--color-fg-muted)">
             @{handle}
           </div>
           {(activity || tags.length > 0) && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 overflow-hidden">
+            <div
+              ref={tagsRowRef}
+              className="mt-1.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap"
+            >
               {activity && (
-                <span className="shrink-0 text-xs text-(--color-fg-muted)">
+                <span
+                  ref={(el) => measureItem("activity", el)}
+                  className="shrink-0 truncate text-xs text-(--color-fg-muted)"
+                >
                   {activity}
                 </span>
               )}
-              {tags.slice(0, 3).map((tag) => (
+              {tags.slice(0, visibleTagCount).map((tag, index) => (
                 <span
                   key={tag}
-                  className="shrink-0 rounded-full border border-(--color-border) bg-(--color-bg-overlay) px-2 py-0.5 text-xs text-(--color-fg-subtle)"
+                  ref={(el) => measureItem(`tag-${index}`, el)}
+                  className="shrink-0 truncate rounded-full border border-(--color-border) bg-(--color-bg-overlay) px-2 py-0.5 text-xs text-(--color-fg-subtle)"
                 >
                   {displayTag(tag)}
                 </span>

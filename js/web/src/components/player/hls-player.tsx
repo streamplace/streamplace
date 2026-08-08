@@ -1,23 +1,13 @@
 // HLS backend for the <Player> component. Owns hls.js setup, manifest
-// loading, and error recovery. Renders nothing — the video element
+// loading, and error recovery. Renders nothing; the video element
 // lives in <Player> so the chrome (controls, fullscreen, error display)
 // is shared across backends. When a WebRTC backend lands it will be a
 // sibling of this file with the same shape.
 import Hls, { type Level } from "hls.js";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
 import type { PlayerBackendHandle, PlayerStats, QualityOption } from "./player";
-
-const QUALITY_KEY = "player-quality";
-
-function readQualityPreference(): number | null {
-  try {
-    const v = localStorage.getItem(QUALITY_KEY);
-    if (v !== null) return parseInt(v, 10);
-  } catch {
-    // localStorage unavailable
-  }
-  return null;
-}
+import { readQualityPreference } from "./player";
 
 export type HLSPlayerProps = {
   /** The video element managed by the parent <Player>. */
@@ -54,6 +44,12 @@ export function HLSPlayer({
   ref?: RefObject<PlayerBackendHandle | null>;
 }) {
   const hlsRef = useRef<Hls | null>(null);
+  const { t } = useTranslation();
+  // Ref so the stats-polling interval (a child of the main effect) can
+  // call the latest onStatsChange without re-creating the interval on
+  // every parent render.
+  const onStatsChangeRef = useRef(onStatsChange);
+  onStatsChangeRef.current = onStatsChange;
 
   useImperativeHandle(
     ref ?? { current: null },
@@ -68,20 +64,11 @@ export function HLSPlayer({
   );
 
   useEffect(() => {
-    console.log("[hls-player] useEffect firing", {
-      active,
-      src,
-      hasVideo: !!videoRef.current,
-    });
     if (!active) return;
     const video = videoRef.current;
-    if (!video) {
-      console.log("[hls-player] no video element, bailing");
-      return;
-    }
+    if (!video) return;
 
     if (Hls.isSupported()) {
-      console.log("[hls-player] hls.js supported, creating instance");
       const hls = new Hls({
         maxAudioFramesDrift: 20,
         lowLatencyMode: true,
@@ -90,16 +77,12 @@ export function HLSPlayer({
         maxLiveSyncPlaybackRate: 1.5,
         backBufferLength: 90,
         enableWorker: true,
-        debug: true,
+        debug: import.meta.env.DEV,
       });
       hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
-        console.log("[hls-player] MANIFEST_PARSED", {
-          levels: hls.levels.length,
-          firstLevel: data.firstLevel,
-        });
-        onQualitiesChange?.(buildQualities(hls.levels));
+        onQualitiesChange?.(buildQualities(hls.levels, t));
         // Restore persisted quality preference.
         const saved = readQualityPreference();
         if (saved !== null && saved >= -1 && saved < hls.levels.length) {
@@ -111,30 +94,24 @@ export function HLSPlayer({
       });
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
-        console.log("[hls-player] LEVEL_SWITCHED", data.level);
         onCurrentQualityChange?.(data.level);
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        console.log("[hls-player] ERROR", {
-          type: data.type,
-          details: data.details,
-          fatal: data.fatal,
-          response: data.response,
-        });
         if (!data.fatal) return;
         const status = (data.response as Response | undefined)?.status;
         if (status === 404) {
-          onError?.("Stream not live");
+          onError?.(t("player-error-stream-not-live"));
+          hls.stopLoad();
           return;
         }
         switch (data.type) {
           case Hls.ErrorTypes.NETWORK_ERROR:
-            onError?.("Network error — retrying");
+            onError?.(t("player-error-network-retrying"));
             hls.startLoad();
             return;
           case Hls.ErrorTypes.MEDIA_ERROR:
-            onError?.("Media error — recovering");
+            onError?.(t("player-error-media-recovering"));
             hls.recoverMediaError();
             return;
           default:
@@ -143,41 +120,14 @@ export function HLSPlayer({
         }
       });
 
-      // Log all non-error events for debugging
-      hls.on(Hls.Events.FRAG_LOADED, (_e, data) => {
-        console.log("[hls-player] FRAG_LOADED", {
-          level: data.frag?.level,
-          sn: data.frag?.sn,
-          duration: data.frag?.duration,
-        });
-      });
-      hls.on(Hls.Events.ERROR, () => {}); // already handled above
-      hls.on(Hls.Events.BUFFER_APPENDED, (_e, data) => {
-        console.log("[hls-player] BUFFER_APPENDED", { type: data.type });
-      });
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {}); // already handled above
-
-      console.log("[hls-player] loading source:", src);
       hls.loadSource(src);
       try {
-        console.log("[hls-player] attaching media", {
-          readyState: video.readyState,
-          src: video.src,
-          currentSrc: video.currentSrc,
-        });
         hls.attachMedia(video);
-        console.log("[hls-player] attachMedia done", {
-          readyState: video.readyState,
-          networkState: video.networkState,
-          error: video.error,
-        });
-      } catch (err) {
-        console.log("[hls-player] attachMedia failed", err);
+      } catch {
         hls.stopLoad();
       }
 
       return () => {
-        console.log("[hls-player] cleanup — destroying hls");
         hls.destroy();
         hlsRef.current = null;
         // hls.js destroy() does not release the video element's source.
@@ -185,10 +135,11 @@ export function HLSPlayer({
         video.srcObject = null;
       };
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      console.log("[hls-player] native HLS (Safari)");
       video.src = src;
       const onCanPlay = () => {
-        video.play().catch(() => {});
+        video
+          .play()
+          .catch((err) => console.warn("[hls-player] play() rejected", err));
         video.removeEventListener("canplay", onCanPlay);
       };
       video.addEventListener("canplay", onCanPlay);
@@ -199,8 +150,7 @@ export function HLSPlayer({
         video.load();
       };
     } else {
-      console.log("[hls-player] HLS not supported");
-      onError?.("Your browser doesn't support HLS playback.");
+      onError?.(t("player-error-hls-unsupported"));
     }
   }, [
     src,
@@ -222,18 +172,6 @@ export function HLSPlayer({
     const id = setInterval(() => {
       const video = videoRef.current;
       if (!video) return;
-      if (Math.random() < 0.1) {
-        console.log("[hls-player] video state", {
-          readyState: video.readyState,
-          paused: video.paused,
-          ended: video.ended,
-          currentTime: video.currentTime,
-          videoWidth: video.videoWidth,
-          videoHeight: video.videoHeight,
-          src: video.src?.substring(0, 80),
-          error: video.error?.message,
-        });
-      }
       const hls = hlsRef.current;
       const playback = (
         video as HTMLVideoElement & {
@@ -272,7 +210,7 @@ export function HLSPlayer({
           ? Math.max(0, liveEdge - video.currentTime)
           : undefined;
 
-      onStatsChange?.({
+      onStatsChangeRef.current?.({
         width: currentLevelData?.width ?? video.videoWidth,
         height: currentLevelData?.height ?? video.videoHeight,
         viewportWidth: typeof window === "undefined" ? 0 : window.innerWidth,
@@ -290,18 +228,21 @@ export function HLSPlayer({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [active, onStatsChange, videoRef]);
+  }, [active, videoRef]);
 
   return null;
 }
 
-function buildQualities(levels: Level[]): QualityOption[] {
+function buildQualities(
+  levels: Level[],
+  t: (key: string) => string,
+): QualityOption[] {
   const explicit = levels.map((level, index) => ({
     index,
     label: labelForLevel(level, index),
   }));
   // "Auto" maps to hls.js currentLevel = -1.
-  return [{ index: -1, label: "Auto" }, ...explicit];
+  return [{ index: -1, label: t("player-quality-auto") }, ...explicit];
 }
 
 function labelForLevel(level: Level, index: number): string {

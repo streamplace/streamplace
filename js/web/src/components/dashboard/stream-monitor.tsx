@@ -1,3 +1,4 @@
+import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import type { LivestreamStore } from "@streamplace/core";
 import { Eye, EyeOff, Radio, Wifi, WifiOff } from "lucide-react";
@@ -10,7 +11,7 @@ import { Player } from "../player/player";
 /**
  * Self-preview video monitor for the dashboard. Shows the streamer's
  * own stream with connection status, stream title, and a hide/show
- * toggle. Port of StreamMonitor from the RN app.
+ * toggle.
  */
 export function StreamMonitorWidget({
   store,
@@ -65,7 +66,15 @@ export function StreamMonitorWidget({
       {/* Video area */}
       <div className="relative h-full w-full flex-1 bg-black">
         {visible && isLive ? (
-          <Player src={playlistUrl} poster={thumbnailUrl} active mode="live" />
+          <Player
+            src={playlistUrl}
+            poster={thumbnailUrl}
+            active
+            mode="live"
+            onError={(message) =>
+              captureError(message, { user, source: "stream-monitor" })
+            }
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             {isLive ? (

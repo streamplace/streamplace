@@ -1,3 +1,6 @@
+import { useSession } from "@/lib/session";
+import { useStore } from "@/lib/store";
+import { useUserProfile } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import {
   createFileRoute,
@@ -6,6 +9,7 @@ import {
   useMatchRoute,
 } from "@tanstack/react-router";
 import {
+  Bell,
   ChevronDown,
   Globe,
   Info,
@@ -19,12 +23,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 interface NavLink {
+  needsAuth?: boolean;
+  /** Only show when danmu is unlocked (about-page easter egg). */
+  requiresDanmuUnlock?: boolean;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   labelKey: string;
 }
 
 interface NavGroup {
+  needsAuth?: boolean;
   icon: React.ComponentType<{ className?: string }>;
   labelKey: string;
   children: NavLink[];
@@ -36,9 +44,16 @@ type NavItem =
   | { role: "divider" };
 
 const NAV_ITEMS: NavItem[] = [
-  { role: "link", to: "/settings/account", icon: User2, labelKey: "account" },
   {
     role: "link",
+    to: "/settings/account",
+    icon: User2,
+    labelKey: "account",
+    needsAuth: true,
+  },
+  {
+    role: "link",
+    needsAuth: true,
     to: "/settings/chat-profile",
     icon: Palette,
     labelKey: "chat-profile",
@@ -49,7 +64,22 @@ const NAV_ITEMS: NavItem[] = [
     icon: Shield,
     labelKey: "privacy-security",
   },
+  {
+    role: "link",
+    needsAuth: true,
+    to: "/settings/notifications",
+    icon: Bell,
+    labelKey: "notifications",
+  },
   { role: "divider" },
+  {
+    role: "link",
+    needsAuth: true,
+    to: "/settings/danmu",
+    icon: Palette,
+    labelKey: "danmu",
+    requiresDanmuUnlock: true,
+  },
   {
     role: "link",
     to: "/settings/languages",
@@ -59,6 +89,7 @@ const NAV_ITEMS: NavItem[] = [
   { role: "link", to: "/settings/advanced", icon: Lock, labelKey: "advanced" },
   { role: "link", to: "/settings/about", icon: Info, labelKey: "about" },
   {
+    needsAuth: true,
     role: "link",
     to: "/dashboard/stream",
     icon: Video,
@@ -141,6 +172,20 @@ function NavGroupItem({ item }: { item: NavGroup }) {
 }
 
 function DisplayNavItem({ item }: { item: NavItem }) {
+  const { t } = useTranslation("settings");
+  // get auth state from context or store
+  const { state } = useSession();
+  const userProfile = useUserProfile();
+  const danmuUnlocked = useStore((s) => s.danmuUnlocked);
+  if (state.status !== "authenticated" || !userProfile) {
+    // if the item requires auth and we're not on that page, don't render it
+    if ("needsAuth" in item && item.needsAuth) {
+      return null;
+    }
+  }
+  if ("requiresDanmuUnlock" in item && item.requiresDanmuUnlock) {
+    if (!danmuUnlocked) return null;
+  }
   if (item.role === "divider") {
     return (
       <div className="my-0.5 border-b border-(--color-border) lg:mx-2 lg:my-2 lg:border-b-0" />
@@ -151,7 +196,6 @@ function DisplayNavItem({ item }: { item: NavItem }) {
     return <NavGroupItem item={item} />;
   }
 
-  const { t } = useTranslation("settings");
   const Icon = item.icon;
 
   return (

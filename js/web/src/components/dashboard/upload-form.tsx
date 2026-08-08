@@ -215,7 +215,7 @@ export function UploadForm({
                 </span>
                 {upload.file && (
                   <span className="text-xs text-(--color-fg-muted)">
-                    {upload.file.type || "unknown"} —{" "}
+                    {upload.file.type || "unknown"}{" "}
                     {humanBytes(upload.file.size)}
                   </span>
                 )}

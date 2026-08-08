@@ -8,7 +8,7 @@ import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
 import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { place, type ChatMessageViewHydrated } from "streamplace";
+import { ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { useSession } from "../../lib/session";
@@ -213,7 +213,7 @@ function ChatMessage({
     <div
       className={`group relative -mx-2 rounded px-2 leading-snug hover:bg-(--color-bg-overlay) ${isGrouped ? "py-px" : "py-0.5"}`}
     >
-      {/* Hover actions — visible on group hover */}
+      {/* Hover actions; visible on group hover */}
       <div className="absolute top-0 right-0 z-10 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {state.status === "authenticated" && !isOwn && (
           <button
@@ -391,7 +391,7 @@ function UserHandle({
         align="start"
         className="w-72 overflow-hidden p-0"
       >
-        {/* Banner — gradient tinted with the user's chat color */}
+        {/* Banner; gradient tinted with the user's chat color */}
         <div
           className="relative h-20"
           style={

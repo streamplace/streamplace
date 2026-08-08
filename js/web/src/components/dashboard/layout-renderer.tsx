@@ -263,7 +263,7 @@ export function findElementById(id: string): HTMLElement | null {
 }
 
 /**
- * dnd-kit's `Position` is a `ValueHistory` — it tracks `.current` (the
+ * dnd-kit's `Position` is a `ValueHistory`; it tracks `.current` (the
  * latest pointer position) and `.initial` (where the drag started). It
  * does not expose direct `.x`/`.y` properties, so we read `.current`.
  */

@@ -3,6 +3,7 @@
 // reducers, and pure utilities. The React hooks and context live in
 // @streamplace/components.
 export * from "./chat-reducer";
+export * from "./connect";
 export * from "./problems";
 export * from "./state";
 export * from "./store";

@@ -1,6 +1,6 @@
-// Upload state machine for VOD uploads. Mirrors the RN upload flow but
-// simplified for the web (no expo-document-picker, no expo-file-system).
+// Upload state machine for VOD uploads.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import * as tus from "tus-js-client";
 import { usePDSAgent } from "../lib/store/hooks";
@@ -34,6 +34,7 @@ export interface UploadMetadata {
 }
 
 const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 100; // ~5 minutes at 3s intervals
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,18 +54,18 @@ export async function validateVideoFile(file: File): Promise<string | null> {
   const str = (offset: number, len: number) =>
     String.fromCharCode(...Array.from(b.slice(offset, offset + len)));
 
-  // MP4 / MOV / M4V — "ftyp" box at offset 4
+  // MP4 / MOV / M4V; "ftyp" box at offset 4
   if (str(4, 4) === "ftyp") return null;
-  // WebM / MKV — EBML magic
+  // WebM / MKV; EBML magic
   if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3)
     return null;
-  // AVI — "RIFF" header with "AVI " chunk
+  // AVI; "RIFF" header with "AVI " chunk
   if (str(0, 4) === "RIFF" && str(8, 4) === "AVI ") return null;
   // OGG (video: OGV, Theora)
   if (str(0, 4) === "OggS") return null;
   // FLV
   if (str(0, 3) === "FLV") return null;
-  // MPEG-TS — 188-byte packets starting with sync byte 0x47
+  // MPEG-TS; 188-byte packets starting with sync byte 0x47
   if (b[0] === 0x47) return null;
 
   return "File doesn't appear to be a supported video format (MP4, WebM, MKV, MOV, AVI, OGG, FLV, MPEG-TS).";
@@ -74,13 +75,19 @@ export async function validateVideoFile(file: File): Promise<string | null> {
 
 export function useUpload() {
   const agent = usePDSAgent();
+  const { t } = useTranslation();
   const uploadRef = useRef<tus.Upload | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Generation token: each polling run gets a unique ID. After every
+  // await, the poller checks whether its generation is still current.
+  // Cancellation bumps the generation so stale pollers stop touching
+  // state and don't reschedule.
+  const pollGenRef = useRef(0);
 
   const [phase, setPhase] = useState<UploadPhase>({ kind: "idle" });
   const [file, setFile] = useState<File | null>(null);
 
-  // metadata form — always editable
+  // metadata form; always editable
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -97,6 +104,7 @@ export function useUpload() {
   // cleanup on unmount
   useEffect(() => {
     return () => {
+      pollGenRef.current++;
       if (pollRef.current) clearTimeout(pollRef.current);
       uploadRef.current?.abort();
     };
@@ -164,7 +172,19 @@ export function useUpload() {
   const pollStatus = useCallback(
     (uploadId: string) => {
       if (!agent) return;
+      const gen = ++pollGenRef.current;
+      let attempts = 0;
       const check = async () => {
+        if (gen !== pollGenRef.current) return;
+        attempts += 1;
+        if (attempts > MAX_POLL_ATTEMPTS) {
+          if (gen !== pollGenRef.current) return;
+          setPhase({
+            kind: "error",
+            message: t("upload-error-timeout"),
+          });
+          return;
+        }
         try {
           const res = await agent.client.call(
             place.stream.media.getUploadStatus,
@@ -172,6 +192,7 @@ export function useUpload() {
               uploadId,
             },
           );
+          if (gen !== pollGenRef.current) return;
           const data = res;
 
           if (data.status === "done" && data.tracks) {
@@ -186,7 +207,7 @@ export function useUpload() {
           if (data.status === "error") {
             setPhase({
               kind: "error",
-              message: data.error ?? "Processing failed",
+              message: data.error ?? t("upload-error-processing"),
             });
             return;
           }
@@ -198,12 +219,13 @@ export function useUpload() {
           });
           pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
         } catch {
+          if (gen !== pollGenRef.current) return;
           pollRef.current = setTimeout(check, POLL_INTERVAL_MS);
         }
       };
       check();
     },
-    [agent],
+    [agent, t],
   );
 
   // ── upload ────────────────────────────────────────────────────────────────
@@ -211,12 +233,12 @@ export function useUpload() {
   const startUpload = useCallback(async () => {
     if (!agent || !file) return;
     if (!agent.did) {
-      setPhase({ kind: "error", message: "Not logged in" });
+      setPhase({ kind: "error", message: t("upload-error-not-logged-in") });
       return;
     }
     const validationError = await validateVideoFile(file);
     if (validationError) {
-      setPhase({ kind: "error", message: validationError });
+      setPhase({ kind: "error", message: t("upload-error-format") });
       return;
     }
     const mimeType = file.type.startsWith("video/") ? file.type : "video/mp4";
@@ -260,9 +282,10 @@ export function useUpload() {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, [agent, file, pollStatus]);
+  }, [agent, file, pollStatus, t]);
 
   const cancelUpload = useCallback(() => {
+    pollGenRef.current++;
     if (pollRef.current) clearTimeout(pollRef.current);
     uploadRef.current?.abort();
     uploadRef.current = null;
@@ -277,9 +300,9 @@ export function useUpload() {
     try {
       const { tracks, durationMs } = phase;
 
-      const record: place.stream.video.Main = {
+      const record = {
         $type: "place.stream.video",
-        title: title.trim() || file?.name || "Untitled",
+        title: title.trim() || file?.name || t("upload-title-untitled"),
         createdAt: new Date().toISOString() as any,
         durationMs,
         source: {
@@ -290,7 +313,7 @@ export function useUpload() {
             cid: t.cid,
           })) as any,
         },
-      };
+      } as any;
 
       if (description.trim()) record.description = description.trim();
       if (tags.length > 0) record.tags = tags;
@@ -352,6 +375,7 @@ export function useUpload() {
     warnings,
     license,
     file,
+    t,
   ]);
 
   // ── derived state ─────────────────────────────────────────────────────────

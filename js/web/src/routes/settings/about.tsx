@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useDevMode } from "../../hooks/use-dev-mode";
+import { useStore } from "../../lib/store";
 
 export const Route = createFileRoute("/settings/about")({
   component: AboutSettings,
@@ -15,12 +16,20 @@ function AboutSettings() {
   const [tapCount, setTapCount] = useState(0);
   const isDev = typeof import.meta !== "undefined" && import.meta.env?.DEV;
   const [devMode, toggleDevMode] = useDevMode();
+  const danmuUnlocked = useStore((s) => s.danmuUnlocked);
+  const setDanmuUnlocked = useStore((s) => s.setDanmuUnlocked);
 
   const handleVersionPress = () => {
+    if (danmuUnlocked) {
+      // Already unlocked; tapping again doesn't toggle it off. The app
+      // allows disabling from the toast action; keep it simple here.
+      return;
+    }
     const newCount = tapCount + 1;
     setTapCount(newCount);
     if (newCount >= UNLOCK_TAP_COUNT) {
       toggleDevMode();
+      setDanmuUnlocked(true);
       setTapCount(0);
     }
   };

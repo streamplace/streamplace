@@ -332,7 +332,7 @@ function MetadataSection() {
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <h2 className="font-display text-lg font-semibold">
         {t("metadata", { defaultValue: "Metadata" })}
       </h2>
@@ -600,7 +600,7 @@ function StreamKeySection() {
     if (!pdsAgent) return;
     pdsAgent.client
       .call(place.stream.ingest.getIngestUrls, {})
-      .then((res: any) => {
+      .then((res) => {
         setIngestUrls(
           res.ingests
             .map((i: any) => ({ type: i.type || "unknown", url: i.url }))
@@ -969,7 +969,7 @@ function GoLiveSection({
                 <li>
                   Server ={" "}
                   <span className="text-(--color-fg)">
-                    {activeIngest?.url || "—"}
+                    {activeIngest?.url || "N/A"}
                   </span>
                 </li>
                 {mode === "rtmp" ? (
@@ -1024,7 +1024,7 @@ function ModerationSection() {
       <div className="rounded-lg border border-dashed border-(--color-border) p-6 text-sm text-(--color-fg-muted)">
         {t("moderation-coming-soon", {
           defaultValue:
-            "Moderator management hooks aren't on the web yet — this section is a placeholder.",
+            "Moderator management hooks aren't on the web yet. This section is a placeholder.",
         })}
       </div>
     </div>

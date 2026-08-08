@@ -1,4 +1,5 @@
 import { Player } from "@/components/player/player";
+import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
@@ -20,7 +21,15 @@ function EmbedLive() {
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-black">
-      <Player src={playlistUrl} poster={thumbnailUrl} active mode="live" />
+      <Player
+        src={playlistUrl}
+        poster={thumbnailUrl}
+        active
+        mode="live"
+        onError={(message) =>
+          captureError(message, { user, source: "embed-live" })
+        }
+      />
     </div>
   );
 }

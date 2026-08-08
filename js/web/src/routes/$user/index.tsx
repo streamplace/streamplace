@@ -10,15 +10,11 @@ import {
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useLivenessState } from "@/hooks/use-liveness-state";
-import { getStreamplaceUrl } from "@/lib/streamplace-url";
-import {
-  handleWebSocketMessages,
-  makeLivestreamStore,
-  type LivestreamStore,
-} from "@streamplace/core";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { useLivestreamStore } from "@/hooks/use-livestream-store";
+import type { LivestreamStore } from "@streamplace/core";
+import { createFileRoute } from "@tanstack/react-router";
 import { ChevronUp, ExternalLink } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -29,88 +25,9 @@ export const Route = createFileRoute("/$user/")({
 
 function StreamPage() {
   const { user } = Route.useParams();
-  const store = useRef<LivestreamStore | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const { store, ready } = useLivestreamStore(user);
 
-  useEffect(() => {
-    const s = makeLivestreamStore();
-    store.current = s;
-    setInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (!store.current) return;
-
-    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
-
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    let currentConnectId = 0;
-    let mounted = true;
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleReconnect = () => {
-      if (!mounted || reconnectTimeout) return;
-      reconnectTimeout = setTimeout(connect, 3000);
-    };
-
-    const connect = () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = null;
-      }
-
-      const connectId = ++currentConnectId;
-
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {};
-
-      let messageBuffer: any[] = [];
-      const flush = () => {
-        flushTimer = null;
-        const batch = messageBuffer;
-        messageBuffer = [];
-        store.current?.setState((s) => handleWebSocketMessages(s, batch));
-      };
-
-      ws.onmessage = (event) => {
-        if (connectId !== currentConnectId) return;
-        try {
-          const messages = JSON.parse(event.data);
-          const list = Array.isArray(messages) ? messages : [messages];
-          messageBuffer.push(...list);
-          if (!flushTimer) {
-            flushTimer = setTimeout(flush, 0);
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        ws?.close();
-        scheduleReconnect();
-      };
-    };
-
-    connect();
-
-    return () => {
-      mounted = false;
-      if (flushTimer) clearTimeout(flushTimer);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      ws?.close();
-    };
-  }, [user]);
-
-  if (!initialized || !store.current) {
+  if (!ready || !store) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="animate-pulse">
@@ -121,13 +38,18 @@ function StreamPage() {
     );
   }
 
-  return <StreamBody store={store.current} user={user} />;
+  return <StreamBody store={store} user={user} />;
 }
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
   const { theatre } = useFullscreen();
+  // Offline streams default to a closed chat; the chat has nothing
+  // to show, and the shorter offline player should take the page
+  // width. Live streams honor the user's saved preference.
+  const isOffline = liveness === "offline" || liveness === "never-live";
   const [chatOpen, setChatOpen] = useState(() => {
+    if (isOffline) return false;
     if (typeof localStorage === "undefined") return true;
     return localStorage.getItem("streamplace:chat-open") !== "false";
   });
@@ -140,9 +62,16 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
     });
   }, []);
 
-  if (liveness === "offline") {
-    return <OfflinePage user={user} />;
-  }
+  // Auto-close the chat when a live stream goes offline. The user
+  // can still open it manually to see the backlog; this just gets
+  // the page back to a sensible default. (The reverse case; a
+  // closed chat reopening when the stream goes live; doesn't
+  // auto-open, the user has the toggle for that.)
+  useEffect(() => {
+    if (isOffline && chatOpen) {
+      setChatOpen(false);
+    }
+  }, [isOffline, chatOpen]);
 
   return (
     <div className="flex h-full flex-col">
@@ -183,50 +112,6 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         <div className="flex min-h-0 flex-1 flex-col border-t">
           <ChatSidebar store={store} />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function OfflinePage({ user }: { user: string }) {
-  const { t } = useTranslation("common");
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-20 text-center">
-      <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated)">
-        <svg
-          className="h-5 w-5 text-(--color-fg-subtle)"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5.636 5.636a9 9 0 1 0 12.728 12.728A9 9 0 0 0 5.636 5.636Z"
-          />
-        </svg>
-      </div>
-      <h1 className="font-display text-2xl font-semibold">
-        {t("stream-is-offline-title")}
-      </h1>
-      <p className="mt-2 text-sm text-(--color-fg-muted)">
-        {t("user-not-streaming-check-back", { user })}
-      </p>
-      <div className="mt-8 flex items-center justify-center gap-3">
-        <Link
-          to="/"
-          className="inline-flex h-9 items-center rounded-md bg-(--color-accent) px-4 text-sm font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover)"
-        >
-          {t("back-to-home")}
-        </Link>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="h-9 rounded-md border border-(--color-border) px-4 text-sm hover:border-(--color-border-strong)"
-        >
-          {t("refresh")}
-        </button>
       </div>
     </div>
   );

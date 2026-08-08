@@ -1,9 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { StreamCard } from "../components/stream/stream-card";
 import useAvatars from "../hooks/use-avatars";
 import { useLiveUsers } from "../hooks/use-live-users";
-import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
+import { useStore } from "../lib/store";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -18,8 +18,8 @@ function HomePage() {
 
   if (streams === undefined && isLoading) {
     return (
-      <div className="mx-auto max-w-6xl px-6 py-12">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-6 py-12">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -38,17 +38,17 @@ function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-7xl px-6 py-12">
       {error && !streams && (
-        <div className="mb-6 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)">
+        <div className="mb-8 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)">
           {t("could-not-load-streams")}
         </div>
       )}
 
       {streams && streams.length > 0 && (
-        <div className="mb-6 flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-red-500" />
-          <h2 className="font-display text-lg font-semibold text-(--color-fg)">
+        <div className="mb-8 flex items-center gap-2.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_0_4px_var(--color-bg)]" />
+          <h2 className="font-display text-2xl font-semibold text-(--color-fg)">
             {t("live-now-count", { count: streams.length })}
           </h2>
         </div>
@@ -281,7 +281,7 @@ function HomePage() {
       )}
 
       {streams && streams.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {streams.map((stream) => (
             <StreamCard
               key={stream.uri}
@@ -301,13 +301,13 @@ function HomePage() {
             {t("hero-description")}
           </p>
           <div className="mt-8 flex justify-center gap-3">
-            <Link
-              to="/login"
-              search={EMPTY_LOGIN_SEARCH}
+            <button
+              type="button"
+              onClick={() => useStore.getState().openLoginModal()}
               className="inline-flex h-10 items-center rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
             >
               {t("log-in")}
-            </Link>
+            </button>
             <a
               href="https://stream.place"
               className="inline-flex h-10 items-center rounded-md border border-(--color-border) px-4 text-(--color-fg) transition-colors hover:border-(--color-border-strong)"

@@ -1,13 +1,6 @@
-// Video utility functions. Copied from js/app/utils/video.ts —
-// platform-agnostic, no React Native deps.
+// Video utility functions.
 
 import { place } from "streamplace";
-
-// The DID lives in the second path segment of an at:// URI:
-// at://<did>/place.stream.video/<tid>
-export function getDidFromAtUri(uri: string): string {
-  return uri.split("/")[2] ?? "";
-}
 
 // The record key (tid) is the final segment of the at:// URI.
 export function getTidFromAtUri(uri: string): string {
@@ -21,9 +14,10 @@ export function getVideoThumbnailUrl(
   record: place.stream.video.Main | undefined,
   did: string,
 ): string | undefined {
-  const thumb = record?.thumb as any;
-  const ref = thumb?.ref as { $link?: string } | undefined;
-  const cid = ref?.$link ?? thumb?.ref?.toString();
+  const ref = (record?.thumb as any)?.ref as { $link?: string } | undefined;
+  const cid =
+    ref?.$link ??
+    ((record?.thumb as any)?.ref?.toString?.() as string | undefined);
   if (!cid || !did) return undefined;
   return `https://cdn.bsky.app/img/feed_thumbnail/plain/${did}/${cid}@jpeg`;
 }

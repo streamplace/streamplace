@@ -13,12 +13,15 @@ import { Route as VideosRouteImport } from './routes/videos'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as UserIndexRouteImport } from './routes/$user/index'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsDanmuRouteImport } from './routes/settings/danmu'
 import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
@@ -61,6 +64,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -72,9 +80,9 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   getParentRoute: () => SettingsRoute,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/dashboard/',
-  path: '/dashboard/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const UserIndexRoute = UserIndexRouteImport.update({
   id: '/$user/',
@@ -86,9 +94,19 @@ const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
   id: '/languages',
   path: '/languages',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsDanmuRoute = SettingsDanmuRouteImport.update({
+  id: '/danmu',
+  path: '/danmu',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
@@ -132,14 +150,14 @@ const SettingsAboutRoute = SettingsAboutRouteImport.update({
   getParentRoute: () => SettingsRoute,
 } as any)
 const DashboardVideosRoute = DashboardVideosRouteImport.update({
-  id: '/dashboard/videos',
-  path: '/dashboard/videos',
-  getParentRoute: () => rootRouteImport,
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardUploadRoute = DashboardUploadRouteImport.update({
-  id: '/dashboard/upload',
-  path: '/dashboard/upload',
-  getParentRoute: () => rootRouteImport,
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const ChatPopoutUserRoute = ChatPopoutUserRouteImport.update({
   id: '/chat-popout/$user',
@@ -152,31 +170,31 @@ const EmbedUserIndexRoute = EmbedUserIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardWebhooksIndexRoute = DashboardWebhooksIndexRouteImport.update({
-  id: '/dashboard/webhooks/',
-  path: '/dashboard/webhooks/',
-  getParentRoute: () => rootRouteImport,
+  id: '/webhooks/',
+  path: '/webhooks/',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardStreamIndexRoute = DashboardStreamIndexRouteImport.update({
-  id: '/dashboard/stream/',
-  path: '/dashboard/stream/',
-  getParentRoute: () => rootRouteImport,
+  id: '/stream/',
+  path: '/stream/',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardRecommendationsIndexRoute =
   DashboardRecommendationsIndexRouteImport.update({
-    id: '/dashboard/recommendations/',
-    path: '/dashboard/recommendations/',
-    getParentRoute: () => rootRouteImport,
+    id: '/recommendations/',
+    path: '/recommendations/',
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
 const DashboardMultistreamIndexRoute =
   DashboardMultistreamIndexRouteImport.update({
-    id: '/dashboard/multistream/',
-    path: '/dashboard/multistream/',
-    getParentRoute: () => rootRouteImport,
+    id: '/multistream/',
+    path: '/multistream/',
+    getParentRoute: () => DashboardRouteRoute,
   } as any)
 const DashboardKeysIndexRoute = DashboardKeysIndexRouteImport.update({
-  id: '/dashboard/keys/',
-  path: '/dashboard/keys/',
-  getParentRoute: () => rootRouteImport,
+  id: '/keys/',
+  path: '/keys/',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const EmbedInfoWidgetUserRoute = EmbedInfoWidgetUserRouteImport.update({
   id: '/embed/info-widget/$user',
@@ -201,6 +219,7 @@ const EmbedUserVideoTidRoute = EmbedUserVideoTidRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -216,7 +235,9 @@ export interface FileRoutesByFullPath {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user/': typeof UserIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -248,7 +269,9 @@ export interface FileRoutesByTo {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user': typeof UserIndexRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -267,6 +290,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRouteWithChildren
@@ -282,7 +306,9 @@ export interface FileRoutesById {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user/': typeof UserIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -302,6 +328,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashboard'
     | '/login'
     | '/search'
     | '/settings'
@@ -317,7 +344,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user/'
     | '/dashboard/'
@@ -349,7 +378,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user'
     | '/dashboard'
@@ -367,6 +398,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/dashboard'
     | '/login'
     | '/search'
     | '/settings'
@@ -382,7 +414,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user/'
     | '/dashboard/'
@@ -401,23 +435,16 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   VideosRoute: typeof VideosRoute
   ChatPopoutUserRoute: typeof ChatPopoutUserRoute
-  DashboardUploadRoute: typeof DashboardUploadRoute
-  DashboardVideosRoute: typeof DashboardVideosRoute
   UserIndexRoute: typeof UserIndexRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
   UserVideoTidRoute: typeof UserVideoTidRoute
   EmbedDanmuObsUserRoute: typeof EmbedDanmuObsUserRoute
   EmbedInfoWidgetUserRoute: typeof EmbedInfoWidgetUserRoute
-  DashboardKeysIndexRoute: typeof DashboardKeysIndexRoute
-  DashboardMultistreamIndexRoute: typeof DashboardMultistreamIndexRoute
-  DashboardRecommendationsIndexRoute: typeof DashboardRecommendationsIndexRoute
-  DashboardStreamIndexRoute: typeof DashboardStreamIndexRoute
-  DashboardWebhooksIndexRoute: typeof DashboardWebhooksIndexRoute
   EmbedUserIndexRoute: typeof EmbedUserIndexRoute
   EmbedUserVideoTidRoute: typeof EmbedUserVideoTidRoute
 }
@@ -452,6 +479,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -468,10 +502,10 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/': {
       id: '/dashboard/'
-      path: '/dashboard'
+      path: '/'
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/$user/': {
       id: '/$user/'
@@ -487,11 +521,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPrivacyRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/languages': {
       id: '/settings/languages'
       path: '/languages'
       fullPath: '/settings/languages'
       preLoaderRoute: typeof SettingsLanguagesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/danmu': {
+      id: '/settings/danmu'
+      path: '/danmu'
+      fullPath: '/settings/danmu'
+      preLoaderRoute: typeof SettingsDanmuRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/chat-profile': {
@@ -552,17 +600,17 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/videos': {
       id: '/dashboard/videos'
-      path: '/dashboard/videos'
+      path: '/videos'
       fullPath: '/dashboard/videos'
       preLoaderRoute: typeof DashboardVideosRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/upload': {
       id: '/dashboard/upload'
-      path: '/dashboard/upload'
+      path: '/upload'
       fullPath: '/dashboard/upload'
       preLoaderRoute: typeof DashboardUploadRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/chat-popout/$user': {
       id: '/chat-popout/$user'
@@ -580,38 +628,38 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/webhooks/': {
       id: '/dashboard/webhooks/'
-      path: '/dashboard/webhooks'
+      path: '/webhooks'
       fullPath: '/dashboard/webhooks/'
       preLoaderRoute: typeof DashboardWebhooksIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/stream/': {
       id: '/dashboard/stream/'
-      path: '/dashboard/stream'
+      path: '/stream'
       fullPath: '/dashboard/stream/'
       preLoaderRoute: typeof DashboardStreamIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/recommendations/': {
       id: '/dashboard/recommendations/'
-      path: '/dashboard/recommendations'
+      path: '/recommendations'
       fullPath: '/dashboard/recommendations/'
       preLoaderRoute: typeof DashboardRecommendationsIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/multistream/': {
       id: '/dashboard/multistream/'
-      path: '/dashboard/multistream'
+      path: '/multistream'
       fullPath: '/dashboard/multistream/'
       preLoaderRoute: typeof DashboardMultistreamIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/keys/': {
       id: '/dashboard/keys/'
-      path: '/dashboard/keys'
+      path: '/keys'
       fullPath: '/dashboard/keys/'
       preLoaderRoute: typeof DashboardKeysIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/embed/info-widget/$user': {
       id: '/embed/info-widget/$user'
@@ -644,6 +692,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardRouteRouteChildren {
+  DashboardUploadRoute: typeof DashboardUploadRoute
+  DashboardVideosRoute: typeof DashboardVideosRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardKeysIndexRoute: typeof DashboardKeysIndexRoute
+  DashboardMultistreamIndexRoute: typeof DashboardMultistreamIndexRoute
+  DashboardRecommendationsIndexRoute: typeof DashboardRecommendationsIndexRoute
+  DashboardStreamIndexRoute: typeof DashboardStreamIndexRoute
+  DashboardWebhooksIndexRoute: typeof DashboardWebhooksIndexRoute
+}
+
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardUploadRoute: DashboardUploadRoute,
+  DashboardVideosRoute: DashboardVideosRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DashboardKeysIndexRoute: DashboardKeysIndexRoute,
+  DashboardMultistreamIndexRoute: DashboardMultistreamIndexRoute,
+  DashboardRecommendationsIndexRoute: DashboardRecommendationsIndexRoute,
+  DashboardStreamIndexRoute: DashboardStreamIndexRoute,
+  DashboardWebhooksIndexRoute: DashboardWebhooksIndexRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
+)
+
 interface SettingsRouteChildren {
   SettingsAboutRoute: typeof SettingsAboutRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
@@ -653,7 +727,9 @@ interface SettingsRouteChildren {
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsChatProfileRoute: typeof SettingsChatProfileRoute
+  SettingsDanmuRoute: typeof SettingsDanmuRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -667,7 +743,9 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsChatProfileRoute: SettingsChatProfileRoute,
+  SettingsDanmuRoute: SettingsDanmuRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
@@ -678,23 +756,16 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
   LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRouteWithChildren,
   VideosRoute: VideosRoute,
   ChatPopoutUserRoute: ChatPopoutUserRoute,
-  DashboardUploadRoute: DashboardUploadRoute,
-  DashboardVideosRoute: DashboardVideosRoute,
   UserIndexRoute: UserIndexRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
   UserVideoTidRoute: UserVideoTidRoute,
   EmbedDanmuObsUserRoute: EmbedDanmuObsUserRoute,
   EmbedInfoWidgetUserRoute: EmbedInfoWidgetUserRoute,
-  DashboardKeysIndexRoute: DashboardKeysIndexRoute,
-  DashboardMultistreamIndexRoute: DashboardMultistreamIndexRoute,
-  DashboardRecommendationsIndexRoute: DashboardRecommendationsIndexRoute,
-  DashboardStreamIndexRoute: DashboardStreamIndexRoute,
-  DashboardWebhooksIndexRoute: DashboardWebhooksIndexRoute,
   EmbedUserIndexRoute: EmbedUserIndexRoute,
   EmbedUserVideoTidRoute: EmbedUserVideoTidRoute,
 }

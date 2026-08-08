@@ -15,5 +15,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["./src", "./src/routeTree.gen.ts"]
+  "include": ["./src", "./src/routeTree.gen.ts"],
+  "exclude": ["./src/**/*.stories.tsx", "./src/**/*.mdx"]
 }

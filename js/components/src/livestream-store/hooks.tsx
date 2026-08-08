@@ -275,7 +275,6 @@ export const useReportChatMessage = () => {
 
 export const usePinChatMessage = () => {
   const agent = usePDSAgent();
-  const store = getStoreFromContext();
 
   return async (
     messageUri: string,

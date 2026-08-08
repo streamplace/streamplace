@@ -150,10 +150,10 @@ function MultistreamManager() {
       setTogglingUris((prev) => new Set(prev).add(target.uri));
       await agent.client.call(place.stream.multistream.putTarget, {
         multistreamTarget: {
-          ...target.record,
+          ...(target.record as any),
           $type: "place.stream.multistream.target" as const,
           active: newActive,
-        } as any,
+        },
         rkey: target.uri.split("/").pop() || "",
       });
       await loadTargets();
@@ -208,7 +208,7 @@ function MultistreamManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <div>
         <h1 className="font-display text-xl font-semibold">
           {t("multistream-targets")}

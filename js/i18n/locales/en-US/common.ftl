@@ -45,7 +45,7 @@ completing-sign-in = Completing sign-in…
 already-logged-in = You're already logged in.
 signed-in-as = Signed in as @{ $handle }
 signed-in-as-code = Signed in as { $handle }
-sign-in-description = Sign in with your Bluesky handle. You'll be redirected to your PDS to authorize this app.
+sign-in-description = Sign in with your Atmosphere account. You'll be redirected to your PDS to authorize this app.
 handle-label = Handle
 redirecting = Redirecting…
 sign-in-failed = Sign-in failed
@@ -82,7 +82,8 @@ pds-selector-custom-description = Enter your own PDS host URL
 pds-selector-custom-url-label = Custom PDS URL
 pds-selector-custom-url-placeholder = https://pds.example.com
 pds-selector-learn-more = Learn more about self-hosting
-pds-selector-info = Each host has their own policies and reliability standards. Your ATProto data lives on the host you choose and you can migrate later. Note: Streamplace has its own moderation rules - you can be banned from Streamplace regardless of which host you choose.
+pds-selector-info = Each host has their own policies and reliability standards. Your ATProto data lives on the host you choose and you can migrate later.
+pds-selector-different-policies = Note that Streamplace has its own, different, moderation policies - you can be banned from Streamplace regardless of which host you choose.
 pds-selector-read-policies = Read { $label }'s <tosLink>Terms of Service</tosLink> and <privacyLink>Privacy Policy</privacyLink> before continuing.
 pds-selector-handle-policy-checkbox = I have read and agree to the <policyLink>handle policy</policyLink>
 
@@ -286,3 +287,69 @@ no-videos-yet-upload = No videos yet.
 optional = Optional
 required = Required
 select-license = Select a license…
+
+## Login
+login-show-live-on-bluesky = Show when I'm live on Bluesky
+login-show-live-on-bluesky-description = Gives your Bluesky avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your Bluesky account.
+
+## Video Player - Controls
+player-play = Play
+player-pause = Pause
+player-mute = Mute
+player-unmute = Unmute
+player-seek = Seek
+player-settings = Settings
+player-fullscreen = Fullscreen
+player-exit-fullscreen = Exit fullscreen
+player-theatre = Theatre mode
+player-exit-theatre = Exit theatre mode
+player-pip = Picture-in-picture
+player-exit-pip = Exit picture-in-picture
+player-enable-danmu = Enable danmu
+player-disable-danmu = Disable danmu
+player-quality = Quality
+player-latency = Latency
+player-quality-auto = Auto
+
+## Video Player - Stats panel
+player-stats = Player stats
+player-stats-resolution = Resolution
+player-stats-viewport = Viewport
+player-stats-bitrate = Bitrate
+player-stats-skipped = Skipped
+player-stats-buffer = Buffer
+player-stats-codecs = Codecs
+player-stats-protocol = Protocol
+player-stats-latency-mode = Latency Mode
+player-stats-render-surface = Render Surface
+player-stats-session = Session
+player-protocol-webrtc = WebRTC
+player-protocol-hls = HLS
+player-latency-low = Low Latency
+player-latency-standard = Standard
+
+## Video Player - Errors
+player-error-network = Network error
+player-error-playback = Playback error
+player-error-format = Stream format not supported
+player-error-stream-not-live = Stream not live
+player-error-network-retrying = Network error. Retrying.
+player-error-media-recovering = Media error. Recovering.
+player-error-hls-unsupported = Your browser doesn't support HLS playback.
+player-error-stream-unavailable = Stream unavailable. Stopped reconnecting.
+player-error-sdp-failed = Failed to create SDP offer
+player-error-ice-failed = Failed to gather ICE candidates
+player-error-negotiation-failed = WebRTC negotiation failed
+player-error-stream-stalled = Stream stalled. Reconnecting.
+player-error-connection-lost = Connection lost. Reconnecting.
+
+## Upload
+upload-error-format = File doesn't appear to be a supported video format (MP4, WebM, MKV, MOV, AVI, OGG, FLV, MPEG-TS).
+upload-error-timeout = Processing timed out. Please try again later.
+upload-error-processing = Processing failed
+upload-error-not-logged-in = Not logged in
+upload-title-untitled = Untitled
+
+## Emoji picker
+emoji-skin-tone = Skin tone
+emoji-search = Search emoji…

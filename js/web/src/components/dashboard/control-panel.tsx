@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
+import { SidebarTrigger } from "../ui/sidebar";
 import { useLayout } from "./hooks/use-layout";
 import {
   removeLeafAt,
@@ -114,9 +115,9 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
 
   /**
    * Unified drop handler. Supports two kinds of source:
-   * - leaf source (`leaf-{path}`): move the widget — split the target
+   * - leaf source (`leaf-{path}`): move the widget; split the target
    *   and remove the source from its original slot
-   * - drawer source (`widget-{key}`): add the widget — split the target
+   * - drawer source (`widget-{key}`): add the widget; split the target
    *   with the dragged widget, no source removal
    */
   const handleDragEnd = useCallback(
@@ -173,7 +174,7 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       const finalSourceWidget = sourceWidget;
       let nextLayout: LayoutNode;
 
-      // Dropping onto a blank slot just fills it — no split, since a
+      // Dropping onto a blank slot just fills it; no split, since a
       // split with a blank in one half would be weird. For leaf
       // sources we also remove the source so the widget effectively
       // moves into the empty slot.
@@ -213,7 +214,8 @@ export function ControlPanel({ store, user }: ControlPanelProps) {
       <div className="relative flex h-full min-h-0 flex-col">
         {/* Toolbar */}
         {!theatre && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-(--color-border) bg-(--color-bg-elevated) px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 bg-(--color-sidebar) px-3 py-2.5">
+            <SidebarTrigger />
             {/* Preset selector */}
             {presets.length > 0 && (
               <select

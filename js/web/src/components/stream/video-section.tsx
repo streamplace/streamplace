@@ -6,8 +6,11 @@ import { useShallow } from "zustand/react/shallow";
 import { Player } from "../../components/player/player";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
+import { captureError } from "../../lib/log";
+import { useStore as useAppStore } from "../../lib/store";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
+import { PlayerOffline } from "./player-offline";
 import { UserOffline } from "./user-offline";
 
 const DANMU_KEY = "danmu-enabled";
@@ -47,6 +50,12 @@ export function VideoSection({
     writeDanmuPreference(enabled);
   }, []);
 
+  // Danmu tuning preferences from the shared store (settings page).
+  const danmuOpacity = useAppStore((s) => s.danmuOpacity);
+  const danmuSpeed = useAppStore((s) => s.danmuSpeed);
+  const danmuLaneCount = useAppStore((s) => s.danmuLaneCount);
+  const danmuMaxMessages = useAppStore((s) => s.danmuMaxMessages);
+
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -76,6 +85,10 @@ export function VideoSection({
       store={store}
       showDanmu={showDanmu}
       onShowDanmuChange={handleDanmuChange}
+      danmuOpacity={danmuOpacity}
+      danmuSpeed={danmuSpeed}
+      danmuLaneCount={danmuLaneCount}
+      danmuMaxMessages={danmuMaxMessages}
     />
   );
 }
@@ -95,6 +108,10 @@ export function VideoSectionInner({
   store,
   showDanmu = false,
   onShowDanmuChange,
+  danmuOpacity = 80,
+  danmuSpeed = 1,
+  danmuLaneCount = 12,
+  danmuMaxMessages = 50,
 }: {
   user: string;
   liveness: Liveness;
@@ -106,29 +123,44 @@ export function VideoSectionInner({
   store?: LivestreamStore;
   showDanmu?: boolean;
   onShowDanmuChange?: (show: boolean) => void;
+  danmuOpacity?: number;
+  danmuSpeed?: number;
+  danmuLaneCount?: number;
+  danmuMaxMessages?: number;
 }) {
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
   const neverLive = liveness === "never-live";
+  const offline = liveness === "offline";
+  // Show the live player when neither never-live nor offline. This
+  // includes the initial "loading" state (liveness starts undefined
+  // for the brief moment before the WebSocket connects) and "live".
+  const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction
   const segRatio = segment ? segment.width / segment.height : 16 / 9;
 
   return (
     <div
-      className="w-full bg-black"
+      className="w-full bg-black transition-[height] duration-500 ease-in-out"
       style={{
         // In theatre mode the sidebar and header are hidden, so the video
-        // fills the full viewport. Otherwise constrain to aspect ratio.
+        // fills the full viewport. Otherwise match the live aspect ratio
+        // via the segRatio-driven maxHeight. When offline, collapse to a
+        // 4:3 panel (75vw of height) capped at half the viewport so the
+        // page below gets room. Using an explicit height (not
+        // aspect-ratio) lets CSS transition the size change when the
+        // stream goes live/offline.
         ...(theatre
           ? { height: "100vh" }
-          : {
-              maxHeight: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
-              aspectRatio: `${segRatio}`,
-            }),
+          : offline
+            ? { height: "min(100vw, 50vh)" }
+            : {
+                height: `min(calc(100vw / ${segRatio}), calc(100vh - 240px))`,
+              }),
       }}
     >
-      <div className="relative mx-auto h-full bg-green-400">
+      <div className="relative mx-auto h-full">
         {neverLive ? (
           <img
             src={thumbnailUrl}
@@ -139,19 +171,41 @@ export function VideoSectionInner({
             }}
           />
         ) : (
-          <Player
-            src={playlistUrl}
-            poster={thumbnailUrl}
-            active
-            mode={mode}
-            showDanmu={showDanmu}
-            onShowDanmuChange={onShowDanmuChange}
-          />
+          <>
+            {/* Live player fades out when the stream goes offline. */}
+            <div
+              className={`absolute inset-0 transition-opacity duration-500 ${
+                showPlayer ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <Player
+                src={playlistUrl}
+                poster={thumbnailUrl}
+                active
+                mode={mode}
+                showDanmu={showDanmu}
+                onShowDanmuChange={onShowDanmuChange}
+                onError={(message) => captureError(message, { user, mode })}
+              />
+            </div>
+            {offline && store && (
+              <div className="animate-in fade-in absolute inset-0 duration-500">
+                <PlayerOffline store={store} user={user} />
+              </div>
+            )}
+          </>
         )}
 
         {/* Danmu overlay sits on top of the video */}
         {store && (
-          <DanmuOverlay store={store} enabled={showDanmu && !neverLive} />
+          <DanmuOverlay
+            store={store}
+            enabled={showDanmu && showPlayer}
+            opacity={danmuOpacity}
+            speed={danmuSpeed}
+            laneCount={danmuLaneCount}
+            maxMessages={danmuMaxMessages}
+          />
         )}
         {liveness === "stale" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">

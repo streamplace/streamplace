@@ -1,5 +1,5 @@
 /**
- * Convert a PlaceStreamChatProfile.Color to a CSS rgb() string.
+ * Convert a place.stream.chat.profile.Color to a CSS rgb() string.
  * Returns a default pink if no color is provided.
  */
 export function getRgbColor(

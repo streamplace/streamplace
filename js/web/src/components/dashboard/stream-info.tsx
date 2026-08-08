@@ -170,7 +170,7 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     setLoading(true);
 
     try {
-      const record: place.stream.livestream.Main = {
+      const record = {
         $type: "place.stream.livestream",
         title: title.trim(),
         url: `${url}/${agent.did}` as any,
@@ -179,14 +179,14 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         idleTimeoutSeconds: idleTimeout ? 300 : 0,
         activity,
         tags: tags.length > 0 ? tags : undefined,
-      };
+      } as any;
 
       // Upload thumbnail if provided
       if (thumbnail) {
         try {
           const uploaded = await agent.uploadBlob(thumbnail);
           if (uploaded.success) {
-            record.thumb = uploaded.data.blob as any;
+            (record as any).thumb = uploaded.data.blob;
           }
         } catch (e) {
           console.error("Thumbnail upload failed:", e);

@@ -1,11 +1,6 @@
-import { getStreamplaceUrl } from "@/lib/streamplace-url";
-import {
-  handleWebSocketMessages,
-  makeLivestreamStore,
-  type LivestreamStore,
-} from "@streamplace/core";
+import { useLivestreamStore } from "@/hooks/use-livestream-store";
+import type { LivestreamStore } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 
 export const Route = createFileRoute("/embed/info-widget/$user")({
@@ -14,83 +9,9 @@ export const Route = createFileRoute("/embed/info-widget/$user")({
 
 function EmbedInfoWidget() {
   const { user } = Route.useParams();
-  const store = useRef<LivestreamStore | null>(null);
-  const [initialized, setInitialized] = useState(false);
+  const { store, ready } = useLivestreamStore(user);
 
-  useEffect(() => {
-    const s = makeLivestreamStore();
-    store.current = s;
-    setInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (!store.current) return;
-
-    const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
-    let ws: WebSocket | null = null;
-    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
-    let currentConnectId = 0;
-    let mounted = true;
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleReconnect = () => {
-      if (!mounted || reconnectTimeout) return;
-      reconnectTimeout = setTimeout(connect, 3000);
-    };
-
-    const connect = () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = null;
-      }
-      const connectId = ++currentConnectId;
-      ws = new WebSocket(wsUrl);
-
-      let messageBuffer: any[] = [];
-      const flush = () => {
-        flushTimer = null;
-        const batch = messageBuffer;
-        messageBuffer = [];
-        store.current?.setState((s) => handleWebSocketMessages(s, batch));
-      };
-
-      ws.onmessage = (event) => {
-        if (connectId !== currentConnectId) return;
-        try {
-          const messages = JSON.parse(event.data);
-          const list = Array.isArray(messages) ? messages : [messages];
-          messageBuffer.push(...list);
-          if (!flushTimer) {
-            flushTimer = setTimeout(flush, 0);
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        scheduleReconnect();
-      };
-
-      ws.onerror = () => {
-        if (connectId !== currentConnectId) return;
-        store.current?.setState((s) => ({ ...s, websocketConnected: false }));
-        ws?.close();
-        scheduleReconnect();
-      };
-    };
-
-    connect();
-
-    return () => {
-      mounted = false;
-      if (flushTimer) clearTimeout(flushTimer);
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      ws?.close();
-    };
-  }, [user]);
-
-  if (!initialized || !store.current) {
+  if (!ready || !store) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-transparent">
         <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -98,7 +19,7 @@ function EmbedInfoWidget() {
     );
   }
 
-  return <InfoWidgetBody store={store.current} />;
+  return <InfoWidgetBody store={store} />;
 }
 
 function InfoWidgetBody({ store }: { store: LivestreamStore }) {

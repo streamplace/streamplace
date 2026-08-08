@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 
 /**
- * Activity picker for livestreams. Mirrors the RN's ActivityPicker:
+ * Activity picker for livestreams:
  *  - "Game" mode: search for actual games via the streamplace xrpc,
  *    show cover art + name + genres. Stores an `ActivityGame` value
  *    with `$type: "place.stream.defs#activityGame"`.

@@ -34,8 +34,15 @@ function LoginPage() {
   const [handle, setHandle] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // This route doubles as the OAuth callback target.
+  // This route doubles as the OAuth callback target. In the popup case,
+  // client.initCallback (called by BlueskyProvider's oauthCallback) sends
+  // the result back to the opener via BroadcastChannel, then calls
+  // window.close() to close the popup. The library also re-throws
+  // LoginContinuedInParentWindowError, which our oauthCallback catch
+  // handles by setting authStatus to "loggedOut". In the direct /login
+  // case (user landed here directly, or popup-blocked fallback),
+  // initCallback returns the session, state becomes "authenticated",
+  // and we navigate to / via the effect further down.
   const isCallbackInFlight =
     Boolean(search.code) ||
     Boolean(search.error) ||
@@ -50,7 +57,12 @@ function LoginPage() {
       );
       return;
     }
-    if (state.status === "authenticated") {
+    // In the popup case state.status never reaches "authenticated"
+    // (the session lives in the opener, not the popup). The library's
+    // initCallback closes the popup via window.close() after sending
+    // the result to the parent. The navigate fires only for the direct
+    // /login case.
+    if (state.status === "authenticated" && !window.opener) {
       navigate({ to: "/" });
     }
   }, [state.status, search.error, search.errorDescription, navigate]);
@@ -60,7 +72,11 @@ function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await signIn(handle.trim());
+      // /login is the full-page route; always do a full-page redirect
+      // to the PDS rather than opening a popup. This is the reliable
+      // fallback for users who landed here directly, or who got bounced
+      // here by the modal's popup-blocker detection.
+      await signIn(handle.trim(), "redirect");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("sign-in-failed"));
       setSubmitting(false);

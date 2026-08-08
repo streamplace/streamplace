@@ -33,57 +33,20 @@ function VodPage() {
   const handleDownload = useCallback(async () => {
     setDownloading(true);
     try {
-      // Fetch the HLS playlist and extract segment URLs.
-      const res = await fetch(playlistUrl);
-      const playlistText = await res.text();
-      const lines = playlistText.split("\n");
-      const segmentUrls: string[] = [];
-      const playlistBase = playlistUrl.split("?")[0];
-      const baseUrl = playlistBase.substring(0, playlistBase.lastIndexOf("/"));
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("#")) continue;
-        // Segment URLs may be absolute or relative.
-        if (trimmed.startsWith("http")) {
-          segmentUrls.push(trimmed);
-        } else {
-          segmentUrls.push(`${baseUrl}/${trimmed}`);
-        }
-      }
-
-      if (segmentUrls.length === 0) {
-        // Fallback: download the playlist file itself.
-        const blob = new Blob([playlistText], {
-          type: "application/x-mpegURL",
-        });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `${title}.m3u8`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        return;
-      }
-
-      // Download all segments and concatenate.
-      const chunks: ArrayBuffer[] = [];
-      for (const url of segmentUrls) {
-        const segRes = await fetch(url);
-        chunks.push(await segRes.arrayBuffer());
-      }
-
-      const blob = new Blob(chunks, { type: "video/mp4" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${title}.mp4`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      // The playlist endpoint returns an HLS master playlist, not a
+      // downloadable media file. Browser-side concatenation of HLS
+      // segments produces corrupt output (segments are TS, not MP4;
+      // master playlist variant URLs are playlists, not media; and
+      // the whole thing requires demuxing/remuxing). Until a
+      // server-side download endpoint exists, point the user to the
+      // playlist URL directly.
+      window.open(playlistUrl, "_blank");
     } catch (e) {
       console.error("Download failed", e);
     } finally {
       setDownloading(false);
     }
-  }, [playlistUrl, title]);
+  }, [playlistUrl]);
   const description = record?.description;
   const createdAt = record?.createdAt
     ? new Date(record.createdAt).toLocaleDateString(undefined, {

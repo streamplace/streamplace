@@ -77,7 +77,7 @@ const METRIC_KEYS = Object.keys(METRICS) as MetricId[];
 /**
  * Compact number formatter for chart axis labels: 1500 → "1.5k",
  * 2400 → "2.4k", 6000 → "6k", 12000 → "12k", 2_500_000 → "2.5M". Anything
- * under 1000 is shown as-is. The unit is implicit — viewers read the chips
+ * under 1000 is shown as-is. The unit is implicit; viewers read the chips
  * to know whether the axis is kbps, ms, msg/min, etc.
  */
 function compactNumber(v: number): string {
@@ -107,7 +107,7 @@ function getConnectionQuality(
 /**
  * Stream Health widget. All heavy lifting (metric sampling, history
  * buffer, range management) lives in `DashboardMetricsProvider` higher
- * in the tree — this component only reads the pre-computed data and
+ * in the tree; this component only reads the pre-computed data and
  * renders the charts, chips, and footer.
  */
 export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
@@ -119,7 +119,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
   );
 
   // Track the chart container's aspect ratio. The two charts split along
-  // the longest axis — landscape → vertical split (left/right),
+  // the longest axis; landscape → vertical split (left/right),
   // portrait → horizontal split (top/bottom).
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [isLandscape, setIsLandscape] = useState(true);
@@ -250,7 +250,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
         )}
       </div>
 
-      {/* Metric chips — each shows its current value always, and toggles
+      {/* Metric chips; each shows its current value always, and toggles
           that metric in/out of the chart when clicked. */}
       <div className="flex shrink-0 flex-wrap gap-1.5">
         {METRIC_KEYS.map((id) => {
@@ -309,7 +309,7 @@ export function StreamHealthWidget({ store }: { store: LivestreamStore }) {
         })}
       </div>
 
-      {/* Footer stats — avg + peak per active metric (current is in the chip) */}
+      {/* Footer stats; avg + peak per active metric (current is in the chip) */}
       {activeMetrics.size > 0 && (
         <div className="flex shrink-0 flex-wrap gap-x-4 gap-y-1 text-xs">
           {METRIC_KEYS.filter((id) => activeMetrics.has(id)).map((id) => {

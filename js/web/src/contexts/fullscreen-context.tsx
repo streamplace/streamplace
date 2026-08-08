@@ -1,8 +1,6 @@
-// Fullscreen state for the player. Port of
-// js/app/contexts/FullscreenContext.tsx. The app's version hides the
-// custom sidebar on fullscreen via a reanimated side effect; the
-// web's shadcn sidebar manages its own state, so the context just
-// exposes a boolean + setter. Future fullscreen UI can subscribe.
+// Fullscreen state for the player. The web's shadcn sidebar manages its
+// own state, so this context just exposes a boolean + setter. Future
+// fullscreen UI can subscribe.
 import {
   createContext,
   ReactNode,

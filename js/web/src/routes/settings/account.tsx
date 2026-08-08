@@ -94,8 +94,8 @@ function AccountSettings() {
       <CardMenuSection>
         <button
           type="button"
-          onClick={() => {
-            void signOut();
+          onClick={async () => {
+            await signOut();
             navigate({ to: "/settings" });
           }}
           className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"

@@ -1,7 +1,7 @@
 // Public <Player> component. Owns the video element and the shared
 // chrome (controls overlay, error display, fullscreen, auto-hide,
 // click-to-toggle). The actual playback source is handled by a
-// backend — currently <HLSPlayer>, soon <WebRTCPlayer> and others.
+// backend, currently <HLSPlayer>, soon <WebRTCPlayer> and others.
 // Backends are rendered as siblings of the <video> element and use
 // the shared videoRef to attach their source. This keeps the chrome
 // implementation-free of any specific transport.
@@ -13,6 +13,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { HLSPlayer } from "./hls-player";
 import { PlayerControls } from "./player-controls";
@@ -119,7 +120,7 @@ function writeTransportPreference(useWebRTC: boolean) {
 
 const QUALITY_KEY = "player-quality";
 
-function readQualityPreference(): number | null {
+export function readQualityPreference(): number | null {
   try {
     const v = localStorage.getItem(QUALITY_KEY);
     if (v !== null) return parseInt(v, 10);
@@ -152,6 +153,7 @@ export function Player({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const backendRef = useRef<PlayerBackendHandle | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useTranslation();
 
   const [playing, setPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -166,18 +168,23 @@ export function Player({
   // Stable per-mount id for video playback
   const [sessionId] = useSonare();
 
-  const surfaceError = useCallback(
-    (msg: string) => {
-      setError(msg);
-      onError?.(msg);
-      // WebRTC failed — fall back to HLS automatically.
-      if (useWebRTC) {
-        setUseWebRTC(false);
-        writeTransportPreference(false);
-      }
-    },
-    [onError, useWebRTC],
-  );
+  // Refs so the video event-listener effect below doesn't have to list
+  // these as deps; it would otherwise tear down and re-add its
+  // listeners on every transport toggle or parent re-render.
+  const useWebRTCRef = useRef(useWebRTC);
+  const onErrorRef = useRef(onError);
+  useWebRTCRef.current = useWebRTC;
+  onErrorRef.current = onError;
+
+  const surfaceError = useCallback((msg: string) => {
+    setError(msg);
+    onErrorRef.current?.(msg);
+    // WebRTC failed; fall back to HLS automatically.
+    if (useWebRTCRef.current) {
+      setUseWebRTC(false);
+      writeTransportPreference(false);
+    }
+  }, []);
 
   const handleWebRTCChange = useCallback((value: boolean) => {
     setUseWebRTC(value);
@@ -194,27 +201,15 @@ export function Player({
     setStats(null);
   }, [src, active]);
 
-  // When the user toggles transport (HLS <-> WebRTC) we want the source
-  // to re-load, so clear quality + playback state and force the backend
-  // to remount via a changing key.
-  const [transportKey, setTransportKey] = useState(0);
+  // When the user toggles transport (HLS <-> WebRTC) the backend child
+  // inside <PlayerBackend> is a different component type, so React
+  // unmounts the old one and mounts the new one automatically. We just
+  // need to reset the chrome's per-transport state.
   useEffect(() => {
-    console.log("[player] useWebRTC changed", { useWebRTC, transportKey });
     setQualities([]);
     setCurrentQuality(-1);
     setStats(null);
-    setTransportKey((k) => k + 1);
   }, [useWebRTC]);
-
-  useEffect(() => {
-    console.log("[player] render", {
-      src,
-      active,
-      useWebRTC,
-      transportKey,
-      error,
-    });
-  });
 
   // Mirror the video element's state into React.
   useEffect(() => {
@@ -230,7 +225,21 @@ export function Player({
       onPlaying?.();
     };
     const onLoadedMetadata = () => setManifestReady(true);
-    const onErrorEvt = () => surfaceError("Video element error");
+    const onErrorEvt = () => {
+      const code = video.error?.code;
+      // MediaError code 1 (MEDIA_ERR_ABORTED) fires when the user or
+      // a backend tears down the source; not a real error to surface.
+      if (code === 1) return;
+      surfaceError(
+        code === 2
+          ? t("player-error-network")
+          : code === 3
+            ? t("player-error-playback")
+            : code === 4
+              ? t("player-error-format")
+              : t("player-error-playback"),
+      );
+    };
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -294,7 +303,9 @@ export function Player({
         const video = videoRef.current;
         if (!video) return;
         if (video.paused) {
-          video.play().catch(() => {});
+          video
+            .play()
+            .catch((err) => console.warn("[player] play() rejected", err));
         } else {
           video.pause();
         }
@@ -319,7 +330,6 @@ export function Player({
 
       {active && (
         <PlayerBackend
-          key={transportKey}
           src={src}
           useWebRTC={useWebRTC}
           videoRef={videoRef}
@@ -355,8 +365,12 @@ export function Player({
       {active && showStats && stats && (
         <StatsOverlay
           stats={stats}
-          protocol={useWebRTC ? "WebRTC" : "HLS"}
-          latencyMode={useWebRTC ? "Low Latency" : "Standard"}
+          protocol={
+            useWebRTC ? t("player-protocol-webrtc") : t("player-protocol-hls")
+          }
+          latencyMode={
+            useWebRTC ? t("player-latency-low") : t("player-latency-standard")
+          }
           sessionId={sessionId}
         />
       )}
@@ -395,10 +409,6 @@ function PlayerBackend({
   onStatsChange: (stats: PlayerStats) => void;
   ref: RefObject<PlayerBackendHandle | null>;
 }) {
-  let [sona, resetSona] = useSonare();
-  useEffect(() => {
-    resetSona();
-  }, [src]);
   if (useWebRTC || src.startsWith("webrtc://")) {
     return (
       <WebRTCPlayer
@@ -413,7 +423,6 @@ function PlayerBackend({
   }
   return (
     <HLSPlayer
-      key={sona}
       ref={ref}
       videoRef={videoRef}
       src={src}
@@ -426,21 +435,8 @@ function PlayerBackend({
   );
 }
 
-function BackendUnsupported({
-  scheme,
-  onError,
-}: {
-  scheme: string;
-  onError: (msg: string) => void;
-}) {
-  useEffect(() => {
-    onError(`Unsupported player for ${scheme}://`);
-  }, [scheme, onError]);
-  return null;
-}
-
 /**
- * "Stats for nerds" panel. Draggable, moveable window — grab anywhere
+ * "Stats for nerds" panel. Draggable, moveable window; grab anywhere
  * on the panel and drag to reposition. Uses pointer events so mouse and
  * touch both work, with setPointerCapture so the drag keeps tracking
  * even if the cursor leaves the panel mid-drag.
@@ -452,10 +448,11 @@ function StatsOverlay({
   sessionId,
 }: {
   stats: PlayerStats;
-  protocol: "HLS" | "WebRTC";
-  latencyMode: "Standard" | "Low Latency";
+  protocol: string;
+  latencyMode: string;
   sessionId: string;
 }) {
+  const { t } = useTranslation();
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
@@ -491,11 +488,15 @@ function StatsOverlay({
   const kbps = stats.bitrate ? Math.round(stats.bitrate / 1000) : null;
   const mbps = kbps ? (kbps / 1000).toFixed(2) : null;
   const bitrateDisplay =
-    mbps && kbps && kbps > 1000 ? `${mbps} Mbps` : kbps ? `${kbps} Kbps` : "—";
+    mbps && kbps && kbps > 1000
+      ? `${mbps} Mbps`
+      : kbps
+        ? `${kbps} Kbps`
+        : "N/A";
   return (
     <div
       role="dialog"
-      aria-label="Player stats"
+      aria-label={t("player-stats")}
       // Stop the synthetic click from bubbling to the player's
       // click-to-toggle when the user just taps the panel (no drag).
       onClick={(e) => e.stopPropagation()}
@@ -515,40 +516,48 @@ function StatsOverlay({
         Stats
       </div>
       <div className="px-2.5 py-1.5">
-        <Row label="Resolution" value={`${stats.width}×${stats.height}`} />
         <Row
-          label="Viewport"
+          label={t("player-stats-resolution")}
+          value={`${stats.width}×${stats.height}`}
+        />
+        <Row
+          label={t("player-stats-viewport")}
           value={`${stats.viewportWidth}×${stats.viewportHeight}`}
         />
-        <Row label="Bitrate" value={bitrateDisplay} />
+        <Row label={t("player-stats-bitrate")} value={bitrateDisplay} />
         {stats.ttfbEstimate !== undefined && stats.ttfbEstimate > 0 && (
           <Row label="TTFB" value={`${Math.round(stats.ttfbEstimate)} ms`} />
         )}
         <Row
           label="FPS"
           value={
-            stats.fps !== undefined ? Math.round(stats.fps).toString() : "—"
+            stats.fps !== undefined ? Math.round(stats.fps).toString() : "N/A"
           }
         />
         <Row
-          label="Skipped"
+          label={t("player-stats-skipped")}
           value={`${stats.droppedFrames} / ${stats.totalFrames}`}
         />
-        <Row label="Buffer" value={`${stats.buffered.toFixed(2)} sec`} />
+        <Row
+          label={t("player-stats-buffer")}
+          value={`${stats.buffered.toFixed(2)} sec`}
+        />
         {stats.latencyToBroadcaster !== undefined && (
           <Row
-            label="Latency"
+            label={t("player-latency")}
             value={`${stats.latencyToBroadcaster.toFixed(2)} sec`}
           />
         )}
-        {stats.codecs && <Row label="Codecs" value={stats.codecs} />}
-        <Row label="Protocol" value={protocol} />
-        <Row label="Latency Mode" value={latencyMode} />
-        <Row label="Render Surface" value="video" />
+        {stats.codecs && (
+          <Row label={t("player-stats-codecs")} value={stats.codecs} />
+        )}
+        <Row label={t("player-stats-protocol")} value={protocol} />
+        <Row label={t("player-stats-latency-mode")} value={latencyMode} />
+        <Row label={t("player-stats-render-surface")} value="video" />
         {stats.hlsVersion && (
           <Row label="hls.js version" value={stats.hlsVersion} />
         )}
-        <Row label="Session" value={sessionId} />
+        <Row label={t("player-stats-session")} value={sessionId} />
       </div>
     </div>
   );

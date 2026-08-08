@@ -160,8 +160,15 @@ export default async function createOAuthClient(
 
   // Replace the default resolver with our downstream-OAuth resolver.
   customResolver = new StreamplaceOAuthResolver(streamplaceUrl);
-  // @ts-ignore — oauthResolver is declared readonly on the public type.
-  client.oauthResolver = customResolver;
+  // The library types oauthResolver as a readonly OAuthResolver, but at
+  // runtime it's a plain property. We duck-type our resolver to match
+  // the shape the library needs. Cast through unknown to bypass the
+  // type mismatch (OAuthResolver vs StreamplaceOAuthResolver).
+  if ("oauthResolver" in client) {
+    (
+      client as unknown as { oauthResolver: StreamplaceOAuthResolver }
+    ).oauthResolver = customResolver;
+  }
 
   return client;
 }

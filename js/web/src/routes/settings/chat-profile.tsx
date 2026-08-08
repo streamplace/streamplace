@@ -1,3 +1,11 @@
+import {
+  ColorPicker,
+  ColorPickerFormat,
+  ColorPickerHue,
+  ColorPickerOutput,
+  ColorPickerSelection,
+} from "@/components/ui/color-picker";
+import { Switch } from "@/components/ui/switch";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -85,12 +93,9 @@ function ChatProfileSettings() {
     setSaving(true);
     try {
       const rgb = hexToRgb(color);
-      const selfLabels = isBot ? (["bot"] as const) : undefined;
+      const selfLabels = isBot ? ["bot"] : undefined;
 
-      // We need to call createChatProfileRecord which only accepts r/g/b.
-      // For selfLabels, we'd need to extend the store function or call the API directly.
-      // For now, save the color through the existing function.
-      await createChatProfileRecord(rgb.red, rgb.green, rgb.blue);
+      await createChatProfileRecord(rgb.red, rgb.green, rgb.blue, selfLabels);
 
       toast.success(t("chat-profile-saved"));
     } catch (error: any) {
@@ -127,35 +132,29 @@ function ChatProfileSettings() {
                 {t("chat-profile-preview-message")}
               </span>
             </div>
-
-            {/* Color picker */}
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-10 cursor-pointer rounded-md border border-(--color-border) bg-transparent p-0.5"
-              />
-              <input
-                type="text"
-                value={color}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (/^#[0-9a-f]{6}$/i.test(val)) {
-                    setColor(val);
-                  } else if (val.length <= 7) {
-                    setColor(val);
-                  }
-                }}
-                onBlur={(e) => {
-                  if (!/^#[0-9a-f]{6}$/i.test(e.target.value)) {
-                    setColor(defaultHex);
-                  }
-                }}
-                className="w-24 rounded-md border border-(--color-border) bg-transparent px-2 py-1.5 font-mono text-sm"
-                maxLength={7}
-              />
-            </div>
+            <ColorPicker
+              key={defaultHex}
+              defaultValue={defaultHex}
+              onChange={([red, green, blue]) =>
+                setColor(
+                  rgbToHex(
+                    Math.round(red),
+                    Math.round(green),
+                    Math.round(blue),
+                  ),
+                )
+              }
+              className="bg-background max-w-sm rounded-md border p-4 shadow-sm"
+            >
+              <ColorPickerSelection />
+              <div className="flex items-center gap-4">
+                <ColorPickerHue />
+              </div>
+              <div className="flex items-center gap-2">
+                <ColorPickerOutput />
+                <ColorPickerFormat />
+              </div>
+            </ColorPicker>
           </div>
         </CardMenuSection>
       </div>
@@ -173,17 +172,7 @@ function ChatProfileSettings() {
                 {t("chat-profile-label-bot-description")}
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isBot}
-              onClick={() => setIsBot(!isBot)}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isBot ? "bg-(--color-accent)" : "bg-(--color-border)"} `}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-lg transition-transform ${isBot ? "translate-x-4" : "translate-x-0"} `}
-              />
-            </button>
+            <Switch checked={isBot} onCheckedChange={setIsBot} />
           </div>
         </CardMenuSection>
       </div>

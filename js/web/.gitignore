@@ -1,1 +1,4 @@
 /public/locales
+test-results/
+playwright-report/
+storybook-static/

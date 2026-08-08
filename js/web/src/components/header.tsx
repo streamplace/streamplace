@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import useAvatars from "../hooks/use-avatars";
-import { EMPTY_LOGIN_SEARCH } from "../lib/login-search";
 import { useSession } from "../lib/session";
-import { usePDSAgent, useUserProfile } from "../lib/store/hooks";
+import { useStore } from "../lib/store";
+import { usePDSAgent, useSiteTitle, useUserProfile } from "../lib/store/hooks";
 import StreamplaceSvg from "./svg/streamplace-bw";
+import { Button } from "./ui/button";
 import { SidebarTrigger } from "./ui/sidebar";
 
 interface SearchResult {
@@ -20,6 +21,7 @@ export default function Header() {
   const { t } = useTranslation("common");
   const { state } = useSession();
   const userProfile = useUserProfile();
+  const siteTitle = useSiteTitle();
   useAvatars(state.status === "authenticated" ? [state.session.did] : []);
 
   const did = state.status === "authenticated" ? state.session.did : null;
@@ -151,8 +153,8 @@ export default function Header() {
       <header className="bg-sidebar flex h-12 items-center gap-4 py-2 pt-4 pb-4">
         {/* logo */}
         <div className="fixed top-2.5 left-4 z-50 flex items-center gap-2">
-          <StreamplaceSvg className="h-6 w-6 invert-100" />
-          <h1 className="hidden text-lg md:block">Streamplace</h1>
+          <StreamplaceSvg className="h-6 w-6" />
+          <h1 className="hidden text-lg md:block">{siteTitle}</h1>
           <SidebarTrigger />
         </div>
 
@@ -275,11 +277,11 @@ export function UserProfile({
 }) {
   return (
     <div className="flex items-center gap-4">
-      <nav className="flex items-center gap-4">
+      <nav className="flex items-center gap-2 pr-3">
         {did ? (
           <Link
             to="/settings/account"
-            className="flex items-center gap-2 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-(--color-bg-overlay)"
+            className="flex items-center gap-2 rounded-full py-1 pl-1 transition-colors hover:bg-(--color-bg-overlay)"
             title={displayName ? t("signed-in-as", { handle }) : t("profile")}
             aria-label={
               displayName ? t("signed-in-as", { handle }) : t("profile")
@@ -301,13 +303,21 @@ export function UserProfile({
             )}
           </Link>
         ) : (
-          <Link
-            to="/login"
-            search={EMPTY_LOGIN_SEARCH}
-            className="text-sm font-medium text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
-          >
-            {t("log-in")}
-          </Link>
+          <>
+            <Button
+              onClick={() => useStore.getState().openLoginModal()}
+              variant="outline"
+              className="rounded-full text-sm"
+            >
+              {t("log-in")}
+            </Button>
+            <Button
+              onClick={() => useStore.getState().openPdsModal()}
+              className="rounded-full text-sm"
+            >
+              {t("sign-up", { defaultValue: "Sign up" })}
+            </Button>
+          </>
         )}
       </nav>
     </div>

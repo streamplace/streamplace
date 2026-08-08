@@ -121,7 +121,7 @@ function WebhookManager() {
       );
       const payload = {
         name: data.name || undefined,
-        url: data.url as any,
+        url: data.url,
         events: data.events as ("livestream" | "chat" | "follow" | "mention")[],
         active: data.active,
         prefix: data.prefix || undefined,
@@ -135,9 +135,12 @@ function WebhookManager() {
         await agent.client.call(place.stream.server.updateWebhook, {
           id: editingWebhook.id,
           ...payload,
-        });
+        } as any);
       } else {
-        await agent.client.call(place.stream.server.createWebhook, payload);
+        await agent.client.call(
+          place.stream.server.createWebhook,
+          payload as any,
+        );
       }
 
       setShowForm(false);
@@ -173,7 +176,7 @@ function WebhookManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <div>
         <h1 className="font-display text-xl font-semibold">
           {t("webhook-integrations")}

@@ -31,7 +31,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     // Refs always point at the latest props/state. The imperative handle
     // reads from these so it never closes over a stale selectedIndex or
-    // command — that was the cause of Enter/Tab inserting the wrong item
+    // command; that was the cause of Enter/Tab inserting the wrong item
     // (or nothing) when the user navigated with arrow keys and then
     // committed before the next ref update landed.
     const selectedIndexRef = useRef(0);
@@ -61,7 +61,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     }, []);
 
     // Side effect (scroll) lives in an effect, not inside the setState
-    // updater — the updater can be called more than once under StrictMode
+    // updater; the updater can be called more than once under StrictMode
     // or concurrent rendering.
     useEffect(() => {
       scrollToIndex(selectedIndex);

@@ -128,6 +128,7 @@ export const createContentMetadataSlice: StateCreator<
         creating: false,
         error: error?.message ?? "Failed to create content metadata",
       });
+      throw error;
     }
   },
 
@@ -198,6 +199,7 @@ export const createContentMetadataSlice: StateCreator<
         updating: false,
         error: error?.message ?? "Failed to update content metadata",
       });
+      throw error;
     }
   },
 

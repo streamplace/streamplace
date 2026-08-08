@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDidFromAtUri } from "@/lib/game";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronLeft, ImagePlus, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -32,11 +33,6 @@ interface BadgeDefItem {
     badgeType: string;
     image?: { ref: { toString(): string } };
   };
-}
-
-function getDidFromAtUri(uri: string) {
-  const parts = uri.split("/");
-  return parts.length >= 3 ? parts[2] : null;
 }
 
 function BadgeIssuerPanel() {
@@ -132,7 +128,7 @@ function BadgeIssuerPanel() {
           badgeType: createBadgeType,
           image: imageBlob,
           createdAt: new Date().toISOString() as any,
-        },
+        } as any,
         { repo: agent.did as any },
       );
 
@@ -161,10 +157,10 @@ function BadgeIssuerPanel() {
       await agent.client.create(
         place.stream.badge.issuance,
         {
-          did: recipientDid.trim() as any,
-          badge: { uri: selectedDef.uri as any, cid: selectedDef.cid },
+          did: recipientDid.trim(),
+          badge: { uri: selectedDef.uri, cid: selectedDef.cid },
           createdAt: new Date().toISOString() as any,
-        },
+        } as any,
         { repo: agent.did as any },
       );
       setLastResult({

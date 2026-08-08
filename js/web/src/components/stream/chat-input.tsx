@@ -1,5 +1,4 @@
 import type { LivestreamStore } from "@streamplace/core";
-import { Link } from "@tanstack/react-router";
 import { Extension } from "@tiptap/core";
 import MentionBase from "@tiptap/extension-mention";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -23,8 +22,8 @@ import {
   type Emoji,
   type EmojiData,
 } from "../../lib/emoji-data";
-import { EMPTY_LOGIN_SEARCH } from "../../lib/login-search";
 import { useSession } from "../../lib/session";
+import { useStore as useAppStore } from "../../lib/store";
 import { Button } from "../ui/button";
 import { EmojiList } from "./emoji-list";
 import { EmojiPicker } from "./emoji-picker";
@@ -270,14 +269,14 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   return {
     pluginKey: EmojiPluginKey,
     char: ":",
-    // Don't pop the popup open on a single `:` — only once the user has
+    // Don't pop the popup open on a single `:`; only once the user has
     // typed enough characters to plausibly match something. Without this
     // gate the popup opens with an empty list and looks broken.
     shouldShow: ({ query }: { query: string }) => query.length >= 3,
     items: ({ query }: { query: string }) => {
       const data = emojiDataRef.data;
       if (data) return searchEmojis(data, query);
-      // Data not yet loaded — kick off the fetch, cache the result, and
+      // Data not yet loaded; kick off the fetch, cache the result, and
       // resolve the items list once it lands. The suggestion plugin
       // accepts a Promise return value and will re-fire onUpdate.
       return getEmojiData().then((d) => {
@@ -338,7 +337,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
   // sending state (which would recreate the editor on every send).
   const onSubmitRef = useRef<() => void>(() => {});
 
-  // Ref to the smile trigger button — passed to the picker so it can
+  // Ref to the smile trigger button; passed to the picker so it can
   // position itself relative to it (the picker portals to document.body
   // to escape the chat sidebar's overflow-hidden wrapper).
   const smileButtonRef = useRef<HTMLButtonElement>(null);
@@ -412,14 +411,18 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       ],
       editorProps: {
         attributes: {
+          // ProseMirror's default CSS adds white-space: pre-wrap and
+          // word-wrap: break-word, but that stylesheet isn't imported
+          // here, so we add the equivalents via Tailwind to keep long
+          // input from overflowing horizontally instead of wrapping.
           class:
-            "min-h-[36px] max-h-[120px] overflow-y-auto px-3 py-2 text-sm outline-none",
+            "min-h-[36px] max-h-[120px] min-w-0 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm outline-none",
         },
         handleKeyDown: (view, event) => {
           // Submit on Enter (not Shift+Enter) unless a suggestion popup is
           // active. ProseMirror dispatches handleKeyDown with editor-view
           // props first and plugins after, so we can't rely on the
-          // suggestion plugin short-circuiting us — we have to check both
+          // suggestion plugin short-circuiting us; we have to check both
           // plugin states and decline to handle the event ourselves so
           // whichever plugin is open still gets a turn.
           if (event.key === "Enter" && !event.shiftKey) {
@@ -492,15 +495,15 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
 
   if (!isAuthed) {
     return (
-      <div className="py-1 text-center text-sm text-(--color-fg-muted)">
-        <Link
-          to="/login"
-          search={EMPTY_LOGIN_SEARCH}
-          className="font-medium text-(--color-accent) hover:underline"
+      <div className="py-2 text-center text-sm text-(--color-fg-muted)">
+        <Button
+          type="button"
+          variant="muted"
+          onClick={() => useAppStore.getState().openLoginModal()}
+          className="text-lg font-medium text-(--color-accent) hover:underline"
         >
-          {t("log-in")}
-        </Link>{" "}
-        {t("chat-log-in-to")}
+          {t("chat-log-in-to")}
+        </Button>
       </div>
     );
   }
@@ -536,7 +539,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
         }}
         className="flex items-end gap-2"
       >
-        <div className="relative flex-1 rounded-md border border-(--color-border) bg-(--color-bg) focus-within:border-(--color-accent)">
+        <div className="relative min-w-0 flex-1 rounded-lg border border-(--color-border) bg-(--color-bg) focus-within:border-(--color-accent)">
           {editor && <EditorContent editor={editor} />}
 
           {textLength > 200 && (
@@ -560,7 +563,7 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
           <Smile className="h-4 w-4" />
         </Button>
 
-        <Button type="submit" size="sm" disabled={sending || textLength === 0}>
+        <Button type="submit" size="lg" disabled={sending || textLength === 0}>
           {sending ? "..." : t("chat-send-button")}
         </Button>
       </form>

@@ -1,6 +1,8 @@
 import { LivestreamProvider } from "@/components/stream/livestream-provider";
+import { Button } from "@/components/ui/button";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSession } from "@/lib/session";
+import { useStore } from "@/lib/store";
 import { Link, Outlet } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -37,7 +39,7 @@ interface NavLink {
   labelKey: string;
 }
 
-/** Main nav — appears above the Settings group. */
+/** Main nav; appears above the Settings group. */
 const MAIN_NAV: NavLink[] = [
   { to: "/dashboard", icon: LayoutGrid, labelKey: "control-panel" },
   {
@@ -52,7 +54,7 @@ const MAIN_NAV: NavLink[] = [
   },
 ];
 
-/** Settings group — appears under a "Settings" header. */
+/** Settings group; appears under a "Settings" header. */
 const SETTINGS_NAV: NavLink[] = [
   { to: "/dashboard/stream", icon: Radio, labelKey: "stream-settings" },
   { to: "/dashboard/keys", icon: Key, labelKey: "key-manager" },
@@ -78,16 +80,34 @@ export default function DashboardChrome() {
   });
 
   if (state.status !== "authenticated") {
+    // "loading" means the OAuth client is restoring the session; don't
+    // flash the "please log in" prompt on refresh for an already-logged-in
+    // user.
+    if (state.status === "loading") {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
+        </div>
+      );
+    }
     return (
-      <div className="flex h-full items-center justify-center text-sm text-(--color-fg-muted)">
-        {t("login-required", {
-          defaultValue: "Please log in to access the dashboard.",
-        })}
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-(--color-fg-muted)">
+        <p>
+          {t("login-required", {
+            defaultValue: "Please log in to access the dashboard.",
+          })}
+        </p>
+        <Button onClick={() => useStore.getState().openLoginModal()}>
+          {t("log-in")}
+        </Button>
       </div>
     );
   }
 
   const user = state.session.did;
+
+  // are we in /dashboard/? if so hide the header
+  const isDashboardRoot = window.location.pathname === "/dashboard";
 
   return (
     <LivestreamProvider user={user}>
@@ -106,8 +126,8 @@ export default function DashboardChrome() {
             >
               {!theatre && <DashboardSidebar />}
               <SidebarInset>
-                {!theatre && (
-                  <header className="bg-sidebar z-99 flex h-12 items-center gap-2 border-b border-(--color-border) px-4">
+                {!theatre && !isDashboardRoot && (
+                  <header className="bg-sidebar z-99 flex h-12 items-center gap-2 px-4">
                     <SidebarTrigger className="-ml-1" />
                     <h1 className="font-display text-lg font-semibold">
                       {t("nav-dashboard", {

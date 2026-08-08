@@ -1,4 +1,5 @@
 import { Player } from "@/components/player/player";
+import { captureError } from "@/lib/log";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
@@ -21,7 +22,15 @@ function EmbedVideo() {
 
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-black">
-      <Player src={playlistUrl} poster={thumbnailUrl} active mode="vod" />
+      <Player
+        src={playlistUrl}
+        poster={thumbnailUrl}
+        active
+        mode="vod"
+        onError={(message) =>
+          captureError(message, { user, tid, source: "embed-vod" })
+        }
+      />
     </div>
   );
 }

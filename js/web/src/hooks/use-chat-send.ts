@@ -67,7 +67,7 @@ export function useChatSend(store: LivestreamStore) {
           $type: "place.stream.chat.message",
           text: trimmed,
           createdAt: createdAt as any,
-          streamer: streamerDid,
+          streamer: streamerDid as any,
           ...(replyRef ? { reply: replyRef } : {}),
           ...(facets
             ? { facets: facets as ChatMessageViewHydrated["record"]["facets"] }

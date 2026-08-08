@@ -18,12 +18,17 @@ import React from "react";
 import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
-import { i18n } from "@streamplace/components";
+import { i18n, initI18next } from "@streamplace/components";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+// Initialize the shared i18next instance: registers the React/Fluent/backend
+// plugins and loads the stored locale. Without this, the `i18n` instance
+// passed to I18nProvider below stays uninitialized and nothing translates.
+void initI18next();
 
 // get proper DSN for environment
 // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN

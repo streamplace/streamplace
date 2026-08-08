@@ -6,7 +6,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "check": "bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "check": "node scripts/compile-translations.js && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "compile": "node scripts/compile-translations.js",
     "compile:watch": "nodemon --watch 'locales/**/*.ftl' --exec 'node scripts/compile-translations.js'",
     "extract": "i18next-cli extract && node scripts/migrate-i18n.js",

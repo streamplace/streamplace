@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "check": "bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "test": "echo \"no tests yet\" && exit 0"
   },
   "dependencies": {

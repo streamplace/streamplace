@@ -12,7 +12,7 @@
     "check": "knip && pnpm run check:workspaces && git ls-files | xargs prettier --check --ignore-unknown",
     "check:workspaces": "cd js/app && pnpm run check",
     "fix": "git ls-files | xargs prettier --write --ignore-unknown",
-    "prepare": "husky",
+    "prepare": "husky && pnpm --filter @streamplace/i18n compile",
     "build": "pnpm --stream -r run build",
     "release": "lerna version --force-publish=@streamplace/app",
     "precommit": "make precommit",

@@ -15,7 +15,7 @@
     "build": "pnpm run build:web && pnpm run prebuild",
     "build:web": "node scripts/generate-build-info.js && pnpm run export && node exportClientExpoConfig.js > dist/expoConfig.json",
     "export": "expo export --dump-sourcemap || expo export --dump-sourcemap",
-    "check": "bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "prebuild": "EXPO_NO_GIT_STATUS=1 expo prebuild --clean && sed -i.bak 's/org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m/org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m/' android/gradle.properties && pnpm run find-node",
     "prepare": "which pod && pnpm run prepare-ios || echo 'not a mac, not installing pods' && mkdir -p ./public && cp -r ../i18n/public/locales ./public/",
     "prepare-ios": "cd ios && pod install && pnpm run find-node",

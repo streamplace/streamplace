@@ -9,7 +9,7 @@
     "predev": "pnpm gen:emoji",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5173",
-    "check": "bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
     "gen:emoji": "node scripts/gen-emoji-data.mjs",
     "prebuild": "pnpm gen:emoji"
   },

@@ -19,7 +19,9 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as UserIndexRouteImport } from './routes/$user/index'
 import { Route as SettingsPrivacyRouteImport } from './routes/settings/privacy'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsLanguagesRouteImport } from './routes/settings/languages'
+import { Route as SettingsDanmuRouteImport } from './routes/settings/danmu'
 import { Route as SettingsChatProfileRouteImport } from './routes/settings/chat-profile'
 import { Route as SettingsBrandingRouteImport } from './routes/settings/branding'
 import { Route as SettingsBadgesRouteImport } from './routes/settings/badges'
@@ -92,9 +94,19 @@ const SettingsPrivacyRoute = SettingsPrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsLanguagesRoute = SettingsLanguagesRouteImport.update({
   id: '/languages',
   path: '/languages',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsDanmuRoute = SettingsDanmuRouteImport.update({
+  id: '/danmu',
+  path: '/danmu',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsChatProfileRoute = SettingsChatProfileRouteImport.update({
@@ -223,7 +235,9 @@ export interface FileRoutesByFullPath {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user/': typeof UserIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -255,7 +269,9 @@ export interface FileRoutesByTo {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user': typeof UserIndexRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -290,7 +306,9 @@ export interface FileRoutesById {
   '/settings/badges': typeof SettingsBadgesRoute
   '/settings/branding': typeof SettingsBrandingRoute
   '/settings/chat-profile': typeof SettingsChatProfileRoute
+  '/settings/danmu': typeof SettingsDanmuRoute
   '/settings/languages': typeof SettingsLanguagesRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/privacy': typeof SettingsPrivacyRoute
   '/$user/': typeof UserIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -326,7 +344,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user/'
     | '/dashboard/'
@@ -358,7 +378,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user'
     | '/dashboard'
@@ -392,7 +414,9 @@ export interface FileRouteTypes {
     | '/settings/badges'
     | '/settings/branding'
     | '/settings/chat-profile'
+    | '/settings/danmu'
     | '/settings/languages'
+    | '/settings/notifications'
     | '/settings/privacy'
     | '/$user/'
     | '/dashboard/'
@@ -497,11 +521,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPrivacyRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/settings/languages': {
       id: '/settings/languages'
       path: '/languages'
       fullPath: '/settings/languages'
       preLoaderRoute: typeof SettingsLanguagesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/danmu': {
+      id: '/settings/danmu'
+      path: '/danmu'
+      fullPath: '/settings/danmu'
+      preLoaderRoute: typeof SettingsDanmuRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/chat-profile': {
@@ -689,7 +727,9 @@ interface SettingsRouteChildren {
   SettingsBadgesRoute: typeof SettingsBadgesRoute
   SettingsBrandingRoute: typeof SettingsBrandingRoute
   SettingsChatProfileRoute: typeof SettingsChatProfileRoute
+  SettingsDanmuRoute: typeof SettingsDanmuRoute
   SettingsLanguagesRoute: typeof SettingsLanguagesRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   SettingsPrivacyRoute: typeof SettingsPrivacyRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -703,7 +743,9 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsBadgesRoute: SettingsBadgesRoute,
   SettingsBrandingRoute: SettingsBrandingRoute,
   SettingsChatProfileRoute: SettingsChatProfileRoute,
+  SettingsDanmuRoute: SettingsDanmuRoute,
   SettingsLanguagesRoute: SettingsLanguagesRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
   SettingsPrivacyRoute: SettingsPrivacyRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }

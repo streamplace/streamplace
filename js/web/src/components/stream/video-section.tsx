@@ -7,6 +7,7 @@ import { Player } from "../../components/player/player";
 import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { captureError } from "../../lib/log";
+import { useStore as useAppStore } from "../../lib/store";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { PlayerOffline } from "./player-offline";
@@ -49,6 +50,12 @@ export function VideoSection({
     writeDanmuPreference(enabled);
   }, []);
 
+  // Danmu tuning preferences from the shared store (settings page).
+  const danmuOpacity = useAppStore((s) => s.danmuOpacity);
+  const danmuSpeed = useAppStore((s) => s.danmuSpeed);
+  const danmuLaneCount = useAppStore((s) => s.danmuLaneCount);
+  const danmuMaxMessages = useAppStore((s) => s.danmuMaxMessages);
+
   const state = useStore(
     store,
     useShallow((s) => ({
@@ -78,6 +85,10 @@ export function VideoSection({
       store={store}
       showDanmu={showDanmu}
       onShowDanmuChange={handleDanmuChange}
+      danmuOpacity={danmuOpacity}
+      danmuSpeed={danmuSpeed}
+      danmuLaneCount={danmuLaneCount}
+      danmuMaxMessages={danmuMaxMessages}
     />
   );
 }
@@ -97,6 +108,10 @@ export function VideoSectionInner({
   store,
   showDanmu = false,
   onShowDanmuChange,
+  danmuOpacity = 80,
+  danmuSpeed = 1,
+  danmuLaneCount = 12,
+  danmuMaxMessages = 50,
 }: {
   user: string;
   liveness: Liveness;
@@ -108,6 +123,10 @@ export function VideoSectionInner({
   store?: LivestreamStore;
   showDanmu?: boolean;
   onShowDanmuChange?: (show: boolean) => void;
+  danmuOpacity?: number;
+  danmuSpeed?: number;
+  danmuLaneCount?: number;
+  danmuMaxMessages?: number;
 }) {
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
@@ -179,7 +198,14 @@ export function VideoSectionInner({
 
         {/* Danmu overlay sits on top of the video */}
         {store && (
-          <DanmuOverlay store={store} enabled={showDanmu && showPlayer} />
+          <DanmuOverlay
+            store={store}
+            enabled={showDanmu && showPlayer}
+            opacity={danmuOpacity}
+            speed={danmuSpeed}
+            laneCount={danmuLaneCount}
+            maxMessages={danmuMaxMessages}
+          />
         )}
         {liveness === "stale" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">

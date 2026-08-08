@@ -5,7 +5,10 @@
 import { describe, expect, it } from "vitest";
 import { createBaseSlice } from "./slices/baseSlice";
 import { createBlueskySlice } from "./slices/blueskySlice";
+import { createBrandingSlice } from "./slices/brandingSlice";
 import { createContentMetadataSlice } from "./slices/contentMetadataSlice";
+import { createDanmuSlice } from "./slices/danmuSlice";
+import { createPlatformSlice } from "./slices/platformSlice";
 import { createSidebarSlice } from "./slices/sidebarSlice";
 import { createStreamplaceSlice } from "./slices/streamplaceSlice";
 
@@ -36,6 +39,9 @@ describe("store slice composition", () => {
         name: "contentMetadata",
         keys: getSliceKeys(createContentMetadataSlice as any),
       },
+      { name: "platform", keys: getSliceKeys(createPlatformSlice as any) },
+      { name: "danmu", keys: getSliceKeys(createDanmuSlice as any) },
+      { name: "branding", keys: getSliceKeys(createBrandingSlice as any) },
     ];
 
     const seen = new Map<string, string>(); // key -> slice name

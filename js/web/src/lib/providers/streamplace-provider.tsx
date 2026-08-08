@@ -14,12 +14,22 @@ export default function StreamplaceProvider({
 }) {
   const initialize = useStore((state) => state.initialize);
   const initialized = useStreamplaceInitialized();
+  const fetchBroadcasterDID = useStore((state) => state.fetchBroadcasterDID);
+  const fetchBranding = useStore((state) => state.fetchBranding);
 
   useEffect(() => {
     if (!initialized) {
       initialize();
     }
   }, [initialized, initialize]);
+
+  // Resolve the broadcaster and pull branding (site title, colors) once on
+  // mount. Mirrors the app's BrandingFetcher.
+  useEffect(() => {
+    fetchBroadcasterDID().then(() => {
+      fetchBranding({ force: false });
+    });
+  }, [fetchBroadcasterDID, fetchBranding]);
 
   return <>{children}</>;
 }

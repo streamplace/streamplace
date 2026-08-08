@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardRow } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { createFileRoute } from "@tanstack/react-router";
+import { Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "../../lib/store";
@@ -12,10 +13,13 @@ export const Route = createFileRoute("/settings/advanced")({
   component: AdvancedSettings,
 });
 
+type RefreshStatus = "ready" | "active" | "done";
+
 function AdvancedSettings() {
   const { t } = useTranslation("settings");
   const url = useStreamplaceUrl();
   const setURL = useStore((s) => s.setURL);
+  const fetchBranding = useStore((s) => s.fetchBranding);
   const defaultUrl =
     typeof window !== "undefined"
       ? window.location.origin.replace(/\/+$/, "")
@@ -24,6 +28,8 @@ function AdvancedSettings() {
   const [overrideEnabled, setOverrideEnabled] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [webBeta, setWebBeta] = useState(false);
+  const [refreshBranding, setRefreshBranding] =
+    useState<RefreshStatus>("ready");
 
   useEffect(() => {
     setOverrideEnabled(url !== defaultUrl);
@@ -53,6 +59,17 @@ function AdvancedSettings() {
     if (typeof window !== "undefined") {
       window.location.reload();
     }
+  };
+
+  const handleRefreshBranding = () => {
+    setRefreshBranding("active");
+    fetchBranding({ force: true }).then(() => {
+      setRefreshBranding("done");
+      // set back to ready after a short delay
+      setTimeout(() => {
+        setRefreshBranding("ready");
+      }, 2500);
+    });
   };
 
   return (
@@ -111,6 +128,22 @@ function AdvancedSettings() {
             <Switch checked={webBeta} onCheckedChange={handleWebBetaToggle} />
           </div>
         </CardRow>
+      </Card>
+
+      <Card>
+        <button
+          type="button"
+          onClick={handleRefreshBranding}
+          className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"
+        >
+          <span className="text-sm">{t("refresh-branding")}</span>
+          {refreshBranding === "active" && (
+            <Loader2 className="size-4 animate-spin text-(--color-fg-muted)" />
+          )}
+          {refreshBranding === "done" && (
+            <Check className="size-4 text-green-400" />
+          )}
+        </button>
       </Card>
     </div>
   );

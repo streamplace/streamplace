@@ -1,5 +1,6 @@
 import { Card, CardRow } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { useBetaStatus } from "@/hooks/use-beta-status";
 import { useSession } from "@/lib/session";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -30,19 +31,29 @@ function PrivacySettings() {
 
   const isAuthenticated = sessionState.status === "authenticated";
 
+  // The livestream-recording toggle is only meaningful for accounts in the
+  // VOD beta — the node won't record anyone else regardless of this flag —
+  // so we only surface it to them.
+  const { status: vodBetaStatus } = useBetaStatus("vod");
+
   useEffect(() => {
     if (isReady && isAuthenticated) getServerSettingsFromPDS();
   }, [isReady, isAuthenticated]);
 
   const debugRecordingOn = serverSettings?.debugRecording === true;
+  // Defaults on (unlike debugRecording): only an explicit `false` turns it off.
+  const livestreamRecordingOn = serverSettings?.livestreamRecording !== false;
   const u = new URL(url);
 
-  const handleToggle = async () => {
+  const handleToggle = async (patch: {
+    debugRecording?: boolean;
+    livestreamRecording?: boolean;
+  }) => {
     if (!isAuthenticated || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await createServerSettingsRecord(!debugRecordingOn);
+      await createServerSettingsRecord(patch);
     } catch (e: any) {
       setError(e?.message ?? "Failed to update setting");
     } finally {
@@ -77,12 +88,36 @@ function PrivacySettings() {
             </div>
             <Switch
               checked={debugRecordingOn}
-              onCheckedChange={handleToggle}
+              onCheckedChange={(v) => handleToggle({ debugRecording: v })}
               disabled={!isAuthenticated || saving}
             />
           </div>
         </CardRow>
       </Card>
+
+      {vodBetaStatus === "granted" && (
+        <Card>
+          <CardRow>
+            <div className="flex items-center justify-between">
+              <div className="pr-4">
+                <div className="text-sm font-medium">
+                  {t("livestream-recording-title", { host: u.host })}
+                </div>
+                <div className="mt-0.5 text-xs text-(--color-fg-muted)">
+                  {t("livestream-recording-description")}
+                </div>
+              </div>
+              <Switch
+                checked={livestreamRecordingOn}
+                onCheckedChange={(v) =>
+                  handleToggle({ livestreamRecording: v })
+                }
+                disabled={!isAuthenticated || saving}
+              />
+            </div>
+          </CardRow>
+        </Card>
+      )}
 
       {error && <p className="text-sm text-(--color-danger)">{error}</p>}
     </div>

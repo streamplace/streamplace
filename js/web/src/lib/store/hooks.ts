@@ -50,3 +50,9 @@ export const useChatProfile = () => useStore((state) => state.chatProfile);
 
 // PDS Agent (convenience; reads from bluesky slice)
 export const usePDSAgent = () => useStore((state) => state.pdsAgent);
+
+// Branding
+export const useSiteTitle = () => {
+  const asset = useStore((state) => state.branding?.["siteTitle"]);
+  return asset?.data || "Streamplace";
+};

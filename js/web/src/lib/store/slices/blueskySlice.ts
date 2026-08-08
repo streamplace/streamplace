@@ -27,10 +27,7 @@ import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/act
 import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
 import { OAuthSession } from "@atproto/oauth-client-browser";
 import { getBrowserName } from "@streamplace/core";
-import {
-  StreamplaceAgent,
-  place,
-} from "streamplace";
+import { StreamplaceAgent, place } from "streamplace";
 import { StateCreator } from "zustand";
 import createOAuthClient from "../../oauth";
 import { storage } from "../../storage";
@@ -119,7 +116,9 @@ export interface BlueskySlice {
   followUser: (subjectDID: string) => Promise<void>;
   unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
   getServerSettingsFromPDS: () => Promise<void>;
-  createServerSettingsRecord: (debugRecording: boolean) => Promise<void>;
+  createServerSettingsRecord: (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => Promise<void>;
 }
 
 // Inline OAuth-callback URL scrubber. The app's `utils/clear-query-params`
@@ -911,7 +910,9 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  createServerSettingsRecord: async (debugRecording: boolean) => {
+  createServerSettingsRecord: async (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => {
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) {
       throw new Error("No agent");
@@ -922,10 +923,13 @@ export const createBlueskySlice: StateCreator<
     }
     const streamplaceUrl = get().url;
     const u = new URL(streamplaceUrl);
+    // Merge the patch onto the current record so toggling one flag doesn't
+    // clobber the others (the record holds several independent settings).
     const serverSettings: place.stream.server.settings.Main = {
+      ...(state.serverSettings ?? {}),
       $type: "place.stream.server.settings",
-      debugRecording: debugRecording,
-    };
+      ...patch,
+    } as any;
 
     const res = await state.pdsAgent.com.atproto.repo.putRecord({
       repo: did,

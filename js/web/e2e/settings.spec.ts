@@ -21,7 +21,9 @@ test.describe("settings", () => {
       "/settings/badge-issuer",
       "/settings/branding",
       "/settings/chat-profile",
+      "/settings/danmu",
       "/settings/languages",
+      "/settings/notifications",
       "/settings/privacy",
     ];
     for (const url of pages) {

@@ -1,4 +1,5 @@
 import { useSession } from "@/lib/session";
+import { useStore } from "@/lib/store";
 import { useUserProfile } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import {
@@ -8,6 +9,7 @@ import {
   useMatchRoute,
 } from "@tanstack/react-router";
 import {
+  Bell,
   ChevronDown,
   Globe,
   Info,
@@ -22,6 +24,8 @@ import { useTranslation } from "react-i18next";
 
 interface NavLink {
   needsAuth?: boolean;
+  /** Only show when danmu is unlocked (about-page easter egg). */
+  requiresDanmuUnlock?: boolean;
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   labelKey: string;
@@ -60,7 +64,22 @@ const NAV_ITEMS: NavItem[] = [
     icon: Shield,
     labelKey: "privacy-security",
   },
+  {
+    role: "link",
+    needsAuth: true,
+    to: "/settings/notifications",
+    icon: Bell,
+    labelKey: "notifications",
+  },
   { role: "divider" },
+  {
+    role: "link",
+    needsAuth: true,
+    to: "/settings/danmu",
+    icon: Palette,
+    labelKey: "danmu",
+    requiresDanmuUnlock: true,
+  },
   {
     role: "link",
     to: "/settings/languages",
@@ -157,11 +176,15 @@ function DisplayNavItem({ item }: { item: NavItem }) {
   // get auth state from context or store
   const { state } = useSession();
   const userProfile = useUserProfile();
+  const danmuUnlocked = useStore((s) => s.danmuUnlocked);
   if (state.status !== "authenticated" || !userProfile) {
     // if the item requires auth and we're not on that page, don't render it
     if ("needsAuth" in item && item.needsAuth) {
       return null;
     }
+  }
+  if ("requiresDanmuUnlock" in item && item.requiresDanmuUnlock) {
+    if (!danmuUnlocked) return null;
   }
   if (item.role === "divider") {
     return (

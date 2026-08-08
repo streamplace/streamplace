@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { LoginModal } from "./components/auth/login-modal";
 import { PdsHostSelectorModal } from "./components/auth/pds-host-selector-modal";
@@ -65,6 +65,14 @@ function AuthShell() {
   const showPdsModal = useStore((s) => s.showPdsModal);
   const closePdsModal = useStore((s) => s.closePdsModal);
   const { signIn } = useSession();
+
+  // Register the push service worker early (on mount) so pushes
+  // delivered while the tab is backgrounded still surface as system
+  // notifications. The actual subscription is deferred to the
+  // notifications settings toggle.
+  useEffect(() => {
+    void useStore.getState().initPushNotifications();
+  }, []);
 
   return (
     <>

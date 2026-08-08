@@ -1,12 +1,12 @@
-import { place } from "streamplace";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { place } from "streamplace";
 import useAvatars from "../hooks/use-avatars";
 import { useSession } from "../lib/session";
 import { useStore } from "../lib/store";
-import { usePDSAgent, useUserProfile } from "../lib/store/hooks";
+import { usePDSAgent, useSiteTitle, useUserProfile } from "../lib/store/hooks";
 import StreamplaceSvg from "./svg/streamplace-bw";
 import { Button } from "./ui/button";
 import { SidebarTrigger } from "./ui/sidebar";
@@ -21,6 +21,7 @@ export default function Header() {
   const { t } = useTranslation("common");
   const { state } = useSession();
   const userProfile = useUserProfile();
+  const siteTitle = useSiteTitle();
   useAvatars(state.status === "authenticated" ? [state.session.did] : []);
 
   const did = state.status === "authenticated" ? state.session.did : null;
@@ -52,10 +53,13 @@ export default function Header() {
       }
       try {
         setSearching(true);
-        const response = await agent.client.call(place.stream.live.searchActorsTypeahead, {
-          q,
-          limit: 8,
-        });
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q,
+            limit: 8,
+          },
+        );
         setResults(
           response.actors.map((a: any) => ({
             did: a.did,
@@ -150,7 +154,7 @@ export default function Header() {
         {/* logo */}
         <div className="fixed top-2.5 left-4 z-50 flex items-center gap-2">
           <StreamplaceSvg className="h-6 w-6" />
-          <h1 className="hidden text-lg md:block">Streamplace</h1>
+          <h1 className="hidden text-lg md:block">{siteTitle}</h1>
           <SidebarTrigger />
         </div>
 

@@ -10,10 +10,8 @@ import (
 	"stream.place/streamplace/pkg/devenv"
 )
 
-// TestRefreshIdentityPurgesCache proves that RefreshIdentity drops the cached
-// identity entry, so the next cached resolve picks up a new PDS/handle instead
-// of serving a stale entry for up to 24h. Without the purge, a PDS migration
-// would leave every cached resolve pointing at the dead host.
+// RefreshIdentity should drop the cached identity entry,
+// so the next cached resolve picks up a new PDS/handle
 func TestRefreshIdentityPurgesCache(t *testing.T) {
 	dev := devenv.WithDevEnv(t)
 	ctx := context.Background()

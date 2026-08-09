@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/patrickmn/go-cache"
-
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/xrpc"
@@ -20,8 +18,6 @@ import (
 )
 
 var SyncGetRepo = comatproto.SyncGetRepo
-
-var handleCache = cache.New(1*time.Hour, 10*time.Minute)
 
 func (atsync *ATProtoSynchronizer) SyncBlueskyRepoCached(ctx context.Context, handle string) (*model.Repo, error) {
 	ctx, span := otel.Tracer("signer").Start(ctx, "SyncBlueskyRepoCached")
@@ -357,19 +353,12 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 }
 
 func (atsync *ATProtoSynchronizer) ResolveAuthorHandle(ctx context.Context, did string) string {
-	if cached, ok := handleCache.Get(did); ok {
-		return cached.(string)
-	}
 	ident, err := atsync.resolveIdent(ctx, did, true)
 	if err != nil {
 		log.Warn(ctx, "failed to resolve author handle", "did", did, "err", err)
 		return ""
 	}
-	handle := ident.Handle.String()
-	if handle != "" {
-		handleCache.SetDefault(did, handle)
-	}
-	return handle
+	return ident.Handle.String()
 }
 
 // directory hands back the identity directory to resolve with, building the

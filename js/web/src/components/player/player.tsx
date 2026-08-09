@@ -11,6 +11,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -53,6 +54,11 @@ export type PlayerProps = {
   showDanmu?: boolean;
   /** Toggle the danmu overlay. */
   onShowDanmuChange?: (show: boolean) => void;
+  /**
+   * Danmu overlay node rendered inside the player container so it
+   * travels with the video into fullscreen.
+   */
+  danmuOverlay?: ReactNode;
 };
 
 /** One quality option shown in the player's settings menu. */
@@ -161,6 +167,7 @@ export function Player({
   onPlaying,
   showDanmu = false,
   onShowDanmuChange,
+  danmuOverlay,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -398,6 +405,8 @@ export function Player({
           <Loader label={t("player-buffering")} className="text-white" />
         </div>
       )}
+
+      {active && danmuOverlay}
 
       {active && (
         <PlayerControls

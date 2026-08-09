@@ -186,6 +186,18 @@ export function VideoSectionInner({
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}
+                danmuOverlay={
+                  store ? (
+                    <DanmuOverlay
+                      store={store}
+                      enabled={showDanmu && showPlayer}
+                      opacity={danmuOpacity}
+                      speed={danmuSpeed}
+                      laneCount={danmuLaneCount}
+                      maxMessages={danmuMaxMessages}
+                    />
+                  ) : undefined
+                }
               />
             </div>
             {offline && store && (
@@ -196,17 +208,6 @@ export function VideoSectionInner({
           </>
         )}
 
-        {/* Danmu overlay sits on top of the video */}
-        {store && (
-          <DanmuOverlay
-            store={store}
-            enabled={showDanmu && showPlayer}
-            opacity={danmuOpacity}
-            speed={danmuSpeed}
-            laneCount={danmuLaneCount}
-            maxMessages={danmuMaxMessages}
-          />
-        )}
         {liveness === "stale" && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
             <div className="text-center">

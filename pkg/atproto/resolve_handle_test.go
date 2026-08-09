@@ -11,9 +11,7 @@ import (
 )
 
 // TestResolveAuthorHandleReadsThroughCacheDirectory verifies that
-// ResolveAuthorHandle is served from CacheDirectory, so purgeIdentCache
-// invalidates it. (Dev accounts resolve as handle.invalid, so this tests
-// the purge mechanism rather than a real rename.)
+// ResolveAuthorHandle is served from CacheDirectory and invalidated properly
 func TestResolveAuthorHandleReadsThroughCacheDirectory(t *testing.T) {
 	dev := devenv.WithDevEnv(t)
 	ctx := context.Background()

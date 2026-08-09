@@ -73,7 +73,7 @@ function VodPage() {
             mode="vod"
           />
           {!theatre && (
-            <div className="mx-3 mt-3 space-y-3">
+            <div className="mx-auto mt-3 max-w-350 space-y-3 px-3">
               {loading ? (
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1 space-y-2">

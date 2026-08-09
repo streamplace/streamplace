@@ -61,7 +61,7 @@ code {
   --popover: oklch(0.2123 0.0376 318);
   --popover-foreground: oklch(0.9498 0.0183 336.6);
   --primary: oklch(0.6803 0.2158 339.7);
-  --primary-foreground: oklch(0.13 0.02 308.5);
+  --primary-foreground: oklch(0.93 0.02 308.5);
   --secondary: oklch(0.7207 0.1189 198.3);
   --secondary-foreground: oklch(0.13 0.02 308.5);
   --muted: oklch(0.2432 0.01 326.7);
@@ -417,4 +417,54 @@ body {
 }
 .animate-fade-out-up {
   animation: fadeOutUp 1000ms ease-in-out;
+}
+
+.ui-loader {
+  position: relative;
+  display: inline-block;
+  width: 3.75em;
+  height: 3.75em;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0.125em 0.25em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 2.75em var(--background))
+    drop-shadow(0 0 3.75em var(--background));
+}
+
+.ui-loader__item {
+  position: absolute;
+  inset: 0;
+  font-size: inherit;
+  transform: rotate(var(--loader-angle));
+}
+
+.ui-loader__item::before {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 1em);
+  width: 0.75em;
+  height: 0.1875em;
+  border-radius: 0.09375em;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%);
+  animation: ui-loader-blink 0.6666666667s linear infinite;
+  animation-delay: var(--loader-delay);
+}
+
+@keyframes ui-loader-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-loader__item::before {
+    animation-duration: 1.5s;
+  }
 }

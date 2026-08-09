@@ -304,9 +304,11 @@ export function PlayerControls({
         aria-hidden={!showUnmutePrompt}
         tabIndex={showUnmutePrompt ? 0 : -1}
       >
-        <div className="group flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/70 px-4 backdrop-blur transition-colors hover:bg-black/80">
-          <Volume2 className="h-5 w-5 text-white" />
-          <span className="font-medium text-white">{t("player-unmute")}</span>
+        <div className="group bg-primary/50 hover:bg-primary/80 flex h-11 items-center gap-2 rounded-full border border-white/20 px-4 backdrop-blur transition-colors">
+          <VolumeX className="text-primary-foreground h-5 w-5" />
+          <span className="text-primary-foreground font-medium">
+            {t("player-unmute")}
+          </span>
         </div>
       </button>
 
@@ -535,7 +537,9 @@ export function PlayerControls({
 
 function formatTime(s: number): string {
   if (!isFinite(s) || s < 0) return "0:00";
-  const m = Math.floor(s / 60);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
   const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
+  if (h === 0) return `${m}:${sec.toString().padStart(2, "0")}`;
+  return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
 }

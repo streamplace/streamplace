@@ -159,6 +159,7 @@ share-copy-embed-url = Copy Embed URL
 ## Video Player
 offline = Offline
 live-badge = Live
+player-buffering = Buffering
 reconnecting = Reconnecting…
 stream-may-resume = The stream may resume shortly.
 stream-offline = Stream offline

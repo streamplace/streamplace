@@ -15,7 +15,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { Loader } from "../ui/loader";
 import { HLSPlayer } from "./hls-player";
+import {
+  getBufferingOverlayPresentation,
+  getBufferingState,
+  shouldShowBufferingIndicator,
+  type BufferingMediaEvent,
+} from "./player-buffering";
 import { PlayerControls } from "./player-controls";
 import { WebRTCPlayer } from "./webrtc-player";
 
@@ -156,6 +163,7 @@ export function Player({
   const { t } = useTranslation();
 
   const [playing, setPlaying] = useState(false);
+  const [buffering, setBuffering] = useState(active);
   const [hasPlayed, setHasPlayed] = useState(false);
   const [manifestReady, setManifestReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,6 +202,7 @@ export function Player({
   // Reset per-source state when src or active changes.
   useEffect(() => {
     setError(null);
+    setBuffering(active);
     setHasPlayed(false);
     setManifestReady(false);
     setQualities([]);
@@ -206,10 +215,11 @@ export function Player({
   // unmounts the old one and mounts the new one automatically. We just
   // need to reset the chrome's per-transport state.
   useEffect(() => {
+    setBuffering(active);
     setQualities([]);
     setCurrentQuality(-1);
     setStats(null);
-  }, [useWebRTC]);
+  }, [active, useWebRTC]);
 
   // Mirror the video element's state into React.
   useEffect(() => {
@@ -219,12 +229,16 @@ export function Player({
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     const onPlayingEvt = () => {
+      setBuffering(false);
       setHasPlayed(true);
       setManifestReady(true);
       setError(null);
       onPlaying?.();
     };
     const onLoadedMetadata = () => setManifestReady(true);
+    const onBufferingChange = (event: Event) => {
+      setBuffering(getBufferingState(event.type as BufferingMediaEvent));
+    };
     const onErrorEvt = () => {
       const code = video.error?.code;
       // MediaError code 1 (MEDIA_ERR_ABORTED) fires when the user or
@@ -246,6 +260,19 @@ export function Player({
     video.addEventListener("playing", onPlayingEvt);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
     video.addEventListener("error", onErrorEvt);
+    const bufferingEvents = [
+      "loadstart",
+      "waiting",
+      "seeking",
+      "canplay",
+      "seeked",
+      "pause",
+      "ended",
+      "error",
+    ] satisfies BufferingMediaEvent[];
+    for (const event of bufferingEvents) {
+      video.addEventListener(event, onBufferingChange);
+    }
 
     return () => {
       video.removeEventListener("play", onPlay);
@@ -253,12 +280,22 @@ export function Player({
       video.removeEventListener("playing", onPlayingEvt);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("error", onErrorEvt);
+      for (const event of bufferingEvents) {
+        video.removeEventListener(event, onBufferingChange);
+      }
     };
   }, [active, onPlaying, surfaceError]);
 
   // Big play button shows whenever playback is gated (paused, or
   // manifest not yet ready and the user hasn't successfully played).
   const showBigPlay = active && (!playing || (!hasPlayed && manifestReady));
+  const showBuffering = shouldShowBufferingIndicator({
+    active,
+    buffering,
+    bigPlay: showBigPlay,
+    hasError: !!error,
+  });
+  const bufferingOverlay = getBufferingOverlayPresentation(showBuffering);
 
   // Auto-hide controls on idle. Reset on any pointer activity.
   const bumpControls = useCallback(() => {
@@ -340,6 +377,18 @@ export function Player({
           onStatsChange={setStats}
           ref={backendRef}
         />
+      )}
+
+      {active && (
+        <div
+          aria-hidden={bufferingOverlay.ariaHidden}
+          className={cn(
+            "pointer-events-none absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-200 ease-in-out motion-reduce:duration-150",
+            bufferingOverlay.opacityClass,
+          )}
+        >
+          <Loader label={t("player-buffering")} className="text-white" />
+        </div>
       )}
 
       {active && (

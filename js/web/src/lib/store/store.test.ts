@@ -12,8 +12,7 @@ import { createPlatformSlice } from "./slices/platformSlice";
 import { createSidebarSlice } from "./slices/sidebarSlice";
 import { createStreamplaceSlice } from "./slices/streamplaceSlice";
 
-// Extract the top-level keys a slice creator would set on the store.
-// We call each creator with stub set/get and collect the keys.
+// Extract top-level store keys by calling each creator with stubs.
 function getSliceKeys(
   creator: (set: any, get: any, api: any) => Record<string, unknown>,
 ): string[] {

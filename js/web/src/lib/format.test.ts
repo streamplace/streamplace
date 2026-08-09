@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatViewers } from "./format";
+import { formatViewers, isPositiveCount } from "./format";
 
 describe("formatViewers", () => {
   it("returns null for null input", () => {
@@ -28,5 +28,17 @@ describe("formatViewers", () => {
 
   it("formats zero", () => {
     expect(formatViewers(0)).toBe("0");
+  });
+});
+
+describe("isPositiveCount", () => {
+  it("hides missing and zero-value social counters", () => {
+    expect(isPositiveCount(undefined)).toBe(false);
+    expect(isPositiveCount(null)).toBe(false);
+    expect(isPositiveCount(0)).toBe(false);
+  });
+
+  it("shows positive social counters", () => {
+    expect(isPositiveCount(1)).toBe(true);
   });
 });

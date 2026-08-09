@@ -221,16 +221,17 @@ export function VideoSectionInner({
 
         {neverLive && <UserOffline user={user} />}
 
-        {problems
-          .filter((p) => p.severity === "error")
-          .map((p) => (
-            <div
-              key={p.code}
-              className="absolute bottom-3 left-3 rounded bg-red-500/90 px-3 py-1.5 text-xs text-white"
-            >
-              {p.message}
-            </div>
-          ))}
+        {showPlayer &&
+          problems
+            .filter((p) => p.severity === "error")
+            .map((p) => (
+              <div
+                key={p.code}
+                className="absolute bottom-3 left-3 rounded bg-red-500/90 px-3 py-1.5 text-xs text-white"
+              >
+                {p.message}
+              </div>
+            ))}
       </div>
     </div>
   );

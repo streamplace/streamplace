@@ -9,8 +9,6 @@
  * The entire tree serializes to/from JSON for localStorage persistence.
  */
 
-// --- Types ---
-
 export interface SplitNode {
   type: "split";
   direction: "horizontal" | "vertical";
@@ -33,8 +31,6 @@ export interface LayoutPreset {
   name: string;
   layout: LayoutNode;
 }
-
-// --- Default layout ---
 
 export const DEFAULT_LAYOUT: LayoutNode = {
   type: "split",
@@ -62,8 +58,6 @@ export const DEFAULT_LAYOUT: LayoutNode = {
     },
   ],
 };
-
-// --- Validation ---
 
 function isValidDirection(d: unknown): d is "horizontal" | "vertical" {
   return d === "horizontal" || d === "vertical";
@@ -116,8 +110,6 @@ export function validateLayout(value: unknown): LayoutNode | null {
 
   return null;
 }
-
-// --- Tree utilities ---
 
 /** Collect all widget keys used in the layout. */
 export function collectWidgets(node: LayoutNode): string[] {

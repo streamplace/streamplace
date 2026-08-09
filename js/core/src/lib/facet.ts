@@ -66,7 +66,6 @@ export const segmentize = (
       }
     }
 
-    // Process remaining characters individually
     while (utf8Cursor < endUtf8 && curs < utf16Length) {
       const code = text.charCodeAt(curs);
 
@@ -88,7 +87,6 @@ export const segmentize = (
     return curs;
   };
 
-  // Process facets
   for (let idx = 0, len = facets.length; idx < len; idx++) {
     const facet = facets[idx];
 
@@ -122,7 +120,6 @@ export const segmentize = (
     }
   }
 
-  // Handle remaining text
   if (utf16Cursor < utf16Length) {
     segments.push(segment(text.slice(utf16Cursor), undefined));
   }

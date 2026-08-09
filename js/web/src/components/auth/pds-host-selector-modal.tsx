@@ -38,6 +38,8 @@ export function PdsHostSelectorModal({
   const [customHost, setCustomHost] = useState("");
   const [useCustom, setUseCustom] = useState(false);
   const [handlePolicyChecked, setHandlePolicyChecked] = useState(false);
+  const [showOtherHosts, setShowOtherHosts] = useState(false);
+  const [defaultHost, ...otherHosts] = SHUFFLED_PDS_HOSTS;
 
   const loginError = useStore((s) => s.loginState.error);
   const setLoginError = useStore((s) => s.setLoginError);
@@ -51,6 +53,7 @@ export function PdsHostSelectorModal({
     setCustomHost("");
     setUseCustom(false);
     setHandlePolicyChecked(false);
+    setShowOtherHosts(false);
     setLoginError(null);
     onOpenChange(false);
   };
@@ -93,166 +96,213 @@ export function PdsHostSelectorModal({
         handleCancel();
       }}
     >
-      <DialogContent showCloseButton={false} className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("pds-selector-title")}</DialogTitle>
-          <DialogDescription>{t("pds-selector-description")}</DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[calc(100svh-2rem)] max-w-md flex-col gap-0 overflow-hidden p-0"
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6 pb-4">
+          <DialogHeader>
+            <DialogTitle>{t("pds-selector-title")}</DialogTitle>
+            <DialogDescription>
+              {t("pds-selector-description")}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-2">
-          {SHUFFLED_PDS_HOSTS.map((host) => {
-            const isSelected = !useCustom && selectedHost === host.value;
-            return (
+          <div className="space-y-2">
+            <HostOption
+              host={defaultHost}
+              selected={!useCustom && selectedHost === defaultHost.value}
+              onSelect={() => {
+                setSelectedHost(defaultHost.value);
+                setUseCustom(false);
+              }}
+            />
+
+            {!showOtherHosts && (
               <button
-                key={host.value}
                 type="button"
-                onClick={() => {
-                  setSelectedHost(host.value);
-                  setUseCustom(false);
-                }}
-                className={
-                  "w-full rounded-lg border px-3 py-2 text-left transition-colors " +
-                  (isSelected
-                    ? "border-(--color-accent) bg-(--color-accent)/5"
-                    : "border-(--color-border) hover:border-(--color-border-strong)")
-                }
+                onClick={() => setShowOtherHosts(true)}
+                className="flex min-h-11 w-full items-center justify-center rounded-lg px-3 text-sm font-medium text-(--color-accent) hover:bg-(--color-bg-overlay)"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{host.label}</div>
-                    <div className="mt-0.5 text-sm text-(--color-fg-muted)">
-                      {host.description}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <Check className="size-5 shrink-0 text-(--color-accent)" />
-                  )}
-                </div>
+                {t("pds-selector-show-other-hosts", {
+                  count: otherHosts.length,
+                })}
               </button>
-            );
-          })}
-
-          <button
-            type="button"
-            onClick={() => setUseCustom(true)}
-            className={
-              "w-full rounded-lg border px-3 py-2 text-left transition-colors " +
-              (useCustom
-                ? "border-(--color-accent) bg-(--color-accent)/5"
-                : "border-(--color-border) hover:border-(--color-border-strong)")
-            }
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {t("pds-selector-custom-label")}
-                </div>
-                <div className="mt-0.5 text-sm text-(--color-fg-muted)">
-                  {t("pds-selector-custom-description")}
-                </div>
-              </div>
-              {useCustom && (
-                <Check className="size-5 shrink-0 text-(--color-accent)" />
-              )}
-            </div>
-          </button>
-
-          {useCustom && (
-            <div className="pt-2">
-              <label className="block">
-                <span className="text-sm text-(--color-fg-muted)">
-                  {t("pds-selector-custom-url-label")}
-                </span>
-                <input
-                  type="url"
-                  value={customHost}
-                  onChange={(e) => setCustomHost(e.target.value)}
-                  placeholder={t("pds-selector-custom-url-placeholder")}
-                  autoCapitalize="none"
-                  autoCorrect="false"
-                  className="mt-1 h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg-elevated) px-3 transition-colors focus:border-(--color-accent) focus:outline-none"
-                />
-              </label>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleLearnMore}
-            className="inline-flex items-center gap-1 text-sm text-(--color-accent) hover:underline"
-          >
-            {t("pds-selector-learn-more")}
-            <ExternalLink className="size-3.5" />
-          </button>
-
-          <div className="space-y-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-3 text-sm text-(--color-fg-muted)">
-            <p>{t("pds-selector-info")}</p>
-            {!useCustom && (
-              <p>
-                <Trans
-                  i18nKey="pds-selector-read-policies"
-                  values={{ label: selectedHostObj.label }}
-                  components={{
-                    tosLink: (
-                      <button
-                        type="button"
-                        onClick={handleTOS}
-                        className="text-secondary hover:underline"
-                      />
-                    ),
-                    privacyLink: (
-                      <button
-                        type="button"
-                        onClick={handlePrivacy}
-                        className="text-secondary hover:underline"
-                      />
-                    ),
-                  }}
-                />
-              </p>
             )}
-            <p>{t("pds-selector-different-policies")}</p>
-          </div>
 
-          {!useCustom && selectedHostObj.handlePolicyDocs && (
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-(--color-border) p-3">
-              <input
-                type="checkbox"
-                checked={handlePolicyChecked}
-                onChange={(e) => setHandlePolicyChecked(e.target.checked)}
-                className="mt-0.5"
-              />
-              <span className="text-sm">
-                <Trans
-                  i18nKey="pds-selector-handle-policy-checkbox"
-                  components={{
-                    policyLink: (
-                      <button
-                        type="button"
-                        onClick={handleHandlePolicy}
-                        className="text-secondary hover:underline"
+            {showOtherHosts && (
+              <>
+                {otherHosts.map((host) => (
+                  <HostOption
+                    key={host.value}
+                    host={host}
+                    selected={!useCustom && selectedHost === host.value}
+                    onSelect={() => {
+                      setSelectedHost(host.value);
+                      setUseCustom(false);
+                    }}
+                  />
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setUseCustom(true)}
+                  className={
+                    "w-full rounded-lg border px-3 py-2 text-left transition-colors " +
+                    (useCustom
+                      ? "border-(--color-accent) bg-(--color-accent)/5"
+                      : "border-(--color-border) hover:border-(--color-border-strong)")
+                  }
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">
+                        {t("pds-selector-custom-label")}
+                      </div>
+                      <div className="mt-0.5 text-sm text-(--color-fg-muted)">
+                        {t("pds-selector-custom-description")}
+                      </div>
+                    </div>
+                    {useCustom && (
+                      <Check className="size-5 shrink-0 text-(--color-accent)" />
+                    )}
+                  </div>
+                </button>
+
+                {useCustom && (
+                  <div className="pt-2">
+                    <label className="block">
+                      <span className="text-sm text-(--color-fg-muted)">
+                        {t("pds-selector-custom-url-label")}
+                      </span>
+                      <input
+                        type="url"
+                        value={customHost}
+                        onChange={(e) => setCustomHost(e.target.value)}
+                        placeholder={t("pds-selector-custom-url-placeholder")}
+                        autoCapitalize="none"
+                        autoCorrect="false"
+                        className="mt-1 h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg-elevated) px-3 transition-colors focus:border-(--color-accent) focus:outline-none"
                       />
-                    ),
-                  }}
-                />
-              </span>
-            </label>
-          )}
+                    </label>
+                  </div>
+                )}
 
-          {loginError && (
-            <p className="text-sm text-(--color-danger)">{loginError}</p>
-          )}
+                <button
+                  type="button"
+                  onClick={handleLearnMore}
+                  className="inline-flex min-h-11 items-center gap-1 text-sm text-(--color-accent) hover:underline"
+                >
+                  {t("pds-selector-learn-more")}
+                  <ExternalLink className="size-3.5" />
+                </button>
+
+                {!useCustom && selectedHostObj.handlePolicyDocs && (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border border-(--color-border) p-3">
+                    <input
+                      type="checkbox"
+                      checked={handlePolicyChecked}
+                      onChange={(e) => setHandlePolicyChecked(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm">
+                      <Trans
+                        i18nKey="pds-selector-handle-policy-checkbox"
+                        components={{
+                          policyLink: (
+                            <button
+                              type="button"
+                              onClick={handleHandlePolicy}
+                              className="text-secondary hover:underline"
+                            />
+                          ),
+                        }}
+                      />
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+
+            <div className="space-y-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-3 text-sm text-(--color-fg-muted)">
+              <p>{t("pds-selector-info")}</p>
+              {!useCustom && (
+                <p>
+                  <Trans
+                    i18nKey="pds-selector-read-policies"
+                    values={{ label: selectedHostObj.label }}
+                    components={{
+                      tosLink: (
+                        <button
+                          type="button"
+                          onClick={handleTOS}
+                          className="text-secondary hover:underline"
+                        />
+                      ),
+                      privacyLink: (
+                        <button
+                          type="button"
+                          onClick={handlePrivacy}
+                          className="text-secondary hover:underline"
+                        />
+                      ),
+                    }}
+                  />
+                </p>
+              )}
+              <p>{t("pds-selector-different-policies")}</p>
+            </div>
+
+            {loginError && (
+              <p className="text-sm text-(--color-danger)">{loginError}</p>
+            )}
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="secondary" onClick={handleCancel}>
+        <DialogFooter className="mt-0 shrink-0 border-t border-(--color-border) bg-(--color-bg-elevated) px-6 py-4">
+          <Button className="h-11" variant="secondary" onClick={handleCancel}>
             {t("cancel")}
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
+          <Button className="h-11" onClick={handleSubmit} disabled={!canSubmit}>
             {t("continue")}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function HostOption({
+  host,
+  selected,
+  onSelect,
+}: {
+  host: PdsHost;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={
+        "min-h-11 w-full rounded-lg border px-3 py-2 text-left transition-colors " +
+        (selected
+          ? "border-(--color-accent) bg-(--color-accent)/5"
+          : "border-(--color-border) hover:border-(--color-border-strong)")
+      }
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">{host.label}</div>
+          <div className="mt-0.5 text-sm text-(--color-fg-muted)">
+            {host.description}
+          </div>
+        </div>
+        {selected && (
+          <Check className="size-5 shrink-0 text-(--color-accent)" />
+        )}
+      </div>
+    </button>
   );
 }

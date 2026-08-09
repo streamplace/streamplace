@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import type { VideoView } from "../../hooks/use-video-list";
 import { getDidAccentColor } from "../../lib/color";
+import { isPositiveCount } from "../../lib/format";
 import {
   formatDuration,
   getTidFromAtUri,
@@ -100,10 +101,17 @@ export function VideoCard({
           <div className="mt-0.5 truncate text-sm text-(--color-fg-muted)">
             @{user}
           </div>
-          <div className="text-xs text-(--color-fg-muted)">
-            {t("views-count", { count: viewCount })} ·{" "}
-            {t("likes-count", { count: likeCount })}
-          </div>
+          {(isPositiveCount(viewCount) || isPositiveCount(likeCount)) && (
+            <div className="text-xs text-(--color-fg-muted)">
+              {isPositiveCount(viewCount) &&
+                t("views-count", { count: viewCount })}
+              {isPositiveCount(viewCount) &&
+                isPositiveCount(likeCount) &&
+                " · "}
+              {isPositiveCount(likeCount) &&
+                t("likes-count", { count: likeCount })}
+            </div>
+          )}
         </div>
       </div>
     </Link>

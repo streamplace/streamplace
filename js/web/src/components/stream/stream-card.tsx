@@ -15,7 +15,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import { getDidAccentColor } from "../../lib/color";
-import { formatViewers } from "../../lib/format";
+import { formatViewers, isPositiveCount } from "../../lib/format";
 import { useStreamplaceUrl } from "../../lib/store/hooks";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
@@ -172,7 +172,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
           {t("live-badge")}
         </div>
         {/* Viewer count */}
-        {viewers !== undefined && viewers !== null && (
+        {isPositiveCount(viewers) && (
           <div className="absolute top-2 right-2 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
             {formatViewers(viewers)}
           </div>

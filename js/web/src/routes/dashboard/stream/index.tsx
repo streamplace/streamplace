@@ -156,7 +156,6 @@ function MetadataSection() {
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Load existing metadata
   useEffect(() => {
     if (initialized) return;
     setInitialized(true);
@@ -245,7 +244,6 @@ function MetadataSection() {
           ([, v]) => v !== undefined && v !== null && v !== "",
         ),
       ) as typeof contentRights;
-      // Handle custom license
       if (licenseSelect === CUSTOM_LICENSE) {
         if (customLicense.trim()) {
           filteredRights.license = customLicense.trim();
@@ -264,7 +262,6 @@ function MetadataSection() {
         else filteredRights.copyrightYear = n;
       }
 
-      // Build distribution policy
       const broadcasters = allowAllDistribute
         ? ["*"]
         : allowedBroadcasters
@@ -595,7 +592,6 @@ function StreamKeySection() {
     return () => clearTimeout(timeout);
   }, [getStreamKeyRecords]);
 
-  // Fetch ingest URLs
   useEffect(() => {
     if (!pdsAgent) return;
     pdsAgent.client

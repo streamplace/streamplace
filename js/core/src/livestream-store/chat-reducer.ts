@@ -131,7 +131,7 @@ export const reduceChat = (
       continue;
     }
 
-    // if we have a local message, replace it with the new one
+    // Replace local optimistic message with confirmed server copy (matched by text, author, within 10s)
     if (!message.uri.startsWith("local-")) {
       const existingLocalKey = Object.keys(newChatIndex).find((k) => {
         const msg = newChatIndex[k];
@@ -200,7 +200,6 @@ export const reduceChat = (
     return state;
   }
 
-  // Build the new sorted chat list efficiently
   const newChatList = buildSortedChatList(
     newChatIndex,
     state.chat,

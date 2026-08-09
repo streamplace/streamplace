@@ -5,6 +5,7 @@ import {
   StreamInfo,
 } from "@/components/stream/stream-info";
 import { VideoSection } from "@/components/stream/video-section";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -13,13 +14,21 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useFullscreen } from "@/contexts/fullscreen-context";
+import { useActorLookup } from "@/hooks/actor-lookup";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
 import { useStreamAvatar } from "@/hooks/use-stream-avatar";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
-import { createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Info, MessageCircle, X } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  ExternalLink,
+  House,
+  Info,
+  MessageCircle,
+  Search,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
@@ -36,10 +45,57 @@ export const Route = createFileRoute("/$user/")({
 });
 
 function StreamPage() {
+  const { t } = useTranslation("common");
   const { user } = Route.useParams();
-  const { store, ready } = useLivestreamStore(user);
+  const actor = useActorLookup(user);
+  const actorFound = actor.status === "found";
+  const { store, ready } = useLivestreamStore(user, actorFound);
 
-  if (!ready || !store) {
+  if (actor.status === "not-found") {
+    return (
+      <CreatorState
+        title={t("creator-not-found-title")}
+        description={t("creator-not-found-description", { handle: user })}
+      >
+        <Link
+          to="/search"
+          search={{ q: undefined }}
+          className={buttonVariants({ variant: "default", size: "lg" })}
+        >
+          <Search />
+          {t("search-for-streamers")}
+        </Link>
+        <Link
+          to="/"
+          className={buttonVariants({ variant: "outline", size: "lg" })}
+        >
+          <House />
+          {t("nav-home")}
+        </Link>
+      </CreatorState>
+    );
+  }
+
+  if (actor.status === "error") {
+    return (
+      <CreatorState
+        title={t("creator-lookup-failed-title")}
+        description={t("creator-lookup-failed-description")}
+      >
+        <Button size="lg" onClick={actor.retry}>
+          {t("try-again")}
+        </Button>
+        <Link
+          to="/"
+          className={buttonVariants({ variant: "outline", size: "lg" })}
+        >
+          {t("nav-home")}
+        </Link>
+      </CreatorState>
+    );
+  }
+
+  if (actor.status === "loading" || !ready || !store) {
     return (
       <div className="mx-auto max-w-6xl px-6 py-12">
         <div className="animate-pulse">
@@ -51,6 +107,36 @@ function StreamPage() {
   }
 
   return <StreamBody store={store} user={user} />;
+}
+
+function CreatorState({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      aria-labelledby="creator-state-title"
+      className="flex min-h-[calc(100svh-3rem)] items-center justify-center px-6 py-12"
+    >
+      <div className="max-w-md text-center">
+        <h2
+          id="creator-state-title"
+          className="font-display text-2xl font-semibold text-(--color-fg)"
+        >
+          {title}
+        </h2>
+        <p className="mt-2 text-(--color-fg-muted)">{description}</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {children}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {

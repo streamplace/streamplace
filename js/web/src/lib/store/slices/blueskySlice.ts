@@ -96,8 +96,7 @@ export interface BlueskySlice {
   showPdsModal: boolean;
   openPdsModal: () => void;
   closePdsModal: () => void;
-  // TODO: stream-key + go-live + block actions. See comment
-  // at the top of this file.
+  // TODO: stream-key implemented; go-live + block still pending (see L13-24).
   createStreamKeyRecord: (store: boolean) => Promise<void>;
   clearStreamKeyRecord: () => void;
   getStreamKeyRecords: () => Promise<void>;
@@ -515,9 +514,8 @@ export const createBlueskySlice: StateCreator<
     }
   },
 
-  // TODO: stream-key actions need @atproto/crypto + viem.
-  // Generate-keypair code is also used by createLivestreamRecord for
-  // blob uploads, so adding the deps unblocks both at once.
+  // TODO: needs @atproto/crypto + viem. The keypair code would also
+  // be shared with createLivestreamRecord (not yet implemented).
   createStreamKeyRecord: async (store: boolean) => {
     const state = get() as BlueskySlice;
     if (!state.pdsAgent) throw new Error("No agent");

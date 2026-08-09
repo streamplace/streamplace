@@ -103,14 +103,12 @@ export function DashboardMetricsProvider({ children }: ProviderProps) {
   const segment = useStore(store, (s) => s.segment);
   const livestream = useStore(store, (s) => s.livestream);
 
-  // Update bitrate from the current segment.
   useEffect(() => {
     if (!segment?.size || !segment?.duration) return;
     const kbps = (segment.size * 8) / (segment.duration / 1_000_000_000) / 1000;
     currentBitrateRef.current = kbps;
   }, [segment?.size, segment?.duration]);
 
-  // Update FPS from the current segment's video track.
   useEffect(() => {
     const videoTrack = segment?.video?.[0];
     if (!videoTrack?.framerate) return;
@@ -119,7 +117,7 @@ export function DashboardMetricsProvider({ children }: ProviderProps) {
     currentFpsRef.current = num / den;
   }, [segment?.video]);
 
-  // Update segment timing (ms since previous segment).
+  // Track inter-segment timing in ms for the metrics UI.
   const lastSegmentAtRef = useRef<number | null>(null);
   useEffect(() => {
     if (!segment) return;

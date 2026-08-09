@@ -228,7 +228,6 @@ function BadgeIssuerPanel() {
     );
   }
 
-  // Create view
   if (view === "create") {
     return (
       <div className="space-y-6">

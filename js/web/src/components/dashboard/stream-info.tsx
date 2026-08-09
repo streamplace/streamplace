@@ -89,7 +89,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
   const [endingLivestream, setEndingLivestream] = useState(false);
   const initializedRef = useRef(false);
 
-  // Initialize form from existing livestream record
   useEffect(() => {
     if (!livestream || initializedRef.current) return;
     initializedRef.current = true;
@@ -105,7 +104,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     }
   }, [livestream]);
 
-  // Reset ending state when livestream ends
   useEffect(() => {
     if (livestream && livestream.record.endedAt !== undefined) {
       setEndingLivestream(false);
@@ -124,7 +122,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     return t("update-livestream", { defaultValue: "Update Livestream" });
   }, [loading, isLive, hasLivestream, isEnded, t]);
 
-  // Thumbnail handling
   const handleThumbnailSelect = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
@@ -145,7 +142,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     setThumbnailPreview(undefined);
   }, [thumbnailPreview]);
 
-  // Tag handling
   const handleAddTag = useCallback(
     (tag: string) => {
       const trimmed = tag.trim();
@@ -164,7 +160,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
     [tags],
   );
 
-  // Create/Update
   const handleSubmit = useCallback(async () => {
     if (!agent || !agent.did || !canSubmit) return;
     setLoading(true);
@@ -181,7 +176,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
         tags: tags.length > 0 ? tags : undefined,
       } as any;
 
-      // Upload thumbnail if provided
       if (thumbnail) {
         try {
           const uploaded = await agent.uploadBlob(thumbnail);
@@ -194,7 +188,6 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
       }
 
       if (!hasLivestream || isEnded) {
-        // Create new livestream
         const result = await agent.client.call(
           place.stream.live.startLivestream,
           {
@@ -207,10 +200,9 @@ export function StreamInfoWidget({ store }: { store: LivestreamStore }) {
           t("livestream-announced", { defaultValue: "Livestream announced" }),
         );
       } else {
-        // Update existing
         const rkey = livestream!.uri.split("/").pop();
         if (!rkey) throw new Error("No rkey");
-        // Preserve existing thumb if no new one
+        // Keep existing thumbnail on updates when no new one was selected
         if (!record.thumb && livestream!.record.thumb) {
           record.thumb = livestream!.record.thumb;
         }

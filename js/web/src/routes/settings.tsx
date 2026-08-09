@@ -125,7 +125,6 @@ function NavGroupItem({ item }: { item: NavGroup }) {
   const matchRoute = useMatchRoute();
   const Icon = item.icon;
 
-  // Check if any child route is active
   const isChildActive = item.children.some((child) =>
     matchRoute({ to: child.to, fuzzy: true }),
   );

@@ -116,7 +116,7 @@ export function PlayerControls({
       if (!isLive) setDuration(video.duration);
     };
 
-    // Initialize from current state in case the video is already playing.
+    // Sync initial state — the video may already be playing when we attach.
     setMuted(video.muted);
     setVolume(video.volume);
     if (!video.paused) setPlaying(true);

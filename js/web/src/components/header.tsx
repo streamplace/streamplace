@@ -29,7 +29,6 @@ export default function Header() {
   const handle = userProfile?.handle;
   const displayName = userProfile?.displayName || handle;
 
-  // --- Search ---
   const agent = usePDSAgent();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");

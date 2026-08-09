@@ -116,7 +116,6 @@ export function DanmuOverlay({
     [updateDanmuWidth],
   );
 
-  // Process new chat messages into danmu
   useEffect(() => {
     if (!enabled || containerSize.width === 0) return;
 

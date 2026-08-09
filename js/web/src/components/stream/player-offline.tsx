@@ -10,6 +10,7 @@ import { captureError } from "../../lib/log";
 import { useStore } from "../../lib/store";
 import { getStreamplaceUrl } from "../../lib/streamplace-url";
 import { Player } from "../player/player";
+import { validateOfflineRecommendation } from "./offline-recommendation";
 
 // Replaces the player when the stream is offline. Renders the
 // streamer's banner as a blurred background with an offline badge,
@@ -55,6 +56,7 @@ export function PlayerOffline({
   useEffect(() => {
     if (!profile?.did) return;
     if (!pdsAgent && !anonPDSAgent) return;
+    setRecommendation(null);
     const getRecommendations = useStore.getState().getRecommendations;
     let mounted = true;
     const fetchRec = async () => {
@@ -67,7 +69,7 @@ export function PlayerOffline({
               "place.stream.live.getRecommendations#livestreamRecommendation" &&
             (r as { did?: string }).did,
         ) as { did?: string; source?: string } | undefined;
-        if (first?.did) {
+        if (first?.did && first.did !== profile.did) {
           setRecommendation({ did: first.did, source: first.source ?? "" });
         }
       } catch {
@@ -85,8 +87,12 @@ export function PlayerOffline({
   // show their avatar and handle.
   const recAvatars = useAvatars(recommendation ? [recommendation.did] : []);
   const recDetailed = recommendation ? recAvatars[recommendation.did] : null;
-  const recAvatar = recDetailed?.avatar;
-  const recHandle = recDetailed?.handle;
+  const validatedRecommendation = validateOfflineRecommendation(
+    recommendation,
+    recDetailed,
+    profile?.did,
+  );
+  const recAvatar = validatedRecommendation ? recDetailed?.avatar : undefined;
 
   return (
     <div className="absolute inset-0 overflow-hidden">
@@ -112,11 +118,11 @@ export function PlayerOffline({
         {/* Under lg: stacked, 4:3 outer. Video on top, OFFLINE state
             below. */}
         <div className="flex h-full max-h-full w-full max-w-full flex-col gap-2 lg:hidden">
-          {recommendation ? (
+          {validatedRecommendation ? (
             <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-black">
               <RecommendationEmbed
-                did={recommendation.did}
-                handle={recHandle}
+                did={validatedRecommendation.did}
+                handle={validatedRecommendation.handle}
                 avatar={recAvatar}
               />
             </div>
@@ -126,7 +132,7 @@ export function PlayerOffline({
               {t("offline")}
             </span>
             <p className="text-sm text-white">
-              {recommendation ? (
+              {validatedRecommendation ? (
                 <>
                   Looks like <span className="font-semibold">@{handle}</span> is
                   offline, but they recommend checking out:
@@ -155,7 +161,7 @@ export function PlayerOffline({
             video panel 16:9. */}
         <div className="hidden h-full w-full items-center justify-center gap-4 py-24 lg:flex">
           <div className="flex h-full max-w-sm flex-col items-start justify-center gap-2 rounded-xl border border-white/10 bg-black/50 p-4 text-left backdrop-blur-sm">
-            {recommendation ? (
+            {validatedRecommendation ? (
               <p className="text-2xl text-white">
                 Looks like{" "}
                 <span className="text-2xl font-semibold">@{handle}</span> is
@@ -179,11 +185,11 @@ export function PlayerOffline({
             )}
           </div>
 
-          {recommendation ? (
+          {validatedRecommendation ? (
             <div className="aspect-video h-full max-w-[55%]">
               <RecommendationEmbed
-                did={recommendation.did}
-                handle={recHandle}
+                did={validatedRecommendation.did}
+                handle={validatedRecommendation.handle}
                 avatar={recAvatar}
               />
             </div>
@@ -204,7 +210,7 @@ function RecommendationEmbed({
   avatar,
 }: {
   did: string;
-  handle?: string;
+  handle: string;
   avatar?: string;
 }) {
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
@@ -232,8 +238,8 @@ function RecommendationEmbed({
             play/pause. */}
         <Link
           to="/$user"
-          params={{ user: handle ?? did }}
-          aria-label={handle ? `Watch ${handle}` : "Watch this streamer"}
+          params={{ user: handle }}
+          aria-label={`Watch ${handle}`}
           className="group absolute inset-0 z-10 mb-12 cursor-pointer bg-linear-to-t from-transparent via-black/20 to-black/20 opacity-0 transition-all duration-300 hover:opacity-100"
         >
           <div className="absolute right-4 bottom-2 flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-3 py-1 text-left opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:opacity-100">
@@ -247,8 +253,7 @@ function RecommendationEmbed({
               <div className="h-6 w-6 shrink-0 rounded-full border border-white/20 bg-white/10" />
             )}
             <p className="min-w-0 truncate text-sm text-white">
-              You're going to{" "}
-              <span className="font-semibold">@{handle ?? did}</span>
+              You're going to <span className="font-semibold">@{handle}</span>
             </p>
             <ChevronRight className="size-5" />
           </div>

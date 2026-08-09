@@ -152,8 +152,6 @@ export function LayoutRenderer({
   );
 }
 
-// --- Sortable leaf wrapper ---
-
 import { useSortable } from "@dnd-kit/react/sortable";
 
 interface SortableWidgetLeafProps {

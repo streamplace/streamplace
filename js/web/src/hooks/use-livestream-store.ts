@@ -9,7 +9,10 @@ import {
 } from "@streamplace/core";
 import { useEffect, useMemo, useState } from "react";
 
-export function useLivestreamStore(user: string): {
+export function useLivestreamStore(
+  user: string,
+  enabled = true,
+): {
   store: LivestreamStore | null;
   ready: boolean;
 } {
@@ -20,16 +23,17 @@ export function useLivestreamStore(user: string): {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setReady(true);
-  }, [store]);
+    setReady(enabled);
+  }, [store, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     const wsUrl = `${getStreamplaceUrl()}/api/websocket/${user}`;
     const { disconnect } = connectLivestreamWebsocket(store, wsUrl, {
       reconnectDelayMs: 3000,
     });
     return disconnect;
-  }, [store, user]);
+  }, [enabled, store, user]);
 
-  return { store: ready ? store : null, ready };
+  return { store: enabled && ready ? store : null, ready: enabled && ready };
 }

@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { consumeAuthReturnPath } from "../lib/auth-return";
 import { useSession } from "../lib/session";
 
 export const Route = createFileRoute("/login")({
@@ -63,6 +64,11 @@ function LoginPage() {
     // the result to the parent. The navigate fires only for the direct
     // /login case.
     if (state.status === "authenticated" && !window.opener) {
+      const returnPath = consumeAuthReturnPath();
+      if (returnPath) {
+        window.location.replace(returnPath);
+        return;
+      }
       navigate({ to: "/" });
     }
   }, [state.status, search.error, search.errorDescription, navigate]);

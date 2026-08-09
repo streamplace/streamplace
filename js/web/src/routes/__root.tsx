@@ -32,8 +32,6 @@ export const Route = createRootRoute({
   pendingComponent: RouteLoadingSkeleton,
 });
 
-// --- Error boundary ---
-
 interface ErrorBoundaryState {
   error: Error | null;
 }
@@ -75,8 +73,6 @@ class ErrorBoundary extends Component<
     return this.props.children;
   }
 }
-
-// --- Root layout ---
 
 function RouteLoadingSkeleton() {
   return (

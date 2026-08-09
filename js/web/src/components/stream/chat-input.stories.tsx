@@ -80,7 +80,6 @@ export const Empty: Story = {
 export const WithReply: Story = {
   render: () => {
     const store = makeLivestreamStore();
-    // Set up a reply target so the reply banner shows.
     useEffect(() => {
       store.setState((s) => ({
         ...s,

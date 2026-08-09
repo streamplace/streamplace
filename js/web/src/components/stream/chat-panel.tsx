@@ -262,7 +262,6 @@ function ChatMessage({
   const isSystem = message.author.did === "did:sys:system";
   const isOwn = did === message.author.did;
 
-  // Check if current user is the streamer (can pin messages).
   const streamerDid = useStore(store, (s) => s.livestream?.author.did);
   const canPin = did && streamerDid && did === streamerDid;
 

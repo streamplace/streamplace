@@ -15,7 +15,7 @@ export const PDS_HOSTS: PdsHost[] = [
   {
     value: "https://selfhosted.social",
     label: "selfhosted.social",
-    description: "A popular community-run PDS",
+    description: "A popular community-run account host",
     terms: "https://selfhosted.social/legal#terms",
     privacy: "https://selfhosted.social/legal",
   },
@@ -23,14 +23,14 @@ export const PDS_HOSTS: PdsHost[] = [
     // Redirects to https://bsky.social for sign in.
     value: "https://witchesbutter.us-west.host.bsky.network",
     label: "Bluesky",
-    description: "The main Bluesky PDS instance",
+    description: "Bluesky's main account host",
     terms: "https://bsky.social/about/support/tos",
     privacy: "https://bsky.social/about/support/privacy-policy",
   },
   {
     value: "https://blacksky.app",
-    label: "Blacksky PDS",
-    description: "A PDS service by Blacksky Algorithms",
+    label: "Blacksky",
+    description: "An account host by Blacksky Algorithms",
     terms: "https://blackskyweb.xyz/about/support/tos",
     privacy: "https://blackskyweb.xyz/about/support/privacy-policy/",
     handlePolicyDocs:
@@ -39,7 +39,7 @@ export const PDS_HOSTS: PdsHost[] = [
   {
     value: "https://pds.tophhie.cloud",
     label: "Tophhie Cloud",
-    description: "A PDS service by Tophhie",
+    description: "An account host by Tophhie",
     terms: "https://blog.tophhie.cloud/atproto-tos/",
     privacy: "https://blog.tophhie.cloud/atproto-privacy-policy/",
   },

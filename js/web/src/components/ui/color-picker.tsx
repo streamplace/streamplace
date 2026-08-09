@@ -86,7 +86,6 @@ export const ColorPicker = ({
   );
   const [mode, setMode] = useState("hex");
 
-  // Update color when controlled value changes
   useEffect(() => {
     if (value) {
       const color = Color(value);

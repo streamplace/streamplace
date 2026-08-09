@@ -20,6 +20,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { saveAuthReturnPath } from "@/lib/auth-return";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
 import { useActorTypeahead, type Actor } from "@streamplace/core";
@@ -103,6 +104,9 @@ export function LoginModal() {
   // library-internal timeout doesn't surface a toast on the new
   // page.
   const goToLoginPage = () => {
+    saveAuthReturnPath(
+      `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    );
     closeLoginModal();
     useStore.getState().clearNotification();
     window.location.href = "/login";

@@ -184,7 +184,6 @@ function RecommendationsManager() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Delete dialog
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
   const loadRecommendations = async () => {

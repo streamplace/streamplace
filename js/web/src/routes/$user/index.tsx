@@ -228,9 +228,9 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
         </div>
 
         <div
-          className={`fixed top-12 right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+          className={`fixed right-0 bottom-0 z-20 flex w-90 flex-col overflow-hidden transition-all duration-300 ease-in-out ${
             chatOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          } ${theatre ? "top-0" : "top-12"}`}
         >
           <ChatSidebar store={store} onClose={toggleChat} avatar={avatar} />
         </div>

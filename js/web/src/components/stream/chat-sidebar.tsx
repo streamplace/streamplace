@@ -3,11 +3,9 @@ import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import { formatViewers } from "../../lib/format";
 import { SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sidebar";
 import { ChatInput } from "./chat-input";
 import { ChatPanel } from "./chat-panel";
-import { StreamAvatar } from "./stream-avatar";
 import { StreamNotifications } from "./stream-notifications";
 
 export function ChatSidebar({
@@ -29,29 +27,11 @@ export function ChatSidebar({
   );
 
   const author = state.livestream?.author;
-  const viewers = formatViewers(state.viewers);
-
-  const authorLabel =
-    author?.displayName || author?.handle || t("streamer-fallback");
-
   return (
     <div className="wide:border-l flex min-h-0 flex-1 flex-col">
       <SidebarHeader className="wide:flex hidden border-b border-(--color-border)">
         <div className="flex items-center gap-3 py-1">
-          <StreamAvatar
-            avatar={avatar ?? author?.avatar}
-            label={authorLabel}
-            className="h-8 w-8 text-xs"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">{authorLabel}</div>
-            {viewers && (
-              <div className="text-xs text-(--color-fg-subtle)">
-                {t("watching-count", { count: state.viewers ?? 0 })}
-              </div>
-            )}
-          </div>
-
+          <div className="flex-1 pl-2">Stream Chat</div>
           <div className="flex items-center gap-1">
             <a
               href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}

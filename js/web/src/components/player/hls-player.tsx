@@ -3,7 +3,7 @@
 // lives in <Player> so the chrome (controls, fullscreen, error display)
 // is shared across backends. When a WebRTC backend lands it will be a
 // sibling of this file with the same shape.
-import Hls, { type Level } from "hls.js";
+import Hls, { HlsConfig, type Level } from "hls.js";
 import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlayerBackendHandle, PlayerStats, QualityOption } from "./player";
@@ -16,6 +16,10 @@ export type HLSPlayerProps = {
   src: string;
   /** False stops the current load and tears down hls.js. */
   active: boolean;
+  /** "live" applies live-edge sync settings; "vod" optimizes buffering. */
+  mode?: "live" | "vod";
+  /** Use the low-latency live preset instead of the standard live one. */
+  lowLatency?: boolean;
   /**
    * Called when a fatal hls.js error occurs. The parent surfaces the
    * message to the user; recovery (network retries, media recovery)
@@ -30,11 +34,43 @@ export type HLSPlayerProps = {
   onStatsChange?: (stats: PlayerStats) => void;
 };
 
+const VOD_HLS_SETTINGS: Partial<HlsConfig> = {
+  startLevel: -1,
+  maxBufferLength: 60,
+  maxMaxBufferLength: 120,
+  maxBufferSize: 120 * 1000 * 1000,
+  enableWorker: true,
+  debug: import.meta.env.DEV,
+};
+
+const LIVE_HLS_SETTINGS: Partial<HlsConfig> = {
+  maxAudioFramesDrift: 20,
+  liveSyncDuration: 10,
+  liveMaxLatencyDuration: 16,
+  maxLiveSyncPlaybackRate: 1.5,
+  backBufferLength: 90,
+  enableWorker: true,
+  debug: import.meta.env.DEV,
+};
+
+const LIVE_LOWLATENCY_HLS_SETTINGS: Partial<HlsConfig> = {
+  maxAudioFramesDrift: 20,
+  lowLatencyMode: true,
+  liveSyncDurationCount: 2.75,
+  liveMaxLatencyDuration: 6,
+  maxLiveSyncPlaybackRate: 1.5,
+  backBufferLength: 90,
+  enableWorker: true,
+  debug: import.meta.env.DEV,
+};
+
 export function HLSPlayer({
   ref,
   videoRef,
   src,
   active,
+  mode = "live",
+  lowLatency = false,
   onError,
   onQualitiesChange,
   onCurrentQualityChange,
@@ -69,16 +105,13 @@ export function HLSPlayer({
     if (!video) return;
 
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        maxAudioFramesDrift: 20,
-        lowLatencyMode: true,
-        liveSyncDuration: 2.75,
-        liveMaxLatencyDuration: 6,
-        maxLiveSyncPlaybackRate: 1.5,
-        backBufferLength: 90,
-        enableWorker: true,
-        debug: import.meta.env.DEV,
-      });
+      const settings =
+        mode === "vod"
+          ? VOD_HLS_SETTINGS
+          : lowLatency
+            ? LIVE_LOWLATENCY_HLS_SETTINGS
+            : LIVE_HLS_SETTINGS;
+      const hls = new Hls(settings);
       hlsRef.current = hls;
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_e, data) => {
@@ -155,6 +188,8 @@ export function HLSPlayer({
   }, [
     src,
     active,
+    mode,
+    lowLatency,
     onError,
     onQualitiesChange,
     onCurrentQualityChange,

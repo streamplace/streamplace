@@ -155,6 +155,21 @@ share-copied = Copied
 share-copy-link = Copy Link
 share-copy-embed-code = Copy Embed Code
 share-copy-embed-url = Copy Embed URL
+share-copy-failed = Couldn’t copy that
+share-video = Share
+share-video-message = Watch { $title } on Streamplace
+share-to-bluesky = Share to Bluesky
+share-more-options = More sharing options
+share-failed = Couldn’t open sharing options
+like-video = Like
+unlike-video = Unlike
+like-update-failed = Couldn’t update like
+like-state-restored = Your previous like state was restored.
+more-actions = More actions
+video-tools = Video tools
+video-embed = Embed
+more-details = More details
+less-details = Less details
 
 ## Video Player
 offline = Offline

@@ -1,21 +1,18 @@
 import { VideoSectionInner } from "@/components/stream/video-section";
+import { VodWatchHeader } from "@/components/video/vod-watch-header";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useVideoRecord } from "@/hooks/use-video-record";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
-import { formatDuration } from "@/lib/video";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/$user/video/$tid")({
   component: VodPage,
 });
 
 function VodPage() {
-  const { t } = useTranslation("common");
   const { user, tid } = Route.useParams();
-  const { record, author, loading, error } = useVideoRecord(user, tid);
+  const { video, loading, error } = useVideoRecord(user, tid);
   const [downloading, setDownloading] = useState(false);
   const { theatre } = useFullscreen();
 
@@ -27,8 +24,6 @@ function VodPage() {
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(user)}/video/${tid}/thumb.jpg`,
     };
   }, [user, tid]);
-
-  const title = record?.title || t("untitled");
 
   const handleDownload = useCallback(async () => {
     setDownloading(true);
@@ -47,18 +42,6 @@ function VodPage() {
       setDownloading(false);
     }
   }, [playlistUrl]);
-  const description = record?.description;
-  const createdAt = record?.createdAt
-    ? new Date(record.createdAt).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : null;
-  const duration = record?.durationMs
-    ? formatDuration(record.durationMs)
-    : null;
-
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex min-h-0 flex-1 gap-4">
@@ -73,72 +56,38 @@ function VodPage() {
             mode="vod"
           />
           {!theatre && (
-            <div className="mx-auto mt-3 max-w-350 space-y-3 px-3">
-              {loading ? (
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-6 w-2/3 animate-pulse rounded bg-(--color-bg-elevated)" />
-                    <div className="h-4 w-1/3 animate-pulse rounded bg-(--color-bg-elevated)" />
-                    <div className="h-3 w-1/4 animate-pulse rounded bg-(--color-bg-elevated)" />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      <h2 className="font-display line-clamp-2 flex-1 font-semibold text-(--color-fg)">
-                        {title}
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={handleDownload}
-                        disabled={downloading}
-                        className="shrink-0 rounded-md border border-(--color-border) p-2 text-(--color-fg-muted) transition-colors hover:border-(--color-border-strong) hover:text-(--color-fg) disabled:opacity-50"
-                        title={t("download-video")}
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                    </div>
-
-                    <div className="mt-1 flex items-center gap-2 text-sm text-(--color-fg-muted)">
-                      <span className="truncate">
-                        {author?.displayName || author?.handle || user}
-                      </span>
-                      {(author?.displayName || author?.handle) && (
-                        <span className="text-(--color-fg-subtle)">@</span>
-                      )}
-                      <span className="truncate">{author?.handle || user}</span>
-                    </div>
-
-                    {duration && (
-                      <span className="mt-1 block text-xs text-(--color-fg-muted)">
-                        {duration}
-                      </span>
-                    )}
-
-                    {createdAt && (
-                      <span className="text-xs text-(--color-fg-muted)">
-                        {createdAt}
-                      </span>
-                    )}
-
-                    {description && (
-                      <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
-                        {description}
-                      </p>
-                    )}
-
-                    {error && (
-                      <p className="mt-2 text-sm text-(--color-danger)">
-                        {error}
-                      </p>
-                    )}
-                  </div>
-                </div>
+            <>
+              {loading && <VodWatchHeaderSkeleton />}
+              {video && (
+                <VodWatchHeader
+                  video={video}
+                  routeUser={user}
+                  tid={tid}
+                  downloading={downloading}
+                  onDownload={handleDownload}
+                />
               )}
-            </div>
+              {error && (
+                <p className="mx-auto mt-4 max-w-350 px-4 text-sm text-(--color-danger) sm:px-6">
+                  {error}
+                </p>
+              )}
+            </>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function VodWatchHeaderSkeleton() {
+  return (
+    <div className="mx-auto mt-5 max-w-350 animate-pulse px-4 pb-8 sm:px-6">
+      <div className="h-7 w-2/3 rounded bg-(--color-bg-elevated)" />
+      <div className="mt-2 h-4 w-48 rounded bg-(--color-bg-elevated)" />
+      <div className="mt-4 flex items-center gap-3">
+        <div className="size-11 rounded-full bg-(--color-bg-elevated)" />
+        <div className="h-4 w-36 rounded bg-(--color-bg-elevated)" />
       </div>
     </div>
   );

@@ -17,7 +17,6 @@ export function Loader({
       aria-live="polite"
       aria-label={label}
       className={cn("ui-loader", className)}
-      style={{ filter: "drop-shadow(30px 10px 4px #fff);" }}
     >
       {items.map((index) => (
         <span

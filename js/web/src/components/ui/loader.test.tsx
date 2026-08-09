@@ -14,6 +14,7 @@ describe("Loader", () => {
 
     expect(loader?.getAttribute("aria-label")).toBe("Buffering");
     expect(loader?.classList.contains("text-white")).toBe(true);
+    expect((loader as HTMLElement).style.filter).toBe("");
     expect(items).toHaveLength(12);
     expect(
       (items[0] as HTMLElement).style.getPropertyValue("--loader-angle"),

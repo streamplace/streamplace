@@ -349,6 +349,9 @@ func (atsync *ATProtoSynchronizer) RefreshIdentity(ctx context.Context, did stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to update repo: %w", err)
 	}
+	// Drop the cached identity so subsequent cached resolves pick up the new
+	// PDS/handle instead of serving the stale entry for up to 24h.
+	atsync.purgeIdentCache(ctx, id.DID.String())
 	return id, nil
 }
 

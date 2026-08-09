@@ -7,14 +7,17 @@ import { formatViewers } from "../../lib/format";
 import { SidebarContent, SidebarFooter, SidebarHeader } from "../ui/sidebar";
 import { ChatInput } from "./chat-input";
 import { ChatPanel } from "./chat-panel";
+import { StreamAvatar } from "./stream-avatar";
 import { StreamNotifications } from "./stream-notifications";
 
 export function ChatSidebar({
   store,
   onClose,
+  avatar,
 }: {
   store: LivestreamStore;
   onClose?: () => void;
+  avatar?: string;
 }) {
   const { t } = useTranslation("common");
   const state = useStore(
@@ -28,22 +31,20 @@ export function ChatSidebar({
   const author = state.livestream?.author;
   const viewers = formatViewers(state.viewers);
 
+  const authorLabel =
+    author?.displayName || author?.handle || t("streamer-fallback");
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col border-l">
-      <SidebarHeader className="wide:flex hidden">
+    <div className="wide:border-l flex min-h-0 flex-1 flex-col">
+      <SidebarHeader className="wide:flex hidden border-b border-(--color-border)">
         <div className="flex items-center gap-3 py-1">
-          <img
-            src={author?.avatar ?? undefined}
-            alt=""
-            className="h-8 w-8 shrink-0 rounded-full bg-(--color-bg)"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
+          <StreamAvatar
+            avatar={avatar ?? author?.avatar}
+            label={authorLabel}
+            className="h-8 w-8 text-xs"
           />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium">
-              {author?.displayName || author?.handle || t("streamer-fallback")}
-            </div>
+            <div className="truncate text-sm font-medium">{authorLabel}</div>
             {viewers && (
               <div className="text-xs text-(--color-fg-subtle)">
                 {t("watching-count", { count: state.viewers ?? 0 })}
@@ -58,6 +59,7 @@ export function ChatSidebar({
               rel="noopener noreferrer"
               className="rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
               title={t("chat-pop-out")}
+              aria-label={t("chat-pop-out")}
             >
               <ExternalLink className="h-3.5 w-3.5" />
             </a>

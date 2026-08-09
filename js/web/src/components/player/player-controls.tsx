@@ -295,7 +295,7 @@ export function PlayerControls({
           toggleMute();
         }}
         className={cn(
-          "focus-visible:ring-ring/50 absolute bottom-20 left-1/2 -translate-x-1/2 rounded-full transition-opacity duration-200 ease-out focus-visible:ring-3 focus-visible:outline-none",
+          "focus-visible:ring-ring/50 wide:bottom-20 absolute bottom-16 left-1/2 -translate-x-1/2 rounded-full transition-opacity duration-200 ease-out focus-visible:ring-3 focus-visible:outline-none",
           showUnmutePrompt
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0",
@@ -304,11 +304,8 @@ export function PlayerControls({
         aria-hidden={!showUnmutePrompt}
         tabIndex={showUnmutePrompt ? 0 : -1}
       >
-        <div className="group border-destructive/40 bg-destructive/20 hover:bg-destructive/40 flex items-center gap-3 rounded-full border px-5 py-3 backdrop-blur transition-colors">
-          <div>
-            <VolumeX className="h-6 w-6 text-white" />
-            <Volume2 className="text-success h-6 w-6" />
-          </div>
+        <div className="group flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/70 px-4 backdrop-blur transition-colors hover:bg-black/80">
+          <Volume2 className="h-5 w-5 text-white" />
           <span className="font-medium text-white">{t("player-unmute")}</span>
         </div>
       </button>
@@ -330,12 +327,13 @@ export function PlayerControls({
             aria-label={t("player-seek")}
           />
         )}
-        <div className="flex items-center gap-2">
+        <div className="wide:gap-2 flex items-center gap-0.5">
           <button
             type="button"
             onClick={togglePlay}
-            className="p-1 text-white transition-colors hover:text-white/80"
+            className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
             aria-label={playing ? t("player-pause") : t("player-play")}
+            title={playing ? t("player-pause") : t("player-play")}
           >
             {playing ? (
               <Pause className="h-5 w-5 fill-white" />
@@ -360,8 +358,9 @@ export function PlayerControls({
             <button
               type="button"
               onClick={toggleMute}
-              className="p-1 text-white transition-colors hover:text-white/80"
+              className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
               aria-label={muted ? t("player-unmute") : t("player-mute")}
+              title={muted ? t("player-unmute") : t("player-mute")}
             >
               {muted || volume === 0 ? (
                 <VolumeX className="h-5 w-5" />
@@ -370,7 +369,7 @@ export function PlayerControls({
               )}
             </button>
             <Slider
-              className="w-20 sm:w-24"
+              className="wide:flex wide:w-24 hidden w-20"
               min={0}
               max={1}
               step={0.01}
@@ -386,10 +385,11 @@ export function PlayerControls({
               type="button"
               onClick={togglePiP}
               className={cn(
-                "p-1 transition-colors",
+                "wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md transition-colors hover:bg-white/10",
                 isPiP ? "text-white" : "text-white/40 hover:text-white/80",
               )}
               aria-label={isPiP ? t("player-exit-pip") : t("player-pip")}
+              title={isPiP ? t("player-exit-pip") : t("player-pip")}
             >
               <PictureInPicture className="h-5 w-5" />
             </button>
@@ -399,12 +399,13 @@ export function PlayerControls({
             type="button"
             onClick={() => setTheatre(!theatre)}
             className={cn(
-              "p-1 transition-colors",
+              "wide:flex wide:p-1 hidden transition-colors",
               theatre ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
               theatre ? t("player-exit-theatre") : t("player-theatre")
             }
+            title={theatre ? t("player-exit-theatre") : t("player-theatre")}
           >
             <RectangleHorizontal className="h-5 w-5" />
           </button>
@@ -413,10 +414,13 @@ export function PlayerControls({
             type="button"
             onClick={() => onShowDanmuChange(!showDanmu)}
             className={cn(
-              "p-1 transition-colors",
+              "wide:flex wide:p-1 hidden transition-colors",
               showDanmu ? "text-white" : "text-white/40 hover:text-white/80",
             )}
             aria-label={
+              showDanmu ? t("player-disable-danmu") : t("player-enable-danmu")
+            }
+            title={
               showDanmu ? t("player-disable-danmu") : t("player-enable-danmu")
             }
           >
@@ -425,8 +429,9 @@ export function PlayerControls({
 
           <DropdownMenu onOpenChange={setSettingsOpen}>
             <DropdownMenuTrigger
-              className="p-1 text-white transition-colors hover:text-white/80"
+              className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
               aria-label={t("player-settings")}
+              title={t("player-settings")}
             >
               <Settings
                 className={cn(
@@ -479,6 +484,20 @@ export function PlayerControls({
 
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
+                className="wide:hidden"
+                checked={theatre}
+                onCheckedChange={(checked) => setTheatre(checked)}
+              >
+                {t("player-theatre")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                className="wide:hidden"
+                checked={showDanmu}
+                onCheckedChange={onShowDanmuChange}
+              >
+                {t("player-danmu")}
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
                 checked={showStats}
                 onCheckedChange={onShowStatsChange}
               >
@@ -490,8 +509,13 @@ export function PlayerControls({
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="p-1 text-white transition-colors hover:text-white/80"
+            className="wide:size-auto wide:p-1 flex size-11 items-center justify-center rounded-md text-white transition-colors hover:bg-white/10 hover:text-white/80"
             aria-label={
+              isFullscreen
+                ? t("player-exit-fullscreen")
+                : t("player-fullscreen")
+            }
+            title={
               isFullscreen
                 ? t("player-exit-fullscreen")
                 : t("player-fullscreen")

@@ -4,9 +4,11 @@
 // /$user/vod/:tid.
 
 import { Link } from "@tanstack/react-router";
+import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import type { VideoView } from "../../hooks/use-video-list";
+import { getDidAccentColor } from "../../lib/color";
 import {
   formatDuration,
   getTidFromAtUri,
@@ -30,6 +32,7 @@ export function VideoCard({
   const duration = formatDuration(record.durationMs);
   const viewCount = video.viewCounts?.count ?? 0;
   const likeCount = video.likeCount ?? 0;
+  const ringColor = getDidAccentColor(author.did);
 
   return (
     <Link
@@ -38,7 +41,10 @@ export function VideoCard({
       className="group flex flex-col gap-2"
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-(--color-bg-elevated)">
+      <div
+        className="outline-border/40 relative aspect-video overflow-clip rounded-xl bg-black ring-0 outline transition-all duration-200 group-hover:rounded-md group-hover:ring-4"
+        style={{ "--tw-ring-color": ringColor } as CSSProperties}
+      >
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
@@ -91,7 +97,7 @@ export function VideoCard({
           <div className="line-clamp-2 text-sm leading-tight font-semibold text-(--color-fg)">
             {title}
           </div>
-          <div className="mt-0.5 truncate text-xs text-(--color-fg-muted)">
+          <div className="mt-0.5 truncate text-sm text-(--color-fg-muted)">
             @{user}
           </div>
           <div className="text-xs text-(--color-fg-muted)">

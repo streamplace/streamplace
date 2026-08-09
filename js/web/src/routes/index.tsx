@@ -18,8 +18,8 @@ function HomePage() {
 
   if (streams === undefined && isLoading) {
     return (
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mx-auto max-w-[1600px] px-4 py-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -38,7 +38,7 @@ function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-12">
+    <div className="mx-auto max-w-[1600px] px-4 py-6">
       {error && !streams && (
         <div className="mb-8 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)">
           {t("could-not-load-streams")}
@@ -281,7 +281,7 @@ function HomePage() {
       )}
 
       {streams && streams.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {streams.map((stream) => (
             <StreamCard
               key={stream.uri}

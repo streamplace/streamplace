@@ -1,5 +1,6 @@
 import { ProfileViewBasic } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
 import { TriggerRef } from "@rn-primitives/dropdown-menu";
+import { formatBadgeIssuer, formatBadgeLabel } from "@streamplace/core";
 import { Image } from "expo-image";
 import {
   createContext,
@@ -42,7 +43,6 @@ import { Badge } from "./badge";
 
 interface BadgeMeta {
   label: string;
-  description?: string;
   issuedBy?: string;
 }
 
@@ -53,14 +53,12 @@ const BADGE_META: Record<string, BadgeMeta> = {
   },
   "place.stream.badge.defs#bot": {
     label: "Bot",
-    description: "This account has been marked as automated by its owner.",
   },
   "place.stream.badge.defs#streamer": {
     label: "Streamer",
   },
   "place.stream.badge.defs#vip": {
     label: "VIP",
-    description: "This user is clearly a very important person.",
   },
 };
 
@@ -141,14 +139,17 @@ const BadgeRow = ({
 }) => {
   const isServiceIssued = badge.issuer === serviceDid;
   const meta = BADGE_META[badge.badgeType];
-  const label = meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
-  const description = meta?.description ?? badge.description;
-
+  const fallbackLabel =
+    meta?.label ?? badge.name ?? badge.badgeType.split("#")[1];
+  const label = formatBadgeLabel({
+    badgeType: badge.badgeType,
+    badgeName: badge.name,
+    fallbackLabel,
+    vipLabel: BADGE_META["place.stream.badge.defs#vip"].label,
+  });
   let issuerLabel = isServiceIssued
     ? "Streamplace"
-    : issuerProfiles[badge.issuer]?.handle
-      ? `@${issuerProfiles[badge.issuer].handle}`
-      : badge.issuer;
+    : formatBadgeIssuer(badge.issuer, issuerProfiles[badge.issuer]?.handle);
   const issuedByTemplate = meta?.issuedBy ?? "Issued by {issuer}";
   issuerLabel = issuedByTemplate
     .replace("{issuer}", issuerLabel)
@@ -171,11 +172,6 @@ const BadgeRow = ({
         <Text size="xs" color="muted">
           {issuerLabel}
         </Text>
-        {description && (
-          <Text size="xs" color="muted">
-            {description}
-          </Text>
-        )}
       </View>
     </View>
   );

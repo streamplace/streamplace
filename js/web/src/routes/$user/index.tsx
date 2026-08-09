@@ -1,5 +1,9 @@
 import { ChatSidebar } from "@/components/stream/chat-sidebar";
-import { StreamInfo } from "@/components/stream/stream-info";
+import {
+  activityLabel,
+  CopyButton,
+  StreamInfo,
+} from "@/components/stream/stream-info";
 import { VideoSection } from "@/components/stream/video-section";
 import {
   Sheet,
@@ -11,13 +15,21 @@ import {
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useLivenessState } from "@/hooks/use-liveness-state";
 import { useLivestreamStore } from "@/hooks/use-livestream-store";
+import { useStreamAvatar } from "@/hooks/use-stream-avatar";
+import { useStreamplaceUrl } from "@/lib/store/hooks";
 import type { LivestreamStore } from "@streamplace/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronUp, ExternalLink } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ExternalLink, Info, MessageCircle, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import {
+  chatOpenAfterLivenessChange,
+  chatPreferenceKey,
+  shouldOpenChat,
+} from "../../components/stream/chat-preference";
+import { StreamAvatar } from "../../components/stream/stream-avatar";
 
 export const Route = createFileRoute("/$user/")({
   component: StreamPage,
@@ -43,34 +55,68 @@ function StreamPage() {
 
 function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
   const liveness = useLivenessState(store);
+  const avatar = useStreamAvatar(store);
   const { theatre } = useFullscreen();
   // Offline streams default to a closed chat; the chat has nothing
   // to show, and the shorter offline player should take the page
   // width. Live streams honor the user's saved preference.
   const isOffline = liveness === "offline" || liveness === "never-live";
+  const preferredChatOpen = useRef(true);
   const [chatOpen, setChatOpen] = useState(() => {
-    if (isOffline) return false;
-    if (typeof localStorage === "undefined") return true;
-    return localStorage.getItem("streamplace:chat-open") !== "false";
+    if (typeof window === "undefined") {
+      preferredChatOpen.current = true;
+      return !isOffline;
+    }
+    const isWide = window.matchMedia("(min-aspect-ratio: 1/1)").matches;
+    let savedPreference: string | null = null;
+    try {
+      const preferenceKey = chatPreferenceKey(isWide);
+      if (preferenceKey) {
+        savedPreference = localStorage.getItem(preferenceKey);
+      }
+    } catch {
+      // Storage can be unavailable in private browsing or embedded contexts.
+    }
+    preferredChatOpen.current = savedPreference !== "false";
+    return shouldOpenChat(isOffline, savedPreference);
   });
+  const wasOffline = useRef(isOffline);
+  const userChangedChat = useRef(false);
 
   const toggleChat = useCallback(() => {
+    userChangedChat.current = true;
     setChatOpen((prev) => {
       const next = !prev;
-      localStorage.setItem("streamplace:chat-open", String(next));
+      preferredChatOpen.current = next;
+      try {
+        const isWide = window.matchMedia("(min-aspect-ratio: 1/1)").matches;
+        const preferenceKey = chatPreferenceKey(isWide);
+        if (preferenceKey) {
+          localStorage.setItem(preferenceKey, String(next));
+        }
+      } catch {
+        // The current view can still update when storage is unavailable.
+      }
       return next;
     });
   }, []);
 
-  // Auto-close the chat when a live stream goes offline. The user
-  // can still open it manually to see the backlog; this just gets
-  // the page back to a sensible default. (The reverse case; a
-  // closed chat reopening when the stream goes live; doesn't
-  // auto-open, the user has the toggle for that.)
+  // Auto-close when a live stream goes offline. When it becomes live again,
+  // restore the intended state unless the viewer explicitly changed chat
+  // during this visit. This covers false-offline startup results in any
+  // orientation while preserving desktop preferences.
   useEffect(() => {
-    if (isOffline && chatOpen) {
-      setChatOpen(false);
+    const nextChatOpen = chatOpenAfterLivenessChange({
+      isOffline,
+      wasOffline: wasOffline.current,
+      userChangedChat: userChangedChat.current,
+      preferredChatOpen: preferredChatOpen.current,
+      currentChatOpen: chatOpen,
+    });
+    if (nextChatOpen !== chatOpen) {
+      setChatOpen(nextChatOpen);
     }
+    wasOffline.current = isOffline;
   }, [isOffline, chatOpen]);
 
   return (
@@ -89,6 +135,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
                 liveness={liveness}
                 chatOpen={chatOpen}
                 onToggleChat={toggleChat}
+                avatar={avatar}
               />
             )}
           </div>
@@ -99,7 +146,7 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
             chatOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <ChatSidebar store={store} onClose={toggleChat} />
+          <ChatSidebar store={store} onClose={toggleChat} avatar={avatar} />
         </div>
       </div>
 
@@ -107,10 +154,22 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
       <div className="wide:hidden flex min-h-0 flex-1 flex-col">
         <VideoSection store={store} user={user} liveness={liveness} />
 
-        <MobileStreamBar store={store} user={user} />
+        <MobileStreamBar
+          store={store}
+          user={user}
+          chatOpen={chatOpen}
+          onToggleChat={toggleChat}
+          avatar={avatar}
+        />
 
-        <div className="flex min-h-0 flex-1 flex-col border-t">
-          <ChatSidebar store={store} />
+        {!chatOpen && !isOffline && (
+          <MobileStreamDetails store={store} user={user} avatar={avatar} />
+        )}
+
+        <div
+          className={`min-h-0 flex-1 flex-col border-t ${chatOpen ? "flex" : "hidden"}`}
+        >
+          <ChatSidebar store={store} avatar={avatar} />
         </div>
       </div>
     </div>
@@ -120,9 +179,15 @@ function StreamBody({ store, user }: { store: LivestreamStore; user: string }) {
 function MobileStreamBar({
   store,
   user,
+  chatOpen,
+  onToggleChat,
+  avatar,
 }: {
   store: LivestreamStore;
   user: string;
+  chatOpen: boolean;
+  onToggleChat: () => void;
+  avatar?: string;
 }) {
   const { t } = useTranslation("common");
   const state = useStore(
@@ -136,90 +201,199 @@ function MobileStreamBar({
   const author = state.livestream?.author;
   const record = state.livestream?.record;
   const title = record?.title || user;
+  const authorLabel = author?.displayName || author?.handle || user;
+  const node = useStreamplaceUrl();
 
   return (
-    <div className="flex items-center gap-2 border-b px-3 py-2">
-      <img
-        src={author?.avatar ?? undefined}
-        alt=""
-        className="h-7 w-7 shrink-0 rounded-full bg-(--color-bg-elevated)"
-        onError={(e) => {
-          (e.currentTarget as HTMLImageElement).style.display = "none";
-        }}
+    <div className="flex items-center gap-2 border-b border-(--color-border) bg-(--color-bg) px-3 py-2.5">
+      <StreamAvatar
+        avatar={avatar ?? author?.avatar}
+        label={authorLabel}
+        className="h-8 w-8 text-xs"
       />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{title}</div>
-        <div className="truncate text-xs text-(--color-fg-muted)">
-          {author?.displayName || author?.handle || user}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="truncate text-sm font-semibold">{title}</div>
           {state.viewers != null && (
-            <> &middot; {t("watching-count", { count: state.viewers })}</>
+            <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-(--color-fg-muted)">
+              <span className="h-1.5 w-1.5 rounded-full bg-(--color-accent)" />
+              {t("watching-count", { count: state.viewers })}
+            </span>
           )}
+        </div>
+        <div className="truncate text-xs text-(--color-fg-muted)">
+          {author?.handle ? `@${author.handle}` : authorLabel}
         </div>
       </div>
 
-      <Sheet>
-        <SheetTrigger
-          render={
-            <button
-              type="button"
-              className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
-              aria-label={t("stream-info")}
-            >
-              <ChevronUp className="h-4 w-4" />
-            </button>
-          }
-        />
-        <SheetContent side="bottom" className="rounded-t-xl">
-          <SheetHeader>
-            <SheetTitle>{title}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-6">
-            <div className="flex items-center gap-3">
-              <img
-                src={author?.avatar ?? undefined}
-                alt=""
-                className="h-10 w-10 shrink-0 rounded-full bg-(--color-bg-elevated)"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                }}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">
-                  {author?.displayName || author?.handle || user}
-                </div>
-                {author?.handle && (
-                  <div className="text-sm text-(--color-fg-muted)">
-                    @{author.handle}
-                  </div>
-                )}
-              </div>
-              <a
-                href={`https://bsky.app/profile/${author?.handle || ""}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+      {chatOpen && (
+        <Sheet>
+          <SheetTrigger
+            render={
+              <button
+                type="button"
+                className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+                aria-label={t("stream-info")}
+                title={t("stream-info")}
               >
-                <ExternalLink className="h-4 w-4" />
-              </a>
+                <Info className="h-4 w-4" />
+              </button>
+            }
+          />
+          <SheetContent side="bottom" className="rounded-t-xl">
+            <SheetHeader>
+              <SheetTitle>{title}</SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <MobileStreamDetailsContent
+                store={store}
+                user={user}
+                avatar={avatar}
+              />
             </div>
-            {(record as any)?.description ? (
-              <p className="mt-3 text-sm whitespace-pre-wrap text-(--color-fg)">
-                {(record as any).description as string}
-              </p>
-            ) : null}
+          </SheetContent>
+        </Sheet>
+      )}
+
+      <CopyButton
+        type="live"
+        nodeBaseURL={node}
+        variant="ghost"
+        size="icon-touch"
+        className="text-(--color-fg-muted) hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+      />
+
+      <button
+        type="button"
+        onClick={onToggleChat}
+        className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+        aria-label={chatOpen ? t("chat-close") : t("chat-open")}
+        title={chatOpen ? t("chat-close") : t("chat-open")}
+      >
+        {chatOpen ? (
+          <X className="h-4 w-4" />
+        ) : (
+          <MessageCircle className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function MobileStreamDetails({
+  store,
+  user,
+  avatar,
+}: {
+  store: LivestreamStore;
+  user: string;
+  avatar?: string;
+}) {
+  const { t } = useTranslation("common");
+
+  return (
+    <section className="min-h-0 flex-1 overflow-y-auto bg-(--color-bg) px-4 py-5">
+      <div className="mx-auto w-full max-w-xl">
+        <h2 className="font-display mb-4 text-lg font-semibold text-(--color-fg)">
+          {t("stream-details")}
+        </h2>
+        <MobileStreamDetailsContent store={store} user={user} avatar={avatar} />
+      </div>
+    </section>
+  );
+}
+
+function MobileStreamDetailsContent({
+  store,
+  user,
+  avatar,
+}: {
+  store: LivestreamStore;
+  user: string;
+  avatar?: string;
+}) {
+  const { t } = useTranslation("common");
+  const state = useStore(
+    store,
+    useShallow((s) => ({
+      livestream: s.livestream,
+    })),
+  );
+
+  const author = state.livestream?.author;
+  const record = state.livestream?.record;
+  const authorLabel = author?.displayName || author?.handle || user;
+  const activity = activityLabel(record?.activity, t);
+  const tags = record?.tags ?? [];
+  const description = (
+    record as { description?: string } | undefined
+  )?.description?.trim();
+
+  return (
+    <div className="space-y-5">
+      {(activity || tags.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activity && (
+            <span className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs font-medium text-(--color-fg-muted)">
+              {activity}
+            </span>
+          )}
+          {tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs text-(--color-fg-subtle)"
+            >
+              {tag.startsWith("lang:") ? tag.slice(5).toUpperCase() : tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {description && (
+        <p className="text-sm leading-relaxed whitespace-pre-wrap text-(--color-fg)">
+          {description}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3 border-t border-(--color-border) pt-4">
+        <StreamAvatar
+          avatar={avatar ?? author?.avatar}
+          label={authorLabel}
+          className="h-11 w-11"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium text-(--color-fg)">
+            {authorLabel}
           </div>
-        </SheetContent>
-      </Sheet>
+          {author?.handle && (
+            <div className="truncate text-sm text-(--color-fg-muted)">
+              @{author.handle}
+            </div>
+          )}
+        </div>
+        {author?.handle && (
+          <a
+            href={`https://bsky.app/profile/${author.handle}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex size-11 items-center justify-center rounded-lg text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+            aria-label={t("view-profile")}
+            title={t("view-profile")}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
+      </div>
 
       <a
-        href={`/chat-popout/${encodeURIComponent(author?.handle || "")}`}
+        href={`/chat-popout/${encodeURIComponent(author?.handle || user)}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="rounded p-1.5 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
-        title={t("chat-pop-out")}
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-medium text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
       >
         <ExternalLink className="h-4 w-4" />
+        {t("chat-pop-out")}
       </a>
     </div>
   );

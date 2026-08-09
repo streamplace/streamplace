@@ -133,8 +133,8 @@ export function VideoSectionInner({
   const neverLive = liveness === "never-live";
   const offline = liveness === "offline";
   // Show the live player when neither never-live nor offline. This
-  // includes the initial "loading" state (liveness starts undefined
-  // for the brief moment before the WebSocket connects) and "live".
+  // includes the initial loading state before the WebSocket sends its
+  // first snapshot, plus live and temporarily stale streams.
   const showPlayer = !neverLive && !offline;
 
   // calculate seg ratio for poster aspect ratio correction

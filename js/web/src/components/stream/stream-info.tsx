@@ -2,14 +2,13 @@ import { useStore } from "@/lib/store";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
-import { ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
+import { Check, ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import { useStore as useLivestreamStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { Liveness } from "../../hooks/use-liveness-state";
-import { formatViewers } from "../../lib/format";
 import { useSession } from "../../lib/session";
 import { Button, buttonVariants } from "../ui/button";
 import {
@@ -20,6 +19,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { StreamAvatar } from "./stream-avatar";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
   events: "activity-events",
@@ -55,12 +55,14 @@ export function StreamInfo({
   liveness,
   chatOpen,
   onToggleChat,
+  avatar,
 }: {
   store: LivestreamStore;
   user: string;
   liveness: Liveness;
   chatOpen: boolean;
   onToggleChat: () => void;
+  avatar?: string;
 }) {
   const { t } = useTranslation("common");
   const state = useLivestreamStore(
@@ -79,7 +81,6 @@ export function StreamInfo({
   const title = record?.title || user;
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags;
-  const viewers = formatViewers(state.viewers);
   const isLive = liveness === "live";
 
   const node = useStreamplaceUrl();
@@ -97,36 +98,39 @@ export function StreamInfo({
   };
 
   return (
-    <div className="mx-3 mt-3 space-y-3">
+    <div className="mx-4 mt-4 mb-5 border-b border-(--color-border) pb-5">
       <div className="flex items-start gap-3">
-        <img
-          src={author?.avatar ?? undefined}
-          alt=""
-          className="h-10 w-10 shrink-0 rounded-full bg-(--color-bg-elevated)"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
+        <StreamAvatar
+          avatar={avatar ?? author?.avatar}
+          label={author?.displayName || author?.handle || user}
+          className="h-11 w-11"
         />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate font-medium">
               {author?.displayName || author?.handle || user}
             </span>
-            {isLive && viewers && (
-              <span className="shrink-0 text-xs text-(--color-fg-muted)">
-                {t("watching-count", { count: state.viewers ?? 0 })}
+            {author?.handle && author.displayName && (
+              <span className="truncate text-sm text-(--color-fg-muted)">
+                @{author.handle}
+              </span>
+            )}
+            {isLive && state.viewers != null && (
+              <span className="flex items-center gap-1 text-xs text-(--color-accent)">
+                <span className="h-1.5 w-1.5 rounded-full bg-(--color-accent)" />
+                {t("watching-count", { count: state.viewers })}
               </span>
             )}
           </div>
 
-          <h2 className="font-display mt-0.5 line-clamp-2 font-semibold text-(--color-fg)">
+          <h2 className="font-display mt-1 line-clamp-2 text-lg leading-tight font-semibold text-(--color-fg)">
             {title}
           </h2>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {activity && (
-              <span className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs text-(--color-fg-muted)">
+              <span className="rounded-full border border-(--color-border) bg-(--color-bg-elevated) px-2 py-0.5 text-xs font-medium text-(--color-fg-muted)">
                 {activity}
               </span>
             )}
@@ -144,7 +148,12 @@ export function StreamInfo({
         <div className="flex shrink-0 items-center gap-2">
           {sessionState.status === "authenticated" &&
             sessionState.session.did !== author?.did && (
-              <Button type="button" onClick={handleFollow} disabled={following}>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleFollow}
+                disabled={following}
+              >
                 <Plus className="size-4" /> {t("follow")}
               </Button>
             )}
@@ -154,6 +163,8 @@ export function StreamInfo({
             variant="outline"
             size="icon-lg"
             onClick={onToggleChat}
+            aria-label={chatOpen ? t("chat-close") : t("chat-open")}
+            title={chatOpen ? t("chat-close") : t("chat-open")}
           >
             <ChevronRight
               className={cn(
@@ -184,51 +195,24 @@ function assembleShareLink(
   return url.toString();
 }
 
-// checkmark button save 4 later
-//           <Button
-//   type="button"
-//   variant={copied ? "success" : "outline"}
-//   size="icon-lg"
-//   disabled={typeof share === "undefined"}
-//   className={cn("relative overflow-hidden")}
-// >
-//   {copied ? "Copied!" : "Share"}
-//   <svg
-//     className={cn(
-//       "size-4 text-green-500 absolute",
-//       "transition-all duration-300",
-//       copied ? "opacity-100" : "opacity-0 translate-y-6",
-//     )}
-//     fill="none"
-//     viewBox="0 0 24 24"
-//     stroke="currentColor"
-//     strokeWidth={2}
-//   >
-//     <path
-//       strokeLinecap="round"
-//       strokeLinejoin="round"
-//       d="M5 13l4 4L19 7"
-//     />
-//   </svg>
-//   <Share2
-//     className={cn(
-//       "size-4 transition-transform duration-300",
-//       copied && "scale-0",
-//     )}
-//   />
-// </Button>
-
 // copy button that has a dropdown for multiple platforms
-function CopyButton({
+export function CopyButton({
   nodeBaseURL,
   type,
   rkey,
+  className,
+  variant = "outline",
+  size = "icon-lg",
 }: {
   nodeBaseURL?: string;
   type: "vod" | "live";
   rkey?: string;
+  className?: string;
+  variant?: "outline" | "ghost";
+  size?: "icon-lg" | "icon-touch";
 }) {
   const { t } = useTranslation("common");
+  const [copied, setCopied] = useState(false);
   const share = nodeBaseURL
     ? assembleShareLink(nodeBaseURL, type, false, rkey)
     : undefined;
@@ -238,23 +222,31 @@ function CopyButton({
     : undefined;
 
   const handleCopy = (link: string) => {
-    console.error("copying link", link);
-    navigator.clipboard.writeText(link);
+    navigator.clipboard
+      .writeText(link)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+      })
+      .catch(() => setCopied(false));
   };
-  const handleOpenInNewTab = (link: string) => {
-    window.open(link, "_blank");
-  };
-
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
-            buttonVariants({ variant: "outline", size: "icon-lg" }),
+            buttonVariants({ variant, size }),
             "relative overflow-hidden",
+            className,
           )}
+          aria-label={copied ? t("share-copied") : t("share-copy")}
+          title={copied ? t("share-copied") : t("share-copy")}
         >
-          <Share2 className={cn("size-4 transition-transform duration-300")} />
+          {copied ? (
+            <Check className="size-4 text-(--color-accent)" />
+          ) : (
+            <Share2 className="size-4" />
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent className="min-w-40">
           <DropdownMenuGroup>

@@ -115,7 +115,9 @@ chat-failed-send = Failed to send message
 chat-log-in-to = Log in to chat
 chat-pop-out = Pop out chat
 chat-close = Close chat
+chat-open = Open chat
 streamer-fallback = Streamer
+view-profile = View profile
 
 ## Badges
 badge-moderator = Moderator
@@ -128,8 +130,14 @@ badge-issued-by-streamplace = Issued by Streamplace
 badge-issued-by = Issued by { $issuer }
 badge-issued = Issued
 badge-self-labeled = Self-labeled
+badge-details = Badge details
+badge-back-to-profile = Back to profile
+badge-previous = Previous badge
+badge-next = Next badge
+badge-count = Badge { $current } of { $total }
 
 ## Stream Info
+stream-details = Stream details
 activity-events = Events
 activity-just-chatting = Just Chatting
 activity-music = Music
@@ -143,11 +151,13 @@ activity-sports = Sports
 watching-count = { $count } watching
 follow = Follow
 share-copy = Copy
+share-copied = Copied
 share-copy-link = Copy Link
 share-copy-embed-code = Copy Embed Code
 share-copy-embed-url = Copy Embed URL
 
 ## Video Player
+offline = Offline
 live-badge = Live
 reconnecting = Reconnecting…
 stream-may-resume = The stream may resume shortly.
@@ -305,6 +315,7 @@ player-theatre = Theatre mode
 player-exit-theatre = Exit theatre mode
 player-pip = Picture-in-picture
 player-exit-pip = Exit picture-in-picture
+player-danmu = Danmu
 player-enable-danmu = Enable danmu
 player-disable-danmu = Disable danmu
 player-quality = Quality

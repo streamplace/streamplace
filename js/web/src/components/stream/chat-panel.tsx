@@ -4,19 +4,44 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import type { LivestreamStore } from "@streamplace/core";
-import { segmentize, type Facet, type FacetFeature } from "@streamplace/core";
-import { ArrowDown, ArrowUp, Pin, Reply } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  formatBadgeIssuer,
+  formatBadgeLabel,
+  segmentize,
+  type Facet,
+  type FacetFeature,
+} from "@streamplace/core";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  Pin,
+  Reply,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import useAvatars from "../../hooks/use-avatars";
 import { useSession } from "../../lib/session";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "../ui/hover-card";
+import { getAdjacentBadgeIndex } from "./badge-navigation";
+import { initializeChatScroll } from "./chat-scroll";
 
 export function ChatPanel({
   store,
@@ -41,6 +66,49 @@ export function ChatPanel({
   const [isAtAnchor, setIsAtAnchor] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const prevChatLenRef = useRef(chat.length);
+  const initialScrollDoneRef = useRef(false);
+  const initialScrollDirectionRef = useRef(reversed);
+  const cancelInitialFollow = useCallback(() => {
+    initialScrollDoneRef.current = true;
+  }, []);
+
+  // Start on the newest message even when history was populated before this
+  // panel mounted. A hidden chat has no measurable height, so keep watching
+  // until its parent makes it visible instead of marking initialization done.
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element || chat.length === 0) return;
+
+    if (initialScrollDirectionRef.current !== reversed) {
+      initialScrollDirectionRef.current = reversed;
+      initialScrollDoneRef.current = false;
+    }
+
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    const finishInitialScroll = () => {
+      if (initialScrollDoneRef.current) return;
+      if (!initializeChatScroll(element, reversed)) return;
+
+      prevChatLenRef.current = chat.length;
+      setIsAtAnchor(true);
+      setNewMessageCount(0);
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => {
+        initialScrollDoneRef.current = true;
+      }, 400);
+    };
+
+    finishInitialScroll();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(finishInitialScroll);
+    observer?.observe(element);
+    return () => {
+      if (settleTimer) clearTimeout(settleTimer);
+      observer?.disconnect();
+    };
+  }, [chat.length, reversed]);
 
   // Track whether the user is scrolled to the anchor end.
   // Normal: anchor is bottom. Reversed: anchor is top.
@@ -86,12 +154,27 @@ export function ChatPanel({
     const sliced = chat.slice(-1500);
     return reversed ? [...sliced].reverse() : sliced;
   }, [chat, reversed]);
+  const badgeIssuerDids = useMemo(() => {
+    const issuers = new Set<string>();
+    for (const message of displayMessages) {
+      for (const badge of message.badges ?? []) {
+        if (badge.issuer && !badge.issuer.startsWith("did:web:")) {
+          issuers.add(badge.issuer);
+        }
+      }
+    }
+    return [...issuers];
+  }, [displayMessages]);
+  const issuerProfiles = useAvatars(badgeIssuerDids);
 
   return (
     <div className="relative flex min-h-0 max-w-full flex-1 flex-col">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        onPointerDown={cancelInitialFollow}
+        onTouchStart={cancelInitialFollow}
+        onWheel={cancelInitialFollow}
         className="flex-1 space-y-0.5 overflow-x-hidden overflow-y-auto p-3"
       >
         {reversed && <div ref={anchorRef} />}
@@ -127,6 +210,7 @@ export function ChatPanel({
                 authors={authors}
                 store={store}
                 isGrouped={isGrouped}
+                issuerProfiles={issuerProfiles}
               />
             );
           })
@@ -137,7 +221,7 @@ export function ChatPanel({
       {!isAtAnchor && (
         <button
           onClick={scrollToAnchor}
-          className="absolute right-3 bottom-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated) text-(--color-fg-muted) shadow-md transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+          className="absolute right-3 bottom-2 z-10 flex size-11 items-center justify-center rounded-full border border-(--color-border) bg-(--color-bg-elevated) text-(--color-fg-muted) shadow-md transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
           aria-label={
             reversed ? t("chat-scroll-to-top") : t("chat-scroll-to-bottom")
           }
@@ -164,12 +248,14 @@ function ChatMessage({
   authors,
   store,
   isGrouped = false,
+  issuerProfiles,
 }: {
   message: ChatMessageViewHydrated;
   profile: ChatMessageViewHydrated["chatProfile"];
   authors: { [key: string]: ChatMessageViewHydrated["chatProfile"] };
   store: LivestreamStore;
   isGrouped?: boolean;
+  issuerProfiles: ReturnType<typeof useAvatars>;
 }) {
   const { t } = useTranslation("common");
   const { state, pdsAgent, did } = useSession();
@@ -246,20 +332,26 @@ function ChatMessage({
         </div>
       )}
 
-      <div
-        className={`flex items-start gap-2 ${isGrouped ? "pl-17" : ""} ${message.replyTo ? "pl-5" : ""}`}
-      >
+      <div className={`flex items-start gap-2 ${isGrouped ? "pl-13" : ""}`}>
         {!isGrouped && (
           <span className="text tabular-nums">
             {formatTime(message.record.createdAt)}
           </span>
         )}
         <div className="min-w-0 flex-1 flex-wrap items-center gap-1">
+          {!isGrouped &&
+            message.badges?.map((badge, i) => (
+              <span key={i} className="inline-block">
+                <BadgeIcon badge={badge} />
+              </span>
+            ))}
+
           {!isGrouped && (
             <UserHandle
               author={message.author}
               color={profile?.color}
               badges={message.badges}
+              issuerProfiles={issuerProfiles}
             />
           )}
           {!isGrouped && <span>{": "}</span>}
@@ -363,14 +455,14 @@ function UserHandle({
   author,
   color,
   badges,
+  issuerProfiles,
 }: {
   author: ChatMessageViewHydrated["author"];
   color: { red: number; green: number; blue: number } | undefined;
   badges?: place.stream.badge.defs.BadgeView[];
+  issuerProfiles: ReturnType<typeof useAvatars>;
 }) {
-  const { t } = useTranslation("common");
   const name = author.displayName || author.handle || author.did;
-  const handle = author.handle;
 
   return (
     <HoverCard trigger="click">
@@ -389,74 +481,154 @@ function UserHandle({
       <HoverCardContent
         side="top"
         align="start"
-        className="w-72 overflow-hidden p-0"
+        className="w-86 overflow-hidden p-0"
       >
-        {/* Banner; gradient tinted with the user's chat color */}
-        <div
-          className="relative h-20"
-          style={
-            color
-              ? {
-                  background: `linear-gradient(135deg, rgb(${color.red}, ${color.green}, ${color.blue}) 0%, var(--color-muted) 100%)`,
-                }
-              : { background: "var(--color-muted)" }
-          }
+        <ProfileCardContent
+          author={author}
+          badges={badges ?? []}
+          color={color}
+          issuerProfiles={issuerProfiles}
         />
-
-        <div className="relative px-3 pt-1">
-          {/* Avatar overlapping the banner */}
-          <img
-            src={author.avatar ?? undefined}
-            alt=""
-            className="absolute -top-6 left-3 h-12 w-12 rounded-full border-2 border-(--color-bg-elevated) bg-(--color-bg)"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).style.display = "none";
-            }}
-          />
-
-          {/* Handle row */}
-          <div className="flex items-center justify-between gap-2 pt-7 pb-2">
-            <div className="min-w-0">
-              {name !== handle && (
-                <div
-                  className="truncate font-medium"
-                  style={
-                    color
-                      ? {
-                          color: `rgb(${color.red}, ${color.green}, ${color.blue})`,
-                        }
-                      : undefined
-                  }
-                >
-                  {name}
-                </div>
-              )}
-              {handle && <div className="truncate">@{handle}</div>}
-            </div>
-            {handle && (
-              <a
-                href={`https://bsky.app/profile/${handle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-[#0F73FF] hover:opacity-80"
-                aria-label={t("chat-view-profile-bluesky")}
-              >
-                <BskyIcon size={20} />
-              </a>
-            )}
-          </div>
-
-          {/* Badges */}
-          {badges && badges.length > 0 && (
-            <div className="space-y-1 pb-2">
-              {badges.map((badge, i) => (
-                <BadgeRow key={i} badge={badge} />
-              ))}
-            </div>
-          )}
-        </div>
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+function ProfileCardContent({
+  author,
+  badges,
+  color,
+  issuerProfiles,
+}: {
+  author: ChatMessageViewHydrated["author"];
+  badges: place.stream.badge.defs.BadgeView[];
+  color: { red: number; green: number; blue: number } | undefined;
+  issuerProfiles: ReturnType<typeof useAvatars>;
+}) {
+  const { t } = useTranslation("common");
+  const [selectedBadgeIndex, setSelectedBadgeIndex] = useState<number | null>(
+    null,
+  );
+  const badgeButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const backButtonRef = useRef<HTMLButtonElement | null>(null);
+  const detailWasOpenRef = useRef(false);
+  const lastSelectedBadgeIndexRef = useRef(0);
+  const name = author.displayName || author.handle || author.did;
+  const handle = author.handle;
+
+  useLayoutEffect(() => {
+    const detailIsOpen = selectedBadgeIndex !== null;
+    if (detailIsOpen && !detailWasOpenRef.current) {
+      backButtonRef.current?.focus();
+    }
+    detailWasOpenRef.current = detailIsOpen;
+  }, [selectedBadgeIndex]);
+
+  const showBadge = (index: number) => {
+    lastSelectedBadgeIndexRef.current = index;
+    setSelectedBadgeIndex(index);
+  };
+
+  const showProfile = () => {
+    flushSync(() => setSelectedBadgeIndex(null));
+    badgeButtonRefs.current[lastSelectedBadgeIndexRef.current]?.focus();
+  };
+
+  if (selectedBadgeIndex !== null) {
+    const badge = badges[selectedBadgeIndex];
+    if (badge) {
+      return (
+        <BadgeDetails
+          badge={badge}
+          badgeIndex={selectedBadgeIndex}
+          badgeCount={badges.length}
+          backButtonRef={backButtonRef}
+          issuerProfiles={issuerProfiles}
+          onBack={showProfile}
+          onNavigate={(direction) => {
+            const nextIndex = getAdjacentBadgeIndex(
+              selectedBadgeIndex,
+              badges.length,
+              direction,
+            );
+            if (nextIndex !== null) showBadge(nextIndex);
+          }}
+        />
+      );
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="relative h-20"
+        style={
+          color
+            ? {
+                background: `linear-gradient(135deg, rgb(${color.red}, ${color.green}, ${color.blue}) 0%, var(--color-muted) 100%)`,
+              }
+            : { background: "var(--color-muted)" }
+        }
+      />
+
+      <div className="relative px-3 pt-1">
+        <img
+          src={author.avatar ?? undefined}
+          alt=""
+          className="absolute -top-6 left-3 h-12 w-12 rounded-full border-2 border-(--color-bg-elevated) bg-(--color-bg)"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+
+        <div className="flex items-center justify-between gap-2 pt-7 pb-2">
+          <div className="min-w-0">
+            {name !== handle && (
+              <div
+                className="truncate font-medium"
+                style={
+                  color
+                    ? {
+                        color: `rgb(${color.red}, ${color.green}, ${color.blue})`,
+                      }
+                    : undefined
+                }
+              >
+                {name}
+              </div>
+            )}
+            {handle && <div className="truncate">@{handle}</div>}
+          </div>
+          {handle && (
+            <a
+              href={`https://bsky.app/profile/${handle}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 rounded-sm text-[#0F73FF] hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent)"
+              aria-label={t("chat-view-profile-bluesky")}
+            >
+              <BskyIcon size={20} />
+            </a>
+          )}
+        </div>
+
+        {badges.length > 0 && (
+          <div className="space-y-1 pb-2">
+            {badges.map((badge, index) => (
+              <BadgeRow
+                key={`${badge.badgeType}-${badge.issuer}-${index}`}
+                badge={badge}
+                buttonRef={(element) => {
+                  badgeButtonRefs.current[index] = element;
+                }}
+                issuerProfiles={issuerProfiles}
+                onSelect={() => showBadge(index)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -521,48 +693,64 @@ const BADGE_I18N_KEYS: Record<string, string> = {
   "place.stream.badge.defs#event": "badge-event",
 };
 
-function shortDid(did: string): string {
-  // e.g. "did:plc:abc123def456" -> "did:plc:abc…"
-  if (!did) return "";
-  if (did.length <= 16) return did;
-  return `${did.slice(0, 12)}…`;
-}
-
 function issuerLabel(
   badge: place.stream.badge.defs.BadgeView,
+  issuerProfiles: ReturnType<typeof useAvatars>,
   t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
   if (badge.issuer && badge.issuer.startsWith("did:web:")) {
     return t("badge-issued-by-streamplace");
   }
   if (badge.issuer) {
-    return t("badge-issued-by", { issuer: shortDid(badge.issuer) });
+    return t("badge-issued-by", {
+      issuer: formatBadgeIssuer(
+        badge.issuer,
+        issuerProfiles[badge.issuer]?.handle,
+      ),
+    });
   }
   return t("badge-issued");
 }
 
-function BadgeRow({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
-  const { t } = useTranslation("common");
+function BadgeIcon({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
   const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
-  const i18nKey = BADGE_I18N_KEYS[badge.badgeType];
-  const rawTag = badge.badgeType.split("#")[1] ?? "";
-  const label =
-    badge.name?.trim() ||
-    (i18nKey ? t(i18nKey) : null) ||
-    (rawTag ? rawTag[0].toUpperCase() + rawTag.slice(1) : t("badge-fallback"));
-  const isSelfLabeled = badge.badgeType === "place.stream.badge.defs#bot";
-  const issuedBy = isSelfLabeled
-    ? t("badge-self-labeled")
-    : issuerLabel(badge, t);
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="relative top-0.5 mr-1 inline-block h-4 w-4 rounded-xs align-middle"
+    />
+  );
+}
+
+function BadgeRow({
+  badge,
+  buttonRef,
+  issuerProfiles,
+  onSelect,
+}: {
+  badge: place.stream.badge.defs.BadgeView;
+  buttonRef: (element: HTMLButtonElement | null) => void;
+  issuerProfiles: ReturnType<typeof useAvatars>;
+  onSelect: () => void;
+}) {
+  const { t } = useTranslation("common");
+  const { issuedBy, label, src } = getBadgePresentation(
+    badge,
+    issuerProfiles,
+    t,
+  );
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-2">
+    <button
+      ref={buttonRef}
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-2 rounded-md border border-(--color-border) bg-(--color-bg-overlay) p-2 text-left transition-[background-color,color,transform] duration-100 hover:bg-(--color-bg-elevated) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent) active:scale-[0.99] motion-reduce:transition-none"
+    >
       {src ? (
-        <img
-          src={src}
-          alt={badge.badgeType}
-          className="h-6 w-6 shrink-0 rounded-xs"
-        />
+        <img src={src} alt="" className="h-6 w-6 shrink-0 rounded-xs" />
       ) : (
         <div className="h-6 w-6 shrink-0 rounded-xs bg-(--color-bg)" />
       )}
@@ -571,6 +759,166 @@ function BadgeRow({ badge }: { badge: place.stream.badge.defs.BadgeView }) {
         <div className="text-sm leading-tight text-(--color-fg-muted)">
           {issuedBy}
         </div>
+      </div>
+      <ChevronRight
+        className="h-4 w-4 shrink-0 text-(--color-fg-subtle)"
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
+function getBadgePresentation(
+  badge: place.stream.badge.defs.BadgeView,
+  issuerProfiles: ReturnType<typeof useAvatars>,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+) {
+  const src = badge.imageUrl || BADGE_SRC[badge.badgeType];
+  const i18nKey = BADGE_I18N_KEYS[badge.badgeType];
+  const rawTag = badge.badgeType.split("#")[1] ?? "";
+  const fallbackLabel =
+    badge.name?.trim() ||
+    (i18nKey ? t(i18nKey) : null) ||
+    (rawTag ? rawTag[0].toUpperCase() + rawTag.slice(1) : t("badge-fallback"));
+  const label = formatBadgeLabel({
+    badgeType: badge.badgeType,
+    badgeName: badge.name,
+    fallbackLabel,
+    vipLabel: t("badge-vip"),
+  });
+  const isSelfLabeled = badge.badgeType === "place.stream.badge.defs#bot";
+  const issuedBy = isSelfLabeled
+    ? t("badge-self-labeled")
+    : issuerLabel(badge, issuerProfiles, t);
+
+  return { issuedBy, label, src };
+}
+
+function BadgeDetails({
+  badge,
+  badgeIndex,
+  badgeCount,
+  backButtonRef,
+  issuerProfiles,
+  onBack,
+  onNavigate,
+}: {
+  badge: place.stream.badge.defs.BadgeView;
+  badgeIndex: number;
+  badgeCount: number;
+  backButtonRef: { current: HTMLButtonElement | null };
+  issuerProfiles: ReturnType<typeof useAvatars>;
+  onBack: () => void;
+  onNavigate: (direction: -1 | 1) => void;
+}) {
+  const { t } = useTranslation("common");
+  const { issuedBy, label, src } = getBadgePresentation(
+    badge,
+    issuerProfiles,
+    t,
+  );
+  const description = badge.description?.trim();
+  const hasNavigation = badgeCount > 1;
+
+  return (
+    <div
+      onKeyDown={(event) => {
+        if (!hasNavigation) return;
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          onNavigate(-1);
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          onNavigate(1);
+        }
+      }}
+    >
+      <div className="flex h-12 items-center gap-2 px-1">
+        <button
+          ref={backButtonRef}
+          type="button"
+          onClick={onBack}
+          className="flex size-11 shrink-0 items-center justify-center rounded-md text-(--color-fg-muted) transition-[background-color,color,transform] duration-100 hover:bg-(--color-bg-overlay) hover:text-(--color-fg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent) active:scale-95 motion-reduce:transition-none"
+          aria-label={t("badge-back-to-profile")}
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <div className="text-sm font-medium text-(--color-fg-muted)">
+          {t("badge-details")}
+        </div>
+      </div>
+
+      <div
+        key={badgeIndex}
+        className="animate-in fade-in px-3 pt-2 pb-4 duration-150 motion-reduce:animate-none"
+      >
+        <div className="grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2">
+          {hasNavigation ? (
+            <button
+              type="button"
+              onClick={() => onNavigate(-1)}
+              className="flex size-11 items-center justify-center rounded-full text-(--color-fg-muted) transition-[background-color,color,transform] duration-100 hover:bg-(--color-bg-overlay) hover:text-(--color-fg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent) active:scale-95 motion-reduce:transition-none"
+              aria-label={t("badge-previous")}
+            >
+              <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+
+          <div className="flex min-w-0 flex-col items-center gap-3 text-center">
+            {src ? (
+              <img
+                src={src}
+                alt=""
+                className="size-18 rounded-md object-contain"
+              />
+            ) : (
+              <div className="size-18 rounded-md bg-(--color-bg-overlay)" />
+            )}
+            <div className="min-w-0">
+              <div className="text-lg leading-tight font-semibold text-(--color-fg)">
+                {label}
+              </div>
+              {hasNavigation && (
+                <div className="mt-1 text-xs text-(--color-fg-subtle)">
+                  {t("badge-count", {
+                    current: badgeIndex + 1,
+                    total: badgeCount,
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {hasNavigation ? (
+            <button
+              type="button"
+              onClick={() => onNavigate(1)}
+              className="flex size-11 items-center justify-center rounded-full text-(--color-fg-muted) transition-[background-color,color,transform] duration-100 hover:bg-(--color-bg-overlay) hover:text-(--color-fg) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent) active:scale-95 motion-reduce:transition-none"
+              aria-label={t("badge-next")}
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+        </div>
+
+        {(description || issuedBy) && (
+          <div className="mt-4 border-t border-(--color-border) pt-3">
+            {description && (
+              <p className="text-sm leading-relaxed text-(--color-fg-muted)">
+                {description}
+              </p>
+            )}
+            <div
+              className={`${description ? "mt-2" : ""} text-sm text-(--color-fg-subtle)`}
+            >
+              {issuedBy}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

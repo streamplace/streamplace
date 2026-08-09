@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
+import { getDidAccentColor } from "../../lib/color";
 import { formatViewers } from "../../lib/format";
 import { useStreamplaceUrl } from "../../lib/store/hooks";
 
@@ -74,19 +75,11 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   const viewers = stream.viewerCount?.count;
   const user = handle;
 
-  // Deterministic per-streamer border color. Hash the handle to a hue
-  // and render it at a fixed saturation/lightness so every streamer
-  // gets a unique accent without needing color extraction. The border
-  // always sits on the black thumbnail background, so the color is
-  // legible in both light and dark mode without per-theme tuning.
-  const borderColor = useMemo(() => {
-    let h = 0;
-    for (let i = 0; i < user.length; i++) {
-      h = (h * 31 + user.charCodeAt(i)) | 0;
-    }
-    const hue = ((h % 360) + 360) % 360;
-    return `hsl(${hue} 60% 55%)`;
-  }, [user]);
+  // Keep a streamer's accent stable even if their handle changes.
+  const borderColor = useMemo(
+    () => getDidAccentColor(stream.author.did),
+    [stream.author.did],
+  );
 
   // Bounds-measuring one-row tag layout. Same approach as the app's
   // StreamCard: each item reports its measured width via a ref, and
@@ -147,10 +140,14 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
   };
 
   return (
-    <Link to="/$user" params={{ user }} className="group flex flex-col">
+    <Link
+      to="/$user"
+      params={{ user }}
+      className="group flex flex-col focus-visible:rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-(--color-accent)"
+    >
       {/* Thumbnail */}
       <div
-        className="outline-border/40 relative aspect-video overflow-clip bg-black ring-0 outline transition-shadow duration-200 group-hover:ring-4"
+        className="outline-border/40 relative aspect-video overflow-clip rounded-xl bg-black ring-0 outline transition-all duration-200 group-hover:rounded-md group-hover:ring-4"
         style={{ "--tw-ring-color": borderColor } as CSSProperties}
       >
         <img
@@ -170,7 +167,7 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
           }}
         />
         {/* Live dot */}
-        <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded bg-red-600 px-2 py-0.5 text-xs font-bold tracking-wide text-white uppercase">
+        <div className="absolute top-2 left-2 flex items-center gap-1.5 rounded bg-red-600 px-2 py-0.5 text-xs font-semibold text-white uppercase">
           <div className="h-1.5 w-1.5 rounded-full bg-white" />
           {t("live-badge")}
         </div>
@@ -207,13 +204,13 @@ export function StreamCard({ stream, avatarUrl }: StreamCardProps) {
           <div className="truncate text-sm font-medium text-(--color-fg) transition-colors group-hover:text-(--color-accent)">
             {title}
           </div>
-          <div className="mt-0.5 truncate text-xs text-(--color-fg-muted)">
+          <div className="truncate text-sm text-(--color-fg-muted)">
             @{handle}
           </div>
           {(activity || tags.length > 0) && (
             <div
               ref={tagsRowRef}
-              className="mt-1.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap"
+              className="mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap"
             >
               {activity && (
                 <span

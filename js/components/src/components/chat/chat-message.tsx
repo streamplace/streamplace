@@ -128,9 +128,8 @@ export const RichTextMessage = ({
   return segs.map((seg, i) => renderSegment(seg, i, userCache));
 };
 
-// Web flows the whole message inline inside a single <Text>, with the handle
-// rendered as an inline-block via display: "inline". Badges are not shown
-// inline here — they live in the profile card (under the profile) instead.
+// Web flows the whole message inline inside a single <Text>, with the badges and
+// handle rendered as an inline-block via display: "inline".
 // Chat is dense but legible: 13px (size sm), handles in medium weight.
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   return (
@@ -147,6 +146,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             } as any
           }
         >
+          <BadgeDisplayRow badges={item.badges} />
           <Text
             size="sm"
             weight="medium"

@@ -417,7 +417,11 @@ export function SidebarOverlay() {
             <Pressable
               // @ts-ignore renders as <a> on web
               href="/"
-              style={[zero.layout.flex.row, zero.layout.flex.alignCenter]}
+              style={[
+                zero.layout.flex.row,
+                zero.layout.flex.alignCenter,
+                { flexShrink: 1, minWidth: 0 },
+              ]}
               onPress={(e) => {
                 e.preventDefault();
                 closeDrawer();

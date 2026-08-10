@@ -89,8 +89,14 @@ export function Wordmark({
     color: color ?? theme.colors.text1,
   };
   const parts = text.split(".");
+  // Long site titles truncate with an ellipsis rather than wrapping out of
+  // the nav; every flex ancestor needs minWidth: 0 for that to work on web.
   return (
-    <Text style={base} selectable={false}>
+    <Text
+      style={{ ...base, flexShrink: 1, minWidth: 0 }}
+      numberOfLines={1}
+      selectable={false}
+    >
       {parts.map((part, i) => (
         <Fragment key={i}>
           {i > 0 && (
@@ -131,6 +137,8 @@ export function LogoLockup({
           flexDirection: "row",
           alignItems: "center",
           gap,
+          flexShrink: 1,
+          minWidth: 0,
         },
         props.style,
       ]}

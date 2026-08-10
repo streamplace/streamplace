@@ -332,7 +332,11 @@ func (atsync *ATProtoSynchronizer) walkBackfill(ctx context.Context, ident *iden
 		return "", "", err
 	}
 
-	log.Log(ctx, "walked repo", "did", did, "handle", ident.Handle.String(), "rev", head.Rev, "root", head.Root.String(), "records", records)
+	// Debug: this fires once per walk, and a deepening repo walks one window
+	// at a time -- at Info it was nearly half of a boot's log. The Info-level
+	// story is one line per repo: "shallow sync complete" when it becomes
+	// servable, "deep sync complete" when its history is all in.
+	log.Debug(ctx, "walked repo", "did", did, "handle", ident.Handle.String(), "rev", head.Rev, "root", head.Root.String(), "records", records)
 	return head.Rev, head.Root.String(), nil
 }
 

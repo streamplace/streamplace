@@ -115,7 +115,10 @@ func createOrVerify[T any, PT interface {
 		return ErrAlreadyIndexed
 	}
 
-	log.Log(ctx, "record changed on redelivery, updated",
+	// Debug: an updated record arriving again with a new CID is routine --
+	// every place.stream.livestream heartbeat does it -- not an anomaly worth
+	// a line per occurrence.
+	log.Debug(ctx, "record changed on redelivery, updated",
 		"uri", row.recordURI(), "oldCid", PT(&existing).recordCID(), "newCid", row.recordCID())
 	return m.DB.WithContext(ctx).Save(row).Error
 }

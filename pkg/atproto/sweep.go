@@ -677,7 +677,7 @@ func (atsync *ATProtoSynchronizer) sweepWindow(ctx context.Context, progress *sw
 	progress.window(step.DID, backfillFloorTime(floor))
 	if done {
 		progress.deepened(step.DID)
-		log.Log(ctx, "finished deepening repo history", "did", step.DID, "handle", step.Handle, "windows", step.Windows+1)
+		log.Log(ctx, "deep sync complete", "did", step.DID, "handle", step.Handle, "windows", step.Windows+1)
 		return false
 	}
 	return true

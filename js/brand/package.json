@@ -1,0 +1,12 @@
+{
+  "name": "@streamplace/brand",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
+  }
+}

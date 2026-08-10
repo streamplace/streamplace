@@ -7,8 +7,8 @@
   "scripts": {
     "start": "PORT=38082 electron-forge start",
     "start-with-node": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "package": "pnpm --filter @streamplace/brand generate && electron-forge package",
+    "make": "pnpm --filter @streamplace/brand generate && electron-forge make",
     "publish": "electron-forge publish",
     "nolint": "eslint --ext .ts,.tsx .",
     "prepare": "CGO_ENABLED=0 go run ../../pkg/config/git/git.go --js > src/version.ts"

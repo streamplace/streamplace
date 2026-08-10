@@ -19,3 +19,7 @@ pnpm-debug.log*
 
 # macOS-specific files
 .DS_Store
+
+# generated brand logos (pnpm run brand)
+src/assets/logo-light.png
+src/assets/logo-dark.png

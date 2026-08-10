@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="streamplace-logo.svg" width=200>
+  <img src="brand/mark.svg" width=200>
   <p align="center"><h2 align="center">Streamplace</h2></p>
   <p align="center"><strong>Solving Video for Everybody Forever</strong></p>
   <p align="center">

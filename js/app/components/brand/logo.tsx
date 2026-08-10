@@ -1,4 +1,4 @@
-import { Text, useTheme } from "@streamplace/components";
+import { Text, useBrandingAsset, useTheme } from "@streamplace/components";
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { Fragment } from "react";
 import { View, type ViewProps } from "react-native";
@@ -61,12 +61,15 @@ export function LogoTile({ size = 32 }: { size?: number }) {
 
 export function Wordmark({
   size = 20,
+  text = BRAND.wordmark,
   color,
   dotColor,
   weight = "semibold",
   letterSpacing,
 }: {
   size?: number;
+  /** Text to set in wordmark styling; defaults to the brand wordmark. */
+  text?: string;
   color?: string;
   /** Optional accent color for any "." — omit to keep the wordmark mono. */
   dotColor?: string;
@@ -85,7 +88,7 @@ export function Wordmark({
     fontWeight: (isMedium ? "500" : "600") as "500" | "600",
     color: color ?? theme.colors.text1,
   };
-  const parts = BRAND.wordmark.split(".");
+  const parts = text.split(".");
   return (
     <Text style={base} selectable={false}>
       {parts.map((part, i) => (
@@ -102,6 +105,7 @@ export function Wordmark({
 
 export function LogoLockup({
   size = 20,
+  text,
   color,
   markColor,
   dotColor,
@@ -110,6 +114,7 @@ export function LogoLockup({
   ...props
 }: ViewProps & {
   size?: number;
+  text?: string;
   color?: string;
   markColor?: string;
   dotColor?: string;
@@ -133,6 +138,7 @@ export function LogoLockup({
       <LogoMark size={markSize} color={markColor} />
       <Wordmark
         size={size}
+        text={text}
         color={color}
         dotColor={dotColor}
         weight={weight}
@@ -140,4 +146,17 @@ export function LogoLockup({
       />
     </View>
   );
+}
+
+/**
+ * The nav-header lockup: the mark plus what this node calls itself — the
+ * operator's runtime siteTitle branding when set, else the brand's
+ * defaultSiteTitle (which the first-party brand points at its own wordmark,
+ * so branded nodes show the styled wordmark with no runtime config).
+ */
+export function SiteTitleLockup(
+  props: Omit<Parameters<typeof LogoLockup>[0], "text">,
+) {
+  const siteTitle = useBrandingAsset("siteTitle")?.data;
+  return <LogoLockup {...props} text={siteTitle || BRAND.defaultSiteTitle} />;
 }

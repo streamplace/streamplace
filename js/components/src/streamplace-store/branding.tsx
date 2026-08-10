@@ -253,7 +253,7 @@ export function useFavicon(): string | undefined {
 // convenience hook for site title
 export function useSiteTitle(): string {
   const asset = useBrandingAsset("siteTitle");
-  return asset?.data || "My Streamplace Station";
+  return asset?.data || "My Streamplace Node";
 }
 
 // convenience hook for site description

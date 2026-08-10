@@ -14,7 +14,7 @@ import {
 import { BlueskyIcon } from "@streamplace/components/src/components/icons/bluesky-icon";
 import { DiscordIcon } from "@streamplace/components/src/components/icons/discord-icon";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
-import { LogoLockup } from "components/brand/logo";
+import { SiteTitleLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
@@ -427,7 +427,7 @@ export function SidebarOverlay() {
                 });
               }}
             >
-              <LogoLockup
+              <SiteTitleLockup
                 size={19}
                 weight="semibold"
                 letterSpacing={0}

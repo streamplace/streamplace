@@ -42,6 +42,7 @@ and `brand.json` colors when absent.
 {
   "name": "Streamplace",
   "wordmark": "stream.place",
+  "defaultSiteTitle": "My Streamplace Node",
   "monochrome": false,
   "colors": {
     "ink": "#0A0A0B",
@@ -65,7 +66,10 @@ and `brand.json` colors when absent.
 All colors are optional; `*Foreground` colors default to `ink` and only
 apply to monochrome marks (a multi-color mark renders as-is). `wordmark` is
 the text rendered next to the mark in the app's lockup — a `.` in it gets
-the accent treatment. `story` optionally carries the mark's design story for
+the accent treatment. `defaultSiteTitle` (default `My <name> Node`) is what
+an unbranded node calls itself in the nav until its operator sets a runtime
+siteTitle via the branding admin; a first-party brand points it at its own
+wordmark so its nodes show the styled wordmark with no runtime config. `story` optionally carries the mark's design story for
 the `/brand` guidelines screen (`tagline`, `readings`, `geometry`, `specs`,
 `usage` — see `BrandStory` in the generated `js/app/assets/generated/brand.ts`);
 sections without data are hidden.

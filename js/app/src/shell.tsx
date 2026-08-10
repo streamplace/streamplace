@@ -20,7 +20,7 @@ import {
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
-import { LogoLockup } from "components/brand/logo";
+import { SiteTitleLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -954,7 +954,7 @@ export default function Shell() {
                   });
                 }}
               >
-                <LogoLockup
+                <SiteTitleLockup
                   size={19}
                   weight="semibold"
                   letterSpacing={0}

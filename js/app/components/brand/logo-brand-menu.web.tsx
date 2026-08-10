@@ -86,7 +86,9 @@ export function LogoBrandMenu({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <View ref={anchorRef as any}>{children}</View>
+      <View ref={anchorRef as any} style={{ flexShrink: 1, minWidth: 0 }}>
+        {children}
+      </View>
       {pos &&
         createPortal(
           <View

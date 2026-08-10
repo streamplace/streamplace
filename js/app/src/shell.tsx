@@ -908,6 +908,7 @@ export default function Shell() {
               <Pressable
                 // @ts-ignore renders as <a> on web
                 href="/"
+                style={{ flexShrink: 1, minWidth: 0 }}
                 onPress={(e: any) => {
                   e?.preventDefault?.();
                   navigation.navigate("MainTabs" as any, {

@@ -67,6 +67,10 @@ colors.bannerForeground ??= colors.ink;
 
 const name = config.name;
 const wordmark = config.wordmark ?? name;
+// What an unbranded node calls itself in the nav / titles until its operator
+// sets a runtime siteTitle. The first-party brand sets this to its wordmark
+// so its own nodes show the styled wordmark with no runtime config.
+const defaultSiteTitle = config.defaultSiteTitle ?? `My ${name} Node`;
 const mono = config.monochrome === true;
 const story = config.story ?? null;
 const slug = name
@@ -402,8 +406,11 @@ write(join(outDocs, "logo-dark.png"), docsDark);
 // Resolved config for app.config.ts (splash/adaptive-icon colors).
 write(
   join(outApp, "brand.json"),
-  JSON.stringify({ name, slug, wordmark, monochrome: mono, colors }, null, 2) +
-    "\n",
+  JSON.stringify(
+    { name, slug, wordmark, defaultSiteTitle, monochrome: mono, colors },
+    null,
+    2,
+  ) + "\n",
 );
 
 // TypeScript module the app's logo components render from.
@@ -431,6 +438,7 @@ export type Brand = {
   name: string;
   slug: string;
   wordmark: string;
+  defaultSiteTitle: string;
   monochrome: boolean;
   colors: {
     ink: string;
@@ -450,6 +458,7 @@ export const BRAND: Brand = {
   name: ${JSON.stringify(name)},
   slug: ${JSON.stringify(slug)},
   wordmark: ${JSON.stringify(wordmark)},
+  defaultSiteTitle: ${JSON.stringify(defaultSiteTitle)},
   monochrome: ${mono},
   colors: {
     ink: ${JSON.stringify(colors.ink)},

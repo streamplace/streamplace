@@ -434,16 +434,65 @@ func (s *laneScheduler) wait() (lanes int, err error) {
 // was down longer than the relay's replay window, or because a fresh index
 // started listening after the accounts it inherited had already moved -- is
 // found and repaired within an interval instead of never.
+//
+// These passes do not deepen. Reconciliation and history acquisition run at
+// completely different speeds -- a pass over every repo's head is minutes, a
+// node's remaining history is days -- and [ATProtoSynchronizer.sweepOnce] would
+// hold every head check behind whichever pass was still walking the year 2023.
+// [ATProtoSynchronizer.DeepenForever] owns the ladders instead, and finds the
+// repos that owe history by scanning for them.
 func (atsync *ATProtoSynchronizer) SweepForever(ctx context.Context) {
-	atsync.sweepLoop(ctx, atsync.sweepInterval(), func(ctx context.Context) {
-		atsync.sweepOnce(ctx, atsync.Sweep)
+	atsync.sweepLoop(ctx, atsync.sweepBootDelay(ctx), atsync.sweepInterval(), func(ctx context.Context) {
+		atsync.sweepOnce(ctx, func(ctx context.Context) error {
+			return atsync.sweep(ctx, false)
+		})
 	})
 }
 
-// sweepLoop runs run now and every interval after, until ctx ends. A
-// non-positive interval runs it exactly once: the boot sweep is not optional,
-// only repeating it is.
-func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, interval time.Duration, run func(context.Context)) {
+// sweepBootDelay is how long SweepForever holds its first sweep.
+//
+// Zero on a fresh index: nothing is indexed yet, so that sweep IS the boot
+// work. On a warm index an ordinary restart's gap is healed by the firehose
+// replaying from its stored cursor, so the first sweep is insurance -- it can
+// wait out the busiest minutes of boot instead of compounding them. The other
+// case that genuinely needs immediate sweeping, a cursor too stale to replay,
+// kicks its own sweep and never waits on this.
+func (atsync *ATProtoSynchronizer) sweepBootDelay(ctx context.Context) time.Duration {
+	delay := config.DefaultSweepBootDelay
+	if atsync.CLI != nil {
+		delay = atsync.CLI.SweepBootDelay
+		if atsync.CLI.NoFirehose {
+			// No firehose means no replay to heal the restart's gap: the boot
+			// sweep is this node's only reconciliation, so it does not wait.
+			return 0
+		}
+	}
+	if delay <= 0 {
+		return 0
+	}
+	repos, err := atsync.Model.CountRepos()
+	if err != nil {
+		log.Error(ctx, "failed to count indexed repos; sweeping immediately", "err", err)
+		return 0
+	}
+	if repos == 0 {
+		log.Log(ctx, "index is empty; the boot sweep starts now")
+		return 0
+	}
+	log.Log(ctx, "index is warm; holding the boot sweep", "repos", repos, "delay", delay)
+	return delay
+}
+
+// sweepLoop runs run after bootDelay, then every interval, until ctx ends. A
+// non-positive interval runs it exactly once.
+func (atsync *ATProtoSynchronizer) sweepLoop(ctx context.Context, bootDelay, interval time.Duration, run func(context.Context)) {
+	if bootDelay > 0 {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(bootDelay):
+		}
+	}
 	run(ctx)
 	if interval <= 0 || ctx.Err() != nil {
 		return
@@ -516,24 +565,47 @@ func (atsync *ATProtoSynchronizer) sweepConcurrency() int {
 // where every shallow sync failed returns an error, because that is a broken
 // node rather than a few broken accounts.
 func (atsync *ATProtoSynchronizer) Sweep(ctx context.Context) error {
+	return atsync.sweep(ctx, true)
+}
+
+// sweep is [ATProtoSynchronizer.Sweep], with or without the deepening ladders.
+//
+// Without them a pass is pure reconciliation: every servable repo's head is
+// checked, everything that has drifted or was left half-indexed is re-synced,
+// and repos that still owe history are simply left where they are for
+// [ATProtoSynchronizer.DeepenForever] to find. That is what a serving node runs
+// on a timer. With them a pass also walks every repo's history to the end,
+// which is what `streamplace sync` means by "sync": one command, run to
+// completion, and the index is whole.
+func (atsync *ATProtoSynchronizer) sweep(ctx context.Context, ladders bool) error {
 	dids, err := atsync.sweepCandidates(ctx)
 	if err != nil {
 		return err
 	}
-	log.Log(ctx, "starting backfill sweep", "totalRepos", len(dids), "concurrency", atsync.sweepConcurrency())
+	log.Log(ctx, "starting backfill sweep", "totalRepos", len(dids),
+		"concurrency", atsync.sweepConcurrency(), "deepening", ladders)
 
 	plan, err := atsync.sweepPlan(dids)
 	if err != nil {
 		return err
 	}
 	progress := &sweepProgress{}
-	progress.begin(plan.shallow, plan.checks, plan.floors)
+	floors := plan.floors
+	if !ladders {
+		// Nothing this pass does will move a watermark, so it claims no
+		// horizon, counts no ladders, and does not mention either.
+		progress.mode, floors = sweepModeCheck, nil
+	}
+	progress.begin(plan.shallow, plan.checks, floors)
 	stop := progress.start(ctx)
 	defer stop()
 
-	log.Log(ctx, "sweeping repos", "shallow", plan.shallow, "check", plan.checks,
-		"deepen", len(plan.floors), "knownHosts", laneCount(plan.ready),
-		"unresolved", len(plan.unresolved))
+	fields := []any{"shallow", plan.shallow, "check", plan.checks}
+	if ladders {
+		fields = append(fields, "deepen", len(plan.floors))
+	}
+	log.Log(ctx, "sweeping repos", append(fields,
+		"knownHosts", laneCount(plan.ready), "unresolved", len(plan.unresolved))...)
 
 	var attempted, failed atomic.Int64
 	// The scheduler is captured by the work it runs: a head check that finds
@@ -543,9 +615,11 @@ func (atsync *ATProtoSynchronizer) Sweep(ctx context.Context) error {
 	sched = newLaneScheduler(ctx, atsync.sweepConcurrency(), func(ctx context.Context, step sweepStep) bool {
 		switch {
 		case step.Check:
-			return atsync.sweepCheck(ctx, progress, sched.add, step)
+			// A check and a sync both report "this repo still owes history",
+			// which in a ladderless pass is somebody else's news.
+			return atsync.sweepCheck(ctx, progress, sched.add, step) && ladders
 		case !step.Deepen:
-			return atsync.sweepSync(ctx, progress, &attempted, &failed, step)
+			return atsync.sweepSync(ctx, progress, &attempted, &failed, step) && ladders
 		default:
 			return atsync.sweepWindow(ctx, progress, step)
 		}
@@ -603,7 +677,7 @@ func (atsync *ATProtoSynchronizer) sweepWindow(ctx context.Context, progress *sw
 	progress.window(step.DID, backfillFloorTime(floor))
 	if done {
 		progress.deepened(step.DID)
-		log.Log(ctx, "finished deepening repo history", "did", step.DID, "handle", step.Handle, "windows", step.Windows+1)
+		log.Log(ctx, "deep sync complete", "did", step.DID, "handle", step.Handle, "windows", step.Windows+1)
 		return false
 	}
 	return true
@@ -773,9 +847,37 @@ func backfillFloorTime(tid string) time.Time {
 	return time.Now()
 }
 
+// sweepMode is which of the three passes a [sweepProgress] belongs to, and so
+// which counters its status line has anything to say about. The zero value is
+// the full sweep, because that is the pass every counter was written for.
+type sweepMode int
+
+const (
+	// sweepModeFull checks, repairs and deepens: [ATProtoSynchronizer.Sweep].
+	sweepModeFull sweepMode = iota
+	// sweepModeCheck checks and repairs only: what a serving node runs on a
+	// timer, having handed the ladders to the deepener.
+	sweepModeCheck
+	// sweepModeDeepen deepens only: [ATProtoSynchronizer.DeepenForever].
+	sweepModeDeepen
+)
+
+// line is what this mode's periodic status line is called in the log.
+func (m sweepMode) line() string {
+	if m == sweepModeDeepen {
+		return "deepening history"
+	}
+	return "backfill sweep"
+}
+
 // sweepProgress is the state behind the sweep's status line. It is written by
 // every worker and read by the ticker, so everything goes through the mutex.
 type sweepProgress struct {
+	// mode and rate describe the pass rather than its progress, and are set
+	// once before it starts; rate is the deepener's pace, rendered for the log
+	// line, and is empty for every other mode.
+	mode         sweepMode
+	rate         string
 	mu           sync.Mutex
 	started      bool
 	checkTotal   int
@@ -888,17 +990,33 @@ func (p *sweepProgress) horizon() int64 {
 // status is the status line's key/value pairs: how many repos have been made
 // servable, how many have their whole history, how many windows that took, and
 // the horizon as unix seconds.
+//
+// A pass says nothing about counters it does not run: a reconciliation sweep
+// that has left the ladders to the deepener would otherwise report deepened=0/0
+// forever, and the deepener has no shallow syncs or head checks to report at
+// all.
 func (p *sweepProgress) status() []any {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.mode == sweepModeDeepen {
+		return []any{
+			"repos", fmt.Sprintf("%d/%d", p.deepenDone, p.deepenTotal),
+			"windows", p.windows,
+			"horizon", p.horizon(),
+			"rate", p.rate,
+		}
+	}
 	var out []any
 	// Only a sweep with repos to check has anything to say about checking
 	// them, which is every sweep but a fresh node's first.
 	if p.checkTotal > 0 {
 		out = append(out, "checked", fmt.Sprintf("%d/%d", p.checkDone, p.checkTotal))
 	}
+	out = append(out, "shallow", fmt.Sprintf("%d/%d", p.shallowDone, p.shallowTotal))
+	if p.mode == sweepModeCheck {
+		return out
+	}
 	return append(out,
-		"shallow", fmt.Sprintf("%d/%d", p.shallowDone, p.shallowTotal),
 		"deepened", fmt.Sprintf("%d/%d", p.deepenDone, p.deepenTotal),
 		"windows", p.windows,
 		"horizon", p.horizon(),
@@ -926,7 +1044,7 @@ func (p *sweepProgress) start(ctx context.Context) func() {
 				if !started {
 					continue
 				}
-				log.Log(ctx, "backfill sweep", p.status()...)
+				log.Log(ctx, p.mode.line(), p.status()...)
 			}
 		}
 	}()

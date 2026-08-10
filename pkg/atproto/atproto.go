@@ -167,6 +167,10 @@ func (atsync *ATProtoSynchronizer) SyncBlueskyRepo(ctx context.Context, handle s
 		return nil, fmt.Errorf("failed to add repo to stateful DB for %s: %w", ident.DID.String(), err)
 	}
 
+	// The one Info line a sync gets. The walks it took are Debug; this is the
+	// state change that matters: the repo is servable from here.
+	log.Log(ctx, "shallow sync complete", "rev", result.Rev, "deepSyncDone", done)
+
 	return &newRepo, nil
 }
 

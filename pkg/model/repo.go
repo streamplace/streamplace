@@ -66,6 +66,15 @@ func (m *DBModel) GetRepo(did string) (*Repo, error) {
 	return &repoModel, nil
 }
 
+// CountRepos reports how many repos the index has rows for. Zero means a
+// fresh index, whose first sweep is the boot-critical work rather than
+// background insurance.
+func (m *DBModel) CountRepos() (int64, error) {
+	var n int64
+	err := m.DB.Model(&Repo{}).Count(&n).Error
+	return n, err
+}
+
 func (m *DBModel) GetAllRepos() ([]Repo, error) {
 	var repos []Repo
 	res := m.DB.Find(&repos)

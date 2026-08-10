@@ -195,7 +195,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 	if err != nil {
 		return err
 	}
@@ -336,14 +336,18 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	atsync.OATProxy = op
 
 	// Sync every repo we know about, at boot and every --sweep-interval after:
-	// a repair pass for repos left half-indexed by a previous run, a head check
-	// that finds the ones that drifted while we were not listening, and history
-	// deepening, which on a fresh node runs for as long as the network is big.
+	// a repair pass for repos left half-indexed by a previous run, and a head
+	// check that finds the ones that drifted while we were not listening.
 	// Nothing below depends on it, so it runs in the background off the serve
 	// context -- shutdown cancels it -- and the node is up and serving in the
 	// meantime. Started only now that atsync is fully wired (OATProxy above):
 	// the sweep can index records and schedule callbacks that use every field.
 	go atsync.SweepForever(ctx)
+	// History is fetched by its own loop rather than by those passes: it takes
+	// days where reconciliation takes minutes, nothing on the node waits for
+	// it, and at full speed it is what buries a boot. It trickles in at
+	// --deepen-rate windows a minute for as long as this node runs.
+	go atsync.DeepenForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
@@ -1202,7 +1206,7 @@ func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Comma
 	if err := os.MkdirAll(cli.DataDir, os.ModePerm); err != nil {
 		return fmt.Errorf("error creating streamplace dir at %s: %w", cli.DataDir, err)
 	}
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 	if err != nil {
 		return err
 	}

@@ -999,3 +999,99 @@ func TestDeepenSurvivesMidWalkRowDeletion(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resynced.Version)
 }
+
+// TestBackfillBroadcastsOnlyLiveChat: an indexing walk delivers history, and
+// history must not be broadcast -- a backfill, deepen, or replay that
+// published every message it indexed would spray hours of scroll at whatever
+// chat websockets happen to be open, rendering it as if it were arriving
+// right now. But a message young enough to still be "now" must broadcast even
+// from a walk: a brand-new user's first message is indexed by the very walk
+// it triggers, and the live firehose event then finds it already indexed and
+// stays quiet.
+func TestBackfillBroadcastsOnlyLiveChat(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, mod := backfillTestSynchronizer(t, dev)
+
+	user := dev.CreateAccount(t)
+	createBackfillRecord(t, user, "place.stream.chat.profile", "self", &placestream.ChatProfile{})
+	old := &placestream.ChatMessage{
+		LexiconTypeID: "place.stream.chat.message",
+		Text:          "hours-old scroll",
+		CreatedAt:     time.Now().Add(-3 * time.Hour).UTC().Format(util.ISO8601),
+		Streamer:      user.DID,
+	}
+	createBackfillRecord(t, user, "place.stream.chat.message", reposync.TIDForTime(time.Now().Add(-3*time.Hour)), old)
+	createBackfillRecord(t, user, "place.stream.chat.message", "", chatMessageRecord(user.DID, "live right now"))
+
+	ch := atsync.Bus.Subscribe(user.DID)
+	defer atsync.Bus.Unsubscribe(user.DID, ch)
+
+	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
+	require.NoError(t, err)
+	messages, err := mod.MostRecentChatMessages(user.DID)
+	require.NoError(t, err)
+	require.Len(t, messages, 2, "the walk indexed both messages")
+
+	select {
+	case m := <-ch:
+		view := m.(*placestream.ChatDefs_MessageView)
+		require.Equal(t, "live right now", view.Record.Val.(*placestream.ChatMessage).Text,
+			"only the fresh message broadcasts")
+	case <-time.After(10 * time.Second):
+		t.Fatal("the fresh message never reached the live chat bus")
+	}
+	select {
+	case m := <-ch:
+		t.Fatalf("the walk published history to the live chat bus: %+v", m)
+	case <-time.After(time.Second):
+	}
+}
+
+// TestChatCreatedAtClamped: the created_at column is a message's position in
+// chat order -- what the hydration burst sorts by -- and the client's own
+// createdAt is trusted only backwards. A backfilled message must land at its
+// own time, not at the top of the window because a walk indexed it today; a
+// future-dated message must clamp to now, so nobody pins a message to the
+// bottom of a channel by post-dating it.
+func TestChatCreatedAtClamped(t *testing.T) {
+	dev := devenv.WithDevEnv(t)
+	ctx := context.Background()
+	atsync, mod := backfillTestSynchronizer(t, dev)
+
+	user := dev.CreateAccount(t)
+	createBackfillRecord(t, user, "place.stream.chat.profile", "self", &placestream.ChatProfile{})
+	oldURI := "at://" + user.DID + "/" + createBackfillRecord(t, user, "place.stream.chat.message",
+		reposync.TIDForTime(time.Now().Add(-3*time.Hour)), &placestream.ChatMessage{
+			LexiconTypeID: "place.stream.chat.message",
+			Text:          "from history",
+			CreatedAt:     time.Now().Add(-3 * time.Hour).UTC().Format(util.ISO8601),
+			Streamer:      user.DID,
+		})
+	pinnedURI := "at://" + user.DID + "/" + createBackfillRecord(t, user, "place.stream.chat.message", "",
+		&placestream.ChatMessage{
+			LexiconTypeID: "place.stream.chat.message",
+			Text:          "see you all in 2030",
+			CreatedAt:     time.Now().Add(4 * 365 * 24 * time.Hour).UTC().Format(util.ISO8601),
+			Streamer:      user.DID,
+		})
+
+	before := time.Now()
+	_, err := atsync.SyncBlueskyRepoCached(ctx, user.DID)
+	require.NoError(t, err)
+
+	var rows []model.ChatMessage
+	db := mod.(*model.DBModel).DB
+	require.NoError(t, db.Where("streamer_repo_did = ?", user.DID).Find(&rows).Error)
+	require.Len(t, rows, 2)
+	byURI := map[string]model.ChatMessage{}
+	for _, row := range rows {
+		byURI[row.URI] = row
+	}
+	require.Less(t, byURI[oldURI].CreatedAt, before.Add(-2*time.Hour),
+		"a backfilled message keeps its own time instead of the walk's")
+	require.False(t, byURI[pinnedURI].CreatedAt.After(time.Now()),
+		"a future-dated message is clamped to now")
+	require.True(t, byURI[pinnedURI].CreatedAt.After(before.Add(-time.Minute)),
+		"and lands at roughly the time it arrived")
+}

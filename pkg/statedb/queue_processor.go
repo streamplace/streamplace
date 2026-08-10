@@ -140,8 +140,15 @@ func (state *StatefulDB) runQueueWorker(ctx context.Context, workerID string, ta
 			return err
 		}
 		if task != nil {
-			if err := state.processTask(ctx, task); err != nil {
-				log.Error(ctx, "failed to process task", "err", err, "worker", workerID)
+			// Defense-in-depth: a panic inside a task handler (e.g. a
+			// nil-deref in a codec, or a malformed record) must not crash
+			// this worker goroutine — errgroup would cancel the whole queue.
+			// Recover it into a logged error so the task fails and its retry
+			// semantics (lease expiry + max_tries) still apply.
+			if err := log.Recover(ctx, func() error {
+				return state.processTask(ctx, task)
+			}); err != nil {
+				log.Error(ctx, "failed to process task", "err", err, "worker", workerID, "taskId", fmt.Sprintf("%d", task.ID))
 			}
 			continue
 		}

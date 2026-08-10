@@ -24,6 +24,14 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 )
 
+// chatLiveWindow is how recently a chat message must have been written to be
+// broadcast to live consumers (the chat websocket, the notification task).
+// Anything older is history -- a deepen window, a backfill, a firehose replay
+// of a span this node missed -- that belongs in the index but not on screen as
+// if it were arriving right now. Generous enough that ordinary client clock
+// skew does not eat a genuinely live message.
+const chatLiveWindow = 2 * time.Minute
+
 // handleCreateUpdate indexes one record. It is called at least once per record
 // -- firehose cursor replay, a backfill walk restarting against a new head, and
 // the same commit arriving from several relays all deliver records we already
@@ -129,10 +137,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
+		// created is this message's position in chat order, and the client's
+		// own createdAt is trusted only backwards. An honest live message
+		// keeps its stamp; a backfilled message from June lands in June,
+		// instead of at the top of the hydration window just because a walk
+		// indexed it today; and a stamp from the future is clamped to now, so
+		// nobody pins a message to the bottom of a channel by post-dating it.
+		created := now
+		if aqt, err := aqtime.FromString(rec.CreatedAt); err == nil && aqt.Time().Before(now) {
+			created = aqt.Time()
+		}
 		mcm := &model.ChatMessage{
 			CID:             cid,
 			URI:             aturi.String(),
-			CreatedAt:       now,
+			CreatedAt:       created,
 			ChatMessage:     recCBOR,
 			RepoDID:         userDID,
 			Repo:            repo,
@@ -166,6 +184,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Error(ctx, "failed to create chat message", "err", err)
 			return nil
 		}
+		// Everything below builds the message view for live consumers -- the
+		// chat websocket and the notification task -- and only messages that
+		// are actually live belong there. Both indexing paths deliver
+		// history: walks by construction (backfill, deepen, repair), and the
+		// firehose whenever it replays a span this node missed. Spraying that
+		// at an open chat renders hours of scroll as if it were arriving
+		// right now. The message's own timestamp is the test, rather than
+		// which path carried it, because a brand-new user's first message is
+		// indexed by the very walk that message triggers -- the live event
+		// then finds it already indexed and stays quiet, so a walked-but-
+		// fresh message must still broadcast.
+		if aqt, err := aqtime.FromString(rec.CreatedAt); err != nil || time.Since(aqt.Time()) > chatLiveWindow {
+			return nil
+		}
 		mcm, err = atsync.Model.GetChatMessage(aturi.String())
 		if err != nil {
 			log.Error(ctx, "failed to get just-saved chat message", "err", err)
@@ -194,7 +226,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		go atsync.Bus.Publish(rec.Streamer, scm)
 
-		if !isUpdate && !isFirstSync {
+		if !isUpdate {
 
 			task := &statedb.ChatTask{
 				MessageView: *scm,
@@ -499,7 +531,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				// they're live somewhere but they don't have nothin' to do with us
 				return nil
 			}
-			log.Log(ctx, "stream is allowed, queuing finalize task")
+			log.Debug(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),

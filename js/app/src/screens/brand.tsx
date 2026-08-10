@@ -7,11 +7,11 @@ import {
   surfaces,
 } from "@streamplace/components/src/lib/theme/tokens";
 import {
+  BRAND,
+  type BrandStory,
   LogoLockup,
   LogoMark,
   LogoTile,
-  MARK,
-  MARK_WITH_HOLE,
   Wordmark,
 } from "components/brand/logo";
 import Container from "components/container";
@@ -29,48 +29,40 @@ import Svg, { Circle, G, Line, Path, Polygon, Rect } from "react-native-svg";
 const BRAND_INK = surfaces.dark[0];
 const BRAND_PAPER = colors.white;
 
-// The readings the mark carries, ordered most obvious to most earned.
-const MARK_READINGS: { title: string; body: string }[] = [
-  {
-    title: "It's an S.",
-    body: "The solid ink is the letter — Streamplace, held in a single figure.",
-  },
-  {
-    title: "It's two plays.",
-    body: "There are two because a stream has two ends — one points out to broadcast, its mirror points back to watch. Play and rewind, live and replay: both sides of the same stream.",
-  },
-  {
-    title: "It's a place.",
-    body: "On a nautical chart, a triangle is a beacon — a fixed point that stays put while the water moves, something you can steer by. One mark is only a point; two, lined up, give you a bearing — the way out and the way home. Water is what moves; a place is what holds still within it. That's the place in Streamplace — your own fixed point, yours to keep and not ours to move, where people find you even as the stream keeps going.",
-  },
-];
+const polyStr = (pts: number[][]) => pts.map((p) => p.join(",")).join(" ");
 
-const polyStr = (pts: [number, number][]) =>
-  pts.map((p) => p.join(",")).join(" ");
+type Geometry = NonNullable<BrandStory["geometry"]>;
 
-function Construction({ size = 320 }: { size?: number }) {
+function Construction({
+  geometry,
+  size = 320,
+}: {
+  geometry: Geometry;
+  size?: number;
+}) {
   const { theme } = useTheme();
   const guide = theme.colors.text3;
   const faint = theme.colors.borderSubtle;
-  const grid = Array.from({ length: MARK.grid + 1 }, (_, i) => i);
+  const units = geometry.grid;
+  const grid = Array.from({ length: units + 1 }, (_, i) => i);
 
   return (
-    <Svg width={size} height={size} viewBox="-2 -2 28 28">
-      <Rect x={0} y={0} width={24} height={24} fill="transparent" />
+    <Svg width={size} height={size} viewBox={`-2 -2 ${units + 4} ${units + 4}`}>
+      <Rect x={0} y={0} width={units} height={units} fill="transparent" />
       {grid.map((i) => (
         <G key={i}>
           <Line
             x1={i}
             y1={0}
             x2={i}
-            y2={24}
+            y2={units}
             stroke={faint}
             strokeWidth={i % 6 === 0 ? 0.06 : 0.035}
           />
           <Line
             x1={0}
             y1={i}
-            x2={24}
+            x2={units}
             y2={i}
             stroke={faint}
             strokeWidth={i % 6 === 0 ? 0.06 : 0.035}
@@ -79,7 +71,7 @@ function Construction({ size = 320 }: { size?: number }) {
       ))}
       {/* the rounded-square field */}
       <Path
-        d={MARK.tilePath}
+        d={geometry.tilePath}
         fill="none"
         stroke={guide}
         strokeDasharray="0.5 0.5"
@@ -87,14 +79,14 @@ function Construction({ size = 320 }: { size?: number }) {
       />
       {/* the two play triangles, each the other's 180-degree rotation */}
       <Polygon
-        points={polyStr(MARK.upperPlay)}
+        points={polyStr(geometry.upperPlay)}
         fill="none"
         stroke={guide}
         strokeDasharray="0.5 0.5"
         strokeWidth={0.12}
       />
       <Polygon
-        points={polyStr(MARK.lowerPlay)}
+        points={polyStr(geometry.lowerPlay)}
         fill="none"
         stroke={guide}
         strokeDasharray="0.5 0.5"
@@ -103,17 +95,26 @@ function Construction({ size = 320 }: { size?: number }) {
       {/* the spine: the diagonal the two voids leave behind */}
       <Line
         x1={4}
-        y1={20}
-        x2={20}
+        y1={units - 4}
+        x2={units - 4}
         y2={4}
         stroke={guide}
         strokeDasharray="0.5 0.5"
         strokeWidth={0.12}
       />
       {/* the mark */}
-      <Path d={MARK_WITH_HOLE} fill={theme.colors.text1} fillRule="evenodd" />
+      <Path
+        d={geometry.markPath}
+        fill={theme.colors.text1}
+        fillRule="evenodd"
+      />
       {/* the center of rotation */}
-      <Circle cx={MARK.center[0]} cy={MARK.center[1]} r={0.3} fill={guide} />
+      <Circle
+        cx={geometry.center[0]}
+        cy={geometry.center[1]}
+        r={0.3}
+        fill={guide}
+      />
     </Svg>
   );
 }
@@ -311,12 +312,7 @@ function Rule({ ok, children }: { ok: boolean; children: ReactNode }) {
   );
 }
 
-const BRAND_ASSETS: { file: string; label: string }[] = [
-  { file: "streamplace-mark.svg", label: "Mark" },
-  { file: "streamplace-tile.svg", label: "App tile" },
-  { file: "streamplace-wordmark.svg", label: "Wordmark" },
-  { file: "streamplace-lockup.svg", label: "Lockup" },
-];
+const BRAND_ASSETS = BRAND.assets;
 
 // A downloadable brand asset: a hover-lit row that saves the SVG. On web it
 // renders as an <a href download>, so left-click downloads and right-click
@@ -369,6 +365,7 @@ export default function BrandScreen() {
   const { theme } = useTheme();
   const { width } = useWindowDimensions();
   const compact = width < 760;
+  const story = BRAND.story;
 
   return (
     <ScrollView style={{ backgroundColor: theme.colors.surface0 }}>
@@ -387,7 +384,7 @@ export default function BrandScreen() {
               weight="semibold"
               style={{ lineHeight: compact ? 24 : 28, maxWidth: 620 }}
             >
-              Brand guidelines for Streamplace, the video layer for everything.
+              {story?.tagline ?? `Brand guidelines for ${BRAND.name}.`}
             </Text>
           </View>
           <View
@@ -413,37 +410,39 @@ export default function BrandScreen() {
           </View>
         </View>
 
-        <Section title="Reading the Mark" kicker="Letter, play, place">
-          <Text size="base" color="muted" style={{ maxWidth: 620 }}>
-            The Streamplace mark is one solid figure with two triangular play
-            voids, cut in rotational symmetry — one turned out, its mirror
-            turned back. It reads three ways, most obvious to most earned:
-          </Text>
-          <View style={{ gap: spacing[5], maxWidth: 680 }}>
-            {MARK_READINGS.map((reading, i) => (
-              <View
-                key={reading.title}
-                style={{ flexDirection: "row", gap: spacing[3] }}
-              >
-                <Text
-                  size="sm"
-                  style={{
-                    width: 22,
-                    lineHeight: 20,
-                    color: theme.colors.text3,
-                    fontFamily: fontFamilies.monoMedium,
-                  }}
+        {story?.readings?.length ? (
+          <Section title="Reading the Mark" kicker="Letter, play, place">
+            {story.readingsIntro ? (
+              <Text size="base" color="muted" style={{ maxWidth: 620 }}>
+                {story.readingsIntro}
+              </Text>
+            ) : null}
+            <View style={{ gap: spacing[5], maxWidth: 680 }}>
+              {story.readings.map((reading, i) => (
+                <View
+                  key={reading.title}
+                  style={{ flexDirection: "row", gap: spacing[3] }}
                 >
-                  {String(i + 1).padStart(2, "0")}
-                </Text>
-                <View style={{ flex: 1, gap: spacing[1] }}>
-                  <Text weight="semibold">{reading.title}</Text>
-                  <Text color="muted">{reading.body}</Text>
+                  <Text
+                    size="sm"
+                    style={{
+                      width: 22,
+                      lineHeight: 20,
+                      color: theme.colors.text3,
+                      fontFamily: fontFamilies.monoMedium,
+                    }}
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </Text>
+                  <View style={{ flex: 1, gap: spacing[1] }}>
+                    <Text weight="semibold">{reading.title}</Text>
+                    <Text color="muted">{reading.body}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
-        </Section>
+              ))}
+            </View>
+          </Section>
+        ) : null}
 
         <Section title="Core System" kicker="Icon, wordmark, lockup">
           <View
@@ -470,34 +469,43 @@ export default function BrandScreen() {
           </Text>
         </Section>
 
-        <Section title="Construction Grid" kicker="24-unit geometry">
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[5] }}
+        {story?.geometry ? (
+          <Section
+            title="Construction Grid"
+            kicker={`${story.geometry.grid}-unit geometry`}
           >
-            <Panel height={360}>
-              <Construction size={compact ? 260 : 320} />
-            </Panel>
-            <View style={{ flex: 1, minWidth: 260, gap: spacing[4] }}>
-              <Text size="sm" color="muted">
-                Start with an 18-unit rounded square on a 24-unit field. Cut a
-                play triangle that breaches the right edge, then cut its exact
-                180-degree rotation breaching the left. The ink left between
-                them is the S; the diagonal spine falls through the center of
-                rotation.
-              </Text>
-              <View style={{ gap: spacing[4] }}>
-                <Spec label="Outer field" value="24 x 24 units" />
-                <Spec label="Body" value="18u square, 3.5u corners" />
-                <Spec label="Voids" value="Two plays, 180 deg symmetry" />
-                <Spec label="Breach" value="Opposite edges, ~1u opening" />
-                <Spec
-                  label="Clear space"
-                  value="Half the mark height on every side"
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: spacing[5],
+              }}
+            >
+              <Panel height={360}>
+                <Construction
+                  geometry={story.geometry}
+                  size={compact ? 260 : 320}
                 />
+              </Panel>
+              <View style={{ flex: 1, minWidth: 260, gap: spacing[4] }}>
+                {story.constructionNotes ? (
+                  <Text size="sm" color="muted">
+                    {story.constructionNotes}
+                  </Text>
+                ) : null}
+                <View style={{ gap: spacing[4] }}>
+                  {(story.specs ?? []).map((spec) => (
+                    <Spec
+                      key={spec.label}
+                      label={spec.label}
+                      value={spec.value}
+                    />
+                  ))}
+                </View>
               </View>
             </View>
-          </View>
-        </Section>
+          </Section>
+        ) : null}
 
         <Section title="Lockup Spacing" kicker="Signature rules">
           <Panel height={260} grow={false}>
@@ -681,28 +689,34 @@ export default function BrandScreen() {
           </View>
         </Section>
 
-        <Section title="Monochrome Variants" kicker="One solid color">
-          <View
-            style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[4] }}
-          >
-            <Panel>
-              <LogoMark size={72} />
-            </Panel>
-            <Panel background={theme.colors.primary} bordered={false}>
-              <LogoMark size={72} color={BRAND_PAPER} />
-            </Panel>
-            <Panel background={BRAND_PAPER} bordered={false}>
-              <LogoMark size={72} color={BRAND_INK} />
-            </Panel>
-            <Panel background={surfaces.dark[3]}>
-              <LogoLockup
-                size={24}
-                color={BRAND_PAPER}
-                markColor={BRAND_PAPER}
-              />
-            </Panel>
-          </View>
-        </Section>
+        {BRAND.monochrome ? (
+          <Section title="Monochrome Variants" kicker="One solid color">
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: spacing[4],
+              }}
+            >
+              <Panel>
+                <LogoMark size={72} />
+              </Panel>
+              <Panel background={theme.colors.primary} bordered={false}>
+                <LogoMark size={72} color={BRAND_PAPER} />
+              </Panel>
+              <Panel background={BRAND_PAPER} bordered={false}>
+                <LogoMark size={72} color={BRAND_INK} />
+              </Panel>
+              <Panel background={surfaces.dark[3]}>
+                <LogoLockup
+                  size={24}
+                  color={BRAND_PAPER}
+                  markColor={BRAND_PAPER}
+                />
+              </Panel>
+            </View>
+          </Section>
+        ) : null}
 
         <Section title="Buttons" kicker="Contrast, not color">
           <Text size="sm" color="muted" style={{ maxWidth: 760 }}>
@@ -783,33 +797,17 @@ export default function BrandScreen() {
           </View>
         </Section>
 
-        <Section title="Usage" kicker="Keep it simple">
-          <View style={{ gap: spacing[3] }}>
-            <Rule ok>
-              Use the lockup as the default brand signature on web pages and
-              documents.
-            </Rule>
-            <Rule ok>
-              Use the standalone mark for favicons, compact navigation, avatars,
-              and badges.
-            </Rule>
-            <Rule ok>
-              Keep the mark monochrome: ink or paper. Indigo is an interface
-              accent, never a mark color.
-            </Rule>
-            <Rule ok={false}>
-              Don't outline, shadow, gradient-fill, skew, or redraw the mark.
-            </Rule>
-            <Rule ok={false}>
-              Don't fill the play voids or color them apart. The S is one solid
-              color; the plays are negative space.
-            </Rule>
-            <Rule ok={false}>
-              Don't rotate or flip the mark. It reads as an S upright — turned,
-              it becomes a Z.
-            </Rule>
-          </View>
-        </Section>
+        {story?.usage?.length ? (
+          <Section title="Usage" kicker="Keep it simple">
+            <View style={{ gap: spacing[3] }}>
+              {story.usage.map((rule) => (
+                <Rule key={rule.text} ok={rule.ok}>
+                  {rule.text}
+                </Rule>
+              ))}
+            </View>
+          </Section>
+        ) : null}
       </Container>
     </ScrollView>
   );

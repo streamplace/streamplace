@@ -31,3 +31,6 @@ libstreamplace
 libstreamplace/
 /.polytoken/*
 js/web/.tanstack/
+
+# white-label brand override (see brand/README.md)
+/brand/custom

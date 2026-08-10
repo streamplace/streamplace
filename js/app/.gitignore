@@ -62,3 +62,8 @@ generated
 .env.local
 
 public/locales/*
+
+# generated brand assets (pnpm run brand)
+public/favicon.png
+public/linkbanner.png
+public/brand/

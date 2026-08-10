@@ -86,7 +86,18 @@ export default function () {
     process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
   const pkg = require("./package.json");
-  const name = isProd ? "Streamplace" : "Devplace";
+  // Brand imagery and colors are generated from the active brand directory
+  // (see brand/README.md); expo prebuild derives every native icon format
+  // from the generated PNGs.
+  let brand;
+  try {
+    brand = require("./assets/generated/brand.json");
+  } catch {
+    throw new Error(
+      "Missing generated brand assets — run `pnpm run brand` from the repo root.",
+    );
+  }
+  const name = isProd ? brand.name : "Devplace";
   let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
   if (process.env["SP_BUNDLE_OVERRIDE"]) {
     bundle = process.env["SP_BUNDLE_OVERRIDE"];
@@ -101,13 +112,13 @@ export default function () {
       // Only rev this to the current version when native dependencies change!
       runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
-      icon: "./assets/images/icon.png",
+      icon: "./assets/generated/icon.png",
       scheme: scheme,
       userInterfaceStyle: "automatic",
       splash: {
-        image: "./assets/images/splash.png",
+        image: "./assets/generated/splash.png",
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: brand.colors.splashBackground,
       },
       assetBundlePatterns: ["**/*"],
       ios: {
@@ -134,8 +145,8 @@ export default function () {
       },
       android: {
         adaptiveIcon: {
-          foregroundImage: "./assets/images/adaptive-icon.png",
-          backgroundColor: "#111113",
+          foregroundImage: "./assets/generated/adaptive-icon.png",
+          backgroundColor: brand.colors.adaptiveIconBackground,
         },
         package: bundle,
         edgeToEdgeEnabled: true,
@@ -191,7 +202,7 @@ export default function () {
       web: {
         bundler: "metro",
         output: "single",
-        favicon: "./assets/images/favicon.png",
+        favicon: "./assets/generated/favicon.png",
       },
       plugins: [
         withAndroidProfileable,

@@ -93,3 +93,8 @@ out/
 
 # auto-version
 src/version.ts
+
+# generated brand icons (pnpm run brand)
+assets/images/streamplace-logo.png
+assets/images/streamplace-logo.ico
+assets/images/streamplace-logo.icns

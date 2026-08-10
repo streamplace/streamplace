@@ -234,14 +234,19 @@ const DefaultFirehoseReplayWindow = 15 * time.Minute
 // single-connection arrangement.
 const DefaultIndexDBConnections = 8
 
-// DefaultSweepBootDelay is how long a warm-index boot holds its first sweep.
-// An ordinary upgrade-restart's gap is healed by the firehose replaying from
-// the stored cursor, so the boot sweep is insurance, not repair -- it can wait
-// out the busiest minutes of a restart instead of compounding them. A fresh
-// index sweeps immediately regardless, and a cursor too stale to replay kicks
-// its own sweep, so the two cases that genuinely need boot-time sweeping keep
-// it.
-const DefaultSweepBootDelay = 30 * time.Minute
+// DefaultSweepBootDelay is how long a warm-index boot holds its first sweep
+// (and the deepener's first scan). An ordinary upgrade-restart's gap is healed
+// by the firehose replaying from the stored cursor, so the boot sweep is
+// insurance, not repair -- it only needs to wait out the restart churn itself:
+// streams reconnecting, the replay catching up, caches warming. Two minutes
+// does that. Deliberately NOT longer: with deepening rate-capped and sweep
+// passes reduced to checks and repairs, the pass is either harmless -- in
+// which case it may as well run while the operator who just deployed is still
+// watching the graphs -- or it is a problem, and a longer delay only schedules
+// the problem for the moment they have stopped looking. A fresh index sweeps
+// immediately regardless, and a cursor too stale to replay kicks its own
+// sweep, so the cases that genuinely need boot-time sweeping keep it.
+const DefaultSweepBootDelay = 2 * time.Minute
 
 // ContentFilters represents the content filtering configuration
 type ContentFilters struct {

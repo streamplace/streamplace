@@ -521,7 +521,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				// they're live somewhere but they don't have nothin' to do with us
 				return nil
 			}
-			log.Log(ctx, "stream is allowed, queuing finalize task")
+			log.Debug(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),

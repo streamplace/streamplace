@@ -137,10 +137,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
+		// created is this message's position in chat order, and the client's
+		// own createdAt is trusted only backwards. An honest live message
+		// keeps its stamp; a backfilled message from June lands in June,
+		// instead of at the top of the hydration window just because a walk
+		// indexed it today; and a stamp from the future is clamped to now, so
+		// nobody pins a message to the bottom of a channel by post-dating it.
+		created := now
+		if aqt, err := aqtime.FromString(rec.CreatedAt); err == nil && aqt.Time().Before(now) {
+			created = aqt.Time()
+		}
 		mcm := &model.ChatMessage{
 			CID:             cid,
 			URI:             aturi.String(),
-			CreatedAt:       now,
+			CreatedAt:       created,
 			ChatMessage:     recCBOR,
 			RepoDID:         userDID,
 			Repo:            repo,

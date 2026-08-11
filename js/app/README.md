@@ -54,6 +54,9 @@ pnpm app ui:shoot home    # shell sweep: Home -> Videos -> Go Live -> Settings
 pnpm app ui:shoot stream  # opens the first live stream, captures the player
 ```
 
+If maestro isn't installed, the script prints the official install command and
+offers to run it (non-interactive runs just exit with the hint).
+
 Each run writes into a deterministic dir:
 
 - `artifacts/<flow>/NN-step.png` — one screenshot per step

@@ -18,6 +18,26 @@ if [ ! -f "$FLOW_FILE" ]; then
   exit 1
 fi
 
+# Locate maestro; prompt to install it if missing. Prefer PATH, fall back to the
+# home-dir install (the official installer puts it in ~/.maestro/bin and adds it
+# to shell rc files, so fresh shells may not have it on PATH).
+if command -v maestro >/dev/null 2>&1; then
+  MAESTRO="$(command -v maestro)"
+elif [ -x "$HOME/.maestro/bin/maestro" ]; then
+  MAESTRO="$HOME/.maestro/bin/maestro"
+else
+  INSTALL_CMD='curl -Ls https://get.maestro.mobile.dev | bash'
+  echo "maestro isn't installed (it drives the UI)." >&2
+  echo "install with: ${INSTALL_CMD}" >&2
+  # Only prompt when interactive; agents/CI get the message and exit instead of hanging.
+  if [ -t 0 ] && read -r -p "install it now? [y/N] " answer && [[ "$answer" =~ ^[Yy] ]]; then
+    curl -Ls https://get.maestro.mobile.dev | bash
+    MAESTRO="$HOME/.maestro/bin/maestro"
+  else
+    exit 1
+  fi
+fi
+
 OUT="${APP_DIR}/artifacts/${FLOW}"
 mkdir -p "$OUT"
 rm -f "$OUT"/*.png "$OUT"/run.mp4 "$OUT"/hierarchy.json
@@ -34,7 +54,7 @@ sleep 1
 
 set +e
 cd "$OUT"
-maestro test "$FLOW_FILE"
+"$MAESTRO" test "$FLOW_FILE"
 MAESTRO_EXIT=$?
 set -e
 
@@ -43,7 +63,7 @@ wait "$REC_PID" 2>/dev/null || true
 trap - EXIT
 
 # Text form of the end-state UI, useful without vision (accessibility tree).
-maestro hierarchy > "$OUT/hierarchy.json" 2>&1 || true
+"$MAESTRO" hierarchy > "$OUT/hierarchy.json" 2>&1 || true
 
 echo ""
 echo "artifacts: ${OUT}"

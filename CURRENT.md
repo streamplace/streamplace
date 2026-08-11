@@ -67,3 +67,15 @@ Skill loading: discovered at session start from `~/.claude/skills/` (user) and
 `.claude/skills/` (project). Won't appear in the skill list until the next
 session — could not verify discovery mid-session. Fallback if it doesn't show:
 move to `~/.claude/skills/streamplace-app/`.
+
+## 2025-08-10 (night): maestro install prompt in ui-shoot.sh
+
+`ui-shoot.sh` now locates maestro before doing anything: `command -v maestro`,
+falling back to `~/.maestro/bin/maestro` (official installer's home), and if
+both miss, prints the official install command and interactively offers to run
+it (non-TTY runs exit 1 with the hint — no hanging for agents/CI). Replaced
+bare `maestro` calls with `$MAESTRO`. Verified: syntax, missing branch (message
+
+- exit 1), home-fallback full run (5 screenshots + video + tree). Did NOT test
+  the interactive "y" install path (would reinstall maestro via curl|bash).
+  README + skill updated with the behavior.

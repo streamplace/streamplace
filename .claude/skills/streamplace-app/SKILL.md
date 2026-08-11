@@ -68,6 +68,9 @@ installed dev client and print the exact fix when something's missing.
 
 - Metro must be running before `dev:ios` / `ui:shoot`; both check `:38081` and
   tell you to run `pnpm app start:fast`.
+- If maestro is missing, `ui:shoot` prints the official install command
+  (`curl -Ls https://get.maestro.mobile.dev | bash`) and prompts to run it;
+  non-interactive runs exit with the hint instead of hanging.
 - `simctl recordVideo` requires `--display internal`, and the previous recorder
   must be dead — a stuck one fails with "Host recording is already in progress"
   (kill it with `pkill -INT -f "simctl io booted recordVideo"`).

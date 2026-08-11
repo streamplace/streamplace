@@ -31,3 +31,10 @@ libstreamplace
 libstreamplace/
 /.polytoken/*
 js/web/.tanstack/
+
+# .claude is globally ignored; ship project skills with the repo anyway
+!.claude/
+!.claude/skills/
+!.claude/skills/**
+# but keep per-machine settings local
+/.claude/settings.local.json

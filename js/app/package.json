@@ -8,6 +8,9 @@
   },
   "scripts": {
     "start": "npx expo start -c --port 38081",
+    "start:fast": "npx expo start --port 38081",
+    "dev:ios": "bash scripts/dev-ios.sh",
+    "ui:shoot": "bash scripts/ui-shoot.sh",
     "android": "expo run:android --no-bundler",
     "ios": "expo run:ios --no-bundler",
     "web": "npx expo start --web --port 38081",

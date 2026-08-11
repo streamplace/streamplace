@@ -293,6 +293,15 @@ test-vod:
 dev-setup:
 	$(MAKE) -j16 app-cached dev-setup-meson
 
+# Fast alternative to dev-setup for fresh worktrees: seed the build dir from an
+# already-built checkout (defaults to the main checkout this worktree came
+# from) instead of doing a cold meson/GStreamer build. Only reads the donor.
+# SEED_FROM=/path/to/built/checkout to pick a different donor.
+SEED_FROM?=
+.PHONY: dev-setup-fast
+dev-setup-fast:
+	bash hack/seed-build-dir.sh $(SEED_FROM)
+
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)
 	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi

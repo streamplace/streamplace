@@ -12,14 +12,12 @@ import {
   useAccentColor,
   useDID,
   usePrimaryColor,
-  useSiteTitle,
   useTheme,
-  useToast,
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
-import { SiteTitleLockup } from "components/brand/logo";
+import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import Login from "components/login/login";
 import LoginModal from "components/login/login-modal";
@@ -47,11 +45,10 @@ import {
 } from "components/sidebar/sidebar-overlay";
 import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
-import { useLiveUser } from "hooks/useLiveUser";
 import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
 import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Platform, Pressable, StatusBar, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
@@ -131,7 +128,7 @@ function useBaseScreenOptions() {
 
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
-  const title = useSiteTitle() || "Streamplace Station";
+  const title = useNodeTitle();
   const baseScreenOptions = useBaseScreenOptions();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
@@ -167,9 +164,10 @@ function HomeNavigator() {
         name="HomeMain"
         component={HomeScreen}
         options={{
-          // `title` drives the browser tab (keep the brand there); the visible
-          // web header shows the contextual "Home", not a repeat of the brand.
-          title: "Streamplace",
+          // `title` drives the browser tab: the node's title (runtime
+          // branding, else the brand default). The visible web header shows
+          // the contextual "Home", not a repeat of it.
+          title,
           headerTitle:
             Platform.OS === "ios"
               ? (props) => (
@@ -600,11 +598,8 @@ export default function Shell() {
   const closePdsModal = useStore((state) => state.closePdsModal);
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
-  const livePopupShown = useRef(false);
   const z = useTheme();
   const baseScreenOptions = useBaseScreenOptions();
-
-  const toast = useToast();
 
   // Top-level hydration and initialization
   useEffect(() => {
@@ -647,7 +642,6 @@ export default function Shell() {
     return () => clearInterval(handle);
   }, []);
 
-  const userIsLive = useLiveUser();
   useBlueskyNotifications();
 
   // Track current route
@@ -686,33 +680,6 @@ export default function Shell() {
   useEffect(() => {
     setOverlay(isDetailView);
   }, [isDetailView, setOverlay]);
-
-  const noLivePopupRoutes =
-    currentRouteName === "LiveDashboard" ||
-    currentRouteName === "GoLiveTab" ||
-    currentRouteName === "MobileGoLive";
-
-  // Show "You are live!" toast once per live session
-  useEffect(() => {
-    if (!userIsLive) {
-      livePopupShown.current = false;
-      return;
-    }
-    if (!noLivePopupRoutes && !livePopupShown.current) {
-      livePopupShown.current = true;
-      toast.show("You are live!", "Do you want to go to your Live Dashboard?", {
-        actionLabel: "Go",
-        onAction: () => {
-          navigation.navigate("MainTabs" as any, {
-            screen: "HomeTab",
-            params: { screen: "LiveDashboard" },
-          });
-        },
-        variant: "error",
-        duration: 8,
-      });
-    }
-  }, [userIsLive, noLivePopupRoutes]);
 
   // Animate content margin when sidebar is active (web only). In overlay mode
   // the content stays full width (margin 0) and the drawer floats over it.

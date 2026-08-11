@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useMatchRoute } from "@tanstack/react-router";
 import {
   House,
   LayoutDashboard,
@@ -27,6 +27,17 @@ export default function SidebarComponent() {
   const { t } = useTranslation("common");
   const { state } = useSession();
   const isAuthenticated = state.status === "authenticated";
+  const matchRoute = useMatchRoute();
+
+  // Active state follows the current route. Home matches exactly (the
+  // root route is an ancestor of every page); the others match their
+  // sub-routes too (e.g. /settings/account highlights Settings).
+  const isHomeActive = matchRoute({ to: "/", fuzzy: false }) !== false;
+  const isVideosActive = matchRoute({ to: "/videos", fuzzy: false }) !== false;
+  const isDashboardActive =
+    matchRoute({ to: "/dashboard", fuzzy: true }) !== false;
+  const isSettingsActive =
+    matchRoute({ to: "/settings", fuzzy: true }) !== false;
 
   return (
     <Sidebar side="left" collapsible="icon" variant="sidebar">
@@ -36,7 +47,10 @@ export default function SidebarComponent() {
           <SidebarMenu>
             <SidebarMenuItem>
               <Link to="/" className="w-full">
-                <SidebarMenuButton tooltip={t("nav-home")} isActive>
+                <SidebarMenuButton
+                  tooltip={t("nav-home")}
+                  isActive={isHomeActive}
+                >
                   <House />
                   <span>{t("nav-home")}</span>
                 </SidebarMenuButton>
@@ -44,7 +58,10 @@ export default function SidebarComponent() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link to="/videos" className="w-full">
-                <SidebarMenuButton tooltip={t("nav-videos")}>
+                <SidebarMenuButton
+                  tooltip={t("nav-videos")}
+                  isActive={isVideosActive}
+                >
                   <Video />
                   <span>{t("nav-videos")}</span>
                 </SidebarMenuButton>
@@ -61,6 +78,7 @@ export default function SidebarComponent() {
                 <Link to="/dashboard" className="w-full">
                   <SidebarMenuButton
                     tooltip={t("nav-dashboard", { defaultValue: "Dashboard" })}
+                    isActive={isDashboardActive}
                   >
                     <LayoutDashboard />
                     <span>
@@ -89,7 +107,10 @@ export default function SidebarComponent() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <Link to="/settings" className="w-full">
-                <SidebarMenuButton tooltip={t("nav-settings")}>
+                <SidebarMenuButton
+                  tooltip={t("nav-settings")}
+                  isActive={isSettingsActive}
+                >
                   <Settings />
                   <span>{t("nav-settings")}</span>
                 </SidebarMenuButton>

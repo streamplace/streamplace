@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useFullscreen } from "@/contexts/fullscreen-context";
 import { useSession } from "@/lib/session";
 import { useStore } from "@/lib/store";
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useMatchRoute } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowUpFromLine,
@@ -151,10 +151,16 @@ export default function DashboardChrome() {
 function DashboardSidebar() {
   const { t } = useTranslation("settings");
   const { state } = useSession();
+  const matchRoute = useMatchRoute();
   if (state.status !== "authenticated") {
     return null;
   }
   const user = state.session.did;
+
+  // The control panel (/dashboard) is the parent of every dashboard
+  // page, so it matches exactly; the rest are leaf routes.
+  const isNavActive = (to: string) =>
+    matchRoute({ to, fuzzy: to !== "/dashboard" }) !== false;
 
   return (
     <Sidebar side="left" collapsible="icon" variant="sidebar">
@@ -184,7 +190,10 @@ function DashboardSidebar() {
                 return (
                   <SidebarMenuItem key={item.to}>
                     <Link to={item.to} className="w-full">
-                      <SidebarMenuButton tooltip={t(item.labelKey)}>
+                      <SidebarMenuButton
+                        tooltip={t(item.labelKey)}
+                        isActive={isNavActive(item.to)}
+                      >
                         <Icon />
                         <span>{t(item.labelKey)}</span>
                       </SidebarMenuButton>
@@ -208,7 +217,10 @@ function DashboardSidebar() {
                 return (
                   <SidebarMenuItem key={item.to}>
                     <Link to={item.to} className="w-full">
-                      <SidebarMenuButton tooltip={t(item.labelKey)}>
+                      <SidebarMenuButton
+                        tooltip={t(item.labelKey)}
+                        isActive={isNavActive(item.to)}
+                      >
                         <Icon />
                         <span>{t(item.labelKey)}</span>
                       </SidebarMenuButton>

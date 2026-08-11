@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
+
+	"stream.place/streamplace/pkg/log"
 
 	"golang.org/x/net/html"
 	"stream.place/streamplace/pkg/config"
@@ -89,7 +90,7 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.Brandin
 		blob, err := l.sdb.GetBrandingBlob(broadcasterDid, asset)
 		if err != nil {
 			// this can probably include a 'record not found' error, in which case we skip
-			log.Printf("error fetching branding asset %s for broadcaster %s: %v", asset, broadcasterDid, err)
+			log.Debug(context.Background(), "error fetching branding asset for broadcaster", "asset", asset, "broadcaster", broadcasterDid, "error", err)
 			continue
 		}
 		asset := placestream.BrandingGetBranding_BrandingAsset{
@@ -168,7 +169,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 				}
 				marshalledJson, err := json.Marshal(val)
 				if err != nil {
-					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
 					continue
 				}
 				metaTags = append(metaTags, MetaTag{
@@ -179,7 +180,7 @@ func (l *Linker) GenerateStreamerCard(ctx context.Context, u *url.URL, lsv *plac
 			}
 		} else {
 			// log but we should not block rendering
-			fmt.Printf("error fetching branding assets: %v\n", err)
+			log.Error(ctx, "error fetching branding assets", "error", err)
 		}
 	}
 
@@ -271,7 +272,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 				}
 				marshalledJson, err := json.Marshal(val)
 				if err != nil {
-					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					log.Error(ctx, "error marshalling branding asset %s", "key", val.Key, "error", err)
 					continue
 				}
 				metaTags = append(metaTags, MetaTag{
@@ -282,7 +283,7 @@ func (l *Linker) GenerateVideoCard(ctx context.Context, u *url.URL, vv *placestr
 			}
 		} else {
 			// log but we should not block rendering
-			fmt.Printf("error fetching branding assets: %v\n", err)
+			log.Error(ctx, "error fetching branding assets", "error", err)
 		}
 	}
 
@@ -350,7 +351,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 				}
 				marshalledJson, err := json.Marshal(val)
 				if err != nil {
-					fmt.Printf("error marshalling branding asset %s: %v\n", val.Key, err)
+					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
 					continue
 				}
 				metaTags = append(metaTags, MetaTag{
@@ -361,7 +362,7 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 			}
 		} else {
 			// log but we should not block rendering
-			fmt.Printf("error fetching branding assets: %v\n", err)
+			log.Error(ctx, "error fetching branding assets", "error", err)
 		}
 	}
 

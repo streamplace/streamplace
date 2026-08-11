@@ -891,23 +891,23 @@ export function Toast({
                     width: "100%",
                   }}
                 >
+                  {/* No explicit label color: Text inherits the variant's
+                      foreground via ButtonTextColorContext — an override
+                      painted text1 onto the Paper/Ink primary fill, making
+                      the label invisible. */}
                   <Button
                     width="min"
                     variant={buttonTypeMap[variant]}
                     onPress={onAction}
                   >
-                    <Text style={{ color: theme.colors.foreground }}>
-                      {actionLabel}
-                    </Text>
+                    <Text>{actionLabel}</Text>
                   </Button>
                   <Button
                     variant="secondary"
                     width="min"
                     onPress={() => onOpenChange(false)}
                   >
-                    <Text style={{ color: theme.colors.foreground }}>
-                      Close
-                    </Text>
+                    <Text>Close</Text>
                   </Button>
                 </View>
               )}

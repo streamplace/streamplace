@@ -23,6 +23,8 @@ jobs:
               check && make ci-lexicons
           - name: linux-arm64
             cmd: "make linux-arm64"
+          - name: e2e-web
+            cmd: "make linux-amd64 && make e2e-web"
           - name: windows-amd64
             cmd: "make windows-amd64 && make desktop-windows-amd64"
           - name: android
@@ -66,6 +68,17 @@ jobs:
         uses: mikepenz/action-junit-report@v5
         with:
           report_paths: "test.xml"
+
+      - name: Upload e2e-web report
+        if: matrix.name == 'e2e-web' && failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-web-report-${{ github.run_id }}
+          path: |
+            js/e2e-web/playwright-report/
+            js/e2e-web/test-results/
+            js/e2e-web/harness.log
+          retention-days: 7
 
       - name: Upload bin artifacts
         if: matrix.name == 'windows-amd64'

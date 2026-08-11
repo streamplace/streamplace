@@ -280,6 +280,15 @@ static-test:
 test-vod:
 	bash hack/test-vod.sh
 
+# Headless-web e2e suite (Playwright) against a self-contained
+# `streamplace e2e` harness. Needs a binary that embeds the web app
+# (make linux-amd64) plus node/pnpm; CI runs this inside the builder
+# container. Driven by hack/e2e-web-local.sh.
+.PHONY: e2e-web
+e2e-web:
+	pnpm --filter @streamplace/e2e-web exec playwright install --with-deps chromium
+	SP_E2E_HARNESS_LOG=$$(pwd)/js/e2e-web/harness.log bash hack/e2e-web-local.sh
+
 #   _____  ________      __
 #  |  __ \|  ____\ \    / /
 #  | |  | | |__   \ \  / /

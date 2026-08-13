@@ -14,7 +14,7 @@ export interface ContentMetadataSlice {
   // actions
   createContentMetadata: (params: {
     contentWarnings?: string[];
-    distributionPolicy?: { deleteAfter?: number; allowAiTraining?: boolean };
+    distributionPolicy?: { deleteAfter?: number; allowGenAiTraining?: boolean };
     contentRights?: {
       creator?: string;
       copyrightNotice?: string;
@@ -27,7 +27,7 @@ export interface ContentMetadataSlice {
     rkey?: string;
     livestreamRef?: { uri: string; cid: string };
     contentWarnings?: string[];
-    distributionPolicy?: { deleteAfter?: number; allowAiTraining?: boolean };
+    distributionPolicy?: { deleteAfter?: number; allowGenAiTraining?: boolean };
     contentRights?: {
       creator?: string;
       copyrightNotice?: string;
@@ -81,7 +81,7 @@ export const createContentMetadataSlice: StateCreator<
           contentWarnings: { warnings: contentWarnings },
         }),
         ...((distributionPolicy.deleteAfter ||
-          distributionPolicy.allowAiTraining !== undefined) && {
+          distributionPolicy.allowGenAiTraining !== undefined) && {
           distributionPolicy,
         }),
         ...(contentRights &&
@@ -146,7 +146,7 @@ export const createContentMetadataSlice: StateCreator<
           contentWarnings: { warnings: contentWarnings },
         }),
         ...((distributionPolicy.deleteAfter ||
-          distributionPolicy.allowAiTraining !== undefined) && {
+          distributionPolicy.allowGenAiTraining !== undefined) && {
           distributionPolicy,
         }),
         ...(contentRights &&

@@ -428,7 +428,7 @@ func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQT
 	}
 
 	policy := &localdb.DistributionPolicy{
-		AllowAiTraining: metadataConfig.DistributionPolicy.AllowAiTraining,
+		AllowGenAiTraining: metadataConfig.DistributionPolicy.AllowGenAiTraining,
 	}
 
 	if metadataConfig.DistributionPolicy.DeleteAfter != nil {
@@ -437,7 +437,7 @@ func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQT
 		policy.DeleteAfterSeconds = &deleteAfterSeconds
 	}
 
-	if policy.DeleteAfterSeconds == nil && policy.AllowAiTraining == nil {
+	if policy.DeleteAfterSeconds == nil && policy.AllowGenAiTraining == nil {
 		return nil
 	}
 

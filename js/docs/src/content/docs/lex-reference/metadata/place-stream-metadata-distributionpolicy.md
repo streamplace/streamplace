@@ -17,11 +17,11 @@ Distribution and rebroadcast policy.
 
 **Properties:**
 
-| Name                  | Type              | Req'd | Description                                                                                                                                                                                         | Constraints |
-| --------------------- | ----------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| `deleteAfter`         | `integer`         | ❌    | Duration in seconds after which segments should be deleted. Each segment will expire N seconds after its creation time. -1 to allow indefinite archival.                                            |             |
-| `allowedBroadcasters` | Array of `string` | ❌    | List of did:webs of the broadcasters you want to allow to distribute your content. "\*" allows anyone. Starting a line with a "!" bans that broadcaster.                                            |             |
-| `allowAiTraining`     | `boolean`         | ❌    | Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment. |             |
+| Name                  | Type              | Req'd | Description                                                                                                                                                                                                                                                                                                                                   | Constraints |
+| --------------------- | ----------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `deleteAfter`         | `integer`         | ❌    | Duration in seconds after which segments should be deleted. Each segment will expire N seconds after its creation time. -1 to allow indefinite archival.                                                                                                                                                                                      |             |
+| `allowedBroadcasters` | Array of `string` | ❌    | List of did:webs of the broadcasters you want to allow to distribute your content. "\*" allows anyone. Starting a line with a "!" bans that broadcaster.                                                                                                                                                                                      |             |
+| `allowGenAiTraining`  | `boolean`         | ❌    | Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment. Covers generative AI only — non-generative machine learning (e.g. moderation, accessibility, speech models) is not governed by this flag. |             |
 
 ---
 
@@ -47,9 +47,9 @@ Distribution and rebroadcast policy.
             "type": "string"
           }
         },
-        "allowAiTraining": {
+        "allowGenAiTraining": {
           "type": "boolean",
-          "description": "Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment."
+          "description": "Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment. Covers generative AI only — non-generative machine learning (e.g. moderation, accessibility, speech models) is not governed by this flag."
         }
       }
     }

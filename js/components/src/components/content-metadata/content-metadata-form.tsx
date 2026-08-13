@@ -198,18 +198,18 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       ({
         deleteAfter,
         allowedBroadcasters,
-        allowAiTraining,
+        allowGenAiTraining,
       }: {
         deleteAfter?: string;
         allowedBroadcasters?: string;
-        allowAiTraining?: boolean;
+        allowGenAiTraining?: boolean;
       }) => {
         let newDistributionPolicy: place.stream.metadata.distributionPolicy.Main =
           {
             ...distributionPolicy,
           };
-        if (typeof allowAiTraining === "boolean") {
-          newDistributionPolicy.allowAiTraining = allowAiTraining;
+        if (typeof allowGenAiTraining === "boolean") {
+          newDistributionPolicy.allowGenAiTraining = allowGenAiTraining;
         }
         if (typeof deleteAfter === "string") {
           let duration = parseInt(deleteAfter, 10);
@@ -312,7 +312,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
         // AI training is opt-in: absent an explicit choice, save the record
         // with training disallowed.
         metadata.distributionPolicy = {
-          allowAiTraining: false,
+          allowGenAiTraining: false,
           ...distributionPolicy,
         };
 
@@ -774,10 +774,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                   position="top"
                 >
                   <Checkbox
-                    checked={distributionPolicy.allowAiTraining === true}
+                    checked={distributionPolicy.allowGenAiTraining === true}
                     onCheckedChange={(checked) =>
                       handleDistributionPolicyChange({
-                        allowAiTraining: checked,
+                        allowGenAiTraining: checked,
                       })
                     }
                     label={

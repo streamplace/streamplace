@@ -23,38 +23,38 @@ func manifestWithDistributionPolicy(policy map[string]any) *c2patypes.Manifest {
 	}
 }
 
-// extractDistributionPolicy carries allowAiTraining out of the manifest, alone
+// extractDistributionPolicy carries allowGenAiTraining out of the manifest, alone
 // or alongside deleteAfter, and stays nil when neither is declared.
-func TestExtractDistributionPolicyAllowAiTraining(t *testing.T) {
+func TestExtractDistributionPolicyAllowGenAiTraining(t *testing.T) {
 	now := aqtime.FromTime(time.Now())
 
 	policy := extractDistributionPolicy(manifestWithDistributionPolicy(map[string]any{
-		"allowAiTraining": false,
+		"allowGenAiTraining": false,
 	}), now)
 	require.NotNil(t, policy)
-	require.NotNil(t, policy.AllowAiTraining)
-	require.False(t, *policy.AllowAiTraining)
+	require.NotNil(t, policy.AllowGenAiTraining)
+	require.False(t, *policy.AllowGenAiTraining)
 	require.Nil(t, policy.DeleteAfterSeconds)
 
 	policy = extractDistributionPolicy(manifestWithDistributionPolicy(map[string]any{
-		"allowAiTraining": true,
-		"deleteAfter":     300,
+		"allowGenAiTraining": true,
+		"deleteAfter":        300,
 	}), now)
 	require.NotNil(t, policy)
-	require.NotNil(t, policy.AllowAiTraining)
-	require.True(t, *policy.AllowAiTraining)
+	require.NotNil(t, policy.AllowGenAiTraining)
+	require.True(t, *policy.AllowGenAiTraining)
 	require.NotNil(t, policy.DeleteAfterSeconds)
 	require.Equal(t, int64(300), *policy.DeleteAfterSeconds)
 
 	policy = extractDistributionPolicy(manifestWithDistributionPolicy(map[string]any{
 		"allowedBroadcasters": []string{"*"},
 	}), now)
-	require.Nil(t, policy, "a policy with neither deleteAfter nor allowAiTraining stays nil")
+	require.Nil(t, policy, "a policy with neither deleteAfter nor allowGenAiTraining stays nil")
 }
 
-// The minted place.stream.segment record carries allowAiTraining even when
+// The minted place.stream.segment record carries allowGenAiTraining even when
 // deleteAfter is unset.
-func TestSegmentRecordCarriesAllowAiTraining(t *testing.T) {
+func TestSegmentRecordCarriesAllowGenAiTraining(t *testing.T) {
 	notAllowed := false
 	seg := &localdb.Segment{
 		ID:            "test-segment",
@@ -65,13 +65,13 @@ func TestSegmentRecordCarriesAllowAiTraining(t *testing.T) {
 			Audio: []*localdb.SegmentMediadataAudio{{Rate: 48000, Channels: 2}},
 		},
 		DistributionPolicy: &localdb.DistributionPolicy{
-			AllowAiTraining: &notAllowed,
+			AllowGenAiTraining: &notAllowed,
 		},
 	}
 	record, err := seg.ToStreamplaceSegment()
 	require.NoError(t, err)
 	require.NotNil(t, record.DistributionPolicy)
-	require.NotNil(t, record.DistributionPolicy.AllowAiTraining)
-	require.False(t, *record.DistributionPolicy.AllowAiTraining)
+	require.NotNil(t, record.DistributionPolicy.AllowGenAiTraining)
+	require.False(t, *record.DistributionPolicy.AllowGenAiTraining)
 	require.Nil(t, record.DistributionPolicy.DeleteAfter)
 }

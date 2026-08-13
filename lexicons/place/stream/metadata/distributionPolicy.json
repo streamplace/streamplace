@@ -17,9 +17,9 @@
             "type": "string"
           }
         },
-        "allowAiTraining": {
+        "allowGenAiTraining": {
           "type": "boolean",
-          "description": "Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment."
+          "description": "Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment. Covers generative AI only — non-generative machine learning (e.g. moderation, accessibility, speech models) is not governed by this flag."
         }
       }
     }

@@ -159,9 +159,9 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 	if streamplaceMetadata.DistributionPolicy == nil {
 		streamplaceMetadata.DistributionPolicy = &placestream.MetadataDistributionPolicy{}
 	}
-	if streamplaceMetadata.DistributionPolicy.AllowAiTraining == nil {
+	if streamplaceMetadata.DistributionPolicy.AllowGenAiTraining == nil {
 		notAllowed := false
-		streamplaceMetadata.DistributionPolicy.AllowAiTraining = &notAllowed
+		streamplaceMetadata.DistributionPolicy.AllowGenAiTraining = &notAllowed
 	}
 	metadataObj, err := toObj(streamplaceMetadata)
 	if err != nil {
@@ -172,7 +172,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			"label": "place.stream.metadata.configuration",
 			"data":  metadataObj,
 		},
-		trainingMiningAssertion(*streamplaceMetadata.DistributionPolicy.AllowAiTraining),
+		trainingMiningAssertion(*streamplaceMetadata.DistributionPolicy.AllowGenAiTraining),
 	)
 
 	// Update the manifest title with the retrieved livestream title
@@ -199,9 +199,9 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 // trainingMiningAssertion builds the CAWG training and data mining assertion
 // (https://cawg.io/training-and-data-mining/1.1/), the standard machine-readable
 // way to declare whether content may be used to train generative AI models.
-func trainingMiningAssertion(allowAiTraining bool) obj {
+func trainingMiningAssertion(allowGenAiTraining bool) obj {
 	use := "notAllowed"
-	if allowAiTraining {
+	if allowGenAiTraining {
 		use = "allowed"
 	}
 	return obj{

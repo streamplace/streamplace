@@ -57,7 +57,7 @@ func buildManifestAssertions(t *testing.T, metadata *model.MetadataConfiguration
 	return out
 }
 
-func aiTrainingUse(t *testing.T, assertions map[string]map[string]any) string {
+func genAiTrainingUse(t *testing.T, assertions map[string]map[string]any) string {
 	data, ok := assertions["cawg.training-mining"]
 	require.True(t, ok, "manifest must carry the cawg.training-mining assertion")
 	entries, ok := data["entries"].(map[string]any)
@@ -69,20 +69,20 @@ func aiTrainingUse(t *testing.T, assertions map[string]map[string]any) string {
 	return use
 }
 
-func allowAiTrainingField(t *testing.T, assertions map[string]map[string]any) any {
+func allowGenAiTrainingField(t *testing.T, assertions map[string]map[string]any) any {
 	data, ok := assertions["place.stream.metadata.configuration"]
 	require.True(t, ok, "manifest must carry the metadata configuration assertion")
 	policy, ok := data["distributionPolicy"].(map[string]any)
 	require.True(t, ok, "metadata configuration must carry a distributionPolicy")
-	return policy["allowAiTraining"]
+	return policy["allowGenAiTraining"]
 }
 
 // A streamer with no metadata configuration at all still gets an explicit
 // "AI training not allowed" stamped into every minted segment.
 func TestBuildManifestAiTrainingDefaultDeny(t *testing.T) {
 	assertions := buildManifestAssertions(t, nil)
-	require.Equal(t, "notAllowed", aiTrainingUse(t, assertions))
-	require.Equal(t, false, allowAiTrainingField(t, assertions))
+	require.Equal(t, "notAllowed", genAiTrainingUse(t, assertions))
+	require.Equal(t, false, allowGenAiTrainingField(t, assertions))
 }
 
 // A metadata configuration that never mentions AI training also defaults to
@@ -95,8 +95,8 @@ func TestBuildManifestAiTrainingUndeclaredDeny(t *testing.T) {
 		},
 	})
 	assertions := buildManifestAssertions(t, row)
-	require.Equal(t, "notAllowed", aiTrainingUse(t, assertions))
-	require.Equal(t, false, allowAiTrainingField(t, assertions))
+	require.Equal(t, "notAllowed", genAiTrainingUse(t, assertions))
+	require.Equal(t, false, allowGenAiTrainingField(t, assertions))
 
 	// the rest of the distribution policy survives the stamping
 	policy := assertions["place.stream.metadata.configuration"]["distributionPolicy"].(map[string]any)
@@ -108,10 +108,10 @@ func TestBuildManifestAiTrainingExplicitAllow(t *testing.T) {
 	allow := true
 	row := metadataConfigurationRow(t, &placestream.MetadataConfiguration{
 		DistributionPolicy: &placestream.MetadataDistributionPolicy{
-			AllowAiTraining: &allow,
+			AllowGenAiTraining: &allow,
 		},
 	})
 	assertions := buildManifestAssertions(t, row)
-	require.Equal(t, "allowed", aiTrainingUse(t, assertions))
-	require.Equal(t, true, allowAiTrainingField(t, assertions))
+	require.Equal(t, "allowed", genAiTrainingUse(t, assertions))
+	require.Equal(t, true, allowGenAiTrainingField(t, assertions))
 }

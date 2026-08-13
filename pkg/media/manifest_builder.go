@@ -133,6 +133,7 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 	}
 
 	// Add database metadata if available
+	var streamplaceMetadata placestream.MetadataConfiguration
 	if mb.model != nil {
 		metadata, err := mb.model.GetMetadataConfiguration(ctx, streamerName)
 		if err != nil {
@@ -140,25 +141,39 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 			return nil, fmt.Errorf("failed to retrieve metadata: %w", err)
 		} else if metadata != nil {
 			log.Debug(ctx, "ManifestBuilder: found metadata configuration", "did", streamerName, "metadata", metadata)
-			streamplaceMetadata, err := metadata.ToStreamplaceMetadataConfiguration()
+			converted, err := metadata.ToStreamplaceMetadataConfiguration()
 			if err != nil {
 				log.Warn(ctx, "ManifestBuilder: failed to convert metadata, using defaults", "error", err, "did", streamerName)
 			} else {
-				log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", streamplaceMetadata.ContentWarnings, "contentRights", streamplaceMetadata.ContentRights)
+				log.Debug(ctx, "ManifestBuilder: enhancing manifest with metadata", "did", streamerName, "contentWarnings", converted.ContentWarnings, "contentRights", converted.ContentRights)
+				streamplaceMetadata = converted
 				mani = mb.enhanceManifestWithMetadata(mani, &streamplaceMetadata, start)
-				metadataObj, err := toObj(streamplaceMetadata)
-				if err != nil {
-					return nil, fmt.Errorf("failed to marshal metadata: %w", err)
-				}
-				mani["assertions"] = append(mani["assertions"].([]obj), obj{
-					"label": "place.stream.metadata.configuration",
-					"data":  metadataObj,
-				})
 			}
 		} else {
 			log.Debug(ctx, "ManifestBuilder: no metadata configuration found for streamer", "did", streamerName)
 		}
 	}
+
+	// Generative AI training is opt-in: unless the streamer has explicitly
+	// allowed it, every minted segment carries an explicit "not allowed".
+	if streamplaceMetadata.DistributionPolicy == nil {
+		streamplaceMetadata.DistributionPolicy = &placestream.MetadataDistributionPolicy{}
+	}
+	if streamplaceMetadata.DistributionPolicy.AllowAiTraining == nil {
+		notAllowed := false
+		streamplaceMetadata.DistributionPolicy.AllowAiTraining = &notAllowed
+	}
+	metadataObj, err := toObj(streamplaceMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+	mani["assertions"] = append(mani["assertions"].([]obj),
+		obj{
+			"label": "place.stream.metadata.configuration",
+			"data":  metadataObj,
+		},
+		trainingMiningAssertion(*streamplaceMetadata.DistributionPolicy.AllowAiTraining),
+	)
 
 	// Update the manifest title with the retrieved livestream title
 	mani["assertions"].([]obj)[1]["data"].(obj)["dc:title"] = livestreamTitle
@@ -179,6 +194,24 @@ func (mb *ManifestBuilder) BuildManifest(ctx context.Context, streamerName strin
 	}
 
 	return manifestBs, nil
+}
+
+// trainingMiningAssertion builds the CAWG training and data mining assertion
+// (https://cawg.io/training-and-data-mining/1.1/), the standard machine-readable
+// way to declare whether content may be used to train generative AI models.
+func trainingMiningAssertion(allowAiTraining bool) obj {
+	use := "notAllowed"
+	if allowAiTraining {
+		use = "allowed"
+	}
+	return obj{
+		"label": "cawg.training-mining",
+		"data": obj{
+			"entries": obj{
+				"cawg.ai_generative_training": obj{"use": use},
+			},
+		},
+	}
 }
 
 // getLicenseCodeMap returns a map of internal license codes to their corresponding URLs

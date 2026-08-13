@@ -58,7 +58,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MobileChatPanel } from "./chat";
 import { useResponsiveLayout } from "./useResponsiveLayout";
 
-const { borders, gap, h, layout, position, w, r } = zero;
+const { borders, bottom, gap, h, layout, position, right, w, r } = zero;
 
 export function MobileUi({
   setShowChat,
@@ -270,6 +270,13 @@ export function MobileUi({
                   />
                 </View>
               )}
+              {Platform.OS !== "web" && (
+                <View
+                  style={[layout.position.absolute, { bottom: 12, right: 12 }]}
+                >
+                  <RotateButton />
+                </View>
+              )}
             </View>
             {isSelfAndNotLive && (
               <PlayerUI.InputPanel
@@ -466,7 +473,6 @@ function RightControlsPanel({
   const setMuted = useSetMuted();
   const fullscreen = usePlayerStore((x) => x.fullscreen);
   const setFullscreen = usePlayerStore((x) => x.setFullscreen);
-  const { toggleRotation, canRotate, currentOrientation } = useRotation();
 
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
 
@@ -541,35 +547,10 @@ function RightControlsPanel({
               )}
             </Pressable>
           </>
+        ) : ingest === null ? (
+          <PlayerUI.ContextMenu />
         ) : (
-          <View
-            style={[
-              isPortrait
-                ? { flexDirection: "column-reverse" }
-                : { flexDirection: "row" },
-              zero.layout.flex.center,
-              zero.gap.all[4],
-            ]}
-          >
-            {canRotate && (
-              <Pressable
-                onPress={() => {
-                  toggleRotation();
-                }}
-              >
-                {currentOrientation === 1 ? (
-                  <Maximize color={theme.colors.foreground} size={20} />
-                ) : (
-                  <Minimize color={theme.colors.foreground} size={20} />
-                )}
-              </Pressable>
-            )}
-            {ingest === null ? (
-              <PlayerUI.ContextMenu />
-            ) : (
-              <PlayerUI.StreamContextMenu />
-            )}
-          </View>
+          <PlayerUI.StreamContextMenu />
         )}
         {shouldShowChatSidePanel && setShowChat && (
           <Pressable
@@ -652,6 +633,29 @@ function RightControlsPanel({
           </Slider.Root>
         </View>
       )}
+    </View>
+  );
+}
+
+/** Native fullscreen/rotation toggle, pinned to the player's bottom-right. */
+function RotateButton() {
+  const { theme } = useTheme();
+  const { toggleRotation, canRotate, currentOrientation } = useRotation();
+  if (!canRotate) return null;
+  return (
+    <View
+      style={[
+        { padding: 9, backgroundColor: scrims.light, borderRadius: 12 },
+        r[2],
+      ]}
+    >
+      <Pressable onPress={toggleRotation}>
+        {currentOrientation === 1 ? (
+          <Maximize color={theme.colors.foreground} size={20} />
+        ) : (
+          <Minimize color={theme.colors.foreground} size={20} />
+        )}
+      </Pressable>
     </View>
   );
 }

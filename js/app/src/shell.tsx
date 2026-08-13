@@ -6,6 +6,7 @@ import { useLinkTo, useNavigation } from "@react-navigation/native";
 import {
   createNativeStackNavigator,
   NativeStackHeaderBackProps,
+  NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import {
   Text,
@@ -138,7 +139,7 @@ function HomeNavigator() {
   const z = useTheme();
   const did = useDID();
 
-  const headerScreenOptions = {
+  const headerScreenOptions: NativeStackNavigationOptions = {
     headerShown: !isNative,
     headerLeft: isNative
       ? undefined
@@ -153,6 +154,20 @@ function HomeNavigator() {
     ),
     ...(isNative && {
       headerTransparent: true,
+    }),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
     }),
     headerTitleStyle: {
       fontFamily: z.theme.typography.universal.xl.fontFamily,
@@ -305,6 +320,20 @@ function VideosNavigator() {
             <LGAvatarButton />
           </View>
         ),
+        ...(Platform.OS === "ios" && {
+          unstable_headerRightItems: () => [
+            {
+              type: "custom",
+              hidesSharedBackground: true,
+              element: (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <UploadButton />
+                  <LGAvatarButton />
+                </View>
+              ),
+            },
+          ],
+        }),
       }}
     >
       <VideosStack.Screen
@@ -324,7 +353,7 @@ function VideosNavigator() {
 // Settings stack navigator
 function SettingsNavigator() {
   const baseScreenOptions = useBaseScreenOptions();
-  const headerScreenOptions = {
+  const headerScreenOptions: NativeStackNavigationOptions = {
     ...baseScreenOptions,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
@@ -337,6 +366,20 @@ function SettingsNavigator() {
         <LGAvatarButton />
       </View>
     ),
+    ...(Platform.OS === "ios" && {
+      unstable_headerRightItems: () => [
+        {
+          type: "custom",
+          hidesSharedBackground: true,
+          element: (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <UploadButton />
+              <LGAvatarButton />
+            </View>
+          ),
+        },
+      ],
+    }),
   };
   return (
     <SettingsStack.Navigator

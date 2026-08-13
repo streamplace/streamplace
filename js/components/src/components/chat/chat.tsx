@@ -1,5 +1,12 @@
 import { ChevronDown, Ellipsis, Reply } from "lucide-react-native";
-import { ComponentProps, memo, useEffect, useRef, useState } from "react";
+import {
+  ComponentProps,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Keyboard, Platform, Pressable } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Swipeable, {
@@ -218,7 +225,7 @@ const ChatLine = memo(({ item }: { item: ChatMessageViewHydrated }) => {
   return (
     <>
       <Swipeable
-        containerStyle={[py[1]]}
+        containerStyle={[{ paddingVertical: 6 }]}
         friction={2}
         enableTrackpadTwoFingerGesture
         rightThreshold={40}
@@ -264,8 +271,15 @@ export function Chat({
   const [isScrolledUp, setIsScrolledUp] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const flatListRef = useRef<FlatList>(null);
-  const latestMessageTime = chat?.[0]
-    ? new Date(chat[0].record.createdAt).getTime()
+  // The store keeps chat oldest-first. An inverted FlatList renders index 0 at
+  // the bottom, so feed it newest-first to keep the latest message at the
+  // bottom (or at the top when reverse is set, where inverted is off).
+  const displayMessages = useMemo(
+    () => (chat ? chat.slice(-shownMessages).reverse() : []),
+    [chat, shownMessages],
+  );
+  const latestMessageTime = displayMessages[0]
+    ? new Date(displayMessages[0].record.createdAt).getTime()
     : null;
 
   // Animation for scroll-to-bottom button
@@ -286,12 +300,8 @@ export function Chat({
     transform: [{ translateY: buttonTranslateY.value }],
   }));
 
-  const scrollToBottom = () => {
+  const scrollToLatest = () => {
     flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-  };
-
-  const scrollToTop = () => {
-    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   const handleScroll = (event: any) => {
@@ -366,7 +376,7 @@ export function Chat({
             flex.shrink[1],
             { minWidth: 0, maxWidth: "100%" },
           ]}
-          data={chat.slice(0, shownMessages)}
+          data={displayMessages}
           inverted={!reverse}
           keyExtractor={keyExtractor}
           renderItem={({ item, index }) => (
@@ -397,7 +407,7 @@ export function Chat({
         ]}
       >
         <Pressable
-          onPress={reverse ? scrollToTop : scrollToBottom}
+          onPress={scrollToLatest}
           style={[
             {
               pointerEvents: isScrolledUp ? "auto" : "none",

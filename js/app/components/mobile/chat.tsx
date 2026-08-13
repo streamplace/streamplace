@@ -348,9 +348,10 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
             style={[
               layout.flex.row,
               layout.flex.center,
-              gap.all[4],
+              gap.all[2],
               {
-                padding: spacing[4],
+                paddingVertical: spacing[2],
+                paddingHorizontal: spacing[3],
                 borderRadius: borderRadius.lg,
                 backgroundColor: theme.colors.surface2,
                 borderWidth: 1,
@@ -358,8 +359,8 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
               },
             ]}
           >
-            <Text>Log in or sign up to chat</Text>
-            <ArrowRight color={theme.colors.text1} size={20} />
+            <Text size="sm">Log in or sign up to chat</Text>
+            <ArrowRight color={theme.colors.text1} size={16} />
           </Pressable>
         )}
       </View>

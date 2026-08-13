@@ -27,10 +27,12 @@ import {
   useProfileCardData,
 } from "./user-profile-card";
 
-// Deterministic per-user color, clamped for contrast against the dark
-// chat surface: colors that are too dark get mixed toward white until they
-// clear a minimum luminance. Same input always yields the same output.
+// Deterministic per-user color, muted so a busy chat doesn't turn into a
+// rainbow, and clamped for contrast against the dark chat surface: colors
+// that are too dark get mixed toward white until they clear a minimum
+// luminance. Same input always yields the same output.
 const MIN_LUMA = 110; // 0-255 relative luminance floor
+const DESAT = 0.45; // how far to pull each color toward its own gray
 const clampChannel = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
 const getRgbColor = (color?: {
   red: number;
@@ -40,6 +42,9 @@ const getRgbColor = (color?: {
   if (!color) return textAlphas.dark[2];
   let { red, green, blue } = color;
   const luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  red += (luma - red) * DESAT;
+  green += (luma - green) * DESAT;
+  blue += (luma - blue) * DESAT;
   if (luma < MIN_LUMA) {
     // mix toward white just enough to reach the floor
     const t = (MIN_LUMA - luma) / (255 - luma || 1);
@@ -130,10 +135,10 @@ export const RichTextMessage = ({
 
 // Web flows the whole message inline inside a single <Text>, with the badges and
 // handle rendered as an inline-block via display: "inline".
-// Chat is dense but legible: 13px (size sm), handles in medium weight.
+// Chat is dense but legible: 14px (size base), handles in medium weight.
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   return (
-    <Text size="sm" style={[flex.shrink[1], { minWidth: 0 }]}>
+    <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
         <View
           style={
@@ -148,7 +153,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
         >
           <BadgeDisplayRow badges={item.badges} />
           <Text
-            size="sm"
+            size="base"
             weight="medium"
             style={{
               cursor: "pointer",
@@ -159,7 +164,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
           </Text>
         </View>
       </UserProfileCard>
-      <Text size="sm" color="default">
+      <Text size="base" color="default">
         {": "}
       </Text>
       <RichTextMessage
@@ -190,27 +195,27 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              // match the sm text line height so badges center on the first line
-              height: 18,
+              // match the base text line height so badges center on the first line
+              height: 20,
               // iOS centers glyphs higher in the line box than Android
-              marginTop: Platform.OS === "ios" ? -2 : 0,
+              marginTop: Platform.OS === "ios" ? 1 : 0,
             }}
           >
             <BadgeDisplayRow badges={item.badges} />
           </Pressable>
         </DropdownMenuTrigger>
       )}
-      <Text size="sm" style={[flex.shrink[1], { minWidth: 0 }]}>
+      <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
         <DropdownMenuTrigger asChild>
           <Text
-            size="sm"
+            size="base"
             weight="medium"
             style={{ color: getRgbColor(item.chatProfile?.color) }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
         </DropdownMenuTrigger>
-        <Text size="sm" color="default">
+        <Text size="base" color="default">
           {": "}
         </Text>
         <RichTextMessage

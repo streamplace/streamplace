@@ -323,15 +323,26 @@ export default function HomeScreen({
               style={[
                 { flexDirection: "row" },
                 { alignItems: "center" },
+                { justifyContent: "space-between" },
                 { gap: spacing[3] },
-                { marginTop: spacing[8], marginBottom: spacing[6] },
+                {
+                  marginTop: spacing[8],
+                  marginBottom: spacing[6],
+                  paddingRight: spacing[4],
+                },
               ]}
             >
-              <LiveDot />
-              <Text size="xl" weight="semibold">
-                Live now
-              </Text>
-              <Text size="sm" tabular style={{ color: theme.colors.text3 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing[2],
+                }}
+              >
+                <LiveDot />
+                <Text size="xl">Live now</Text>
+              </View>
+              <Text size="base" tabular style={{ color: theme.colors.text3 }}>
                 {segments.length}{" "}
                 {segments.length === 1 ? "streamer" : "streamers"}
               </Text>

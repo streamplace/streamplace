@@ -120,7 +120,8 @@ function useBaseScreenOptions() {
       color: z.theme.colors.text1,
     },
     headerStyle: {
-      backgroundColor: z.theme.colors.surface0,
+      backgroundColor:
+        Platform.OS === "web" ? z.theme.colors.surface0 : undefined,
       borderBottomColor: z.theme.colors.borderSubtle,
       borderBottomWidth: 1,
       // Slimmer bar, aligned with the 56px sidebar brand row.
@@ -174,7 +175,7 @@ function HomeNavigator() {
             Platform.OS === "ios"
               ? (props) => (
                   <View style={{ flex: 1, alignItems: "flex-start" }}>
-                    <Text size="3xl" style={[zero.ml[4]]}>
+                    <Text size="2xl" style={[zero.ml[4]]}>
                       {title}
                     </Text>
                   </View>

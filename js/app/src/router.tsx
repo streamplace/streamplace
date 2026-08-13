@@ -152,6 +152,8 @@ export const LGAvatarButton = () => {
             overflow: "hidden",
             backgroundColor: "black",
             opacity: 0.9,
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <User size={24} color="white" style={{ zIndex: -2 }} />
@@ -278,7 +280,15 @@ export const AvatarButton = () => {
                 alignItems: "center",
               }}
             >
-              <User size={18} color={c.text2} style={{ zIndex: -2 }} />
+              <User
+                size={18}
+                color={c.text2}
+                style={{
+                  zIndex: -2,
+                  paddingHorizontal: "auto",
+                  paddingVertical: "auto",
+                }}
+              />
             </ImageBackground>
           </DropdownMenuTrigger>
           <ResponsiveDropdownMenuContent

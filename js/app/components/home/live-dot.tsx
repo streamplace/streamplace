@@ -14,8 +14,8 @@ export default function LiveDot() {
   const opacityAnim = useSharedValue(1);
 
   useEffect(() => {
-    pulseAnim.value = withRepeat(withTiming(2.25, { duration: 1000 }), -1);
-    opacityAnim.value = withRepeat(withTiming(0, { duration: 1000 }), -1);
+    pulseAnim.value = withRepeat(withTiming(2.25, { duration: 2500 }), -1);
+    opacityAnim.value = withRepeat(withTiming(0, { duration: 2500 }), -1);
   }, [pulseAnim, opacityAnim]);
 
   const animatedPulseStyle = useAnimatedStyle(() => {

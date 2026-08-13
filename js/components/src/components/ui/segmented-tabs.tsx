@@ -4,7 +4,7 @@ import { useTheme } from "../../lib/theme/theme";
 import { Text } from "./text";
 
 // The one segmented tab control. A recessed track holding one raised segment per
-// option; the active segment is an indigo fill (indigo = active nav/tab state per
+// option; the active segment is a pink fill (pink = active nav/tab state per
 // the design system). Use it for view switchers — content tabs, settings
 // sub-nav — anywhere a hand-rolled "ButtonSelector"/"TabButton" used to live.
 

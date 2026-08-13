@@ -6,8 +6,8 @@ import { useTheme } from "../../lib/theme/theme";
 
 /**
  * The app's toggle. React Native's Switch ships with a platform teal/green
- * track, which is off-brand — this wraps it so "on" is the reserved indigo
- * (indigo = state) and "off" is a quiet raised surface. Use this everywhere
+ * track, which is off-brand — this wraps it so "on" is the reserved pink
+ * (pink = state) and "off" is a quiet raised surface. Use this everywhere
  * instead of importing Switch from react-native.
  */
 export function Switch(props: RNSwitchProps) {

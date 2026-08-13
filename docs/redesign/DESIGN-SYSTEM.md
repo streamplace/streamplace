@@ -11,17 +11,21 @@ numeric font size, spacing, radius, or duration.** The ratchet
 
 ## Color
 
+The palette is aligned with the web app's CSS tokens
+(`js/web/src/styles.css`), which is the source of truth. The app is
+dark-first; light values mirror the web's `:root` block.
+
 ### Surfaces (`theme.colors.surface0–3`, `surfaceHover`)
 
-Near-black, never pure black. Surfaces separate with hairline borders, not
-shadows.
+Purple-tinted dark surfaces, never pure black. Surfaces separate with
+hairline borders, not shadows.
 
 | Token          | Dark       | Light      | Use                            |
 | -------------- | ---------- | ---------- | ------------------------------ |
-| `surface0`     | `#0a0a0b`  | `#ffffff`  | App background                 |
-| `surface1`     | `#111113`  | `#fafafa`  | Cards, panels, inputs          |
-| `surface2`     | `#18181b`  | `#f4f4f5`  | Popovers, menus, sheets        |
-| `surface3`     | `#1f1f23`  | `#ececef`  | Hovered overlay rows, tooltips |
+| `surface0`     | `#150e1c`  | `#fdf6fa`  | App background                 |
+| `surface1`     | `#281b28`  | `#ffffff`  | Cards, panels, inputs          |
+| `surface2`     | `#201324`  | `#ffffff`  | Popovers, menus, sheets        |
+| `surface3`     | `#292129`  | `#f5e8f0`  | Hovered overlay rows, tooltips |
 | `surfaceHover` | = surface3 | = surface3 | Hover fill on interactive rows |
 
 Legacy aliases (kept working): `background`→surface0, `card`→surface1,
@@ -29,28 +33,33 @@ Legacy aliases (kept working): `background`→surface0, `card`→surface1,
 
 ### Text (`theme.colors.text1–4`)
 
-White (dark) / near-black (light) at fixed alphas — never gray hexes.
+Steps 1–2 mirror the web's `--foreground` / `--muted-foreground`; 3–4 derive
+from the foreground at fixed alphas.
 
-| Token   | Alpha | Use                                |
-| ------- | ----- | ---------------------------------- |
-| `text1` | 92%   | Primary: titles, body              |
-| `text2` | 65%   | Secondary: metadata, descriptions  |
-| `text3` | 45%   | Tertiary: placeholders, timestamps |
-| `text4` | 30%   | Disabled                           |
+| Token   | Dark                    | Light                | Use                                |
+| ------- | ----------------------- | -------------------- | ---------------------------------- |
+| `text1` | `#f7eaf3`               | `#3d1c44`            | Primary: titles, body              |
+| `text2` | `#b79aae`               | `#9b7e92`            | Secondary: metadata, descriptions  |
+| `text3` | `rgba(247,234,243,.45)` | `rgba(61,28,68,.46)` | Tertiary: placeholders, timestamps |
+| `text4` | `rgba(247,234,243,.30)` | `rgba(61,28,68,.32)` | Disabled                           |
 
 Legacy aliases: `text`→text1, `textMuted`→text2, `textDisabled`→text4.
 
 ### Borders (`borderSubtle` / `border` / `borderStrong`)
 
-1px hairlines: `rgba(255,255,255,0.06 / 0.08 / 0.10)` in dark. Subtle for
+1px hairlines: `rgba(247,234,243,0.06 / 0.10 / 0.15)` in dark. Subtle for
 surface separation, default for controls at rest, strong for hover.
 
-### Accent (`primary`, `ring`, `focus`)
+### Accent (`primary`, `ring`, `focus`) & secondary
 
-One accent: indigo `#5e6ad2` (`colors.primary` ramp). Used **sparingly** —
-primary buttons, focus rings, active states, links, the Go Live moment.
-Never for large fills or decoration. Broadcaster branding may override
-`primary`/`ring` (and `focus` follows `ring` automatically).
+One accent: pink/magenta `#e955c2` (`colors.primary` ramp, the web's
+`--primary`). Used **sparingly** — primary buttons, focus rings, active
+states, links, the Go Live moment. Never for large fills or decoration.
+Broadcaster branding may override `primary`/`ring` (and `focus` follows
+`ring` automatically).
+
+Secondary/accent: teal `#1abbc0` (`colors.secondary` ramp, the web's
+`--secondary`/`--accent`).
 
 ### Status
 
@@ -59,14 +68,15 @@ Never for large fills or decoration. Broadcaster branding may override
 | `live` / `liveDim` / `liveForeground` | `#f23041`         | **Reserved for the LIVE state only** — badges, live avatar rings, on-air dots. Never used for errors. |
 | `success`                             | `#3dd68c`         | Healthy ingest, confirmations                                                                         |
 | `warning`                             | `#ffb224`         | Degraded states                                                                                       |
-| `danger` / `destructive`              | `#f2555a`         | Errors, destructive actions                                                                           |
+| `danger` / `destructive`              | `#ff3b5c`         | Errors, destructive actions                                                                           |
 | `overlay`                             | `rgba(0,0,0,0.6)` | Modal scrims                                                                                          |
 
 ## Typography
 
-One typeface: **Geist** (+ **Geist Mono**), weights 400/500/600 only.
-Canonical scale `typeScale` — sizes 12/13/14/16/20/24/32, line heights in
-the token file, tight letter-spacing from 20px up:
+One sans typeface: **Atkinson Hyperlegible Next** (+ **Ioskeley Mono**),
+weights 400/500/600 only, static (no variable fonts). Canonical scale
+`typeScale` — sizes 12/13/14/16/20/24/32, line heights in the token file,
+tight letter-spacing from 20px up:
 
 | Key    | Size/Line  | Weight | Use                                   |
 | ------ | ---------- | ------ | ------------------------------------- |
@@ -80,8 +90,8 @@ the token file, tight letter-spacing from 20px up:
 
 - **Counts, timers, durations always use `tabularNums`**
   (`fontVariant: ["tabular-nums"]`) so digits don't jitter; long-form timers
-  use Geist Mono.
-- `typography.mono.*` (Geist Mono) for stream keys, ingest URLs, diagnostics.
+  use Ioskeley Mono.
+- `typography.mono.*` (Ioskeley Mono) for stream keys, ingest URLs, diagnostics.
 - `typography.ios` / `typography.android` / fontFamily keys outside
   regular/medium/semiBold are **deprecated remaps** — do not use in new code.
 

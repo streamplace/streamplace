@@ -140,7 +140,7 @@ export interface Theme {
     // Ink & Paper — the monochrome high-contrast pole, theme-adaptive.
     // `inverse` is the primary-button fill (Paper on dark, Ink on light);
     // `inverseForeground` is the text/icon on it. Contrast, not hue, carries
-    // primary emphasis — indigo is reserved for state (see `accent`/`primary`).
+    // primary emphasis — pink is reserved for state (see `accent`/`primary`).
     inverse: string;
     inverseForeground: string;
   };
@@ -398,26 +398,36 @@ function generateThemeColorsFromPalette(
     popoverForeground: text[1],
 
     // One accent, used sparingly. (No per-platform accent split — the
-    // product looks the same everywhere.)
+    // product looks the same everywhere.) Pink/magenta, aligned with the
+    // web app's `--primary`.
     primary: colors.primary[500],
-    primaryForeground: colors.white,
+    primaryForeground: isDark ? "#ece5f2" : "#fdf6fa",
 
+    // Teal, aligned with the web app's `--secondary`.
     secondary: isDefaultPalette
-      ? surface[2]
+      ? colors.secondary[500]
       : isDark
         ? palette[800]
         : palette[100],
-    secondaryForeground: text[1],
+    secondaryForeground: isDark ? "#09060d" : "#fdf6fa",
 
-    muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
+    muted: isDefaultPalette
+      ? isDark
+        ? "#231e23"
+        : "#f5e8f0"
+      : isDark
+        ? palette[800]
+        : palette[100],
     mutedForeground: text[2],
 
     accent: isDefaultPalette
-      ? surface[2]
+      ? isDark
+        ? colors.secondary[500]
+        : "#f5e8f0"
       : isDark
         ? palette[800]
         : palette[100],
-    accentForeground: text[1],
+    accentForeground: isDark ? "#070707" : "#3d1c44",
 
     destructive: status.danger,
     destructiveForeground: colors.white,
@@ -428,7 +438,9 @@ function generateThemeColorsFromPalette(
     warning: status.warning,
     warningForeground: isDark ? surfaces.dark[0] : colors.white,
 
-    info: colors.primary[isDark ? 400 : 600],
+    // Info is a blue, distinct from the pink primary. Aligned with the web's
+    // `--color-info` (chart-3); the light value reads on dark, the dark on light.
+    info: isDark ? "#88c0f9" : "#335b83",
     infoForeground: text[1],
 
     border: border.default,

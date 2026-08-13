@@ -10,7 +10,7 @@ import { Badge, LiveBadge } from "../ui/badge";
 
 const { r, borders, px, py, text, layout, gap } = zero;
 
-// A single console readout — uppercase micro-label over a GeistMono value.
+// A single console readout — uppercase micro-label over an Ioskeley Mono value.
 function MetaReadout({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ gap: 2 }}>

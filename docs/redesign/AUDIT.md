@@ -129,3 +129,9 @@ system.
 
 Decisions locked with the user: typeface = **Geist** (Sans + Mono, 400/500/600
 only); accent = **Linear-style indigo** (~#5E6AD2); red reserved for LIVE.
+
+> Later revision: the accent was realigned to the web app's palette
+> (`js/web/src/styles.css`) — pink/magenta `#e955c2` primary, teal `#1abbc0`
+> secondary, and the typeface was realigned to the web's
+> **Atkinson Hyperlegible Next** (sans) + **Ioskeley Mono** (mono). See
+> `DESIGN-SYSTEM.md` for the current values.

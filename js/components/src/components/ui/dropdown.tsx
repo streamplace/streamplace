@@ -422,7 +422,7 @@ export const DropdownMenuItem = forwardRef<
     // Highlight the row on hover and on keyboard focus. Radix moves DOM focus to
     // whichever item the pointer is over (roving focus), so a single `active`
     // flag covers both mouse and keyboard, and the surface fill replaces the
-    // global :focus-visible outline that would otherwise draw an indigo ring.
+    // global :focus-visible outline that would otherwise draw a pink ring.
     const [active, setActive] = React.useState(false);
     const highlight = active && !disabled && !noHighlight;
     return (

@@ -458,7 +458,7 @@ export function ChatBox({
                       }
                     : inputFocused
                       ? {
-                          // Match every other field: focus lights the indigo
+                          // Match every other field: focus lights the pink
                           // ring, not a loud white border.
                           borderColor: theme.colors.ring,
                           outline: "none",

@@ -27,7 +27,7 @@ import {
   useProfileCardData,
 } from "./user-profile-card";
 
-// Deterministic per-user color, clamped for contrast against the near-black
+// Deterministic per-user color, clamped for contrast against the dark
 // chat surface: colors that are too dark get mixed toward white until they
 // clear a minimum luminance. Same input always yields the same output.
 const MIN_LUMA = 110; // 0-255 relative luminance floor

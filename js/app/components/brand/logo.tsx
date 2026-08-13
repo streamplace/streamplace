@@ -60,15 +60,14 @@ export const MARK_WITH_HOLE = `${TILE_PATH} ${UPPER_HOLE} ${LOWER_HOLE}`;
 
 // Standalone SVG source for the "copy as SVG" brand menu. Mono ink by default
 // (reads on light surfaces / code editors); mirrors js/app/public/brand/*.svg.
-// token-ok: SVG export ink, mirrors public/brand/*.svg
-export function markSvgString(color = "#0A0A0B") {
-  // token-ok
+const BRAND_SVG_INK = "#0A0A0B"; // token-ok: brand SVG ink, mirrors public/brand/*.svg
+
+export function markSvgString(color = BRAND_SVG_INK) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${color}" fill-rule="evenodd" d="${MARK_WITH_HOLE}"/></svg>`;
 }
 
-export function wordmarkSvgString(color = "#0A0A0B") {
-  // token-ok
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96"><text x="0" y="68" fill="${color}" font-family="Geist, Inter, Arial, sans-serif" font-size="72" font-weight="600" letter-spacing="-1.44">stream.place</text></svg>`;
+export function wordmarkSvgString(color = BRAND_SVG_INK) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 96"><text x="0" y="68" fill="${color}" font-family="Atkinson Hyperlegible Next, Inter, Arial, sans-serif" font-size="72" font-weight="600" letter-spacing="-1.44">stream.place</text></svg>`;
 }
 
 function MarkPath({ color }: { color: string }) {
@@ -84,7 +83,7 @@ export function LogoMark({
 }) {
   const { theme } = useTheme();
   // Monochrome brand: the mark defaults to the ink/paper text color and
-  // matches the wordmark exactly. Indigo is a secondary accent, never the
+  // matches the wordmark exactly. Pink is an interface accent, never the
   // mark's own color — pass `color` explicitly for the rare colored variant.
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -106,8 +105,8 @@ export function LogoTile({
   background?: string;
   foreground?: string;
 }) {
-  // Mono brand: a near-black tile with the paper-white S. A faint hairline
-  // keeps the dark tile legible on near-black surfaces. Indigo lives in the
+  // Mono brand: a dark tile with the paper-white S. A faint hairline
+  // keeps the dark tile legible on dark surfaces. Pink lives in the
   // running UI (buttons, links, focus) — never in the brand mark itself.
   const squircle =
     "M 0 16 C 0 4 4 0 16 0 C 28 0 32 4 32 16 C 32 28 28 32 16 32 C 4 32 0 28 0 16 Z";

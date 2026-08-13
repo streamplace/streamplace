@@ -127,7 +127,7 @@ export function PopoutChatInner({ params }: { params: ChatPopoutParams }) {
             ]}
           >
             <Text>Log in or sign up to chat</Text>
-            <ArrowRight color="#fff" size={20} />
+            <ArrowRight color={tokens.colors.white} size={20} />
           </Pressable>
         ))}
     </View>

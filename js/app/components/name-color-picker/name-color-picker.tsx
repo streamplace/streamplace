@@ -31,7 +31,7 @@ import { place } from "streamplace";
 function parseRgbString(rgbString: string): place.stream.chat.profile.Color {
   if (
     !rgbString ||
-    (!rgbString.startsWith("rgb(") && !rgbString.startsWith("rgba("))
+    (!rgbString.startsWith("rgb(") && !rgbString.startsWith("rgba(")) // token-ok: rgb() string parsing
   ) {
     throw new Error("Invalid color string (not rgb or rgba)");
   }
@@ -53,7 +53,7 @@ function parseRgbString(rgbString: string): place.stream.chat.profile.Color {
 export function useNameColorPicker() {
   const { theme } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
-  const [tempColor, setTempColor] = useState("#bd6e86");
+  const [tempColor, setTempColor] = useState("#bd6e86"); // token-ok: default name color
   const createChatProfileRecord = useStore(
     (state) => state.createChatProfileRecord,
   );
@@ -65,8 +65,8 @@ export function useNameColorPicker() {
   const isWeb = Platform.OS === "web";
 
   const currentColor = chatProfile?.profile?.color
-    ? `rgb(${chatProfile.profile.color.red}, ${chatProfile.profile.color.green}, ${chatProfile.profile.color.blue})`
-    : "#bd6e86";
+    ? `rgb(${chatProfile.profile.color.red}, ${chatProfile.profile.color.green}, ${chatProfile.profile.color.blue})` // token-ok: dynamic name color
+    : "#bd6e86"; // token-ok: default name color
 
   useEffect(() => {
     if (profile?.did && !chatProfile?.profile) {

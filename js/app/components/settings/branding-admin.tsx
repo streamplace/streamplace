@@ -504,7 +504,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentPrimaryColor?.data || "#6366f1",
+                        value: currentPrimaryColor?.data || "#6366f1", // token-ok: branding default
                       })}
                     </Text>
                     <View
@@ -538,7 +538,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentAccentColor?.data || "#8b5cf6",
+                        value: currentAccentColor?.data || "#8b5cf6", // token-ok: branding default
                       })}
                     </Text>
                     <View

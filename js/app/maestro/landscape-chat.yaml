@@ -1,0 +1,9 @@
+# Opens the first live stream in landscape (device rotated) and captures the
+# chat side panel — used to verify the panel layout on phones.
+appId: tv.aquareum.dev
+---
+- launchApp
+- tapOn:
+    text: "LIVE, .*"
+    index: 0
+- takeScreenshot: 01-landscape-chat

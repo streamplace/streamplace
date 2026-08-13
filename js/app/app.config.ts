@@ -213,13 +213,13 @@ export default function () {
           "expo-font",
           {
             fonts: [
-              "./assets/fonts/Geist-Regular.ttf",
-              "./assets/fonts/Geist-Medium.ttf",
-              "./assets/fonts/Geist-SemiBold.ttf",
+              "./assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf",
+              "./assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf",
+              "./assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf",
 
-              "./assets/fonts/GeistMono-Regular.ttf",
-              "./assets/fonts/GeistMono-Medium.ttf",
-              "./assets/fonts/GeistMono-SemiBold.ttf",
+              "./assets/fonts/IoskeleyMono-Regular.ttf",
+              "./assets/fonts/IoskeleyMono-Medium.ttf",
+              "./assets/fonts/IoskeleyMono-SemiBold.ttf",
             ],
           },
         ],

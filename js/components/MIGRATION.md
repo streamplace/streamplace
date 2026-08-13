@@ -6,17 +6,19 @@ lists everything a downstream consumer might notice.
 
 ## Typeface
 
-- **Atkinson Hyperlegible → Geist / Geist Mono.** Apps embedding the
-  components must load `Geist-Regular/Medium/SemiBold` and
-  `GeistMono-Regular/Medium/SemiBold` (see
+- **Geist / Geist Mono → Atkinson Hyperlegible Next / Ioskeley Mono.** Apps
+  embedding the components must load
+  `AtkinsonHyperlegibleNext-Regular/Medium/SemiBold` and
+  `IoskeleyMono-Regular/Medium/SemiBold` (see
   `js/app/components/provider/provider.shared.tsx` for the expo-font map).
-  The old `AtkinsonHyperlegible*` families are no longer referenced.
+  Static weights only — the app does not load variable fonts.
 - `fontFamilies.light/extraLight` now alias `regular`; `bold/extraBold`
   alias `semiBold`. The design system uses weights 400/500/600 only.
 
 ## Tokens
 
-- `colors.primary` ramp is now indigo (`#5e6ad2` at 500), replacing blue.
+- `colors.primary` ramp is now pink (`#e955c2` at 500), aligned with the web
+  app's `--primary`; `colors.secondary` is a teal ramp (`#1abbc0` at 500).
   `theme.colors.primary`/`ring` no longer use iOS systemBlue on iOS — one
   accent everywhere. Broadcaster branding overrides still apply.
 - New `theme.colors` keys: `surface0–3`, `surfaceHover`, `text1–4`,

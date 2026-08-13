@@ -1663,7 +1663,7 @@ export function UploadVideoScreen({ route }: { route: any }) {
                 <MenuLabel>Actions</MenuLabel>
                 <MenuGroup>
                   <View style={[zero.px[3], zero.py[2], { gap: 8 }]}>
-                    {/* Publish is the primary action (indigo); Save Draft is a
+                    {/* Publish is the primary action (pink); Save Draft is a
                         quieter secondary so the hierarchy reads at a glance. */}
                     <Button
                       variant={

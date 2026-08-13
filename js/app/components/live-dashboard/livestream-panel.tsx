@@ -867,7 +867,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
             },
           ]}
         >
-          {/* Hero action → Paper (system primary), not indigo. */}
+          {/* Hero action → Paper (system primary), not pink. */}
           <Button
             disabled={disabled}
             onPress={handleSubmit}

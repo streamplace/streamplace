@@ -521,7 +521,10 @@ export default function BrandScreen() {
           </Text>
         </Section>
 
-        <Section title="Typography" kicker="Geist, one family">
+        <Section
+          title="Typography"
+          kicker="Atkinson Hyperlegible Next + Ioskeley Mono"
+        >
           <View
             style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[4] }}
           >
@@ -545,7 +548,7 @@ export default function BrandScreen() {
                     fontFamily: fontFamilies.monoMedium,
                   }}
                 >
-                  Geist
+                  Atkinson Hyperlegible Next
                 </Text>
               </View>
             </Panel>
@@ -621,41 +624,46 @@ export default function BrandScreen() {
                   fontFamily: fontFamilies.monoMedium,
                 }}
               >
-                Geist Mono
+                Ioskeley Mono
               </Text>
             </View>
           </Panel>
 
           <Text size="sm" color="muted" style={{ maxWidth: 760 }}>
-            One typeface carries the whole system. Geist — a clean, contemporary
-            grotesque — in just three weights: Regular for text, Medium for
-            interface, SemiBold for headings and the wordmark. Its monospace
-            companion, Geist Mono, is reserved for the technical register:
-            stream keys, code, and the small labels above each section here.
+            Atkinson Hyperlegible Next carries the system in three weights:
+            Regular for text, Medium for interface, SemiBold for headings and
+            the wordmark. Its companion, Ioskeley Mono, is reserved for the
+            technical register: stream keys, code, and the small labels above
+            each section here.
           </Text>
           <Text size="sm" color="muted" style={{ maxWidth: 760 }}>
-            Geist is free and open source under the SIL Open Font License,
-            designed by{" "}
+            Atkinson Hyperlegible Next and Ioskeley Mono are free and open
+            source under the SIL Open Font License. Atkinson Hyperlegible Next
+            is by the{" "}
             <Text
               size="sm"
-              onPress={() => Linking.openURL("https://basement.studio")}
+              onPress={() =>
+                Linking.openURL(
+                  "https://github.com/googlefonts/atkinson-hyperlegible-next",
+                )
+              }
               style={{ color: theme.colors.primary }}
             >
-              basement.studio
+              Atkinson Hyperlegible Next project
             </Text>
-            .
+            ; Ioskeley Mono is derived from Iosevka.
           </Text>
         </Section>
 
         <Section title="Color" kicker="Mono brand, one accent">
           <Text size="sm" color="muted" style={{ maxWidth: 760 }}>
-            The brand is monochrome — ink and paper carry the identity. Indigo
-            is a secondary accent reserved for interface state (links, focus,
-            active nav, selected items) — not button fills, and never the mark.
-            Red signals state, not decoration: a filled red dot is on-air, and
-            that hero use stays reserved; destructive and error states borrow
-            red as ink (outline, text, icon) so a glance still separates "live"
-            from "careful." Red never becomes a brand or accent color.
+            The brand is monochrome — ink and paper carry the identity. Pink is
+            the interface accent reserved for state (links, focus, active nav,
+            selected items) — not button fills, and never the mark. Red signals
+            state, not decoration: a filled red dot is on-air, and that hero use
+            stays reserved; destructive and error states borrow red as ink
+            (outline, text, icon) so a glance still separates "live" from
+            "careful." Red never becomes a brand or accent color.
           </Text>
           <View style={{ gap: spacing[4], maxWidth: 760 }}>
             <Swatch
@@ -669,9 +677,9 @@ export default function BrandScreen() {
               note="Brand on dark — the reverse mark and type"
             />
             <Swatch
-              name="Indigo"
-              value={colors.primary[500]}
-              note="Secondary accent — interface only, never the mark"
+              name="Pink"
+              value={colors.primary[500] /* token-ok: default accent swatch */}
+              note="Interface accent — links, focus, active states; never the mark"
             />
             <Swatch
               name="Live red"
@@ -709,9 +717,9 @@ export default function BrandScreen() {
             Emphasis comes from contrast, not hue — the way ink and paper carry
             the mark. The single most important action per view is Paper
             (near-white on dark, ink on light): the highest-contrast element on
-            screen. Everything else steps down in weight. Indigo stays off
-            button fills so it keeps its meaning as a state color; live red is
-            never a button.
+            screen. Everything else steps down in weight. Pink stays off button
+            fills so it keeps its meaning as a state color; live red is never a
+            button.
           </Text>
           <View
             style={{
@@ -743,7 +751,7 @@ export default function BrandScreen() {
               </Button>
             </ButtonSpec>
             <ButtonSpec
-              label="Accent · Indigo"
+              label="Accent · Pink"
               note="Reserved. Rare, opt-in brand moment."
             >
               <Button variant="accent" width="min">
@@ -761,8 +769,8 @@ export default function BrandScreen() {
               reads by contrast alone.
             </Rule>
             <Rule ok>
-              Reserve the indigo accent variant for a deliberate brand moment,
-              not routine primaries.
+              Reserve the pink accent variant for a deliberate brand moment, not
+              routine primaries.
             </Rule>
             <Rule ok={false}>
               Don't fill a button with solid red — a red fill reads as on-air.
@@ -794,7 +802,7 @@ export default function BrandScreen() {
               and badges.
             </Rule>
             <Rule ok>
-              Keep the mark monochrome: ink or paper. Indigo is an interface
+              Keep the mark monochrome: ink or paper. Pink is an interface
               accent, never a mark color.
             </Rule>
             <Rule ok={false}>

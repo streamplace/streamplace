@@ -24,8 +24,8 @@ import { TextPrimitive } from "./primitives/text";
 //   secondary→ tonal raised surface
 //   ghost    → transparent until hover
 //   danger   → red ink (outline), never a fill, so it can't fight LIVE red
-//   accent   → the reserved indigo fill; opt-in escape hatch, use sparingly
-// Indigo otherwise lives on state (active nav/tab, selected chips, links,
+//   accent   → the reserved pink fill; opt-in escape hatch, use sparingly
+// Pink otherwise lives on state (active nav/tab, selected chips, links,
 // focus rings), not on button fills. The remaining keys are deprecated aliases
 // kept for compatibility (see MIGRATION.md).
 const buttonVariants = cva("", {
@@ -112,7 +112,7 @@ export interface ButtonProps
  * | `secondary` | tonal raised surface     | supporting actions beside a primary — Cancel, Save draft, filters. The default for most buttons. |
  * | `ghost`     | transparent until hover  | low-stakes or repeated actions, or buttons inside dense UI (toolbars, list rows). |
  * | `danger`    | red ink outline, no fill | destructive actions — Delete, End livestream. Ink (not a fill) so it can't fight the reserved LIVE red. |
- * | `accent`    | reserved indigo fill     | a deliberate brand moment, used sparingly. Indigo otherwise means *state*, not actions. |
+ * | `accent`    | reserved pink fill       | a deliberate brand moment, used sparingly. Pink otherwise means *state*, not actions. |
  *
  * `size`: sm · md (default) · lg.  `width`: "full" (default) · "min" · number.
  * Every button is a fully rounded pill — the app's button shape. (Square
@@ -142,7 +142,7 @@ export const Button = forwardRef<any, ButtonProps>(
     const { theme, icons } = useTheme();
     const v = canonicalVariant(variant);
 
-    // Variant styles: emphasis from contrast, indigo reserved for state.
+    // Variant styles: emphasis from contrast, pink reserved for state.
     const variantStyles = useMemo(() => {
       const c = theme.colors;
       switch (v) {
@@ -181,7 +181,7 @@ export const Button = forwardRef<any, ButtonProps>(
             text: c.danger,
           };
         case "accent":
-          // Reserved indigo fill. Opt-in only, for a deliberate brand moment.
+          // Reserved pink fill. Opt-in only, for a deliberate brand moment.
           return {
             base: { backgroundColor: c.primary, borderWidth: 0 },
             hover: { opacity: 0.9 },

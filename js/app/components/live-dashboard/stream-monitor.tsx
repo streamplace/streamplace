@@ -51,7 +51,7 @@ function PreviewOverlay() {
       }}
     >
       <View style={{ margin: 16, gap: 8, alignItems: "flex-start" }}>
-        {/* Refined status pill — matches the connection HUD grammar. Indigo
+        {/* Refined status pill — matches the connection HUD grammar. Pink
             (accent, not live-red) says "previewing, ready" rather than "on air". */}
         <View
           style={{

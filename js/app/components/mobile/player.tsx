@@ -115,34 +115,6 @@ function PlayerWithProvider(
     !shouldShowChatSidePanel &&
     !props.ingest &&
     props.mode !== "vod";
-  // TODO(debug): remove once the portrait->landscape height bug is fixed.
-  useEffect(() => {
-    console.log("player orientation", {
-      screenWidth,
-      screenHeight,
-      isPortrait,
-      isPortraitLandscapeCase,
-      shouldShowChatSidePanel,
-      chatVisible,
-      currentOrientation,
-      safeLeft,
-      safeRight,
-      videoPadLeft,
-      videoPadRight,
-    });
-  }, [
-    screenWidth,
-    screenHeight,
-    isPortrait,
-    isPortraitLandscapeCase,
-    shouldShowChatSidePanel,
-    chatVisible,
-    currentOrientation,
-    safeLeft,
-    safeRight,
-    videoPadLeft,
-    videoPadRight,
-  ]);
   const videoBoxHeight = isPortraitLandscapeCase
     ? Math.round((screenWidth * segDims.height) / segDims.width)
     : undefined;
@@ -319,9 +291,6 @@ function PlayerWithProvider(
               width: "100%",
               height: "100%",
             }}
-            onLayout={(e) =>
-              console.log("player outer layout", e.nativeEvent.layout)
-            }
           >
             <Reanimated.View
               style={[
@@ -330,9 +299,6 @@ function PlayerWithProvider(
                   : { flex: 1 },
                 chromeBandStyle,
               ]}
-              onLayout={(e) =>
-                console.log("player band layout", e.nativeEvent.layout)
-              }
             >
               <View
                 style={
@@ -346,9 +312,6 @@ function PlayerWithProvider(
                         paddingLeft: videoPadLeft,
                         paddingRight: videoPadRight,
                       }
-                }
-                onLayout={(e) =>
-                  console.log("player box layout", e.nativeEvent.layout)
                 }
               >
                 <PlayerInner
@@ -572,12 +535,7 @@ export function PlayerInner(
   // collapse below full height after rotating from portrait to landscape.
   if (props.mode !== "vod" && !showFullDesktopMode) {
     return (
-      <View
-        style={{ flex: 1, maxWidth: calculatedWidth + playerPad * 2 }}
-        onLayout={(e) =>
-          console.log("player surface layout", e.nativeEvent.layout)
-        }
-      >
+      <View style={{ flex: 1, maxWidth: calculatedWidth + playerPad * 2 }}>
         <Reanimated.View
           style={[
             { flex: 1 },

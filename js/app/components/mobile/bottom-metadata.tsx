@@ -401,7 +401,7 @@ function CompactStreamInfo() {
             onPress={() => setExpandedAnimated(!expanded)}
             accessibilityRole="button"
             accessibilityLabel="Stream info"
-            style={{ flexShrink: 1 }}
+            style={{ flex: 1 }}
           >
             <Text
               numberOfLines={1}

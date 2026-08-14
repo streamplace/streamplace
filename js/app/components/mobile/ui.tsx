@@ -220,7 +220,7 @@ export function MobileUi({
                     py[2],
                     layout.flex.row,
                     layout.flex.alignCenter,
-                    gap.all[2],
+                    gap.all[4],
                     w.percent[100],
                   ]}
                 >
@@ -243,7 +243,7 @@ export function MobileUi({
                   >
                     <ChevronLeft color={colors.white} />
                   </Pressable>
-                  <ContentWarningBadge warnings={contentWarnings} />
+                  <ContentWarningBadge warnings={contentWarnings} truncate />
                   <View style={{ flex: 1 }} />
                   <ShareSheet />
                   <PlayerUI.ContextMenu
@@ -522,7 +522,7 @@ function LeftControlsPanel({
         </Pressable>
       )}
       <View>
-        <ContentWarningBadge warnings={contentWarnings} />
+        <ContentWarningBadge warnings={contentWarnings} truncate />
       </View>
     </>
   );

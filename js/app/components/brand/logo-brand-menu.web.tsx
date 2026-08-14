@@ -1,21 +1,19 @@
-import { useNavigation } from "@react-navigation/native";
 import { Text, toast, useTheme } from "@streamplace/components";
 import { shadows } from "@streamplace/components/src/lib/theme/tokens";
 import { BookOpen, Type } from "lucide-react-native";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pressable, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { LogoMark, markSvgString, wordmarkSvgString } from "./logo";
 
 /**
  * Vercel-style right-click menu on the logo: copy the mark or wordmark as SVG,
- * or jump to the brand page. Web only — wraps the logo and opens on contextmenu.
+ * or open the brand page. Web only — wraps the logo and opens on contextmenu.
  */
 export function LogoBrandMenu({ children }: { children: ReactNode }) {
   const anchorRef = useRef<HTMLElement | null>(null);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const { theme } = useTheme();
-  const navigation: any = useNavigation();
 
   // Open at the logo's bottom-left on right-click, suppressing the browser menu.
   useEffect(() => {
@@ -76,10 +74,7 @@ export function LogoBrandMenu({ children }: { children: ReactNode }) {
       icon: <BookOpen size={18} color={theme.colors.text2} />,
       onPress: () => {
         setPos(null);
-        navigation.navigate("MainTabs", {
-          screen: "HomeTab",
-          params: { screen: "Brand" },
-        });
+        Linking.openURL("https://staging.stp.lc/brand");
       },
     },
   ];

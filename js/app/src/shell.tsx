@@ -59,7 +59,6 @@ import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
 import AboutScreen from "src/screens/about";
 import AppReturnScreen from "src/screens/app-return";
-import BrandScreen from "src/screens/brand";
 import PopoutChat from "src/screens/chat-popout";
 import DanmuOBSScreen from "src/screens/danmu-obs";
 import DownloadScreen from "src/screens/download";
@@ -229,11 +228,6 @@ function HomeNavigator() {
           title: "What's Streamplace?",
           ...headerScreenOptions,
         }}
-      />
-      <HomeStack.Screen
-        name="Brand"
-        component={BrandScreen}
-        options={{ title: "Brand Guidelines", ...headerScreenOptions }}
       />
       <HomeStack.Screen
         name="Download"

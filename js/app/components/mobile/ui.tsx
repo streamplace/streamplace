@@ -222,6 +222,7 @@ export function MobileUi({
                     layout.flex.row,
                     layout.flex.alignCenter,
                     py[2],
+                    px[2],
                     gap.all[4],
                     w.percent[100],
                   ]}
@@ -257,8 +258,8 @@ export function MobileUi({
                         layout.flex.row,
                         layout.flex.alignCenter,
                         gap.all[1],
-                        px[2],
-                        py[1],
+                        px[3],
+                        py[2],
                       ]}
                     >
                       <Avatar
@@ -283,25 +284,40 @@ export function MobileUi({
                   )}
                   <ContentWarningBadge warnings={contentWarnings} truncate />
                   <View style={{ flex: 1 }} />
-                  <ShareSheet />
-                  <PlayerUI.ContextMenu
-                    onOpenChat={
-                      streamProfile?.handle ? openChatOnlyMode : undefined
-                    }
-                  />
-                  {shouldShowChatSidePanel && setShowChat && (
-                    <Pressable
-                      onPress={() => {
-                        setShowChat(!showChat);
-                      }}
-                    >
-                      {showChat ? (
-                        <ChevronRight color={colors.white} size={20} />
-                      ) : (
-                        <ChevronLeft color={colors.white} size={20} />
-                      )}
-                    </Pressable>
-                  )}
+                  <View
+                    style={[
+                      {
+                        backgroundColor: scrims.light,
+                        borderRadius: 12,
+                      },
+                      r[2],
+                      layout.flex.row,
+                      layout.flex.alignCenter,
+                      gap.all[4],
+                      px[3],
+                      py[2],
+                    ]}
+                  >
+                    <ShareSheet />
+                    <PlayerUI.ContextMenu
+                      onOpenChat={
+                        streamProfile?.handle ? openChatOnlyMode : undefined
+                      }
+                    />
+                    {shouldShowChatSidePanel && setShowChat && (
+                      <Pressable
+                        onPress={() => {
+                          setShowChat(!showChat);
+                        }}
+                      >
+                        {showChat ? (
+                          <ChevronRight color={colors.white} size={20} />
+                        ) : (
+                          <ChevronLeft color={colors.white} size={20} />
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
                 </SafeAreaView>
               ) : (
                 <SafeAreaView

@@ -4,6 +4,7 @@ import {
   hexToRgba,
   PlayerStatus,
   PlayerUI,
+  ShareSheet,
   Slider,
   Text,
   Toast,
@@ -85,6 +86,7 @@ export function MobileUi({
     setRecordSubmitted,
     toggleGoLive,
     toggleStopStream,
+    profile: streamProfile,
   } = useLivestreamInfo();
   const { width, height } = usePlayerDimensions();
   const { isPlayerRatioGreater } = useSegmentDimensions();
@@ -111,11 +113,20 @@ export function MobileUi({
   const muted = useMuted();
   const setMuted = useSetMuted();
   const ls = useLivestream();
+  const segment = useLivestreamStore((x) => x.segment);
+  const contentWarnings =
+    (segment?.contentWarnings?.warnings as string[]) || [];
 
   const { shouldShowFloatingMetrics, shouldShowChatSidePanel, chatPanelWidth } =
     useResponsiveLayout();
 
   const [showLoading, setShowLoading] = useState(false);
+
+  const openChatOnlyMode = () => {
+    const user = streamProfile?.handle;
+    if (!user) return;
+    navigation.navigate("PopoutChat" as any, { user });
+  };
 
   useEffect(() => {
     if (recordSubmitted) setShowLoading(false);
@@ -198,61 +209,127 @@ export function MobileUi({
           >
             {/* Main UI Overlay */}
             <View style={[h.percent[100], w.percent[100]]}>
-              <SafeAreaView
-                // VOD's container already insets the video below the notch, so
-                // the controls only need the small style padding; live fills
-                // the window and clears the notch with the top edge inset.
-                edges={mode === "vod" ? [] : ["top"]}
-                style={[
-                  px[2],
-                  py[2],
-                  layout.flex.row,
-                  layout.flex.spaceBetween,
-                  w.percent[100],
-                ]}
-              >
-                {/* Left Controls Column */}
-                <View
-                  style={[layout.flex.column, gap.all[2], { maxWidth: "70%" }]}
+              {ingest === null ? (
+                <SafeAreaView
+                  // VOD's container already insets the video below the notch, so
+                  // the controls only need the small style padding; live fills
+                  // the window and clears the notch with the top edge inset.
+                  edges={mode === "vod" ? [] : ["top"]}
+                  style={[
+                    px[2],
+                    py[2],
+                    layout.flex.row,
+                    layout.flex.alignCenter,
+                    gap.all[2],
+                    w.percent[100],
+                  ]}
                 >
-                  <LeftControlsPanel
-                    navigation={navigation}
-                    muted={muted}
-                    setMuted={setMuted}
-                    muteWasForced={muteWasForced}
-                    setMuteWasForced={setMuteWasForced}
+                  <Pressable
+                    onPress={() => {
+                      navigation.canGoBack()
+                        ? navigation.goBack()
+                        : navigation.navigate("MainTabs" as any, {
+                            screen: "HomeTab",
+                          });
+                    }}
+                    style={[
+                      {
+                        padding: 9,
+                        backgroundColor: scrims.light,
+                        borderRadius: 12,
+                      },
+                      r[2],
+                    ]}
+                  >
+                    <ChevronLeft color={colors.white} />
+                  </Pressable>
+                  <ContentWarningBadge warnings={contentWarnings} />
+                  <View style={{ flex: 1 }} />
+                  <ShareSheet />
+                  <PlayerUI.ContextMenu
+                    onOpenChat={
+                      streamProfile?.handle ? openChatOnlyMode : undefined
+                    }
                   />
-                </View>
-
-                {/* Right Controls Column */}
-                <View
-                  style={[layout.flex.row, gap.all[2], layout.flex.align.start]}
-                >
-                  <View>
-                    <View
-                      style={[
-                        {
-                          padding: 9,
-                          backgroundColor: scrims.light,
-                          borderRadius: 12,
-                        },
-                        r[2],
-                      ]}
+                  {shouldShowChatSidePanel && setShowChat && (
+                    <Pressable
+                      onPress={() => {
+                        setShowChat(!showChat);
+                      }}
                     >
-                      <PlayerUI.Viewers />
-                    </View>
+                      {showChat ? (
+                        <ChevronRight color={colors.white} size={20} />
+                      ) : (
+                        <ChevronLeft color={colors.white} size={20} />
+                      )}
+                    </Pressable>
+                  )}
+                </SafeAreaView>
+              ) : (
+                <SafeAreaView
+                  // VOD's container already insets the video below the notch, so
+                  // the controls only need the small style padding; live fills
+                  // the window and clears the notch with the top edge inset.
+                  edges={mode === "vod" ? [] : ["top"]}
+                  style={[
+                    px[2],
+                    py[2],
+                    layout.flex.row,
+                    layout.flex.spaceBetween,
+                    w.percent[100],
+                  ]}
+                >
+                  {/* Left Controls Column */}
+                  <View
+                    style={[
+                      layout.flex.column,
+                      gap.all[2],
+                      { maxWidth: "70%" },
+                    ]}
+                  >
+                    <LeftControlsPanel
+                      navigation={navigation}
+                      muted={muted}
+                      setMuted={setMuted}
+                      muteWasForced={muteWasForced}
+                      setMuteWasForced={setMuteWasForced}
+                    />
                   </View>
 
-                  <RightControlsPanel
-                    ingest={ingest}
-                    doSetIngestCamera={doSetIngestCamera}
-                    shouldShowChatSidePanel={shouldShowChatSidePanel}
-                    isPortrait={!shouldShowChatSidePanel}
-                    showChat={showChat}
-                    setShowChat={setShowChat}
-                  />
-                </View>
-              </SafeAreaView>
+                  {/* Right Controls Column */}
+                  <View
+                    style={[
+                      layout.flex.row,
+                      gap.all[2],
+                      layout.flex.align.start,
+                    ]}
+                  >
+                    <View>
+                      <View
+                        style={[
+                          {
+                            padding: 9,
+                            backgroundColor: scrims.light,
+                            borderRadius: 12,
+                          },
+                          r[2],
+                        ]}
+                      >
+                        <ShareSheet />
+                      </View>
+                    </View>
+
+                    <RightControlsPanel
+                      ingest={ingest}
+                      doSetIngestCamera={doSetIngestCamera}
+                      shouldShowChatSidePanel={shouldShowChatSidePanel}
+                      isPortrait={!shouldShowChatSidePanel}
+                      showChat={showChat}
+                      setShowChat={setShowChat}
+                    />
+                  </View>
+                </SafeAreaView>
+              )}
 
               {shouldShowFloatingMetrics && isSelfAndLive && (
                 <View

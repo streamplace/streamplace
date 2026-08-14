@@ -6,7 +6,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { useStreamplaceStore, zero } from "../../..";
+import { useLivestreamInfo, useStreamplaceStore, zero } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
 import {
@@ -14,6 +14,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuGroup,
   DropdownMenuInfo,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSub,
@@ -24,11 +25,14 @@ import {
   Text,
   useTheme,
 } from "../../ui";
+import { ReportMenuItems } from "./report-menu-items";
 
 export function ContextMenu({
   dropdownPortalContainer,
+  onOpenChat,
 }: {
   dropdownPortalContainer?: string;
+  onOpenChat?: () => void;
 }) {
   const th = useTheme();
   const quality = usePlayerStore((x) => x.selectedRendition);
@@ -39,11 +43,13 @@ export function ContextMenu({
   const liveRenditions = useLivestreamStore((x) => x.renditions);
   const qualities = mode === "vod" ? vodLevels : liveRenditions;
 
+  const livestream = useLivestreamStore((x) => x.livestream);
+  const { profile } = useLivestreamInfo();
+  const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
+  const setReportSubject = usePlayerStore((x) => x.setReportSubject);
+
   const protocol = usePlayerStore((x) => x.protocol);
   const setProtocol = usePlayerStore((x) => x.setProtocol);
-
-  const debugInfo = usePlayerStore((x) => x.showDebugInfo);
-  const setShowDebugInfo = usePlayerStore((x) => x.setShowDebugInfo);
 
   const isDevModeOn = useStreamplaceStore((x) => x.danmuUnlocked);
 
@@ -174,14 +180,19 @@ export function ContextMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         </DropdownMenuGroup>
-        <DropdownMenuGroup title="Advanced">
-          <DropdownMenuCheckboxItem
-            checked={debugInfo}
-            onCheckedChange={() => setShowDebugInfo(!debugInfo)}
-          >
-            <Text>Show Debug Info</Text>
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
+        {onOpenChat && (
+          <DropdownMenuGroup title="View">
+            <DropdownMenuItem closeOnPress={true} onPress={onOpenChat}>
+              <Text>Chat-only mode</Text>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        )}
+        <ReportMenuItems
+          livestream={livestream}
+          profile={profile}
+          setReportModalOpen={setReportModalOpen}
+          setReportSubject={setReportSubject}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -1,4 +1,4 @@
-import { Code, Copy, Link2, Share2 } from "lucide-react-native";
+import { Code, Copy, Link2, Share, Share2 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { Clipboard, Linking, Platform, View } from "react-native";
 import { textAlphas } from "../../lib/theme/tokens";
@@ -115,7 +115,7 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <Share2 color={textAlphas.dark[1]} />
+        <Share size={22} color={textAlphas.dark[1]} />
       </DropdownMenuTrigger>
       <ResponsiveDropdownMenuContent>
         <DropdownMenuGroup title="Share">
@@ -129,14 +129,21 @@ export function ShareSheet({ onShare, target }: ShareSheetProps = {}) {
           </DropdownMenuItem>
           {/* navigator isn't on non-web */}
           {Platform.OS !== "web" || (navigator && (navigator as any).share) ? (
-            <DropdownMenuItem onPress={nativeShare}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-              >
-                <Share2 size={20} color={textAlphas.dark[2]} />
-                <Text>More Options...</Text>
-              </View>
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onPress={nativeShare}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <Share2 size={20} color={textAlphas.dark[2]} />
+                  <Text>More Options...</Text>
+                </View>
+              </DropdownMenuItem>
+            </>
           ) : null}
         </DropdownMenuGroup>
         <DropdownMenuGroup title="Copy">

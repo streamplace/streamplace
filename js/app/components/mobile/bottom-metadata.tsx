@@ -520,16 +520,6 @@ function CompactStreamInfo() {
               ))}
             </ScrollView>
           )}
-          <View
-            style={[
-              layout.flex.row,
-              layout.flex.spaceBetween,
-              layout.flex.alignCenter,
-            ]}
-          >
-            <ShareSheet />
-            <KebabMenu />
-          </View>
           {(contentWarnings.length > 0 ||
             (contentRights && Object.keys(contentRights).length > 0)) && (
             <View>

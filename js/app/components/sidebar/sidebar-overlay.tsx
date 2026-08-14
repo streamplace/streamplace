@@ -11,6 +11,8 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import { BlueskyIcon } from "@streamplace/components/src/components/icons/bluesky-icon";
+import { DiscordIcon } from "@streamplace/components/src/components/icons/discord-icon";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { LogoLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
@@ -27,7 +29,6 @@ import {
   Menu,
   Radio,
   Settings as SettingsIcon,
-  ShieldQuestion,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
@@ -77,6 +78,51 @@ export function SidebarToggle({
             color={hover ? theme.colors.text1 : theme.colors.text2}
           />
         </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function SocialIconButton({
+  icon,
+  label,
+  href,
+}: {
+  icon: React.ComponentType<any>;
+  label: string;
+  href: string;
+}) {
+  const { theme } = useTheme();
+  const [hover, setHover] = useState(false);
+  const Icon = icon;
+  return (
+    <Pressable
+      onPress={(e) => {
+        e.preventDefault();
+        Linking.openURL(href);
+      }}
+      onHoverIn={() => setHover(true)}
+      onHoverOut={() => setHover(false)}
+      accessibilityLabel={label}
+      role="link"
+      // @ts-ignore renders as <a> on web
+      href={href}
+    >
+      <View
+        style={[
+          zero.layout.flex.center,
+          {
+            width: 40,
+            height: 40,
+            borderRadius: theme.borderRadius.md,
+            backgroundColor: hover ? theme.colors.surface1 : "transparent",
+          },
+        ]}
+      >
+        <Icon
+          size={24}
+          color={hover ? theme.colors.text1 : theme.colors.text2}
+        />
       </View>
     </Pressable>
   );
@@ -227,12 +273,6 @@ export function SidebarOverlay() {
       label: "Settings",
       href: "/settings",
       matchPrefix: "/settings",
-    },
-    {
-      icon: ShieldQuestion,
-      label: "What's Streamplace?",
-      href: "/about",
-      hidden: isNative,
     },
     {
       icon: Download,
@@ -420,7 +460,7 @@ export function SidebarOverlay() {
 
       <View style={{ gap: 2 }}>{renderItems(secondaryItems)}</View>
 
-      {/* Docs pinned to the bottom */}
+      {/* Docs and social pinned to the bottom */}
       {isBrowser && (
         <View style={{ marginTop: "auto", gap: 2 }}>
           <SidebarItem
@@ -434,6 +474,45 @@ export function SidebarOverlay() {
               Linking.openURL(u.toString());
             }}
           />
+          {renderSectionHeader("Say Hello?")}
+          {collapsed ? (
+            <View
+              style={[
+                zero.layout.flex.column,
+                zero.layout.flex.alignCenter,
+                { gap: 2 },
+              ]}
+            >
+              <SocialIconButton
+                icon={BlueskyIcon}
+                label="Bluesky"
+                href="https://bsky.app/profile/stream.place"
+              />
+              <SocialIconButton
+                icon={DiscordIcon}
+                label="Discord"
+                href="https://discord.stream.place"
+              />
+            </View>
+          ) : (
+            <View
+              style={[
+                zero.layout.flex.row,
+                { gap: 2, paddingHorizontal: spacing[3] },
+              ]}
+            >
+              <SocialIconButton
+                icon={BlueskyIcon}
+                label="Bluesky"
+                href="https://bsky.app/profile/stream.place"
+              />
+              <SocialIconButton
+                icon={DiscordIcon}
+                label="Discord"
+                href="https://discord.stream.place"
+              />
+            </View>
+          )}
         </View>
       )}
     </Animated.View>

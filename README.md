@@ -26,7 +26,7 @@ Good places to start:
 
 - [Quick start: streaming](https://stream.place/docs/guides/start-streaming/quick-start)
 - [Development setup](https://stream.place/docs/guides/start-contributing/streamplace-dev-setup)
-- [Self-hosting](https://stream.place/docs/guides/installing/installing-streamplace)
+- [Self-hosting](https://stream.place/docs/guides/installing/downloading-streamplace)
 - [API reference](https://stream.place/docs/lex-reference/place-stream-defs)
 
 ## Contributions

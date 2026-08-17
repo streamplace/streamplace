@@ -44,7 +44,7 @@ func hasVideoSlice(data []byte) bool {
 }
 
 // take in a segment and return a bunch of packets suitable for webrtc
-func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
+func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg, preferHeight uint32) (*bus.PacketizedSegment, error) {
 
 	uu, err := uuid.NewV7()
 	if err != nil {
@@ -55,11 +55,8 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 	ctx = log.WithLogValues(ctx, "func", "Packetize", "uuid", uu.String())
 
-	// WebRTC playback needs Opus. From a dual-codec segment select video+Opus
-	// and present it as a flat MP4, so the demux below yields exactly one
-	// (Opus) audio pad for opusparse — no extra AAC pad to strand.
 	if len(seg.Muxl) > 0 {
-		opusM4s, err := filterSegmentToCodec(ctx, seg.Muxl, true)
+		opusM4s, err := filterSegmentToSingleTrack(ctx, seg.Muxl, true, preferHeight)
 		if err != nil {
 			return nil, fmt.Errorf("select opus audio: %w", err)
 		}

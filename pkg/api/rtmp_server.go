@@ -1,4 +1,3 @@
-// Package main contains an example.
 package api
 
 import (
@@ -13,14 +12,10 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"golang.org/x/sync/errgroup"
 	"stream.place/streamplace/pkg/config"
+	"stream.place/streamplace/pkg/constants"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/media"
 )
-
-// This example shows how to:
-// 1. create a RTMP server
-// 2. accept a stream from a reader.
-// 3. broadcast the stream to readers.
 
 var RTMPTimeout = 10 * time.Second
 
@@ -67,21 +62,22 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		return err
 	}
 
-	// eRTMP multitrack (OBS "Multitrack Video"): accept any number of H.264
-	// video tracks, each a rendition of the same content. Session-local track
-	// IDs are assigned in wire order (gortmplib sorts tracks by wire track ID).
-	// Audio stays single-track AAC; other codecs are rejected for now.
+	// eRTMP multitrack (OBS "Multitrack Video") track count
+	// Note that this currently only supports H.264 video and 1 track of AAC audio
 	videoTrackCount := 0
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
 		switch track := track.(type) {
 		case *format.H264:
+			if videoTrackCount >= constants.MaxVideoTracks {
+				log.Log(ctx, "dropping extra H.264 track beyond limit", "track", videoTrackCount, "max", constants.MaxVideoTracks)
+				continue
+			}
 			trackID := uint8(videoTrackCount)
 			videoTrackCount++
 			session.VideoTracks[trackID] = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "track", trackID, "len", len(au), "pts", pts, "dts", dts)
 				session.EventChan <- &media.RTMPH264Data{
 					TrackID: trackID,
 					AU:      au,
@@ -96,7 +92,6 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 			}
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
 				session.EventChan <- &media.RTMPAACData{
 					AU:  au,
 					PTS: pts,
@@ -147,9 +142,9 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		return fmt.Errorf("RTMP session not found for streamer %s", streamer)
 	}
 
-	// Video tracks first, in session track-ID order — gortmplib assigns wire
+	// Video tracks first, in session track-ID order. gortmplib assigns wire
 	// track IDs by slice position, so this keeps relay IDs identical to the
-	// session's (track 0 is written as a legacy tag, 1..N as multitrack).
+	// session's
 	tracks := make([]format.Format, 0, len(session.VideoTracks)+1)
 	for i := 0; i < len(session.VideoTracks); i++ {
 		track, ok := session.VideoTracks[uint8(i)]

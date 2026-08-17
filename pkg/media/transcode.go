@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -178,22 +177,10 @@ func buildAudioTranscodePipeline(target string) (*gst.Pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Repair the passthrough video's timestamps before the muxer. Variable-frame-
-	// rate WHIP capture can emit several frames at one instant (observed: three
-	// frames sharing a PTS, sub-100µs "durations", N/A durations — a capture
-	// artifact ffmpeg tolerates). GStreamer's qtdemux collapses those into buffers
-	// with a zero duration and then no PTS *and* no DTS; mp4mux rejects a PTS-less
-	// buffer ("Buffer has no PTS" → "Could not multiplex stream"), which kills the
-	// whole pipeline — so the stream silently loses its transcoded AAC track for
-	// the rest of its life (observed in prod on a 1080p60 High-profile Opus
-	// stream). The muxed video is only a segmentation clock and is discarded
-	// downstream (finishTranscodedSegment keeps just the transcoded audio), so we
-	// force a valid, strictly increasing PTS: keep the real one where present,
-	// otherwise carry the previous timestamp forward by one step. Keyframes (the
-	// GoP/segment cut points) always carry a real PTS, so segment boundaries — and
-	// the 1:1 source pairing — are preserved; only degenerate intra-GoP frames are
-	// nudged, by at most a few ms within their own GoP.
-	const tsStep = gst.ClockTime(1_000_000) // 1 ms — ≥1 tick at any sane video timescale
+	// qtdemux can emit PTS-less / zero-duration buffers (a VFR capture artifact)
+	// that mp4mux rejects and would kill the pipeline. The muxed video is only a discarded
+	// segmentation clock, so forcing a real, strictly increasing PTS is safe.
+	const tsStep = gst.ClockTime(1_000_000) // 1 ms ~ ≥1 tick at any sane video timescale
 	var lastTS gst.ClockTime
 	haveLast := false
 	vparseSrc := vparse.GetStaticPad("src")
@@ -317,24 +304,6 @@ func maxU32(a, b uint32) uint32 {
 	return b
 }
 
-// concatTracksByID reassembles a bare canonical .m4s from a segment event's
-// per-track bytes in ascending track-id order (the canonical track order) — the
-// inverse of how catalogAndTracks/the segmenter split a segment into ev.Tracks.
-func concatTracksByID(tracks map[string][]byte) []byte {
-	ids := make([]int, 0, len(tracks))
-	for k := range tracks {
-		if n, err := strconv.Atoi(k); err == nil {
-			ids = append(ids, n)
-		}
-	}
-	sort.Ints(ids)
-	var out []byte
-	for _, id := range ids {
-		out = append(out, tracks[strconv.Itoa(id)]...)
-	}
-	return out
-}
-
 // concatTrackAcrossSegments returns one track's bytes concatenated across EVERY
 // segment event in a muxl event stream. catalogAndTracks deliberately returns
 // only the first segment's tracks, so it silently drops data whenever a wrapper
@@ -351,61 +320,93 @@ func concatTrackAcrossSegments(events []*muxl.MuxlEvent, tid uint32) []byte {
 	return out
 }
 
-// filterSegmentToCodec returns a bare canonical .m4s containing every video
-// track plus the single audio track matching the requested codec (Opus when
-// wantOpus, else AAC) — how an output consumer "asks for the audio it needs"
-// from a dual-codec segment. Track bytes are carried verbatim (signatures
-// intact) in ascending track-id order. If no audio matches the requested
-// codec, any one audio track is kept (degraded but playable); with no audio
-// info at all, the segment is returned unchanged.
-func filterSegmentToCodec(ctx context.Context, seg []byte, wantOpus bool) ([]byte, error) {
+// Pick the best video track and optional audio track from a muxl segment. If no
+// addressable video track exists (e.g. a single legacy muxl track, TrackID 0),
+// returns the input unchanged.
+func filterSegmentToSingleTrack(ctx context.Context, seg []byte, wantOpus bool, preferHeight uint32) ([]byte, error) {
 	events, err := unwrapMuxlEvents(ctx, seg)
 	if err != nil {
-		return nil, fmt.Errorf("unwrap segment for codec filter: %w", err)
+		return nil, fmt.Errorf("unwrap segment for single-track filter: %w", err)
 	}
 	cat, tracks := catalogAndTracks(events)
-	if cat == nil {
+	if cat == nil || cat.Video == nil || len(cat.Video.Renditions) == 0 {
 		return seg, nil
 	}
 
-	keep := map[uint32]bool{}
-	if cat.Video != nil {
-		for _, v := range cat.Video.Renditions {
-			keep[v.TrackID()] = true
-		}
+	chosen := selectBestVideoTrackID(cat, preferHeight)
+	if chosen == 0 {
+		return seg, nil
 	}
-	if cat.Audio != nil && len(cat.Audio.Renditions) > 0 {
-		var chosen uint32
-		found := false
-		for _, a := range cat.Audio.Renditions {
-			if (wantOpus && isOpusCodec(a.Codec)) || (!wantOpus && isAACCodec(a.Codec)) {
-				chosen, found = a.TrackID(), true
-				break
-			}
-		}
-		if !found { // no exact codec match — keep some audio rather than none
-			for _, a := range cat.Audio.Renditions {
-				chosen, found = a.TrackID(), true
-				break
-			}
-		}
-		if found {
-			keep[chosen] = true
-		}
+	keep := map[uint32]bool{chosen: true}
+	if audioID := chooseAudioTrackID(cat, wantOpus); audioID != 0 {
+		keep[audioID] = true
 	}
+	return concatTrackBytes(tracks, keep, seg), nil
+}
 
-	ids := make([]uint32, 0, len(keep))
+// filterSegmentForRTMPSource is filterSegmentToSingleTrack for RTMP flvmux
+// egress: one best video track + AAC audio (RTMP wants AAC).
+func filterSegmentForRTMPSource(ctx context.Context, seg []byte, preferHeight uint32) ([]byte, error) {
+	return filterSegmentToSingleTrack(ctx, seg, false, preferHeight)
+}
+
+// selectBestVideoTrackID returns the best video track ID. Returns 0 if no addressable video track exists.
+func selectBestVideoTrackID(cat *muxl.MuxlCatalog, preferHeight uint32) uint32 {
+	bestID := uint32(0)
+	bestPixels := uint64(0)
+	bestWidth := uint32(0)
+	atOrBelowID := uint32(0)
+	atOrBelowHeight := uint32(0)
+	atOrBelowWidth := uint32(0)
+	for _, v := range cat.Video.Renditions {
+		id, w, h := v.TrackID(), v.CodedWidth, v.CodedHeight
+		if id == 0 {
+			continue // muxl catalog kind "legacy" (TrackID 0) has no usable CMAF id
+		}
+		// Top choice: largest coded area (ties broken by width, then lower id).
+		if p := uint64(w) * uint64(h); p > bestPixels || (p == bestPixels && w > bestWidth) || (p == bestPixels && w == bestWidth && id < bestID) {
+			bestID, bestPixels, bestWidth = id, p, w
+		}
+		// Preferred choice: tallest that still fits under preferHeight with same tie-breakers.
+		if preferHeight > 0 && h <= preferHeight && (h > atOrBelowHeight || (h == atOrBelowHeight && w > atOrBelowWidth) || (h == atOrBelowHeight && w == atOrBelowWidth && id < atOrBelowID)) {
+			atOrBelowID, atOrBelowHeight, atOrBelowWidth = id, h, w
+		}
+	}
+	if atOrBelowID != 0 {
+		return atOrBelowID
+	}
+	return bestID
+}
+
+// get the single audio track ID
+func chooseAudioTrackID(cat *muxl.MuxlCatalog, wantOpus bool) uint32 {
+	if cat.Audio == nil || len(cat.Audio.Renditions) == 0 {
+		return 0
+	}
+	for _, a := range cat.Audio.Renditions {
+		if (wantOpus && isOpusCodec(a.Codec)) || (!wantOpus && isAACCodec(a.Codec)) {
+			return a.TrackID()
+		}
+	}
+	for _, a := range cat.Audio.Renditions { // no exact codec match but we want audio
+		return a.TrackID()
+	}
+	return 0
+}
+
+func concatTrackBytes(tracks map[string][]byte, keep map[uint32]bool, seg []byte) []byte {
+	// Filter down to the kept track ids, then reuse the canonical numeric-order
+	// concatenator. Returns seg unchanged if no kept track has bytes.
+	kept := make(map[string][]byte, len(keep))
 	for id := range keep {
-		ids = append(ids, id)
+		key := strconv.FormatUint(uint64(id), 10)
+		if b, ok := tracks[key]; ok {
+			kept[key] = b
+		}
 	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-
-	var out []byte
-	for _, id := range ids {
-		out = append(out, tracks[strconv.FormatUint(uint64(id), 10)]...)
-	}
+	out := concatTracksSorted(kept)
 	if len(out) == 0 {
-		return seg, nil
+		return seg
 	}
-	return out, nil
+	return out
 }

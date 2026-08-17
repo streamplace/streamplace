@@ -105,6 +105,10 @@ const (
 
 const BlueskyProfileGoliveKey = "place.stream.live.golive"
 
+// Reasonable limit of 6 video tracks
+// e.g. 160p, 360p, 480p, 720p, 1080p plus one extra
+const MaxVideoTracks = 6
+
 const QueueMaxSizeBuffers = uint(0)
 const QueueMaxSizeTime = uint(0)
 const QueueMaxSizeBytes = uint(50000000)

@@ -121,7 +121,7 @@ func TestRTMPPushWorkerContainsFailure(t *testing.T) {
 		},
 	}
 
-	err := mm.RTMPPushIsolated(ctx, "did:plc:test", "source", targetView)
+	err := mm.RTMPPushIsolated(ctx, "did:plc:test", "source", targetView, 0)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid target URL scheme",
 		"the worker should reach the pipeline core and reject the bad scheme")

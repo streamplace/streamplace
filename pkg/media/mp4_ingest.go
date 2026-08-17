@@ -68,23 +68,15 @@ func (mm *MediaManager) MP4Ingest(ctx context.Context, input io.Reader, ms Media
 	return <-busErr
 }
 
-// mp4SignerFactory builds the muxl signing element for the probed MP4 track
-// layout: videoTrackCount video pads plus the usual single audio pad. It is
-// called once qtdemux has exposed the stream's tracks — 1 video track for
-// plain pushes, N for eRTMP multitrack (e.g. OBS multitrack via MistServer).
-// The returned done channel closes once the signer has drained all segments.
+// Signs MP4 segments with MUXL data
 type mp4SignerFactory func(videoTrackCount int) (*gst.Element, <-chan struct{}, error)
 
 // matroskaMagic is the EBML header every Matroska/WebM stream opens with.
 var matroskaMagic = []byte{0x1A, 0x45, 0xDF, 0xA3}
 
-// rejectMatroska peeks at the ingest stream and fails fast with a diagnosis if
-// it's Matroska. MKV was this pipeline's previous bridge format, so the most
-// likely stray MKV source is a MistServer still running the legacy MKVExec
-// process config (`streamplace live` POSTing MKV to /live on a restart loop) —
-// without the sniff that just looks like qtdemux dying instantly, over and
-// over, which is a miserable thing to debug. Returns a reader that includes
-// the peeked bytes.
+// Fail fast if input is Matroska (MKV), which is not supported for *MP4* ingest.
+// (MKV was the previous bridge format)
+// Returns a reader that includes the peeked bytes.
 func rejectMatroska(input io.Reader) (io.Reader, error) {
 	br := bufio.NewReader(input)
 	head, err := br.Peek(len(matroskaMagic))
@@ -100,22 +92,6 @@ func rejectMatroska(input io.Reader) (io.Reader, error) {
 	return br, nil
 }
 
-// buildMP4IngestPipeline builds the fMP4 demux graph — one queue2 → h264parse
-// branch per video track, audio → Opus re-encode — linked into a signing
-// element created by makeSigner once probing has established the track count.
-// Shared by the in-process MP4Ingest and the isolated ingest worker, which
-// differ only in where the signing element routes its segments (ValidateMP4
-// vs. a frame writer to the main process).
-//
-// The source is fMP4, not MKV, very much on purpose: MP4 track fragments carry
-// both decode (tfdt/trun) and presentation (ctts) timestamps, so qtdemux hands
-// us the encoder's real DTS. Matroska carries only presentation timestamps, so
-// the old MKV ingest had to *reconstruct* DTS with h264timestamper — which
-// guesses a worst-case full-DPB reorder window for streams whose SPS doesn't
-// declare one (notably VideoToolbox), minting a constant spurious PTS−DTS
-// offset that pushed every GoP's presentation past its segment's declared
-// window and broke WebRTC playback at every keyframe. Real DTS in the
-// container means no reconstruction and no guessing.
 func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4SignerFactory) (pipeline *gst.Pipeline, done <-chan struct{}, err error) {
 	input, err = rejectMatroska(input)
 	if err != nil {
@@ -151,21 +127,14 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 		return nil, nil, err
 	}
 
-	// Probe the track layout: in PAUSED the demux parses the init segment's
-	// moov and exposes one pad per track, then posts no-more-pads. The video
-	// track count decides how many video pads the signing element gets.
-	// Mid-stream pads are left unlinked, which the demuxer's flow combiner
-	// tolerates.
+	// probe track layout, then link branches
 	var padsMu sync.Mutex
 	padNames := []string{}
 	blockProbes := map[*gst.Pad]uint64{}
 	padHandle, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
 		padsMu.Lock()
 		padNames = append(padNames, pad.GetName())
-		// Block media flow on the pad until its branch is linked — otherwise
-		// the demux pushes into an unlinked pad during the probe and queues a
-		// flow error on the bus. Buffers only: caps events still flow, and
-		// no-more-pads still fires once the moov is parsed.
+		// block media flow on the pad until its branch is linked
 		blockProbes[pad] = pad.AddProbe(gst.PadProbeTypeBlock|gst.PadProbeTypeBuffer, func(p *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 			return gst.PadProbeOK
 		})
@@ -189,11 +158,10 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 		return nil, nil, fmt.Errorf("error probing MP4 track layout: %w", err)
 	}
 	// On any error after PAUSED, tear the pipeline down so GStreamer doesn't
-	// hold a live (but stalled) graph in memory. Capture the pipeline in a
-	// local so error returns (which set the named return to nil) don't
-	// prevent cleanup.
+	// hold a live (but stalled) graph in memory.
 	pausedPipeline := pipeline
 	defer func() {
+		// capture so we don't prevent cleanup
 		if err != nil {
 			_ = pausedPipeline.SetState(gst.StateNull)
 		}
@@ -224,6 +192,10 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 	if len(videoPads) == 0 {
 		return nil, nil, fmt.Errorf("no video track found in MP4 stream")
 	}
+	if len(videoPads) > constants.MaxVideoTracks {
+		log.Log(ctx, "dropping extra MP4 video tracks beyond limit", "tracks", len(videoPads), "max", constants.MaxVideoTracks)
+		videoPads = videoPads[:constants.MaxVideoTracks]
+	}
 	if len(videoPads) > 1 {
 		log.Log(ctx, "multitrack MP4 ingest", "videoTracks", len(videoPads))
 	}
@@ -236,6 +208,8 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 		return nil, nil, err
 	}
 
+	// tracks the demux pads we actually link, so we don't get spurious tracks we don't support
+	linkedPads := map[string]bool{}
 	// One demux→signer branch per video track, in track order: demux pad
 	// video_<i> lands on signer pad video_<i>, mirroring the RTMP multitrack
 	// ingest layout.
@@ -243,23 +217,32 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 		if err := linkMP4VideoBranch(pipeline, demux, signerElem, padName, i); err != nil {
 			return nil, nil, err
 		}
+		linkedPads[padName] = true
 	}
-	// A single audio branch, as before — extra audio tracks stay unlinked.
+	// one audio track!
 	if audioPad != "" {
 		if err := linkMP4AudioBranch(pipeline, demux, signerElem, audioPad); err != nil {
 			return nil, nil, err
 		}
+		linkedPads[audioPad] = true
 	}
-	// Every branch is linked; lift the probe-time blocks and let media flow.
+	// lift the block on every branch we actually linked
 	padsMu.Lock()
 	for pad, id := range blockProbes {
-		pad.RemoveProbe(id)
+		if linkedPads[pad.GetName()] {
+			pad.RemoveProbe(id)
+		} else {
+			// pads we don't link get explicitly dropped so we don't block the demux
+			pad.RemoveProbe(id)
+			pad.AddProbe(gst.PadProbeTypeBuffer, func(p *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+				return gst.PadProbeDrop
+			})
+		}
 	}
 	padsMu.Unlock()
 	return pipeline, signerDone, nil
 }
 
-// newQueue2Big creates a Queue2Big (see buildMP4IngestPipeline) as an element.
 func newQueue2Big() (*gst.Element, error) {
 	return gst.NewElementWithProperties("queue2", map[string]any{
 		"max-size-buffers": constants.QueueMaxSizeBuffers,
@@ -268,10 +251,6 @@ func newQueue2Big() (*gst.Element, error) {
 	})
 }
 
-// linkMP4Branch links one qtdemux pad through a queue and a chain of
-// processing elements into a signer sink pad. The caller provides the elements
-// in link order (queue first, then each processing element); the helper handles
-// pipeline.Add, sequential linking, demux pad linking, and state sync.
 func linkMP4Branch(pipeline *gst.Pipeline, demux, signer *gst.Element, demuxPadName, signerPadName string, elements ...*gst.Element) error {
 	signerPad := signer.GetStaticPad(signerPadName)
 	if signerPad == nil {
@@ -299,8 +278,7 @@ func linkMP4Branch(pipeline *gst.Pipeline, demux, signer *gst.Element, demuxPadN
 	if ret := srcPad.Link(elements[0].GetStaticPad("sink")); ret != gst.PadLinkOK {
 		return fmt.Errorf("failed to link %s to %s: %s", demuxPadName, elements[0].GetName(), ret)
 	}
-	// The branch was built while the pipeline sat paused mid-probe; sync it so
-	// it can't lag behind when playback resumes.
+	// sync just in case the pipeline is still paused somehow
 	for _, elem := range elements {
 		if !elem.SyncStateWithParent() {
 			return fmt.Errorf("failed to sync %s state for pad %s", elem.GetName(), demuxPadName)
@@ -309,9 +287,6 @@ func linkMP4Branch(pipeline *gst.Pipeline, demux, signer *gst.Element, demuxPadN
 	return nil
 }
 
-// linkMP4VideoBranch links one qtdemux video pad through queue2 → h264parse
-// into the signer's video_<index> pad. No h264timestamper: fMP4 carries real
-// decode timestamps (see buildMP4IngestPipeline).
 func linkMP4VideoBranch(pipeline *gst.Pipeline, demux, signer *gst.Element, padName string, index int) error {
 	queue, err := newQueue2Big()
 	if err != nil {
@@ -324,8 +299,6 @@ func linkMP4VideoBranch(pipeline *gst.Pipeline, demux, signer *gst.Element, padN
 	return linkMP4Branch(pipeline, demux, signer, padName, fmt.Sprintf("video_%d", index), queue, parse)
 }
 
-// linkMP4AudioBranch links the qtdemux audio pad through
-// queue2 → fdkaacdec → audioresample → opusenc into the signer's audio_0 pad.
 func linkMP4AudioBranch(pipeline *gst.Pipeline, demux, signer *gst.Element, padName string) error {
 	queue, err := newQueue2Big()
 	if err != nil {

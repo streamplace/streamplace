@@ -119,11 +119,15 @@ export function ChatBox({
 
   useEffect(() => {
     if (pdsAgent && userDID) {
-      registerTeleportCommand(pdsAgent, userDID, setActiveTeleportUri, () =>
-        setShowTeleportModal(true),
+      registerTeleportCommand(
+        pdsAgent,
+        userDID,
+        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
+        setActiveTeleportUri,
+        () => setShowTeleportModal(true),
       );
     }
-  }, [pdsAgent, userDID, setActiveTeleportUri]);
+  }, [pdsAgent, userDID, linfo, setActiveTeleportUri]);
 
   const authors = useMemo(() => {
     if (!chat) return null;
@@ -141,11 +145,12 @@ export function ChatBox({
       registerTeleportCommand(
         pdsAgent,
         pdsAgent.did,
+        () => (linfo ? { uri: linfo.uri, cid: linfo.cid } : null),
         setActiveTeleportUri,
         () => setShowTeleportModal(true),
       );
     }
-  }, [pdsAgent, linfo?.author?.did, setActiveTeleportUri]);
+  }, [pdsAgent, linfo, setActiveTeleportUri]);
 
   const handleMentionSelect = (handle: string) => {
     const beforeAt = message.slice(0, message.lastIndexOf("@"));
@@ -177,6 +182,7 @@ export function ChatBox({
       userDID,
       targetHandle,
       countdownSeconds,
+      linfo ? { uri: linfo.uri, cid: linfo.cid } : undefined,
       setActiveTeleportUri,
     );
 

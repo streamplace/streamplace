@@ -19,6 +19,8 @@ func init() {
 // Distribution and rebroadcast policy.
 type MetadataDistributionPolicy struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+	// allowGenAiTraining: Whether this content may be used as training data for generative AI models. Absent means undeclared; Streamplace treats undeclared as false and stamps an explicit value into every minted segment. Covers generative AI only — non-generative machine learning (e.g. moderation, accessibility, speech models) is not governed by this flag.
+	AllowGenAiTraining *bool `json:"allowGenAiTraining,omitempty"`
 	// allowedBroadcasters: List of did:webs of the broadcasters you want to allow to distribute your content. "*" allows anyone. Starting a line with a "!" bans that broadcaster.
 	AllowedBroadcasters []string `json:"allowedBroadcasters,omitempty"`
 	// deleteAfter: Duration in seconds after which segments should be deleted. Each segment will expire N seconds after its creation time. -1 to allow indefinite archival.

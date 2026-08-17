@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,11 +61,21 @@ func TestChatMessage(t *testing.T) {
 	ch := b.Subscribe(user.DID)
 	defer b.Unsubscribe(user.DID, ch)
 
+	// busMessages is appended by the collector goroutine and read by the test
+	// body, so every access goes through busMu -- this test runs under -race.
+	var busMu sync.Mutex
 	busMessages := []bus.Message{}
+	snapshotBus := func() []bus.Message {
+		busMu.Lock()
+		defer busMu.Unlock()
+		return append([]bus.Message(nil), busMessages...)
+	}
 	go func() {
 		for msg := range ch {
 			t.Logf("message: %+v", msg)
+			busMu.Lock()
 			busMessages = append(busMessages, msg)
+			busMu.Unlock()
 		}
 	}()
 
@@ -105,8 +116,8 @@ func TestChatMessage(t *testing.T) {
 		if len(messages) != 2 {
 			return fmt.Errorf("expected 2 messages, got %d", len(messages))
 		}
-		if len(busMessages) != 2 {
-			return fmt.Errorf("expected 2 bus messages, got %d", len(busMessages))
+		if n := len(snapshotBus()); n != 2 {
+			return fmt.Errorf("expected 2 bus messages, got %d", n)
 		}
 		return nil
 	})
@@ -121,7 +132,8 @@ func TestChatMessage(t *testing.T) {
 		}
 		return 0
 	})
-	slices.SortFunc(busMessages, func(a, b bus.Message) int {
+	busSnapshot := snapshotBus()
+	slices.SortFunc(busSnapshot, func(a, b bus.Message) int {
 		aTime := a.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
 		bTime := b.(*placestream.ChatDefs_MessageView).Record.Val.(*placestream.ChatMessage).CreatedAt
 		if aTime < bTime {
@@ -133,8 +145,8 @@ func TestChatMessage(t *testing.T) {
 	})
 	require.Equal(t, msg.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
 	require.Equal(t, msg2.Text, messages[1].Record.Val.(*placestream.ChatMessage).Text)
-	busMessage1 := busMessages[0].(*placestream.ChatDefs_MessageView)
-	busMessage2 := busMessages[1].(*placestream.ChatDefs_MessageView)
+	busMessage1 := busSnapshot[0].(*placestream.ChatDefs_MessageView)
+	busMessage2 := busSnapshot[1].(*placestream.ChatDefs_MessageView)
 	require.Equal(t, msg.Text, busMessage1.Record.Val.(*placestream.ChatMessage).Text)
 	require.Equal(t, msg2.Text, busMessage2.Record.Val.(*placestream.ChatMessage).Text)
 
@@ -156,14 +168,14 @@ func TestChatMessage(t *testing.T) {
 		if len(messages) != 1 {
 			return fmt.Errorf("expected 1 message, got %d", len(messages))
 		}
-		if len(busMessages) != 3 {
-			return fmt.Errorf("expected 3 bus messages, got %d", len(busMessages))
+		if n := len(snapshotBus()); n != 3 {
+			return fmt.Errorf("expected 3 bus messages, got %d", n)
 		}
 		return nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, msg2.Text, messages[0].Record.Val.(*placestream.ChatMessage).Text)
-	busMessage3 := busMessages[2].(*placestream.ChatDefs_MessageView)
+	busMessage3 := snapshotBus()[2].(*placestream.ChatDefs_MessageView)
 	require.Equal(t, true, *busMessage3.Deleted)
 
 	cancel()

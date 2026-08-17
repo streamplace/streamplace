@@ -100,8 +100,10 @@ func (c *VodComment) ToStreamplaceCommentView() (placestream.VodDefs_CommentView
 	return commentView, nil
 }
 
+// CreateVodComment indexes one VOD comment. Like chat messages the table is
+// keyed by record CID, so a conflict is always a redelivery of the same comment.
 func (m *DBModel) CreateVodComment(ctx context.Context, comment *VodComment) error {
-	return m.DB.Create(comment).Error
+	return createOrVerify(ctx, m, comment, map[string]any{"cid": comment.CID})
 }
 
 func (m *DBModel) DeleteVodComment(ctx context.Context, uri string, deletedAt *time.Time) error {

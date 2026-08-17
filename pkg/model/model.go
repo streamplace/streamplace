@@ -36,8 +36,15 @@ type Model interface {
 	GetRepoByHandleOrDID(arg string) (*Repo, error)
 	GetRepoBySigningKey(signingKey string) (*Repo, error)
 	GetAllRepos() ([]Repo, error)
+	CountRepos() (int64, error)
 	SearchReposByHandle(query string, limit int) ([]Repo, error)
 	UpdateRepo(repo *Repo) error
+	UpdateRepoIdentity(did, handle, pds string) error
+	AdvanceRepoBackfill(ctx context.Context, did, version, rootCID, floor string, done bool) (bool, error)
+	AdvanceRepoVersion(ctx context.Context, did, from, to string) (bool, error)
+	MarkRepoForRepair(ctx context.Context, did, from string) (bool, error)
+	SetRepoStatus(ctx context.Context, did string, status string) error
+	TerminalRepoDIDs(ctx context.Context) ([]string, error)
 
 	UpdateSigningKey(key *SigningKey) error
 	GetSigningKey(ctx context.Context, did, repoDID string) (*SigningKey, error)
@@ -104,7 +111,7 @@ type Model interface {
 	UpdateLabelerCursor(did string, cursor int64) error
 
 	GetRelayCursor(host string) (*RelayCursor, error)
-	UpsertRelayCursor(host string, cursor int64) error
+	UpsertRelayCursor(host string, cursor int64, lastEventTime int64) error
 
 	CreateLabel(label *Label) error
 	GetActiveLabels(uri string) ([]*comatproto.LabelDefs_Label, error)
@@ -186,9 +193,19 @@ type Model interface {
 
 // DO NOT UPDATE THIS UNLESS A BREAKING CHANGE IS MADE
 // WHICH ALSO SHOULD NOT HAPPEN
-var DBRevision = 4
+var DBRevision = 5
 
+// MakeDB opens the index with the default connection pool. Callers with a
+// configured pool size (--index-db-connections) use [MakeDBConns].
 func MakeDB(dbURL string) (Model, error) {
+	return MakeDBConns(dbURL, config.DefaultIndexDBConnections)
+}
+
+// MakeDBConns opens the index with a pool of conns sqlite connections.
+// conns <= 0 means the default. conns == 1 deliberately restores the
+// historical single-connection arrangement -- pragmas applied by Exec, default
+// synchronous level -- as the slower-but-safer fallback.
+func MakeDBConns(dbURL string, conns int) (Model, error) {
 	sqliteSuffix := dbURL
 	if dbURL != ":memory:" {
 		// Ensure dbURL exists as a directory on the filesystem
@@ -204,7 +221,42 @@ func MakeDB(dbURL string) (Model, error) {
 		}
 	}
 	log.Log(context.Background(), "starting database", "dbURL", sqliteSuffix)
-	dial := sqlite.Open(sqliteSuffix)
+	// The pragmas ride in the DSN because they are per-connection settings and
+	// this pool has more than one: an Exec would configure whichever connection
+	// happened to serve it and leave the rest at defaults. (That, historically,
+	// is exactly what produced the "database is locked" 500s that forced the
+	// single-connection era: one connection had the busy timeout, the rest had
+	// zero and failed instantly on any collision.)
+	//
+	//   - _busy_timeout: wait for a lock another connection (or the second
+	//     process: `streamplace sync` warming a new index) holds, instead of
+	//     failing the query with SQLITE_BUSY.
+	//   - _journal_mode=WAL: readers run against a snapshot while a writer
+	//     writes. This is what lets a boot-time reindex proceed without
+	//     blocking the requests the node is serving.
+	//   - _synchronous=NORMAL: WAL's standard pairing -- fsync at checkpoints
+	//     rather than every commit. A power loss can cost the tail since the
+	//     last checkpoint, which this index is allowed to lose: everything in
+	//     it is re-derivable from the network, and the sweep re-derives it.
+	//   - _txlock=immediate: explicit transactions take the write lock up
+	//     front instead of upgrading mid-transaction, which is the classic
+	//     multi-connection sqlite deadlock.
+	pool := conns
+	if pool <= 0 {
+		pool = config.DefaultIndexDBConnections
+	}
+	if sqliteSuffix == ":memory:" {
+		// A pool of :memory: connections would each open a PRIVATE empty
+		// database -- with :memory:, one connection IS the database. Tests use
+		// this; they keep the old single-connection arrangement.
+		pool = 1
+	}
+	dsn := sqliteSuffix
+	if pool > 1 {
+		dsn = fmt.Sprintf("file:%s?_busy_timeout=%d&_journal_mode=WAL&_synchronous=NORMAL&_txlock=immediate",
+			sqliteSuffix, SQLiteBusyTimeout.Milliseconds())
+	}
+	dial := sqlite.Open(dsn)
 
 	db, err := gorm.Open(dial, &gorm.Config{
 		SkipDefaultTransaction: true,
@@ -217,6 +269,9 @@ func MakeDB(dbURL string) (Model, error) {
 	err = db.Exec("PRAGMA journal_mode=WAL;").Error
 	if err != nil {
 		return nil, fmt.Errorf("error setting journal mode: %w", err)
+	}
+	if err := SetSQLiteBusyTimeout(db); err != nil {
+		return nil, err
 	}
 
 	err = db.Use(prometheus.New(prometheus.Config{
@@ -232,7 +287,8 @@ func MakeDB(dbURL string) (Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error getting database: %w", err)
 	}
-	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxOpenConns(pool)
+	sqlDB.SetMaxIdleConns(pool)
 	for _, model := range []any{
 		PlayerEvent{},
 		Identity{},
@@ -274,4 +330,31 @@ func MakeDB(dbURL string) (Model, error) {
 		}
 	}
 	return &DBModel{DB: db}, nil
+}
+
+// SQLiteBusyTimeout is how long a sqlite connection waits for a lock another
+// connection holds before giving up with SQLITE_BUSY. That other connection
+// is usually a sibling in this process's own pool (writers serialize on
+// sqlite's write lock; readers never wait under WAL), and occasionally a
+// second process: `streamplace sync` warming a new index revision while the
+// server runs.
+const SQLiteBusyTimeout = 5 * time.Second
+
+// A pool larger than one is what makes WAL worth having: reads run against a
+// snapshot on their own connections while a writer writes, so a boot-time
+// reindex or a busy sweep stops queueing every request behind it. Writes still
+// serialize -- on sqlite's write lock, waiting up to [SQLiteBusyTimeout] -- so
+// the pool size (--index-db-connections, [config.DefaultIndexDBConnections])
+// helps read concurrency only, and modestly: past a handful of connections the
+// single write lock is the ceiling.
+
+// SetSQLiteBusyTimeout applies [SQLiteBusyTimeout] to an open sqlite database.
+// It is a per-connection setting, which is why it is set on the pool rather
+// than being part of the DSN nothing else in here uses.
+func SetSQLiteBusyTimeout(db *gorm.DB) error {
+	ms := SQLiteBusyTimeout.Milliseconds()
+	if err := db.Exec(fmt.Sprintf("PRAGMA busy_timeout = %d;", ms)).Error; err != nil {
+		return fmt.Errorf("error setting busy timeout: %w", err)
+	}
+	return nil
 }

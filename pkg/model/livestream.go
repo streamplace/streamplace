@@ -8,7 +8,6 @@ import (
 
 	glex "github.com/streamplace/glex/runtime"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"stream.place/streamplace/pkg/appbsky"
 	"stream.place/streamplace/pkg/moderation"
 	"stream.place/streamplace/pkg/placestream"
@@ -49,12 +48,12 @@ func (ls *Livestream) ToLivestreamView() (*placestream.Livestream_LivestreamView
 	return &postView, nil
 }
 
+// CreateLivestream upserts a livestream record. It used to overwrite the row on
+// every conflict, which meant a redelivered record -- the same bytes, the same
+// CID -- rewrote the row and re-announced the stream on the bus. Now an
+// unchanged record is a no-op and only a genuinely new version is stored.
 func (m *DBModel) CreateLivestream(ctx context.Context, ls *Livestream) error {
-	// upsert livestream record, actually
-	return m.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "uri"}},
-		DoUpdates: clause.AssignmentColumns([]string{"cid", "created_at", "livestream", "repo_did", "post_cid", "post_uri"}),
-	}).Create(ls).Error
+	return createOrVerify(ctx, m, ls, map[string]any{"uri": ls.URI})
 }
 
 func (m *DBModel) GetLivestream(uri string) (*Livestream, error) {

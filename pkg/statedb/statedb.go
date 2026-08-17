@@ -107,9 +107,8 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 	}
 	if dbType == DBTypeSQLite {
-		err = db.Exec("PRAGMA journal_mode=WAL;").Error
-		if err != nil {
-			return nil, fmt.Errorf("error setting journal mode: %w", err)
+		if err := sqlitePragmas(db); err != nil {
+			return nil, err
 		}
 		sqlDB, err := db.DB()
 		if err != nil {
@@ -149,6 +148,18 @@ func MakeDB(ctx context.Context, cli *config.CLI, noter notificationpkg.Notifier
 		}
 	}
 	return state, nil
+}
+
+// sqlitePragmas applies the two settings a sqlite state database needs: WAL, so
+// readers do not block the writer, and a busy timeout, so a writer in another
+// process (`streamplace sync`, warming a new index) is waited for instead of
+// erroring out. It is a function rather than two lines in MakeDB because
+// MakeDB's `model` parameter shadows the package the timeout lives in.
+func sqlitePragmas(db *gorm.DB) error {
+	if err := db.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
+		return fmt.Errorf("error setting journal mode: %w", err)
+	}
+	return model.SetSQLiteBusyTimeout(db)
 }
 
 func openDB(dial gorm.Dialector) (*gorm.DB, error) {

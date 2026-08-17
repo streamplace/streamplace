@@ -26,7 +26,7 @@ func (g *VodGate) ToStreamplaceVodGate() (placestream.VodGate, error) {
 }
 
 func (m *DBModel) CreateVodGate(ctx context.Context, gate *VodGate) error {
-	return m.DB.Create(gate).Error
+	return createOrVerify(ctx, m, gate, map[string]any{"rkey": gate.RKey})
 }
 
 func (m *DBModel) GetVodGate(ctx context.Context, rkey string) (*VodGate, error) {

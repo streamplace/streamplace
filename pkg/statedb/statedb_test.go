@@ -42,3 +42,20 @@ func WithAllDatabases(t *testing.T, f func(*StatefulDB)) {
 		})
 	}
 }
+
+// TestSQLiteBusyTimeout: the state database is the one two streamplace
+// processes share -- the server, and a `streamplace sync` warming a new index
+// revision -- so a writer that meets the other's lock has to wait rather than
+// fail. The pragma is per-connection, so the only proof it took is asking the
+// connection.
+func TestSQLiteBusyTimeout(t *testing.T) {
+	cli := config.CLI{DBURL: ":memory:"}
+	mod, err := model.MakeDB(":memory:")
+	require.NoError(t, err)
+	state, err := MakeDB(t.Context(), &cli, nil, mod)
+	require.NoError(t, err)
+
+	var timeout int
+	require.NoError(t, state.DB.Raw("PRAGMA busy_timeout").Scan(&timeout).Error)
+	require.Equal(t, int(model.SQLiteBusyTimeout.Milliseconds()), timeout)
+}

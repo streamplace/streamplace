@@ -24,6 +24,20 @@ import (
 	glex "github.com/streamplace/glex/runtime"
 )
 
+// chatLiveWindow is how recently a chat message must have been written to be
+// broadcast to live consumers (the chat websocket, the notification task).
+// Anything older is history -- a deepen window, a backfill, a firehose replay
+// of a span this node missed -- that belongs in the index but not on screen as
+// if it were arriving right now. Generous enough that ordinary client clock
+// skew does not eat a genuinely live message.
+const chatLiveWindow = 2 * time.Minute
+
+// handleCreateUpdate indexes one record. It is called at least once per record
+// -- firehose cursor replay, a backfill walk restarting against a new head, and
+// the same commit arriving from several relays all deliver records we already
+// have -- so every write it makes has to be idempotent, and every side effect
+// (bus fanout, notification tasks) has to be skipped when nothing changed. The
+// model layer signals that with [model.ErrAlreadyIndexed]; see pkg/model/indexed.go.
 func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userDID string, rkey syntax.RecordKey, recCBOR *[]byte, cid string, collection syntax.NSID, isUpdate bool, isFirstSync bool) error {
 	ctx = log.WithLogValues(ctx, "func", "handleCreateUpdate", "userDID", userDID, "rkey", rkey.String(), "cid", cid, "collection", collection.String())
 	now := time.Now()
@@ -73,6 +87,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			CID:        cid,
 		}
 		err := atsync.Model.CreateBlock(ctx, block)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create block: %w", err)
 		}
@@ -104,8 +121,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		go func() {
-			_, err = atsync.SyncBlueskyRepoCached(ctx, rec.Streamer)
-			if err != nil {
+			// Its own err on purpose: assigning the enclosing function's err
+			// from this goroutine races every later use of it.
+			if _, err := atsync.SyncBlueskyRepoCached(ctx, rec.Streamer); err != nil {
 				log.Error(ctx, "failed to sync bluesky repo", "err", err)
 			}
 		}()
@@ -119,10 +137,20 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			log.Debug(ctx, "excluding message from blocked user", "userDID", userDID, "subjectDID", rec.Streamer)
 			return nil
 		}
+		// created is this message's position in chat order, and the client's
+		// own createdAt is trusted only backwards. An honest live message
+		// keeps its stamp; a backfilled message from June lands in June,
+		// instead of at the top of the hydration window just because a walk
+		// indexed it today; and a stamp from the future is clamped to now, so
+		// nobody pins a message to the bottom of a channel by post-dating it.
+		created := now
+		if aqt, err := aqtime.FromString(rec.CreatedAt); err == nil && aqt.Time().Before(now) {
+			created = aqt.Time()
+		}
 		mcm := &model.ChatMessage{
 			CID:             cid,
 			URI:             aturi.String(),
-			CreatedAt:       now,
+			CreatedAt:       created,
 			ChatMessage:     recCBOR,
 			RepoDID:         userDID,
 			Repo:            repo,
@@ -146,8 +174,28 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		err = atsync.Model.CreateChatMessage(ctx, mcm)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			// Already in the index: this is a cursor replay or a re-walk, not a
+			// new message. Publishing it again would show it in chat twice.
+			log.Debug(ctx, "skipping redelivered chat message", "uri", aturi.String())
+			return nil
+		}
 		if err != nil {
 			log.Error(ctx, "failed to create chat message", "err", err)
+			return nil
+		}
+		// Everything below builds the message view for live consumers -- the
+		// chat websocket and the notification task -- and only messages that
+		// are actually live belong there. Both indexing paths deliver
+		// history: walks by construction (backfill, deepen, repair), and the
+		// firehose whenever it replays a span this node missed. Spraying that
+		// at an open chat renders hours of scroll as if it were arriving
+		// right now. The message's own timestamp is the test, rather than
+		// which path carried it, because a brand-new user's first message is
+		// indexed by the very walk that message triggers -- the live event
+		// then finds it already indexed and stays quiet, so a walked-but-
+		// fresh message must still broadcast.
+		if aqt, err := aqtime.FromString(rec.CreatedAt); err != nil || time.Since(aqt.Time()) > chatLiveWindow {
 			return nil
 		}
 		mcm, err = atsync.Model.GetChatMessage(aturi.String())
@@ -178,7 +226,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 
 		go atsync.Bus.Publish(rec.Streamer, scm)
 
-		if !isUpdate && !isFirstSync {
+		if !isUpdate {
 
 			task := &statedb.ChatTask{
 				MessageView: *scm,
@@ -209,6 +257,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Repo:          repo,
 		}
 		err = atsync.Model.CreateGate(ctx, gate)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create gate: %w", err)
 		}
@@ -268,6 +319,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ExpiresAt:     expiresAt,
 		}
 		err = atsync.Model.CreatePinnedRecord(ctx, pin)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create pinned record: %w", err)
 		}
@@ -361,7 +415,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				return fmt.Errorf("livestream url is not a string")
 			}
 			log.Debug(ctx, "livestream url", "url", url)
-			if err := atsync.Model.CreateFeedPost(ctx, &model.FeedPost{
+			err = atsync.Model.CreateFeedPost(ctx, &model.FeedPost{
 				CID:       cid,
 				CreatedAt: createdAt,
 				FeedPost:  recCBOR,
@@ -370,7 +424,8 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				Type:      "livestream",
 				URI:       aturi.String(),
 				IndexedAt: &now,
-			}); err != nil {
+			})
+			if err != nil && !errors.Is(err, model.ErrAlreadyIndexed) {
 				return fmt.Errorf("failed to create bluesky post: %w", err)
 			}
 		} else {
@@ -417,6 +472,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				IndexedAt:        &now,
 			}
 			err = atsync.Model.CreateFeedPost(ctx, fp)
+			if errors.Is(err, model.ErrAlreadyIndexed) {
+				// A reply we already have: the bus already saw it.
+				return nil
+			}
 			if err != nil {
 				log.Error(ctx, "failed to create feed post", "err", err)
 			}
@@ -449,6 +508,11 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			ls.PostURI = rec.Post.Uri
 		}
 		err = atsync.Model.CreateLivestream(ctx, ls)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			// Re-announcing an unchanged livestream would light the red circle
+			// up again and re-queue its finalize task.
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create livestream: %w", err)
 		}
@@ -467,7 +531,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 				// they're live somewhere but they don't have nothin' to do with us
 				return nil
 			}
-			log.Log(ctx, "stream is allowed, queuing finalize task")
+			log.Debug(ctx, "stream is allowed, queuing finalize task")
 			// queue a task to clean up the livestream if it's been inactive for too long
 			task := &statedb.FinalizeLivestreamTask{
 				LivestreamURI: aturi.String(),
@@ -512,10 +576,22 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			TargetDID:       rec.Streamer,
 		}
 		err = atsync.Model.CreateTeleport(ctx, tp)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			// Otherwise every redelivery schedules another arrival notification.
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create teleport: %w", err)
 		}
 		go atsync.Bus.Publish(userDID, rec)
+
+		if isFirstSync {
+			// A backfill reads history, and a teleport out of history has
+			// already happened: announcing it would tell a streamer somebody is
+			// arriving who arrived last year. The record is indexed either way;
+			// only the announcement is a live-only thing.
+			return nil
+		}
 
 		// schedule arrival notification 10 seconds after startsAt
 		arrivalTime := startsAt.Add(10 * time.Second)
@@ -566,6 +642,19 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			}
 
 			atsync.Bus.Publish(rec.Streamer, arrivalMsg)
+
+			// A teleport is our version of a "raid": it sends the source
+			// streamer's viewers to the target. Unlike a raid, though, it
+			// previously left the source stream live — so viewers could just
+			// navigate back. End the source streamer's livestream here (the
+			// same record update place.stream.live.stopLivestream performs,
+			// setting endedAt so the streamer returns to "pre-live"), now
+			// that viewers have been sent over. The exact stream to end is
+			// pinned by the teleport record's `livestream` strongRef, so a
+			// newer stream the streamer may have started in the meantime is
+			// never terminated by mistake. Best-effort: a failure only logs
+			// and never blocks the arrival notification.
+			atsync.endLivestreamForTeleport(ctx, userDID, rec.Livestream)
 		})
 
 	case *placestream.Key:
@@ -634,6 +723,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		log.Debug(ctx, "creating moderation delegation", "streamerDID", userDID, "moderatorDID", rec.Moderator)
 
 		err = atsync.Model.CreateModerationDelegation(ctx, *rec, aturi)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("failed to create moderation delegation: %w", err)
 		}
@@ -865,6 +957,10 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 		}
 
 		err = atsync.Model.CreateVodComment(ctx, vc)
+		if errors.Is(err, model.ErrAlreadyIndexed) {
+			log.Debug(ctx, "skipping redelivered VOD comment", "uri", aturi.String())
+			return nil
+		}
 		if err != nil {
 			log.Error(ctx, "failed to create VOD comment", "err", err)
 			return nil
@@ -947,7 +1043,7 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Repo:          repo,
 		}
 		err = atsync.Model.CreateVodGate(ctx, gate)
-		if err != nil {
+		if err != nil && !errors.Is(err, model.ErrAlreadyIndexed) {
 			return fmt.Errorf("failed to create VOD gate: %w", err)
 		}
 

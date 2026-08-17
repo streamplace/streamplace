@@ -54,6 +54,11 @@ jobs:
       - name: make node
         run: |
           sudo apt install podman -y
+          # Ubuntu 24.04's crun (1.14.1) rejects the OCI spec version newer
+          # podman emits ("unknown version specified", fixed in crun >= 1.14.3),
+          # and the 20260726 runner image update made that pairing fatal.
+          sudo curl -fsSL -o /usr/bin/crun https://github.com/containers/crun/releases/download/1.28/crun-1.28-linux-amd64
+          sudo chmod +x /usr/bin/crun
           make in-container BUILDER_TARGET=builder-no-darwin DOCKER_PWD_MOUNT_PATH=/app DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace" DOCKER_OPTS="-e STREAMPLACE_IGNORE_LEAKS=true -e STREAMPLACE_TEST_COUNT=1 -e CI=true -e GITHUB_ACTION=true" IN_CONTAINER_CMD="${{ matrix.cmd }}"
 
       - name: Publish Test Report

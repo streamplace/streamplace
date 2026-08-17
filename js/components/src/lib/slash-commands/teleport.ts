@@ -25,6 +25,7 @@ export async function createTeleport(
   userDID: string,
   targetHandle: string,
   countdownSeconds: number,
+  livestream?: { uri: string; cid: string } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
 ): Promise<{ success: boolean; error?: string }> {
   if (countdownSeconds < 5 || countdownSeconds > 300) {
@@ -56,13 +57,22 @@ export async function createTeleport(
 
   const startsAt = new Date(Date.now() + countdownSeconds * 1000).toISOString();
 
+  // The `livestream` strongRef is optional: when present it pins the source
+  // stream so the server can end exactly that record on arrival. When absent
+  // (e.g. no active livestream) the teleport still sends viewers over; the
+  // server just won't end a source stream.
+  const record: Record<string, unknown> = {
+    streamer: targetDID,
+    startsAt: startsAt,
+  };
+  if (livestream?.uri && livestream?.cid) {
+    record.livestream = { uri: livestream.uri, cid: livestream.cid };
+  }
+
   try {
     const result = await pdsAgent.client.create(
       place.stream.live.teleport,
-      {
-        streamer: targetDID as any,
-        startsAt: startsAt as any,
-      },
+      record as any,
       { repo: userDID as any },
     );
 
@@ -82,6 +92,7 @@ export async function createTeleport(
 export function registerTeleportCommand(
   pdsAgent: StreamplaceAgent,
   userDID: string,
+  getLivestream?: () => { uri: string; cid: string } | null,
   setActiveTeleportUri?: (uri: string | null) => void,
   onOpenModal?: () => void,
 ) {
@@ -131,6 +142,12 @@ export function registerTeleportCommand(
       countdownSeconds = parsedDuration;
     }
 
+    // The `livestream` strongRef is optional: when present it pins the source
+    // stream so the server can end exactly that record on arrival. When absent
+    // the teleport still sends viewers over; the server just won't end a
+    // source stream.
+    const livestream = getLivestream?.() ?? null;
+
     let targetDID: string;
     try {
       const resolution = await pdsAgent.resolveHandle({
@@ -155,13 +172,18 @@ export function registerTeleportCommand(
       Date.now() + countdownSeconds * 1000,
     ).toISOString();
 
+    const record: Record<string, unknown> = {
+      streamer: targetDID,
+      startsAt: startsAt,
+    };
+    if (livestream?.uri && livestream?.cid) {
+      record.livestream = { uri: livestream.uri, cid: livestream.cid };
+    }
+
     try {
       const result = await pdsAgent.client.create(
         place.stream.live.teleport,
-        {
-          streamer: targetDID as any,
-          startsAt: startsAt as any,
-        },
+        record as any,
         { repo: userDID as any },
       );
 

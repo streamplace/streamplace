@@ -70,6 +70,8 @@ func (s *Server) RegisterHandlersComatproto(e *echo.Echo) error {
 	e.POST("/xrpc/com.atproto.repo.uploadBlob", s.HandleComAtprotoRepoUploadBlob)
 	e.POST("/xrpc/com.atproto.server.createSession", s.HandleComAtprotoServerCreateSession)
 	e.GET("/xrpc/com.atproto.server.describeServer", s.HandleComAtprotoServerDescribeServer)
+	e.GET("/xrpc/com.atproto.sync.getBlocks", s.HandleComAtprotoSyncGetBlocks)
+	e.GET("/xrpc/com.atproto.sync.getLatestCommit", s.HandleComAtprotoSyncGetLatestCommit)
 	e.GET("/xrpc/com.atproto.sync.getRecord", s.HandleComAtprotoSyncGetRecord)
 	e.GET("/xrpc/com.atproto.sync.getRepo", s.HandleComAtprotoSyncGetRepo)
 	e.GET("/xrpc/com.atproto.sync.listRepos", s.HandleComAtprotoSyncListRepos)
@@ -276,6 +278,35 @@ func (s *Server) HandleComAtprotoServerDescribeServer(c echo.Context) error {
 	var handleErr error
 	// func (s *Server) handleComAtprotoServerDescribeServer(ctx context.Context) (*comatproto.ServerDescribeServer_Output, error)
 	out, handleErr = s.handleComAtprotoServerDescribeServer(ctx)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.JSON(200, out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetBlocks")
+	defer span.End()
+	cids := c.QueryParams()["cids"]
+	did := c.QueryParam("did")
+	var out io.Reader
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetBlocks(ctx context.Context,cids []string,did string) (io.Reader, error)
+	out, handleErr = s.handleComAtprotoSyncGetBlocks(ctx, cids, did)
+	if handleErr != nil {
+		return handleErr
+	}
+	return c.Stream(200, "application/octet-stream", out)
+}
+
+func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
+	ctx, span := otel.Tracer("server").Start(c.Request().Context(), "HandleComAtprotoSyncGetLatestCommit")
+	defer span.End()
+	did := c.QueryParam("did")
+	var out *comatproto.SyncGetLatestCommit_Output
+	var handleErr error
+	// func (s *Server) handleComAtprotoSyncGetLatestCommit(ctx context.Context,did string) (*comatproto.SyncGetLatestCommit_Output, error)
+	out, handleErr = s.handleComAtprotoSyncGetLatestCommit(ctx, did)
 	if handleErr != nil {
 		return handleErr
 	}

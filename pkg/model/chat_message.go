@@ -92,8 +92,11 @@ func (m *ChatMessage) ToStreamplaceMessageView() (*placestream.ChatDefs_MessageV
 	return &message, nil
 }
 
+// CreateChatMessage indexes one chat message. The table is keyed by record CID,
+// so every conflict here is a redelivery of a message we already have; an edited
+// message is a different CID and lands as its own row, as it always has.
 func (m *DBModel) CreateChatMessage(ctx context.Context, message *ChatMessage) error {
-	return m.DB.Create(message).Error
+	return createOrVerify(ctx, m, message, map[string]any{"cid": message.CID})
 }
 
 func (m *DBModel) DeleteChatMessage(ctx context.Context, uri string, deletedAt *time.Time) error {

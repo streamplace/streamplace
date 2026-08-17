@@ -170,7 +170,83 @@ type CLI struct {
 	ViewCountAggregateLag       time.Duration
 	VODConcurrency              int
 	MaximumLiveBitrate          int
+	SweepConcurrency            int
+	SweepInterval               time.Duration
+	SweepBootDelay              time.Duration
+	DeepenRate                  int
+	FirehoseReplayWindow        time.Duration
+	IndexDBConnections          int
 }
+
+// DefaultSweepInterval is how often the atproto sweep re-runs when
+// --sweep-interval is unset.
+//
+// The sweep's first pass over a repo that is up to date is a single
+// getLatestCommit, so this is a per-repo request budget: six hours means an
+// indexed account is asked about four times a day, and drift -- a gap in the
+// firehose, a span missed while this node was down -- is found and repaired
+// within that. Any lower buys hours of detection latency for a proportional
+// increase in traffic against every PDS on the network.
+const DefaultSweepInterval = 6 * time.Hour
+
+// DefaultSweepConcurrency is how many PDS hosts the atproto backfill sweep
+// works on at once when --sweep-concurrency is unset or zero.
+//
+// The sweep shards its work by host and gives each host one worker, so this
+// bounds remote servers rather than repos: 32 of them is a few hundred requests
+// per second spread across the whole network, and no more than one walk (5-7
+// requests per second) against any single PDS.
+const DefaultSweepConcurrency = 32
+
+// DefaultDeepenRate is how many history windows a node walks per minute when
+// --deepen-rate is unset.
+//
+// History acquisition is the one part of the sync engine nothing waits for: a
+// repo's recent records are indexed by its shallow sync in seconds, and
+// everything older is a background trickle. Running it flat out is what a node
+// does exactly once -- at boot, where it replays years of every account's chat
+// as fast as the network allows and buries the reconciliation the node actually
+// serves from. So it is paced instead: 60 windows a minute is one window a
+// second across the whole node, which a fresh 20k-repo index's full history
+// (four to five windows a repo, 100k of them) trickles in over roughly a day.
+// Deliberately: nothing is waiting for it. 0 removes the cap entirely, which is
+// what an operator uses to rush an initial build in place; negative means this
+// default.
+const DefaultDeepenRate = 60
+
+// DefaultFirehoseReplayWindow is how stale a stored relay cursor may be before
+// this node stops trying to replay from it and tails the live edge instead.
+//
+// The firehose is a latency optimization, not the sync engine: the sweep's head
+// check asks every repo's host one question and repairs the ones that have
+// drifted, so a gap of hours costs a few thousand cheap requests spread across
+// hundreds of hosts. Replaying that same gap costs the relay a full-rate flood
+// of every commit on the network -- including the overwhelming majority from
+// repos this node has never heard of -- which is how a two-hour-old cursor once
+// buried a node under millions of queued events. Fifteen minutes is long enough
+// to cover an ordinary restart or deploy, where replay genuinely is the cheaper
+// answer, and short enough that anything worse is handed to the mechanism built
+// for it. 0 disables the cap and always replays from the stored cursor.
+const DefaultFirehoseReplayWindow = 15 * time.Minute
+
+// DefaultIndexDBConnections is how many sqlite connections the index database
+// pool holds. See --index-db-connections; 1 is the fallback to the historical
+// single-connection arrangement.
+const DefaultIndexDBConnections = 8
+
+// DefaultSweepBootDelay is how long a warm-index boot holds its first sweep
+// (and the deepener's first scan). An ordinary upgrade-restart's gap is healed
+// by the firehose replaying from the stored cursor, so the boot sweep is
+// insurance, not repair -- it only needs to wait out the restart churn itself:
+// streams reconnecting, the replay catching up, caches warming. Two minutes
+// does that. Deliberately NOT longer: with deepening rate-capped and sweep
+// passes reduced to checks and repairs, the pass is either harmless -- in
+// which case it may as well run while the operator who just deployed is still
+// watching the graphs -- or it is a problem, and a longer delay only schedules
+// the problem for the moment they have stopped looking. A fresh index sweeps
+// immediately regardless, and a cursor too stale to replay kicks its own
+// sweep, so the cases that genuinely need boot-time sweeping keep it.
+const DefaultSweepBootDelay = 2 * time.Minute
 
 // ContentFilters represents the content filtering configuration
 type ContentFilters struct {
@@ -811,6 +887,48 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       2,
 				Destination: &cli.VODConcurrency,
 				Sources:     urfavecli.EnvVars("SP_VOD_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "sweep-concurrency",
+				Usage:       "how many PDS hosts the atproto backfill sweep talks to at once. Work is sharded by host and each host is walked by one worker, so this is a count of remote servers, not of repos; 0 for the default",
+				Value:       DefaultSweepConcurrency,
+				Destination: &cli.SweepConcurrency,
+				Sources:     urfavecli.EnvVars("SP_SWEEP_CONCURRENCY"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "deepen-rate",
+				Usage:       "how many history windows per minute this node walks in the background. History deepening is decoupled from the sweep -- the sweep checks and repairs, this fetches the past -- and nothing on the node waits for it, so it is paced rather than run flat out; 0 removes the cap (an initial build in a hurry), negative for the default",
+				Value:       DefaultDeepenRate,
+				Destination: &cli.DeepenRate,
+				Sources:     urfavecli.EnvVars("SP_DEEPEN_RATE"),
+			},
+			&urfavecli.IntFlag{
+				Name:        "index-db-connections",
+				Usage:       "how many sqlite connections the index database pool holds. More than one lets reads run beside a reindex under WAL; 1 restores the old slower-but-safer single-connection arrangement; 0 for the default",
+				Value:       DefaultIndexDBConnections,
+				Destination: &cli.IndexDBConnections,
+				Sources:     urfavecli.EnvVars("SP_INDEX_DB_CONNECTIONS"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "sweep-boot-delay",
+				Usage:       "how long a node with a warm index waits after boot before its first sweep, so the sweep's reindexing does not compound the busiest minutes of a restart. A fresh (empty) index always sweeps immediately, as does a --no-firehose node (no replay heals its gap), and 0 sweeps immediately in every case",
+				Value:       DefaultSweepBootDelay,
+				Destination: &cli.SweepBootDelay,
+				Sources:     urfavecli.EnvVars("SP_SWEEP_BOOT_DELAY"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "sweep-interval",
+				Usage:       "how often to re-run the atproto sweep, which asks every indexed repo's host whether our copy is still current and repairs the ones that are not. 0 disables re-running; the sweep at startup always happens",
+				Value:       DefaultSweepInterval,
+				Destination: &cli.SweepInterval,
+				Sources:     urfavecli.EnvVars("SP_SWEEP_INTERVAL"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "firehose-replay-window",
+				Usage:       "how old a stored relay cursor may be and still be replayed from on connect. A cursor whose newest event is older than this is discarded and we tail the relay's live edge instead, leaving the gap for the sweep's head check to repair -- which is far cheaper than making the relay re-send every commit on the network. 0 always replays from the stored cursor",
+				Value:       DefaultFirehoseReplayWindow,
+				Destination: &cli.FirehoseReplayWindow,
+				Sources:     urfavecli.EnvVars("SP_FIREHOSE_REPLAY_WINDOW"),
 			},
 			&urfavecli.StringFlag{
 				Name:    "maximum-live-bitrate",

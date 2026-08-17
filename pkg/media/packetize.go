@@ -17,6 +17,32 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
+// hasVideoSlice reports whether byte-stream H264 data contains a VCL NAL
+// (coded slice, nal_unit_type 1–5) — i.e. an actual picture, as opposed to
+// bare parameter sets or SEI metadata.
+func hasVideoSlice(data []byte) bool {
+	for i := 0; i+3 < len(data); i++ {
+		if data[i] != 0 || data[i+1] != 0 {
+			continue
+		}
+		var nalIdx int
+		if data[i+2] == 1 {
+			nalIdx = i + 3
+		} else if data[i+2] == 0 && i+4 < len(data) && data[i+3] == 1 {
+			nalIdx = i + 4
+		} else {
+			continue
+		}
+		if nalIdx < len(data) {
+			if t := data[nalIdx] & 0x1f; t >= 1 && t <= 5 {
+				return true
+			}
+		}
+		i = nalIdx // skip the matched start code (else a 4-byte code re-matches as 3-byte)
+	}
+	return false
+}
+
 // take in a segment and return a bunch of packets suitable for webrtc
 func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.PacketizedSegment, error) {
 
@@ -112,9 +138,21 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("failed to get audio appsink element")
 	}
 
-	videoOutput := [][]byte{}
-	audioOutput := [][]byte{}
+	videoOutput := []rawSample{}
+	audioOutput := []rawSample{}
 	// eosCh := make(chan struct{})
+
+	// Slice-less video data (parameter sets / SEI metadata with no picture)
+	// held back for the next real frame. Streams with embedded closed captions
+	// carry a trailing caption SEI after some frames' slices; when h264parse
+	// re-parses the byte stream it splits that SEI into its own timestamp-less
+	// AU. Sent to WebRTC as a standalone "frame" it breaks strict decoders
+	// (iOS VideoToolbox errors on a picture-less access unit, and with PLI
+	// unanswered the picture stays broken until the next keyframe). Prepending
+	// it to the following frame is where a caption SEI normally lives, so
+	// caption-aware receivers still get it. A remainder at EOS has no frame to
+	// ride with and is dropped.
+	var pendingVideo []byte
 
 	videoappsink := app.SinkFromElement(videoSink)
 	videoappsink.SetCallbacks(&app.SinkCallbacks{
@@ -131,15 +169,16 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 
 			samples := buffer.Bytes()
 
-			videoOutput = append(videoOutput, samples)
+			if !hasVideoSlice(samples) {
+				pendingVideo = append(pendingVideo, samples...)
+				return gst.FlowOK
+			}
+			if pendingVideo != nil {
+				samples = append(pendingVideo, samples...)
+				pendingVideo = nil
+			}
 
-			// clockTime := buffer.Duration()
-			// dur := clockTime.AsDuration()
-			// if dur != nil {
-			// 	log.Log(ctx, "video duration", "duration", *dur)
-			// } else {
-			// 	log.Error(ctx, "no video duration", "samples", len(samples))
-			// }
+			videoOutput = append(videoOutput, newRawSample(samples, buffer))
 
 			return gst.FlowOK
 		},
@@ -167,7 +206,7 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 			samples := buffer.Bytes()
 			// log.Warn(ctx, "audioappsink NewSampleFunc", "sample", len(samples))
 
-			audioOutput = append(audioOutput, samples)
+			audioOutput = append(audioOutput, newRawSample(samples, buffer))
 
 			clockTime := buffer.Duration()
 			dur := clockTime.AsDuration()
@@ -215,9 +254,69 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg) (*bus.Packeti
 		return nil, fmt.Errorf("packetize pipeline error filename=%s, error=%w", seg.Filepath, err)
 	}
 
+	video := finalizeSampleDurations(videoOutput, segDur)
+	// segDur is audio-derived; a video-only segment would report Duration 0,
+	// throwing off the sender's latency bookkeeping (the segment occupies the
+	// sender for its full video span). Fall back to the video timeline.
+	duration := segDur
+	if duration == 0 {
+		for _, s := range video {
+			duration += s.Duration
+		}
+	}
 	return &bus.PacketizedSegment{
-		Video:    videoOutput,
-		Audio:    audioOutput,
-		Duration: segDur,
+		Video:    video,
+		Audio:    finalizeSampleDurations(audioOutput, segDur),
+		Duration: duration,
 	}, nil
+}
+
+// rawSample is a demuxed sample plus the source timing needed to compute its
+// WebRTC duration: its decode timestamp (DTS when the container carries one —
+// decode order is monotonic even with B-frames — else PTS) and the buffer's
+// own duration as a fallback.
+type rawSample struct {
+	data   []byte
+	ts     time.Duration
+	hasTS  bool
+	bufDur time.Duration
+	hasDur bool
+}
+
+func newRawSample(data []byte, buffer *gst.Buffer) rawSample {
+	rs := rawSample{data: data}
+	if ts := buffer.DecodingTimestamp().AsDuration(); ts != nil {
+		rs.ts, rs.hasTS = *ts, true
+	} else if pts := buffer.PresentationTimestamp().AsDuration(); pts != nil {
+		rs.ts, rs.hasTS = *pts, true
+	}
+	if dur := buffer.Duration().AsDuration(); dur != nil {
+		rs.bufDur, rs.hasDur = *dur, true
+	}
+	return rs
+}
+
+// finalizeSampleDurations converts raw buffer timing into the per-sample
+// durations the WebRTC sender stamps and paces by. Each sample lasts until
+// the next sample's timestamp — the source timeline, so non-uniform spacing
+// (an encoder shedding frames under bandwidth pressure) is preserved instead
+// of being respaced evenly. The last sample has no successor: it gets its own
+// buffer duration, stretched to fill out the segment (total) when the track
+// would otherwise end early — a sparse track's final frame must hold until
+// the segment ends or its timeline falls behind the other track's.
+func finalizeSampleDurations(raw []rawSample, total time.Duration) []bus.PacketizedSample {
+	out := make([]bus.PacketizedSample, len(raw))
+	var span time.Duration
+	for i, rs := range raw {
+		dur := rs.bufDur
+		if i+1 < len(raw) && rs.hasTS && raw[i+1].hasTS && raw[i+1].ts > rs.ts {
+			dur = raw[i+1].ts - rs.ts
+		}
+		out[i] = bus.PacketizedSample{Data: rs.data, Duration: dur}
+		span += dur
+	}
+	if len(out) > 0 && total > span {
+		out[len(out)-1].Duration += total - span
+	}
+	return out
 }

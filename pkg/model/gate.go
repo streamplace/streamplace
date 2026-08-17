@@ -26,7 +26,7 @@ func (g *Gate) ToStreamplaceGate() (placestream.ChatGate, error) {
 }
 
 func (m *DBModel) CreateGate(ctx context.Context, gate *Gate) error {
-	return m.DB.Create(gate).Error
+	return createOrVerify(ctx, m, gate, map[string]any{"rkey": gate.RKey})
 }
 
 func (m *DBModel) GetGate(ctx context.Context, rkey string) (*Gate, error) {

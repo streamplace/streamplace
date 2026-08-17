@@ -85,6 +85,7 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 		makeSplitCommand(build),
 		makeLivepeerCommand(build),
 		makeMigrateCommand(build),
+		makeSyncCommand(build),
 	}
 	// Add the verbosity flag
 	// app.Flags = append(app.Flags, &urfavecli.StringFlag{
@@ -194,7 +195,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 
-	mod, err := model.MakeDB(cli.DataFilePath([]string{"index"}))
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
 	if err != nil {
 		return err
 	}
@@ -267,11 +268,6 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Noter:      noter,
 		Bus:        b,
 	}
-	err = atsync.Migrate(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to migrate: %w", err)
-	}
-
 	mm, err := media.MakeMediaManager(ctx, cli, signer, mod, b, atsync, ldb)
 	if err != nil {
 		return err
@@ -334,11 +330,24 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		Public:             cli.PublicOAuth,
 	})
 	state.OATProxy = op
+	// The synchronizer uses stored sessions to act as a streamer (e.g. ending
+	// the source livestream when a teleport fires); without this it would
+	// nil-deref the first time a teleport arrives for a logged-in streamer.
+	atsync.OATProxy = op
 
-	err = atsync.Migrate(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to migrate: %w", err)
-	}
+	// Sync every repo we know about, at boot and every --sweep-interval after:
+	// a repair pass for repos left half-indexed by a previous run, and a head
+	// check that finds the ones that drifted while we were not listening.
+	// Nothing below depends on it, so it runs in the background off the serve
+	// context -- shutdown cancels it -- and the node is up and serving in the
+	// meantime. Started only now that atsync is fully wired (OATProxy above):
+	// the sweep can index records and schedule callbacks that use every field.
+	go atsync.SweepForever(ctx)
+	// History is fetched by its own loop rather than by those passes: it takes
+	// days where reconciliation takes minutes, nothing on the node waits for
+	// it, and at full speed it is what buries a boot. It trickles in at
+	// --deepen-rate windows a minute for as long as this node runs.
+	go atsync.DeepenForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {
@@ -1165,6 +1174,56 @@ func makeMigrateCommand(build *config.BuildFlags) *urfavecli.Command {
 			return statedb.Migrate(&cli)
 		},
 	}
+}
+
+// makeSyncCommand runs the backfill sweep to completion and exits, without
+// starting a node. It is for the case where a new index revision has to be warm
+// before traffic reaches it: run this, wait for it to finish, then start the
+// server -- rather than starting the server and serving from an index that is
+// still filling in behind it.
+func makeSyncCommand(build *config.BuildFlags) *urfavecli.Command {
+	cli := config.CLI{Build: build}
+	syncCmd := cli.NewCommand("sync")
+	syncCmd.Usage = "index every repo this node knows about, then exit"
+	syncCmd.Action = func(ctx context.Context, cmd *urfavecli.Command) error {
+		return runSync(ctx, build, cmd, &cli)
+	}
+	return syncCmd
+}
+
+// runSync builds the smallest stack a sweep needs -- the index, the state
+// database, an identity resolver -- and nothing else. No HTTP servers, no media
+// manager, no firehose: this process talks to other people's PDSes and to the
+// two databases, and then it is done.
+func runSync(ctx context.Context, build *config.BuildFlags, cmd *urfavecli.Command, cli *config.CLI) error {
+	if err := cli.Validate(cmd); err != nil {
+		return err
+	}
+	log.SetColorLogger(cli.Color)
+	ctx = log.WithDebugValue(ctx, cli.Debug)
+	log.Log(ctx, "streamplace sync", "version", build.Version, "dataDir", cli.DataDir)
+
+	if err := os.MkdirAll(cli.DataDir, os.ModePerm); err != nil {
+		return fmt.Errorf("error creating streamplace dir at %s: %w", cli.DataDir, err)
+	}
+	mod, err := model.MakeDBConns(cli.DataFilePath([]string{"index"}), cli.IndexDBConnections)
+	if err != nil {
+		return err
+	}
+	state, err := statedb.MakeDB(ctx, cli, nil, mod)
+	if err != nil {
+		return err
+	}
+	atsync := &atproto.ATProtoSynchronizer{
+		CLI:        cli,
+		Model:      mod,
+		StatefulDB: state,
+		Bus:        bus.NewBus(),
+	}
+	// A sweep that could not sync a single repo is a broken node and exits
+	// nonzero; anything less than that heals on the next run, so it is logged
+	// and forgiven.
+	return atsync.Sweep(ctx)
 }
 
 // resolveLiveSigningKey returns the did:key whose private half signed a

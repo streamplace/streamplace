@@ -198,14 +198,19 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
       ({
         deleteAfter,
         allowedBroadcasters,
+        allowGenAiTraining,
       }: {
         deleteAfter?: string;
         allowedBroadcasters?: string;
+        allowGenAiTraining?: boolean;
       }) => {
         let newDistributionPolicy: place.stream.metadata.distributionPolicy.Main =
           {
             ...distributionPolicy,
           };
+        if (typeof allowGenAiTraining === "boolean") {
+          newDistributionPolicy.allowGenAiTraining = allowGenAiTraining;
+        }
         if (typeof deleteAfter === "string") {
           let duration = parseInt(deleteAfter, 10);
           if (isNaN(duration)) {
@@ -304,7 +309,10 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           metadata.contentRights = filteredRights;
         }
 
+        // AI training is opt-in: absent an explicit choice, save the record
+        // with training disallowed.
         metadata.distributionPolicy = {
+          allowGenAiTraining: false,
           ...distributionPolicy,
         };
 
@@ -336,6 +344,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
     }, [
       contentWarnings,
       contentRights,
+      distributionPolicy,
       selectedLicense,
       customLicenseText,
       hasMetadata,
@@ -759,6 +768,24 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
                     </View>
                   </View>
                 )}
+
+                <Tooltip
+                  content="Off by default: every segment you stream is marked as not available for generative AI training unless you turn this on."
+                  position="top"
+                >
+                  <Checkbox
+                    checked={distributionPolicy.allowGenAiTraining === true}
+                    onCheckedChange={(checked) =>
+                      handleDistributionPolicyChange({
+                        allowGenAiTraining: checked,
+                      })
+                    }
+                    label={
+                      "Allow your content to be used for generative AI training"
+                    }
+                    style={[{ fontSize: 12 }]}
+                  />
+                </Tooltip>
 
                 <Tooltip
                   content="Anyone may archive your content indefinitely."

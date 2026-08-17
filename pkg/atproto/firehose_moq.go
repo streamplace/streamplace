@@ -48,6 +48,10 @@ func (atsync *ATProtoSynchronizer) connectRelayMoq(ctx context.Context, relay st
 	// first connect. If that group has aged out of the relay's replay window the
 	// relay jumps forward to the oldest it still retains, leaving a gap we accept
 	// here (deep recovery is a PDS re-sync, tracked separately).
+	//
+	// A cursor too old to be worth replaying at all has already been dropped:
+	// connectRelay runs the staleness check before it dispatches here, and it is
+	// the only caller, so groupStart below already reflects that decision.
 	var sub *atmoq.Subscription
 	resumedFrom, resumed := cursor.groupStart()
 	if resumed {

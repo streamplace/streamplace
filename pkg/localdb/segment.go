@@ -86,6 +86,7 @@ func (c ContentRights) Value() (driver.Value, error) {
 // DistributionPolicy represents distribution policy information
 type DistributionPolicy struct {
 	DeleteAfterSeconds *int64 `json:"deleteAfterSeconds,omitempty"`
+	AllowGenAiTraining *bool  `json:"allowGenAiTraining,omitempty"`
 }
 
 // Scan scan value into DistributionPolicy, implements sql.Scanner interface
@@ -184,9 +185,10 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 	}
 
 	var distributionPolicy *placestream.MetadataDistributionPolicy
-	if s.DistributionPolicy != nil && s.DistributionPolicy.DeleteAfterSeconds != nil {
+	if s.DistributionPolicy != nil && (s.DistributionPolicy.DeleteAfterSeconds != nil || s.DistributionPolicy.AllowGenAiTraining != nil) {
 		distributionPolicy = &placestream.MetadataDistributionPolicy{
-			DeleteAfter: s.DistributionPolicy.DeleteAfterSeconds,
+			DeleteAfter:        s.DistributionPolicy.DeleteAfterSeconds,
+			AllowGenAiTraining: s.DistributionPolicy.AllowGenAiTraining,
 		}
 	}
 

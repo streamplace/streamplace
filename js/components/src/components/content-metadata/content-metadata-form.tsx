@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useState } from "react";
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import {
   CONTENT_WARNINGS,
@@ -115,20 +115,33 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
 
     const broadcasterDID = useStreamplaceStore((state) => state.broadcasterDID);
 
-    // Load existing metadata on mount or from initialMetadata prop
+    // Load existing metadata on mount, or restore the working copy passed in
+    // via initialMetadata
+    const initializedRef = useRef(false);
     useEffect(() => {
+      if (initializedRef.current) return;
+      initializedRef.current = true;
+
+      const applyMetadata = (
+        record: place.stream.metadata.configuration.Main,
+      ) => {
+        if (record.contentWarnings?.warnings) {
+          setContentWarnings(
+            record.contentWarnings.warnings as unknown as string[],
+          );
+        }
+        if (record.distributionPolicy) {
+          setDistributionPolicy(record.distributionPolicy);
+        }
+        if (record.contentRights) {
+          setContentRights(record.contentRights);
+          setSelectedLicense(record.contentRights.license || "");
+        }
+      };
+
       if (initialMetadata) {
-        // Use provided initial metadata
-        if (initialMetadata.contentWarnings?.warnings) {
-          setContentWarnings(initialMetadata.contentWarnings.warnings);
-        }
-        if (initialMetadata.distributionPolicy) {
-          setDistributionPolicy(initialMetadata.distributionPolicy);
-        }
-        if (initialMetadata.contentRights) {
-          setContentRights(initialMetadata.contentRights);
-          setSelectedLicense(initialMetadata.contentRights.license || "");
-        }
+        setHasMetadata(true);
+        applyMetadata(initialMetadata);
         return;
       }
 
@@ -139,18 +152,7 @@ export const ContentMetadataForm = forwardRef<any, ContentMetadataFormProps>(
           const metadata = await getContentMetadata();
           if (metadata?.record) {
             setHasMetadata(true);
-            if (metadata.record.contentWarnings?.warnings) {
-              setContentWarnings(
-                metadata.record.contentWarnings.warnings as string[],
-              );
-            }
-            if (metadata.record.distributionPolicy) {
-              setDistributionPolicy(metadata.record.distributionPolicy);
-            }
-            if (metadata.record.contentRights) {
-              setContentRights(metadata.record.contentRights);
-              setSelectedLicense(metadata.record.contentRights.license || "");
-            }
+            applyMetadata(metadata.record);
           }
         } catch (error) {
           // No existing metadata is fine

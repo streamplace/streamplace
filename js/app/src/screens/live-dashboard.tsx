@@ -2,6 +2,7 @@ import { useRoute } from "@react-navigation/native";
 import { LivestreamProvider, PlayerProvider } from "@streamplace/components";
 import BentoGrid from "components/live-dashboard/bento-grid";
 import Loading from "components/loading/loading";
+import { StreamSettingsProvider } from "contexts/StreamSettingsContext";
 import { VideoElementProvider } from "contexts/VideoElementContext";
 import { useLiveUser } from "hooks/useLiveUser";
 import { useCallback, useEffect, useState } from "react";
@@ -42,7 +43,9 @@ export default function LiveDashboard() {
     <LivestreamProvider src={userProfile.did}>
       <VideoElementProvider videoElement={videoElement}>
         <PlayerProvider>
-          <BentoGrid isLive={isLive} videoRef={videoRef} />
+          <StreamSettingsProvider>
+            <BentoGrid isLive={isLive} videoRef={videoRef} />
+          </StreamSettingsProvider>
         </PlayerProvider>
       </VideoElementProvider>
     </LivestreamProvider>

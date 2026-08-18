@@ -25,6 +25,7 @@ import {
   useUrl,
   zero,
 } from "@streamplace/components";
+import { useStreamSettings } from "contexts/StreamSettingsContext";
 import { Image } from "expo-image";
 import { ChevronsUpDown, ImagePlus, Lock, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -317,9 +318,7 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
   const [selectedImage, setSelectedImage] = useState<
     string | File | Blob | undefined
   >();
-  const [mode, setMode] = useState<"create" | "metadata" | "moderation">(
-    "create",
-  );
+  const { mode, setMode, metadata, setMetadata } = useStreamSettings();
 
   const [activity, setActivity] = useState<
     place.stream.livestream.Main["activity"] | undefined
@@ -384,7 +383,19 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
     (newMode: "create" | "metadata" | "moderation") => {
       setMode(newMode);
     },
-    [],
+    [setMode],
+  );
+
+  const handleMetadataChange = useCallback(
+    (next: place.stream.metadata.configuration.Main) => {
+      const hasContent =
+        (next.contentWarnings?.warnings?.length ?? 0) > 0 ||
+        (next.distributionPolicy &&
+          Object.keys(next.distributionPolicy).length > 0) ||
+        (next.contentRights && Object.keys(next.contentRights).length > 0);
+      setMetadata(hasContent ? next : null);
+    },
+    [setMetadata],
   );
 
   const handleSubmit = useCallback(async () => {
@@ -600,6 +611,8 @@ function LivestreamPanel({ scrollable = true }: { scrollable?: boolean }) {
               <ContentMetadataForm
                 showUpdateButton={!userIsLive}
                 style={{ flex: 1, height: "100%" }}
+                initialMetadata={metadata ?? undefined}
+                onMetadataChange={handleMetadataChange}
               />
             </View>
           ) : mode === "moderation" ? (

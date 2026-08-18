@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http/httputil"
 	"sync"
+	"time"
 
 	"github.com/go-gst/go-gst/gst"
 	"stream.place/streamplace/pkg/config"
@@ -265,9 +266,7 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 		return fmt.Errorf("set playing: %w", err)
 	}
 	defer func() {
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "ingest worker: set null", "error", err)
-		}
+		teardownPipeline(ctx, pipeline)
 	}()
 
 	// Pipeline done (EOS/error) → drain the signer (cancel flushes the final GoP;
@@ -275,7 +274,16 @@ func RunMP4IngestWorker(ctx context.Context, cfg IngestWorkerConfig, stdin io.Re
 	// so the last dual-codec completions are framed before we return.
 	pipeErr := <-busErr
 	cancel()
-	<-done
+	// Bound the signer drain: a wedged signer (e.g. the muxl wasm deadlock
+	// against its unread stdout pipe that drainCtx protects against) would never
+	// close done, and an unbounded wait here would defeat the self-watchdog — the
+	// worker must exit even if the signer refuses to. The final GoP is lost in
+	// that case, which is the right trade: the worker is dying anyway.
+	select {
+	case <-done:
+	case <-time.After(ingestWorkerDrainTimeout):
+		log.Error(ctx, "ingest worker: signer drain timed out, exiting anyway")
+	}
 	flush()
 	return pipeErr
 }

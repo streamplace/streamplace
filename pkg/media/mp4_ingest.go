@@ -163,14 +163,22 @@ func buildMP4IngestPipeline(ctx context.Context, input io.Reader, makeSigner mp4
 	defer func() {
 		// capture so we don't prevent cleanup
 		if err != nil {
-			_ = pausedPipeline.SetState(gst.StateNull)
+			padsMu.Lock()
+			for pad, id := range blockProbes {
+				pad.RemoveProbe(id)
+				pad.AddProbe(gst.PadProbeTypeBuffer, func(p *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+					return gst.PadProbeDrop
+				})
+			}
+			padsMu.Unlock()
+			teardownPipeline(ctx, pausedPipeline)
 		}
 	}()
 	select {
 	case <-noMorePads:
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
-	case <-time.After(10 * time.Second):
+	case <-time.After(mp4TrackProbeTimeout):
 		return nil, nil, fmt.Errorf("timed out waiting for qtdemux to expose MP4 tracks")
 	}
 

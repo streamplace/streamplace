@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -236,14 +237,12 @@ func Packetize(ctx context.Context, cli *config.CLI, seg *bus.Seg, preferHeight 
 	}
 
 	defer func() {
-		err = pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "failed to set pipeline to null state", "error", err)
-		}
+		teardownPipeline(ctx, pipeline)
 		err = pipeline.Remove(demuxBin.Element)
 		if err != nil {
 			log.Error(ctx, "failed to remove demux bin from bin", "error", err)
 		}
+		runtime.KeepAlive(demuxBin.Element)
 	}()
 
 	err = <-busErr

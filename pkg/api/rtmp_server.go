@@ -65,6 +65,13 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	// eRTMP multitrack (OBS "Multitrack Video") track count
 	// Note that this currently only supports H.264 video and 1 track of AAC audio
 	videoTrackCount := 0
+	// relayDone is closed the moment RTMPIngest (the consumer of EventChan via
+	// the internal playback relay) returns. The data callbacks below send into
+	// EventChan synchronously inside r.Read(); if the relay dies nobody drains
+	// that channel, an unbounded send blocks r.Read() forever, so the 10s read
+	// deadline never fires and the session never tears down. Guarding every send
+	// on relayDone turns a permanent hang into a quick drop-and-exit.
+	relayDone := make(chan struct{})
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
@@ -78,11 +85,16 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 			videoTrackCount++
 			session.VideoTracks[trackID] = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				session.EventChan <- &media.RTMPH264Data{
+				// Guarded send: if the relay is gone, drop the frame instead of
+				// blocking inside r.Read() forever (see relayDone below).
+				select {
+				case session.EventChan <- &media.RTMPH264Data{
 					TrackID: trackID,
 					AU:      au,
 					PTS:     pts,
 					DTS:     dts,
+				}:
+				case <-relayDone:
 				}
 			})
 
@@ -92,14 +104,21 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 			}
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				session.EventChan <- &media.RTMPAACData{
+				select {
+				case session.EventChan <- &media.RTMPAACData{
 					AU:  au,
 					PTS: pts,
+				}:
+				case <-relayDone:
 				}
 			})
 
 		default:
-			return fmt.Errorf("unsupported track type: %T (multitrack ingest supports H.264 video + AAC audio only)", track)
+			// Unsupported track type: drop and log it, and keep the session
+			// running on the remaining tracks, rather than rejecting the whole
+			// stream over one unsupported track. If this drops the only video,
+			// the videoTrackCount == 0 check after the loop fails the session.
+			log.Log(ctx, "dropping unsupported track", "type", fmt.Sprintf("%T", track))
 		}
 	}
 	if videoTrackCount == 0 {
@@ -107,10 +126,16 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+
 	g.Go(func() error {
 		for {
 			if ctx.Err() != nil {
 				return ctx.Err()
+			}
+			select {
+			case <-relayDone:
+				return fmt.Errorf("relay stopped, ending publish session")
+			default:
 			}
 			err = sc.RW.(net.Conn).SetReadDeadline(time.Now().Add(RTMPTimeout))
 			if err != nil {
@@ -124,6 +149,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	g.Go(func() error {
+		defer close(relayDone)
 		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, videoTrackCount)
 	})
 

@@ -3,7 +3,9 @@ package media
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -80,6 +82,11 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		return err
 	}
 
+	// linked records which flvdemux pads have linked. Shared between the
+	// pad-added handler and the multitrack pad watchdog.
+	linkedMu := sync.Mutex{}
+	linked := map[string]bool{}
+
 	handle, err := demux.Connect("pad-added", func(self *gst.Element, pad *gst.Pad) {
 		name := pad.GetName()
 		chain, ok := queues[name]
@@ -91,6 +98,9 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 			log.Error(ctx, "error linking flvdemux pad", "pad", name, "error", ret)
 			return
 		}
+		linkedMu.Lock()
+		linked[name] = true
+		linkedMu.Unlock()
 		// Elements were created before the pipeline started, but a pad can
 		// appear while parts of the graph are still mid-rollout; a push into a
 		// not-yet-PLAYING branch returns FLUSHING and silently stalls the
@@ -120,11 +130,49 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		return err
 	}
 
-	defer func() {
-		err := pipeline.SetState(gst.StateNull)
-		if err != nil {
-			log.Error(ctx, "error setting pipeline to null state", "error", err)
+	// Prevents multitrack ingest from hanging indefinitely when a declared track
+	// never links. mp4mux waits for every requested pad before emitting output, so
+	// a missing track can otherwise stall the pipeline without producing a bus
+	// error. After a grace period from PLAYING, fail the pipeline and report the
+	// unlinked pads.
+	//
+	// Note that this only verifies pad linkage and not continued data flow. A track that links
+	// and later goes silent will require a separate no-output watchdog.
+	go func() {
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		deadline := time.After(multitrackIngestWatchdog)
+		for {
+			linkedMu.Lock()
+			allLinked := len(linked) == len(queues)
+			var missing []string
+			if !allLinked {
+				for name := range queues {
+					if !linked[name] {
+						missing = append(missing, name)
+					}
+				}
+			}
+			linkedMu.Unlock()
+			if allLinked {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-deadline:
+				sort.Strings(missing)
+				err := fmt.Errorf("multitrack ingest wedged: declared track(s) never linked: %s", strings.Join(missing, ","))
+				log.Error(ctx, "multitrack ingest pad watchdog fired", "unlinked", missing)
+				pipeline.GetPipelineBus().Post(gst.NewErrorMessage(pipeline, err, "", nil))
+				return
+			case <-ticker.C:
+			}
 		}
+	}()
+
+	defer func() {
+		teardownPipeline(ctx, pipeline)
 	}()
 
 	err = <-busErr

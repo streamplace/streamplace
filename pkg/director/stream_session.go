@@ -222,13 +222,24 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// their bitrate and reconnects clean — at which point findProblems clears it.
 	// The client dedupes place.stream.error by code, so repeated kicks surface as
 	// a single persistent problem.
-	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded {
+	// The kick is measured over the WHOLE segment — for a multitrack source that
+	// is the sum of every rendition, which is naturally N× a single track.
+	// Scaling the cap by the number of video tracks keeps the intent (bound a
+	// streamer's total egress) without kicking someone who was fine before for
+	// enabling multitrack. trackCount stays 1 whenever Video is nil or holds a
+	// single entry (single-track sources), so single-track behavior is unchanged.
+	trackCount := 1
+	if notif.Segment.MediaData != nil && len(notif.Segment.MediaData.Video) > 1 {
+		trackCount = len(notif.Segment.MediaData.Video)
+	}
+	maxBitrate := ss.cli.MaximumLiveBitrate * trackCount
+	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, maxBitrate); exceeded {
 		log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
-			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate)
+			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", maxBitrate, "tracks", trackCount)
 		ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(
 			"bitrate",
 			fmt.Sprintf("Your stream's bitrate (%d kbps) exceeds this server's maximum of %d kbps. Lower your encoder's bitrate to keep streaming.",
-				bitrate/1000, ss.cli.MaximumLiveBitrate/1000),
+				bitrate/1000, maxBitrate/1000),
 		))
 		return nil
 	}

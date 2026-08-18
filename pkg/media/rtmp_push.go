@@ -249,9 +249,7 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 
 	defer func() {
 		log.Log(ctx, "shutting down RTMP push pipeline")
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "failed to set pipeline state to null", "error", err)
-		}
+		teardownPipeline(ctx, pipeline)
 	}()
 
 	return <-errCh

@@ -177,6 +177,13 @@ func SegmentElem(ctx context.Context, cli *config.CLI, streamer string, doH264Pa
 }
 
 func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) (*gst.Element, error) {
+	return mm.SegmentAndSignElemTracks(ctx, ms, 1)
+}
+
+// SegmentAndSignElemTracks is SegmentAndSignElem for ingests carrying more
+// than one video track (eRTMP multitrack): the returned element exposes
+// videoTrackCount video sink pads (video_0 .. video_N-1) plus one audio_0.
+func (mm *MediaManager) SegmentAndSignElemTracks(ctx context.Context, ms MediaSigner, videoTrackCount int) (*gst.Element, error) {
 	tracer := otel.Tracer("signer")
 	streamer := ms.Streamer()
 
@@ -213,7 +220,8 @@ func (mm *MediaManager) SegmentAndSignElem(ctx context.Context, ms MediaSigner) 
 		}
 		return nil
 	}
-	return MuxlSignSegmentElem(ctx, mm.cli, ms, onSegment)
+	elem, _, err := muxlSignSegmentElem(ctx, mm.cli, ms.SignSegmentStream, onSegment, videoTrackCount)
+	return elem, err
 }
 
 func SegmentFileUnsigned(ctx context.Context, cli *config.CLI, streamer string, input string, ch chan *SplitSegment) error {

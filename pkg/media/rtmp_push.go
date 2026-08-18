@@ -24,7 +24,7 @@ import (
 // pipeline over it, reporting status straight to the DB. The isolated
 // counterpart (RTMPPushIsolated) runs the same native pipeline in a worker
 // subprocess so a gst fault in the egress chain can't take the node down.
-func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView) error {
+func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView, preferHeight uint32) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPush")
@@ -38,7 +38,7 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	// pipeline returns.
 	pr, pw := io.Pipe()
 	go func() {
-		pw.CloseWithError(mm.writeRTMPSource(ctx, user, rendition, pw))
+		pw.CloseWithError(mm.writeRTMPSource(ctx, user, rendition, preferHeight, pw))
 	}()
 
 	// Status straight to the DB (in-process). The isolated worker reports the
@@ -52,22 +52,13 @@ func (mm *MediaManager) RTMPPush(ctx context.Context, user string, rendition str
 	return mm.runRTMPPushPipeline(ctx, pr, rec.Url, report)
 }
 
-// writeRTMPSource subscribes to the streamer's source segments, selects the AAC
-// audio + video tracks from each dual-codec segment, synthesizes a single fMP4
-// init from the first segment, and writes one continuous fMP4 stream to w (init
-// then every segment's canonical bytes concatenated). It returns when ctx is
-// done or a select/encode/write fails; the caller owns closing w.
+// Assemble one continuous fMP4 stream for the RTMP push
+// pipeline from the streamer's source segments, with preferred tracks if necessary.
 //
-// MUXL segments carry per-track monotonic tfdt, so blind concatenation after a
-// single synthesized init is a valid fMP4 timeline with no remux. The init
-// reflects the first segment's catalog and is never re-emitted; muxl derives the
-// catalog from the moov and does not parse the H.264 bitstream, so a mid-stream
-// resolution/orientation change (carried in-band as new SPS/PPS at a keyframe)
-// is invisible to it — the parameter sets pass through verbatim to
-// h264parse/flvmux and the init's declared dimensions simply stay at the initial
-// config. Reflecting such a change in container metadata would require parsing
-// SPS/PPS.
-func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition string, w io.Writer) error {
+// Segments carry per-track monotonic tfdt, so a single synthesized init + blind
+// concat is a valid timeline. The init seg is never re-emitted, and muxl doesn't
+// parse the bitstream, so mid-stream resolution changes aren't reflected in it.
+func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition string, preferHeight uint32, w io.Writer) error {
 	segChan := mm.bus.SubscribeSegment(ctx, user, rendition)
 	defer mm.bus.UnsubscribeSegment(ctx, user, rendition, segChan)
 	first := true
@@ -81,10 +72,8 @@ func (mm *MediaManager) writeRTMPSource(ctx context.Context, user, rendition str
 				log.Warn(ctx, "source segment has no MUXL bytes, skipping", "file", seg.Filepath)
 				continue
 			}
-			// RTMP wants AAC: select video + the AAC audio track from the
-			// dual-codec segment and feed only those, so flvmux gets AAC with no
-			// transcode.
-			aacSeg, err := filterSegmentToCodec(ctx, seg.Muxl, false)
+			// flvmux sinks exactly one video track, so we select the best one
+			aacSeg, err := filterSegmentForRTMPSource(ctx, seg.Muxl, preferHeight)
 			if err != nil {
 				return fmt.Errorf("select AAC audio: %w", err)
 			}
@@ -260,9 +249,7 @@ func (mm *MediaManager) runRTMPPushPipeline(ctx context.Context, source io.Reade
 
 	defer func() {
 		log.Log(ctx, "shutting down RTMP push pipeline")
-		if err := pipeline.SetState(gst.StateNull); err != nil {
-			log.Error(ctx, "failed to set pipeline state to null", "error", err)
-		}
+		teardownPipeline(ctx, pipeline)
 	}()
 
 	return <-errCh
@@ -288,7 +275,6 @@ func (mm *MediaManager) RunTCPForwarder(ctx context.Context, dest string) (strin
 
 func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func(destHost string) (net.Conn, error)) (string, error) {
 	ctx = log.WithLogValues(ctx, "mediafunc", "runForwarder")
-	// Parse the destination URL to extract host and port
 	destURL, err := url.Parse(dest)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse destination URL: %w", err)
@@ -300,7 +286,6 @@ func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func
 		destHost = destHost + ":1935"
 	}
 
-	// Listen on a random port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", fmt.Errorf("failed to listen on random port: %w", err)
@@ -318,7 +303,6 @@ func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func
 		if ctx.Err() != nil {
 			return
 		}
-		// Accept incoming RTMP connection
 		clientConn, err := listener.Accept()
 		if err != nil {
 			log.Error(ctx, "failed to accept connection", "error", err)
@@ -341,7 +325,6 @@ func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func
 			}
 		}()
 
-		// Establish connection to destination
 		serverConn, err := dial(destHost)
 		if err != nil {
 			log.Error(ctx, "failed to establish connection to destination", "error", err)
@@ -349,22 +332,19 @@ func (mm *MediaManager) runForwarder(ctx context.Context, dest string, dial func
 		}
 		defer serverConn.Close()
 
-		// Proxy data bidirectionally
+		// Relay bytes in both directions
 		done := make(chan error, 2)
 
-		// Copy from client to server
 		go func() {
 			_, err := io.Copy(serverConn, clientConn)
 			done <- err
 		}()
 
-		// Copy from server to client
 		go func() {
 			_, err := io.Copy(clientConn, serverConn)
 			done <- err
 		}()
 
-		// Wait for either direction to complete or error
 		err = <-done
 		if err != nil {
 			log.Error(ctx, "proxy connection error", "error", err)

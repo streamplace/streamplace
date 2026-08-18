@@ -27,6 +27,20 @@ import (
 // shorten it.
 var ingestWorkerWatchdog = 30 * time.Second
 
+// Bounds how long probing may wait for qtdemux to expose the input's track
+// layout while PAUSED. A valid fMP4 source should expose its tracks after the
+// init segment arrives; otherwise the ingest cannot be constructed.
+var mp4TrackProbeTimeout = 10 * time.Second
+
+// Prevents multitrack RTMP ingest from waiting indefinitely for all declared
+// tracks to link after entering PLAYING. A missing track can leave mp4mux
+// stalled without otherwise failing the pipeline.
+var multitrackIngestWatchdog = 10 * time.Second
+
+// Keeps worker shutdown bounded if the signer fails to drain after its input
+// has been closed.
+var ingestWorkerDrainTimeout = 30 * time.Second
+
 // MP4IngestIsolated is the process-isolated counterpart to MP4Ingest. Instead of
 // running the demux + sign pipeline in this process — where a native gst fault,
 // OOM, or deadlock would take the whole node down — it spawns a dedicated

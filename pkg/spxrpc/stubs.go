@@ -296,7 +296,7 @@ func (s *Server) HandleComAtprotoSyncGetBlocks(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetLatestCommit(c echo.Context) error {
@@ -326,7 +326,7 @@ func (s *Server) HandleComAtprotoSyncGetRecord(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
@@ -341,7 +341,7 @@ func (s *Server) HandleComAtprotoSyncGetRepo(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "application/vnd.ipld.car", out)
 }
 
 func (s *Server) HandleComAtprotoSyncListRepos(c echo.Context) error {
@@ -1209,7 +1209,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetLiveSegment(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetPlaybackServer(c echo.Context) error {
@@ -1239,7 +1239,7 @@ func (s *Server) HandlePlaceStreamPlaybackGetVideoBlob(c echo.Context) error {
 	if handleErr != nil {
 		return handleErr
 	}
-	return c.Stream(200, "application/octet-stream", out)
+	return c.Stream(200, "video/mp4", out)
 }
 
 func (s *Server) HandlePlaceStreamPlaybackGetVideoPlaylist(c echo.Context) error {

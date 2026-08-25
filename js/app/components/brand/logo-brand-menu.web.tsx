@@ -1,9 +1,9 @@
 import { Text, toast, useTheme } from "@streamplace/components";
 import { shadows } from "@streamplace/components/src/lib/theme/tokens";
-import { BookOpen, Type } from "lucide-react-native";
+import { Type } from "lucide-react-native";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Linking, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { LogoMark, markSvgString, wordmarkSvgString } from "./logo";
 
 /**
@@ -68,15 +68,15 @@ export function LogoBrandMenu({ children }: { children: ReactNode }) {
       icon: <Type size={18} color={theme.colors.text2} />,
       onPress: () => copy(wordmarkSvgString(), "Wordmark"),
     },
-    {
-      key: "guidelines",
-      label: "Brand Guidelines",
-      icon: <BookOpen size={18} color={theme.colors.text2} />,
-      onPress: () => {
-        setPos(null);
-        Linking.openURL("https://staging.stp.lc/brand");
-      },
-    },
+    // {
+    //   key: "guidelines",
+    //   label: "Brand Guidelines",
+    //   icon: <BookOpen size={18} color={theme.colors.text2} />,
+    //   onPress: () => {
+    //     setPos(null);
+    //     Linking.openURL("https://staging.stp.lc/brand");
+    //   },
+    // },
   ];
 
   return (

@@ -157,14 +157,18 @@ export function LogoLockup({
 }
 
 /**
- * The nav-header lockup: the mark plus what this node calls itself — the
- * operator's runtime siteTitle branding when set, else the brand's
- * defaultSiteTitle (which the first-party brand points at its own wordmark,
- * so branded nodes show the styled wordmark with no runtime config).
+ * What this node calls itself: the operator's runtime siteTitle branding
+ * when set, else the brand's defaultSiteTitle (which the first-party brand
+ * points at its own wordmark, so branded nodes show the styled wordmark
+ * with no runtime config). Drives the nav lockup and the browser tab.
  */
+export function useNodeTitle() {
+  return useBrandingAsset("siteTitle")?.data || BRAND.defaultSiteTitle;
+}
+
+/** The nav-header lockup: the mark plus the node's title. */
 export function SiteTitleLockup(
   props: Omit<Parameters<typeof LogoLockup>[0], "text">,
 ) {
-  const siteTitle = useBrandingAsset("siteTitle")?.data;
-  return <LogoLockup {...props} text={siteTitle || BRAND.defaultSiteTitle} />;
+  return <LogoLockup {...props} text={useNodeTitle()} />;
 }

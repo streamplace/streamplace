@@ -11,8 +11,10 @@ import {
   Text,
   useTheme,
 } from "@streamplace/components";
+import { statusColors } from "@streamplace/components/src/lib/theme/tokens";
 import { Provider } from "components";
 import { ImageBackground } from "expo-image";
+import { useLiveUser } from "hooks/useLiveUser";
 import {
   CircleUser,
   LogIn,
@@ -116,49 +118,70 @@ export const NavigationButton = (_props: { canGoBack?: boolean }) => {
 
 export const LGAvatarButton = () => {
   const userProfile = useUserProfile();
+  const userIsLive = useLiveUser();
 
   if (Platform.OS !== "ios") return <AvatarButton />;
 
   let source: ImageSourcePropType | undefined = undefined;
   let opacity = 1;
+  // On-air, the avatar links to the live dashboard (with a red ring for the
+  // state); otherwise it goes to the account screen as usual.
   const targetScreen: any = userProfile
-    ? { screen: "AccountCategory", params: {} }
+    ? userIsLive
+      ? { screen: "LiveDashboard", params: {} }
+      : { screen: "AccountCategory", params: {} }
     : { screen: "Login", params: {} };
 
   if (userProfile) {
     source = { uri: userProfile.avatar };
     opacity = 0;
   }
-  return (
-    <AQLink to={targetScreen} style={{ marginRight: 10 }}>
-      <LiquidGlassView
-        interactive
+  const glassAvatar = (
+    <LiquidGlassView
+      interactive
+      style={{
+        borderRadius: 24,
+        width: 40,
+        height: 40,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <ImageBackground
+        // defeat cursed-ass caching on ios; image sticks around when source is undefined
+        key={source?.uri ?? "default"}
+        source={source}
         style={{
+          width: 38,
+          height: 38,
           borderRadius: 24,
-          width: 40,
-          height: 40,
+          overflow: "hidden",
+          backgroundColor: "black",
+          opacity: 0.9,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <ImageBackground
-          // defeat cursed-ass caching on ios; image sticks around when source is undefined
-          key={source?.uri ?? "default"}
-          source={source}
+        <User size={24} color="white" style={{ zIndex: -2 }} />
+      </ImageBackground>
+    </LiquidGlassView>
+  );
+  return (
+    <AQLink to={targetScreen} style={{ marginRight: 10 }}>
+      {userProfile && userIsLive ? (
+        <View
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 24,
-            overflow: "hidden",
-            backgroundColor: "black",
-            opacity: 0.9,
-            justifyContent: "center",
-            alignItems: "center",
+            borderWidth: 2,
+            borderColor: statusColors.live,
+            borderRadius: 26,
+            padding: 2,
           }}
         >
-          <User size={24} color="white" style={{ zIndex: -2 }} />
-        </ImageBackground>
-      </LiquidGlassView>
+          {glassAvatar}
+        </View>
+      ) : (
+        glassAvatar
+      )}
     </AQLink>
   );
 };
@@ -173,11 +196,14 @@ const AccountMenuItem = ({
   label,
   onPress,
   danger,
+  iconColor,
 }: {
   icon: typeof User;
   label: string;
   onPress: () => void;
   danger?: boolean;
+  /** Explicit icon tint (e.g. live red for the on-air row); label keeps the row color. */
+  iconColor?: string;
 }) => {
   const { theme } = useTheme();
   const c = theme.colors;
@@ -211,7 +237,7 @@ const AccountMenuItem = ({
             : "transparent",
         }}
       >
-        <Icon size={18} color={fg} />
+        <Icon size={18} color={iconColor ?? fg} />
         <Text
           style={{
             color: fg,
@@ -228,6 +254,7 @@ const AccountMenuItem = ({
 
 export const AvatarButton = () => {
   const userProfile = useUserProfile();
+  const userIsLive = useLiveUser();
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
   const logout = useStore((state) => state.logout);
@@ -261,35 +288,52 @@ export const AvatarButton = () => {
     const handle = userProfile.handle;
     const name = userProfile.displayName?.trim() || handle;
     const channelUser = handle || userProfile.did;
+    const avatar = (
+      <ImageBackground
+        key={source?.uri ?? "default"}
+        source={source}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 24,
+          overflow: "hidden",
+          borderWidth: 1,
+          borderColor: menuOpen ? c.text3 : c.borderStrong,
+          backgroundColor: c.surface3,
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <User
+          size={18}
+          color={c.text2}
+          style={{
+            zIndex: -2,
+            paddingHorizontal: "auto",
+            paddingVertical: "auto",
+          }}
+        />
+      </ImageBackground>
+    );
     return (
       <View style={{ marginRight: 12 }}>
         <DropdownMenu onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger>
-            <ImageBackground
-              key={source?.uri ?? "default"}
-              source={source}
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 24,
-                overflow: "hidden",
-                borderWidth: 1,
-                borderColor: menuOpen ? c.text3 : c.borderStrong,
-                backgroundColor: c.surface3,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <User
-                size={18}
-                color={c.text2}
+            {userIsLive ? (
+              // On-air: the red ring replaces the old "You are live!" toast.
+              <View
                 style={{
-                  zIndex: -2,
-                  paddingHorizontal: "auto",
-                  paddingVertical: "auto",
+                  borderWidth: 2,
+                  borderColor: statusColors.live,
+                  borderRadius: 20,
+                  padding: 2,
                 }}
-              />
-            </ImageBackground>
+              >
+                {avatar}
+              </View>
+            ) : (
+              avatar
+            )}
           </DropdownMenuTrigger>
           <ResponsiveDropdownMenuContent
             align="end"
@@ -350,6 +394,14 @@ export const AvatarButton = () => {
             />
 
             <View style={{ gap: 2 }}>
+              {userIsLive && (
+                <AccountMenuItem
+                  icon={Radio}
+                  label="Go to Live Dashboard"
+                  iconColor={statusColors.live}
+                  onPress={go("LiveDashboard")}
+                />
+              )}
               <AccountMenuItem
                 icon={CircleUser}
                 label="Your channel"

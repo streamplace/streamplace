@@ -8,6 +8,7 @@ jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Maximize build space
         run: |
@@ -32,6 +33,11 @@ jobs:
           sudo apt install podman -y
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
           make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace"
+
+      - name: sanity-check wrapper from bash
+        run:
+          timeout 120 /usr/bin/golangci-lint config path
+          --config=./.golangci.yaml
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8

@@ -3,13 +3,11 @@
 # This script is used to trick the GitHub action for golangci-lint to run
 # inside a container so that we can use the local build of streamplace.
 #
-# The golangci-lint-action spawns this via node's child_process.exec, whose
-# stdio "pipes" are actually libuv socketpairs; podman exec wedges right
-# after startup when attached to them on runner images >= 20260823, while
-# bash-spawned runs of the identical command are fine. Keep podman's stdio
-# pointed at real files and replay them when it finishes. If podman still
-# hangs, SIGQUIT it for a Go goroutine dump and fail fast instead of eating
-# the job's timeout.
+# On runner images >= 20260823, the action-spawned podman exec wedges in
+# sem_wait on the rootless SHM container lock (libpod LockSemaphore inside
+# ExecCreate) — some other process takes the lock and never releases it.
+# Buffer stdio through files, and on a hang dump diagnostics identifying
+# the lock holder, then fail fast instead of eating the job timeout.
 
 set -uo pipefail
 
@@ -21,13 +19,27 @@ podman exec golangci-lint golangci-lint "$@" </dev/null >"$OUT" 2>"$ERR" &
 pid=$!
 
 seconds=0
-while kill -0 "$pid" 2>/dev/null && [ "$seconds" -lt 900 ]; do
+while kill -0 "$pid" 2>/dev/null && [ "$seconds" -lt 300 ]; do
   sleep 1
   seconds=$((seconds + 1))
 done
 
 if kill -0 "$pid" 2>/dev/null; then
-  echo "wrapper: podman exec still running after ${seconds}s; sending SIGQUIT for goroutine dump" >&2
+  {
+    echo "wrapper: podman exec still running after ${seconds}s; diagnostics:"
+    echo "--- podman-family processes:"
+    pgrep -af 'podman|conmon|pasta|catatonit' || true
+    echo "--- processes with the libpod lock segment mapped:"
+    for p in $(sudo grep -l libpod /proc/[0-9]*/maps 2>/dev/null | cut -d/ -f3); do
+      echo "pid $p: $(tr '\0' ' ' <"/proc/$p/cmdline" 2>/dev/null)"
+    done
+    echo "--- kernel stacks:"
+    for p in $(pgrep 'podman|conmon'); do
+      echo "pid $p: $(tr '\0' ' ' <"/proc/$p/cmdline" 2>/dev/null)"
+      sudo cat "/proc/$p/stack" 2>/dev/null || true
+    done
+    echo "--- goroutine dump of the stuck client ($pid):"
+  } >&2
   kill -QUIT "$pid" 2>/dev/null || true
   sleep 5
   kill -KILL "$pid" 2>/dev/null || true

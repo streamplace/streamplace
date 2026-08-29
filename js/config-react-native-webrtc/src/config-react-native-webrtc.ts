@@ -102,23 +102,15 @@ const iosDelegateReplacements = [
     to: () => `
   self.initialProps = @{};
   ////RTC PATCH////
-  RTCAudioSessionConfiguration* config = [RTCAudioSessionConfiguration webRTCConfiguration];
-
-  AVAudioSession * session = [AVAudioSession sharedInstance];
-  // Set audio to use phone speaker instead of headset speaker
-  [session setCategory:AVAudioSessionCategoryPlayAndRecord
-           withOptions:AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetooth
-                 error:nil];
-  [session setActive:YES error:nil];
-
+  // AVAudioSession configuration is owned by AUAudioUnitRTCAudioDevice's
+  // AudioSessionCoordinator, which derives it from playback/recording state.
+  // Do not configure the session here.
   id<RTCAudioDevice> device;
   device = [[AUAudioUnitRTCAudioDevice alloc] init];
 
   WebRTCModuleOptions *options = [WebRTCModuleOptions sharedInstance];
   options.loggingSeverity = RTCLoggingSeverityWarning;
   options.audioDevice = device;
-  // Enable stereo audio
-  options.enableStereoOutput = YES;
   ////END RTC PATCH////
     `,
   },
@@ -127,17 +119,9 @@ const iosDelegateReplacements = [
     from: "    let delegate = ReactNativeDelegate()",
     to: () => `
     // WebRTC Configuration
-    let config = RTCAudioSessionConfiguration.webRTC()
-
-    let session = AVAudioSession.sharedInstance()
-    do {
-        try session.setCategory(.playAndRecord,
-                              options: [.defaultToSpeaker, .allowBluetooth])
-        try session.setActive(true)
-    } catch {
-        print("Failed to configure audio session: \(error)")
-    }
-
+    // AVAudioSession configuration is owned by AUAudioUnitRTCAudioDevice's
+    // AudioSessionCoordinator, which derives it from playback/recording state.
+    // Do not configure the session here.
     let device = AUAudioUnitRTCAudioDevice()
 
     let options = WebRTCModuleOptions.sharedInstance()

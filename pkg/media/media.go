@@ -427,16 +427,21 @@ func extractDistributionPolicy(mani *c2patypes.Manifest, segmentStart aqtime.AQT
 		return nil
 	}
 
-	if metadataConfig.DistributionPolicy.DeleteAfter == nil {
+	policy := &localdb.DistributionPolicy{
+		AllowGenAiTraining: metadataConfig.DistributionPolicy.AllowGenAiTraining,
+	}
+
+	if metadataConfig.DistributionPolicy.DeleteAfter != nil {
+		// deleteAfter contains an offset in seconds from creation time
+		deleteAfterSeconds := *metadataConfig.DistributionPolicy.DeleteAfter
+		policy.DeleteAfterSeconds = &deleteAfterSeconds
+	}
+
+	if policy.DeleteAfterSeconds == nil && policy.AllowGenAiTraining == nil {
 		return nil
 	}
 
-	// deleteAfter contains an offset in seconds from creation time
-	deleteAfterSeconds := *metadataConfig.DistributionPolicy.DeleteAfter
-
-	return &localdb.DistributionPolicy{
-		DeleteAfterSeconds: &deleteAfterSeconds,
-	}
+	return policy
 }
 
 // extractMetadataConfiguration extracts the place.stream.metadata.configuration from the C2PA manifest

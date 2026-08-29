@@ -2,7 +2,7 @@
   "name": "@streamplace/app",
   "main": "./src/entrypoint.tsx",
   "version": "0.11.28",
-  "runtimeVersion": "0.10.0",
+  "runtimeVersion": "0.12.0",
   "engines": {
     "node": "22.x"
   },

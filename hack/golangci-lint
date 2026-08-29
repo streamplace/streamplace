@@ -1,25 +1,41 @@
 #!/bin/bash
 
-# This script is used to trick the GitHub action for golangci-lint to run inside a container
-# so that we can use the local build of streamplace
+# This script is used to trick the GitHub action for golangci-lint to run
+# inside a container so that we can use the local build of streamplace.
+#
+# The golangci-lint-action spawns this via node's child_process.exec, whose
+# stdio "pipes" are actually libuv socketpairs; podman exec wedges right
+# after startup when attached to them on runner images >= 20260823, while
+# bash-spawned runs of the identical command are fine. Keep podman's stdio
+# pointed at real files and replay them when it finishes. If podman still
+# hangs, SIGQUIT it for a Go goroutine dump and fail fast instead of eating
+# the job's timeout.
 
 set -uo pipefail
 
-# The golangci-lint-action's node-spawned invocations of podman exec hang
-# forever on runner images >= 20260823 while bash-spawned ones are fine
-# (compare the sanity-check step in golangci-lint.yaml). Point podman's
-# stderr at a file instead of the action's pipe, guard with a timeout so a
-# hang fails in minutes instead of hours, and dump podman's debug trace on
-# failure so we can see where it stuck.
-DBG="$(mktemp)"
-timeout -k 10 180 podman --log-level=debug exec golangci-lint golangci-lint "$@" </dev/null 2>"$DBG"
-code=$?
-if [ "$code" -ne 0 ]; then
-  echo "wrapper: podman exec exited $code; podman debug log follows" >&2
-  cat "$DBG" >&2
-else
-  # forward golangci-lint's own stderr, minus podman's debug chatter
-  grep -v '^time=' "$DBG" >&2 || true
+OUT="$(mktemp)"
+ERR="$(mktemp)"
+trap 'rm -f "$OUT" "$ERR"' EXIT
+
+podman exec golangci-lint golangci-lint "$@" </dev/null >"$OUT" 2>"$ERR" &
+pid=$!
+
+seconds=0
+while kill -0 "$pid" 2>/dev/null && [ "$seconds" -lt 900 ]; do
+  sleep 1
+  seconds=$((seconds + 1))
+done
+
+if kill -0 "$pid" 2>/dev/null; then
+  echo "wrapper: podman exec still running after ${seconds}s; sending SIGQUIT for goroutine dump" >&2
+  kill -QUIT "$pid" 2>/dev/null || true
+  sleep 5
+  kill -KILL "$pid" 2>/dev/null || true
 fi
-rm -f "$DBG"
+
+wait "$pid"
+code=$?
+
+cat "$OUT"
+cat "$ERR" >&2
 exit $code

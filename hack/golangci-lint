@@ -5,4 +5,7 @@
 
 set -euo pipefail
 
-exec podman exec golangci-lint golangci-lint "$@"
+# stdin must not be a live pipe: when golangci-lint-action spawns this wrapper,
+# podman exec waits on the inherited stdin and hangs forever (observed on
+# runner image 20260823+); bash-spawned invocations were unaffected
+exec podman exec golangci-lint golangci-lint "$@" < /dev/null

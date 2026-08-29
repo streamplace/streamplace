@@ -31,6 +31,12 @@ jobs:
       - name: run build for linting
         run: |
           sudo apt install podman -y
+          # libpod's default SHM semaphores leak when a lock holder dies
+          # (observed on runner images >= 20260823: an exec-session cleanup
+          # process dies holding the container lock and every later podman
+          # exec blocks forever in sem_wait); file locks auto-release
+          mkdir -p ~/.config/containers
+          printf '[engine]\nlock_type = "file"\n' >> ~/.config/containers/containers.conf
           sudo ln -s $(realpath ./hack/golangci-lint) /usr/bin/golangci-lint
           make golangci-lint-container BUILDER_TARGET=builder-no-darwin DOCKER_BUILD_OPTS="--layers --cache-to ghcr.io/streamplace/streamplace --cache-from ghcr.io/streamplace/streamplace"
 

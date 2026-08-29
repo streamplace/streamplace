@@ -19,7 +19,7 @@ podman exec golangci-lint golangci-lint "$@" </dev/null >"$OUT" 2>"$ERR" &
 pid=$!
 
 seconds=0
-while kill -0 "$pid" 2>/dev/null && [ "$seconds" -lt 300 ]; do
+while kill -0 "$pid" 2>/dev/null && [ "$seconds" -lt 900 ]; do
   sleep 1
   seconds=$((seconds + 1))
 done

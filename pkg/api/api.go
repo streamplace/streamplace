@@ -202,6 +202,7 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	// they're jpegs now
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/llhls/*path", a.HandleLLHLS(ctx))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
 	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
 	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))

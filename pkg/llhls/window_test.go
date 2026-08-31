@@ -134,7 +134,7 @@ func TestPlaylistContainsLLTagsAndOnlyCompleteParentURI(t *testing.T) {
 		t.Fatal(err)
 	}
 	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
-	for _, want := range []string{"#EXT-X-VERSION:9", "#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", `URI="4/0.m4s"`, "INDEPENDENT=YES"} {
+	for _, want := range []string{"#EXT-X-VERSION:10", "#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", `URI="4/0.m4s"`, `#EXT-X-PRELOAD-HINT:TYPE=PART,URI="4/1.m4s"`, "INDEPENDENT=YES"} {
 		if !strings.Contains(playlist, want) {
 			t.Errorf("playlist missing %q:\n%s", want, playlist)
 		}

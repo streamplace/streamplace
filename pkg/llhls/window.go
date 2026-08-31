@@ -317,7 +317,7 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("#EXTM3U\n#EXT-X-VERSION:9\n#EXT-X-TARGETDURATION:2\n#EXT-X-PART-INF:PART-TARGET=1.000000\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=3.000000,HOLD-BACK=6.000000\n")
+	b.WriteString("#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:2\n#EXT-X-PART-INF:PART-TARGET=1.000000\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=3.000000,HOLD-BACK=6.000000\n")
 	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n#EXT-X-MAP:URI=%q\n", firstMSN(s), initURI)
 	for _, seg := range s.Segments {
 		for _, p := range seg.Parts {
@@ -330,6 +330,15 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 		if seg.Complete {
 			fmt.Fprintf(&b, "#EXTINF:%.6f,\n%s\n", seg.Duration.Seconds(), segmentURI(seg.MSN))
 		}
+	}
+	if !s.Ended && len(s.Segments) > 0 {
+		last := s.Segments[len(s.Segments)-1]
+		nextMSN, nextPart := last.MSN, uint32(len(last.Parts))
+		if last.Complete {
+			nextMSN++
+			nextPart = 0
+		}
+		fmt.Fprintf(&b, "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=%q\n", partURI(nextMSN, nextPart))
 	}
 	if s.Ended {
 		b.WriteString("#EXT-X-ENDLIST\n")

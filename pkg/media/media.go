@@ -21,6 +21,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -50,6 +51,8 @@ type MediaManager struct {
 	liveWindows     map[string]*livehls.Writer
 	liveWindowsMut  sync.Mutex
 	liveWindowFeeds map[string]*liveWindowFeed
+	llWindows       map[string]*llhls.Window
+	llWindowsMut    sync.Mutex
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -135,6 +138,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 		cli:             cli,
 		liveWindows:     map[string]*livehls.Writer{},
 		liveWindowFeeds: map[string]*liveWindowFeed{},
+		llWindows:       map[string]*llhls.Window{},
 		modBuffers:      map[string]*modBuffer{},
 		httpPipes:       map[string]io.Writer{},
 		model:           mod,

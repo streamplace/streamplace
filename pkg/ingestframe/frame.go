@@ -62,6 +62,17 @@ const (
 	// worker reconnecting — it has no model of its own to notice the change.
 	// Payload: the manifest JSON.
 	Manifest Type = 6
+	// LLInit carries an LL-HLS track initialization segment and its timeline
+	// generation. Payload is an encoded LLFrame.
+	LLInit Type = 7
+	// LLPart carries one complete CMAF partial segment. Payload is an encoded LLFrame.
+	LLPart Type = 8
+	// LLSegmentComplete marks a complete LL-HLS parent segment. Payload is an encoded LLFrame.
+	LLSegmentComplete Type = 9
+	// LLDiscontinuity marks a timeline or codec discontinuity. Payload is an encoded LLFrame.
+	LLDiscontinuity Type = 10
+	// LLSessionEnd closes an LL-HLS presentation. Payload is an encoded LLFrame.
+	LLSessionEnd Type = 11
 )
 
 func (t Type) String() string {
@@ -78,6 +89,16 @@ func (t Type) String() string {
 		return "event"
 	case Manifest:
 		return "manifest"
+	case LLInit:
+		return "ll-init"
+	case LLPart:
+		return "ll-part"
+	case LLSegmentComplete:
+		return "ll-segment-complete"
+	case LLDiscontinuity:
+		return "ll-discontinuity"
+	case LLSessionEnd:
+		return "ll-session-end"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(t))
 	}
@@ -143,6 +164,43 @@ func (fw *Writer) Event(payload []byte) error { return fw.WriteFrame(Event, payl
 
 // Manifest frames an updated C2PA manifest (main → worker).
 func (fw *Writer) Manifest(payload []byte) error { return fw.WriteFrame(Manifest, payload) }
+
+// LLFrame is the metadata envelope for LL-HLS worker events. Durations and
+// timestamps use the worker's track timescale, keeping the wire protocol
+// independent of Go's duration representation.
+type LLFrame struct {
+	Presentation string `cbor:"presentation"`
+	Track        string `cbor:"track"`
+	Generation   uint64 `cbor:"generation"`
+	Timescale    uint32 `cbor:"timescale,omitempty"`
+	MSN          uint64 `cbor:"msn,omitempty"`
+	Part         uint32 `cbor:"part,omitempty"`
+	Start        uint64 `cbor:"start,omitempty"`
+	Duration     uint64 `cbor:"duration,omitempty"`
+	Independent  bool   `cbor:"independent,omitempty"`
+	Data         []byte `cbor:"data,omitempty"`
+}
+
+func (fw *Writer) writeLL(t Type, f LLFrame) error {
+	b, err := drisl.Marshal(f)
+	if err != nil {
+		return fmt.Errorf("ingestframe: encode %s: %w", t, err)
+	}
+	return fw.WriteFrame(t, b)
+}
+func (fw *Writer) LLInit(f LLFrame) error            { return fw.writeLL(LLInit, f) }
+func (fw *Writer) LLPart(f LLFrame) error            { return fw.writeLL(LLPart, f) }
+func (fw *Writer) LLSegmentComplete(f LLFrame) error { return fw.writeLL(LLSegmentComplete, f) }
+func (fw *Writer) LLDiscontinuity(f LLFrame) error   { return fw.writeLL(LLDiscontinuity, f) }
+func (fw *Writer) LLSessionEnd(f LLFrame) error      { return fw.writeLL(LLSessionEnd, f) }
+
+func DecodeLLFrame(payload []byte) (LLFrame, error) {
+	var f LLFrame
+	if err := drisl.Unmarshal(payload, &f); err != nil {
+		return f, fmt.Errorf("ingestframe: decode LL frame: %w", err)
+	}
+	return f, nil
+}
 
 // Reader decodes frames from an underlying stream. The decoder buffers/reads
 // ahead, so a Reader OWNS its stream for the stream's lifetime — don't create a

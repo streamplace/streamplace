@@ -45,14 +45,15 @@ export function srcToUrl(
     }
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {
+      const llhlsUrl = `${url}/api/playback/${encodeURIComponent(props.src)}/llhls/master.m3u8`;
       if (
         props.selectedRendition &&
         props.selectedRendition !== "auto" &&
         props.selectedRendition !== "source"
       ) {
-        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}&rendition=${props.selectedRendition}`;
+        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(props.src)}&rendition=${encodeURIComponent(props.selectedRendition)}`;
       } else {
-        outUrl = `${url}/xrpc/place.stream.playback.getLivePlaylist?streamer=${props.src}`;
+        outUrl = llhlsUrl;
       }
     } else if (protocol === PlayerProtocol.PROGRESSIVE_MP4) {
       outUrl = `${url}/api/playback/${props.src}/stream.mp4`;

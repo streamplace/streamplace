@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
@@ -24,6 +25,29 @@ const liveWindowSize = 12
 // is then dropped from the map (so the stream reads as offline). Generous
 // enough not to cut a briefly-lagging player.
 const liveWindowRetention = 30 * time.Second
+
+const llhlsWindowSegments = 30
+const llhlsWindowBytes = 64 << 20
+
+func (mm *MediaManager) llWindow(did string) *llhls.Window {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	w := mm.llWindows[did]
+	if w == nil {
+		w = llhls.NewWindow(llhls.WithMaxSegments(llhlsWindowSegments), llhls.WithMaxBytes(llhlsWindowBytes))
+		mm.llWindows[did] = w
+	}
+	return w
+}
+
+// GetLLWindow returns the low-latency window for a stream. Unlike the legacy
+// window, its lifetime is tied to the CMAF presentation and reconnects replace
+// the presentation in-place.
+func (mm *MediaManager) GetLLWindow(did string) *llhls.Window {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	return mm.llWindows[did]
+}
 
 // liveWindow returns the streamer's in-memory live-HLS window, creating it on
 // first use.

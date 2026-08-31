@@ -40,7 +40,7 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 		}
 		presentation := window.Presentation()
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := "#EXTM3U\n#EXT-X-VERSION:9\n" +
+		body := "#EXTM3U\n#EXT-X-VERSION:10\n" +
 			fmt.Sprintf("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"AAC\",DEFAULT=YES,AUTOSELECT=YES,URI=\"%s/audio/index.m3u8\"\n", base) +
 			fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS=\"avc1.64001f,mp4a.40.2\",AUDIO=\"audio\"\n%s/video/index.m3u8\n", base)
 		writeLLHLSPlaylist(w, body)
@@ -180,6 +180,9 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 		part, e2 := strconv.ParseUint(strings.TrimSuffix(p.ByName("part.m4s"), ".m4s"), 10, 32)
 		if e1 != nil || e2 != nil {
 			apierrors.WriteHTTPBadRequest(w, "invalid media sequence or part", nil)
+			return
+		}
+		if err := window.Wait(r.Context(), p.ByName("presentation"), p.ByName("track"), msn, uint32(part)); err != nil {
 			return
 		}
 		serveLLHLSBytes(w, r, window.Data(p.ByName("presentation"), p.ByName("track"), msn, uint32(part)), "part.m4s", true)

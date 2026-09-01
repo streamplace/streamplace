@@ -43,6 +43,7 @@ import (
 	"stream.place/streamplace/pkg/replication/iroh_replicator"
 	"stream.place/streamplace/pkg/replication/websocketrep"
 	"stream.place/streamplace/pkg/rtmps"
+	sps3 "stream.place/streamplace/pkg/s3"
 	"stream.place/streamplace/pkg/spmetrics"
 	"stream.place/streamplace/pkg/statedb"
 	"stream.place/streamplace/pkg/storage"
@@ -206,6 +207,11 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 			return err
 		}
 	}
+
+	// Captured before any listener can accept a stream: spool session dirs
+	// named (or modified) after this instant belong to live sessions of THIS
+	// process, and the salvage pass must not touch them.
+	bootTime := time.Now()
 
 	group, ctx := TimeoutGroupWithContext(ctx)
 
@@ -582,6 +588,30 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	group.Go(func() error {
 		return storage.StartSegmentCleaner(ctx, ldb, cli)
 	})
+
+	// Probe the live-recording bucket with the real multipart call patterns so
+	// a provider incompatibility (or credential rot) screams at startup instead
+	// of surfacing ten minutes into a user's livestream.
+	if cli.S3Configured() && cli.S3CanaryInterval > 0 {
+		group.Go(func() error {
+			return sps3.StartCanary(ctx, cli.S3Config(), cli.S3CanaryInterval)
+		})
+	}
+
+	// Upload any live-rec spool data a prior run left behind (crash, or a
+	// stream that ended while its bucket was failing) — the recording
+	// completes late instead of being lost. Only spools from BEFORE bootTime
+	// are touched: sessions of this process create their dirs after it, so
+	// salvage can never race a live uploader.
+	if cli.S3Configured() && cli.LiveRecSpoolMaxMB > 0 {
+		group.Go(func() error {
+			if err := sps3.SalvageSpools(ctx, cli.S3Config(), state,
+				director.LiveRecSpoolRoot(cli.DataDir), director.LiveRecKeyPrefix, sps3.DefaultCutoverEvery, bootTime); err != nil {
+				log.Error(ctx, "salvaging live-rec spools", "error", err)
+			}
+			return nil
+		})
+	}
 
 	if cli.LegacySegmentCleaner {
 		group.Go(func() error {

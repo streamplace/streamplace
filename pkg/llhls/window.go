@@ -21,8 +21,11 @@ var (
 )
 
 const (
-	defaultTargetDuration = 2 * time.Second
-	defaultPartTarget     = time.Second
+	// The muxer durations are scheduling goals. AAC frame boundaries and GOP
+	// drain can make emitted media slightly longer, while playlist duration
+	// tags must remain fixed for the presentation and cover every emitted item.
+	defaultTargetDuration = 6 * time.Second
+	defaultPartTarget     = 1100 * time.Millisecond
 )
 
 type EventKind uint8
@@ -133,9 +136,9 @@ type Option func(*Window)
 func WithMaxSegments(n int) Option { return func(w *Window) { w.maxSegments = n } }
 func WithMaxBytes(n int) Option    { return func(w *Window) { w.maxBytes = n } }
 
-// WithPlaylistDurations sets the fixed playlist timing contract for a Window.
-// The target duration is rounded to the nearest whole second as required by
-// HLS. The values remain fixed for each presentation observed by the Window.
+// WithPlaylistDurations sets fixed upper bounds for parent and part durations.
+// The parent bound is rounded to the nearest whole second for TARGETDURATION.
+// Both values remain fixed for each presentation observed by the Window.
 func WithPlaylistDurations(parent, part time.Duration) Option {
 	return func(w *Window) {
 		if parent > 0 {
@@ -484,7 +487,7 @@ func (w *Window) partStateLocked(presentation, trackID string, msn uint64, partI
 	s := w.findSegment(t, msn)
 	if s == nil {
 		if len(t.segments) == 0 {
-			return partUnavailable
+			return partPending
 		}
 		if t.segments[0].msn > msn {
 			return partUnavailable
@@ -571,27 +574,6 @@ func roundedDurationSeconds(d time.Duration) int64 {
 		return 1
 	}
 	return seconds
-}
-
-// IndependentSegments reports whether every parent currently advertised by
-// the track starts with an independent part. The CMAF producer supplies that
-// metadata on each Part event; this package never parses media bytes.
-func (w *Window) IndependentSegments(presentation, trackID string) bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if presentation != w.presentation {
-		return false
-	}
-	t := w.tracks[trackID]
-	if t == nil || len(t.segments) == 0 {
-		return false
-	}
-	for _, seg := range t.segments {
-		if len(seg.parts) == 0 || !seg.parts[0].independent {
-			return false
-		}
-	}
-	return true
 }
 
 func firstMSN(s Snapshot) uint64 {

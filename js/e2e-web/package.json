@@ -1,0 +1,17 @@
+{
+  "name": "@streamplace/e2e-web",
+  "version": "0.11.0",
+  "private": true,
+  "description": "Headless-web e2e flows (Playwright) — the web counterpart to the .maestro/ mobile flows",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "install-browser": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.6.3"
+  }
+}

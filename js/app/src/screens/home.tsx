@@ -118,6 +118,7 @@ function HomeScreenItem({
   const user = item.author.handle || item.author.did;
   return (
     <AQLink
+      testID="home-stream-card"
       to={{
         screen: "Stream",
         params: {

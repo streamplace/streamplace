@@ -49,6 +49,12 @@ func init() {
 	if defaultClientOptions.OverrideInTest && len(os.Args) > 0 && strings.HasSuffix(os.Args[0], ".test") {
 		Client = TrustedClient
 	}
+
+	// SP_TRUST_PRIVATE_NETWORK disables SSRF protection so self-contained test
+	// environments (e.g. `streamplace e2e`) can talk to a PLC/PDS on localhost.
+	if os.Getenv("SP_TRUST_PRIVATE_NETWORK") == "true" {
+		Client = TrustedClient
+	}
 }
 
 // Do executes an HTTP request with SSRF protection (secure by default).

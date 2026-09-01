@@ -54,12 +54,13 @@ export function AdvancedCategorySettings() {
   };
 
   return (
-    <ScrollView>
+    <ScrollView keyboardShouldPersistTaps="handled">
       <View style={[zero.layout.flex.align.center, zero.px[2], zero.py[2]]}>
         <View style={{ maxWidth: 500, width: "100%" }}>
           <MenuContainer>
             <MenuGroup>
               <SettingToggle
+                testID="settings-use-custom-node"
                 title={t("use-custom-node")}
                 description={t("default-url", { url: defaultUrl })}
                 value={overrideEnabled}
@@ -82,6 +83,7 @@ export function AdvancedCategorySettings() {
               >
                 <View style={{ flex: 1 }}>
                   <Input
+                    testID="settings-custom-node-url"
                     value={newUrl}
                     containerStyle={[
                       { flex: 1, flexGrow: 1, width: "100%" },
@@ -103,6 +105,7 @@ export function AdvancedCategorySettings() {
                   />
                 </View>
                 <Button
+                  testID="settings-save-node"
                   size="md"
                   width="min"
                   variant="secondary"

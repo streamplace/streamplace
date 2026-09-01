@@ -320,11 +320,15 @@ func ParseSegmentMediaDataSinkNewSampleFunc(ctx context.Context, foundThisTrack 
 			firstPTS = pts
 		}
 		diff := pts.Sub(*firstPTS)
-		*duration = diff
 		dur := buf.Duration().AsDuration()
 		if dur != nil && *dur > 0 {
+			// The track's span is the last sample's PTS offset plus that sample's
+			// own duration — diff alone undercounts every segment by one frame
+			// interval, which inflates bitrate calculations (size / duration).
+			*duration = diff + *dur
 			*foundThisTrack = true
 		} else {
+			*duration = diff
 			log.Warn(ctx, "no duration found for track", "track", sink.GetName())
 		}
 		return gst.FlowOK

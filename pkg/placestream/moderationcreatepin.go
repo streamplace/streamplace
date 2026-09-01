@@ -14,8 +14,10 @@ import (
 
 type ModerationCreatePin_Input struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	// expiresAt: Optional expiration time for this pin.
+	// expiresAt: Optional expiration time for this pin. Ignored when 'livestream' is set.
 	ExpiresAt *string `json:"expiresAt,omitempty"`
+	// livestream: AT-URI of the livestream this pin is scoped to, passed through to the pinned record. If set, the pin stays active until that livestream ends. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned.
+	Livestream *string `json:"livestream,omitempty"`
 	// messageUri: The AT-URI of the chat message to pin.
 	MessageUri string `json:"messageUri"`
 	// streamer: The DID of the streamer.

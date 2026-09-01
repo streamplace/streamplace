@@ -28,7 +28,12 @@
           "expiresAt": {
             "type": "string",
             "format": "datetime",
-            "description": "Optional expiration time. If set, the pin is considered inactive after this time."
+            "description": "Optional expiration time. If 'livestream' is not set, the pin is considered inactive after this time."
+          },
+          "livestream": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT-URI of the place.stream.livestream record this pin is scoped to. If set, the pin is active only while that livestream exists and has not ended, and takes precedence over 'expiresAt'. If neither 'livestream' nor 'expiresAt' is set, the pin stays active until manually unpinned."
           }
         }
       }

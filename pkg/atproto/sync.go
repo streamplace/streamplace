@@ -318,6 +318,9 @@ func (atsync *ATProtoSynchronizer) handleCreateUpdate(ctx context.Context, userD
 			Repo:          repo,
 			ExpiresAt:     expiresAt,
 		}
+		if rec.Livestream != nil {
+			pin.LivestreamURI = *rec.Livestream
+		}
 		err = atsync.Model.CreatePinnedRecord(ctx, pin)
 		if errors.Is(err, model.ErrAlreadyIndexed) {
 			return nil

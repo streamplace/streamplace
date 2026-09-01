@@ -102,9 +102,14 @@ type NewSegmentNotification struct {
 	// Muxl is the bare canonical .m4s: blindly concatenatable signed segments
 	// with no container header. Consumers synthesize whatever wrapper they
 	// need. The long-term wire format; Data retires once all consumers are MUXL.
-	Muxl     []byte
-	Metadata *SegmentMetadata
-	Local    bool
+	Muxl []byte
+	// SourceSize is the byte count of the validated SOURCE segment, before codec
+	// completion appended a transcoded track and before the flat wrap in Data.
+	// Bitrate enforcement measures this — the streamer's actual contribution —
+	// rather than the node-augmented distribution artifact.
+	SourceSize int
+	Metadata   *SegmentMetadata
+	Local      bool
 }
 
 func RunSelfTest(ctx context.Context) error {

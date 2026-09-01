@@ -41,6 +41,11 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 			return
 		}
 		presentation := window.Presentation()
+		if presentation == "" {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
+			return
+		}
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
 		body := renderLLHLSMaster(base, window.VideoConfig())
 		writeLLHLSPlaylist(w, body)

@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -41,12 +42,12 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 		}
 		presentation := window.Presentation()
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := renderLLHLSMaster(base, window.VideoConfig())
+		body := renderLLHLSMaster(base, window.VideoConfig(), window.IndependentSegments(presentation, "video"))
 		writeLLHLSPlaylist(w, body)
 	}
 }
 
-func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig) string {
+func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, independentSegments bool) string {
 	codec := videoConfig.Codec
 	if codec == "" {
 		codec = "avc1.64001f"
@@ -56,8 +57,11 @@ func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig) string {
 		streamInf += fmt.Sprintf(",RESOLUTION=%dx%d", videoConfig.Width, videoConfig.Height)
 	}
 	streamInf += ",CLOSED-CAPTIONS=NONE"
-	return "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
-		streamInf + "\n" + base + "/video/index.m3u8\n"
+	playlist := "#EXTM3U\n#EXT-X-VERSION:10\n"
+	if independentSegments {
+		playlist += "#EXT-X-INDEPENDENT-SEGMENTS\n"
+	}
+	return playlist + streamInf + "\n" + base + "/video/index.m3u8\n"
 }
 
 func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {
@@ -207,7 +211,7 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 		}
 		presentation, track := p.ByName("presentation"), p.ByName("track")
 		partIndex := uint32(part)
-		if err := window.Wait(r.Context(), presentation, track, msn, partIndex); err != nil {
+		if err := window.WaitForPart(r.Context(), presentation, track, msn, partIndex); err != nil && !errors.Is(err, llhls.ErrPartUnavailable) {
 			log.Debug(r.Context(), "LL-HLS part wait ended", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "error", err)
 			return
 		}

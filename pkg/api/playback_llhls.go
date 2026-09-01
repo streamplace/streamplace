@@ -42,12 +42,12 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 		}
 		presentation := window.Presentation()
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := renderLLHLSMaster(base, window.VideoConfig(), window.IndependentSegments(presentation, "video"))
+		body := renderLLHLSMaster(base, window.VideoConfig())
 		writeLLHLSPlaylist(w, body)
 	}
 }
 
-func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, independentSegments bool) string {
+func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig) string {
 	codec := videoConfig.Codec
 	if codec == "" {
 		codec = "avc1.64001f"
@@ -57,11 +57,7 @@ func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, independentSe
 		streamInf += fmt.Sprintf(",RESOLUTION=%dx%d", videoConfig.Width, videoConfig.Height)
 	}
 	streamInf += ",CLOSED-CAPTIONS=NONE"
-	playlist := "#EXTM3U\n#EXT-X-VERSION:10\n"
-	if independentSegments {
-		playlist += "#EXT-X-INDEPENDENT-SEGMENTS\n"
-	}
-	return playlist + streamInf + "\n" + base + "/video/index.m3u8\n"
+	return "#EXTM3U\n#EXT-X-VERSION:10\n" + streamInf + "\n" + base + "/video/index.m3u8\n"
 }
 
 func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {

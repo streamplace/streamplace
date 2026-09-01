@@ -54,11 +54,10 @@ func TestLLHLSMasterAdvertisesVideoMetadata(t *testing.T) {
 		Codec:  "avc1.64002a",
 		Width:  1280,
 		Height: 720,
-	}, true)
+	})
 
 	for _, want := range []string{
 		"#EXT-X-VERSION:10",
-		"#EXT-X-INDEPENDENT-SEGMENTS",
 		`#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=1280x720,CLOSED-CAPTIONS=NONE`,
 		`/api/playback/did:plc:test/llhls/rtmp-1/video/index.m3u8`,
 	} {
@@ -69,10 +68,13 @@ func TestLLHLSMasterAdvertisesVideoMetadata(t *testing.T) {
 	if strings.Contains(master, "#EXT-X-MEDIA:TYPE=AUDIO") || strings.Contains(master, `AUDIO="audio"`) {
 		t.Fatalf("muxed master should not advertise a separate audio rendition:\n%s", master)
 	}
+	if strings.Contains(master, "#EXT-X-INDEPENDENT-SEGMENTS") {
+		t.Fatalf("RTMP master cannot make a presentation-wide independence guarantee:\n%s", master)
+	}
 }
 
-func TestLLHLSMasterOmitsIndependentSegmentsUntilWindowMetadataIsKnown(t *testing.T) {
-	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, false)
+func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
+	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{})
 	if strings.Contains(master, "#EXT-X-INDEPENDENT-SEGMENTS") {
 		t.Fatalf("master advertised independent segments without metadata:\n%s", master)
 	}

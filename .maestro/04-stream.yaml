@@ -1,0 +1,24 @@
+appId: ${APP_ID}
+---
+- launchApp
+- takeScreenshot: 04-01-launched
+# open the test stream from the home feed. Matched by testID because the
+# card's link wrapper collapses its subtree on iOS.
+- extendedWaitUntil:
+    visible:
+      id: "home-stream-card"
+    timeout: 30000
+- tapOn:
+    id: "home-stream-card"
+- waitForAnimationToEnd
+- takeScreenshot: 04-02-stream-open
+# the stream's "Now streaming - e2e test stream" chat system message is
+# plain text; give it time to arrive over the chat socket
+- extendedWaitUntil:
+    visible:
+      text: ".*e2e test stream.*"
+    timeout: 30000
+# tap on the video to show the player controls
+- tapOn:
+    point: 50%,20%
+- takeScreenshot: 04-03-player-tapped

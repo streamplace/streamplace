@@ -75,6 +75,22 @@ jobs:
           path: ./bin/
           retention-days: 1
 
+      - name: Upload streamplace binary
+        if: matrix.name == 'linux-amd64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: ./build-linux-amd64/streamplace
+          retention-days: 1
+
+      - name: Upload android release APK
+        if: matrix.name == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk-${{ github.run_id }}
+          path: ./bin/*android-release.apk
+          retention-days: 1
+
   # windows-selftest:
   #   name: windows-selftest
   #   runs-on: windows-latest
@@ -150,3 +166,276 @@ jobs:
           && python -m pip install meson \
           && PATH="/opt/homebrew/opt/llvm/bin:$PATH" \
           && ${{ matrix.cmd }}
+
+      - name: Upload streamplace binary
+        if: matrix.name == 'darwin-arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamplace-darwin-arm64-${{ github.run_id }}
+          path: ./build-darwin-arm64/streamplace
+          retention-days: 1
+
+  android-e2e:
+    name: android-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [linux, darwin]
+    steps:
+      - uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: setup pnpm
+        run: npm install -g corepack@latest && corepack enable
+
+      - name: install dependencies
+        run: pnpm install
+
+      - name: download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-linux-amd64-${{ github.run_id }}
+          path: .
+
+      - name: download android release APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-apk-${{ github.run_id }}
+          path: ./apk
+
+      - name: make streamplace executable
+        run: chmod +x ./streamplace
+
+      - name: start e2e environment
+        run: |
+          ./streamplace e2e > /tmp/e2e-env.sh 2> /tmp/e2e-server.log &
+          for i in $(seq 1 120); do
+            if [ -s /tmp/e2e-env.sh ]; then break; fi
+            sleep 1
+          done
+          if [ ! -s /tmp/e2e-env.sh ]; then
+            echo "e2e environment failed to start; server log:"
+            cat /tmp/e2e-server.log
+            exit 1
+          fi
+          cat /tmp/e2e-env.sh
+
+      - name: install maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-pixel-6-api-34-v2
+
+      - name: create avd snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options:
+            -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+            -camera-back none
+          disable-animations: true
+          script: echo "avd snapshot created"
+
+      - name: run maestro tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: false
+          # more cores/RAM so the software-rendered emulator doesn't thrash
+          # and ANR the launcher out from under the app mid-test
+          cores: 4
+          ram-size: 6144M
+          heap-size: 576M
+          emulator-options:
+            -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+            -no-boot-anim -camera-back none
+          disable-animations: true
+          # must be a single line: the action runs each script line in its
+          # own shell, so env vars don't survive between lines
+          script: bash ./hack/ci-android-e2e.sh
+
+      - name: upload maestro recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-${{ github.run_id }}
+          path: |
+            ~/.maestro/tests/
+            /tmp/e2e-server.log
+            ./*.png
+          retention-days: 7
+          if-no-files-found: warn
+
+  ios-e2e:
+    name: ios-e2e
+    runs-on: macos-26
+    timeout-minutes: 75
+    needs: [linux, darwin]
+    steps:
+      - uses: actions/checkout@v4.1.7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.1"
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.3"
+
+      - name: setup pnpm
+        run: npm install -g corepack@latest && corepack enable
+
+      - name: install dependencies
+        run: pnpm install
+
+      - name: build js bundle and generate native project
+        working-directory: js/app
+        run: pnpm run build
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+
+      - name: install pods
+        working-directory: js/app/ios
+        run: pod install
+
+      - name: install maestro and idb
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+          brew tap facebook/fb
+          brew install facebook/fb/idb-companion
+          # applesimutils lets us pre-grant notification permission so the
+          # first-launch permission dialog never appears. Homebrew 5.x
+          # refuses untrusted third-party taps, so trust it explicitly.
+          brew tap wix/brew
+          brew trust wix/brew
+          brew install applesimutils
+
+      - name: build for simulator
+        run: |
+          # generic destination: build for the simulator SDK without needing
+          # a concrete device to exist. Runner images vary in which
+          # simulators are pre-created, and pinning a named device (iPhone 17)
+          # intermittently fails with "Unable to find a device matching the
+          # provided destination specifier".
+          xcodebuild \
+            -workspace js/app/ios/Streamplace.xcworkspace \
+            -scheme Streamplace \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath js/app/ios/build \
+            -destination 'generic/platform=iOS Simulator' \
+            build
+
+      - name: boot simulator and install app
+        run: |
+          # Create a fresh iPhone simulator rather than assuming one is
+          # pre-created (runner images vary). Pick the highest-numbered
+          # iPhone model (e.g. "iPhone 17") so it's compatible with the
+          # newest iOS runtime — an old model like iPhone 6s is rejected as
+          # "Incompatible device".
+          DEVTYPE=$(xcrun simctl list devicetypes | grep -oE 'iPhone [0-9]+' | sort -k2 -n | tail -1)
+          RUNTIME=$(xcrun simctl list runtimes | grep -Eo 'com.apple.CoreSimulator.SimRuntime.iOS-[0-9-]+' | tail -1)
+          echo "creating simulator: devtype=\"$DEVTYPE\" runtime=$RUNTIME"
+          UDID=$(xcrun simctl create e2e-iphone "$DEVTYPE" "$RUNTIME")
+          echo "SIM_UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" js/app/ios/build/Build/Products/Release-iphonesimulator/Streamplace.app
+          # Pre-grant notifications so the first-launch "would like to send
+          # you notifications" dialog (which dims the whole screen and blocks
+          # every subsequent tap) never appears.
+          applesimutils --byId "$UDID" --bundle tv.aquareum --setPermissions notifications=YES
+
+      - name: download streamplace binary
+        uses: actions/download-artifact@v4
+        with:
+          name: streamplace-darwin-arm64-${{ github.run_id }}
+          path: .
+
+      - name: make streamplace executable
+        run: chmod +x ./streamplace
+
+      - name: start e2e environment
+        run: |
+          ./streamplace e2e > /tmp/e2e-env.sh 2> /tmp/e2e-server.log &
+          for i in $(seq 1 120); do
+            if [ -s /tmp/e2e-env.sh ]; then break; fi
+            sleep 1
+          done
+          if [ ! -s /tmp/e2e-env.sh ]; then
+            echo "e2e environment failed to start; server log:"
+            cat /tmp/e2e-server.log
+            exit 1
+          fi
+          cat /tmp/e2e-env.sh
+
+      - name: smoke launch app with console
+        run: |
+          xcrun simctl launch --console-pty "$SIM_UDID" tv.aquareum > /tmp/app-console.log 2>&1 &
+          LAUNCH_PID=$!
+          sleep 25
+          kill $LAUNCH_PID 2>/dev/null || true
+          xcrun simctl terminate "$SIM_UDID" tv.aquareum 2>/dev/null || true
+          echo "=== app console (first 25s) ==="
+          cat /tmp/app-console.log
+
+      - name: run maestro tests
+        run: |
+          source /tmp/e2e-env.sh
+          # only one simulator is booted, so maestro auto-selects it
+          maestro test -e APP_ID=tv.aquareum -e SERVER_URL="$SERVER_URL" -e ACCOUNT_HANDLE="$ACCOUNT_HANDLE" .maestro/
+
+      - name: collect ios diagnostics
+        if: always()
+        run: |
+          mkdir -p ./ios-diag
+          cp /tmp/app-console.log ./ios-diag/ 2>/dev/null || true
+          cp ~/Library/Logs/DiagnosticReports/*.ips ./ios-diag/ 2>/dev/null || true
+          xcrun simctl spawn "$SIM_UDID" log show --last 30m --predicate 'process == "Streamplace"' > ./ios-diag/sim-app-log.txt 2>/dev/null || true
+
+      - name: upload maestro recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-${{ github.run_id }}
+          path: |
+            ~/.maestro/tests/
+            /tmp/e2e-server.log
+            ./*.png
+            ./ios-diag/
+          retention-days: 7
+          if-no-files-found: warn

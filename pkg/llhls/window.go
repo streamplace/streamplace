@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +17,12 @@ var (
 	ErrStalePresentation = errors.New("llhls: stale presentation")
 	ErrPartOrder         = errors.New("llhls: invalid part order")
 	ErrGeneration        = errors.New("llhls: stale configuration generation")
+	ErrPartUnavailable   = errors.New("llhls: part unavailable")
+)
+
+const (
+	defaultTargetDuration = 2 * time.Second
+	defaultPartTarget     = time.Second
 )
 
 type EventKind uint8
@@ -43,6 +50,7 @@ type Event struct {
 }
 
 type PartSnapshot struct {
+	Identity        PartIdentity
 	Index           uint32
 	Start, Duration time.Duration
 	Independent     bool
@@ -73,6 +81,14 @@ type VideoConfig struct {
 	Height int
 }
 
+// PartIdentity is the stable logical identity used by a part URI. Parent
+// timing metadata may be corrected when a parent closes, but this identity is
+// never reassigned or aliased to another parent's bytes.
+type PartIdentity struct {
+	MSN   uint64
+	Index uint32
+}
+
 type Window struct {
 	mu                   sync.Mutex
 	presentation         string
@@ -84,6 +100,10 @@ type Window struct {
 	videoConfig          VideoConfig
 	programDateTime      time.Time
 	programDateTimeStart time.Duration
+	targetDuration       int64
+	partTarget           time.Duration
+	configuredTarget     int64
+	configuredPartTarget time.Duration
 }
 
 type track struct {
@@ -102,7 +122,7 @@ type segment struct {
 }
 
 type part struct {
-	index           uint32
+	identity        PartIdentity
 	start, duration time.Duration
 	independent     bool
 	data            []byte
@@ -113,11 +133,32 @@ type Option func(*Window)
 func WithMaxSegments(n int) Option { return func(w *Window) { w.maxSegments = n } }
 func WithMaxBytes(n int) Option    { return func(w *Window) { w.maxBytes = n } }
 
+// WithPlaylistDurations sets the fixed playlist timing contract for a Window.
+// The target duration is rounded to the nearest whole second as required by
+// HLS. The values remain fixed for each presentation observed by the Window.
+func WithPlaylistDurations(parent, part time.Duration) Option {
+	return func(w *Window) {
+		if parent > 0 {
+			w.targetDuration = roundedDurationSeconds(parent)
+		}
+		if part > 0 {
+			w.partTarget = part
+		}
+	}
+}
+
 func NewWindow(opts ...Option) *Window {
-	w := &Window{tracks: make(map[string]*track), changed: make(chan struct{})}
+	w := &Window{
+		tracks:         make(map[string]*track),
+		changed:        make(chan struct{}),
+		targetDuration: roundedDurationSeconds(defaultTargetDuration),
+		partTarget:     defaultPartTarget,
+	}
 	for _, opt := range opts {
 		opt(w)
 	}
+	w.configuredTarget = w.targetDuration
+	w.configuredPartTarget = w.partTarget
 	return w
 }
 
@@ -144,6 +185,8 @@ func (w *Window) Observe(ev Event) error {
 		w.presentation = ev.Presentation
 		w.programDateTime = time.Time{}
 		w.programDateTimeStart = 0
+		w.targetDuration = w.configuredTarget
+		w.partTarget = w.configuredPartTarget
 	}
 
 	t := w.tracks[ev.Track]
@@ -183,7 +226,7 @@ func (w *Window) Observe(ev Event) error {
 			w.programDateTime = ev.ProgramDateTime
 			w.programDateTimeStart = ev.Start
 		}
-		p := &part{index: ev.Part, start: ev.Start, duration: ev.Duration, independent: ev.Independent, data: append([]byte(nil), ev.Data...)}
+		p := &part{identity: PartIdentity{MSN: ev.MSN, Index: ev.Part}, start: ev.Start, duration: ev.Duration, independent: ev.Independent, data: append([]byte(nil), ev.Data...)}
 		s.parts = append(s.parts, p)
 		w.bytes += len(p.data)
 	case SegmentComplete:
@@ -296,7 +339,7 @@ func (w *Window) Snapshot(presentation, trackID string) Snapshot {
 	for _, seg := range t.segments {
 		ss := SegmentSnapshot{MSN: seg.msn, Start: seg.start, Duration: seg.duration, Complete: seg.complete, Data: append([]byte(nil), seg.data...)}
 		for _, p := range seg.parts {
-			ss.Parts = append(ss.Parts, PartSnapshot{Index: p.index, Start: p.start, Duration: p.duration, Independent: p.independent, Data: append([]byte(nil), p.data...)})
+			ss.Parts = append(ss.Parts, PartSnapshot{Identity: p.identity, Index: p.identity.Index, Start: p.start, Duration: p.duration, Independent: p.independent, Data: append([]byte(nil), p.data...)})
 		}
 		s.Segments = append(s.Segments, ss)
 	}
@@ -311,16 +354,8 @@ func (w *Window) Data(presentation, trackID string, msn uint64, partIndex uint32
 	}
 	if t := w.tracks[trackID]; t != nil {
 		if s := w.findSegment(t, msn); s != nil {
-			if int(partIndex) < len(s.parts) {
+			if uint64(len(s.parts)) > uint64(partIndex) && s.parts[partIndex].identity == (PartIdentity{MSN: msn, Index: partIndex}) {
 				return append([]byte(nil), s.parts[partIndex].data...)
-			}
-			// A preload request can race the parent boundary. If the requested
-			// part is beyond a completed parent, serve the first part of the
-			// following parent instead of returning a spurious 404.
-			if s.complete {
-				if next := w.findSegment(t, msn+1); next != nil && len(next.parts) > 0 {
-					return append([]byte(nil), next.parts[0].data...)
-				}
 			}
 		}
 	}
@@ -341,20 +376,133 @@ func (w *Window) SegmentData(presentation, trackID string, msn uint64) []byte {
 	return nil
 }
 
+// Wait blocks a playlist reload until the requested reload point is reflected
+// in a newer playlist. For a completed parent, a part index beyond the final
+// part rolls over to part zero of the following parent, per HLS blocking
+// reload semantics. This rule intentionally does not apply to media lookups.
 func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
 	for {
-		s := w.Snapshot(presentation, trackID)
-		for _, seg := range s.Segments {
-			if seg.MSN > msn || (seg.MSN == msn && len(seg.Parts) > int(partIndex)) {
-				return nil
-			}
+		w.mu.Lock()
+		ready := w.playlistReloadReadyLocked(presentation, trackID, msn, partIndex)
+		changed := w.changed
+		w.mu.Unlock()
+		if ready {
+			return nil
 		}
 		select {
-		case <-w.Changed():
+		case <-changed:
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
+}
+
+// WaitForPart blocks until the exact (MSN, part index) is available. A part
+// that belongs to a completed or evicted parent is permanently unavailable;
+// callers should serve ErrPartUnavailable as a no-store 404. Part identity is
+// the immutable tuple of presentation, track, MSN, and local part index.
+func (w *Window) WaitForPart(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
+	for {
+		w.mu.Lock()
+		state := w.partStateLocked(presentation, trackID, msn, partIndex)
+		changed := w.changed
+		w.mu.Unlock()
+		switch state {
+		case partReady:
+			return nil
+		case partUnavailable:
+			return ErrPartUnavailable
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+type partState uint8
+
+const (
+	partPending partState = iota
+	partReady
+	partUnavailable
+)
+
+func (w *Window) playlistReloadReadyLocked(presentation, trackID string, msn uint64, partIndex uint32) bool {
+	if presentation != w.presentation {
+		return false
+	}
+	t := w.tracks[trackID]
+	if t == nil {
+		return false
+	}
+	if t.ended {
+		return true
+	}
+	if s := w.findSegment(t, msn); s != nil {
+		if uint64(len(s.parts)) > uint64(partIndex) {
+			return true
+		}
+		if !s.complete {
+			return false
+		}
+		// A part past the end of a completed parent is a blocking reload for
+		// part zero of the following parent. Do not resolve until that part
+		// exists, so the response can advertise the same URI it will serve.
+		if partIndex >= uint32(len(s.parts)) {
+			next := w.findSegment(t, msn+1)
+			return next != nil && len(next.parts) > 0
+		}
+	}
+	if len(t.segments) == 0 {
+		return false
+	}
+	first := t.segments[0].msn
+	if first > msn+1 {
+		return true
+	}
+	if first == msn+1 && partIndex > 0 {
+		return len(t.segments[0].parts) > 0
+	}
+	for _, seg := range t.segments {
+		if seg.msn > msn {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *Window) partStateLocked(presentation, trackID string, msn uint64, partIndex uint32) partState {
+	if presentation != w.presentation {
+		return partUnavailable
+	}
+	t := w.tracks[trackID]
+	if t == nil || t.ended {
+		return partUnavailable
+	}
+	s := w.findSegment(t, msn)
+	if s == nil {
+		if len(t.segments) == 0 {
+			return partUnavailable
+		}
+		if t.segments[0].msn > msn {
+			return partUnavailable
+		}
+		for _, candidate := range t.segments {
+			if candidate.msn > msn {
+				return partUnavailable
+			}
+		}
+		return partPending
+	}
+	if uint64(len(s.parts)) > uint64(partIndex) {
+		return partReady
+	}
+	if s.complete {
+		return partUnavailable
+	}
+	return partPending
 }
 
 // Playlist renders the media playlist for one track. URIs are supplied by the
@@ -364,7 +512,7 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 	if s.Track == "" {
 		return ""
 	}
-	targetSeconds, partTarget := w.playlistDurations(s)
+	targetSeconds, partTarget := w.playlistDurations()
 	var b strings.Builder
 	fmt.Fprintf(&b, "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:%d\n#EXT-X-PART-INF:PART-TARGET=%.6f\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", targetSeconds, partTarget.Seconds(), 3*partTarget.Seconds(), 3*float64(targetSeconds))
 	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n#EXT-X-MAP:URI=%q\n", firstMSN(s), initURI)
@@ -377,7 +525,7 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 	for _, seg := range s.Segments {
 		if !seg.Complete && seg.MSN == openMSN {
 			for _, p := range seg.Parts {
-				fmt.Fprintf(&b, "#EXT-X-PART:DURATION=%.6f,URI=%q", p.Duration.Seconds(), partURI(seg.MSN, p.Index))
+				fmt.Fprintf(&b, "#EXT-X-PART:DURATION=%.6f,URI=%q", p.Duration.Seconds(), partURI(p.Identity.MSN, p.Identity.Index))
 				if p.Independent {
 					b.WriteString(",INDEPENDENT=YES")
 				}
@@ -407,42 +555,43 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 	return b.String()
 }
 
-func (w *Window) playlistDurations(s Snapshot) (targetSeconds int64, partTarget time.Duration) {
-	targetSeconds = 1
-	partTarget = 0
+func (w *Window) playlistDurations() (targetSeconds int64, partTarget time.Duration) {
 	w.mu.Lock()
-	for _, track := range w.tracks {
-		for _, seg := range track.segments {
-			if seg.complete {
-				if seconds := ceilDurationSeconds(seg.duration); seconds > targetSeconds {
-					targetSeconds = seconds
-				}
-			}
-		}
-	}
+	targetSeconds, partTarget = w.targetDuration, w.partTarget
 	w.mu.Unlock()
-	for _, seg := range s.Segments {
-		for _, p := range seg.Parts {
-			if p.Duration > partTarget {
-				partTarget = p.Duration
-			}
-		}
-	}
-	if partTarget <= 0 {
-		partTarget = time.Second
-	}
 	return targetSeconds, partTarget
 }
 
-func ceilDurationSeconds(d time.Duration) int64 {
+func roundedDurationSeconds(d time.Duration) int64 {
 	if d <= 0 {
 		return 1
 	}
-	seconds := int64(d / time.Second)
-	if d%time.Second != 0 {
-		seconds++
+	seconds := int64(math.Round(d.Seconds()))
+	if seconds < 1 {
+		return 1
 	}
 	return seconds
+}
+
+// IndependentSegments reports whether every parent currently advertised by
+// the track starts with an independent part. The CMAF producer supplies that
+// metadata on each Part event; this package never parses media bytes.
+func (w *Window) IndependentSegments(presentation, trackID string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if presentation != w.presentation {
+		return false
+	}
+	t := w.tracks[trackID]
+	if t == nil || len(t.segments) == 0 {
+		return false
+	}
+	for _, seg := range t.segments {
+		if len(seg.parts) == 0 || !seg.parts[0].independent {
+			return false
+		}
+	}
+	return true
 }
 
 func firstMSN(s Snapshot) uint64 {

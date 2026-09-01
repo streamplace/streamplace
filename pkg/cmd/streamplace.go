@@ -109,10 +109,16 @@ func start(build *config.BuildFlags, platformJobs []jobFunc) error {
 				}
 				log.Log(ctx, "error in gstreamer self-test, attempting recovery", "error", err, "retry", retryCount+1)
 				os.Setenv("STREAMPLACE_SELFTEST_RETRY", strconv.Itoa(retryCount+1))
-				err := syscall.Exec(os.Args[0], os.Args[1:], os.Environ())
-				if err != nil {
-					log.Error(ctx, "error in gstreamer self-test, could not restart", "error", err)
-					return ctx, err
+				// syscall.Exec does no PATH lookup, and the restarted process
+				// needs the program name at the front of argv; os.Executable()
+				// satisfies both regardless of how we were launched.
+				exe, exeErr := os.Executable()
+				if exeErr == nil {
+					exeErr = syscall.Exec(exe, os.Args, os.Environ())
+				}
+				if exeErr != nil {
+					log.Error(ctx, "error in gstreamer self-test, could not restart", "error", exeErr)
+					return ctx, exeErr
 				}
 				panic("invalid code path: exec succeeded but we're still here???")
 			}

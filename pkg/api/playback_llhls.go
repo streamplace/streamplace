@@ -13,6 +13,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	apierrors "stream.place/streamplace/pkg/errors"
 	"stream.place/streamplace/pkg/llhls"
+	"stream.place/streamplace/pkg/log"
 )
 
 func (a *StreamplaceAPI) llWindow(r *http.Request, user string) (*llhls.Window, string, error) {
@@ -40,11 +41,23 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 		}
 		presentation := window.Presentation()
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := "#EXTM3U\n#EXT-X-VERSION:10\n" +
-			fmt.Sprintf("#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"AAC\",DEFAULT=YES,AUTOSELECT=YES,URI=\"%s/audio/index.m3u8\"\n", base) +
-			fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS=\"avc1.64001f,mp4a.40.2\",AUDIO=\"audio\"\n%s/video/index.m3u8\n", base)
+		body := renderLLHLSMaster(base, window.VideoConfig())
 		writeLLHLSPlaylist(w, body)
 	}
+}
+
+func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig) string {
+	codec := videoConfig.Codec
+	if codec == "" {
+		codec = "avc1.64001f"
+	}
+	streamInf := fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS=%q", codec+",mp4a.40.2")
+	if videoConfig.Width > 0 && videoConfig.Height > 0 {
+		streamInf += fmt.Sprintf(",RESOLUTION=%dx%d", videoConfig.Width, videoConfig.Height)
+	}
+	streamInf += ",CLOSED-CAPTIONS=NONE"
+	return "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-INDEPENDENT-SEGMENTS\n" +
+		streamInf + "\n" + base + "/video/index.m3u8\n"
 }
 
 func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {
@@ -110,8 +123,10 @@ func (a *StreamplaceAPI) HandleLLHLSPlaylist(ctx context.Context) httprouter.Han
 			apierrors.WriteHTTPBadRequest(w, "invalid LL-HLS reload query", err)
 			return
 		}
+		log.Debug(r.Context(), "LL-HLS playlist request", "presentation", presentation, "track", track, "msn", msn, "part", part, "blocking", reload, "skip", r.URL.Query().Get("_HLS_skip"))
 		if reload {
 			if err := window.Wait(r.Context(), presentation, track, msn, part); err != nil {
+				log.Debug(r.Context(), "LL-HLS playlist wait ended", "presentation", presentation, "track", track, "msn", msn, "part", part, "error", err)
 				return
 			}
 		}
@@ -124,6 +139,7 @@ func (a *StreamplaceAPI) HandleLLHLSPlaylist(ctx context.Context) httprouter.Han
 			apierrors.WriteHTTPNotFound(w, "track not found", nil)
 			return
 		}
+		log.Debug(r.Context(), "LL-HLS playlist response", "presentation", presentation, "track", track, "msn", msn, "part", part, "blocking", reload, "bytes", len(body))
 		writeLLHLSPlaylist(w, body)
 	}
 }
@@ -165,7 +181,14 @@ func (a *StreamplaceAPI) HandleLLHLSInit(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPNotFound(w, "stream not live", err)
 			return
 		}
-		serveLLHLSBytes(w, r, window.Snapshot(p.ByName("presentation"), p.ByName("track")).Init, "init.mp4", false)
+		presentation, track := p.ByName("presentation"), p.ByName("track")
+		data := window.Snapshot(presentation, track).Init
+		if len(data) == 0 {
+			log.Warn(r.Context(), "LL-HLS init unavailable", "presentation", presentation, "track", track)
+		} else {
+			log.Debug(r.Context(), "LL-HLS init response", "presentation", presentation, "track", track, "bytes", len(data))
+		}
+		serveLLHLSBytes(w, r, data, "init.mp4", false)
 	}
 }
 
@@ -182,10 +205,19 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 			apierrors.WriteHTTPBadRequest(w, "invalid media sequence or part", nil)
 			return
 		}
-		if err := window.Wait(r.Context(), p.ByName("presentation"), p.ByName("track"), msn, uint32(part)); err != nil {
+		presentation, track := p.ByName("presentation"), p.ByName("track")
+		partIndex := uint32(part)
+		if err := window.Wait(r.Context(), presentation, track, msn, partIndex); err != nil {
+			log.Debug(r.Context(), "LL-HLS part wait ended", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "error", err)
 			return
 		}
-		serveLLHLSBytes(w, r, window.Data(p.ByName("presentation"), p.ByName("track"), msn, uint32(part)), "part.m4s", true)
+		data := window.Data(presentation, track, msn, partIndex)
+		if len(data) == 0 {
+			log.Warn(r.Context(), "LL-HLS part unavailable", "presentation", presentation, "track", track, "msn", msn, "part", partIndex)
+		} else {
+			log.Debug(r.Context(), "LL-HLS part response", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "bytes", len(data))
+		}
+		serveLLHLSBytes(w, r, data, "part.m4s", true)
 	}
 }
 
@@ -201,7 +233,14 @@ func (a *StreamplaceAPI) HandleLLHLSSegment(ctx context.Context) httprouter.Hand
 			apierrors.WriteHTTPBadRequest(w, "invalid media sequence", err)
 			return
 		}
-		serveLLHLSBytes(w, r, window.SegmentData(p.ByName("presentation"), p.ByName("track"), msn), "segment.m4s", true)
+		presentation, track := p.ByName("presentation"), p.ByName("track")
+		data := window.SegmentData(presentation, track, msn)
+		if len(data) == 0 {
+			log.Warn(r.Context(), "LL-HLS segment unavailable", "presentation", presentation, "track", track, "msn", msn)
+		} else {
+			log.Debug(r.Context(), "LL-HLS segment response", "presentation", presentation, "track", track, "msn", msn, "bytes", len(data))
+		}
+		serveLLHLSBytes(w, r, data, "segment.m4s", true)
 	}
 }
 
@@ -214,6 +253,7 @@ func writeLLHLSPlaylist(w http.ResponseWriter, body string) {
 
 func serveLLHLSBytes(w http.ResponseWriter, r *http.Request, data []byte, name string, immutable bool) {
 	if len(data) == 0 {
+		w.Header().Set("Cache-Control", "no-store")
 		apierrors.WriteHTTPNotFound(w, "media not found", nil)
 		return
 	}

@@ -1,0 +1,32 @@
+diff --git a/subprojects/gst-plugins-rs.wrap b/subprojects/gst-plugins-rs.wrap
+index 354b7cbdd2..3090fce66d 100644
+--- a/subprojects/gst-plugins-rs.wrap
++++ b/subprojects/gst-plugins-rs.wrap
+@@ -2,4 +2,5 @@
+ directory=gst-plugins-rs
+ url=https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git
+ push-url=git@gitlab.freedesktop.org:gstreamer/gst-plugins-rs.git
+-revision=gstreamer-1.28.2
++revision=6302bea23b53e6461c104f9543df887a63b2d6ec
++diff_files = gst-plugins-rs/0001-static-build-dependencies.patch
+diff --git a/subprojects/packagefiles/gst-plugins-rs/0001-static-build-dependencies.patch b/subprojects/packagefiles/gst-plugins-rs/0001-static-build-dependencies.patch
+new file mode 100644
+index 0000000000..c291c3ac7d
+--- /dev/null
++++ b/subprojects/packagefiles/gst-plugins-rs/0001-static-build-dependencies.patch
+@@ -0,0 +1,15 @@
++diff --git a/meson.build b/meson.build
++index ac8ba238c..f1f9f31e2 100644
++--- a/meson.build
+++++ b/meson.build
++@@ -219,10 +219,13 @@ deps = [
++   # name, subproject name, subproject dep, library object
++   ['gstreamer-1.0', 'gstreamer', 'gst_dep', 'libgst'],
++   ['gstreamer-app-1.0', 'gst-plugins-base', 'app_dep', 'gstapp'],
++   ['gstreamer-audio-1.0', 'gst-plugins-base', 'audio_dep', 'gstaudio'],
++   ['gstreamer-base-1.0', 'gstreamer', 'gst_base_dep', 'gst_base'],
+++  ['gstreamer-allocators-1.0', 'gst-plugins-base', 'allocators_dep', 'allocators'],
+++  ['gstreamer-pbutils-1.0', 'gst-plugins-base', 'pbutils_dep', 'pbutils'],
+++  ['gstreamer-tag-1.0', 'gst-plugins-base', 'tag_dep', 'gsttag'],
++   ['gstreamer-video-1.0', 'gst-plugins-base', 'video_dep', 'gstvideo'],
++ ]

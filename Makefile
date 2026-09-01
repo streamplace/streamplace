@@ -297,7 +297,11 @@ dev-setup:
 
 .PHONY: dev
 dev: app-cached $(LEXICON_STAMP)
-	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; fi
+	# static and friends reconfigure this same BUILDDIR with
+	# gstreamer:registry=false; a dev binary linked against those libs has no
+	# element factories at all. Re-apply the shared dev config on every run so
+	# dev self-heals after an interleaved static build.
+	if [ ! -d $(BUILDDIR) ]; then $(MAKE) dev-setup; else $(MAKE) dev-setup-meson; fi
 	cp ./util/streamplace-dev.sh $(BUILDDIR)/streamplace
 	$(MAKE) dev-rust
 	PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) \

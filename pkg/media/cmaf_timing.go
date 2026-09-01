@@ -12,6 +12,26 @@ type cmafFragmentTiming struct {
 	SampleCount uint32
 }
 
+type cmafTrackFragmentMetadata struct {
+	timing               cmafFragmentTiming
+	firstSampleFlags     uint32
+	haveFirstSampleFlags bool
+}
+
+type cmafTRUNMetadata struct {
+	sampleCount          uint32
+	duration             uint64
+	firstSampleFlags     uint32
+	haveFirstSampleFlags bool
+}
+
+type cmafTFHDMetadata struct {
+	trackID               uint32
+	defaultSampleDuration uint32
+	defaultSampleFlags    uint32
+	haveDefaultFlags      bool
+}
+
 func inspectCMAFFragment(data []byte) ([]cmafFragmentTiming, error) {
 	var timings []cmafFragmentTiming
 	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
@@ -40,77 +60,299 @@ func inspectCMAFFragment(data []byte) ([]cmafFragmentTiming, error) {
 }
 
 func inspectCMAFTrackFragment(data []byte) (cmafFragmentTiming, error) {
-	var timing cmafFragmentTiming
-	var defaultSampleDuration uint32
-	haveTrackID := false
-	haveDecodeTime := false
-	haveSamples := false
+	metadata, err := inspectCMAFTrackFragmentMetadata(data)
+	if err != nil {
+		return cmafFragmentTiming{}, err
+	}
+	return metadata.timing, nil
+}
+
+func inspectCMAFTrackFragmentMetadata(data []byte) (cmafTrackFragmentMetadata, error) {
+	var metadata cmafTrackFragmentMetadata
+	var defaults cmafTFHDMetadata
+	var haveTrackID bool
+	var haveDecodeTime bool
+	var haveSamples bool
+	var haveFirstSample bool
 	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
 		switch boxType {
 		case "tfhd":
-			trackID, sampleDuration, err := parseCMAFTFHD(payload)
+			parsed, err := parseCMAFTFHD(payload)
 			if err != nil {
 				return err
 			}
-			timing.TrackID = trackID
-			defaultSampleDuration = sampleDuration
+			defaults = parsed
+			metadata.timing.TrackID = parsed.trackID
 			haveTrackID = true
 		case "tfdt":
 			decodeTime, err := parseCMAFTFDT(payload)
 			if err != nil {
 				return err
 			}
-			timing.DecodeTime = decodeTime
+			metadata.timing.DecodeTime = decodeTime
 			haveDecodeTime = true
 		case "trun":
-			sampleCount, duration, err := parseCMAFTRUN(payload, defaultSampleDuration)
+			parsed, err := parseCMAFTRUNMetadata(payload, defaults)
 			if err != nil {
 				return err
 			}
-			timing.SampleCount += sampleCount
-			timing.Duration += duration
+			metadata.timing.SampleCount += parsed.sampleCount
+			metadata.timing.Duration += parsed.duration
+			if !haveFirstSample && parsed.sampleCount > 0 {
+				haveFirstSample = true
+				metadata.firstSampleFlags = parsed.firstSampleFlags
+				metadata.haveFirstSampleFlags = parsed.haveFirstSampleFlags
+			}
 			haveSamples = true
 		}
 		return nil
 	})
 	if err != nil {
-		return cmafFragmentTiming{}, err
+		return cmafTrackFragmentMetadata{}, err
 	}
 	if !haveTrackID || !haveDecodeTime || !haveSamples {
-		return cmafFragmentTiming{}, fmt.Errorf("CMAF track fragment is missing tfhd, tfdt, or trun")
+		return cmafTrackFragmentMetadata{}, fmt.Errorf("CMAF track fragment is missing tfhd, tfdt, or trun")
 	}
-	if timing.SampleCount == 0 || timing.Duration == 0 {
-		return cmafFragmentTiming{}, fmt.Errorf("CMAF track fragment has no sample duration")
+	if metadata.timing.SampleCount == 0 || metadata.timing.Duration == 0 {
+		return cmafTrackFragmentMetadata{}, fmt.Errorf("CMAF track fragment has no sample duration")
 	}
-	return timing, nil
+	return metadata, nil
 }
 
-func parseCMAFTFHD(payload []byte) (trackID uint32, defaultSampleDuration uint32, err error) {
+func inspectCMAFFirstVideoSampleIndependent(data []byte, videoTrackID uint32) (bool, error) {
+	return inspectCMAFFragmentIndependence(data, map[uint32]bool{videoTrackID: true})
+}
+
+func inspectCMAFFragmentIndependence(data []byte, videoTrackIDs map[uint32]bool) (bool, error) {
+	var foundVideo bool
+	var independent bool
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moof" {
+			return nil
+		}
+		if foundVideo {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "traf" {
+				return nil
+			}
+			metadata, err := inspectCMAFTrackFragmentMetadata(childPayload)
+			if err != nil {
+				return err
+			}
+			if !videoTrackIDs[metadata.timing.TrackID] {
+				return nil
+			}
+			if foundVideo {
+				return fmt.Errorf("CMAF moof contains multiple video track fragments")
+			}
+			foundVideo = true
+			independent = metadata.haveFirstSampleFlags && isCMAFSyncSample(metadata.firstSampleFlags)
+			return nil
+		})
+	})
+	if err != nil {
+		return false, err
+	}
+	return independent, nil
+}
+
+func isCMAFSyncSample(flags uint32) bool {
+	const (
+		sampleDependsOnMask = 0x03000000
+		sampleDoesNotDepend = 0x02000000
+		sampleIsNonSync     = 0x00010000
+	)
+	return flags&sampleDependsOnMask == sampleDoesNotDepend && flags&sampleIsNonSync == 0
+}
+
+func cmafVideoTrackIDs(data []byte) (map[uint32]bool, error) {
+	videoTrackIDs := make(map[uint32]bool)
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moov" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "trak" {
+				return nil
+			}
+			trackID, handler, err := parseCMAFTrak(childPayload)
+			if err != nil {
+				return err
+			}
+			if handler == "vide" {
+				videoTrackIDs[trackID] = true
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(videoTrackIDs) == 0 {
+		return nil, fmt.Errorf("CMAF init contains no video track")
+	}
+	return videoTrackIDs, nil
+}
+
+func parseCMAFTrak(data []byte) (trackID uint32, handler string, err error) {
+	var haveTrackID bool
+	var haveHandler bool
+	err = walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		switch boxType {
+		case "tkhd":
+			trackID, err = parseCMAFTKHD(payload)
+			if err == nil {
+				haveTrackID = true
+			}
+		case "mdia":
+			err = walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+				if childType != "hdlr" {
+					return nil
+				}
+				if len(childPayload) < 12 {
+					return fmt.Errorf("hdlr is truncated")
+				}
+				handler = string(childPayload[8:12])
+				haveHandler = true
+				return nil
+			})
+		}
+		return err
+	})
+	if err != nil {
+		return 0, "", err
+	}
+	if !haveTrackID || !haveHandler {
+		return 0, "", fmt.Errorf("CMAF trak is missing tkhd or hdlr")
+	}
+	return trackID, handler, nil
+}
+
+func parseCMAFTKHD(payload []byte) (uint32, error) {
+	if len(payload) < 4 {
+		return 0, fmt.Errorf("tkhd is truncated")
+	}
+	switch payload[0] {
+	case 0:
+		if len(payload) < 16 {
+			return 0, fmt.Errorf("version 0 tkhd is truncated")
+		}
+		return binary.BigEndian.Uint32(payload[12:16]), nil
+	case 1:
+		if len(payload) < 24 {
+			return 0, fmt.Errorf("version 1 tkhd is truncated")
+		}
+		return binary.BigEndian.Uint32(payload[20:24]), nil
+	default:
+		return 0, fmt.Errorf("unsupported tkhd version %d", payload[0])
+	}
+}
+
+func parseCMAFTFHD(payload []byte) (cmafTFHDMetadata, error) {
 	if len(payload) < 8 {
-		return 0, 0, fmt.Errorf("tfhd is truncated")
+		return cmafTFHDMetadata{}, fmt.Errorf("tfhd is truncated")
 	}
 	flags := binary.BigEndian.Uint32(payload[0:4]) & 0x00ffffff
-	trackID = binary.BigEndian.Uint32(payload[4:8])
+	metadata := cmafTFHDMetadata{trackID: binary.BigEndian.Uint32(payload[4:8])}
 	offset := 8
 	if flags&0x000001 != 0 {
 		if len(payload) < offset+8 {
-			return 0, 0, fmt.Errorf("tfhd base-data-offset is truncated")
+			return cmafTFHDMetadata{}, fmt.Errorf("tfhd base-data-offset is truncated")
 		}
 		offset += 8
 	}
 	if flags&0x000002 != 0 {
 		if len(payload) < offset+4 {
-			return 0, 0, fmt.Errorf("tfhd sample-description-index is truncated")
+			return cmafTFHDMetadata{}, fmt.Errorf("tfhd sample-description-index is truncated")
 		}
 		offset += 4
 	}
 	if flags&0x000008 != 0 {
 		if len(payload) < offset+4 {
-			return 0, 0, fmt.Errorf("tfhd default sample duration is truncated")
+			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample duration is truncated")
 		}
-		defaultSampleDuration = binary.BigEndian.Uint32(payload[offset : offset+4])
+		metadata.defaultSampleDuration = binary.BigEndian.Uint32(payload[offset : offset+4])
+		offset += 4
 	}
-	return trackID, defaultSampleDuration, nil
+	if flags&0x000010 != 0 {
+		if len(payload) < offset+4 {
+			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample size is truncated")
+		}
+		offset += 4
+	}
+	if flags&0x000020 != 0 {
+		if len(payload) < offset+4 {
+			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample flags are truncated")
+		}
+		metadata.defaultSampleFlags = binary.BigEndian.Uint32(payload[offset : offset+4])
+		metadata.haveDefaultFlags = true
+	}
+	return metadata, nil
+}
+
+func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNMetadata, error) {
+	if len(payload) < 8 {
+		return cmafTRUNMetadata{}, fmt.Errorf("trun is truncated")
+	}
+	flags := binary.BigEndian.Uint32(payload[0:4]) & 0x00ffffff
+	metadata := cmafTRUNMetadata{sampleCount: binary.BigEndian.Uint32(payload[4:8])}
+	offset := 8
+	if flags&0x000001 != 0 {
+		if len(payload) < offset+4 {
+			return cmafTRUNMetadata{}, fmt.Errorf("trun data offset is truncated")
+		}
+		offset += 4
+	}
+	if flags&0x000004 != 0 {
+		if len(payload) < offset+4 {
+			return cmafTRUNMetadata{}, fmt.Errorf("trun first-sample-flags is truncated")
+		}
+		metadata.firstSampleFlags = binary.BigEndian.Uint32(payload[offset : offset+4])
+		metadata.haveFirstSampleFlags = metadata.sampleCount > 0
+		offset += 4
+	}
+	for i := uint32(0); i < metadata.sampleCount; i++ {
+		sampleDuration := defaults.defaultSampleDuration
+		if flags&0x000100 != 0 {
+			if len(payload) < offset+4 {
+				return cmafTRUNMetadata{}, fmt.Errorf("trun sample duration is truncated at sample %d", i)
+			}
+			sampleDuration = binary.BigEndian.Uint32(payload[offset : offset+4])
+			offset += 4
+		} else if sampleDuration == 0 {
+			return cmafTRUNMetadata{}, fmt.Errorf("trun has no sample duration at sample %d", i)
+		}
+		metadata.duration += uint64(sampleDuration)
+		if flags&0x000200 != 0 {
+			if len(payload) < offset+4 {
+				return cmafTRUNMetadata{}, fmt.Errorf("trun sample size is truncated at sample %d", i)
+			}
+			offset += 4
+		}
+		if flags&0x000400 != 0 {
+			if len(payload) < offset+4 {
+				return cmafTRUNMetadata{}, fmt.Errorf("trun sample flags are truncated at sample %d", i)
+			}
+			if i == 0 && !metadata.haveFirstSampleFlags {
+				metadata.firstSampleFlags = binary.BigEndian.Uint32(payload[offset : offset+4])
+				metadata.haveFirstSampleFlags = true
+			}
+			offset += 4
+		}
+		if flags&0x000800 != 0 {
+			if len(payload) < offset+4 {
+				return cmafTRUNMetadata{}, fmt.Errorf("trun composition offset is truncated at sample %d", i)
+			}
+			offset += 4
+		}
+	}
+	if !metadata.haveFirstSampleFlags && metadata.sampleCount > 0 && defaults.haveDefaultFlags {
+		metadata.firstSampleFlags = defaults.defaultSampleFlags
+		metadata.haveFirstSampleFlags = true
+	}
+	return metadata, nil
 }
 
 func parseCMAFTFDT(payload []byte) (uint64, error) {
@@ -131,65 +373,11 @@ func parseCMAFTFDT(payload []byte) (uint64, error) {
 }
 
 func parseCMAFTRUN(payload []byte, defaultSampleDuration uint32) (sampleCount uint32, duration uint64, err error) {
-	if len(payload) < 8 {
-		return 0, 0, fmt.Errorf("trun is truncated")
+	metadata, err := parseCMAFTRUNMetadata(payload, cmafTFHDMetadata{defaultSampleDuration: defaultSampleDuration})
+	if err != nil {
+		return 0, 0, err
 	}
-	version := payload[0]
-	flags := binary.BigEndian.Uint32(payload[0:4]) & 0x00ffffff
-	sampleCount = binary.BigEndian.Uint32(payload[4:8])
-	offset := 8
-	if flags&0x000001 != 0 {
-		if len(payload) < offset+4 {
-			return 0, 0, fmt.Errorf("trun data offset is truncated")
-		}
-		offset += 4
-	}
-	if flags&0x000004 != 0 {
-		if len(payload) < offset+4 {
-			return 0, 0, fmt.Errorf("trun first-sample-flags is truncated")
-		}
-		offset += 4
-	}
-	for i := uint32(0); i < sampleCount; i++ {
-		sampleDuration := defaultSampleDuration
-		if flags&0x000100 != 0 {
-			if len(payload) < offset+4 {
-				return 0, 0, fmt.Errorf("trun sample duration is truncated at sample %d", i)
-			}
-			sampleDuration = binary.BigEndian.Uint32(payload[offset : offset+4])
-			offset += 4
-		} else if sampleDuration == 0 {
-			return 0, 0, fmt.Errorf("trun has no sample duration at sample %d", i)
-		}
-		duration += uint64(sampleDuration)
-		if flags&0x000200 != 0 {
-			if len(payload) < offset+4 {
-				return 0, 0, fmt.Errorf("trun sample size is truncated at sample %d", i)
-			}
-			offset += 4
-		}
-		if flags&0x000400 != 0 {
-			if len(payload) < offset+4 {
-				return 0, 0, fmt.Errorf("trun sample flags are truncated at sample %d", i)
-			}
-			offset += 4
-		}
-		if flags&0x000800 != 0 {
-			if len(payload) < offset+4 {
-				return 0, 0, fmt.Errorf("trun composition offset is truncated at sample %d", i)
-			}
-			if version == 0 {
-				_ = binary.BigEndian.Uint32(payload[offset : offset+4])
-			} else {
-				_ = int32(binary.BigEndian.Uint32(payload[offset : offset+4]))
-			}
-			offset += 4
-		}
-	}
-	if len(payload) < offset {
-		return 0, 0, fmt.Errorf("trun sample data is truncated")
-	}
-	return sampleCount, duration, nil
+	return metadata.sampleCount, metadata.duration, nil
 }
 
 func walkCMAFBoxes(data []byte, visit func(string, []byte) error) error {

@@ -1,5 +1,6 @@
 {
   "supportedLocales": [
+    "de-DE",
     "en-US",
     "pt-BR",
     "es-ES",
@@ -10,6 +11,12 @@
   ],
   "fallbackChain": ["en-US"],
   "languages": {
+    "de-DE": {
+      "code": "de-DE",
+      "name": "German",
+      "nativeName": "Deutsch",
+      "flag": "🇩🇪"
+    },
     "en-US": {
       "code": "en-US",
       "name": "English",

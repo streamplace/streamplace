@@ -129,7 +129,7 @@ func TransferVOD(ctx context.Context, cli *config.CLI, store blob.Store, httpCli
 		log.Log(ctx, "vod transfer: content blob already present, skipping download", "cid", contentCID, "size", size)
 	}
 
-	meta, initCIDs, err := ensureSidecars(ctx, store, contentCID, size)
+	meta, initCIDs, err := EnsureSidecars(ctx, store, contentCID, size)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "regenerate")
@@ -225,15 +225,19 @@ func downloadContentBlob(ctx context.Context, httpClient *http.Client, store blo
 	return n, nil
 }
 
-// ensureSidecars returns the playback sidecars for an already-stored
-// content blob, regenerating them only if they're not already present. The
-// sidecars are a deterministic function of the (CID-verified) content blob,
-// so an existing metafile is necessarily correct — and since the builder
-// writes the per-track init blobs before the metafile, a present metafile
-// implies the inits are present too. This fast path matters because
-// re-deriving is a full `muxl unwrap` pass over a blob that can be many
-// gigabytes; an idempotent re-run shouldn't pay for it twice.
-func ensureSidecars(ctx context.Context, store blob.Store, contentCID string, size int64) (*Metafile, []string, error) {
+// EnsureSidecars returns the playback sidecars for an already-stored
+// content blob (blobs/<cid>.mp4): the per-track init segments and the
+// metafile JSON (blobs/<cid>.json). Exported so the clip publish path can
+// reuse the exact sidecar generation the VOD transfer path uses — the
+// getVideoPlaylist handler reads the metafile and will 404 "BlobNotFound"
+// without it. Sidecars are regenerated only when not already present: they
+// are a deterministic function of the (CID-verified) content blob, so an
+// existing metafile is necessarily correct — and since the builder writes
+// the per-track init blobs before the metafile, a present metafile implies
+// the inits are present too. This fast path matters because re-deriving is
+// a full `muxl unwrap` pass over a blob that can be many gigabytes; an
+// idempotent re-run shouldn't pay for it twice.
+func EnsureSidecars(ctx context.Context, store blob.Store, contentCID string, size int64) (*Metafile, []string, error) {
 	meta, err := readMetafile(ctx, store, contentCID)
 	if err == nil {
 		log.Log(ctx, "vod transfer: sidecars already present, skipping regeneration", "cid", contentCID)

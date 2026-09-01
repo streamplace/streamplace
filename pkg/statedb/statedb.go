@@ -71,6 +71,7 @@ var StatefulDBModels = []any{
 	S3Segment{},
 	Upload{},
 	DraftVideo{},
+	ClipDraft{},
 }
 
 var NoPostgresDatabaseCode = "3D000"

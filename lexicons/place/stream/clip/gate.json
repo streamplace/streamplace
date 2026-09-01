@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.clip.gate",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "Record defining a gated (hidden) clip. Created in the streamer's repository by a moderator with the 'clip.hide' permission. When present, the referenced clip is hidden from display on this node.",
+      "record": {
+        "type": "object",
+        "required": ["hiddenClip"],
+        "properties": {
+          "hiddenClip": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The place.stream.clip.entry record being hidden."
+          }
+        }
+      }
+    }
+  }
+}

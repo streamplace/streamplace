@@ -133,6 +133,15 @@ func (state *StatefulDB) SetUploadFailed(ctx context.Context, id string, errMsg 
 		}).Error
 }
 
+// SetUploadTrackURIs stores the JSON array of published media.track strongRefs
+// on the upload row. PublishVideo's sourceTracksFromUpload reads this to attach
+// the tracks as the video record's source.
+func (state *StatefulDB) SetUploadTrackURIs(ctx context.Context, id, trackURIs string) error {
+	return state.DB.WithContext(ctx).Model(&Upload{}).
+		Where("id = ?", id).
+		Update("track_uris", trackURIs).Error
+}
+
 // uploadAuthKeySize is the size in bytes of the HMAC key used to sign upload
 // bearer tokens. 32 bytes is the recommended size for HS256.
 const uploadAuthKeySize = 32

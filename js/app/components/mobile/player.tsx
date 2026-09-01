@@ -285,6 +285,10 @@ function PlayerWithProvider(
               />
             </View>
             {chatSection}
+            {/* The clip editor mounts here, as a sibling of the player, so it
+                sits outside MobileUi's fade overlay and gesture detector. It
+                opens itself from the clip store's draft state. */}
+            <PlayerUI.ClipEditorModal />
           </View>
         </PlayerProvider>
       </LivestreamProvider>

@@ -20,6 +20,7 @@
     "resolveJsonModule": true
   },
   "include": ["./src"],
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"],
   "ts-node": {
     "compilerOptions": {
       "resolveJsonModule": true

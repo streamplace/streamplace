@@ -1,0 +1,59 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.clip.entry",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A clip created from a livestream by a viewer. This record is the authoritative source for the clip's title and description; the referenced place.stream.video carries a copy. The clip record links the video content to its source livestream for provenance and discovery.",
+      "record": {
+        "type": "object",
+        "required": [
+          "video",
+          "livestream",
+          "start",
+          "end",
+          "title",
+          "createdAt"
+        ],
+        "properties": {
+          "video": {
+            "type": "ref",
+            "ref": "com.atproto.repo.strongRef",
+            "description": "The place.stream.video record that contains the clip's playable content."
+          },
+          "livestream": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "AT URI of the place.stream.livestream this clip was created from."
+          },
+          "start": {
+            "type": "integer",
+            "description": "Start time of the clip in the original livestream, in milliseconds."
+          },
+          "end": {
+            "type": "integer",
+            "description": "End time of the clip in the original livestream, in milliseconds."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 1400,
+            "maxGraphemes": 140,
+            "description": "Title of the clip. Authoritative; copied to the referenced video record."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 50000,
+            "maxGraphemes": 5000,
+            "description": "Description of the clip. Authoritative; copied to the referenced video record."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Timestamp when this clip record was created."
+          }
+        }
+      }
+    }
+  }
+}

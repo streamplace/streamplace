@@ -19,6 +19,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from "react-native";
+import { useStore } from "store";
 import { convertNavigationParams } from "../../../src/navigation-helper";
 import { LiveBubble } from "./live-bubble";
 
@@ -43,6 +44,7 @@ export function TopControlBar({
 }: TopControlBarProps) {
   const navigation = useNavigation();
   const profile = useAuthor();
+  const openLoginModal = useStore((state) => state.openLoginModal);
   const { doSetIngestCamera } = useCameraToggle();
   const avatar = useAvatar();
   const { width } = useWindowDimensions();
@@ -158,6 +160,8 @@ export function TopControlBar({
           {isActivelyLive && (
             <>
               <PlayerUI.Viewers />
+
+              <PlayerUI.ClipButton onLoginRequired={openLoginModal} />
 
               <Pressable onPress={onToggleChat} style={[p[2], r[1]]}>
                 <MessageSquare

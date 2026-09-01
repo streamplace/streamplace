@@ -23,6 +23,7 @@ Record containing user settings for a particular Streamplace node
 | --------------------- | --------- | ----- | ------------------------------------------------------------------------------- | ----------- |
 | `debugRecording`      | `boolean` | ❌    | Whether this node may archive your livestream for improving the service         |             |
 | `livestreamRecording` | `boolean` | ❌    | Whether this node should record your livestreams into VODs that you can publish |             |
+| `livestreamClipping`  | `boolean` | ❌    | Whether viewers can create clips from your live broadcasts                      |             |
 
 ---
 
@@ -48,6 +49,10 @@ Record containing user settings for a particular Streamplace node
           "livestreamRecording": {
             "type": "boolean",
             "description": "Whether this node should record your livestreams into VODs that you can publish"
+          },
+          "livestreamClipping": {
+            "type": "boolean",
+            "description": "Whether viewers can create clips from your live broadcasts"
           }
         }
       }

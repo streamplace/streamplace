@@ -22,8 +22,8 @@ import (
 	"stream.place/streamplace/pkg/statedb"
 )
 
-// trackRefJSON is the shape stored in Upload.TrackURIs.
-type trackRefJSON struct {
+// TrackRefJSON is the shape stored in Upload.TrackURIs.
+type TrackRefJSON struct {
 	URI string `json:"uri"`
 	CID string `json:"cid"`
 }
@@ -89,7 +89,7 @@ func publishRecords(ctx context.Context, p publishParams) error {
 
 	// Serialize the probe so publishDraft can publish the track records later
 	// without re-probing the blob.
-	probeJSON, err := marshalProbe(p.probe)
+	probeJSON, err := MarshalProbe(p.probe)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "marshal_probe")
@@ -129,7 +129,10 @@ type audioProbeJSON struct {
 	MPEGVersion int    `json:"mpegVersion"`
 }
 
-func marshalProbe(p media.VODResult) (string, error) {
+// MarshalProbe serializes probe metadata to the Upload row's probe_json
+// column format. Exported so the clip publish path (pkg/spxrpc) can reuse the
+// exact shape unmarshalProbe expects.
+func MarshalProbe(p media.VODResult) (string, error) {
 	out := probeJSONShape{DurationMS: p.DurationMS}
 	if p.Video != nil {
 		out.Video = &videoProbeJSON{

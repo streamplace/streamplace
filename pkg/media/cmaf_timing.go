@@ -305,7 +305,9 @@ func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNM
 		}
 		offset += 4
 	}
-	if flags&0x000004 != 0 {
+	// GStreamer treats the combination of first-sample-flags and per-sample
+	// flags as invalid and gives precedence to the per-sample flags.
+	if flags&0x000004 != 0 && flags&0x000400 == 0 {
 		if len(payload) < offset+4 {
 			return cmafTRUNMetadata{}, fmt.Errorf("trun first-sample-flags is truncated")
 		}

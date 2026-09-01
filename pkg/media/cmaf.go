@@ -17,22 +17,23 @@ import (
 // muxer into application-level LL-HLS events. The first list also carries the
 // initialization segment.
 type cmafTrackSink struct {
-	ctx          context.Context
-	presentation string
-	track        string
-	window       *llhls.Window
-	generation   uint64
-	nextMSN      uint64
-	initialized  bool
-	partDuration time.Duration
-	parent       bytes.Buffer
-	parentStart  time.Duration
-	parentLength time.Duration
-	timelineEnd  time.Duration
-	partIndex    uint32
-	lastTiming   map[uint32]cmafFragmentTiming
-	hasParent    bool
-	samples      atomic.Uint64
+	ctx           context.Context
+	presentation  string
+	track         string
+	window        *llhls.Window
+	generation    uint64
+	nextMSN       uint64
+	initialized   bool
+	partDuration  time.Duration
+	parent        bytes.Buffer
+	parentStart   time.Duration
+	parentLength  time.Duration
+	timelineEnd   time.Duration
+	partIndex     uint32
+	lastTiming    map[uint32]cmafFragmentTiming
+	videoTrackIDs map[uint32]bool
+	hasParent     bool
+	samples       atomic.Uint64
 }
 
 func (s *cmafTrackSink) sample(sample *gst.Sample) error {
@@ -60,6 +61,14 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		}
 	}
 	if initIndex >= 0 {
+		if s.track == "video" {
+			videoTrackIDs, err := cmafVideoTrackIDs(buffers[initIndex])
+			if err != nil && s.ctx != nil {
+				log.Error(s.ctx, "LL-HLS CMAF video track mapping failed", "presentation", s.presentation, "track", s.track, "error", err)
+			} else if err == nil {
+				s.videoTrackIDs = videoTrackIDs
+			}
+		}
 		if err := s.window.Observe(llhls.Event{
 			Kind:         llhls.Init,
 			Presentation: s.presentation,
@@ -108,6 +117,15 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 	s.timelineEnd += chunkDuration
 	s.parent.Write(fragment.Bytes())
 	s.inspectTiming(fragment.Bytes())
+	independent := false
+	if len(s.videoTrackIDs) > 0 {
+		var err error
+		independent, err = inspectCMAFFragmentIndependence(fragment.Bytes(), s.videoTrackIDs)
+		if err != nil && s.ctx != nil {
+			log.Error(s.ctx, "LL-HLS CMAF independence inspection failed", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
+			independent = false
+		}
+	}
 	if err := s.window.Observe(llhls.Event{
 		Kind:            llhls.Part,
 		Presentation:    s.presentation,
@@ -117,7 +135,7 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		Part:            s.partIndex,
 		Start:           partStart,
 		Duration:        chunkDuration,
-		Independent:     !first.HasFlags(gst.BufferFlagDeltaUnit),
+		Independent:     independent,
 		ProgramDateTime: programDateTime,
 		Data:            fragment.Bytes(),
 	}); err != nil {

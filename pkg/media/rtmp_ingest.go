@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
+	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/llhls"
@@ -32,7 +33,29 @@ type RTMPSession struct {
 	MediaSigner MediaSigner
 }
 
-func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner, streamerDID string) error {
+const (
+	llhlsParentDuration = 2 * time.Second
+	llhlsPartDuration   = time.Second
+)
+
+func h264VideoConfig(track *format.H264) llhls.VideoConfig {
+	if track == nil {
+		return llhls.VideoConfig{}
+	}
+
+	config := llhls.VideoConfig{}
+	if len(track.SPS) >= 4 {
+		config.Codec = fmt.Sprintf("avc1.%02x%02x%02x", track.SPS[1], track.SPS[2], track.SPS[3])
+	}
+	var sps h264.SPS
+	if err := sps.Unmarshal(track.SPS); err == nil {
+		config.Width = sps.Width()
+		config.Height = sps.Height()
+	}
+	return config
+}
+
+func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner, streamerDID string, videoTrack *format.H264) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	log.Log(ctx, "starting RTMP ingest", "url", rtmpURL, "ll_hls_requested", mm.cli != nil && mm.cli.LLHLS)
@@ -44,17 +67,20 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
 	}
 	llEnabled := mm.cli != nil && mm.cli.LLHLS
-	if llEnabled && gst.Find("cmafmux") == nil {
-		log.Warn(ctx, "LL-HLS requested but cmafmux is unavailable; using conventional ingest")
+	if llEnabled && gst.Find("isofmp4mux") == nil {
+		log.Warn(ctx, "LL-HLS requested but isofmp4mux is unavailable; using conventional ingest")
 		llEnabled = false
 	}
 	if llEnabled {
+		// Keep audio and video in one CMAF output so both tracks are published
+		// atomically with one set of parent and part boundaries.
 		pipelineSlice = append(pipelineSlice,
+			fmt.Sprintf("isofmp4mux name=ll_video_mux fragment-duration=%d chunk-duration=%d ! appsink name=ll_video_sink sync=false", llhlsParentDuration, llhlsPartDuration),
 			"demux.audio ! queue ! aacparse name=audioenc ! audio/mpeg,mpegversion=4,stream-format=raw ! tee name=audio_tee",
-			"audio_tee. ! queue ! cmafmux name=audio_ll_mux fragment-duration=1000000000 chunk-duration=200000000 ! appsink name=audio_ll_sink sync=false",
+			"audio_tee. ! queue ! ll_video_mux.",
 			"audio_tee. ! queue name=audio_signer_queue",
 			"demux.video ! queue ! h264parse name=parse ! video/x-h264,stream-format=avc,alignment=au ! tee name=video_tee",
-			"video_tee. ! queue ! cmafmux name=video_ll_mux fragment-duration=1000000000 chunk-duration=200000000 ! appsink name=video_ll_sink sync=false",
+			"video_tee. ! queue ! ll_video_mux.",
 			"video_tee. ! queue name=video_signer_queue",
 		)
 	} else {
@@ -99,6 +125,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		}
 		presentation := fmt.Sprintf("rtmp-%d", mm.nextIngestSession())
 		window := mm.llWindow(streamerDID)
+		window.SetVideoConfig(h264VideoConfig(videoTrack))
 		if err := installCMAFBranch(ctx, pipeline, window, presentation); err != nil {
 			return err
 		}
@@ -162,18 +189,17 @@ func linkElementToPad(source, destination *gst.Element, sinkPadName string) erro
 }
 
 func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string) error {
+	videoElement, err := pipeline.GetElementByName("ll_video_sink")
+	if err != nil {
+		return fmt.Errorf("LL-HLS CMAF sink: %w", err)
+	}
 	for _, track := range []struct {
-		name string
-		id   string
-		tee  string
+		id  string
+		tee string
 	}{
-		{name: "video_ll_sink", id: "video", tee: "video_tee"},
-		{name: "audio_ll_sink", id: "audio", tee: "audio_tee"},
+		{id: "video", tee: "video_tee"},
+		{id: "audio", tee: "audio_tee"},
 	} {
-		element, err := pipeline.GetElementByName(track.name)
-		if err != nil {
-			return fmt.Errorf("LL-HLS %s sink: %w", track.id, err)
-		}
 		tee := safeElement(pipeline, track.tee)
 		if tee == nil {
 			return fmt.Errorf("LL-HLS %s tee is missing", track.id)
@@ -189,13 +215,13 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 			}
 			return gst.PadProbeOK
 		})
-		installCMAFSink(ctx, app.SinkFromElement(element), &cmafTrackSink{
-			presentation: presentation,
-			track:        track.id,
-			window:       window,
-			generation:   1,
-			partDuration: 200 * time.Millisecond,
-		})
 	}
+	installCMAFSink(ctx, app.SinkFromElement(videoElement), &cmafTrackSink{
+		presentation: presentation,
+		track:        "video",
+		window:       window,
+		generation:   1,
+		partDuration: llhlsPartDuration,
+	})
 	return nil
 }

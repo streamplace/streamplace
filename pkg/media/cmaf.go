@@ -13,10 +13,11 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// cmafTrackSink translates the buffer-list contract of cmafmux into the
-// application-level LL-HLS events. cmafmux emits one list per parent fragment;
-// the first list also carries the initialization segment.
+// cmafTrackSink translates the buffer-list contract of the GStreamer fMP4
+// muxer into application-level LL-HLS events. The first list also carries the
+// initialization segment.
 type cmafTrackSink struct {
+	ctx          context.Context
 	presentation string
 	track        string
 	window       *llhls.Window
@@ -27,7 +28,9 @@ type cmafTrackSink struct {
 	parent       bytes.Buffer
 	parentStart  time.Duration
 	parentLength time.Duration
+	timelineEnd  time.Duration
 	partIndex    uint32
+	lastTiming   map[uint32]cmafFragmentTiming
 	hasParent    bool
 	samples      atomic.Uint64
 }
@@ -90,33 +93,62 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		}
 		fragment.Write(data)
 	}
-	partStart := clockDuration(first.PresentationTimestamp())
+	partStart := s.timelineEnd
 	chunkDuration := clockDuration(first.Duration())
 	if chunkDuration <= 0 {
 		chunkDuration = s.partDuration
 	}
+	programDateTime := time.Time{}
 	if !s.hasParent {
 		s.parentStart = partStart
 		s.hasParent = true
+		programDateTime = time.Now().UTC()
 	}
 	s.parentLength += chunkDuration
+	s.timelineEnd += chunkDuration
 	s.parent.Write(fragment.Bytes())
+	s.inspectTiming(fragment.Bytes())
 	if err := s.window.Observe(llhls.Event{
-		Kind:         llhls.Part,
-		Presentation: s.presentation,
-		Track:        s.track,
-		Generation:   s.generation,
-		MSN:          s.nextMSN,
-		Part:         s.partIndex,
-		Start:        partStart,
-		Duration:     chunkDuration,
-		Independent:  !first.HasFlags(gst.BufferFlagDeltaUnit),
-		Data:         fragment.Bytes(),
+		Kind:            llhls.Part,
+		Presentation:    s.presentation,
+		Track:           s.track,
+		Generation:      s.generation,
+		MSN:             s.nextMSN,
+		Part:            s.partIndex,
+		Start:           partStart,
+		Duration:        chunkDuration,
+		Independent:     !first.HasFlags(gst.BufferFlagDeltaUnit),
+		ProgramDateTime: programDateTime,
+		Data:            fragment.Bytes(),
 	}); err != nil {
 		return fmt.Errorf("publish CMAF part: %w", err)
 	}
 	s.partIndex++
 	return nil
+}
+
+func (s *cmafTrackSink) inspectTiming(data []byte) {
+	if s.ctx == nil {
+		return
+	}
+	timings, err := inspectCMAFFragment(data)
+	if err != nil {
+		log.Error(s.ctx, "LL-HLS CMAF timing inspection failed", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
+		return
+	}
+	if s.lastTiming == nil {
+		s.lastTiming = make(map[uint32]cmafFragmentTiming)
+	}
+	for _, timing := range timings {
+		if previous, ok := s.lastTiming[timing.TrackID]; ok {
+			expected := previous.DecodeTime + previous.Duration
+			if timing.DecodeTime != expected {
+				log.Error(s.ctx, "LL-HLS CMAF decode timeline discontinuity", "presentation", s.presentation, "track", s.track, "track_id", timing.TrackID, "msn", s.nextMSN, "part", s.partIndex, "previous_decode_time", previous.DecodeTime, "previous_duration", previous.Duration, "expected_decode_time", expected, "actual_decode_time", timing.DecodeTime, "sample_count", timing.SampleCount, "duration", timing.Duration)
+			}
+		}
+		log.Debug(s.ctx, "LL-HLS CMAF fragment timing", "presentation", s.presentation, "track", s.track, "track_id", timing.TrackID, "msn", s.nextMSN, "part", s.partIndex, "decode_time", timing.DecodeTime, "duration", timing.Duration, "sample_count", timing.SampleCount)
+		s.lastTiming[timing.TrackID] = timing
+	}
 }
 
 func (s *cmafTrackSink) completeParent() error {
@@ -156,6 +188,7 @@ func clockDuration(value gst.ClockTime) time.Duration {
 }
 
 func installCMAFSink(ctx context.Context, sink *app.Sink, state *cmafTrackSink) {
+	state.ctx = ctx
 	sink.SetBufferListSupport(true)
 	sink.SetCallbacks(&app.SinkCallbacks{NewSampleFunc: func(sink *app.Sink) gst.FlowReturn {
 		sample := sink.PullSample()

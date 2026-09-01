@@ -27,3 +27,6 @@ js/app/src/build-info.json
 *.env
 muxl.wasm
 /moderation
+go.work
+go.work.sum
+pkg/streamplacedeps/zz_local_*.go

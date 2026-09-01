@@ -125,7 +125,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 	})
 
 	g.Go(func() error {
-		err := a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, streamerDID)
+		err := a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, streamerDID, session.VideoTrack)
 		if err != nil {
 			log.Error(ctx, "RTMP ingest worker stopped", "streamer", streamer, "error", err)
 		} else {

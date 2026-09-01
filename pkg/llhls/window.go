@@ -26,6 +26,7 @@ const (
 	// tags must remain fixed for the presentation and cover every emitted item.
 	defaultTargetDuration = 6 * time.Second
 	defaultPartTarget     = 1100 * time.Millisecond
+	partHoldBackMargin    = time.Millisecond
 )
 
 type EventKind uint8
@@ -516,8 +517,9 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 		return ""
 	}
 	targetSeconds, partTarget := w.playlistDurations()
+	partHoldBack := 3*partTarget + partHoldBackMargin
 	var b strings.Builder
-	fmt.Fprintf(&b, "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:%d\n#EXT-X-PART-INF:PART-TARGET=%.6f\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", targetSeconds, partTarget.Seconds(), 3*partTarget.Seconds(), 3*float64(targetSeconds))
+	fmt.Fprintf(&b, "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:%d\n#EXT-X-PART-INF:PART-TARGET=%.6f\n#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", targetSeconds, partTarget.Seconds(), partHoldBack.Seconds(), 3*float64(targetSeconds))
 	fmt.Fprintf(&b, "#EXT-X-MEDIA-SEQUENCE:%d\n#EXT-X-MAP:URI=%q\n", firstMSN(s), initURI)
 	openMSN := uint64(0)
 	if len(s.Segments) > 0 {

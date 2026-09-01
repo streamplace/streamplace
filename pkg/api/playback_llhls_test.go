@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -77,6 +78,29 @@ func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
 	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{})
 	if strings.Contains(master, "#EXT-X-INDEPENDENT-SEGMENTS") {
 		t.Fatalf("master advertised independent segments without metadata:\n%s", master)
+	}
+}
+
+func TestLLHLSMasterRedirectsWhilePresentationIsInitializing(t *testing.T) {
+	const user = "did:key:z6MkPreInitTest"
+	manager := &media.MediaManager{}
+	setLLWindowsForTest(manager, map[string]*llhls.Window{user: llhls.NewWindow()})
+	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+	handler := api.HandleLLHLSMaster(context.Background())
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil)
+	handler(recorder, request, httprouter.Params{{Key: "user", Value: user}})
+
+	if recorder.Code != http.StatusTemporaryRedirect {
+		t.Fatalf("pre-init master status = %d, want %d", recorder.Code, http.StatusTemporaryRedirect)
+	}
+	wantLocation := "/xrpc/place.stream.playback.getLivePlaylist?streamer=" + url.QueryEscape(user)
+	if got := recorder.Header().Get("Location"); got != wantLocation {
+		t.Fatalf("pre-init master location = %q, want %q", got, wantLocation)
+	}
+	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("pre-init master cache policy = %q, want no-store", got)
 	}
 }
 

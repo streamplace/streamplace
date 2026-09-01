@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
 	"github.com/stretchr/testify/require"
@@ -166,4 +167,20 @@ func TestFilterSegmentToCodecStrictRejectsCodecMismatch(t *testing.T) {
 
 	_, err := filterSegmentToCodecStrict(ctx, segments[0], true)
 	require.ErrorContains(t, err, "requested opus audio track is missing")
+}
+
+func TestH264VideoConfigUsesSPSMetadata(t *testing.T) {
+	sps := []byte{
+		0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40, 0x50,
+		0x05, 0xbb, 0x01, 0x6c, 0x80, 0x00, 0x00, 0x03,
+		0x00, 0x80, 0x00, 0x00, 0x1e, 0x07, 0x8c, 0x18,
+		0xcb,
+	}
+	sps[3] = 0x2a
+
+	config := h264VideoConfig(&format.H264{SPS: sps})
+
+	if config.Codec != "avc1.64002a" || config.Width != 1280 || config.Height != 720 {
+		t.Fatalf("video config = %+v", config)
+	}
 }

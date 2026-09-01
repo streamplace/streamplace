@@ -2,3 +2,4 @@
 url = https://gitlab.freedesktop.org/iameli/gstreamer.git
 revision = 627ce52e1735b08ca49ca3a18bce60becd5d1a80
 depth = 1
+diff_files = gstreamer-full/0001-build-pin-gst-plugins-rs-0.15.3.patch

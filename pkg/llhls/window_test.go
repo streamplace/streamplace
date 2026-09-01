@@ -277,6 +277,9 @@ func TestPlaylistContainsLLTagsAndOnlyCompleteParentURI(t *testing.T) {
 			t.Errorf("playlist missing %q:\n%s", want, playlist)
 		}
 	}
+	if strings.Contains(playlist, "#EXT-X-RENDITION-REPORT:") {
+		t.Fatalf("single-rendition playlist must not contain a self-referential rendition report:\n%s", playlist)
+	}
 	if strings.Contains(playlist, "\n4.m4s\n") {
 		t.Error("incomplete parent must not be published")
 	}
@@ -368,6 +371,9 @@ func TestPlaylistDurationsFreezeForPresentationAndRoundTargetDuration(t *testing
 	}
 	if !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=1.100000") {
 		t.Fatalf("playlist did not use the conservative part duration contract:\n%s", playlist)
+	}
+	if !strings.Contains(playlist, "PART-HOLD-BACK=3.301000") {
+		t.Fatalf("playlist did not leave a decimal margin above three part targets:\n%s", playlist)
 	}
 
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Part: 0, Duration: time.Second, Data: []byte("later-part")})

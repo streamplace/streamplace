@@ -51,6 +51,12 @@ func TestCMAFFirstVideoSampleIndependence(t *testing.T) {
 			want:    false,
 		},
 		{
+			name:    "per-sample flags override invalid first-sample-flags field",
+			videoID: 2,
+			trafs:   [][]byte{cmafTestIndependenceTraf(2, cmafTestNonSyncSampleFlags, cmafTestFlagsPtr(cmafTestNonSyncSampleFlags), []uint32{cmafTestSyncSampleFlags})},
+			want:    true,
+		},
+		{
 			name:    "audio traf does not establish independence",
 			videoID: 2,
 			trafs:   [][]byte{cmafTestIndependenceTraf(1, cmafTestSyncSampleFlags, nil, nil)},
@@ -252,7 +258,7 @@ func cmafTestIndependenceTraf(trackID, defaultFlags uint32, firstFlags *uint32, 
 	trunPayload := make([]byte, 8)
 	binary.BigEndian.PutUint32(trunPayload[0:4], flags)
 	binary.BigEndian.PutUint32(trunPayload[4:8], 1)
-	if firstFlags != nil {
+	if firstFlags != nil && len(sampleFlags) == 0 {
 		value := make([]byte, 4)
 		binary.BigEndian.PutUint32(value, *firstFlags)
 		trunPayload = append(trunPayload, value...)

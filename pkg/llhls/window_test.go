@@ -627,6 +627,40 @@ func TestPlaylistUsesConfiguredPartTargetWithoutGrowing(t *testing.T) {
 	}
 }
 
+func TestPlaylistUsesConfiguredLiveHoldBack(t *testing.T) {
+	w := NewWindow(WithPlaylistDurations(2*time.Second, 1100*time.Millisecond), WithPartHoldBack(5500*time.Millisecond))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+
+	playlist := w.Playlist("p", "video", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:2") {
+		t.Fatalf("playlist did not use the configured parent target:\n%s", playlist)
+	}
+	if !strings.Contains(playlist, "PART-HOLD-BACK=5.500000") {
+		t.Fatalf("playlist did not use the configured part holdback:\n%s", playlist)
+	}
+	if !strings.Contains(playlist, "HOLD-BACK=6.000000") {
+		t.Fatalf("playlist did not derive holdback from the parent target:\n%s", playlist)
+	}
+
+	observeEvent(t, w, Event{Kind: Init, Presentation: "next", Track: "video", Generation: 1})
+	playlist = w.Playlist("next", "video", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
+	if !strings.Contains(playlist, "PART-HOLD-BACK=5.500000") || !strings.Contains(playlist, "#EXT-X-TARGETDURATION:2") {
+		t.Fatalf("configured holdback did not survive a presentation reset:\n%s", playlist)
+	}
+}
+
+func TestPlaylistRaisesShortHoldBackToPartMinimum(t *testing.T) {
+	w := NewWindow(WithPlaylistDurations(2*time.Second, 1100*time.Millisecond), WithPartHoldBack(time.Second))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+
+	playlist := w.Playlist("p", "video", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
+	if !strings.Contains(playlist, "PART-HOLD-BACK=3.301000") {
+		t.Fatalf("playlist advertised a holdback below the part minimum:\n%s", playlist)
+	}
+}
+
 func TestPlaylistDurationContractRoundsAndResetsPerPresentation(t *testing.T) {
 	w := NewWindow(WithPlaylistDurations(2500*time.Millisecond, 750*time.Millisecond))
 	observeEvent(t, w, Event{Kind: Init, Presentation: "first", Track: "v", Generation: 1})

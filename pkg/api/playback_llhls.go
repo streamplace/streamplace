@@ -153,9 +153,8 @@ func (a *StreamplaceAPI) HandleLLHLSPlaylist(ctx context.Context) httprouter.Han
 		renditionBase := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
 		playlist := window.Playlist
 		if track == "audio" {
-			// Safari's native LL-HLS path loses audio when AAC parts are exposed
-			// as a second low-latency rendition. Keep audio on complete parents;
-			// video remains low latency.
+			// Keep AAC on complete-parent playlists. Its frame boundaries are not
+			// exposed through the low-latency part path used by video.
 			playlist = window.PlaylistSegmentsOnly
 		}
 		body := playlist(presentation, track,

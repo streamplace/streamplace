@@ -11,30 +11,21 @@ import (
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// liveWindowSize is how many recent segments per track the in-memory live-HLS
-// window keeps — the sliding window served to players. Bounds per-stream
-// memory; older segments fall out of the playlist (DVR depth is a later,
-// storage-backed feature).
+// liveWindowSize is the number of recent segments per track kept in memory.
+// Older segments fall out of the live playlist.
 const liveWindowSize = 12
 
-// liveWindowRetention ages segments out by wall-clock arrival time, independent
-// of liveWindowSize. The count window only evicts as new segments push old ones
-// out, so when a stream stalls or ends its last segments would otherwise sit in
-// the window forever and a retrying player replays them endlessly. With time
-// eviction the window empties this long after the last segment, and the window
-// is then dropped from the map (so the stream reads as offline). Generous
-// enough not to cut a briefly-lagging player.
+// liveWindowRetention removes segments after a stream stalls or ends. This
+// lets GetLiveWindow report the stream as offline without new segments arriving
+// to drive count-based eviction.
 const liveWindowRetention = 30 * time.Second
 
 const llhlsWindowSegments = 30
 const llhlsWindowBytes = 64 << 20
 
-// llhlsCompletionHold keeps a finished parent segment appearing open just
-// long enough for players blocking on its final part to see that part listed
-// and fetch it. The muxer emits the final part and the segment completion in
-// the same instant; without the hold the completion wins the playlist update,
-// the part request rolls over, and players re-fetch the whole segment.
-// Safari audibly replays the segment's audio when that fallback fires.
+// llhlsCompletionHold keeps a finished parent open briefly so a blocking
+// reload for its final part can observe and fetch that part before completion
+// moves the parent into the segment-only portion of the playlist.
 const llhlsCompletionHold = 300 * time.Millisecond
 
 func (mm *MediaManager) llWindow(did string) *llhls.Window {

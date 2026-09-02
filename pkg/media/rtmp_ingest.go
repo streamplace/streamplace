@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
@@ -36,6 +35,7 @@ type RTMPSession struct {
 const (
 	llhlsParentDuration = 2 * time.Second
 	llhlsPartDuration   = time.Second
+	llhlsPartTarget     = 1100 * time.Millisecond
 )
 
 func h264VideoConfig(track *format.H264) llhls.VideoConfig {
@@ -59,10 +59,8 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	log.Log(ctx, "starting RTMP ingest", "url", rtmpURL, "ll_hls_requested", mm.cli != nil && mm.cli.LLHLS)
-	// Mint the source audio: RTMP/FLV audio is already AAC, so pass it through
-	// (aacparse) rather than transcoding to Opus. The validate path completes
-	// each segment to also carry Opus when a consumer (WebRTC) needs it — so
-	// the old RTMP-AAC→Opus→HLS-AAC double-transcode is gone.
+	// RTMP/FLV audio is already AAC, so keep it compressed through ingest.
+	// Segment validation adds Opus when WebRTC needs that rendition.
 	pipelineSlice := []string{
 		fmt.Sprintf("rtmp2src location=%s ! flvdemux name=demux", rtmpURL),
 	}
@@ -72,11 +70,8 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		llEnabled = false
 	}
 	if llEnabled {
-		// Audio and video are muxed into separate CMAF renditions: AVPlayer's
-		// low-latency part stitcher mis-times muxed AAC against the video part
-		// grid (AAC frames do not divide evenly into it), so audio gets its
-		// own parts cut on AAC frame boundaries. The renditions are tied
-		// together by a shared program-date-time anchor.
+		// AAC and H.264 use separate renditions so each track can preserve its
+		// own sample boundaries. The playlists share a program-date-time grid.
 		pipelineSlice = append(pipelineSlice,
 			fmt.Sprintf("isofmp4mux name=ll_video_mux fragment-duration=%d chunk-duration=%d ! appsink name=ll_video_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
 			fmt.Sprintf("isofmp4mux name=ll_audio_mux manual-split=true fragment-duration=%d chunk-duration=%d ! appsink name=ll_audio_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
@@ -201,35 +196,11 @@ func linkElementToPad(source, destination *gst.Element, sinkPadName string) erro
 }
 
 func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string) error {
-	// Shared wall-clock anchor so the video and audio rendition playlists map
-	// to the same program date time (players sync renditions through PDT).
+	// Both rendition playlists use the same program-date-time anchor.
 	programDateTimeBase := time.Now().UTC()
 	videoElement, err := pipeline.GetElementByName("ll_video_sink")
 	if err != nil {
 		return fmt.Errorf("LL-HLS CMAF sink: %w", err)
-	}
-	for _, track := range []struct {
-		id  string
-		tee string
-	}{
-		{id: "video", tee: "video_tee"},
-		{id: "audio", tee: "audio_tee"},
-	} {
-		tee := safeElement(pipeline, track.tee)
-		if tee == nil {
-			return fmt.Errorf("LL-HLS %s tee is missing", track.id)
-		}
-		pad := tee.GetStaticPad("sink")
-		if pad == nil {
-			return fmt.Errorf("LL-HLS %s tee has no sink pad", track.id)
-		}
-		var buffers atomic.Uint64
-		pad.AddProbe(gst.PadProbeTypeBuffer, func(_ *gst.Pad, _ *gst.PadProbeInfo) gst.PadProbeReturn {
-			if n := buffers.Add(1); n <= 3 || n%300 == 0 {
-				log.Log(ctx, "parsed RTMP buffer reached LL-HLS tee", "track", track.id, "buffer", n)
-			}
-			return gst.PadProbeOK
-		})
 	}
 	installCMAFSink(ctx, app.SinkFromElement(videoElement), &cmafTrackSink{
 		presentation:        presentation,
@@ -238,10 +209,7 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 		generation:          1,
 		partDuration:        llhlsPartDuration,
 		programDateTimeBase: programDateTimeBase,
-		// Must match the PART-TARGET advertised by the window: parts below 85%
-		// of PART-TARGET make AVPlayer reject the playlist (-12642), so the
-		// sink coalesces short prefixes up to this target before publishing.
-		partTarget: 1100 * time.Millisecond,
+		partTarget:          llhlsPartTarget,
 	})
 	audioElement, err := pipeline.GetElementByName("ll_audio_sink")
 	if err != nil {
@@ -254,18 +222,14 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 		generation:          1,
 		partDuration:        llhlsPartDuration,
 		programDateTimeBase: programDateTimeBase,
-		partTarget:          1100 * time.Millisecond,
+		partTarget:          llhlsPartTarget,
 		audioOnly:           true,
 	})
 	return nil
 }
 
-// startLLAudioSplitter installs a serialized split trigger on the audio queue.
-// The manual-split muxer cuts between input buffers, so AAC frames are never
-// dropped or assigned to the wrong parent when a 2-second boundary falls
-// between two 1024-sample frames. The trigger follows buffer PTS rather than
-// wall clock time because live ingest can temporarily run faster than real
-// time while upstream data is being drained.
+// startLLAudioSplitter triggers manual muxer splits from AAC buffer PTS. The
+// muxer cuts between input buffers, preserving AAC frames at parent boundaries.
 func startLLAudioSplitter(ctx context.Context, pipeline *gst.Pipeline) error {
 	mux := safeElement(pipeline, "ll_audio_mux")
 	if mux == nil {

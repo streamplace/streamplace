@@ -60,7 +60,8 @@ export const Input = forwardRef<any, InputProps>(
     const [isFocused, setIsFocused] = React.useState(false);
     const inputRef = React.useRef<any>(null);
 
-    // Get variant and size styles using theme.zero
+    // Get variant and size styles from the theme tokens. Inputs sit on
+    // surface1 with a hairline border; focus swaps the border to the ring.
     const containerStyles = React.useMemo(() => {
       const variantStyle = (() => {
         switch (variant) {
@@ -72,7 +73,7 @@ export const Input = forwardRef<any, InputProps>(
               { borderRadius: 0, paddingHorizontal: 0, borderWidth: 0 },
             ];
           default:
-            return [zt.bg.background, zt.border.default];
+            return [zt.bg.input, zt.border.default];
         }
       })();
 
@@ -99,20 +100,31 @@ export const Input = forwardRef<any, InputProps>(
         }
       })();
 
-      const focusStyle = isFocused ? zt.border.primary : null;
+      const focusStyle = isFocused ? zt.border.ring : null;
       return [variantStyle, sizeStyle, focusStyle].filter(Boolean);
     }, [variant, size, zt, isFocused]);
 
     const textStyles = React.useMemo(() => {
-      const baseTextStyle = [zt.text.foreground, zt.bg.transparent];
+      const baseTextStyle = [zt.text.text1, zt.bg.transparent];
 
+      // Inputs never drop below 16px (typeScale.md) — smaller sizes trigger
+      // zoom-on-focus in mobile web browsers.
       switch (size) {
         case "sm":
-          return [...baseTextStyle, zt.text.sm];
+          return [
+            ...baseTextStyle,
+            { fontSize: zero.tokens.typeScale.md.fontSize },
+          ];
         case "lg":
-          return [...baseTextStyle, zt.text.lg];
+          return [
+            ...baseTextStyle,
+            { fontSize: zero.tokens.typeScale.lg.fontSize },
+          ];
         default:
-          return [...baseTextStyle, zt.text.md];
+          return [
+            ...baseTextStyle,
+            { fontSize: zero.tokens.typeScale.md.fontSize },
+          ];
       }
     }, [size, zt]);
 
@@ -187,7 +199,7 @@ export const Input = forwardRef<any, InputProps>(
                 onBlur={handleBlur}
                 style={[textStyles, inputStyle, { outline: "none" }]}
                 placeholderTextColor={
-                  disabled ? theme.colors.textDisabled : theme.colors.textMuted
+                  disabled ? theme.colors.text4 : theme.colors.text3
                 }
                 {...props}
               />
@@ -246,7 +258,7 @@ export const Input = forwardRef<any, InputProps>(
             { outline: "none" },
           ]}
           placeholderTextColor={
-            disabled ? theme.colors.textDisabled : theme.colors.textMuted
+            disabled ? theme.colors.text4 : theme.colors.text3
           }
           {...props}
         />

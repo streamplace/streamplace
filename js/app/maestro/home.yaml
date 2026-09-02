@@ -1,0 +1,19 @@
+# Sweeps the app shell: home feed, then each tab, then back to home.
+# Screenshots are captured per step and land in artifacts/home (see scripts/ui-shoot.sh).
+appId: tv.aquareum.dev
+---
+- launchApp
+- assertVisible: "Home"
+- takeScreenshot: 01-home
+- tapOn: "Videos"
+- assertVisible: "Videos"
+- takeScreenshot: 02-videos
+- tapOn: "Go Live"
+- assertVisible: "Go Live"
+- takeScreenshot: 03-go-live
+- tapOn: "Settings"
+- assertVisible: "Settings"
+- takeScreenshot: 04-settings
+- tapOn: "Home"
+- assertVisible: "Home"
+- takeScreenshot: 05-home-return

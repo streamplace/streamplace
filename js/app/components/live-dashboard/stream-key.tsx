@@ -11,6 +11,10 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import {
+  fontFamilies,
+  typeScale,
+} from "@streamplace/components/src/lib/theme/tokens";
 import useGetIngests from "@streamplace/components/src/streamplace-store/ingest";
 import Loading from "components/loading/loading";
 import { Clipboard, ClipboardCheck } from "lucide-react-native";
@@ -116,7 +120,6 @@ export function StreamKeyScreen() {
                   <Code
                     style={{
                       paddingHorizontal: 4,
-                      backgroundColor: "#648800",
                     }}
                   >
                     bframes=0
@@ -156,12 +159,14 @@ export function WHIPDescription({ url }: { url: string }) {
             readOnly={true}
             style={[
               {
-                backgroundColor: "#1a1a1a",
+                backgroundColor: zero.tokens.surfaces.dark[1],
                 borderWidth: 1,
-                borderColor: "#333",
-                borderRadius: 8,
-                padding: 12,
-                color: "white",
+                borderColor: zero.tokens.borderAlphas.dark.default,
+                borderRadius: zero.borderRadius.md,
+                padding: zero.spacing[3],
+                color: zero.tokens.textAlphas.dark[1],
+                fontFamily: fontFamilies.monoRegular,
+                fontSize: typeScale.base.fontSize,
               },
             ]}
           />
@@ -194,12 +199,14 @@ export function RTMPDescription({ url }: { url: string }) {
             readOnly={true}
             style={[
               {
-                backgroundColor: "#1a1a1a",
+                backgroundColor: zero.tokens.surfaces.dark[1],
                 borderWidth: 1,
-                borderColor: "#333",
-                borderRadius: 8,
-                padding: 12,
-                color: "white",
+                borderColor: zero.tokens.borderAlphas.dark.default,
+                borderRadius: zero.borderRadius.md,
+                padding: zero.spacing[3],
+                color: zero.tokens.textAlphas.dark[1],
+                fontFamily: fontFamilies.monoRegular,
+                fontSize: typeScale.base.fontSize,
               },
             ]}
           />
@@ -230,7 +237,7 @@ export function StreamKey() {
   const [didcopy, setDidcopy] = useState(false);
   const newKey = useStore((state) => state.newKey);
 
-  let foregroundColor = theme.theme.colors.text || "#fff";
+  let foregroundColor = theme.theme.colors.text1;
 
   useEffect(() => {
     if (!newKey) {
@@ -277,12 +284,14 @@ export function StreamKey() {
           readOnly={true}
           style={[
             {
-              backgroundColor: "#1a1a1a",
+              backgroundColor: zero.tokens.surfaces.dark[1],
               borderWidth: 1,
-              borderColor: "#333",
-              borderRadius: 8,
-              padding: 12,
-              color: "white",
+              borderColor: zero.tokens.borderAlphas.dark.default,
+              borderRadius: zero.borderRadius.md,
+              padding: zero.spacing[3],
+              color: zero.tokens.textAlphas.dark[1],
+              fontFamily: fontFamilies.monoRegular,
+              fontSize: typeScale.base.fontSize,
               flex: 1,
               borderTopRightRadius: "0px",
               borderBottomRightRadius: "0px",

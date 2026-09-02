@@ -3,6 +3,7 @@ import { Platform, Pressable, ScrollView } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { Text, View } from "../..";
 import { bg, layout, left, right } from "../../lib/theme/atoms";
+import { useTheme } from "../../lib/theme/theme";
 
 interface MentionSuggestionsProps {
   authors: Map<string, ChatMessageViewHydrated["chatProfile"]>;
@@ -21,6 +22,7 @@ export function MentionSuggestions({
 
   const authorHandles = Array.from(authors.keys());
   const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -42,7 +44,7 @@ export function MentionSuggestions({
         {
           bottom: "100%",
           borderRadius: 8,
-          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)",
+          boxShadow: "0px 4px 6px rgba(0, 0, 0, 0.1)", // token-ok: dynamic user color / soft shadow
           maxHeight: 200,
           zIndex: 999999,
         },
@@ -66,15 +68,15 @@ export function MentionSuggestions({
                   alignItems: "center",
                   backgroundColor:
                     index === highlightedIndex
-                      ? "rgba(0, 0, 0, 0.1)"
-                      : "rgba(0, 0, 0, 0.5)",
+                      ? theme.colors.surfaceHover
+                      : theme.colors.surface2,
                 },
               ]}
             >
               <Text
                 style={{
                   color: profile?.color
-                    ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})`
+                    ? `rgb(${profile.color.red}, ${profile.color.green}, ${profile.color.blue})` // token-ok: dynamic user color / soft shadow
                     : "black",
                   fontWeight: "bold",
                 }}

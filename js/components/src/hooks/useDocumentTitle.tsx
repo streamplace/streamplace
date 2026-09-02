@@ -1,19 +1,23 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
-import {
-  useFavicon,
-  useSiteDescription,
-  useSiteTitle,
-} from "../streamplace-store";
+import { useSiteDescription, useSiteTitle } from "../streamplace-store";
 
 /**
- * Hook to set the document title, description, and favicon on web based on branding.
+ * Hook to set the document title and description on web based on branding.
  * No-op on native platforms.
+ *
+ * The tab favicon is intentionally owned by the app's bundled icon
+ * (public/index.html + app.config `favicon`) and is re-asserted here rather
+ * than driven by branding: letting a node's stored branding favicon override
+ * it replaced the current Streamplace mark with whatever (often stale) icon
+ * the node had on file. Keeping the bundled mark authoritative guarantees the
+ * brand stays consistent; white-label deployments set their favicon at build
+ * time. We re-assert it because Expo/React can drop the static <link> during
+ * hydration, which would otherwise leave the tab with no icon.
  */
 export function useDocumentTitle() {
   const siteTitle = useSiteTitle();
   const siteDescription = useSiteDescription();
-  const favicon = useFavicon();
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof document !== "undefined") {
@@ -29,17 +33,18 @@ export function useDocumentTitle() {
       }
       metaDescription.setAttribute("content", siteDescription);
 
-      // set or update favicon
-      if (favicon) {
-        let link: HTMLLinkElement | null =
-          document.querySelector('link[rel="icon"]');
-        if (!link) {
-          link = document.createElement("link");
-          link.rel = "icon";
-          document.head.appendChild(link);
-        }
-        link.href = favicon;
+      // keep the bundled Streamplace mark as the tab favicon
+      let link: HTMLLinkElement | null =
+        document.querySelector('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "icon";
+        link.type = "image/png";
+        document.head.appendChild(link);
+      }
+      if (link.getAttribute("href") !== "/favicon.png") {
+        link.setAttribute("href", "/favicon.png");
       }
     }
-  }, [siteTitle, siteDescription, favicon]);
+  }, [siteTitle, siteDescription]);
 }

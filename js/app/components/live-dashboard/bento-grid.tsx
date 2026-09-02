@@ -1,14 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
 import {
-  borders,
   Button,
   Dashboard,
-  useLivestream,
   useLivestreamStore,
   usePlayerStore,
   useProfile,
-  useSegment,
-  useSegmentTiming,
   useTheme,
   zero,
 } from "@streamplace/components";
@@ -16,9 +12,10 @@ import {
   ProblemsWrapper,
   ProblemsWrapperRef,
 } from "@streamplace/components/src/components/dashboard/problems";
+import { surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { ArrowRight } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Platform, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEmojiData } from "utils/emoji";
@@ -38,10 +35,6 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   const isWeb = Platform.OS === "web";
   const problemsRef = useRef<ProblemsWrapperRef>(null);
 
-  const handleProblemsPress = useCallback(() => {
-    problemsRef.current?.setDismiss(false);
-  }, []);
-
   // Screen width state for responsive design
   const [screenWidth, setScreenWidth] = useState(
     isWeb ? window.innerWidth : Dimensions.get("window").width,
@@ -54,6 +47,7 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
     if (isWeb) {
       const handleResize = () => {
         setScreenWidth(window.innerWidth);
+        setScreenHeight(window.innerHeight);
       };
       window.addEventListener("resize", handleResize);
       return () => window.removeEventListener("resize", handleResize);
@@ -75,61 +69,12 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
 
   // Get data from hooks for Dashboard components
   const profile = useProfile();
-  const viewers = useLivestreamStore((x) => x.viewers);
   const chat = useLivestreamStore((x) => x.chat);
-  const problems = useLivestreamStore((x) => x.problems);
-  const segmentTiming = useSegmentTiming();
-  const seg = useSegment();
   const ingestConnectionState = usePlayerStore((x) => x.ingestConnectionState);
-  const ingestStarted = usePlayerStore((x) => x.ingestStarted);
   const emojiData = useEmojiData();
-  const livestream = useLivestream();
 
   // Calculate derived values
   const isConnected = ingestConnectionState === "connected";
-
-  // Calculate uptime
-  const getUptime = useCallback((): string => {
-    if (!ingestStarted || !isLive) return "00:00:00";
-    const uptimeMs = Date.now() - ingestStarted;
-    const seconds = Math.floor(uptimeMs / 1000);
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }, [ingestStarted, isLive]);
-
-  // Calculate bitrate
-  const getBitrate = useCallback((): string => {
-    if (!seg?.size || !seg?.duration) return "0 kbps";
-    const kbps =
-      (seg.size * 8) /
-      ((seg.duration || 1000000000) / 1000000000) /
-      1000 /
-      1000;
-    return `${kbps.toFixed(2)} mbps`;
-  }, [seg?.size, seg?.duration]);
-
-  // Map connection quality to status
-  const getConnectionStatus = useMemo(():
-    | "excellent"
-    | "good"
-    | "poor"
-    | "offline"
-    | "pre-live" => {
-    if (!isLive) return "offline";
-    if (!livestream) return "pre-live";
-    switch (segmentTiming.connectionQuality) {
-      case "good":
-        return "excellent";
-      case "degraded":
-        return "good";
-      case "poor":
-        return "poor";
-      default:
-        return "offline";
-    }
-  }, [isLive, livestream, segmentTiming.connectionQuality]);
 
   // Calculate messages per minute
   const messagesPerMinute = useMemo((): number => {
@@ -148,34 +93,37 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   }, [chat]);
 
   if (isDesktop) {
-    // Desktop layout (>= 1200px) - Original bento grid
+    // Desktop layout (>= 1200px): a broadcast console. The frame is locked to
+    // the viewport (no page scroll) and every panel flexes to fill it like
+    // puzzle pieces; the inherently-long panels (chat, settings) scroll
+    // internally. `minHeight: 0` is threaded down the flex chain so children
+    // can shrink below their content and hand overflow to their own scrollers.
     return (
       <ProblemsWrapper ref={problemsRef}>
-        <View style={[flex.values[1], gap.all[4], p[4], bg.black]}>
+        <View
+          style={[
+            flex.values[1],
+            { backgroundColor: surfaces.dark[0], overflow: "hidden" },
+            gap.all[4],
+            p[4],
+          ]}
+        >
           <View
-            style={[layout.flex.column, { minWidth: isWeb ? 400 : "100%" }]}
+            style={[
+              layout.flex.row,
+              gap.all[4],
+              flex.values[1],
+              { minHeight: 0 },
+            ]}
           >
-            <Dashboard.Header
-              isLive={isLive}
-              streamTitle={
-                profile?.displayName || profile?.handle || "Live Stream"
-              }
-              uptime={getUptime()}
-              bitrate={getBitrate()}
-              timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
-              connectionStatus={getConnectionStatus}
-              problemsCount={problems.length}
-              onProblemsPress={handleProblemsPress}
-            />
-          </View>
-          <View style={[flex.values[1], layout.flex.row, gap.all[4]]}>
-            <View style={[flex.values[4], gap.all[4]]}>
+            {/* Left: video (hero) over stream health */}
+            <View style={[flex.values[4], gap.all[4], { minHeight: 0 }]}>
               <View
                 style={[
-                  flex.values[2],
+                  flex.values[3],
                   layout.flex.row,
                   gap.all[4],
-                  { height: isWeb ? 300 : 200 },
+                  { minHeight: 0 },
                 ]}
               >
                 <StreamMonitor
@@ -185,27 +133,30 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 />
               </View>
 
-              <View style={[layout.flex.row, gap.all[4], flex.values[1]]}>
-                <Dashboard.InformationWidget />
+              <View
+                style={[
+                  flex.values[2],
+                  layout.flex.row,
+                  gap.all[4],
+                  { minHeight: 0 },
+                ]}
+              >
+                <Dashboard.InformationWidget
+                  onShowProblems={() => problemsRef.current?.setDismiss(false)}
+                />
               </View>
             </View>
 
+            {/* Middle: multistream over chat (chat fills + scrolls) */}
             <View
               style={[
                 flex.values[2],
                 layout.flex.column,
                 gap.all[4],
-                { maxWidth: isWeb ? 600 : "100%" },
+                { maxWidth: 600, minHeight: 0 },
               ]}
             >
-              <View
-                style={[
-                  borders.bottom.width.thin,
-                  borders.bottom.color.neutral[700],
-                ]}
-              >
-                <MultistreamStatus />
-              </View>
+              <MultistreamStatus />
               <Dashboard.ChatPanel
                 isLive={isLive}
                 isConnected={isConnected}
@@ -221,12 +172,14 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
                 )}
               />
             </View>
+
+            {/* Right: stream settings (header + scroll body + sticky footer) */}
             <View
               style={[
                 flex.values[2],
                 layout.flex.column,
                 gap.all[4],
-                { maxWidth: isWeb ? 600 : "100%" },
+                { maxWidth: 600, minHeight: 0 },
               ]}
             >
               <LivestreamPanel />
@@ -240,24 +193,9 @@ export default function BentoGrid({ isLive, videoRef }: BentoGridProps) {
   return (
     <ProblemsWrapper ref={problemsRef}>
       <>
-        {/* Header always at top */}
-        <View style={[p[4]]}>
-          <Dashboard.Header
-            isLive={isLive}
-            streamTitle={
-              profile?.displayName || profile?.handle || "Live Stream"
-            }
-            uptime={getUptime()}
-            bitrate={getBitrate()}
-            timeBetweenSegments={segmentTiming.timeBetweenSegments || 0}
-            connectionStatus={getConnectionStatus}
-            problemsCount={problems.length}
-            onProblemsPress={handleProblemsPress}
-          />
-        </View>
         <ScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom }}
-          style={[flex.values[1], bg.black]}
+          style={[flex.values[1], { backgroundColor: surfaces.dark[0] }]}
         >
           <View style={[gap.all[4], p[4], { paddingTop: 0 }]}>
             {/* Stream Monitor Panel */}

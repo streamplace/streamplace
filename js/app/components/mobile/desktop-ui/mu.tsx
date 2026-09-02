@@ -1,3 +1,4 @@
+import { colors } from "@streamplace/components/src/lib/theme/tokens";
 import { G, Path, Svg, SvgProps } from "react-native-svg";
 
 export interface MuProps extends SvgProps {
@@ -8,7 +9,7 @@ export interface MuProps extends SvgProps {
 
 export const Mu = ({
   size = 24,
-  color = "#000000",
+  color = colors.black,
   strokeWidth = 10.9,
   ...props
 }: MuProps) => (

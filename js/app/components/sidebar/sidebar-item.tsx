@@ -1,26 +1,23 @@
 import { Text, useTheme, zero } from "@streamplace/components";
-import { LinkParams } from "components/aqlink";
+import { motion, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import React, { ReactNode, useState } from "react";
-import {
-  GestureResponderEvent,
-  Pressable,
-  PressableStateCallbackType,
-  StyleProp,
-  View,
-  ViewStyle,
-} from "react-native";
+import { GestureResponderEvent, Platform, Pressable, View } from "react-native";
 
-const DEFAULT_ROUTE: LinkParams = { screen: "HomeMain", params: undefined };
+/** 24px icons in a 40px row — YouTube's proportions, which give the rail a
+ *  confident anchor against the 14px labels. Also the exact icon width the
+ *  collapsed 64px rail leaves room for (64 - 8·2 sidebar - 12·2 row = 24). */
+const ICON_SIZE = 24;
 
+/**
+ * Sidebar navigation row, Linear-style: quiet at rest (text2), surface pill
+ * on hover, filled pill + text1 when active. 40px tall, 24px icons.
+ */
 export default function SidebarItem({
   icon,
   label,
   collapsed,
   active,
   onPress,
-  route,
-  style = null,
-  tint = "rgba(189, 110, 134)",
   href,
 }: {
   icon:
@@ -31,60 +28,49 @@ export default function SidebarItem({
   collapsed: boolean;
   active: boolean;
   onPress: (event: GestureResponderEvent) => void;
-  route?: LinkParams;
-  style?:
-    | StyleProp<ViewStyle>
-    | ((state: PressableStateCallbackType) => StyleProp<ViewStyle>);
-  tint: string;
   href: string;
 }) {
   const [hover, setHover] = useState<boolean>(false);
-  const theme = useTheme();
+  const { theme } = useTheme();
 
-  // Handle different icon types - component, JSX element, or function returning JSX
+  const iconColor = active || hover ? theme.colors.text1 : theme.colors.text2;
+
   const renderIcon = () => {
-    if (!icon) {
-      return <Text>📄</Text>; // Default fallback
-    }
-
-    // Get theme color for icons - use theme colors if available, fallback to white
-    const iconColor = theme?.theme?.colors?.foreground || "#ffffff";
-
-    // If it's already a JSX element, clone it with theme color
+    if (!icon) return null;
     if (React.isValidElement(icon)) {
-      // Clone the element and override the color prop
       return React.cloneElement(icon as any, {
         color: iconColor,
-        size: 20, // Ensure consistent sizing
+        size: ICON_SIZE,
       });
     }
-
-    // If it's a function (component), call it with theme color
     if (typeof icon === "function") {
       const IconComponent = icon;
-      return <IconComponent color={iconColor} size={20} />;
+      return <IconComponent color={iconColor} size={ICON_SIZE} />;
     }
     if ((icon as any).$$typeof === Symbol.for("react.memo")) {
       const MemoizedIcon = (icon as any).type;
-      return <MemoizedIcon color={iconColor} size={20} />;
+      return <MemoizedIcon color={iconColor} size={ICON_SIZE} />;
     }
-
-    // Fallback
-    console.log(
-      "tried to render item for route",
-      label,
-      href,
-      ", but couldn't",
-      (icon as any).$$typeof,
-    );
-
-    return <Text>📄</Text>;
+    // forwardRef components (e.g. lucide icons) are objects, not functions
+    if (typeof icon === "object") {
+      const IconComponent = icon as any;
+      return <IconComponent color={iconColor} size={ICON_SIZE} />;
+    }
+    return null;
   };
+
+  const webTransition =
+    Platform.OS === "web"
+      ? ({
+          transitionDuration: `${motion.fast}ms`,
+          transitionTimingFunction: motion.easingCss,
+          transitionProperty: "background-color, color",
+        } as any)
+      : null;
 
   return (
     <Pressable
       onPress={onPress}
-      style={style}
       onHoverIn={() => setHover(true)}
       onHoverOut={() => setHover(false)}
       role="link"
@@ -97,32 +83,45 @@ export default function SidebarItem({
           zero.r.md,
           zero.layout.flex.row,
           zero.layout.flex.alignCenter,
-          zero.px[3],
-          zero.gap.all[2],
           {
-            backgroundColor:
-              hover || active
-                ? tint.replace(
-                    ")",
-                    ", " + (active && !hover ? "0.1" : "0.25") + ")",
-                  )
-                : undefined,
+            height: 40,
+            paddingHorizontal: spacing[3],
+            gap: spacing[4],
+            backgroundColor: active
+              ? theme.colors.surface2
+              : hover
+                ? theme.colors.surface1
+                : "transparent",
             overflow: "hidden",
           },
+          webTransition,
         ]}
       >
-        <View style={[zero.w[8], zero.py[3]]}>{renderIcon()}</View>
+        <View
+          style={{
+            width: ICON_SIZE,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {renderIcon()}
+        </View>
         {!collapsed && (
-          <View
-            style={[
-              {
-                minWidth: 270,
-                maxHeight: "auto",
-                opacity: collapsed ? 0 : 1,
-              },
-            ]}
-          >
-            <Text>{label}</Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {typeof label === "string" ? (
+              <Text
+                numberOfLines={1}
+                weight={active ? "medium" : "normal"}
+                style={{
+                  color:
+                    active || hover ? theme.colors.text1 : theme.colors.text2,
+                }}
+              >
+                {label}
+              </Text>
+            ) : (
+              label
+            )}
           </View>
         )}
       </View>

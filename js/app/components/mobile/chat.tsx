@@ -1,13 +1,16 @@
 import {
   Chat,
   ChatBox,
+  IconButton,
   Loader,
   Resizable,
   StreamNotificationProvider,
   Text,
+  useTheme,
   View,
   zero,
 } from "@streamplace/components";
+import { scrims, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { useKeyboard } from "hooks/useKeyboard";
 import { useEffect, useState } from "react";
 import { Platform, Pressable, useWindowDimensions } from "react-native";
@@ -22,13 +25,14 @@ import { useNavigation } from "@react-navigation/native";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { BadgePicker } from "components/mobile/badge-picker";
-import { ArrowRight } from "lucide-react-native";
+import { ArrowRight, ChevronsRight } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
 const { borderRadius, gap, layout, flex, px, position, bottom } = zero;
 
 export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
+  const { theme } = useTheme();
   let insets = useSafeAreaInsets();
   let panelWidthWithInsets = chatPanelWidth;
   const sidebarOffset = useSharedValue(chatVisible ? 0 : panelWidthWithInsets);
@@ -84,9 +88,9 @@ export function DesktopChatPanel({ chatVisible, chatPanelWidth, setShowChat }) {
             bottom: 0,
             width: panelWidthWithInsets,
             flexShrink: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.85)",
+            backgroundColor: theme.colors.surface0,
             borderLeftWidth: 1,
-            borderLeftColor: "rgba(255, 255, 255, 0.1)",
+            borderLeftColor: theme.colors.borderSubtle,
             zIndex: 999,
           },
           animatedSidebarStyle,
@@ -141,7 +145,7 @@ function FixedChatPanel() {
       SpringSettings,
     ),
     backgroundColor: withSpring(
-      `rgba(0, 0, 0, ${kb.keyboardHeight > 0 ? 0.5 : 0})`,
+      kb.keyboardHeight > 0 ? scrims.dark : "rgba(0, 0, 0, 0)", // token-ok
       SpringSettings,
     ),
     borderRadius: withSpring(containerHeight > 0 ? 18 : 0, SpringSettings),
@@ -242,6 +246,7 @@ export function MobileChatPanel({
 }
 
 function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
+  const { theme } = useTheme();
   let agent = usePDSAgent();
 
   const navigation = useNavigation();
@@ -255,17 +260,49 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
         layout.flex.column,
         flex.values[1],
         { width: "100%", maxWidth: "100%", position: "relative" },
-        px[2],
       ]}
     >
-      <View style={[flex.values[1]]}>
+      {/* Panel header — labels the surface, hosts the collapse control */}
+      {setShowChat && (
+        <View
+          style={[
+            layout.flex.row,
+            layout.flex.spaceBetween,
+            layout.flex.alignCenter,
+            {
+              height: 48,
+              paddingLeft: spacing[4],
+              paddingRight: spacing[2],
+              borderBottomWidth: 1,
+              borderBottomColor: theme.colors.borderSubtle,
+            },
+          ]}
+        >
+          <Text weight="medium">Chat</Text>
+          <IconButton
+            size="sm"
+            accessibilityLabel="Collapse chat"
+            onPress={() => setShowChat(false)}
+          >
+            <ChevronsRight size={16} color={theme.colors.text2} />
+          </IconButton>
+        </View>
+      )}
+      <View style={[flex.values[1], px[2]]}>
         <Chat />
       </View>
-      <View style={[layout.flex.column, gap.all[2]]}>
+      <View
+        style={[
+          layout.flex.column,
+          gap.all[2],
+          px[2],
+          { paddingBottom: spacing[2] },
+        ]}
+      >
         {agent?.did ? (
           <ChatBox
             emojiData={emojiData}
-            chatBoxStyle={{ borderRadius: borderRadius.xl }}
+            chatBoxStyle={{ borderRadius: borderRadius.lg }}
             setIsChatVisible={setShowChat ? (v) => setShowChat(v) : undefined}
             leftSlot={<BadgePicker />}
             emojiPicker={(isOpen, onClose, onSelect) => (
@@ -285,8 +322,10 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
               gap.all[1],
               zero.p[3],
               {
-                borderRadius: borderRadius.xl,
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                borderRadius: borderRadius.lg,
+                backgroundColor: theme.colors.surface2,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSubtle,
               },
             ]}
           >
@@ -309,16 +348,19 @@ function ChatPanel({ setShowChat }: { setShowChat?: (show: boolean) => void }) {
             style={[
               layout.flex.row,
               layout.flex.center,
-              gap.all[4],
+              gap.all[2],
               {
-                padding: 18,
-                borderRadius: borderRadius.xl,
-                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                paddingVertical: spacing[2],
+                paddingHorizontal: spacing[3],
+                borderRadius: borderRadius.lg,
+                backgroundColor: theme.colors.surface2,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSubtle,
               },
             ]}
           >
-            <Text>Log in or sign up to chat</Text>
-            <ArrowRight />
+            <Text size="sm">Log in or sign up to chat</Text>
+            <ArrowRight color={theme.colors.text1} size={16} />
           </Pressable>
         )}
       </View>

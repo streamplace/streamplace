@@ -15,14 +15,20 @@ import BlueskyProvider from "features/bluesky/blueskyProvider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
+import { useStore } from "store";
 import { useOAuthSession } from "store/hooks";
 
-import { i18n } from "@streamplace/components";
+import { i18n, initI18next } from "@streamplace/components";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+// Initialize the shared i18next instance: registers the React/Fluent/backend
+// plugins and loads the stored locale. Without this, the `i18n` instance
+// passed to I18nProvider below stays uninitialized and nothing translates.
+void initI18next();
 
 // get proper DSN for environment
 // on ios/android it's process.env.EXPO_PUBLIC_SENTRY_DSN
@@ -115,8 +121,13 @@ export const NewStreamplaceProvider = ({
 }) => {
   const { url } = useStreamplaceNode();
   const oauthSession = useOAuthSession();
+  const openLoginModal = useStore((s) => s.openLoginModal);
   return (
-    <ZustandStreamplaceProvider url={url} oauthSession={oauthSession}>
+    <ZustandStreamplaceProvider
+      url={url}
+      oauthSession={oauthSession}
+      onNeedsLogin={openLoginModal ? () => openLoginModal() : undefined}
+    >
       {children}
     </ZustandStreamplaceProvider>
   );
@@ -124,20 +135,15 @@ export const NewStreamplaceProvider = ({
 
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
   const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans Serif) fonts
+    // Atkinson Hyperlegible Next (Sans) — three static weights, no variable fonts
     "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Light": require("../../assets/fonts/AtkinsonHyperlegibleNext-Light.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraLight": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraLight.ttf"),
     "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
     "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
-    "AtkinsonHyperlegibleNext-Bold": require("../../assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf"),
-    "AtkinsonHyperlegibleNext-ExtraBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-ExtraBold.ttf"),
 
-    // Atkinson Hyperlegible Mono fonts
-    "AtkinsonHyperlegibleMono-Regular": require("../../assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf"),
-    "AtkinsonHyperlegibleMono-Medium": require("../../assets/fonts/AtkinsonHyperlegibleMono-Medium.ttf"),
-    "AtkinsonHyperlegibleMono-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleMono-SemiBold.ttf"),
-    "AtkinsonHyperlegibleMono-Bold": require("../../assets/fonts/AtkinsonHyperlegibleMono-Bold.ttf"),
+    // Ioskeley Mono — stream keys, ingest URLs, timers
+    "IoskeleyMono-Regular": require("../../assets/fonts/IoskeleyMono-Regular.ttf"),
+    "IoskeleyMono-Medium": require("../../assets/fonts/IoskeleyMono-Medium.ttf"),
+    "IoskeleyMono-SemiBold": require("../../assets/fonts/IoskeleyMono-SemiBold.ttf"),
   });
 
   if (!fontLoaded && !fontError) {

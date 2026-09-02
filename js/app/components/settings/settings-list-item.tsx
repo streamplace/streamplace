@@ -1,8 +1,8 @@
-import { Text, zero } from "@streamplace/components";
+import { Switch, Text, zero } from "@streamplace/components";
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { Edit3, Trash2 } from "lucide-react-native";
 import { ReactNode } from "react";
-import { Pressable, Switch, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 const { bg, text, p, mb, w, h, r, layout, borders, flex, gap, pt } = zero;
 
@@ -45,7 +45,7 @@ export function SettingsListItem({
       style={[
         flex.shrink[1],
         borders.width.thin,
-        borders.color.gray[200],
+        { borderColor: theme.colors.borderStrong },
         bg.neutral[800],
         r.xl,
         p[4],
@@ -69,7 +69,11 @@ export function SettingsListItem({
               w[3],
               h[3],
               r.full,
-              { backgroundColor: active ? "#22c55e" : "#6b7280" },
+              {
+                backgroundColor: active
+                  ? theme.colors.success
+                  : theme.colors.text4,
+              },
             ]}
           />
           <Text style={[{ fontSize: 16, fontWeight: "600" }]}>{title}</Text>
@@ -95,16 +99,19 @@ export function SettingsListItem({
           )}
           <Pressable
             style={[
-              bg.gray[100],
               p[2],
               r.md,
               layout.flex.center,
-              { minWidth: 32, minHeight: 32 },
+              {
+                minWidth: 32,
+                minHeight: 32,
+                backgroundColor: theme.colors.surface2,
+              },
             ]}
             onPress={onEdit}
             disabled={isDeleting}
           >
-            <Edit3 size={16} color="#374151" />
+            <Edit3 size={16} color={theme.colors.text2} />
           </Pressable>
 
           <Pressable
@@ -125,16 +132,20 @@ export function SettingsListItem({
 
       {/* Subtitle/Description */}
       {subtitle && (
-        <Text style={[text.gray[300], { fontSize: 14 }]}>{subtitle}</Text>
+        <Text style={[{ color: theme.colors.text2 }, { fontSize: 14 }]}>
+          {subtitle}
+        </Text>
       )}
 
       {/* URL */}
       {url && (
         <View style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}>
-          <Text style={[text.gray[300], { fontSize: 12 }]}>URL:</Text>
+          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>
+            URL:
+          </Text>
           <Text
             style={[
-              text.gray[400],
+              { color: theme.colors.text3 },
               { fontSize: 12, fontFamily: fontFamilies.monoRegular },
             ]}
             numberOfLines={1}
@@ -152,16 +163,25 @@ export function SettingsListItem({
           key={index}
           style={[layout.flex.row, layout.flex.alignCenter, gap.all[2]]}
         >
-          <Text style={[text.gray[300], { fontSize: 12 }]}>{meta.label}:</Text>
+          <Text style={[{ color: theme.colors.text2 }, { fontSize: 12 }]}>
+            {meta.label}:
+          </Text>
           <View style={[layout.flex.row, gap.all[1], { flexWrap: "wrap" }]}>
             {Array.isArray(meta.value) ? (
               meta.value.map((item: any, idx: number) => (
-                <View key={idx} style={[bg.blue[700], p[1], r.full]}>
+                <View
+                  key={idx}
+                  style={[
+                    { backgroundColor: theme.colors.primary },
+                    p[1],
+                    r.full,
+                  ]}
+                >
                   <Text style={[text.blue[300], { fontSize: 11 }]}>{item}</Text>
                 </View>
               ))
             ) : (
-              <Text style={[text.gray[400], { fontSize: 12 }]}>
+              <Text style={[{ color: theme.colors.text3 }, { fontSize: 12 }]}>
                 {meta.value}
               </Text>
             )}
@@ -181,7 +201,7 @@ export function SettingsListItem({
           ]}
         >
           {footer.left && (
-            <Text style={[text.gray[400], { fontSize: 11 }]}>
+            <Text style={[{ color: theme.colors.text3 }, { fontSize: 11 }]}>
               {footer.left}
             </Text>
           )}

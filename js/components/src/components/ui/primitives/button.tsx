@@ -13,6 +13,7 @@ import {
   ViewProps,
   ViewStyle,
 } from "react-native";
+import { motion } from "../../../lib/theme/tokens";
 
 // Base button primitive interface
 export interface ButtonPrimitiveProps extends Omit<PressableProps, "onPress"> {
@@ -24,6 +25,7 @@ export interface ButtonPrimitiveProps extends Omit<PressableProps, "onPress"> {
   accessibilityHint?: string;
   testID?: string;
   hoverStyle?: StyleProp<ViewStyle>;
+  pressedStyle?: StyleProp<ViewStyle>;
 }
 
 // Button root primitive - handles all touch interactions
@@ -47,6 +49,7 @@ export const ButtonRoot = forwardRef<
       testID,
       style,
       hoverStyle,
+      pressedStyle,
       ...props
     },
     ref,
@@ -118,12 +121,13 @@ export const ButtonRoot = forwardRef<
           ...accessibilityState,
         }}
         testID={testID}
-        style={[
+        style={({ pressed }) => [
           primitiveStyles.button,
           primitiveStyles.transition,
           (disabled || loading) && primitiveStyles.disabled,
           style as any,
           isHovered && hoverStyle,
+          pressed && !disabled && !loading && pressedStyle,
         ]}
         {...props}
       >
@@ -265,10 +269,12 @@ const primitiveStyles = StyleSheet.create({
   },
   transition:
     Platform.OS === "web"
-      ? // probably fine if web-only
+      ? // web-only micro-interaction timing from the motion tokens
         ({
-          transitionDuration: "150ms",
-          transitionProperty: "background-color, border-color, color",
+          transitionDuration: `${motion.fast}ms`,
+          transitionTimingFunction: motion.easingCss,
+          transitionProperty:
+            "background-color, border-color, color, opacity, transform",
         } as any)
       : undefined,
   disabled: {

@@ -1,4 +1,5 @@
 import { G, Path, Svg, SvgProps } from "react-native-svg";
+import { colors } from "../../lib/theme/tokens";
 
 export interface MuProps extends SvgProps {
   size?: number | string;
@@ -8,7 +9,7 @@ export interface MuProps extends SvgProps {
 
 export const Mu = ({
   size = 24,
-  color = "#000000",
+  color = colors.black,
   strokeWidth = 10.9,
   ...props
 }: MuProps) => (

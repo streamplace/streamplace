@@ -4,13 +4,16 @@ import {
   AnimatableNumericValue,
   ColorValue,
   OpaqueColorValue,
-  Platform,
   Text as RNText,
   TextProps as RNTextProps,
   TextStyle,
 } from "react-native";
 import { useTheme } from "../../../lib/theme/theme";
-import { typography, type Typography } from "../../../lib/theme/tokens";
+import {
+  fontFamilies,
+  tabularNums,
+  typography,
+} from "../../../lib/theme/tokens";
 
 // Text inheritance context
 interface TextContextValue {
@@ -104,6 +107,9 @@ export interface TextPrimitiveProps extends Omit<RNTextProps, "style"> {
   // Font style
   italic?: boolean;
 
+  // Tabular numerals — required for anything that counts (viewers, timers)
+  tabular?: boolean;
+
   // Opacity
   opacity?: number;
 
@@ -117,41 +123,64 @@ export interface TextPrimitiveProps extends Omit<RNTextProps, "style"> {
   reset?: boolean;
 }
 
-// Size mapping
+// Size mapping — the modular scale (12/13/14/16/20/24/32). Keys are kept
+// stable; "4xl" is a deprecated alias of "3xl".
 const sizeMap = {
   xs: 12,
-  sm: 14,
-  base: 16,
-  lg: 18,
+  sm: 13,
+  base: 14,
+  lg: 16,
   xl: 20,
   "2xl": 24,
-  "3xl": 30,
-  "4xl": 36,
+  "3xl": 32,
+  "4xl": 32,
 } as const;
 
-// Size-specific line height mapping (provides better default line heights for each size)
+// Per-size line heights — defined here, never inline
 const sizeLineHeightMap = {
-  xs: 16, // 12px * 1.33 = tight but readable
-  sm: 20, // 14px * 1.43 = good for small text
-  base: 24, // 16px * 1.5 = standard body text
-  lg: 28, // 18px * 1.56 = comfortable for larger text
-  xl: 30, // 20px * 1.5 = balanced
-  "2xl": 32, // 24px * 1.33 = tighter for headings
-  "3xl": 36, // 30px * 1.2 = tight for large headings
-  "4xl": 40, // 36px * 1.11 = very tight for display text
+  xs: 16,
+  sm: 18,
+  base: 20,
+  lg: 24,
+  xl: 26,
+  "2xl": 30,
+  "3xl": 38,
+  "4xl": 38,
 } as const;
 
-// Weight mapping
+// Comfortable leading for a raw numeric fontSize. Mirrors the ratios baked into
+// sizeLineHeightMap — ~1.4 for body copy, tightening toward ~1.2 for display
+// sizes — so inline `fontSize` never renders at a cramped 1.0 leading (the old
+// behavior, which made stacked title/subtitle pairs look jammed together).
+const autoLineHeight = (fontSize: number) => {
+  const ratio = fontSize <= 16 ? 1.4 : fontSize <= 24 ? 1.3 : 1.2;
+  return Math.round(fontSize * ratio);
+};
+
+// Weight mapping — the design system has exactly three weights.
+// Out-of-range keys are deprecated aliases clamped to the nearest weight.
 const weightMap = {
-  thin: "100",
-  light: "300",
+  thin: "400",
+  light: "400",
   normal: "400",
   medium: "500",
   semibold: "600",
-  bold: "700",
-  extrabold: "800",
-  black: "900",
+  bold: "600",
+  extrabold: "600",
+  black: "600",
 } as const;
+
+// Static font files need the family to match the weight
+const weightFamilyMap: Record<keyof typeof weightMap, string> = {
+  thin: fontFamilies.regular,
+  light: fontFamilies.regular,
+  normal: fontFamilies.regular,
+  medium: fontFamilies.medium,
+  semibold: fontFamilies.semiBold,
+  bold: fontFamilies.semiBold,
+  extrabold: fontFamilies.semiBold,
+  black: fontFamilies.semiBold,
+};
 
 // Line height mapping
 const leadingMap = {
@@ -173,76 +202,34 @@ const trackingMap = {
   widest: 1.6,
 } as const;
 
-// Variant definitions (platform-aware)
-const getVariantStyles = () => {
-  // get platform-specific typography
-  // iOS, Android, Web (Universal)
-  const typographicPlatform = (
-    Platform.OS === "ios"
-      ? "ios"
-      : Platform.OS === "android"
-        ? "android"
-        : "universal"
-  ) as keyof Typography;
-  const platformTypography = typography[typographicPlatform] as Record<
-    string,
-    TextStyle
-  >;
+// Variant definitions — one scale on every platform. The product should
+// look identical on iOS, Android, and web.
+const universal = typography.universal as Record<string, TextStyle>;
+const semibold = {
+  fontWeight: "600",
+  fontFamily: fontFamilies.semiBold,
+} as const;
+const medium = {
+  fontWeight: "500",
+  fontFamily: fontFamilies.medium,
+} as const;
 
-  if (!platformTypography) {
-    throw new Error("Platform typography not defined");
-  }
-
-  // Define mapping based on platform
-  if (typographicPlatform === "ios") {
-    return {
-      h1: platformTypography.largeTitle,
-      h2: platformTypography.title1,
-      h3: platformTypography.title2,
-      h4: platformTypography.title3,
-      h5: platformTypography.headline,
-      h6: platformTypography.headline,
-      subtitle1: platformTypography.subhead,
-      subtitle2: platformTypography.footnote,
-      body1: platformTypography.body,
-      body2: platformTypography.callout,
-      caption: platformTypography.caption1,
-      overline: platformTypography.caption2,
-    };
-  } else if (typographicPlatform === "android") {
-    return {
-      h1: platformTypography.headline4, // 34px instead of 96px
-      h2: platformTypography.headline5, // 24px instead of 60px
-      h3: platformTypography.headline6, // 20px instead of 48px
-      h4: platformTypography.subtitle1, // 16px instead of 34px
-      h5: platformTypography.subtitle2, // 14px instead of 24px
-      h6: platformTypography.subtitle2, // 14px - consistent with h5
-      subtitle1: platformTypography.subtitle1,
-      subtitle2: platformTypography.subtitle2,
-      body1: platformTypography.body1,
-      body2: platformTypography.body2,
-      caption: platformTypography.caption,
-      overline: platformTypography.overline,
-    };
-  } else {
-    // universal
-    // Map variants to universal sizes
-    return {
-      h1: platformTypography["4xl"],
-      h2: platformTypography["3xl"],
-      h3: platformTypography["2xl"],
-      h4: platformTypography["xl"],
-      h5: platformTypography["lg"],
-      h6: platformTypography["base"],
-      subtitle1: platformTypography.base,
-      subtitle2: platformTypography.sm,
-      body1: platformTypography.base,
-      body2: platformTypography.sm,
-      caption: platformTypography.xs,
-      overline: platformTypography.xs,
-    };
-  }
+const variantStylesStatic: Record<string, TextStyle> = {
+  h1: universal["3xl"],
+  h2: universal["2xl"],
+  h3: universal.xl,
+  h4: { ...universal.lg, ...semibold },
+  h5: { ...universal.base, ...semibold },
+  h6: { ...universal.sm, ...semibold },
+  subtitle1: { ...universal.lg, ...medium },
+  subtitle2: { ...universal.base, ...medium },
+  body1: universal.base,
+  body2: universal.sm,
+  caption: universal.xs,
+  overline: { ...universal.xs, ...medium, textTransform: "uppercase" },
 };
+
+const getVariantStyles = () => variantStylesStatic;
 
 // Text root primitive
 export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
@@ -258,6 +245,7 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
       transform,
       decoration,
       italic = false,
+      tabular = false,
       opacity,
       style,
       inherit = true,
@@ -321,14 +309,15 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
         ...(leading === undefined && {
           lineHeight:
             typeof size === "number"
-              ? size // Auto line height for numeric sizes
+              ? autoLineHeight(size) // Comfortable leading for numeric sizes
               : sizeLineHeightMap[size],
         }),
       }),
 
-      // Apply weight
+      // Apply weight (family must track weight for static font files)
       ...(weight && {
         fontWeight: weightMap[weight] as TextStyle["fontWeight"],
+        fontFamily: weightFamilyMap[weight],
       }),
 
       // Apply color
@@ -389,6 +378,9 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
         fontStyle: "italic",
       }),
 
+      // Apply tabular numerals
+      ...(tabular && tabularNums),
+
       // Apply opacity
       ...(opacity !== undefined && {
         opacity,
@@ -408,7 +400,7 @@ export const TextRoot = forwardRef<RNText, TextPrimitiveProps>(
         if (typeof fontSize === "number" && !styleObj.lineHeight && !leading) {
           return {
             ...styleObj,
-            lineHeight: fontSize,
+            lineHeight: autoLineHeight(fontSize),
           };
         }
       }
@@ -497,13 +489,18 @@ export function createTextStyle(
     if (props.leading === undefined) {
       style.lineHeight =
         typeof props.size === "number"
-          ? props.size
+          ? autoLineHeight(props.size)
           : sizeLineHeightMap[props.size];
     }
   }
 
   if (props.weight) {
     style.fontWeight = weightMap[props.weight] as TextStyle["fontWeight"];
+    style.fontFamily = weightFamilyMap[props.weight];
+  }
+
+  if (props.tabular) {
+    Object.assign(style, tabularNums);
   }
 
   if (props.align) {

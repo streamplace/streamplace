@@ -6,6 +6,7 @@ import {
   Text,
   useLivestreamStore,
 } from "@streamplace/components";
+import { colors, surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { FullscreenProvider } from "contexts/FullscreenContext";
@@ -22,10 +23,10 @@ function StreamError({ message }: { message: string }) {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#111",
+        backgroundColor: surfaces.dark[1],
       }}
     >
-      <Text style={{ color: "#fff", fontSize: 18 }}>{message}</Text>
+      <Text style={{ color: colors.white, fontSize: 18 }}>{message}</Text>
     </View>
   );
 }

@@ -1,0 +1,520 @@
+import { Button } from "@/components/ui/button";
+import { CardMenuSection } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import useAvatars from "@/hooks/use-avatars";
+import { cn } from "@/lib/utils";
+import { DragDropProvider } from "@dnd-kit/react";
+import { isSortable, useSortable } from "@dnd-kit/react/sortable";
+import { createFileRoute } from "@tanstack/react-router";
+import {
+  Check,
+  GripVertical,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { place } from "streamplace";
+import { usePDSAgent } from "../../../lib/store/hooks";
+
+export const Route = createFileRoute("/dashboard/recommendations/")({
+  component: RecommendationsManager,
+});
+
+interface ActorSearchResult {
+  did: string;
+  handle: string;
+}
+
+/** Props for a single sortable streamer row. */
+interface SortableStreamerRowProps {
+  id: string;
+  index: number;
+  streamer: string;
+  resolvedHandle?: string;
+  resolvedAvatar?: string;
+  editingIndex: number | null;
+  editValue: string;
+  onEditValueChange: (value: string) => void;
+  onStartEdit: (index: number, value: string) => void;
+  onSaveEdit: () => void;
+  onCancelEdit: (index: number, hadValue: boolean) => void;
+  onDelete: (index: number) => void;
+}
+
+function SortableStreamerRow({
+  id,
+  index,
+  streamer,
+  resolvedHandle,
+  resolvedAvatar,
+  editingIndex,
+  editValue,
+  onEditValueChange,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+}: SortableStreamerRowProps) {
+  const { ref, isDragging, handleRef } = useSortable({ id, index });
+  const isEditing = editingIndex === index;
+
+  return (
+    <div
+      ref={ref}
+      className={`flex items-center gap-2 border-b border-(--color-border) px-3 py-2 last:border-b-0 ${
+        isDragging ? "rounded-md bg-(--color-bg-elevated) shadow-lg" : ""
+      }`}
+    >
+      {/* Drag handle */}
+      <div
+        ref={handleRef}
+        className="shrink-0 cursor-grab p-0.5 active:cursor-grabbing"
+      >
+        <GripVertical
+          size={16}
+          className="text-(--color-fg-muted) opacity-60"
+        />
+      </div>
+
+      {/* Content */}
+      {isEditing ? (
+        <>
+          <Input
+            value={editValue}
+            onChange={(e) => onEditValueChange(e.target.value)}
+            placeholder="did:plc:..."
+            autoFocus
+            className="flex-1"
+          />
+          <button
+            type="button"
+            onClick={onSaveEdit}
+            className="rounded p-1.5 hover:bg-(--color-bg)"
+          >
+            <Check size={16} className="text-(--color-accent)" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onCancelEdit(index, !!streamer)}
+            className="rounded p-1.5 hover:bg-(--color-bg)"
+          >
+            <X size={16} className="text-(--color-fg-muted)" />
+          </button>
+        </>
+      ) : (
+        <>
+          {resolvedAvatar ? (
+            <img
+              src={resolvedAvatar}
+              alt=""
+              className="h-6 w-6 shrink-0 rounded-full bg-(--color-bg)"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <div className="h-6 w-6 shrink-0 rounded-full bg-(--color-bg)" />
+          )}
+          <span
+            className={cn(
+              "flex-1 truncate",
+              !resolvedHandle && "font-mono text-sm",
+            )}
+          >
+            {resolvedHandle ? "@" : ""}
+            {resolvedHandle || streamer || "(empty)"}
+          </span>
+          <button
+            type="button"
+            onClick={() => onStartEdit(index, streamer)}
+            className="rounded p-1.5 hover:bg-(--color-bg)"
+          >
+            <Pencil size={16} className="text-(--color-fg-muted)" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onDelete(index)}
+            className="rounded p-1.5 hover:bg-(--color-bg)"
+          >
+            <X size={16} className="text-destructive" />
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function RecommendationsManager() {
+  const { t } = useTranslation("settings");
+  const agent = usePDSAgent();
+
+  const [streamers, setStreamers] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ActorSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  // resolved streamers
+  const resolvedStreamers = useAvatars(streamers);
+
+  // Inline edit state
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+
+  const loadRecommendations = async () => {
+    if (!agent) return;
+    try {
+      setLoading(true);
+      const userDID = agent.did;
+      if (!userDID) {
+        setStreamers([]);
+        return;
+      }
+      const response = await agent.com.atproto.repo.getRecord({
+        repo: userDID,
+        collection: "place.stream.live.recommendations",
+        rkey: "self",
+      });
+      const record = response.data.value as { streamers?: string[] };
+      setStreamers(record.streamers || []);
+    } catch (error: any) {
+      if (error.status !== 404) {
+        console.error("Failed to load recommendations:", error);
+        toast.error("Failed to load recommendations");
+      }
+      setStreamers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveRecommendations = async (newStreamers: string[]) => {
+    if (!agent || saving) return;
+    try {
+      if (!agent.did) throw new Error("User DID not found");
+      setSaving(true);
+      await agent.com.atproto.repo.putRecord({
+        repo: agent.did,
+        collection: "place.stream.live.recommendations",
+        rkey: "self",
+        record: {
+          streamers: newStreamers,
+          createdAt: new Date().toISOString(),
+        },
+      });
+      setStreamers(newStreamers);
+    } catch (error: any) {
+      console.error("Failed to save recommendations:", error);
+      toast.error(error.message || "Failed to save recommendations");
+      await loadRecommendations();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const searchActors = useCallback(
+    async (query: string) => {
+      if (!agent || !query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      try {
+        setSearching(true);
+        const response = await agent.client.call(
+          place.stream.live.searchActorsTypeahead,
+          {
+            q: query,
+            limit: 10,
+          },
+        );
+        setSearchResults(
+          response.actors.map((a: any) => ({
+            did: a.did,
+            handle: a.handle,
+          })),
+        );
+      } catch (error) {
+        console.error("Failed to search actors:", error);
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [agent],
+  );
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    if (searchTimeout) clearTimeout(searchTimeout);
+    if (query.trim()) {
+      const timeout = setTimeout(() => searchActors(query), 300);
+      setSearchTimeout(timeout);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const handleSelectActor = async (actor: ActorSearchResult) => {
+    if (streamers.length >= 8) {
+      toast.error("You can only add up to 8 recommendations.");
+      return;
+    }
+    if (streamers.includes(actor.did)) {
+      toast.error("This streamer is already in your recommendations.");
+      return;
+    }
+    await saveRecommendations([...streamers, actor.did]);
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
+  const handleAddManual = () => {
+    if (streamers.length >= 8) {
+      toast.error("You can only add up to 8 recommendations.");
+      return;
+    }
+    const newIndex = streamers.length;
+    setStreamers([...streamers, ""]);
+    setEditingIndex(newIndex);
+    setEditValue("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingIndex === null) return;
+    const trimmed = editValue.trim();
+    if (!trimmed) return;
+    if (!trimmed.startsWith("did:")) {
+      toast.error("DID must start with 'did:'");
+      return;
+    }
+    const newStreamers = [...streamers];
+    newStreamers[editingIndex] = trimmed;
+    await saveRecommendations(newStreamers);
+    setEditingIndex(null);
+    setEditValue("");
+  };
+
+  const handleDelete = async () => {
+    if (deleteIndex === null) return;
+    const newStreamers = streamers.filter((_, i) => i !== deleteIndex);
+    await saveRecommendations(newStreamers);
+    setDeleteIndex(null);
+  };
+
+  const handleDragEnd = (event: any) => {
+    if (event.canceled) return;
+    const { source } = event.operation;
+    if (!isSortable(source)) return;
+    const { initialIndex, index: toIndex } = source;
+    if (initialIndex === toIndex) return;
+
+    const newStreamers = [...streamers];
+    const [item] = newStreamers.splice(initialIndex, 1);
+    newStreamers.splice(toIndex, 0, item);
+    saveRecommendations(newStreamers);
+  };
+
+  useEffect(() => {
+    if (agent) loadRecommendations();
+  }, [agent]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) clearTimeout(searchTimeout);
+    };
+  }, [searchTimeout]);
+
+  if (!agent) {
+    return (
+      <div className="text-sm text-(--color-fg-muted)">
+        Please log in to manage recommendations.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-2xl space-y-4 pt-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-xl font-semibold">
+            {t("recommendations-to-others")}
+          </h1>
+          <p className="mt-1 text-sm text-(--color-fg-muted)">
+            {t("recommendations-description")}
+          </p>
+        </div>
+        <Button
+          onClick={loadRecommendations}
+          disabled={loading || saving}
+          variant="secondary"
+          size="sm"
+        >
+          <RefreshCw size={16} className="mr-1" />
+          {t("refresh")}
+        </Button>
+      </div>
+
+      {/* Search bar */}
+      {streamers.length < 8 && (
+        <>
+          <div className="py-2.5">
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search..."
+                className="focus-visible:ring-0"
+              />
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+
+          {searching && (
+            <div className="px-3 py-2 text-xs text-(--color-fg-muted)">
+              Searching…
+            </div>
+          )}
+
+          {!searching && searchResults.length > 0 && (
+            <>
+              {searchResults.map((actor) => {
+                const alreadyAdded = streamers.includes(actor.did);
+                return (
+                  <button
+                    key={actor.did}
+                    type="button"
+                    onClick={() => !alreadyAdded && handleSelectActor(actor)}
+                    disabled={alreadyAdded}
+                    className="flex w-full items-center justify-between px-3 py-2 text-left transition-colors hover:bg-(--color-bg) disabled:opacity-50"
+                  >
+                    <span className="text-sm">@{actor.handle}</span>
+                    {alreadyAdded && (
+                      <span className="text-xs text-(--color-fg-muted)">
+                        Added
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          {!searching && searchQuery.trim() && searchResults.length === 0 && (
+            <div className="px-3 py-2 text-xs text-(--color-fg-muted)">
+              No results found
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Streamer list with drag-to-reorder */}
+      {loading ? (
+        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
+      ) : (
+        <CardMenuSection>
+          {streamers.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-(--color-fg-muted)">
+              {t("no-recommendations-yet")}
+            </div>
+          ) : (
+            <DragDropProvider onDragEnd={handleDragEnd}>
+              {streamers.map((streamer, index) => (
+                <SortableStreamerRow
+                  key={`${streamer}-${index}`}
+                  id={`${streamer}-${index}`}
+                  index={index}
+                  streamer={streamer}
+                  resolvedHandle={resolvedStreamers[streamer]?.handle}
+                  resolvedAvatar={resolvedStreamers[streamer]?.avatar}
+                  editingIndex={editingIndex}
+                  editValue={editValue}
+                  onEditValueChange={setEditValue}
+                  onStartEdit={(i, val) => {
+                    setEditingIndex(i);
+                    setEditValue(val);
+                  }}
+                  onSaveEdit={handleSaveEdit}
+                  onCancelEdit={(i, hadValue) => {
+                    if (!hadValue) {
+                      setStreamers((prev) =>
+                        prev.filter((_, idx) => idx !== i),
+                      );
+                    }
+                    setEditingIndex(null);
+                  }}
+                  onDelete={setDeleteIndex}
+                />
+              ))}
+            </DragDropProvider>
+          )}
+
+          {streamers.length < 8 && (
+            <button
+              type="button"
+              onClick={handleAddManual}
+              className="flex w-full items-center gap-2 px-3 py-2.5 transition-colors hover:bg-(--color-bg)"
+            >
+              <Plus size={16} className="text-(--color-fg-muted)" />
+              <span className="text-sm">Add DID manually</span>
+            </button>
+          )}
+        </CardMenuSection>
+      )}
+
+      {saving && (
+        <div className="text-xs text-(--color-fg-muted)">{t("saving")}</div>
+      )}
+
+      {/* Delete confirmation */}
+      <Dialog
+        open={deleteIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIndex(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("delete")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">{t("confirm-delete")}</p>
+          <p className="mt-1 text-xs text-(--color-fg-muted)">
+            {t("action-cannot-be-undone")}
+          </p>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteIndex(null)}>
+              {t("cancel")}
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              {t("delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

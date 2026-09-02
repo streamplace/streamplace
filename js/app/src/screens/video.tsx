@@ -1,4 +1,5 @@
 import { useStreamplaceStore, View, zero } from "@streamplace/components";
+import { colors } from "@streamplace/components/src/lib/theme/tokens";
 import { Redirect } from "components/aqlink";
 import { Player } from "../../components/mobile/player";
 
@@ -20,13 +21,19 @@ export default function VideoScreen({
   const url = usePlaybackUrl(route.params.user, route.params.tid);
 
   return (
-    <View style={[zero.flex.values[1], { backgroundColor: "#000" }]}>
+    <View style={[zero.flex.values[1], { backgroundColor: colors.black }]}>
       <View style={{ flex: 1 }}>
         <Player src={url} mode="vod" />
       </View>
       {/*{src && (
-        <View style={[zero.px[4], zero.py[3], { backgroundColor: "#111" }]}>
-          <Text size="sm" style={{ color: "#aaa" }}>
+        <View
+          style={[
+            zero.px[4],
+            zero.py[3],
+            { backgroundColor: surfaces.dark[1] },
+          ]}
+        >
+          <Text size="sm" style={{ color: textAlphas.dark[2] }}>
             {src}
           </Text>
         </View>

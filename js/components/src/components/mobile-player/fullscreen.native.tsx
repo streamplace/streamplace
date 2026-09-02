@@ -15,6 +15,7 @@ import {
   usePlayerStore,
   VideoRetry,
 } from "../..";
+import { colors, surfaces } from "../../lib/theme/tokens";
 import { AudioOnlyOverlay } from "./ui/audio-only-overlay";
 import Video from "./video.native";
 
@@ -210,7 +211,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#000",
+    backgroundColor: colors.black,
     zIndex: 9999,
     elevation: 9999,
     margin: 0,
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     position: "absolute",
-    backgroundColor: "#111",
+    backgroundColor: surfaces.dark[1],
     overflow: "hidden",
   },
 });

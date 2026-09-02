@@ -7,9 +7,44 @@
       name="viewport"
       content="width=device-width, initial-scale=1, shrink-to-fit=no"
     />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="apple-itunes-app" content="app-id=6535653195" />
     <title>Streamplace</title>
+    <meta
+      name="description"
+      content="The video layer for everything. Live video on the open web, built on the AT Protocol."
+    />
+
+    <!-- Open Graph / link previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Streamplace" />
+    <meta
+      property="og:title"
+      content="Streamplace — the video layer for everything"
+    />
+    <meta
+      property="og:description"
+      content="Live video on the open web, built on the AT Protocol."
+    />
+    <meta property="og:image" content="/linkbanner.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Streamplace — the video layer for everything"
+    />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Streamplace — the video layer for everything"
+    />
+    <meta
+      name="twitter:description"
+      content="Live video on the open web, built on the AT Protocol."
+    />
+    <meta name="twitter:image" content="/linkbanner.png" />
     <style id="expo-reset">
       html,
       body {
@@ -26,7 +61,11 @@
     </style>
     <style>
       body {
-        background-color: black;
+        /* surfaces.dark[0] — the app's base surface. The web nav container is
+           transparent (for OBS sourcing), so header/content scenes fall through
+           to the body; matching surface0 keeps them consistent with the
+           sidebar, which paints its own surface0 fill. */
+        background-color: #0a0a0b;
       }
     </style>
   </head>

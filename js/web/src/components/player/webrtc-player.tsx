@@ -1,0 +1,441 @@
+// WebRTC backend for the <Player> component. Owns RTCPeerConnection setup,
+// WHEP SDP negotiation, and reconnection. Renders nothing; the video element
+// lives in <Player> so the chrome (controls, fullscreen, error display) is
+// shared across backends. This is a sibling of hls-player.tsx with the same
+// prop shape so the dispatch in PlayerBackend is a single conditional.
+import { useEffect, useImperativeHandle, useRef, type RefObject } from "react";
+import { useTranslation } from "react-i18next";
+import { place, type StreamplaceAgent } from "streamplace";
+import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import type { PlayerBackendHandle, PlayerStats } from "./player";
+
+export type WebRTCPlayerProps = {
+  /** The video element managed by the parent <Player>. */
+  videoRef: RefObject<HTMLVideoElement | null>;
+  /**
+   * The source URL. For WebRTC this is the same HLS playlist URL used by the
+   * HLS backend; the streamer name is extracted from the `streamer` query
+   * param. This keeps the <Player> interface transport-agnostic.
+   */
+  src: string;
+  /** False tears down the peer connection and stops reconnection. */
+  active: boolean;
+  /** Called when the connection fails unrecoverably or encounters an error. */
+  onError?: (message: string) => void;
+  /** Called roughly once per second with a stats snapshot. */
+  onStatsChange?: (stats: PlayerStats) => void;
+};
+
+const RECONNECT_DELAY_MS = 3000;
+const STUCK_THRESHOLD_MS = 2000;
+const ICE_GATHERING_TIMEOUT_MS = 1000;
+const STATS_POLL_MS = 1000;
+// After this many consecutive failed reconnect attempts, give up and
+// surface a terminal error instead of looping. Picked to give transient
+// network blips time to clear (e.g. ~45s at the default 3s delay) but
+// stop hammering a clearly-broken stream.
+const MAX_RECONNECT_ATTEMPTS = 15;
+
+/**
+ * The RTCStatsReport inbound-rtp entry carries fields that the TS DOM
+ * types don't expose (they're part of the WebRTC stats spec but not
+ * included in lib.dom.d.ts). This interface covers just the fields we
+ * read, so the stats polling code doesn't need `as any` casts inline.
+ */
+interface InboundRtpStats extends RTCStats {
+  mediaType?: string;
+  kind?: string;
+  framesReceived?: number;
+  frameWidth?: number;
+  frameHeight?: number;
+  bytesReceived?: number;
+  codecId?: string;
+  lastPacketReceivedTimestamp?: number;
+}
+
+interface CodecStats extends RTCStats {
+  mimeType?: string;
+}
+
+/**
+ * Extracts the streamer handle/DID from a Streamplace playlist URL.
+ * Falls back to the full URL origin + pathname if no `streamer` param exists.
+ */
+function extractStreamer(src: string): string {
+  try {
+    const url = new URL(src);
+    const streamer = url.searchParams.get("streamer");
+    if (streamer) return streamer;
+  } catch {
+    // not a valid URL, fall through
+  }
+  return src;
+}
+
+function extractServerUrl(src: string): string {
+  try {
+    const url = new URL(src);
+    return url.origin;
+  } catch {
+    return getStreamplaceUrl();
+  }
+}
+
+export function WebRTCPlayer({
+  ref,
+  videoRef,
+  src,
+  active,
+  onError,
+  onStatsChange,
+}: WebRTCPlayerProps & {
+  ref?: RefObject<PlayerBackendHandle | null>;
+}) {
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const gaveUpRef = useRef(false);
+  const agentRef = useRef<StreamplaceAgent | null>(null);
+
+  // WebRTC doesn't have quality levels; expose a no-op so the chrome
+  // doesn't break if the user clicks the quality menu.
+  useImperativeHandle(
+    ref ?? { current: null },
+    () => ({
+      setQuality: (_index: number) => {
+        // no-op; WebRTC delivers a single rendition
+      },
+    }),
+    [],
+  );
+
+  // Stable references that the reconnect loop can read without re-triggering
+  // the main effect. We store them in refs so the inner async function
+  // always sees the latest values without closing over stale ones.
+  const activeRef = useRef(active);
+  const onErrorRef = useRef(onError);
+  const onStatsChangeRef = useRef(onStatsChange);
+  activeRef.current = active;
+  onErrorRef.current = onError;
+  onStatsChangeRef.current = onStatsChange;
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    if (!active) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    const streamer = extractStreamer(src);
+    const serverUrl = extractServerUrl(src);
+
+    let cancelled = false;
+
+    // Lazily create the agent; imported dynamically so the HLS-only path
+    // never pays the import cost.
+    async function getAgent(): Promise<StreamplaceAgent> {
+      if (agentRef.current) return agentRef.current;
+      const { StreamplaceAgent } = await import("streamplace");
+      agentRef.current = new StreamplaceAgent(serverUrl);
+      return agentRef.current;
+    }
+
+    function stopStatsPolling() {
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
+    }
+
+    function scheduleReconnect() {
+      if (cancelled || gaveUpRef.current) return;
+      if (reconnectTimerRef.current) return;
+      reconnectAttemptsRef.current += 1;
+      if (reconnectAttemptsRef.current > MAX_RECONNECT_ATTEMPTS) {
+        gaveUpRef.current = true;
+        onErrorRef.current?.(t("player-error-stream-unavailable"));
+        return;
+      }
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        if (!cancelled && activeRef.current && !gaveUpRef.current) {
+          // Tear down old connection, spin up a new one.
+          pcRef.current?.close();
+          pcRef.current = null;
+          connect();
+        }
+      }, RECONNECT_DELAY_MS);
+    }
+
+    async function negotiate(pc: RTCPeerConnection, streamer: string) {
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+        if (!offer.sdp) {
+          onErrorRef.current?.(t("player-error-sdp-failed"));
+          return;
+        }
+
+        await pc.setLocalDescription(offer);
+
+        // Wait for ICE gathering to complete (or time out).
+        const gatheredOffer = await waitForICE(pc);
+        if (!gatheredOffer || !gatheredOffer.sdp) {
+          onErrorRef.current?.(t("player-error-ice-failed"));
+          return;
+        }
+
+        const agent = await getAgent();
+        if (cancelled) return;
+
+        // POST the offer via the WHEP endpoint.
+        const response = await agent.client.call(
+          place.stream.playback.whep,
+          gatheredOffer.sdp as any,
+          {
+            params: { rendition: "source", streamer },
+          },
+        );
+
+        if (cancelled) return;
+
+        const answerSdp =
+          typeof response === "string"
+            ? response
+            : new TextDecoder().decode(response as BufferSource);
+
+        await pc.setRemoteDescription(
+          new RTCSessionDescription({ type: "answer", sdp: answerSdp }),
+        );
+      } catch (err) {
+        if (cancelled) return;
+        console.error("WebRTC negotiation failed:", err);
+        onErrorRef.current?.(t("player-error-negotiation-failed"));
+        scheduleReconnect();
+      }
+    }
+
+    function startStatsPolling(pc: RTCPeerConnection) {
+      const lastFpsSample = { time: 0, frames: 0 };
+      let lastFramesReceived = 0;
+      let lastAudioReceived = 0;
+      let lastBytesReceived = 0;
+      let lastBitrateSampleTime = 0;
+      let lastChangeTime = Date.now();
+      let hasReceivedFrames = false;
+
+      statsIntervalRef.current = setInterval(async () => {
+        if (cancelled) return;
+        try {
+          const stats = await pc.getStats();
+          let framesReceived = 0;
+          let audioReceived = 0;
+          let width = 0;
+          let height = 0;
+          let codec = "";
+          let bytesReceived = 0;
+
+          stats.forEach((report) => {
+            if (report.type !== "inbound-rtp") return;
+            const r = report as InboundRtpStats;
+            const kind = r.mediaType ?? r.kind ?? "";
+            if (kind === "video") {
+              framesReceived = r.framesReceived ?? 0;
+              width = r.frameWidth ?? 0;
+              height = r.frameHeight ?? 0;
+              bytesReceived = r.bytesReceived ?? 0;
+              if (r.codecId) {
+                // RTCStatsReport has a get() method at runtime but the
+                // TS DOM types don't always expose it. Cast through
+                // unknown to access it.
+                const codecReport = (
+                  stats as unknown as Map<string, RTCStats>
+                ).get(r.codecId) as CodecStats | undefined;
+                if (codecReport) {
+                  codec = codecReport.mimeType ?? "";
+                }
+              }
+            }
+            if (kind === "audio") {
+              audioReceived = r.lastPacketReceivedTimestamp ?? 0;
+            }
+          });
+
+          // Stuck detection: if no new frames for STUCK_THRESHOLD_MS, the
+          // stream is probably stalled. Only start checking after we've
+          // received at least one frame; before that the connection is
+          // still establishing.
+          const now = Date.now();
+          if (
+            framesReceived !== lastFramesReceived ||
+            audioReceived !== lastAudioReceived
+          ) {
+            lastFramesReceived = framesReceived;
+            lastAudioReceived = audioReceived;
+            lastChangeTime = now;
+            hasReceivedFrames = true;
+          }
+
+          if (hasReceivedFrames && now - lastChangeTime > STUCK_THRESHOLD_MS) {
+            onErrorRef.current?.(t("player-error-stream-stalled"));
+            scheduleReconnect();
+            return;
+          }
+
+          // FPS from frame deltas.
+          const perfNow = performance.now();
+          let fps: number | undefined;
+          if (lastFpsSample.time > 0) {
+            const elapsed = perfNow - lastFpsSample.time;
+            const deltaFrames = framesReceived - lastFpsSample.frames;
+            if (elapsed > 0 && deltaFrames >= 0) {
+              fps = (deltaFrames / elapsed) * 1000;
+            }
+          }
+          lastFpsSample.time = perfNow;
+          lastFpsSample.frames = framesReceived;
+
+          // Bitrate from bytes-received delta.
+          let bitrate: number | undefined;
+          const elapsed = now - lastBitrateSampleTime;
+          if (lastBitrateSampleTime > 0 && elapsed > 0) {
+            const deltaBytes = bytesReceived - lastBytesReceived;
+            if (deltaBytes >= 0) {
+              bitrate = (deltaBytes * 8) / (elapsed / 1000);
+            }
+          }
+          lastBitrateSampleTime = now;
+          lastBytesReceived = bytesReceived;
+
+          // Buffered: for WebRTC this is always ~0 (real-time), but we can
+          // try to read from the video element.
+          const video = videoRef.current;
+          const buffered =
+            video && video.buffered.length > 0
+              ? video.buffered.end(video.buffered.length - 1) -
+                video.currentTime
+              : 0;
+
+          onStatsChangeRef.current?.({
+            width,
+            height,
+            viewportWidth:
+              typeof window === "undefined" ? 0 : window.innerWidth,
+            viewportHeight:
+              typeof window === "undefined" ? 0 : window.innerHeight,
+            buffered,
+            droppedFrames: 0,
+            totalFrames: framesReceived,
+            fps,
+            bitrate,
+            level: -1,
+            codecs: codec || undefined,
+          });
+        } catch {
+          // getStats can throw if the connection is closing.
+        }
+      }, STATS_POLL_MS);
+    }
+
+    async function connect() {
+      if (cancelled) return;
+
+      const peerConnection = new RTCPeerConnection({
+        bundlePolicy: "max-bundle",
+      });
+      pcRef.current = peerConnection;
+
+      // Receive both video and audio.
+      peerConnection.addTransceiver("video", { direction: "recvonly" });
+      peerConnection.addTransceiver("audio", { direction: "recvonly" });
+
+      // When tracks arrive, attach the first stream to the video element.
+      peerConnection.addEventListener("track", (event) => {
+        if (cancelled) return;
+        // First media arriving means the connection actually works. If
+        // we later stall and have to reconnect, start the failure count
+        // from scratch; this isn't a string of broken attempts.
+        reconnectAttemptsRef.current = 0;
+        if (event.streams && event.streams[0]) {
+          const v = videoRef.current;
+          if (v) {
+            v.srcObject = event.streams[0];
+            v.play().catch((err) =>
+              console.warn("[webrtc-player] play() rejected", err),
+            );
+          }
+        }
+      });
+
+      // Detect disconnection and schedule a reconnect.
+      peerConnection.addEventListener("connectionstatechange", () => {
+        if (cancelled) return;
+        const state = peerConnection.connectionState;
+        if (
+          state === "failed" ||
+          state === "closed" ||
+          state === "disconnected"
+        ) {
+          onErrorRef.current?.(t("player-error-connection-lost"));
+          scheduleReconnect();
+        }
+      });
+
+      // Trigger negotiation when transceivers are added.
+      peerConnection.addEventListener("negotiationneeded", () => {
+        if (cancelled) return;
+        negotiate(peerConnection, streamer);
+      });
+
+      // Start stats polling.
+      startStatsPolling(peerConnection);
+    }
+
+    connect();
+
+    // Cleanup runs on unmount or when deps change. Directly closes the
+    // peer connection via the ref; works even if connect() hasn't
+    // finished its async negotiate() round-trip yet, because pcRef is
+    // set synchronously at the top of connect().
+    return () => {
+      cancelled = true;
+      stopStatsPolling();
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      pcRef.current?.close();
+      pcRef.current = null;
+    };
+  }, [src, active, videoRef]);
+
+  return null;
+}
+
+/**
+ * Waits for ICE gathering to complete or times out after
+ * ICE_GATHERING_TIMEOUT_MS.
+ */
+function waitForICE(
+  pc: RTCPeerConnection,
+): Promise<RTCSessionDescription | null> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => {
+      if (pc.connectionState === "closed") return;
+      resolve(pc.localDescription);
+    }, ICE_GATHERING_TIMEOUT_MS);
+
+    pc.addEventListener(
+      "icegatheringstatechange",
+      () => {
+        if (pc.iceGatheringState === "complete") {
+          clearTimeout(timeout);
+          resolve(pc.localDescription);
+        }
+      },
+      { once: true },
+    );
+  });
+}

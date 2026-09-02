@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardSlide } from "../../hooks";
 import { bottom, h, layout, p, w, zIndex } from "../../lib/theme/atoms";
+import { colors, motion, scrims, textAlphas } from "../../lib/theme/tokens";
 import { View } from "./view";
 
 const AnimatedView = Animated.createAnimatedComponent(View);
@@ -26,8 +27,8 @@ const AnimatedView = Animated.createAnimatedComponent(View);
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const TIMING_CONFIG = {
-  duration: 400,
-  easing: Easing.out(Easing.quad),
+  duration: motion.slow,
+  easing: Easing.bezier(...motion.bezier),
 };
 
 type ResizableChatSheetProps = {
@@ -154,14 +155,14 @@ export function Resizable({
               p[1],
               {
                 borderRadius: 999,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                backgroundColor: scrims.dark,
                 overflow: "hidden",
               },
             ]}
           >
             <ChevronUp
               size={32}
-              color="white"
+              color={colors.white}
               style={{ marginBottom: 1, marginTop: -1 }}
             />
           </View>
@@ -177,7 +178,7 @@ export function Resizable({
           zIndex[1],
           w.percent[100],
           {
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backgroundColor: scrims.dark,
             overflow: "visible",
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
@@ -205,7 +206,7 @@ export function Resizable({
                     w[32],
                     {
                       height: 6,
-                      backgroundColor: "#eeeeee66",
+                      backgroundColor: textAlphas.dark[3],
                       borderRadius: 999,
 
                       transform: [{ translateY: 5 }],

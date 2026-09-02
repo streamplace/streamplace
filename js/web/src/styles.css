@@ -1,0 +1,470 @@
+/* tw overwrites this but that's ok, we want both */
+@import "./fonts.css";
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Custom variant for wide viewports (aspect ratio > 1).
+   Wide: sidebar layout (video left, chat right).
+   Tall: stacked layout (video top, chat bottom). */
+@custom-variant wide (@media (min-aspect-ratio: 1/1));
+
+code {
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+:root {
+  --background: oklch(0.9797 0.0091 341.8);
+  --foreground: oklch(0.2917 0.0806 320.4);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2917 0.0806 320.4);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2917 0.0806 320.4);
+  --primary: oklch(0.6803 0.2158 339.7);
+  --primary-foreground: oklch(0.9797 0.0091 341.8);
+  --secondary: oklch(0.7207 0.1189 198.3);
+  --secondary-foreground: oklch(0.9797 0.0091 341.8);
+  --muted: oklch(0.9435 0.0175 339.9);
+  --muted-foreground: oklch(0.6268 0.0454 337.6);
+  --accent: oklch(0.9435 0.0175 339.9);
+  --accent-foreground: oklch(0.2917 0.0806 320.4);
+  --destructive: oklch(0.66 0.2286 17.5);
+  --destructive-foreground: oklch(0.66 0.2286 17.5);
+  --border: oklch(0.8942 0.0296 337.9);
+  --input: oklch(0.8942 0.0296 337.9);
+  --ring: oklch(0.6803 0.2158 339.7);
+  --chart-1: oklch(0.775 0.115 358);
+  --chart-2: oklch(0.745 0.085 192);
+  --chart-3: oklch(0.79 0.1 250);
+  --chart-4: oklch(0.785 0.1 75);
+  --chart-5: oklch(0.725 0.095 145);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.9435 0.0175 339.9);
+  --sidebar-foreground: oklch(0.2917 0.0806 320.4);
+  --sidebar-primary: oklch(0.6803 0.2158 339.7);
+  --sidebar-primary-foreground: oklch(0.9797 0.0091 341.8);
+  --sidebar-accent: oklch(0.9797 0.0091 341.8);
+  --sidebar-accent-foreground: oklch(0.2917 0.0806 320.4);
+  --sidebar-border: oklch(0.8942 0.0296 337.9);
+  --sidebar-ring: oklch(0.8942 0.0296 337.9);
+}
+
+.dark {
+  --background: oklch(0.18 0.03 308.5);
+  --foreground: oklch(0.9498 0.0183 336.6);
+  --card: oklch(0.2432 0.03 326.7);
+  --card-foreground: oklch(0.9498 0.0183 336.6);
+  --popover: oklch(0.2123 0.0376 318);
+  --popover-foreground: oklch(0.9498 0.0183 336.6);
+  --primary: oklch(0.6803 0.2158 339.7);
+  --primary-foreground: oklch(0.93 0.02 308.5);
+  --secondary: oklch(0.7207 0.1189 198.3);
+  --secondary-foreground: oklch(0.13 0.02 308.5);
+  --muted: oklch(0.2432 0.01 326.7);
+  --muted-foreground: oklch(0.7184 0.0439 337.4);
+  --accent: oklch(0.7207 0.1189 198.3);
+  --accent-foreground: oklch(0.13 0 308.5);
+  --destructive: oklch(0.66 0.2286 17.5);
+  --destructive-foreground: oklch(0.66 0.2286 17.5);
+  --border: oklch(0.9498 0.0183 336.6 / 10%);
+  --input: oklch(0.9498 0.0183 336.6 / 15%);
+  --ring: oklch(0.6803 0.2158 339.7);
+  --chart-1: oklch(0.45 0.11 350);
+  --chart-2: oklch(0.44 0.06 195);
+  --chart-3: oklch(0.46 0.08 250);
+  --chart-4: oklch(0.48 0.035 65);
+  --chart-5: oklch(0.44 0.045 155);
+  --sidebar: oklch(0.26 0.02 326.7);
+  --sidebar-foreground: oklch(0.9498 0.0183 336.6);
+  --sidebar-primary: oklch(0.6803 0.2158 339.7);
+  --sidebar-primary-foreground: oklch(0.1841 0.0279 308.5);
+  --sidebar-accent: oklch(0.1841 0.0279 308.5);
+  --sidebar-accent-foreground: oklch(0.9498 0.0183 336.6);
+  --sidebar-border: oklch(0.9498 0.0183 336.6 / 10%);
+  --sidebar-ring: oklch(0.9498 0.0183 336.6 / 10%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* back compat vars */
+  --color-bg: var(--color-background);
+  --color-bg-elevated: var(--color-card);
+  --color-bg-overlay: var(--color-popover);
+  --color-border: var(--sidebar-border);
+  --color-border-strong: var(--sidebar-border);
+  --color-fg: var(--color-foreground);
+  --color-fg-muted: var(--color-muted-foreground);
+  --color-fg-subtle: var(--color-muted-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent);
+  --color-accent-fg: var(--color-accent-foreground);
+  --color-danger: var(--color-chart-1);
+  --color-success: var(--color-chart-4);
+
+  --color-info: var(--color-chart-3);
+
+  --font-display:
+    "Valley Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "Segoe UI", system-ui, sans-serif;
+  --font-sans:
+    "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    "Ioskeley Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-full: 9999px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50 font-sans transition-colors;
+    font-size: 16px;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  @keyframes cursor-slide-in {
+    0% {
+      transform: translate3d(100px, 100px, 0);
+      opacity: 0;
+    }
+    90% {
+      transform: translate3d(0, 0, 0);
+      opacity: 1;
+    }
+    93% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  .animate-cursor-slide {
+    animation: cursor-slide-in 1.15s ease-out 0.3s both;
+  }
+
+  @keyframes button-click {
+    0%,
+    100% {
+      transform: rotate(0deg) scale(1);
+    }
+    10% {
+      transform: rotate(-1deg) scale(1.05);
+    }
+  }
+
+  .animate-button-click {
+    animation: button-click 0.4s ease-in-out 1.3s both;
+  }
+
+  @keyframes hero-rotate {
+    0%,
+    100% {
+      transform: scale(1);
+      /* anim brightness too */
+      filter: brightness(100%);
+    }
+    10% {
+      transform: scale(0.99);
+      filter: brightness(104%);
+    }
+  }
+
+  .animate-hero-rotate {
+    animation: hero-rotate 1.2s ease-out 1.3s both;
+  }
+
+  @keyframes particle-burst {
+    0% {
+      opacity: 0;
+    }
+    1% {
+      transform: translate(0, 0) scale(1);
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .animate-particle-1 {
+    animation: particle-burst 0.8s ease-out 1.3s both;
+    transform: translate(-40px, -40px) skewX(20deg) scale(2);
+  }
+
+  .animate-particle-2 {
+    animation: particle-burst 0.6s ease-out 1.32s both;
+    transform: translate(45px, -35px) skewX(140deg) scale(2);
+  }
+
+  .animate-particle-3 {
+    animation: particle-burst 0.5s ease-out 1.34s both;
+    transform: translate(-35px, 40px) skewX(140deg) scale(2);
+  }
+
+  .animate-particle-4 {
+    animation: particle-burst 0.7s ease-out 1.31s both;
+    transform: translate(40px, 38px) skewX(40deg) scale(2);
+  }
+
+  /* Gentle rocking for the empty-state scope illustration. Pivots around
+     the viewBox center (340, 180) and adds ~5deg of motion on top of the
+     SVG's static -rotate-10, so the effective swing is roughly -12 to -7deg. */
+  @keyframes scope-rock {
+    0%,
+    100% {
+      transform: rotate(-2.5deg);
+    }
+    50% {
+      transform: rotate(10deg);
+    }
+  }
+
+  .animate-scope-rock {
+    animation: scope-rock 12.6s ease-in-out infinite;
+    transform-box: view-box;
+    transform-origin: 340px 180px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-scope-rock {
+      animation: none;
+    }
+  }
+}
+
+body {
+  @apply m-0 font-sans;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: always;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 250ms;
+}
+
+::view-transition-old(root) {
+  animation-name: fade-out-blur;
+}
+
+::view-transition-new(root) {
+  animation-name: fade-in-blur;
+}
+
+@keyframes fade-out-blur {
+  to {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+@keyframes fade-in-blur {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.85);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.animate-scale {
+  animation: scale-in 0.8s ease-out both;
+  /* set centre to avoid scaling from top-left */
+  transform-origin: center;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-staggered {
+  animation: fade-in 0.8s ease-out both;
+  animation-delay: calc(sibling-index() * 0.2s);
+}
+
+.animate-in-hubble {
+  animation: fade-in 0.8s ease-out both;
+  animation-delay: 1s;
+}
+
+/* Custom scrollbar styles */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sidebar-ring) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-sidebar-ring);
+  opacity: 0.2;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-sidebar-ring);
+  opacity: 0.2;
+}
+
+/* Danmu (scrolling chat overlay) animation */
+@keyframes danmu-scroll {
+  from {
+    transform: translateX(var(--danmu-start, 100vw));
+  }
+  to {
+    transform: translateX(calc(-100%));
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-down {
+  animation: fadeInDown 250ms ease-in-out;
+}
+
+@keyframes fadeOutUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2rem);
+  }
+}
+.animate-fade-out-up {
+  animation: fadeOutUp 1000ms ease-in-out;
+}
+
+.ui-loader {
+  position: relative;
+  display: inline-block;
+  width: 3.75em;
+  height: 3.75em;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0.125em 0.25em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 0.75em var(--background))
+    drop-shadow(0 0 2.75em var(--background))
+    drop-shadow(0 0 3.75em var(--background));
+}
+
+.ui-loader__item {
+  position: absolute;
+  inset: 0;
+  font-size: inherit;
+  transform: rotate(var(--loader-angle));
+}
+
+.ui-loader__item::before {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 1em);
+  width: 0.75em;
+  height: 0.1875em;
+  border-radius: 0.09375em;
+  background: currentColor;
+  content: "";
+  transform: translate(-50%, -50%);
+  animation: ui-loader-blink 0.6666666667s linear infinite;
+  animation-delay: var(--loader-delay);
+}
+
+@keyframes ui-loader-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-loader__item::before {
+    animation-duration: 1.5s;
+  }
+}

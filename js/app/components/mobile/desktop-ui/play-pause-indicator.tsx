@@ -1,4 +1,5 @@
 import { PlayerStatus, usePlayerStore } from "@streamplace/components";
+import { scrims } from "@streamplace/components/src/lib/theme/tokens";
 import { Pause, Play } from "lucide-react-native";
 import { useCallback, useEffect, useRef } from "react";
 import Animated, {
@@ -72,7 +73,7 @@ export function PlayPauseIndicator() {
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: scrims.dark,
           justifyContent: "center",
           alignItems: "center",
           pointerEvents: "none",

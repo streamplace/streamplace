@@ -297,7 +297,7 @@ export function BadgePicker() {
                 ]}
               >
                 {HOT_COLORS.map(({ r, g, b }) => {
-                  const hex = `rgb(${r}, ${g}, ${b})`;
+                  const hex = `rgb(${r}, ${g}, ${b})`; // token-ok: dynamic swatch
                   const isSelected = currentColor === hex;
                   return (
                     <TouchableOpacity

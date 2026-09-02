@@ -14,6 +14,7 @@ import { usePDSAgent } from "../../streamplace-store/xrpc";
 
 import { Linking } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
+import { useTheme } from "../../lib/theme/theme";
 import {
   useDeleteChatMessage,
   useLivestreamStore,
@@ -22,7 +23,6 @@ import {
 import { useStreamplaceStore } from "../../streamplace-store";
 import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
 import {
-  atoms,
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -183,6 +183,7 @@ function ModViewContent({
   deleteChatMessage,
 }: ModViewContentProps) {
   const { onOpenChange } = useRootContext();
+  const { theme } = useTheme();
 
   return (
     <>
@@ -194,7 +195,7 @@ function ModViewContent({
             <Text
               style={{
                 fontVariant: ["tabular-nums"],
-                color: atoms.colors.gray[300],
+                color: theme.colors.text2,
               }}
             >
               {new Date(message.record.createdAt).toLocaleTimeString([], {

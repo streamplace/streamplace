@@ -86,7 +86,18 @@ export default function () {
     process.env["SP_PRODUCTION_RELEASE"] === "true" || !!process.env.CI;
   const enableSentry = process.env["SP_ENABLE_SENTRY"] === "true";
   const pkg = require("./package.json");
-  const name = isProd ? "Streamplace" : "Devplace";
+  // Brand imagery and colors are generated from the active brand directory
+  // (see brand/README.md); expo prebuild derives every native icon format
+  // from the generated PNGs.
+  let brand;
+  try {
+    brand = require("./assets/generated/brand.json");
+  } catch {
+    throw new Error(
+      "Missing generated brand assets — run `pnpm run brand` from the repo root.",
+    );
+  }
+  const name = isProd ? brand.name : "Devplace";
   let bundle = isProd ? "tv.aquareum" : "tv.aquareum.dev";
   if (process.env["SP_BUNDLE_OVERRIDE"]) {
     bundle = process.env["SP_BUNDLE_OVERRIDE"];
@@ -101,13 +112,13 @@ export default function () {
       // Only rev this to the current version when native dependencies change!
       runtimeVersion: pkg.runtimeVersion,
       orientation: "default",
-      icon: "./assets/images/icon.png",
+      icon: "./assets/generated/icon.png",
       scheme: scheme,
       userInterfaceStyle: "automatic",
       splash: {
-        image: "./assets/images/splash.png",
+        image: "./assets/generated/splash.png",
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: brand.colors.splashBackground,
       },
       assetBundlePatterns: ["**/*"],
       ios: {
@@ -134,8 +145,8 @@ export default function () {
       },
       android: {
         adaptiveIcon: {
-          foregroundImage: "./assets/images/adaptive-icon.png",
-          backgroundColor: "#ffffff",
+          foregroundImage: "./assets/generated/adaptive-icon.png",
+          backgroundColor: brand.colors.adaptiveIconBackground,
         },
         package: bundle,
         edgeToEdgeEnabled: true,
@@ -191,7 +202,7 @@ export default function () {
       web: {
         bundler: "metro",
         output: "single",
-        favicon: "./assets/images/favicon.png",
+        favicon: "./assets/generated/favicon.png",
       },
       plugins: [
         withAndroidProfileable,
@@ -214,17 +225,12 @@ export default function () {
           {
             fonts: [
               "./assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-Light.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-ExtraLight.ttf",
               "./assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf",
               "./assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-Bold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleNext-ExtraBold.ttf",
 
-              "./assets/fonts/AtkinsonHyperlegibleMono-Regular.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-Medium.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-SemiBold.ttf",
-              "./assets/fonts/AtkinsonHyperlegibleMono-Bold.ttf",
+              "./assets/fonts/IoskeleyMono-Regular.ttf",
+              "./assets/fonts/IoskeleyMono-Medium.ttf",
+              "./assets/fonts/IoskeleyMono-SemiBold.ttf",
             ],
           },
         ],

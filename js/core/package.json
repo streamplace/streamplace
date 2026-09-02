@@ -1,0 +1,37 @@
+{
+  "name": "@streamplace/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Streamplace platform-agnostic core (data layer, providers, i18n, theme tokens, hooks). No React Native or Expo dependencies.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "check": "pnpm --filter @streamplace/i18n compile && bash -c 'set -euo pipefail;export OUT=$(mktemp -d); npx tsc -p . --outDir $OUT; rm -rf $OUT'",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.19.3",
+    "@streamplace/components": "workspace:*",
+    "react": "*",
+    "streamplace": "workspace:*",
+    "zustand": "^5.0.5"
+  },
+  "peerDependencies": {
+    "react": "*"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

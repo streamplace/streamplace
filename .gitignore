@@ -27,3 +27,17 @@ js/app/src/build-info.json
 *.env
 muxl.wasm
 /moderation
+libstreamplace
+libstreamplace/
+/.polytoken/*
+js/web/.tanstack/
+
+# .claude is globally ignored; ship project skills with the repo anyway
+!.claude/
+!.claude/skills/
+!.claude/skills/**
+# but keep per-machine settings local
+/.claude/settings.local.json
+
+# white-label brand override (see brand/README.md)
+/brand/custom

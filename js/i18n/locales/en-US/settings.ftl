@@ -1,0 +1,357 @@
+# Settings Page Translations - English (US)
+
+## App Version
+app-version = Streamplace v{ $version }
+download-new-update = Download New Update
+check-for-updates = Check for Updates
+
+bundled-runtype = Bundled
+ota-runtype = Over-the-Air (OTA)
+recovery-runtype = Recovery Mode
+
+modal-latest-version = You are using the latest version.
+modal-no-update-available = You are on the latest version of Streamplace, hooray!
+modal-update-available-title = Update Available
+modal-update-available-description = A new version of Streamplace is ready to download
+modal-update-failed = Update check failed. You may need to update the app through the { $store }.
+modal-update-failed-title = Update Failed
+modal-update-failed-description = Update check failed. You may need to update the app through the { $store }.
+button-reload-app-on-update = Apply Update (will reload app)
+
+## Custom Node Settings
+use-custom-node = Use Custom Node
+default-url = Default: { $url }
+enter-custom-node-url = Enter custom node URL
+save-button = SAVE
+
+## New Web Opt-in
+try-new-web = Try the new web (beta)
+try-new-web-description = Switch to the new web interface. You can switch back anytime from this same setting.
+try-old-app = Use the original interface
+try-old-app-description = Go back to the original Streamplace interface.
+
+## Language Settings
+language-selection = Language
+language-selection-description = Choose your preferred language
+input-search-languages = Search languages...
+help-translate = Help us translate Streamplace
+help-translate-description = We're looking for volunteers to help translate Streamplace into more languages. If you're interested, please reach out to us on Discord or GitHub!
+currently-translating = Translations are on the way
+currently-translating-description = Some parts of the app may look incomplete. Thank you for your patience!
+
+## Debug Recording
+debug-recording-title = Allow { $host } to record your livestream for debugging and improving the service
+debug-recording-description = Optional
+livestream-recording-title = Record my livestreams into VODs on { $host }
+livestream-recording-description = When enabled, your livestreams are saved so you can finalize and publish them as videos
+
+## Key Management
+manage-keys = Manage Keys
+
+## Settings Page Specific
+settings-title = Settings
+error = Error
+
+## Navigation Categories
+about = About
+account = Account
+advanced = Advanced
+danmu = Danmu
+developer = Developer
+languages = Languages
+privacy-security = Privacy & Security
+streaming = Streaming
+notifications = Notifications
+notifications-title = Push Notifications
+notifications-web-description = Get notified when streamers you follow go live.
+notifications-mobile-description = Push notifications are managed by your device settings.
+notifications-blocked-description = Blocked — you denied notification permission in your browser.
+notifications-blocked-help = To re-enable, update site permissions in your browser settings, then toggle this on again.
+
+## Common Actions
+cancel = Cancel
+create = Create
+delete = Delete
+refresh = Refresh
+save-button = Save
+sign-in = Sign In
+update = Update
+log-out = Log out
+optional = optional
+
+## Account Settings
+account-greeting = Hey, @{ $handle }.
+edit-profile-bluesky = Edit profile (on Bluesky)
+change-name-color = Change name color
+
+## Key Management
+key-management = Key Management
+key-manager = Key Manager
+manage-keys = Manage Keys
+your-stream-pubkeys = Your Stream Public Keys
+no-keys = No keys configured
+pubkey-description = Public keys are paired with stream keys (used in streaming software) to sign and verify your stream
+keys-count = { $count ->
+    [one] { $count } key
+   *[other] { $count } keys
+}
+
+## Backup Settings
+backup = Backup
+backup-enabled = S3 Backup
+backup-enabled-description = Automatically backup recordings to S3-compatible storage
+backup-connection-url = Connection URL
+backup-connection-url-placeholder = s3+https://ACCESS_KEY:SECRET_KEY@s3.example.com/bucket
+backup-endpoint = Endpoint
+backup-endpoint-placeholder = s3.example.com
+backup-bucket = Bucket
+backup-bucket-placeholder = my-backup-bucket
+backup-access-key = Access Key
+backup-access-key-placeholder = AKIAIOSFODNN7EXAMPLE
+backup-secret-key = Secret Key
+backup-secret-key-placeholder = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+backup-region = Region
+backup-region-placeholder = us-east-1
+backup-test-connection = Test Connection
+backup-testing-connection = Testing connection...
+backup-connection-successful = Connection successful
+backup-connection-failed = Failed to connect
+show-password-in-url = Show password in URL
+show-password-in-url-description = Display the secret key in the connection URL (if input)
+requested-seconds-per-segment = Seconds per segment
+requested-seconds-per-segment-description = Set the seconds per segment you wish to request the server use
+
+
+## Recommendations
+recommendations = Recommendations
+manage-recommendations = Manage Recommendations
+recommendations-to-others = Recommendations
+recommendations-description = Share up to 8 streamers you recommend to your viewers
+no-recommendations-yet = No recommendations configured yet
+add-recommendation = Add Recommendation
+streamer-did = Streamer DID
+recommendations-count = { $count ->
+    [one] { $count } recommendation
+   *[other] { $count } recommendations
+}
+
+## Webhook Management
+webhooks = Webhooks
+webhook-integrations = Webhook Integrations
+webhook-integrations-description = Connect external services to receive real-time updates about your streams
+create-webhook = Create Webhook
+edit-webhook = Edit Webhook
+delete-webhook = Delete Webhook
+no-webhooks-yet = No webhooks configured yet
+failed-load-webhooks = Failed to load webhooks
+webhook-will-no-longer-receive-events = This webhook will no longer receive events
+create-first-webhook-description = Create your first webhook to start receiving stream events
+example-captain-hook = Captain Hook
+webhooks-count = { $count ->
+    [one] { $count } webhook
+   *[other] { $count } webhooks
+}
+
+## Webhook Events
+activates-on = Activates on:
+events = Events
+events-livestream = Livestream Events
+events-chat = Chat Events
+events-stream-received = Stream Received Events
+untitled-webhook = Untitled Webhook
+inactive = Inactive
+active = Active
+
+## Multistreaming
+multistream = Multistreaming
+multistream-targets = Multistream Targets
+multistream-description = Automatically push your Streamplace livestreams to other streaming services like Twitch or YouTube.
+create-multistream-target = Create Multistream Target
+untitled-multistream-target = Untitled Target
+failed-load-multistream-targets = Failed to load multistream targets. Please try again.
+failed-toggle-multistream-target = Failed to toggle multistream target. Please try again.
+failed-delete-multistream-target = Failed to delete multistream target. Please try again.
+no-multistream-targets-yet = No targets yet!
+multistream-targets-count = { $count ->
+    [one] { $count } target
+   *[other] { $count } targets
+}
+multistream-delete-target-confirmation = Are you sure you want to delete "{ $target }"?
+this-action-cannot-be-undone = This action cannot be undone.
+rtmp-target-name = RTMP Target
+rtmp-target-url = RTMP URL
+rtmp-target-name-placeholder = My Multistream Target
+multistream-create-target = Create Target
+multistream-edit-target = Edit Target
+created = created
+status = status
+
+## Debug Recording
+debug-recording = Debug Recording
+
+## Danmu Settings
+danmu = Danmu
+danmu-enabled = Enable Danmu
+danmu-enabled-description = Display live chat messages as floating comments on your screen
+danmu-opacity = Opacity
+danmu-speed = Speed
+danmu-lane-count = Lane Count
+danmu-max-messages = Max Messages
+
+## General
+app-version-description = No updates are available at this time
+confirm-delete = Are you sure you want to delete this?
+action-cannot-be-undone = This action cannot be undone
+name-optional = Name (optional)
+deleting = Deleting...
+saving = Saving...
+go-to-dashboard = Go to Dashboard
+need-setup-live-dashboard = Need to set up streaming first? Visit the live dashboard
+no-languages-found = No languages found
+
+## Branding Administration
+branding = Branding
+branding-admin = Branding Administration
+branding-admin-description = Customize your Streamplace instance. Note that settings may take a few hours to propagate.
+branding-login-required = Please log in to manage branding
+branding-configuration = Configuration
+branding-text-settings = Text Settings
+branding-colors = Colors
+branding-legal-links = Legal Links
+branding-images = Images
+
+## Branding Fields
+branding-broadcaster-did = Broadcaster DID
+branding-broadcaster-did-description = Leave empty to use server default
+branding-site-title = Site Title
+branding-site-title-placeholder = Enter new site title
+branding-site-description = Site Description
+branding-site-description-placeholder = Enter site description
+branding-default-streamer = Default Streamer
+branding-default-streamer-none = None
+branding-default-streamer-placeholder = did:plc:...
+branding-clear-default-streamer = Clear Default Streamer
+branding-primary-color = Primary Color
+branding-primary-color-placeholder = #6366f1
+branding-accent-color = Accent Color
+branding-accent-color-placeholder = #8b5cf6
+branding-main-logo = Main Logo
+branding-main-logo-description = SVG, PNG, or JPEG (max 500KB)
+branding-favicon = Favicon
+branding-favicon-description = SVG, PNG, or ICO (max 100KB)
+branding-sidebar-bg = Sidebar Background Image
+branding-sidebar-bg-description = SVG, PNG, or JPEG (max 500kb) - appears aligned to bottom of sidebar, full width. Upload an image with opacity for best results, as there is not currently a separate opacity option.
+branding-current = Current: { $value }
+branding-dimensions = { $height } x { $width }
+
+## Branding Actions
+branding-upload-logo = Upload Logo
+branding-delete-logo = Delete Logo
+branding-upload-favicon = Upload Favicon
+branding-delete-favicon = Delete Favicon
+branding-upload-background = Upload Background
+branding-delete-background = Delete Background
+branding-web-only = Image uploads are only available on web.
+
+## Branding Legal Links
+refresh-branding = Refresh branding assets
+branding-add-legal-link = Add Legal Link
+branding-edit-legal-link = Edit Legal Link
+branding-legal-link-text-placeholder = Link text (e.g., Privacy Policy)
+branding-legal-link-url-placeholder = URL (e.g., https://example.com/privacy)
+add = Add
+edit = Edit
+
+## Branding Toast Messages
+branding-not-authenticated = Please log in first
+branding-empty-value = Please enter a value
+branding-update-success = { $key } updated successfully
+branding-upload-success = { $key } uploaded successfully
+branding-delete-success = { $key } deleted successfully
+branding-upload-failed = Failed to upload
+branding-delete-failed = Failed to delete
+branding-not-available = File uploads are only available on web
+
+## Navigation Categories (About Page)
+node-legal-documents = Broadcaster-specific Documents
+
+backup-save = Save backup settings
+backup-saving = Saving backup settings...
+backup-secret-key-set-placeholder = (Password already set)
+backup-error-invalid-endpoint = Must be a valid domain name
+backup-error-invalid-bucket = Must contain only lowercase letters, numbers, dots, and hyphens
+backup-error-invalid-segment-duration = Must be between 1 and 60 seconds
+backup-error-load-failed = Failed to load storage settings
+backup-error-update-failed = Failed to update backup status
+backup-error-save-failed = Failed to save storage settings
+backup-error-missing-secret = Cannot update S3 settings without the secret key. Please re-enter it.
+backup-segment-duration-placeholder = 6
+backup-connection-url-placeholder = Must be a valid S3 URL in the format s3+https://ACCESS_KEY:SECRET_KEY@region.endpoi.nt/bucket
+
+## Badges
+badges = Badges
+badges-cosmetic-section = Cosmetic Badges
+badges-empty-state = You haven't been issued any badges yet.
+badges-failed-load = Failed to load badges
+badges-failed-update = Failed to update badge selection
+badges-issued-by = Issued by { $issuer }
+badges-streamer-section = Streamer Badges
+
+## Issue Badges
+issue-badges = Issue Badges
+issue-badges-back-to-definitions = Badge Definitions
+issue-badges-badge-name = Badge Name
+issue-badges-badge-name-placeholder = e.g. VIP, Supporter
+issue-badges-badge-type = Badge Type
+issue-badges-choose-image = Choose Image
+issue-badges-create-definition = Create Badge Definition
+issue-badges-create-definition-description = Define a new badge type that can be issued to viewers
+issue-badges-create-definition-subtitle = Define a new badge type
+issue-badges-definition-created = Badge definition created
+issue-badges-description-optional = Description (optional)
+issue-badges-description-placeholder = Optional description for this badge
+issue-badges-failed-create = Failed to create badge definition
+issue-badges-failed-issue = Failed to issue badge
+issue-badges-failed-load = Failed to load badge definitions
+issue-badges-image-optional = Image (optional)
+issue-badges-image-too-large = Image must be under 256KB
+issue-badges-image-web-only = Image upload is only available on web
+issue-badges-issue-badge = Issue Badge
+issue-badges-issue-badge-description = Issue the "{ $name }" badge to a viewer by their DID
+issue-badges-issued = Badge issued
+issue-badges-issued-to = Issued to { $did }
+issue-badges-manage-description = Create badge definitions and issue them to viewers
+issue-badges-recipient-did = Recipient DID
+issue-badges-recipient-did-placeholder = did:plc:...
+issue-badges-tap-to-issue = Tap to issue
+issue-badges-your-definitions = Your Badge Definitions
+chat-profile = Chat Profile
+chat-profile-login-required = Please log in to edit your chat profile.
+chat-profile-saved = Chat profile saved
+chat-profile-save-failed = Failed to save chat profile
+chat-profile-name-color = Name Color
+chat-profile-name-color-description = Choose the color of your name in chat.
+chat-profile-preview-message = Hello, world!
+chat-profile-self-labels = Self Labels
+chat-profile-label-bot = Bot
+chat-profile-label-bot-description = Mark your chat messages as coming from a bot.
+
+## Web App - Dashboard
+control-panel = Control Panel
+create-stream-key-in-stream-settings = Create a stream key in Stream Settings
+creator-settings = Creator Settings
+delete-all-keys = Delete All Keys
+delete-all-keys-btn = Delete All
+delete-all-keys-description = This will permanently remove all {$count} stream keys. Any streaming software configured with these keys will stop working.
+delete-all-keys-title = Delete all stream keys?
+failed-delete-keys = Failed to delete {$count} key(s)
+failed-to-delete-key = Failed to delete key
+my-videos = My Videos
+stream-settings = Stream Settings
+stream-settings-link = Stream Settings
+time-ago-created = made {$timeAgo}{$by ? ` by ${createdBy}` : ``}
+time-ago-days = {$days}d ago
+time-ago-hours = {$hours}h ago
+time-ago-minutes = {$minutes}m ago
+time-ago-seconds = {$seconds}s ago
+upload-videos = Upload Videos

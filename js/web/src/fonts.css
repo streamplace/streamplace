@@ -1,0 +1,58 @@
+/* Atkinson Hyperlegible Next — self-hosted via @fontsource.
+   latin covers all weights/styles; pulls in the basic Latin range only. */
+@import "@fontsource/atkinson-hyperlegible-next/latin.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-italic.css";
+
+/* Valley Sans — local variable font, weight axis only.
+   Public/ files are served from the site root, so the [wght] axis file
+   is referenced with escaped brackets to be safe across parsers. */
+@font-face {
+  font-family: "Valley Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/ValleySans\[wght\].woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Valley Sans";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/ValleySans-Italic\[wght\].woff2") format("woff2");
+}
+
+/* Ioskeley Mono — local static files. The common weights and italics
+   are enough for code, DIDs, and badges; condensed variants stay out
+   until something actually needs them. */
+@font-face {
+  font-family: "Ioskeley Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IoskeleyMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Ioskeley Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IoskeleyMono-Italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Ioskeley Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/IoskeleyMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Ioskeley Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/IoskeleyMono-BoldItalic.woff2") format("woff2");
+}

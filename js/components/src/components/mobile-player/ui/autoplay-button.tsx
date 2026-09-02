@@ -1,6 +1,7 @@
 import { Play } from "lucide-react-native";
 import { Pressable } from "react-native";
 import { View, layout, usePlayerStore, useSetMuted } from "../../..";
+import { borderAlphas, colors, textAlphas } from "../../../lib/theme/tokens";
 import { h, p, w } from "../../../ui";
 
 export function AutoplayButton() {
@@ -67,20 +68,16 @@ export function AutoplayButton() {
           style={[
             p[4],
             {
-              backgroundColor: "rgba(200,200,255, 0.1)",
+              backgroundColor: borderAlphas.dark.strong,
               borderRadius: 999,
               borderWidth: 2,
-              borderColor: "rgba(200,200,255, 0.45)",
-              boxShadow: "0 0px 4px rgba(0, 0, 0, 1)",
-              shadowColor: "rgba(0, 0, 0, 1)",
+              borderColor: textAlphas.dark[3],
+              boxShadow: `0 0px 4px ${colors.black}`,
+              shadowColor: colors.black,
             },
           ]}
         >
-          <Play
-            size="48"
-            color="rgba(120,120,120,0.3)"
-            fill="rgba(200,200,255,1)"
-          />
+          <Play size="48" color={textAlphas.dark[4]} fill={colors.white} />
         </View>
       </Pressable>
     </View>

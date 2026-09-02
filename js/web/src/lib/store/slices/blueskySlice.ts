@@ -1,0 +1,945 @@
+// Bluesky/ATProto authentication, profile, follow, and per-user record
+// actions (chat profile, server settings). Ported from
+// js/app/store/slices/blueskySlice.ts.
+//
+// Differences from the app source:
+//   - storage is imported from "../../storage" (the web's localStorage
+//     wrapper) instead of @streamplace/components.
+//   - createOAuthClient is imported from the web's lib/oauth, which
+//     returns a BrowserOAuthClient (the same type the app's web variant
+//     surfaces from features/bluesky/oauthClientImport).
+//   - clearQueryParams is a tiny inline helper instead of the app's
+//     utils/clear-query-params, since the app util is React-Native-gated.
+//   - The following actions are NOT ported in this commit and are
+//     placeholders for later phases. They depend on libraries that are
+//     not yet in js/web's deps:
+//       - createStreamKeyRecord, clearStreamKeyRecord,
+//         getStreamKeyRecords, deleteStreamKeyRecord (Phase 3 settings
+//         / Phase 4 go-live; needs @atproto/crypto + viem).
+//       - createLivestreamRecord, updateLivestreamRecord, golivePost,
+//         and the uploadThumbnail helper (Phase 4 go-live).
+//       - createBlockRecord (low priority; revisit if/when needed).
+//     The corresponding state fields (streamKeysResponse, newLivestream,
+//     newKey, etc.) are kept so the slice type stays symmetric with the
+//     app's; they simply aren't mutated yet.
+import { Agent } from "@atproto/api";
+import { ProfileViewDetailed } from "@atproto/api/dist/client/types/app/bsky/actor/defs";
+import { OutputSchema } from "@atproto/api/dist/client/types/com/atproto/repo/listRecords";
+import { OAuthSession } from "@atproto/oauth-client-browser";
+import { getBrowserName } from "@streamplace/core";
+import { StreamplaceAgent, place } from "streamplace";
+import { StateCreator } from "zustand";
+import createOAuthClient from "../../oauth";
+import { storage } from "../../storage";
+import { AppStore } from "../index";
+import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
+
+type NewLivestream = {
+  loading: boolean;
+  error: string | null;
+  record: place.stream.livestream.Main | null;
+};
+
+export interface BlueskySlice {
+  authStatus: "start" | "loggedIn" | "loggedOut";
+  oauthState: null | string;
+  oauthSession?: null | OAuthSession;
+  pdsAgent: null | StreamplaceAgent;
+  anonPDSAgent: null | StreamplaceAgent;
+  profiles: { [key: string]: ProfileViewDetailed };
+  profileCache: { [key: string]: ProfileViewDetailed };
+  profileError: string | null;
+  client: null | Awaited<ReturnType<typeof createOAuthClient>>;
+  loginState: {
+    loading: boolean;
+    error: null | string;
+  };
+  pds: {
+    url: string;
+    loading: boolean;
+    error: null | string;
+  };
+  newKey: null | StreamKey;
+  storedKey: null | StreamKey;
+  isDeletingKey: boolean;
+  streamKeysResponse: {
+    loading: boolean;
+    error: null | string;
+    records: null | OutputSchema;
+  };
+  newLivestream: null | NewLivestream;
+  chatProfile: {
+    loading: boolean;
+    error: null | string;
+    profile: null | place.stream.chat.profile.Main;
+  };
+  serverSettings: null | place.stream.server.settings.Main;
+  returnRoute: null | { name: string; params?: any };
+  notification: {
+    message: string;
+    type: "error" | "success" | "info";
+  } | null;
+  // actions
+  clearNotification: () => void;
+  loadOAuthClient: () => Promise<void>;
+  oauthError: (error: string, description: string) => void;
+  login: (handle: string, mode?: "popup" | "redirect") => Promise<void>;
+  logout: () => Promise<void>;
+  getProfile: (actor: string) => Promise<void>;
+  getProfiles: (actors: string[]) => Promise<void>;
+  oauthCallback: (url: string) => Promise<void>;
+  setReturnRoute: (route: { name: string; params?: any } | null) => void;
+  setLoginError: (error: string | null) => void;
+  showLoginModal: boolean;
+  openLoginModal: (returnRoute?: { name: string; params?: any }) => void;
+  closeLoginModal: () => void;
+  showPdsModal: boolean;
+  openPdsModal: () => void;
+  closePdsModal: () => void;
+  // TODO: stream-key implemented; go-live + block still pending (see L13-24).
+  createStreamKeyRecord: (store: boolean) => Promise<void>;
+  clearStreamKeyRecord: () => void;
+  getStreamKeyRecords: () => Promise<void>;
+  deleteStreamKeyRecord: (
+    rkey?: string,
+    batchRkeys?: string[],
+  ) => Promise<void>;
+  setPDS: (pds: string) => Promise<void>;
+  getChatProfileRecordFromPDS: () => Promise<void>;
+  createChatProfileRecord: (
+    red: number,
+    green: number,
+    blue: number,
+    selfLabels?: string[],
+  ) => Promise<void>;
+  followUser: (subjectDID: string) => Promise<void>;
+  unfollowUser: (subjectDID: string, followUri?: string) => Promise<void>;
+  getServerSettingsFromPDS: () => Promise<void>;
+  createServerSettingsRecord: (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => Promise<void>;
+}
+
+// Inline OAuth-callback URL scrubber. The app's `utils/clear-query-params`
+// is Platform.OS-gated and short-circuits on native; the web always wants
+// to scrub these.
+function clearQueryParams(par: string[] = ["iss", "state", "code"]) {
+  if (typeof document === "undefined") return;
+  const u = new URL(document.location.href);
+  if (u.search === "") return;
+  const params = new URLSearchParams(u.search);
+  par.forEach((p) => params.delete(p));
+  u.search = params.toString();
+  window.history.replaceState(null, "", u.toString());
+}
+
+export const createBlueskySlice: StateCreator<
+  AppStore,
+  [],
+  [],
+  BlueskySlice
+> = (set, get) => ({
+  authStatus: "start",
+  oauthState: null,
+  oauthSession: undefined,
+  pdsAgent: null,
+  anonPDSAgent: null,
+  profiles: {},
+  profileCache: {},
+  profileError: null,
+  client: null,
+  loginState: {
+    loading: false,
+    error: null,
+  },
+  pds: {
+    url: "bsky.social",
+    loading: false,
+    error: null,
+  },
+  newKey: null,
+  storedKey: null,
+  isDeletingKey: false,
+  streamKeysResponse: {
+    loading: true,
+    error: null,
+    records: null,
+  },
+  newLivestream: null,
+  chatProfile: {
+    loading: false,
+    error: null,
+    profile: null,
+  },
+  serverSettings: null,
+  returnRoute: null,
+  showLoginModal: false,
+  showPdsModal: false,
+  notification: null,
+
+  clearNotification: () => {
+    clearQueryParams();
+    set({ notification: null });
+  },
+
+  setReturnRoute: async (route: { name: string; params?: any } | null) => {
+    if (route) {
+      await storage.setItem("returnRoute", JSON.stringify(route));
+    } else {
+      await storage.removeItem("returnRoute");
+    }
+    set({ returnRoute: route });
+  },
+
+  openLoginModal: async (returnRoute?: { name: string; params?: any }) => {
+    if (returnRoute) {
+      await storage.setItem("returnRoute", JSON.stringify(returnRoute));
+    }
+    set({ showLoginModal: true, returnRoute: returnRoute || null });
+  },
+
+  closeLoginModal: () => {
+    set({ showLoginModal: false });
+  },
+
+  setLoginError: (error) => {
+    set((s) => ({ loginState: { ...s.loginState, error } }));
+  },
+
+  openPdsModal: () => {
+    set({ showPdsModal: true });
+  },
+
+  closePdsModal: () => {
+    set({ showPdsModal: false });
+  },
+
+  loadOAuthClient: async () => {
+    set({ authStatus: "start" });
+    try {
+      const streamplaceUrl = get().url;
+      const client = await createOAuthClient(streamplaceUrl);
+      const anonPDSAgent = new StreamplaceAgent(streamplaceUrl);
+      const maybeDIDs = await Promise.all([
+        storage.getItem(DID_KEY),
+        storage.getItem("@@atproto/oauth-client-browser(sub)"),
+      ]);
+      const did = maybeDIDs.find((d) => d !== null) || null;
+      let session: OAuthSession | null = null;
+      if (did) {
+        try {
+          session = await client.restore(did);
+        } catch (e) {
+          console.error("Error restoring session", e);
+          await storage.removeItem(DID_KEY);
+          await storage.removeItem("@@atproto/oauth-client-browser(sub)");
+        }
+      }
+      if (session) {
+        storage.setItem(DID_KEY, session.did).catch((e) => {
+          console.error("Error setting did", e);
+        });
+        set({
+          client,
+          authStatus: "loggedIn",
+          oauthSession: session,
+          pdsAgent: new StreamplaceAgent(session),
+          anonPDSAgent,
+        });
+      } else {
+        set({
+          oauthSession: session,
+          authStatus: "loggedOut",
+          client,
+          anonPDSAgent,
+        });
+      }
+    } catch (error) {
+      console.error("loadOAuthClient error", error);
+    }
+  },
+
+  oauthError: (error: string, description: string) => {
+    const message = description || error || "authentication failed";
+    set({
+      loginState: {
+        loading: false,
+        error: message,
+      },
+      authStatus: "loggedOut",
+      notification: {
+        message,
+        type: "error",
+      },
+    });
+  },
+
+  login: async (handle: string, mode: "popup" | "redirect" = "popup") => {
+    set({
+      loginState: {
+        loading: true,
+        error: null,
+      },
+    });
+    try {
+      const state = get() as BlueskySlice;
+      await state.loadOAuthClient();
+      const updatedState = get() as BlueskySlice;
+      if (!updatedState.client) {
+        throw new Error("No client");
+      }
+      if (mode === "redirect") {
+        // Full-page redirect to the PDS OAuth page. The user
+        // authenticates, comes back to /login?code=..., the callback
+        // runs, and the user is logged in. Used by the /login route,
+        // which is the fallback for users on the full-page already
+        // (or who got bounced here by the modal's popup-blocker
+        // detection). The promise never resolves; the page is
+        // navigating away.
+        const url = await updatedState.client.authorize(handle, {});
+        window.location.href = url.href;
+        await new Promise<never>(() => {});
+        return;
+      }
+      // mode === "popup": use the library's built-in popup flow. It
+      // opens the popup synchronously (before authorize, to avoid
+      // popup blockers), writes the OAuth state in sessionStorage, and
+      // listens on a BroadcastChannel for the popup's initCallback to
+      // send back the result. Resolves with the restored OAuthSession.
+      const session = await updatedState.client.signInPopup(handle);
+      await storage.setItem(DID_KEY, session.did);
+      set({
+        client: updatedState.client,
+        oauthSession: session,
+        pdsAgent: new StreamplaceAgent(session),
+        authStatus: "loggedIn",
+      });
+    } catch (error: any) {
+      console.error("login rejected", error, error?.cause);
+      let message = error?.message || "unknown error";
+      // The library's OAuthResponseError message is "OAuth unknown error"
+      // when the PDS returns a non-OK token-exchange response without
+      // standard `error` / `error_description` fields. In practice this
+      // is almost always transient; the PDS is still processing the
+      // previous session's revoke, rate-limiting, etc. Surface it as a
+      // "try again in a moment" hint instead of a dead-end.
+      if (message.startsWith("OAuth unknown error")) {
+        message = "Sign-in failed. Please wait a moment and try again.";
+      }
+      set({
+        loginState: {
+          loading: false,
+          error: message,
+        },
+        notification: {
+          message,
+          type: "error",
+        },
+      });
+      throw error;
+    }
+  },
+
+  logout: async () => {
+    const state = get() as BlueskySlice;
+    const session = state.oauthSession;
+    // Clear local credentials and in-memory auth unconditionally so
+    // the UI reflects logout even if remote revocation fails.
+    await storage.removeItem(DID_KEY);
+    await storage.removeItem(STORED_KEY_KEY);
+    set({
+      oauthSession: null,
+      pdsAgent: null,
+      authStatus: "loggedOut",
+    });
+    if (session) {
+      try {
+        await session.signOut();
+      } catch (e) {
+        // Remote revocation failed (network, server error, etc.).
+        // The user is already logged out locally; log and move on.
+        console.error("Remote session revocation failed", e);
+      }
+    }
+  },
+
+  getProfile: async (actor: string) => {
+    try {
+      const state = get() as BlueskySlice;
+      if (!state.pdsAgent) {
+        throw new Error("No agent");
+      }
+      const result = await state.pdsAgent.getProfile({ actor });
+      clearQueryParams();
+      set((s) => ({
+        authStatus: "loggedIn",
+        profileError: null,
+        profiles: {
+          ...(s as BlueskySlice).profiles,
+          [actor]: result.data,
+        },
+      }));
+    } catch (error) {
+      clearQueryParams();
+      // Don't log the user out on a transient profile fetch failure.
+      // The session is still valid; the profile fetch can fail due
+      // to network blips, rate limiting, or PDS hiccups. Storing
+      // the error lets the provider stop retrying without clobbering
+      // the auth state.
+      set({
+        profileError:
+          error instanceof Error ? error.message : "Failed to fetch profile",
+      });
+    }
+  },
+
+  getProfiles: async (actors: string[]) => {
+    // Deduplicate before batching.
+    const unique = [...new Set(actors)];
+    const BATCH_SIZE = 25;
+    try {
+      const bskyAgent = new Agent("https://public.api.bsky.app");
+      for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+        const batch = unique.slice(i, i + BATCH_SIZE);
+        const payload = await bskyAgent.getProfiles({ actors: batch });
+        let parsedProfiles = {};
+        payload.data.profiles.forEach((p) => {
+          parsedProfiles[p.did] = p;
+        });
+        set((s) => ({
+          profileCache: {
+            ...(s as BlueskySlice).profileCache,
+            ...parsedProfiles,
+          },
+        }));
+      }
+    } catch (error) {
+      console.error("getProfiles error", error);
+    }
+  },
+
+  oauthCallback: async (url: string) => {
+    set({ authStatus: "start" });
+    try {
+      if (!url.includes("?")) {
+        throw new Error("No query params");
+      }
+      const params = new URLSearchParams(url.split("?")[1]);
+      if (!(params.has("code") && params.has("state") && params.has("iss"))) {
+        if (params.has("error")) {
+          const blueskySlice = get() as BlueskySlice;
+          console.warn("OAuth error params", {
+            error: params.get("error"),
+            error_description: params.get("error_description"),
+          });
+          blueskySlice.oauthError(
+            params.get("error") ?? "",
+            params.get("error_description") ?? "",
+          );
+        }
+        throw new Error("Missing params, got: " + url);
+      }
+      const streamplaceUrl = get().url;
+      const client = await createOAuthClient(streamplaceUrl);
+      try {
+        // initCallback handles the popup handoff via BroadcastChannel:
+        // when the state param is POPUP_STATE_PREFIX-prefixed (i.e. this
+        // page was opened by signInPopup), initCallback sends the result
+        // back to the parent and throws LoginContinuedInParentWindowError
+        // after also calling window.close(). The route's countdown UI
+        // shows briefly before the popup actually closes.
+        const ret = await client.initCallback(params);
+        if (!ret) {
+          return;
+        }
+        await storage.setItem(DID_KEY, ret.session.did);
+        set({
+          client,
+          oauthSession: ret.session,
+          pdsAgent: new StreamplaceAgent(ret.session),
+          authStatus: "loggedIn",
+        });
+      } catch (e: any) {
+        // In the popup case, the library's initCallback sends the result
+        // (success or error) to the parent via BroadcastChannel and
+        // throws LoginContinuedInParentWindowError. The parent owns the
+        // session state; the popup is just a pass-through. We don't
+        // want a notification toast in a closing popup, and we don't
+        // need to clobber the auth status beyond "loading -> not loading"
+        // (which the route watches to start the closing countdown).
+        if (
+          typeof window !== "undefined" &&
+          window.opener &&
+          e?.code === "LOGIN_CONTINUED_IN_PARENT_WINDOW"
+        ) {
+          set({ authStatus: "loggedOut" });
+          return;
+        }
+
+        let message = e.message;
+        let cause = e.cause;
+        while (cause) {
+          message = `${message}: ${cause.message}`;
+          cause = cause.cause;
+        }
+        // PDS token-exchange failure with no useful error fields;
+        // almost always transient (rate limiting, revoke still
+        // processing). Tell the user to try again in a moment.
+        if (message.startsWith("OAuth unknown error")) {
+          message = "Sign-in failed. Please wait a moment and try again.";
+        }
+        console.error("oauthCallback error", message);
+        set({
+          authStatus: "loggedOut",
+          notification: {
+            message,
+            type: "error",
+          },
+        });
+        throw e;
+      }
+    } catch (error: any) {
+      console.error("oauthCallback rejected", error);
+      let message = error?.message || "authentication failed";
+      if (message.startsWith("OAuth unknown error")) {
+        message = "Sign-in failed. Please wait a moment and try again.";
+      }
+      set({
+        authStatus: "loggedOut",
+        notification: {
+          message,
+          type: "error",
+        },
+      });
+    }
+  },
+
+  // TODO: needs @atproto/crypto + viem. The keypair code would also
+  // be shared with createLivestreamRecord (not yet implemented).
+  createStreamKeyRecord: async (store: boolean) => {
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) throw new Error("No agent");
+    const did = state.oauthSession?.did;
+    if (!did) throw new Error("No DID");
+
+    const { Secp256k1Keypair, bytesToMultibase } =
+      await import("@atproto/crypto");
+    const { privateKeyToAccount } = await import("viem/accounts");
+
+    const keypair = await Secp256k1Keypair.create({ exportable: true });
+    const exportedKey = await keypair.export();
+    const didBytes = new TextEncoder().encode(did);
+    const combinedKey = new Uint8Array([...exportedKey, ...didBytes]);
+    const multibaseKey = bytesToMultibase(combinedKey, "base58btc");
+    const hexKey = Array.from(exportedKey)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const account = privateKeyToAccount(`0x${hexKey}`);
+
+    let userAgent = "";
+    if (typeof navigator !== "undefined") {
+      userAgent = navigator.userAgent;
+    }
+
+    const browserFamilyName = getBrowserName(userAgent);
+
+    const record = {
+      $type: "place.stream.key" as const,
+      signingKey: keypair.did(),
+      createdAt: new Date().toISOString(),
+      createdBy: `Streamplace Web${browserFamilyName ? ` on ${browserFamilyName}` : ""}`,
+    };
+
+    await state.pdsAgent.com.atproto.repo.createRecord({
+      repo: did,
+      collection: "place.stream.key",
+      record,
+    });
+
+    const newKey = {
+      privateKey: multibaseKey,
+      did: keypair.did(),
+      address: account.address.toLowerCase(),
+    };
+
+    set({ newKey });
+
+    if (store) {
+      await storage.setItem(STORED_KEY_KEY, JSON.stringify(newKey));
+      set({ storedKey: newKey });
+    }
+
+    // Refresh the list
+    await get().getStreamKeyRecords();
+  },
+  clearStreamKeyRecord: () => {
+    set({ newKey: null });
+  },
+  getStreamKeyRecords: async () => {
+    set({
+      streamKeysResponse: {
+        loading: true,
+        error: null,
+        records: null,
+      },
+    });
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      set({
+        streamKeysResponse: {
+          loading: false,
+          error: "No agent",
+          records: null,
+        },
+      });
+      return;
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      set({
+        streamKeysResponse: {
+          loading: false,
+          error: "No DID",
+          records: null,
+        },
+      });
+      return;
+    }
+    try {
+      // Fetch all keys (paginate through results)
+      let allRecords: any[] = [];
+      let cursor: string | undefined;
+      do {
+        const result = await state.pdsAgent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: "place.stream.key",
+          limit: 100,
+          ...(cursor ? { cursor } : {}),
+        });
+        allRecords = allRecords.concat(result.data.records);
+        cursor = result.data.cursor;
+      } while (cursor);
+
+      set({
+        streamKeysResponse: {
+          loading: false,
+          error: null,
+          records: { records: allRecords },
+        },
+      });
+    } catch (error: any) {
+      set({
+        streamKeysResponse: {
+          loading: false,
+          error: error?.message ?? null,
+          records: null,
+        },
+      });
+    }
+  },
+  deleteStreamKeyRecord: async (rkey?: string, batchRkeys?: string[]) => {
+    // If batchRkeys is provided, it takes precedence over rkey and deletes all keys in the array.
+    // If not, it deletes the single rkey. If neither is provided, it throws an error.
+    if (!rkey && !batchRkeys) {
+      throw new Error("No rkey(s) provided for deletion");
+    }
+    set({ isDeletingKey: true });
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      set({ isDeletingKey: false });
+      throw new Error("No agent");
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      set({ isDeletingKey: false });
+      throw new Error("No DID");
+    }
+    try {
+      const keysToDelete = batchRkeys ?? [rkey];
+
+      if (keysToDelete.length === 1) {
+        // Single delete
+        await state.pdsAgent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: "place.stream.key",
+          rkey: keysToDelete[0] as string,
+        });
+      } else {
+        // Batch delete via applyWrites
+        await state.pdsAgent.com.atproto.repo.applyWrites({
+          repo: did,
+          // TODO: type this properly
+          writes: keysToDelete.map((k) => ({
+            $type: "com.atproto.repo.applyWrites#delete" as const,
+            collection: "place.stream.key",
+            rkey: k,
+          })) as any,
+        });
+      }
+
+      const deletedSet = new Set(keysToDelete);
+      const records = state.streamKeysResponse.records
+        ? state.streamKeysResponse.records.records.filter(
+            (r) => !deletedSet.has(r.uri.split("/").pop() as string),
+          )
+        : [];
+      set({
+        isDeletingKey: false,
+        streamKeysResponse: {
+          ...state.streamKeysResponse,
+          records: {
+            ...state.streamKeysResponse.records!,
+            records,
+          },
+        },
+      });
+    } catch (error) {
+      set({ isDeletingKey: false });
+      throw error;
+    }
+  },
+
+  setPDS: async (pds: string) => {
+    set({
+      pds: {
+        ...(get() as BlueskySlice).pds,
+        loading: true,
+      },
+    });
+    try {
+      await storage.setItem("pdsURL", pds);
+      set({
+        pds: {
+          ...(get() as BlueskySlice).pds,
+          loading: false,
+          url: pds,
+        },
+      });
+    } catch (error: any) {
+      set({
+        pds: {
+          ...(get() as BlueskySlice).pds,
+          loading: false,
+          error: error?.message ?? null,
+        },
+      });
+    }
+  },
+
+  getChatProfileRecordFromPDS: async () => {
+    set({
+      chatProfile: {
+        loading: true,
+        error: null,
+        profile: null,
+      },
+    });
+    try {
+      const state = get() as BlueskySlice;
+      const did = state.oauthSession?.did;
+      if (!did) {
+        throw new Error("No DID");
+      }
+      if (!state.pdsAgent) {
+        throw new Error("No agent");
+      }
+      const res = await state.pdsAgent.com.atproto.repo.getRecord({
+        repo: did,
+        collection: "place.stream.chat.profile",
+        rkey: "self",
+      });
+      if (!res.success) {
+        throw new Error("Failed to get chat profile record");
+      }
+
+      if (place.stream.chat.profile.$isTypeOf(res.data.value)) {
+        set({
+          chatProfile: {
+            loading: false,
+            error: null,
+            profile: res.data.value as any,
+          },
+        });
+      } else {
+        console.warn("not a record", res.data.value);
+      }
+    } catch (error: any) {
+      set({
+        chatProfile: {
+          loading: false,
+          error: error?.message ?? "Failed to get chat profile",
+          profile: null,
+        },
+      });
+    }
+  },
+
+  createChatProfileRecord: async (
+    red: number,
+    green: number,
+    blue: number,
+    selfLabels?: string[],
+  ) => {
+    set({
+      chatProfile: {
+        loading: true,
+        error: null,
+        profile: null,
+      },
+    });
+    try {
+      const state = get() as BlueskySlice;
+      if (!state.pdsAgent) {
+        throw new Error("No agent");
+      }
+      const did = state.oauthSession?.did;
+      if (!did) {
+        throw new Error("No DID");
+      }
+
+      const existingProfile = (get() as BlueskySlice).chatProfile?.profile;
+      const chatProfile: place.stream.chat.profile.Main = {
+        ...existingProfile,
+        $type: "place.stream.chat.profile",
+        color: {
+          red: red,
+          green: green,
+          blue: blue,
+        },
+        selfLabels: selfLabels,
+      };
+
+      const res = await state.pdsAgent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: "place.stream.chat.profile",
+        record: chatProfile,
+        rkey: "self",
+      });
+      if (!res.success) {
+        throw new Error("Failed to create chat profile record");
+      }
+      set({
+        chatProfile: {
+          loading: false,
+          error: null,
+          profile: chatProfile,
+        },
+      });
+    } catch (error) {
+      console.error("createChatProfileRecord rejected", error);
+      set({
+        chatProfile: {
+          loading: false,
+          error: error?.message ?? null,
+          profile: null,
+        },
+      });
+    }
+  },
+
+  followUser: async (subjectDID: string) => {
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    await state.pdsAgent.follow(subjectDID);
+  },
+
+  unfollowUser: async (subjectDID: string, followUri?: string) => {
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+
+    if (followUri) {
+      await state.pdsAgent.deleteFollow(followUri);
+    } else {
+      const streamplaceUrl = get().url;
+      const res = await fetch(
+        `${streamplaceUrl}/xrpc/place.stream.graph.getFollowingUser?subjectDID=${encodeURIComponent(subjectDID)}&userDID=${encodeURIComponent(did)}`,
+        {
+          credentials: "include",
+        },
+      );
+      const data = await res.json();
+
+      if (!data.follow || !data.follow.uri) {
+        throw new Error("Follow record not found");
+      }
+
+      await state.pdsAgent.deleteFollow(data.follow.uri);
+    }
+  },
+
+  getServerSettingsFromPDS: async () => {
+    const state = get() as BlueskySlice;
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const streamplaceUrl = get().url;
+    const u = new URL(streamplaceUrl);
+    const res = await state.pdsAgent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: "place.stream.server.settings",
+      rkey: u.host,
+    });
+    if (!res.success) {
+      throw new Error("Failed to get server settings record");
+    }
+
+    if (place.stream.server.settings.$isTypeOf(res.data.value)) {
+      set({
+        serverSettings: res.data.value as place.stream.server.settings.Main,
+      });
+    } else {
+      console.warn("not a record", res.data.value);
+    }
+  },
+
+  createServerSettingsRecord: async (
+    patch: Partial<Omit<place.stream.server.settings.Main, "$type">>,
+  ) => {
+    const state = get() as BlueskySlice;
+    if (!state.pdsAgent) {
+      throw new Error("No agent");
+    }
+    const did = state.oauthSession?.did;
+    if (!did) {
+      throw new Error("No DID");
+    }
+    const streamplaceUrl = get().url;
+    const u = new URL(streamplaceUrl);
+    // Merge the patch onto the current record so toggling one flag doesn't
+    // clobber the others (the record holds several independent settings).
+    const serverSettings: place.stream.server.settings.Main = {
+      ...(state.serverSettings ?? {}),
+      $type: "place.stream.server.settings",
+      ...patch,
+    } as any;
+
+    const res = await state.pdsAgent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: "place.stream.server.settings",
+      record: serverSettings,
+      rkey: u.host,
+    });
+    if (!res.success) {
+      throw new Error("Failed to create server settings record");
+    }
+    set({
+      serverSettings: serverSettings,
+    });
+  },
+});

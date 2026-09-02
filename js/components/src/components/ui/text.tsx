@@ -1,8 +1,9 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import React, { forwardRef } from "react";
+import React, { forwardRef, useContext } from "react";
 import { useTheme } from "../../lib/theme/theme";
 import { fontFamilies } from "../../lib/theme/tokens";
 import * as zero from "../../ui";
+import { ButtonTextColorContext } from "./button-text-color";
 import { TextPrimitive, TextPrimitiveProps } from "./primitives/text";
 
 // Text variants using class-variance-authority pattern
@@ -116,9 +117,18 @@ export const Text = forwardRef<any, TextProps>(
     ref,
   ) => {
     const { zero: zt } = useTheme();
+    // Inside a <Button>, an un-colored <Text> inherits the button's foreground
+    // (e.g. Ink on the Paper primary). An explicit color/muted still wins.
+    const buttonColor = useContext(ButtonTextColorContext);
 
     // Override props based on convenience props
-    const finalColor = customColor ? customColor : muted ? "muted" : color;
+    const finalColor = customColor
+      ? customColor
+      : muted
+        ? "muted"
+        : color !== undefined
+          ? color
+          : buttonColor;
 
     const finalTransform = uppercase
       ? "uppercase"

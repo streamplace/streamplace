@@ -7,6 +7,7 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { scrims } from "@streamplace/components/src/lib/theme/tokens";
 import { Volume2, VolumeX } from "lucide-react-native";
 import { useCallback, useRef } from "react";
 import { Pressable } from "react-native";
@@ -121,7 +122,7 @@ export function VolumeSlider() {
                 height: 16,
                 borderRadius: 8,
                 backgroundColor: "white",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                boxShadow: `0 2px 10px ${scrims.light}`,
                 transform: [{ translateX: -8 }, { translateY: 7 }],
               }}
             />

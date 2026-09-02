@@ -57,7 +57,7 @@ export const DanmuMessage = memo(
       const green = mapRange(color.green, 0, 255, 100, 230);
       const blue = mapRange(color.blue, 0, 255, 100, 230);
 
-      return `rgb(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)})`;
+      return `rgb(${Math.round(red)}, ${Math.round(green)}, ${Math.round(blue)})`; // token-ok: dynamic user color / soft shadow
     };
 
     const handleLayout = (event: LayoutChangeEvent) => {
@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
   },
   text: {
     color: "white",
-    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    // heavier than scrims.dark on purpose: legibility over video
+    textShadowColor: "rgba(0, 0, 0, 0.8)", // token-ok
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 64,
     fontWeight: "600",

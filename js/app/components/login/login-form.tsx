@@ -149,7 +149,9 @@ export default function LoginForm({
       </View>
 
       <View style={[zero.mb[4], { position: "relative" }]}>
-        <Text style={[{ color: "#aaa", marginBottom: 8 }]}>Handle</Text>
+        <Text style={[{ color: theme.colors.text3, marginBottom: 8 }]}>
+          Handle
+        </Text>
         <View style={{ position: "relative" }}>
           {completionText && suggestion?.handle !== handle ? (
             <View
@@ -169,7 +171,7 @@ export default function LoginForm({
               <Text
                 style={[
                   {
-                    color: "#555",
+                    color: theme.colors.text4,
                     pointerEvents: "none",
                     zIndex: 1000000,
                     fontSize: 16,
@@ -189,7 +191,7 @@ export default function LoginForm({
               {isMobile ? (
                 <CornerDownLeft
                   height={18}
-                  color="#555"
+                  color={theme.colors.text4}
                   style={{
                     bottom: 2,
                   }}
@@ -197,7 +199,7 @@ export default function LoginForm({
               ) : (
                 <ArrowRightToLine
                   height={18}
-                  color="#555"
+                  color={theme.colors.text4}
                   style={{
                     paddingBottom: 1,
                   }}
@@ -258,7 +260,7 @@ export default function LoginForm({
                   alignItems: "center",
                 }}
               >
-                <AtSign size={20} color="#eee" />
+                <AtSign size={20} color={theme.colors.text2} />
               </View>
             )}
           </View>
@@ -324,7 +326,7 @@ export default function LoginForm({
                   backgroundColor: theme.colors.muted,
                 }}
               >
-                <AtSign size={22} color="#eee" />
+                <AtSign size={22} color={theme.colors.text2} />
               </View>
             )}
           </View>
@@ -371,7 +373,7 @@ export default function LoginForm({
         ]}
       >
         <Button width="min" onPress={() => onSignup()} variant="ghost">
-          <Text style={[{ color: "white" }]}>Sign Up</Text>
+          Sign Up
         </Button>
         <Button
           onPress={submit}
@@ -380,7 +382,7 @@ export default function LoginForm({
           width="min"
           loading={loginState.loading}
         >
-          <Text style={[{ color: "white" }]}>Log In</Text>
+          Log In
         </Button>
       </View>
     </>

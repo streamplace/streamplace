@@ -11,7 +11,7 @@ export const BADGE_IMAGES: Record<string, ReturnType<typeof require>> = {
 
 export const Badge = ({
   badgeType,
-  size = 18,
+  size = 16,
   isInChat = false,
   imageUrl,
 }: {

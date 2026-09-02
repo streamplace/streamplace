@@ -3,20 +3,40 @@
  * Inspired by shadcn/ui but adapted for React Native styling
  */
 
+import type { TextStyle } from "react-native";
+
 export const colors = {
-  // Primary colors
+  // Primary colors — the product accent. A muted pink/magenta, aligned with
+  // the web app's `--primary` (oklch(0.6803 0.2158 339.7)). Used sparingly:
+  // interactive states, focus rings, the Go Live moment.
   primary: {
-    50: "#eff6ff",
-    100: "#dbeafe",
-    200: "#bfdbfe",
-    300: "#93c5fd",
-    400: "#60a5fa",
-    500: "#3b82f6",
-    600: "#2563eb",
-    700: "#1d4ed8",
-    800: "#1e40af",
-    900: "#1e3a8a",
-    950: "#172554",
+    50: "#ffd7ff",
+    100: "#ffc6ff",
+    200: "#ffb1fb",
+    300: "#ff9ced",
+    400: "#ff87e0",
+    500: "#e955c2",
+    600: "#c144a0",
+    700: "#9b3480",
+    800: "#762561",
+    900: "#501541",
+    950: "#2c0623",
+  },
+
+  // Secondary colors — teal, aligned with the web app's `--secondary`
+  // (oklch(0.7207 0.1189 198.3)). Used for secondary/accent emphasis.
+  secondary: {
+    50: "#b6ffff",
+    100: "#a2fafc",
+    200: "#89ebee",
+    300: "#6edcdf",
+    400: "#50cdd1",
+    500: "#1abbc0",
+    600: "#159ca0",
+    700: "#0f7e82",
+    800: "#0a6264",
+    900: "#054446",
+    950: "#021f21",
   },
 
   // Tailwind default palettes:
@@ -391,20 +411,114 @@ export const colors = {
   white: "#FFFFFF",
 } as const;
 
+/**
+ * Surface scale — purple-tinted dark, never pure black. Surfaces separate via subtle
+ * 1px borders (see `borderAlphas`), not heavy shadows. Light theme derives
+ * from the same step names so semantic tokens work in both modes.
+ */
+export const surfaces = {
+  dark: {
+    0: "#150e1c", // base: app background (web --background)
+    1: "#281b28", // raised: cards, panels, inputs (web --card)
+    2: "#201324", // overlay: popovers, menus, sheets (web --popover)
+    3: "#292129", // highest: hovered overlay rows, tooltips (web --sidebar)
+  },
+  light: {
+    0: "#fdf6fa",
+    1: "#ffffff",
+    2: "#ffffff",
+    3: "#f5e8f0",
+  },
+} as const;
+
+/**
+ * 4-step text scale: primary / secondary / tertiary / disabled. Steps 1–2
+ * mirror the web app's `--foreground` / `--muted-foreground`; 3–4 derive from
+ * the foreground at fixed alphas.
+ */
+export const textAlphas = {
+  dark: {
+    1: "#f7eaf3",
+    2: "#b79aae",
+    3: "rgba(247,234,243,0.45)",
+    4: "rgba(247,234,243,0.30)",
+  },
+  light: {
+    1: "#3d1c44",
+    2: "#9b7e92",
+    3: "rgba(61,28,68,0.46)",
+    4: "rgba(61,28,68,0.32)",
+  },
+} as const;
+
+/** 1px hairline borders that separate surfaces. Dark values align with the
+ * web app's `--border` (10% foreground) and `--input` (15% foreground). */
+export const borderAlphas = {
+  dark: {
+    subtle: "rgba(247,234,243,0.06)",
+    default: "rgba(247,234,243,0.10)",
+    strong: "rgba(247,234,243,0.15)",
+  },
+  light: {
+    subtle: "rgba(61,28,68,0.06)",
+    default: "#ead5e3",
+    strong: "rgba(61,28,68,0.13)",
+  },
+} as const;
+
+/**
+ * Status colors, tuned per scheme. `live` is reserved exclusively for the
+ * LIVE state (badges, live rings, on-air indicators) — never for errors.
+ */
+export const statusColors = {
+  live: "#f23041",
+  liveDim: "rgba(242,48,65,0.16)",
+  dark: {
+    success: "#3dd68c",
+    warning: "#ffb224",
+    danger: "#ff3b5c",
+    // Low-alpha danger tint — hover/press wash for red-ink destructive buttons.
+    dangerSoft: "rgba(255,59,92,0.14)",
+  },
+  light: {
+    success: "#18794e",
+    warning: "#ad5700",
+    danger: "#ff3b5c",
+    dangerSoft: "rgba(255,59,92,0.10)",
+  },
+} as const;
+
+/** Modal/photo scrims. */
+export const scrims = {
+  dark: "rgba(0,0,0,0.72)",
+  light: "rgba(0,0,0,0.55)",
+} as const;
+
+/**
+ * Spacing — 4px base grid. Canonical steps: 4, 8, 12, 16, 24, 32, 48, 64
+ * (keys 1, 2, 3, 4, 6, 8, 12, 16). Off-grid keys are deprecated and will be
+ * removed once all usages are swept to the canonical set.
+ */
 export const spacing = {
   0: 0,
   1: 4,
   2: 8,
   3: 12,
   4: 16,
+  /** @deprecated off the 4/8/12/16/24/32/48/64 grid — use 4 or 6 */
   5: 20,
   6: 24,
+  /** @deprecated off-grid — use 6 or 8 */
   7: 28,
   8: 32,
+  /** @deprecated off-grid — use 8 */
   9: 36,
+  /** @deprecated off-grid — use 8 or 12 */
   10: 40,
+  /** @deprecated off-grid — use 12 */
   11: 44,
   12: 48,
+  /** @deprecated off-grid — use 12 or 16 */
   14: 56,
   16: 64,
   20: 80,
@@ -425,294 +539,225 @@ export const spacing = {
   auto: "auto",
 } as const;
 
+/**
+ * Radii: sm (small controls), md (cards, inputs), lg (thumbnails, modals),
+ * full (avatars, pills). xl/2xl/3xl are deprecated aliases of lg.
+ */
 export const borderRadius = {
   none: 0,
-  sm: 3,
+  sm: 4,
   md: 8,
   lg: 12,
-  xl: 16,
-  "2xl": 20,
-  "3xl": 24,
+  /** @deprecated use lg */
+  xl: 12,
+  /** @deprecated use lg */
+  "2xl": 12,
+  /** @deprecated use lg */
+  "3xl": 12,
   full: 999,
 } as const;
 
+/**
+ * Typography — one typeface (Atkinson Hyperlegible Next), one modular scale:
+ * 12 / 13 / 14 / 16 / 20 / 24 / 32. Weights 400 / 500 / 600 only.
+ * Line heights live here, never inline. Sizes ≥20 get tight letter-spacing.
+ *
+ * `typeScale` is the canonical scale. The `ios` / `android` / `universal` objects
+ * are deprecated compatibility remaps onto the same scale and will be removed;
+ * new code should use `typeScale` (usually via the Text component's variants).
+ */
+export const typeScale = {
+  xs: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "400" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+  },
+  sm: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "400" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+  },
+  base: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "400" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+  },
+  md: {
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "400" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+  },
+  lg: {
+    fontSize: 20,
+    lineHeight: 26,
+    letterSpacing: -0.2,
+    fontWeight: "500" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-Medium",
+  },
+  xl: {
+    fontSize: 24,
+    lineHeight: 30,
+    letterSpacing: -0.3,
+    fontWeight: "600" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
+  },
+  xxl: {
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    fontWeight: "600" as const,
+    fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
+  },
+} as const;
+
+/** The only three weights in the design system. */
+export const fontWeights = {
+  regular: "400",
+  medium: "500",
+  semibold: "600",
+} as const;
+
+/**
+ * Tabular numerals for anything that counts: viewer counts, timers,
+ * durations. Prevents layout jitter as digits change.
+ */
+export const tabularNums: { fontVariant: TextStyle["fontVariant"] } = {
+  fontVariant: ["tabular-nums"],
+};
+
 export const typography = {
-  // iOS system font sizes
+  /** @deprecated remapped onto the universal scale — use `typeScale` */
   ios: {
-    largeTitle: {
-      fontSize: 34,
-      lineHeight: 41,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Bold",
-    },
-    title1: {
-      fontSize: 28,
-      lineHeight: 34,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Bold",
-    },
-    title2: {
-      fontSize: 22,
-      lineHeight: 28,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Bold",
-    },
-    title3: {
-      fontSize: 20,
-      lineHeight: 25,
-      fontWeight: "600" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
-    },
+    largeTitle: typeScale.xxl,
+    title1: typeScale.xxl,
+    title2: typeScale.xl,
+    title3: typeScale.lg,
     headline: {
-      fontSize: 17,
-      lineHeight: 22,
+      ...typeScale.md,
       fontWeight: "600" as const,
       fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
     },
-    body: {
-      fontSize: 17,
-      lineHeight: 22,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    callout: {
-      fontSize: 16,
-      lineHeight: 21,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    subhead: {
-      fontSize: 15,
-      lineHeight: 20,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    footnote: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    caption1: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    caption2: {
-      fontSize: 11,
-      lineHeight: 13,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
+    body: typeScale.md,
+    callout: typeScale.md,
+    subhead: typeScale.base,
+    footnote: typeScale.sm,
+    caption1: typeScale.xs,
+    caption2: typeScale.xs,
   },
 
-  // Android Material typography
+  /** @deprecated remapped onto the universal scale — use `typeScale` */
   android: {
-    headline1: {
-      fontSize: 96,
-      lineHeight: 112,
-      fontWeight: "300" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-ExtraLight",
-    },
-    headline2: {
-      fontSize: 60,
-      lineHeight: 72,
-      fontWeight: "300" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Light",
-    },
-    headline3: {
-      fontSize: 48,
-      lineHeight: 56,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    headline4: {
-      fontSize: 34,
-      lineHeight: 42,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    headline5: {
-      fontSize: 24,
-      lineHeight: 32,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    headline6: {
-      fontSize: 20,
-      lineHeight: 28,
-      fontWeight: "500" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Medium",
-    },
-    subtitle1: {
-      fontSize: 16,
-      lineHeight: 24,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
+    headline1: typeScale.xxl,
+    headline2: typeScale.xxl,
+    headline3: typeScale.xxl,
+    headline4: typeScale.xxl,
+    headline5: typeScale.xl,
+    headline6: typeScale.lg,
+    subtitle1: typeScale.md,
     subtitle2: {
-      fontSize: 14,
-      lineHeight: 22,
+      ...typeScale.base,
       fontWeight: "500" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Medium",
     },
-    body1: {
-      fontSize: 16,
-      lineHeight: 24,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    body2: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
+    body1: typeScale.md,
+    body2: typeScale.base,
     button: {
-      fontSize: 14,
-      lineHeight: 16,
+      ...typeScale.base,
       fontWeight: "500" as const,
       fontFamily: "AtkinsonHyperlegibleNext-Medium",
     },
-    caption: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    overline: {
-      fontSize: 10,
-      lineHeight: 16,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
+    caption: typeScale.xs,
+    overline: typeScale.xs,
   },
 
-  // Universal typography scale
-  // Atkinson's center is weird so the marginBottom is there to correct it?
+  // Universal typography scale (keys kept for compatibility; values snap to
+  // the canonical 12/13/14/16/20/24/32 scale)
   universal: {
-    xs: {
-      fontSize: 12,
-      lineHeight: 16,
-      marginBottom: -0.3,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    sm: {
-      fontSize: 14,
-      lineHeight: 20,
-      marginBottom: -1,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    base: {
-      fontSize: 16,
-      lineHeight: 24,
-      marginBottom: -1.2,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    lg: {
-      fontSize: 18,
-      lineHeight: 28,
-      marginBottom: -1.5,
-      fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Regular",
-    },
-    xl: {
-      fontSize: 20,
-      lineHeight: 28,
-      marginBottom: -1.75,
-      fontWeight: "500" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Medium",
-    },
-    "2xl": {
-      fontSize: 24,
-      lineHeight: 32,
-      marginBottom: -2,
-      fontWeight: "600" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
-    },
-    "3xl": {
-      fontSize: 30,
-      lineHeight: 36,
-      marginBottom: -2.5,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Bold",
-    },
-    "4xl": {
-      fontSize: 36,
-      lineHeight: 40,
-      marginBottom: -3,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-ExtraBold",
-    },
+    xs: typeScale.xs,
+    sm: typeScale.sm,
+    base: typeScale.base,
+    lg: typeScale.md,
+    xl: typeScale.lg,
+    "2xl": typeScale.xl,
+    "3xl": typeScale.xxl,
+    /** @deprecated use 3xl */
+    "4xl": typeScale.xxl,
   },
 
-  // Monospace typography for code and technical content
+  // Monospace typography for code and technical content (stream keys,
+  // ingest URLs, diagnostics)
   mono: {
     xs: {
-      fontSize: 11,
+      fontSize: 12,
       lineHeight: 16,
       fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Regular",
+      fontFamily: "IoskeleyMono-Regular",
     },
     sm: {
       fontSize: 13,
       lineHeight: 18,
       fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Regular",
+      fontFamily: "IoskeleyMono-Regular",
     },
     base: {
       fontSize: 14,
       lineHeight: 20,
       fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Regular",
+      fontFamily: "IoskeleyMono-Regular",
     },
     lg: {
       fontSize: 16,
       lineHeight: 24,
       fontWeight: "400" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Regular",
+      fontFamily: "IoskeleyMono-Regular",
     },
     xl: {
-      fontSize: 18,
-      lineHeight: 28,
+      fontSize: 20,
+      lineHeight: 26,
       fontWeight: "500" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Medium",
+      fontFamily: "IoskeleyMono-Medium",
     },
     "2xl": {
-      fontSize: 20,
-      lineHeight: 32,
+      fontSize: 24,
+      lineHeight: 30,
       fontWeight: "600" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-SemiBold",
+      fontFamily: "IoskeleyMono-SemiBold",
     },
     "3xl": {
-      fontSize: 24,
-      lineHeight: 36,
-      fontWeight: "700" as const,
-      fontFamily: "AtkinsonHyperlegibleMono-Bold",
+      fontSize: 32,
+      lineHeight: 38,
+      fontWeight: "600" as const,
+      fontFamily: "IoskeleyMono-SemiBold",
     },
   },
 } as const;
 
-// Font families available in the app
+// Font families available in the app. The design system uses exactly three
+// weights; heavier/lighter keys are deprecated aliases kept for compatibility.
 export const fontFamilies = {
   // Sans serif fonts
   regular: "AtkinsonHyperlegibleNext-Regular",
-  light: "AtkinsonHyperlegibleNext-Light",
-  extraLight: "AtkinsonHyperlegibleNext-ExtraLight",
+  /** @deprecated weights outside 400/500/600 are not part of the design system */
+  light: "AtkinsonHyperlegibleNext-Regular",
+  /** @deprecated weights outside 400/500/600 are not part of the design system */
+  extraLight: "AtkinsonHyperlegibleNext-Regular",
   medium: "AtkinsonHyperlegibleNext-Medium",
   semiBold: "AtkinsonHyperlegibleNext-SemiBold",
-  bold: "AtkinsonHyperlegibleNext-Bold",
-  extraBold: "AtkinsonHyperlegibleNext-ExtraBold",
+  /** @deprecated use semiBold */
+  bold: "AtkinsonHyperlegibleNext-SemiBold",
+  /** @deprecated use semiBold */
+  extraBold: "AtkinsonHyperlegibleNext-SemiBold",
 
   // Monospace fonts
-  monoRegular: "AtkinsonHyperlegibleMono-Regular",
-  monoMedium: "AtkinsonHyperlegibleMono-Medium",
-  monoSemiBold: "AtkinsonHyperlegibleMono-SemiBold",
-  monoBold: "AtkinsonHyperlegibleMono-Bold",
+  monoRegular: "IoskeleyMono-Regular",
+  monoMedium: "IoskeleyMono-Medium",
+  monoSemiBold: "IoskeleyMono-SemiBold",
+  /** @deprecated use monoSemiBold */
+  monoBold: "IoskeleyMono-SemiBold",
 } as const;
 
 export const shadows = {
@@ -760,12 +805,34 @@ export const touchTargets = {
   large: 56, // Large touch target size
 } as const;
 
-// Animation durations
-export const animations = {
-  fast: 150,
-  normal: 200,
+/**
+ * Motion. Three durations, one easing. Everything that appears should
+ * fade + translate 4–8px — never pop. The only allowed spring is
+ * `motion.sheetSpring`, for sheet presentation.
+ *
+ * fast  (120ms): micro — hover, press feedback
+ * base  (200ms): standard — reveals, toggles, fades
+ * slow  (300ms): structural — sheets, panels, layout changes
+ */
+export const motion = {
+  fast: 120,
+  base: 200,
   slow: 300,
-  slower: 500,
+  /** cubic-bezier args for reanimated: Easing.bezier(...motion.bezier) */
+  bezier: [0.25, 0.1, 0.25, 1] as const,
+  /** the same easing for web `transitionTimingFunction` */
+  easingCss: "cubic-bezier(0.25, 0.1, 0.25, 1)",
+  /** subtle spring, allowed ONLY for sheet presentation */
+  sheetSpring: { damping: 30, stiffness: 300 },
+} as const;
+
+/** @deprecated use `motion` (fast/base/slow) */
+export const animations = {
+  fast: motion.fast,
+  normal: motion.base,
+  slow: motion.slow,
+  /** @deprecated use slow */
+  slower: motion.slow,
 } as const;
 
 // Breakpoints for responsive design
@@ -778,6 +845,13 @@ export const breakpoints = {
 } as const;
 
 export type Colors = typeof colors;
+export type Surfaces = typeof surfaces;
+export type TextAlphas = typeof textAlphas;
+export type BorderAlphas = typeof borderAlphas;
+export type StatusColors = typeof statusColors;
+export type TypeScale = typeof typeScale;
+export type FontWeights = typeof fontWeights;
+export type Motion = typeof motion;
 export type Spacing = typeof spacing;
 export type BorderRadius = typeof borderRadius;
 export type Typography = typeof typography;

@@ -191,7 +191,15 @@ export function useFetchBranding() {
             const fullUrl = `${url}${asset.url}`;
             const blobRes = await fetch(fullUrl);
             const blob = await blobRes.blob();
-            brandingMap[asset.key].data = await blobToBase64(blob);
+            const dataUrl = await blobToBase64(blob);
+            // FileReader stamps the data URI with the blob's served
+            // Content-Type, which some nodes return as application/octet-stream
+            // — browsers refuse to render that as a favicon, so it flashes then
+            // vanishes. Prefer the asset's declared mimeType so the icon (and
+            // other image assets) actually display.
+            brandingMap[asset.key].data = asset.mimeType
+              ? dataUrl.replace(/^data:[^;,]*/, `data:${asset.mimeType}`)
+              : dataUrl;
           }
         }
 
@@ -245,7 +253,7 @@ export function useFavicon(): string | undefined {
 // convenience hook for site title
 export function useSiteTitle(): string {
   const asset = useBrandingAsset("siteTitle");
-  return asset?.data || "My Streamplace Station";
+  return asset?.data || "My Streamplace Node";
 }
 
 // convenience hook for site description
@@ -257,13 +265,13 @@ export function useSiteDescription(): string {
 // convenience hook for primary color
 export function usePrimaryColor(): string {
   const asset = useBrandingAsset("primaryColor");
-  return asset?.data || "#6366f1";
+  return asset?.data || "#6366f1"; // token-ok: branding config default value
 }
 
 // convenience hook for accent color
 export function useAccentColor(): string {
   const asset = useBrandingAsset("accentColor");
-  return asset?.data || "#8b5cf6";
+  return asset?.data || "#8b5cf6"; // token-ok: branding config default value
 }
 
 // convenience hook for default streamer

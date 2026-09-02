@@ -483,7 +483,7 @@ export function BrandingAdmin() {
                       </Button>
                     </View>
                     <Button
-                      variant="destructive"
+                      variant="danger"
                       onPress={() => deleteBlob("defaultStreamer")}
                       disabled={uploading}
                     >
@@ -504,7 +504,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentPrimaryColor?.data || "#6366f1",
+                        value: currentPrimaryColor?.data || "#6366f1", // token-ok: branding default
                       })}
                     </Text>
                     <View
@@ -538,7 +538,7 @@ export function BrandingAdmin() {
                     </Text>
                     <Text size="xs" color="muted">
                       {t("branding-current", {
-                        value: currentAccentColor?.data || "#8b5cf6",
+                        value: currentAccentColor?.data || "#8b5cf6", // token-ok: branding default
                       })}
                     </Text>
                     <View
@@ -602,7 +602,7 @@ export function BrandingAdmin() {
                       </Button>
                       {editingLinkIndex !== null && (
                         <Button
-                          variant="outline"
+                          variant="secondary"
                           onPress={cancelEditingLink}
                           disabled={uploading}
                           width="min"
@@ -636,7 +636,7 @@ export function BrandingAdmin() {
                               ]}
                             >
                               <Button
-                                variant="outline"
+                                variant="secondary"
                                 onPress={() => startEditingLink(index)}
                                 disabled={uploading}
                                 width="min"
@@ -645,7 +645,7 @@ export function BrandingAdmin() {
                                 {t("edit")}
                               </Button>
                               <Button
-                                variant="destructive"
+                                variant="danger"
                                 onPress={() => deleteLegalLink(index)}
                                 disabled={uploading}
                                 width="min"
@@ -702,7 +702,7 @@ export function BrandingAdmin() {
                         {t("branding-upload-logo")}
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="danger"
                         onPress={() => deleteBlob("mainLogo")}
                         disabled={uploading}
                         width="min"
@@ -746,7 +746,7 @@ export function BrandingAdmin() {
                         {t("branding-upload-favicon")}
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="danger"
                         onPress={() => deleteBlob("favicon")}
                         disabled={uploading}
                         width="min"
@@ -800,7 +800,7 @@ export function BrandingAdmin() {
                       {t("branding-upload-background")}
                     </Button>
                     <Button
-                      variant="destructive"
+                      variant="danger"
                       onPress={() => deleteBlob("sidebarBackgroundImage")}
                       disabled={uploading}
                       width="min"

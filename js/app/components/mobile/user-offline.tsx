@@ -12,6 +12,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { overflow } from "@streamplace/components/src/lib/theme/atoms";
+import { scrims } from "@streamplace/components/src/lib/theme/tokens";
 import { Image } from "expo-image";
 import { ChevronLeft } from "lucide-react-native";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -120,7 +121,7 @@ export const UserOffline = memo(() => {
               {
                 padding: 3,
                 paddingRight: 8,
-                backgroundColor: "rgba(90,90,90, 0.25)",
+                backgroundColor: scrims.dark,
                 borderRadius: 12,
                 alignSelf: "flex-start",
                 zIndex: 100,
@@ -253,7 +254,7 @@ export const UserOffline = memo(() => {
             {
               padding: 3,
               paddingRight: 8,
-              backgroundColor: "rgba(90,90,90, 0.25)",
+              backgroundColor: scrims.dark,
               borderRadius: 12,
               alignSelf: "flex-start",
               zIndex: 100,

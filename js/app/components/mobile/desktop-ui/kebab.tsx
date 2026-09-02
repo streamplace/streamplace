@@ -1,13 +1,10 @@
-import {
-  AppBskyActorDefs,
-  ComAtprotoModerationCreateReport,
-} from "@atproto/api";
 import { useRootContext } from "@rn-primitives/dropdown-menu";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  PlayerUI,
   ResponsiveDropdownMenuContent,
   Text,
   UpdateStreamTitleDialog,
@@ -26,11 +23,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import { LivestreamViewHydrated } from "streamplace";
-
-type ReportSubject =
-  | ComAtprotoModerationCreateReport.InputSchema["subject"]
-  | null;
 
 interface KebabMenuProps {
   dropdownPortalContainer?: string;
@@ -41,11 +33,11 @@ export function KebabMenu({ dropdownPortalContainer }: KebabMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showUpdateTitleDialog, setShowUpdateTitleDialog] = useState(false);
 
-  const livestreamFromStore = useLivestreamStore((x) => x.livestream);
   const livestream = useLivestream();
+  const livestreamFromStore = useLivestreamStore((x) => x.livestream);
+  const { profile } = useLivestreamInfo();
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
-  const { profile } = useLivestreamInfo();
 
   // Get the streamer's DID from the profile
   const streamerDID = profile?.did;
@@ -89,18 +81,12 @@ export function KebabMenu({ dropdownPortalContainer }: KebabMenuProps) {
               />
             </DropdownMenuGroup>
           )}
-          <DropdownMenuGroup title="Report">
-            <ReportStreamItem
-              livestream={livestreamFromStore}
-              setReportModalOpen={setReportModalOpen}
-              setReportSubject={setReportSubject}
-            />
-            <ReportUserItem
-              profile={profile}
-              setReportModalOpen={setReportModalOpen}
-              setReportSubject={setReportSubject}
-            />
-          </DropdownMenuGroup>
+          <PlayerUI.ReportMenuItems
+            livestream={livestreamFromStore}
+            profile={profile}
+            setReportModalOpen={setReportModalOpen}
+            setReportSubject={setReportSubject}
+          />
         </ResponsiveDropdownMenuContent>
       </DropdownMenu>
 
@@ -114,65 +100,6 @@ export function KebabMenu({ dropdownPortalContainer }: KebabMenuProps) {
         />
       )}
     </>
-  );
-}
-
-function ReportStreamItem({
-  livestream,
-  setReportModalOpen,
-  setReportSubject,
-}: {
-  livestream: LivestreamViewHydrated | null;
-  setReportModalOpen: (open: boolean) => void;
-  setReportSubject: (subject: ReportSubject) => void;
-}) {
-  const { onOpenChange } = useRootContext();
-
-  return (
-    <DropdownMenuItem
-      onPress={() => {
-        if (!livestream) return;
-        onOpenChange?.(false);
-        setReportModalOpen(true);
-        setReportSubject({
-          $type: "com.atproto.repo.strongRef",
-          uri: livestream.uri,
-          cid: livestream.cid,
-        });
-      }}
-      disabled={!livestream}
-    >
-      <Text>Report Livestream...</Text>
-    </DropdownMenuItem>
-  );
-}
-
-function ReportUserItem({
-  profile,
-  setReportModalOpen,
-  setReportSubject,
-}: {
-  profile: AppBskyActorDefs.ProfileViewBasic | null;
-  setReportModalOpen: (open: boolean) => void;
-  setReportSubject: (subject: ReportSubject) => void;
-}) {
-  const { onOpenChange } = useRootContext();
-
-  return (
-    <DropdownMenuItem
-      onPress={() => {
-        if (!profile?.did) return;
-        onOpenChange?.(false);
-        setReportModalOpen(true);
-        setReportSubject({
-          $type: "com.atproto.admin.defs#repoRef",
-          did: profile.did,
-        });
-      }}
-      disabled={!profile?.did}
-    >
-      <Text>Report User...</Text>
-    </DropdownMenuItem>
   );
 }
 

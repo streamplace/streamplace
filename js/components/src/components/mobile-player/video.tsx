@@ -10,7 +10,8 @@ import {
   useSetMuted,
   useStreamplaceStore,
 } from "../..";
-import { borderRadius, colors, mt } from "../../lib/theme/atoms";
+import { borderRadius, mt } from "../../lib/theme/atoms";
+import { statusColors, surfaces } from "../../lib/theme/tokens";
 import { Text, View } from "../ui/index";
 import { Loader } from "../ui/loader";
 import { srcToUrl } from "./shared";
@@ -463,7 +464,7 @@ export function WebRTCPlayer(
   if (webrtcError) {
     setProtocol(PlayerProtocol.HLS);
     return (
-      <View backgroundColor="#111">
+      <View backgroundColor={surfaces.dark[1]}>
         <View>
           <View>
             <Text>WebRTC Not Supported</Text>
@@ -586,7 +587,7 @@ export function WebRTCPlayerInner({
     const isError = connectionStatus === "connection-failed";
     return (
       <View
-        backgroundColor="#111"
+        backgroundColor={surfaces.dark[1]}
         style={{
           minWidth: "100%",
           minHeight: "100%",
@@ -705,7 +706,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
   if (error) {
     return (
       <View
-        backgroundColor="#111"
+        backgroundColor={surfaces.dark[1]}
         style={{
           minWidth: "100%",
           minHeight: "100%",
@@ -715,7 +716,7 @@ export function WebcamIngestPlayer(props: VideoProps) {
         }}
       >
         <View
-          backgroundColor={colors.destructive[900]}
+          backgroundColor={statusColors.dark.danger}
           style={{
             borderRadius: borderRadius.md,
             padding: 24,

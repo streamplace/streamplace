@@ -70,7 +70,7 @@ export function AccountCategorySettings() {
 
   let rgb =
     chatProfile.profile?.color &&
-    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`;
+    `rgb(${chatProfile.profile?.color?.red},${chatProfile.profile?.color?.green},${chatProfile.profile?.color?.blue})`; // token-ok: dynamic name color
 
   return (
     <ScrollView>
@@ -107,7 +107,13 @@ export function AccountCategorySettings() {
                 return (
                   <>
                     {parts[0]}
-                    <Text size="3xl" style={{ color: rgb || "#bd6e86" }}>
+                    <Text
+                      size="3xl"
+                      style={{
+                        color:
+                          rgb || "#bd6e86" /* token-ok: default name color */,
+                      }}
+                    >
                       {handle}
                     </Text>
                     {parts[1]}

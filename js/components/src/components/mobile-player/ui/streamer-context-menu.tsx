@@ -9,10 +9,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useLivestreamInfo, zero } from "../../..";
+import { surfaces } from "../../../lib/theme/tokens";
 import { usePlayerStore } from "../../../player-store";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -27,8 +27,6 @@ export function StreamContextMenu({
   dropdownPortalContainer?: string;
 }) {
   const th = useTheme();
-  const debugInfo = usePlayerStore((x) => x.showDebugInfo);
-  const setShowDebugInfo = usePlayerStore((x) => x.setShowDebugInfo);
   const { toggleStopStream } = useLivestreamInfo();
   const ingest = usePlayerStore((x) => x.ingestConnectionState);
   const isLive = ingest !== null && ingest !== "new";
@@ -92,7 +90,7 @@ export function StreamContextMenu({
               position: "absolute",
               right: 30,
               top: 0,
-              backgroundColor: "rgba(64,64,64,0.95)",
+              backgroundColor: surfaces.dark[3],
               borderRadius: 8,
               paddingHorizontal: 8,
               paddingRight: 12,
@@ -125,14 +123,6 @@ export function StreamContextMenu({
             </DropdownMenuItem>
           </DropdownMenuGroup>
         )}
-        <DropdownMenuGroup title="Advanced">
-          <DropdownMenuCheckboxItem
-            checked={debugInfo}
-            onCheckedChange={() => setShowDebugInfo(!debugInfo)}
-          >
-            <Text>Show Debug Info</Text>
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
       </ResponsiveDropdownMenuContent>
     </DropdownMenu>
   );

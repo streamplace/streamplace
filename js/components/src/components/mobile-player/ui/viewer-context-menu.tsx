@@ -1,28 +1,14 @@
-import { useRootContext } from "@rn-primitives/dropdown-menu";
-import { Image } from "expo-image";
 import { Cog } from "lucide-react-native";
 import { useState } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import { Platform, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
-import {
-  ContentRights,
-  ContentWarnings,
-  formatHandle,
-  formatHandleWithAt,
-  useAuthor,
-  useAvatar,
-  useStreamplaceStore,
-  useTitle,
-  zero,
-} from "../../..";
+import { useLivestreamInfo, useStreamplaceStore, zero } from "../../..";
 import { useLivestreamStore } from "../../../livestream-store";
 import { PlayerProtocol, usePlayerStore } from "../../../player-store/";
-import { useGraphManager } from "../../../streamplace-store/graph";
-import { gap, pt, px } from "../../../ui";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -31,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -40,11 +25,14 @@ import {
   Text,
   useTheme,
 } from "../../ui";
+import { ReportMenuItems } from "./report-menu-items";
 
 export function ContextMenu({
   dropdownPortalContainer,
+  onOpenChat,
 }: {
   dropdownPortalContainer?: string;
+  onOpenChat?: () => void;
 }) {
   const th = useTheme();
   const quality = usePlayerStore((x) => x.selectedRendition);
@@ -55,15 +43,13 @@ export function ContextMenu({
   const liveRenditions = useLivestreamStore((x) => x.renditions);
   const qualities = mode === "vod" ? vodLevels : liveRenditions;
 
-  const protocol = usePlayerStore((x) => x.protocol);
-  const setProtocol = usePlayerStore((x) => x.setProtocol);
-
-  const debugInfo = usePlayerStore((x) => x.showDebugInfo);
-  const setShowDebugInfo = usePlayerStore((x) => x.setShowDebugInfo);
-
   const livestream = useLivestreamStore((x) => x.livestream);
+  const { profile } = useLivestreamInfo();
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
+
+  const protocol = usePlayerStore((x) => x.protocol);
+  const setProtocol = usePlayerStore((x) => x.setProtocol);
 
   const isDevModeOn = useStreamplaceStore((x) => x.danmuUnlocked);
 
@@ -97,18 +83,7 @@ export function ContextMenu({
     ? `(${highestLength}p${fps > 0 ? fps : ""})`
     : "(Original Quality)";
 
-  const profile = useAuthor();
-
-  const avatar = useAvatar();
-  const segment = useLivestreamStore((x) => x.segment);
-
   const [isOpen, setIsOpen] = useState(false);
-
-  // Get content rights from the latest segment
-  const contentRights = segment?.contentRights;
-  const contentWarnings = segment?.contentWarnings?.warnings || [];
-
-  let graphManager = useGraphManager(profile?.did);
 
   const lowLatency = protocol === "webrtc";
   const setLowLatency = (value: boolean) => {
@@ -149,97 +124,6 @@ export function ContextMenu({
         align="end"
         portalHost={dropdownPortalContainer}
       >
-        {Platform.OS !== "web" && (
-          <DropdownMenuGroup title="Streamer">
-            <View
-              style={[
-                zero.layout.flex.row,
-                zero.layout.flex.center,
-                zero.gap.all[3],
-                { flex: 1, minWidth: 0 },
-              ]}
-            >
-              {avatar && (
-                <Image
-                  key="avatar"
-                  source={{
-                    uri: avatar,
-                  }}
-                  style={{ width: 42, height: 42, borderRadius: 999 }}
-                  contentFit="cover"
-                />
-              )}
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View
-                  style={[
-                    zero.layout.flex.row,
-                    zero.layout.flex.alignCenter,
-                    zero.gap.all[2],
-                  ]}
-                >
-                  <Pressable
-                    onPress={() => {
-                      if (profile?.handle) {
-                        const url = `https://bsky.app/profile/${formatHandle(profile)}`;
-                        Linking.openURL(url);
-                      }
-                    }}
-                  >
-                    <Text>{profile && formatHandleWithAt(profile)}</Text>
-                  </Pressable>
-                  {/*{did && profile && (
-                    <FollowButton streamerDID={profile?.did} currentUserDID={did} />
-                  )}*/}
-                </View>
-                <Text
-                  color="muted"
-                  size="sm"
-                  numberOfLines={2}
-                  ellipsizeMode="tail"
-                >
-                  {useTitle()}
-                </Text>
-              </View>
-            </View>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={graphManager.isLoading || !profile?.did}
-              onPress={async () => {
-                try {
-                  if (graphManager.isFollowing) {
-                    await graphManager.unfollow();
-                  } else {
-                    await graphManager.follow();
-                  }
-                } catch (err) {
-                  console.error("Follow/unfollow error:", err);
-                }
-              }}
-            >
-              <Text
-                color={graphManager.isFollowing ? "destructive" : "default"}
-              >
-                {graphManager.isLoading
-                  ? "Loading..."
-                  : graphManager.isFollowing
-                    ? "Unfollow"
-                    : "Follow"}
-              </Text>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onPress={() => {
-                if (profile?.handle) {
-                  const url = `https://bsky.app/profile/${formatHandle(profile)}`;
-                  Linking.openURL(url);
-                }
-              }}
-            >
-              <Text>View Profile on Bluesky</Text>
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-        )}
-
         <DropdownMenuGroup>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger subMenuTitle="Quality">
@@ -296,63 +180,20 @@ export function ContextMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         </DropdownMenuGroup>
-        <DropdownMenuGroup title="Advanced">
-          <DropdownMenuCheckboxItem
-            checked={debugInfo}
-            onCheckedChange={() => setShowDebugInfo(!debugInfo)}
-          >
-            <Text>Show Debug Info</Text>
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
-        <DropdownMenuGroup title="Report">
-          <ReportButton
-            livestream={livestream}
-            setReportModalOpen={setReportModalOpen}
-            setReportSubject={setReportSubject}
-          />
-        </DropdownMenuGroup>
-        <View style={[pt[3], px[2], gap.all[2]]}>
-          {contentWarnings && contentWarnings.length > 0 && (
-            <View style={[gap.all[1]]}>
-              <Text size="base" color="muted">
-                Stream may contain
-              </Text>
-              <ContentWarnings warnings={contentWarnings} compact={true} />
-            </View>
-          )}
-          {contentRights && Object.keys(contentRights).length > 0 && (
-            <ContentRights
-              contentRights={contentRights}
-              size="xs"
-              color="muted"
-            />
-          )}
-        </View>
+        {onOpenChat && (
+          <DropdownMenuGroup title="View">
+            <DropdownMenuItem closeOnPress={true} onPress={onOpenChat}>
+              <Text>Chat-only mode</Text>
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        )}
+        <ReportMenuItems
+          livestream={livestream}
+          profile={profile}
+          setReportModalOpen={setReportModalOpen}
+          setReportSubject={setReportSubject}
+        />
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-export function ReportButton({
-  livestream,
-  setReportModalOpen,
-  setReportSubject,
-}) {
-  const { onOpenChange } = useRootContext();
-  return (
-    <DropdownMenuItem
-      onPress={() => {
-        if (!livestream) return;
-        onOpenChange?.(false);
-        setReportModalOpen(true);
-        setReportSubject({
-          $type: "com.atproto.repo.strongRef",
-          uri: livestream.uri,
-          cid: livestream.cid,
-        });
-      }}
-    >
-      <Text>Report Livestream...</Text>
-    </DropdownMenuItem>
   );
 }

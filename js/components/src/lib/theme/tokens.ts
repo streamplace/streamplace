@@ -412,57 +412,53 @@ export const colors = {
 } as const;
 
 /**
- * Surface scale — purple-tinted dark, never pure black. Surfaces separate via subtle
- * 1px borders (see `borderAlphas`), not heavy shadows. Light theme derives
- * from the same step names so semantic tokens work in both modes.
+ * Surface scale — clean near-black, never pure black and never tinted. Surfaces
+ * separate via subtle 1px borders (see `borderAlphas`), not heavy shadows.
+ * Light theme derives from the same step names so semantic tokens work in
+ * both modes.
  */
 export const surfaces = {
   dark: {
-    0: "#150e1c", // base: app background (web --background)
-    1: "#281b28", // raised: cards, panels, inputs (web --card)
-    2: "#201324", // overlay: popovers, menus, sheets (web --popover)
-    3: "#292129", // highest: hovered overlay rows, tooltips (web --sidebar)
+    0: "#0a0a0b", // base: app background
+    1: "#111113", // raised: cards, panels, inputs
+    2: "#18181b", // overlay: popovers, menus, sheets
+    3: "#1f1f23", // highest: hovered overlay rows, tooltips
   },
   light: {
-    0: "#fdf6fa",
-    1: "#ffffff",
-    2: "#ffffff",
-    3: "#f5e8f0",
+    0: "#ffffff",
+    1: "#fafafa",
+    2: "#f4f4f5",
+    3: "#ececef",
   },
 } as const;
 
-/**
- * 4-step text scale: primary / secondary / tertiary / disabled. Steps 1–2
- * mirror the web app's `--foreground` / `--muted-foreground`; 3–4 derive from
- * the foreground at fixed alphas.
- */
+/** 4-step text scale: primary / secondary / tertiary / disabled. */
 export const textAlphas = {
   dark: {
-    1: "#f7eaf3",
-    2: "#b79aae",
-    3: "rgba(247,234,243,0.45)",
-    4: "rgba(247,234,243,0.30)",
+    1: "rgba(255,255,255,0.92)",
+    2: "rgba(255,255,255,0.65)",
+    3: "rgba(255,255,255,0.45)",
+    4: "rgba(255,255,255,0.30)",
   },
   light: {
-    1: "#3d1c44",
-    2: "#9b7e92",
-    3: "rgba(61,28,68,0.46)",
-    4: "rgba(61,28,68,0.32)",
+    1: "rgba(9,9,11,0.92)",
+    2: "rgba(9,9,11,0.66)",
+    3: "rgba(9,9,11,0.46)",
+    4: "rgba(9,9,11,0.32)",
   },
 } as const;
 
-/** 1px hairline borders that separate surfaces. Dark values align with the
- * web app's `--border` (10% foreground) and `--input` (15% foreground). */
+/** 1px hairline borders that separate surfaces. */
 export const borderAlphas = {
   dark: {
-    subtle: "rgba(247,234,243,0.06)",
-    default: "rgba(247,234,243,0.10)",
-    strong: "rgba(247,234,243,0.15)",
+    subtle: "rgba(255,255,255,0.06)",
+    default: "rgba(255,255,255,0.08)",
+    strong: "rgba(255,255,255,0.10)",
   },
   light: {
-    subtle: "rgba(61,28,68,0.06)",
-    default: "#ead5e3",
-    strong: "rgba(61,28,68,0.13)",
+    subtle: "rgba(9,9,11,0.06)",
+    default: "rgba(9,9,11,0.09)",
+    strong: "rgba(9,9,11,0.13)",
   },
 } as const;
 
@@ -558,7 +554,7 @@ export const borderRadius = {
 } as const;
 
 /**
- * Typography — one typeface (Atkinson Hyperlegible Next), one modular scale:
+ * Typography — one typeface (Geist), one modular scale:
  * 12 / 13 / 14 / 16 / 20 / 24 / 32. Weights 400 / 500 / 600 only.
  * Line heights live here, never inline. Sizes ≥20 get tight letter-spacing.
  *
@@ -571,46 +567,46 @@ export const typeScale = {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "400" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+    fontFamily: "Geist-Regular",
   },
   sm: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "400" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+    fontFamily: "Geist-Regular",
   },
   base: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "400" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+    fontFamily: "Geist-Regular",
   },
   md: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "400" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-Regular",
+    fontFamily: "Geist-Regular",
   },
   lg: {
     fontSize: 20,
     lineHeight: 26,
     letterSpacing: -0.2,
     fontWeight: "500" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-Medium",
+    fontFamily: "Geist-Medium",
   },
   xl: {
     fontSize: 24,
     lineHeight: 30,
     letterSpacing: -0.3,
     fontWeight: "600" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
+    fontFamily: "Geist-SemiBold",
   },
   xxl: {
     fontSize: 32,
     lineHeight: 38,
     letterSpacing: -0.5,
     fontWeight: "600" as const,
-    fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
+    fontFamily: "Geist-SemiBold",
   },
 } as const;
 
@@ -639,7 +635,7 @@ export const typography = {
     headline: {
       ...typeScale.md,
       fontWeight: "600" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-SemiBold",
+      fontFamily: "Geist-SemiBold",
     },
     body: typeScale.md,
     callout: typeScale.md,
@@ -661,14 +657,14 @@ export const typography = {
     subtitle2: {
       ...typeScale.base,
       fontWeight: "500" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Medium",
+      fontFamily: "Geist-Medium",
     },
     body1: typeScale.md,
     body2: typeScale.base,
     button: {
       ...typeScale.base,
       fontWeight: "500" as const,
-      fontFamily: "AtkinsonHyperlegibleNext-Medium",
+      fontFamily: "Geist-Medium",
     },
     caption: typeScale.xs,
     overline: typeScale.xs,
@@ -695,43 +691,43 @@ export const typography = {
       fontSize: 12,
       lineHeight: 16,
       fontWeight: "400" as const,
-      fontFamily: "IoskeleyMono-Regular",
+      fontFamily: "GeistMono-Regular",
     },
     sm: {
       fontSize: 13,
       lineHeight: 18,
       fontWeight: "400" as const,
-      fontFamily: "IoskeleyMono-Regular",
+      fontFamily: "GeistMono-Regular",
     },
     base: {
       fontSize: 14,
       lineHeight: 20,
       fontWeight: "400" as const,
-      fontFamily: "IoskeleyMono-Regular",
+      fontFamily: "GeistMono-Regular",
     },
     lg: {
       fontSize: 16,
       lineHeight: 24,
       fontWeight: "400" as const,
-      fontFamily: "IoskeleyMono-Regular",
+      fontFamily: "GeistMono-Regular",
     },
     xl: {
       fontSize: 20,
       lineHeight: 26,
       fontWeight: "500" as const,
-      fontFamily: "IoskeleyMono-Medium",
+      fontFamily: "GeistMono-Medium",
     },
     "2xl": {
       fontSize: 24,
       lineHeight: 30,
       fontWeight: "600" as const,
-      fontFamily: "IoskeleyMono-SemiBold",
+      fontFamily: "GeistMono-SemiBold",
     },
     "3xl": {
       fontSize: 32,
       lineHeight: 38,
       fontWeight: "600" as const,
-      fontFamily: "IoskeleyMono-SemiBold",
+      fontFamily: "GeistMono-SemiBold",
     },
   },
 } as const;
@@ -740,24 +736,24 @@ export const typography = {
 // weights; heavier/lighter keys are deprecated aliases kept for compatibility.
 export const fontFamilies = {
   // Sans serif fonts
-  regular: "AtkinsonHyperlegibleNext-Regular",
+  regular: "Geist-Regular",
   /** @deprecated weights outside 400/500/600 are not part of the design system */
-  light: "AtkinsonHyperlegibleNext-Regular",
+  light: "Geist-Regular",
   /** @deprecated weights outside 400/500/600 are not part of the design system */
-  extraLight: "AtkinsonHyperlegibleNext-Regular",
-  medium: "AtkinsonHyperlegibleNext-Medium",
-  semiBold: "AtkinsonHyperlegibleNext-SemiBold",
+  extraLight: "Geist-Regular",
+  medium: "Geist-Medium",
+  semiBold: "Geist-SemiBold",
   /** @deprecated use semiBold */
-  bold: "AtkinsonHyperlegibleNext-SemiBold",
+  bold: "Geist-SemiBold",
   /** @deprecated use semiBold */
-  extraBold: "AtkinsonHyperlegibleNext-SemiBold",
+  extraBold: "Geist-SemiBold",
 
   // Monospace fonts
-  monoRegular: "IoskeleyMono-Regular",
-  monoMedium: "IoskeleyMono-Medium",
-  monoSemiBold: "IoskeleyMono-SemiBold",
+  monoRegular: "GeistMono-Regular",
+  monoMedium: "GeistMono-Medium",
+  monoSemiBold: "GeistMono-SemiBold",
   /** @deprecated use monoSemiBold */
-  monoBold: "IoskeleyMono-SemiBold",
+  monoBold: "GeistMono-SemiBold",
 } as const;
 
 export const shadows = {

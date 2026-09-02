@@ -2,6 +2,7 @@ package media
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/llhls"
@@ -13,4 +14,25 @@ func TestLLWindowIsKeyedByStreamerDID(t *testing.T) {
 
 	require.Same(t, window, mm.GetLLWindow("did:plc:streamer"))
 	require.Nil(t, mm.GetLLWindow("did:key:signing-key"))
+}
+
+func TestLLWindowUsesMobilePlaybackHoldBack(t *testing.T) {
+	mm := &MediaManager{llWindows: map[string]*llhls.Window{}}
+	w := mm.llWindow("did:plc:streamer")
+	require.NoError(t, w.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1}))
+	require.NoError(t, w.Observe(llhls.Event{
+		Kind:         llhls.Part,
+		Presentation: "p",
+		Track:        "video",
+		Generation:   1,
+		MSN:          1,
+		Part:         0,
+		Duration:     time.Second,
+		Data:         []byte("part"),
+	}))
+
+	playlist := w.Playlist("p", "video", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
+	require.Contains(t, playlist, "#EXT-X-TARGETDURATION:2")
+	require.Contains(t, playlist, "PART-HOLD-BACK=5.500000")
+	require.Contains(t, playlist, "HOLD-BACK=6.000000")
 }

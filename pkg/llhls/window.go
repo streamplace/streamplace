@@ -104,22 +104,24 @@ type PartIdentity struct {
 }
 
 type Window struct {
-	mu                   sync.Mutex
-	presentation         string
-	tracks               map[string]*track
-	maxSegments          int
-	maxBytes             int
-	bytes                int
-	changed              chan struct{}
-	videoConfig          VideoConfig
-	audioConfig          AudioConfig
-	programDateTime      time.Time
-	programDateTimeStart time.Duration
-	targetDuration       int64
-	partTarget           time.Duration
-	configuredTarget     int64
-	configuredPartTarget time.Duration
-	completionHold       time.Duration
+	mu                     sync.Mutex
+	presentation           string
+	tracks                 map[string]*track
+	maxSegments            int
+	maxBytes               int
+	bytes                  int
+	changed                chan struct{}
+	videoConfig            VideoConfig
+	audioConfig            AudioConfig
+	programDateTime        time.Time
+	programDateTimeStart   time.Duration
+	targetDuration         int64
+	partTarget             time.Duration
+	configuredTarget       int64
+	configuredPartTarget   time.Duration
+	partHoldBack           time.Duration
+	configuredPartHoldBack time.Duration
+	completionHold         time.Duration
 }
 
 type track struct {
@@ -153,6 +155,16 @@ type Option func(*Window)
 func WithMaxSegments(n int) Option { return func(w *Window) { w.maxSegments = n } }
 func WithMaxBytes(n int) Option    { return func(w *Window) { w.maxBytes = n } }
 
+// WithPartHoldBack sets the advertised live edge distance for LL-HLS parts.
+// Values below the HLS minimum are raised to three part targets.
+func WithPartHoldBack(d time.Duration) Option {
+	return func(w *Window) {
+		if d > 0 {
+			w.partHoldBack = d
+		}
+	}
+}
+
 // WithSegmentCompletionDelay delays parent completion visibility by d. This
 // gives blocking reloads time to observe the final part of an open segment.
 func WithSegmentCompletionDelay(d time.Duration) Option {
@@ -183,8 +195,12 @@ func NewWindow(opts ...Option) *Window {
 	for _, opt := range opts {
 		opt(w)
 	}
+	if minimum := minimumPartHoldBack(w.partTarget); w.partHoldBack < minimum {
+		w.partHoldBack = minimum
+	}
 	w.configuredTarget = w.targetDuration
 	w.configuredPartTarget = w.partTarget
+	w.configuredPartHoldBack = w.partHoldBack
 	return w
 }
 
@@ -214,6 +230,7 @@ func (w *Window) Observe(ev Event) error {
 		w.programDateTimeStart = 0
 		w.targetDuration = w.configuredTarget
 		w.partTarget = w.configuredPartTarget
+		w.partHoldBack = w.configuredPartHoldBack
 	}
 
 	t := w.tracks[ev.Track]
@@ -652,8 +669,7 @@ func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uin
 		return ""
 	}
 	includeParts := mode == playlistWithParts
-	targetSeconds, partTarget := w.playlistDurations()
-	partHoldBack := 3*partTarget + partHoldBackMargin
+	targetSeconds, partTarget, partHoldBack := w.playlistDurations()
 	var b strings.Builder
 	fmt.Fprintf(&b, "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:%d\n", targetSeconds)
 	if includeParts {
@@ -729,11 +745,15 @@ func allSegmentsIndependent(segments []SegmentSnapshot) bool {
 	return true
 }
 
-func (w *Window) playlistDurations() (targetSeconds int64, partTarget time.Duration) {
+func (w *Window) playlistDurations() (targetSeconds int64, partTarget, partHoldBack time.Duration) {
 	w.mu.Lock()
-	targetSeconds, partTarget = w.targetDuration, w.partTarget
+	targetSeconds, partTarget, partHoldBack = w.targetDuration, w.partTarget, w.partHoldBack
 	w.mu.Unlock()
-	return targetSeconds, partTarget
+	return targetSeconds, partTarget, partHoldBack
+}
+
+func minimumPartHoldBack(partTarget time.Duration) time.Duration {
+	return 3*partTarget + partHoldBackMargin
 }
 
 type renditionReport struct {

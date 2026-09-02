@@ -28,9 +28,8 @@ const (
 	defaultTargetDuration = 6 * time.Second
 	defaultPartTarget     = 1100 * time.Millisecond
 	partHoldBackMargin    = time.Millisecond
-	// Eviction keeps at least this many completed segments per track so every
-	// rendition retains enough history for hold-back playback, even when a
-	// large sibling track drives the shared byte budget over its limit.
+	// Keep enough completed history for hold-back playback when a sibling track
+	// drives the shared byte budget over its limit.
 	minRetainedSegments = 12
 )
 
@@ -154,13 +153,8 @@ type Option func(*Window)
 func WithMaxSegments(n int) Option { return func(w *Window) { w.maxSegments = n } }
 func WithMaxBytes(n int) Option    { return func(w *Window) { w.maxBytes = n } }
 
-// WithSegmentCompletionDelay holds a parent segment's completion for the
-// given duration after its SegmentComplete event before it becomes visible
-// in snapshots and playlists. LL-HLS players must see the final part listed
-// in an open segment to fetch it; when the final part and the completion
-// land in the same playlist update, blocking reloads for that part roll over
-// to the completed parent and players fall back to re-fetching the whole
-// segment. Zero completes synchronously.
+// WithSegmentCompletionDelay delays parent completion visibility by d. This
+// gives blocking reloads time to observe the final part of an open segment.
 func WithSegmentCompletionDelay(d time.Duration) Option {
 	return func(w *Window) { w.completionHold = d }
 }
@@ -637,21 +631,27 @@ func (w *Window) partStateLocked(presentation, trackID string, msn uint64, partI
 // When renditionURI is non-nil, an EXT-X-RENDITION-REPORT is emitted for
 // every other track that has published media (required for LL-HLS).
 func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string) string {
-	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, true)
+	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, playlistWithParts)
 }
 
-// PlaylistSegmentsOnly renders a conventional media playlist using only
-// completed parent segments. It is useful for renditions whose codec timing
-// is not safe to expose through the LL-HLS part path.
+// PlaylistSegmentsOnly renders a media playlist using only completed parents.
 func (w *Window) PlaylistSegmentsOnly(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string) string {
-	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, false)
+	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, playlistSegmentsOnly)
 }
 
-func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string, includeParts bool) string {
+type playlistMode uint8
+
+const (
+	playlistWithParts playlistMode = iota
+	playlistSegmentsOnly
+)
+
+func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string, mode playlistMode) string {
 	s := w.Snapshot(presentation, trackID)
 	if s.Track == "" {
 		return ""
 	}
+	includeParts := mode == playlistWithParts
 	targetSeconds, partTarget := w.playlistDurations()
 	partHoldBack := 3*partTarget + partHoldBackMargin
 	var b strings.Builder

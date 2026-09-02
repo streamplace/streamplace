@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/gst"
@@ -19,6 +18,7 @@ var errUnsupportedCMAFPartLayout = errors.New("unsupported CMAF part layout")
 const (
 	llhlsAudioParentMinimum   = llhlsParentDuration - 100*time.Millisecond
 	llhlsAudioParentTolerance = 50 * time.Millisecond
+	cmafMinimumPartPercent    = 85
 )
 
 // cmafTrackSink translates the buffer-list contract of the GStreamer fMP4
@@ -38,18 +38,15 @@ type cmafTrackSink struct {
 	parentLength  time.Duration
 	timelineEnd   time.Duration
 	partIndex     uint32
-	lastTiming    map[uint32]cmafFragmentTiming
 	videoTrackIDs map[uint32]bool
 	hasParent     bool
 	partTarget    time.Duration
 	pendingPart   cmafPendingPart
-	samples       atomic.Uint64
-	// audioOnly marks a track whose samples are all independently decodable
-	// (AAC) and carry no video, so independence inspection is skipped.
+	// Audio-only tracks contain independently decodable samples, so video
+	// independence inspection is unnecessary.
 	audioOnly bool
-	// programDateTimeBase anchors the playlist PDT grid. All sinks of one
-	// presentation share the same base so rendition timelines map to the same
-	// wall clock; per-parent offsets come from the fragment decode timeline.
+	// All sinks for a presentation share this wall-clock anchor. Fragment decode
+	// times provide the offset for each parent.
 	programDateTimeBase time.Time
 	timescale           uint32
 }
@@ -182,8 +179,8 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 	}
 	s.parentLength += chunkDuration
 	s.timelineEnd += chunkDuration
-	s.parent.Write(fragment.Bytes())
-	s.inspectTiming(fragment.Bytes())
+	fragmentData := fragment.Bytes()
+	s.parent.Write(fragmentData)
 	independent := false
 	hasVideo := false
 	if s.audioOnly {
@@ -191,19 +188,19 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		independent = true
 	} else if len(s.videoTrackIDs) > 0 {
 		var err error
-		independent, err = inspectCMAFFragmentIndependence(fragment.Bytes(), s.videoTrackIDs)
+		independent, err = inspectCMAFFragmentIndependence(fragmentData, s.videoTrackIDs)
 		if err != nil && s.ctx != nil {
 			log.Error(s.ctx, "LL-HLS CMAF independence inspection failed", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
 			independent = false
 		}
-		hasVideo, err = inspectCMAFFragmentHasVideo(fragment.Bytes(), s.videoTrackIDs)
+		hasVideo, err = inspectCMAFFragmentHasVideo(fragmentData, s.videoTrackIDs)
 		if err != nil && s.ctx != nil {
 			log.Error(s.ctx, "LL-HLS CMAF video-track inspection failed", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
 			hasVideo = false
 		}
 	}
 	if err := s.queuePart(cmafPendingPart{
-		data:            append([]byte(nil), fragment.Bytes()...),
+		data:            append([]byte(nil), fragmentData...),
 		start:           partStart,
 		duration:        chunkDuration,
 		independent:     independent,
@@ -241,14 +238,14 @@ func (s *cmafTrackSink) queuePart(next cmafPendingPart) error {
 		return s.publishPart(next)
 	}
 	if !s.pendingPart.set {
-		if next.duration >= s.partTargetDuration()*85/100 {
+		if next.duration >= s.partTargetDuration()*cmafMinimumPartPercent/100 {
 			return s.publishPart(next)
 		}
 		s.pendingPart = next
 		return nil
 	}
 	target := s.partTargetDuration()
-	minimum := target * 85 / 100
+	minimum := target * cmafMinimumPartPercent / 100
 	if s.pendingPart.duration >= minimum {
 		if err := s.publishPart(s.pendingPart); err != nil {
 			return err
@@ -301,30 +298,6 @@ func (s *cmafTrackSink) publishPart(part cmafPendingPart) error {
 	return nil
 }
 
-func (s *cmafTrackSink) inspectTiming(data []byte) {
-	if s.ctx == nil {
-		return
-	}
-	timings, err := inspectCMAFFragment(data)
-	if err != nil {
-		log.Error(s.ctx, "LL-HLS CMAF timing inspection failed", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
-		return
-	}
-	if s.lastTiming == nil {
-		s.lastTiming = make(map[uint32]cmafFragmentTiming)
-	}
-	for _, timing := range timings {
-		if previous, ok := s.lastTiming[timing.TrackID]; ok {
-			expected := previous.DecodeTime + previous.Duration
-			if timing.DecodeTime != expected {
-				log.Error(s.ctx, "LL-HLS CMAF decode timeline discontinuity", "presentation", s.presentation, "track", s.track, "track_id", timing.TrackID, "msn", s.nextMSN, "part", s.partIndex, "previous_decode_time", previous.DecodeTime, "previous_duration", previous.Duration, "expected_decode_time", expected, "actual_decode_time", timing.DecodeTime, "sample_count", timing.SampleCount, "duration", timing.Duration)
-			}
-		}
-		log.Debug(s.ctx, "LL-HLS CMAF fragment timing", "presentation", s.presentation, "track", s.track, "track_id", timing.TrackID, "msn", s.nextMSN, "part", s.partIndex, "decode_time", timing.DecodeTime, "duration", timing.Duration, "sample_count", timing.SampleCount)
-		s.lastTiming[timing.TrackID] = timing
-	}
-}
-
 func (s *cmafTrackSink) completeParent() error {
 	if !s.hasParent {
 		return nil
@@ -373,9 +346,6 @@ func installCMAFSink(ctx context.Context, sink *app.Sink, state *cmafTrackSink) 
 			sample := sink.PullSample()
 			if sample == nil {
 				return gst.FlowEOS
-			}
-			if n := state.samples.Add(1); n <= 3 {
-				log.Log(ctx, "received CMAF buffer list", "presentation", state.presentation, "track", state.track, "sample", n)
 			}
 			if err := state.sample(sample); err != nil {
 				log.Error(ctx, "LL-HLS CMAF output failed", "presentation", state.presentation, "track", state.track, "error", err)

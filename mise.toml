@@ -2,7 +2,7 @@
 go = "latest"
 rust = "latest"
 node = "22"
-meson = "latest"
+meson = "1.11.2"
 ninja = "latest"
 pnpm = "latest"
 java = "17"

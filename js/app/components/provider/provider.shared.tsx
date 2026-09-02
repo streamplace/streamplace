@@ -135,15 +135,15 @@ export const NewStreamplaceProvider = ({
 
 export const FontProvider = ({ children }: { children: React.ReactNode }) => {
   const [fontLoaded, fontError] = useFonts({
-    // Atkinson Hyperlegible Next (Sans) — three static weights, no variable fonts
-    "AtkinsonHyperlegibleNext-Regular": require("../../assets/fonts/AtkinsonHyperlegibleNext-Regular.ttf"),
-    "AtkinsonHyperlegibleNext-Medium": require("../../assets/fonts/AtkinsonHyperlegibleNext-Medium.ttf"),
-    "AtkinsonHyperlegibleNext-SemiBold": require("../../assets/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf"),
+    // Geist (Sans Serif) — the design system uses exactly three weights
+    "Geist-Regular": require("../../assets/fonts/Geist-Regular.ttf"),
+    "Geist-Medium": require("../../assets/fonts/Geist-Medium.ttf"),
+    "Geist-SemiBold": require("../../assets/fonts/Geist-SemiBold.ttf"),
 
-    // Ioskeley Mono — stream keys, ingest URLs, timers
-    "IoskeleyMono-Regular": require("../../assets/fonts/IoskeleyMono-Regular.ttf"),
-    "IoskeleyMono-Medium": require("../../assets/fonts/IoskeleyMono-Medium.ttf"),
-    "IoskeleyMono-SemiBold": require("../../assets/fonts/IoskeleyMono-SemiBold.ttf"),
+    // Geist Mono — stream keys, ingest URLs, timers
+    "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
+    "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
+    "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
   });
 
   if (!fontLoaded && !fontError) {

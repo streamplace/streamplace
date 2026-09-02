@@ -72,6 +72,14 @@ func TestLLHLSMasterAdvertisesVideoMetadata(t *testing.T) {
 	}
 }
 
+func TestLLHLSMasterAdvertisesAudioOnlyVariant(t *testing.T) {
+	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720}, llhls.AudioConfig{Channels: 2})
+	want := "#EXT-X-STREAM-INF:BANDWIDTH=128000,CODECS=\"mp4a.40.2\"\n/api/playback/test/audio/index.m3u8"
+	if !strings.Contains(master, want) {
+		t.Fatalf("master missing audio-only variant %q:\n%s", want, master)
+	}
+}
+
 func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
 	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, llhls.AudioConfig{Channels: 2})
 	if strings.Contains(master, "#EXT-X-INDEPENDENT-SEGMENTS") {

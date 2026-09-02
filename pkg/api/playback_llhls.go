@@ -76,6 +76,7 @@ func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig l
 	}
 	streamInf += ",AUDIO=\"audio\",CLOSED-CAPTIONS=NONE"
 	b.WriteString(streamInf + "\n" + base + "/video/index.m3u8\n")
+	fmt.Fprintf(&b, "#EXT-X-STREAM-INF:BANDWIDTH=%d,CODECS=%q\n%s\n", 128000, "mp4a.40.2", base+"/audio/index.m3u8")
 	return b.String()
 }
 

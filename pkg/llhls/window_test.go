@@ -44,6 +44,123 @@ func TestWindowPublishesPartsAndOnlyCompletesParentsWhenAllPartsArrive(t *testin
 	}
 }
 
+func completionHoldURI(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }
+func completionHoldSegment(msn uint64) string          { return fmt.Sprintf("%d.m4s", msn) }
+
+func waitForSegmentComplete(t *testing.T, w *Window, presentation, track string, msn uint64) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, seg := range w.Snapshot(presentation, track).Segments {
+			if seg.MSN == msn && seg.Complete {
+				return
+			}
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("segment %d did not complete after hold", msn)
+}
+
+func TestWindowCompletionHoldKeepsFinalPartListed(t *testing.T) {
+	w := NewWindow(WithSegmentCompletionDelay(50 * time.Millisecond))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Part: 0, Start: 0, Duration: time.Second, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Part: 1, Start: time.Second, Duration: time.Second, Data: []byte("b")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Start: 0, Duration: 2 * time.Second, Data: []byte("ab")})
+
+	// During the hold the parent still reads as open: the final part stays
+	// listed and fetchable so a blocking reload for it resolves with the part
+	// instead of rolling over to the completed segment.
+	s := w.Snapshot("p", "v")
+	if len(s.Segments) != 1 || s.Segments[0].Complete {
+		t.Fatalf("segment completed during hold: %+v", s.Segments)
+	}
+	playlist := w.Playlist("p", "v", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "3/1.m4s") {
+		t.Fatalf("final part not listed during hold:\n%s", playlist)
+	}
+	if strings.Contains(playlist, "#EXTINF") {
+		t.Fatalf("segment listed as complete during hold:\n%s", playlist)
+	}
+	if err := w.Wait(context.Background(), "p", "v", 3, 1); err != nil {
+		t.Fatalf("blocking reload for held part: %v", err)
+	}
+	if err := w.WaitForPart(context.Background(), "p", "v", 3, 1); err != nil {
+		t.Fatalf("held part not fetchable: %v", err)
+	}
+	if got := w.Data("p", "v", 3, 1); !bytes.Equal(got, []byte("b")) {
+		t.Fatalf("held part data = %q", got)
+	}
+
+	waitForSegmentComplete(t, w, "p", "v", 3)
+	playlist = w.Playlist("p", "v", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXTINF") || strings.Contains(playlist, "3/1.m4s") {
+		t.Fatalf("completed segment not published after hold:\n%s", playlist)
+	}
+	if got := w.SegmentData("p", "v", 3); !bytes.Equal(got, []byte("ab")) {
+		t.Fatalf("segment data = %q", got)
+	}
+	// The part stays fetchable after completion; only eviction removes it.
+	if err := w.WaitForPart(context.Background(), "p", "v", 3, 1); err != nil {
+		t.Fatalf("part after completion = %v, want still fetchable", err)
+	}
+}
+
+func TestWindowCompletionHoldClosesWhenNextParentStarts(t *testing.T) {
+	w := NewWindow(WithSegmentCompletionDelay(50 * time.Millisecond))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Part: 0, Start: 0, Duration: time.Second, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Part: 1, Start: time.Second, Duration: time.Second, Data: []byte("b")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Start: 0, Duration: 2 * time.Second, Data: []byte("ab")})
+
+	// The next parent starts before the completion hold expires. The previous
+	// parent must become complete immediately so the playlist has no gap.
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 4, Part: 0, Start: 2 * time.Second, Duration: time.Second, Data: []byte("c")})
+
+	playlist := w.Playlist("p", "v", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXTINF:2.000000,") || !strings.Contains(playlist, "4/0.m4s") {
+		t.Fatalf("playlist lost the held parent when the next parent started:\n%s", playlist)
+	}
+	if strings.Contains(playlist, "3/1.m4s") {
+		t.Fatalf("completed parent still advertised a part:\n%s", playlist)
+	}
+}
+
+func TestWindowCompletionHoldEvictsAfterTimer(t *testing.T) {
+	w := NewWindow(WithMaxBytes(2), WithSegmentCompletionDelay(20*time.Millisecond))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Data: []byte("abc")})
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) && w.Bytes() != 0 {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if got := w.Bytes(); got != 0 {
+		t.Fatalf("bytes after delayed eviction = %d, want 0", got)
+	}
+}
+
+func TestWindowCompletionHoldCanceledByPresentationReset(t *testing.T) {
+	w := NewWindow(WithSegmentCompletionDelay(30 * time.Millisecond))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p1", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p1", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p1", Track: "v", Generation: 1, MSN: 1, Start: 0, Duration: time.Second, Data: []byte("a")})
+
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p2", Track: "v", Generation: 1, Data: []byte("init2")})
+	time.Sleep(60 * time.Millisecond)
+	if got := w.Snapshot("p1", "v"); len(got.Segments) != 0 {
+		t.Fatalf("stale segments survived presentation reset: %+v", got.Segments)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p2", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("x")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p2", Track: "v", Generation: 1, MSN: 1, Start: 0, Duration: time.Second, Data: []byte("x")})
+	waitForSegmentComplete(t, w, "p2", "v", 1)
+	if got := w.SegmentData("p2", "v", 1); !bytes.Equal(got, []byte("x")) {
+		t.Fatalf("segment data after reset = %q", got)
+	}
+}
+
 func TestWindowRejectsStalePresentationAndOutOfOrderParts(t *testing.T) {
 	w := NewWindow()
 	if err := w.Observe(Event{Kind: Init, Presentation: "new", Track: "v", Generation: 1, Data: []byte("init")}); err != nil {
@@ -73,6 +190,12 @@ func TestWindowEvictsBySegmentsAndBytesAndWakesWaiters(t *testing.T) {
 		t.Fatal("publication did not wake waiter")
 	}
 	if err := w.Observe(Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Part: 0, Data: []byte("bb")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Observe(Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Observe(Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 2}); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.Observe(Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 3, Part: 0, Data: []byte("cc")}); err != nil {
@@ -142,12 +265,12 @@ func TestWindowPreloadHintURIBecomesThePublishedPartURI(t *testing.T) {
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("part-0")})
 	partURI := func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }
 	segmentURI := func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }
-	playlist := w.Playlist("p", "v", partURI, segmentURI, "init.mp4")
+	playlist := w.Playlist("p", "v", partURI, segmentURI, "init.mp4", nil)
 	if !strings.Contains(playlist, `#EXT-X-PRELOAD-HINT:TYPE=PART,URI="1/1.m4s"`) {
 		t.Fatalf("playlist omitted preload hint:\n%s", playlist)
 	}
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 1, Data: []byte("part-1")})
-	playlist = w.Playlist("p", "v", partURI, segmentURI, "init.mp4")
+	playlist = w.Playlist("p", "v", partURI, segmentURI, "init.mp4", nil)
 	if !strings.Contains(playlist, `#EXT-X-PART:DURATION=0.000000,URI="1/1.m4s"`) {
 		t.Fatalf("published part did not retain hinted URI:\n%s", playlist)
 	}
@@ -242,6 +365,7 @@ func TestWindowExactPartWaitReturnsUnavailableAfterEviction(t *testing.T) {
 	w := NewWindow(WithMaxSegments(1))
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("old")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 1})
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Part: 0, Data: []byte("new")})
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -271,7 +395,7 @@ func TestPlaylistContainsLLTagsAndOnlyCompleteParentURI(t *testing.T) {
 	if err := w.Observe(Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 4, Part: 0, Duration: 500 * time.Millisecond, Independent: true, Data: []byte("p")}); err != nil {
 		t.Fatal(err)
 	}
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	for _, want := range []string{"#EXT-X-VERSION:10", "#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", `URI="4/0.m4s"`, `#EXT-X-PRELOAD-HINT:TYPE=PART,URI="4/1.m4s"`, "INDEPENDENT=YES"} {
 		if !strings.Contains(playlist, want) {
 			t.Errorf("playlist missing %q:\n%s", want, playlist)
@@ -282,6 +406,46 @@ func TestPlaylistContainsLLTagsAndOnlyCompleteParentURI(t *testing.T) {
 	}
 	if strings.Contains(playlist, "\n4.m4s\n") {
 		t.Error("incomplete parent must not be published")
+	}
+}
+
+func TestPlaylistSegmentsOnlyOmitsLLPartTags(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "audio", Generation: 1, Data: []byte("init")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Part: 0, Duration: time.Second, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Part: 1, Duration: time.Second, Data: []byte("b")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Duration: 2 * time.Second, Data: []byte("ab")})
+
+	playlist := w.PlaylistSegmentsOnly("p", "audio", func(msn uint64, part uint32) string {
+		return fmt.Sprintf("%d/%d.m4s", msn, part)
+	}, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
+	for _, forbidden := range []string{"#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", "#EXT-X-PART:", "#EXT-X-PRELOAD-HINT:", "#EXT-X-RENDITION-REPORT:"} {
+		if strings.Contains(playlist, forbidden) {
+			t.Errorf("segments-only playlist contains %q:\n%s", forbidden, playlist)
+		}
+	}
+	if !strings.Contains(playlist, "#EXTINF:2.000000,") || !strings.Contains(playlist, "4.m4s") {
+		t.Fatalf("segments-only playlist omitted complete parent:\n%s", playlist)
+	}
+}
+
+func TestPlaylistEmitsIndependentSegmentsOnlyWhenAllParentsStartIndependently(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Independent: true, Data: []byte("key")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: time.Second, Data: []byte("segment")})
+
+	playlist := w.Playlist("p", "video", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-INDEPENDENT-SEGMENTS") {
+		t.Fatalf("playlist omitted independent-segments declaration for an independent parent:\n%s", playlist)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Part: 0, Duration: time.Second, Independent: false, Data: []byte("delta")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Duration: time.Second, Data: []byte("segment")})
+
+	playlist = w.Playlist("p", "video", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
+	if strings.Contains(playlist, "#EXT-X-INDEPENDENT-SEGMENTS") {
+		t.Fatalf("playlist declared independent segments despite a non-independent parent:\n%s", playlist)
 	}
 }
 
@@ -303,9 +467,68 @@ func TestPlaylistIncludesProgramDateTimeForLiveSegments(t *testing.T) {
 	})
 	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 4, Start: 2 * time.Second, Duration: time.Second, Data: []byte("segment")})
 
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-PROGRAM-DATE-TIME:2026-08-31T22:36:12.351Z") {
 		t.Fatalf("playlist missing program date time:\n%s", playlist)
+	}
+}
+
+func TestPlaylistsKeepProgramDateTimeAlignedAcrossTrackDurations(t *testing.T) {
+	w := NewWindow()
+	base := time.Date(2026, time.August, 31, 22, 36, 12, 0, time.UTC)
+	for _, track := range []struct {
+		name      string
+		parentDur []time.Duration
+	}{
+		{name: "video", parentDur: []time.Duration{2 * time.Second, 2 * time.Second}},
+		{name: "audio", parentDur: []time.Duration{1984 * time.Millisecond, 2005 * time.Millisecond}},
+	} {
+		observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: track.name, Generation: 1})
+		var start time.Duration
+		for msn, duration := range track.parentDur {
+			observeEvent(t, w, Event{
+				Kind:            Part,
+				Presentation:    "p",
+				Track:           track.name,
+				Generation:      1,
+				MSN:             uint64(msn),
+				Start:           start,
+				Duration:        duration,
+				ProgramDateTime: base.Add(time.Duration(msn) * 2 * time.Second),
+				Data:            []byte("part"),
+			})
+			observeEvent(t, w, Event{
+				Kind:         SegmentComplete,
+				Presentation: "p",
+				Track:        track.name,
+				Generation:   1,
+				MSN:          uint64(msn),
+				Start:        start,
+				Duration:     duration,
+				Data:         []byte("segment"),
+			})
+			start += duration
+		}
+	}
+
+	playlistDates := func(playlist string) []string {
+		var dates []string
+		for _, line := range strings.Split(playlist, "\n") {
+			if strings.HasPrefix(line, "#EXT-X-PROGRAM-DATE-TIME:") {
+				dates = append(dates, strings.TrimPrefix(line, "#EXT-X-PROGRAM-DATE-TIME:"))
+			}
+		}
+		return dates
+	}
+	partURI := func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }
+	segmentURI := func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }
+	videoDates := playlistDates(w.Playlist("p", "video", partURI, segmentURI, "video-init.mp4", nil))
+	audioDates := playlistDates(w.Playlist("p", "audio", partURI, segmentURI, "audio-init.mp4", nil))
+	if len(videoDates) != 2 || len(audioDates) != 2 {
+		t.Fatalf("program date time counts = video %v, audio %v", videoDates, audioDates)
+	}
+	if videoDates[1] != audioDates[1] {
+		t.Fatalf("corresponding parent dates diverged: video=%s audio=%s", videoDates[1], audioDates[1])
 	}
 }
 
@@ -319,7 +542,7 @@ func TestPlaylistOnlyPublishesPartsForOpenParent(t *testing.T) {
 		}
 	}
 
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if strings.Contains(playlist, `URI="1/0.m4s"`) {
 		t.Fatalf("completed parent still has a part:\n%s", playlist)
 	}
@@ -344,7 +567,7 @@ func TestPlaylistRendersAfterInitBeforeFirstPart(t *testing.T) {
 	w := NewWindow()
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
 
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-MAP:URI=\"init.mp4\"") {
 		t.Fatalf("playlist omitted init map:\n%s", playlist)
 	}
@@ -359,13 +582,22 @@ func TestWindowStoresVideoConfig(t *testing.T) {
 	}
 }
 
+func TestWindowStoresAudioConfig(t *testing.T) {
+	w := NewWindow()
+	w.SetAudioConfig(AudioConfig{Channels: 1})
+
+	if got := w.AudioConfig(); got != (AudioConfig{Channels: 1}) {
+		t.Fatalf("audio config = %+v", got)
+	}
+}
+
 func TestPlaylistDurationsFreezeForPresentationAndRoundTargetDuration(t *testing.T) {
 	w := NewWindow()
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Duration: 1050 * time.Millisecond, Data: []byte("part")})
 	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Duration: 5400 * time.Millisecond, Data: []byte("segment")})
 
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:6") {
 		t.Fatalf("playlist did not use the conservative parent duration contract:\n%s", playlist)
 	}
@@ -378,7 +610,7 @@ func TestPlaylistDurationsFreezeForPresentationAndRoundTargetDuration(t *testing
 
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Part: 0, Duration: time.Second, Data: []byte("later-part")})
 	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Duration: 6 * time.Second, Data: []byte("later-segment")})
-	playlist = w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist = w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:6") || !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=1.100000") {
 		t.Fatalf("playlist durations changed during presentation:\n%s", playlist)
 	}
@@ -389,7 +621,7 @@ func TestPlaylistUsesConfiguredPartTargetWithoutGrowing(t *testing.T) {
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
 	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Duration: 500 * time.Millisecond, Data: []byte("part")})
 
-	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+	playlist := w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=1.100000") {
 		t.Fatalf("playlist did not preserve the presentation part target:\n%s", playlist)
 	}
@@ -398,13 +630,13 @@ func TestPlaylistUsesConfiguredPartTargetWithoutGrowing(t *testing.T) {
 func TestPlaylistDurationContractRoundsAndResetsPerPresentation(t *testing.T) {
 	w := NewWindow(WithPlaylistDurations(2500*time.Millisecond, 750*time.Millisecond))
 	observeEvent(t, w, Event{Kind: Init, Presentation: "first", Track: "v", Generation: 1})
-	playlist := w.Playlist("first", "v", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4")
+	playlist := w.Playlist("first", "v", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:3") || !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=0.750000") {
 		t.Fatalf("playlist did not use configured rounded durations:\n%s", playlist)
 	}
 
 	observeEvent(t, w, Event{Kind: Init, Presentation: "second", Track: "v", Generation: 1})
-	playlist = w.Playlist("second", "v", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4")
+	playlist = w.Playlist("second", "v", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:3") || !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=0.750000") {
 		t.Fatalf("new presentation did not retain configured durations:\n%s", playlist)
 	}
@@ -420,9 +652,115 @@ func TestPlaylistUsesOneTargetDurationAcrossTracks(t *testing.T) {
 	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 1, Duration: 6 * time.Second, Data: []byte("audio")})
 
 	for _, track := range []string{"video", "audio"} {
-		playlist := w.Playlist("p", track, func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4")
+		playlist := w.Playlist("p", track, func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 		if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:6") {
 			t.Errorf("%s playlist did not use the window-wide target duration:\n%s", track, playlist)
 		}
+	}
+}
+
+func TestWindowPlaylistRenditionReports(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "audio", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Data: []byte("v")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Data: []byte("v")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Part: 0, Data: []byte("v")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Part: 1, Data: []byte("v")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 1, Part: 0, Data: []byte("a")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 1, Data: []byte("a")})
+
+	partURI := func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }
+	segmentURI := func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }
+	renditionURI := func(track string) string { return "/r/" + track + "/index.m3u8" }
+
+	// Open audio segment with no parts yet falls back to its completed MSN.
+	video := w.Playlist("p", "video", partURI, segmentURI, "init.mp4", renditionURI)
+	if !strings.Contains(video, `#EXT-X-RENDITION-REPORT:URI="/r/audio/index.m3u8",LAST-MSN=1`) || strings.Contains(video, "LAST-PART") {
+		t.Fatalf("video playlist audio report wrong:\n%s", video)
+	}
+	if strings.Contains(video, "/r/video/index.m3u8") {
+		t.Fatalf("video playlist reports itself:\n%s", video)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 2, Part: 0, Data: []byte("a")})
+	audio := w.Playlist("p", "audio", partURI, segmentURI, "init.mp4", renditionURI)
+	if !strings.Contains(audio, `#EXT-X-RENDITION-REPORT:URI="/r/video/index.m3u8",LAST-MSN=2,LAST-PART=1`) {
+		t.Fatalf("audio playlist video report wrong:\n%s", audio)
+	}
+	audio = w.Playlist("p", "audio", partURI, segmentURI, "init.mp4", nil)
+	if strings.Contains(audio, "RENDITION-REPORT") {
+		t.Fatalf("nil rendition URI must not emit reports:\n%s", audio)
+	}
+}
+
+func TestWindowEvictionNeverStrandsOpenSegments(t *testing.T) {
+	// The only segment of the track is still open when its own bytes exceed
+	// the eviction threshold: it remains in place so its remaining parts and
+	// completion can still be published.
+	w := NewWindow(WithMaxBytes(100))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("aaa")})
+
+	if err := w.Observe(Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 1, Data: []byte("aaa")}); err != nil {
+		t.Fatalf("open segment was stranded by eviction: %v", err)
+	}
+	if err := w.Observe(Event{Kind: SegmentComplete, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Data: []byte("aaaaaa")}); err != nil {
+		t.Fatalf("segment completion failed after eviction pressure: %v", err)
+	}
+}
+
+func TestWindowRejectsUnboundedOpenSegmentGrowth(t *testing.T) {
+	w := NewWindow(WithMaxBytes(2))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	if err := w.Observe(Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("aaa")}); err != ErrWindowCapacity {
+		t.Fatalf("open segment overflow error = %v, want %v", err, ErrWindowCapacity)
+	}
+	if got := w.Bytes(); got != len("aaa") {
+		t.Fatalf("bytes after rejected part = %d, want %d", got, len("aaa"))
+	}
+}
+
+func TestWindowEvictionRetainsHistoryForSmallTracks(t *testing.T) {
+	// A large track driving the shared byte budget over its limit must not
+	// drain a small sibling track below the retained history floor.
+	w := NewWindow(WithMaxBytes(200))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "audio", Generation: 1})
+	for msn := uint64(1); msn <= 20; msn++ {
+		observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: msn, Part: 0, Data: bytes.Repeat([]byte("v"), 20)})
+		observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: msn, Data: bytes.Repeat([]byte("v"), 20)})
+		observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: msn, Part: 0, Data: []byte("a")})
+		observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: msn, Data: []byte("a")})
+	}
+
+	got := w.Snapshot("p", "audio").Segments
+	if len(got) != minRetainedSegments {
+		t.Fatalf("audio history after eviction = %d segments, want %d", len(got), minRetainedSegments)
+	}
+	if first := got[0].MSN; first != 21-minRetainedSegments {
+		t.Fatalf("audio history starts at MSN %d, want %d", first, 21-minRetainedSegments)
+	}
+	if got := w.Snapshot("p", "video").Segments; len(got) == 0 {
+		t.Fatal("video history was emptied")
+	}
+}
+
+func TestWindowDiscontinuityReleasesSegmentBytes(t *testing.T) {
+	w := NewWindow(WithMaxBytes(100))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 1, Part: 0, Data: []byte("part")})
+	if got := w.Bytes(); got != len("part") {
+		t.Fatalf("bytes before discontinuity = %d, want %d", got, len("part"))
+	}
+
+	observeEvent(t, w, Event{Kind: Discontinuity, Presentation: "p", Track: "v", Generation: 1})
+	if got := w.Bytes(); got != 0 {
+		t.Fatalf("bytes after discontinuity = %d, want 0", got)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 2, Part: 0, Data: []byte("new")})
+	if got := w.Bytes(); got != len("new") {
+		t.Fatalf("bytes after new part = %d, want %d", got, len("new"))
 	}
 }

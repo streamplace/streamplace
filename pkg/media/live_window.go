@@ -20,8 +20,11 @@ const liveWindowSize = 12
 // to drive count-based eviction.
 const liveWindowRetention = 30 * time.Second
 
-const llhlsWindowSegments = 30
-const llhlsWindowBytes = 64 << 20
+const (
+	llhlsWindowSegments   = 30
+	llhlsWindowBytes      = 64 << 20
+	llhlsLivePartHoldBack = 5 * llhlsPartTarget
+)
 
 // llhlsCompletionHold keeps a finished parent open briefly so a blocking
 // reload for its final part can observe and fetch that part before completion
@@ -33,7 +36,13 @@ func (mm *MediaManager) llWindow(did string) *llhls.Window {
 	defer mm.llWindowsMut.Unlock()
 	w := mm.llWindows[did]
 	if w == nil {
-		w = llhls.NewWindow(llhls.WithMaxSegments(llhlsWindowSegments), llhls.WithMaxBytes(llhlsWindowBytes), llhls.WithSegmentCompletionDelay(llhlsCompletionHold))
+		w = llhls.NewWindow(
+			llhls.WithMaxSegments(llhlsWindowSegments),
+			llhls.WithMaxBytes(llhlsWindowBytes),
+			llhls.WithPlaylistDurations(llhlsParentDuration, llhlsPartTarget),
+			llhls.WithPartHoldBack(llhlsLivePartHoldBack),
+			llhls.WithSegmentCompletionDelay(llhlsCompletionHold),
+		)
 		mm.llWindows[did] = w
 	}
 	return w

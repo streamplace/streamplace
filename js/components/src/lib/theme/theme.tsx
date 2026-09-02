@@ -401,7 +401,7 @@ function generateThemeColorsFromPalette(
     // product looks the same everywhere.) Pink/magenta, aligned with the
     // web app's `--primary`.
     primary: colors.primary[500],
-    primaryForeground: isDark ? "#ece5f2" : "#fdf6fa",
+    primaryForeground: colors.white,
 
     // Teal, aligned with the web app's `--secondary`.
     secondary: isDefaultPalette
@@ -409,25 +409,19 @@ function generateThemeColorsFromPalette(
       : isDark
         ? palette[800]
         : palette[100],
-    secondaryForeground: isDark ? "#09060d" : "#fdf6fa",
+    secondaryForeground: isDark ? surfaces.dark[0] : colors.white,
 
-    muted: isDefaultPalette
-      ? isDark
-        ? "#231e23"
-        : "#f5e8f0"
-      : isDark
-        ? palette[800]
-        : palette[100],
+    muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
     mutedForeground: text[2],
 
     accent: isDefaultPalette
       ? isDark
         ? colors.secondary[500]
-        : "#f5e8f0"
+        : surface[2]
       : isDark
         ? palette[800]
         : palette[100],
-    accentForeground: isDark ? "#070707" : "#3d1c44",
+    accentForeground: isDark ? surfaces.dark[0] : text[1],
 
     destructive: status.danger,
     destructiveForeground: colors.white,

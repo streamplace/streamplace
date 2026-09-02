@@ -26,6 +26,38 @@ func TestIsCMAFInit(t *testing.T) {
 	}
 }
 
+func TestCMAFPartPublishesFullSizedFirstPartImmediately(t *testing.T) {
+	state := &cmafTrackSink{
+		presentation: "test",
+		track:        "audio",
+		window:       llhls.NewWindow(),
+		generation:   1,
+		partDuration: time.Second,
+		partTarget:   1100 * time.Millisecond,
+	}
+	if err := state.window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "test", Track: "audio", Generation: 1, Data: []byte("init")}); err != nil {
+		t.Fatal(err)
+	}
+
+	part := cmafPendingPart{
+		data:     []byte("full-sized-part"),
+		start:    0,
+		duration: 939 * time.Millisecond,
+		set:      true,
+	}
+	if err := state.queuePart(part); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := state.window.Snapshot("test", "audio")
+	if len(snapshot.Segments) != 1 || len(snapshot.Segments[0].Parts) != 1 {
+		t.Fatalf("full-sized first part was held back: %+v", snapshot.Segments)
+	}
+	if got := snapshot.Segments[0].Parts[0].Duration; got != part.duration {
+		t.Fatalf("published part duration = %s, want %s", got, part.duration)
+	}
+}
+
 func TestCMAFMuxEmitsFragmentedBufferLists(t *testing.T) {
 	gstinit.InitGST()
 	if gst.Find("cmafmux") == nil || gst.Find("x264enc") == nil {
@@ -121,7 +153,7 @@ func TestCMAFMuxEmitsFragmentedBufferLists(t *testing.T) {
 		return fmt.Sprintf("%d/%d.m4s", msn, part)
 	}, func(msn uint64) string {
 		return fmt.Sprintf("%d.m4s", msn)
-	}, "init.mp4")
+	}, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-PROGRAM-DATE-TIME:") {
 		t.Fatalf("CMAF playlist is missing program date time:\n%s", playlist)
 	}

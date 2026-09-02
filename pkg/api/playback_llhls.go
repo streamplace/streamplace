@@ -46,23 +46,37 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
 			return
 		}
+		if len(window.Snapshot(presentation, "video").Init) == 0 || len(window.Snapshot(presentation, "audio").Init) == 0 {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
+			return
+		}
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := renderLLHLSMaster(base, window.VideoConfig())
+		body := renderLLHLSMaster(base, window.VideoConfig(), window.AudioConfig())
 		writeLLHLSPlaylist(w, body)
 	}
 }
 
-func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig) string {
+func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig llhls.AudioConfig) string {
 	codec := videoConfig.Codec
 	if codec == "" {
 		codec = "avc1.64001f"
 	}
-	streamInf := fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS=%q", codec+",mp4a.40.2")
+	channels := audioConfig.Channels
+	if channels <= 0 {
+		channels = 2
+	}
+	var b strings.Builder
+	b.WriteString("#EXTM3U\n#EXT-X-VERSION:10\n")
+	fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,CODECS=%q,URI=%q\n",
+		"audio", "default", strconv.Itoa(channels), "mp4a.40.2", base+"/audio/index.m3u8")
+	streamInf := fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=6500000,CODECS=%q", codec+",mp4a.40.2")
 	if videoConfig.Width > 0 && videoConfig.Height > 0 {
 		streamInf += fmt.Sprintf(",RESOLUTION=%dx%d", videoConfig.Width, videoConfig.Height)
 	}
-	streamInf += ",CLOSED-CAPTIONS=NONE"
-	return "#EXTM3U\n#EXT-X-VERSION:10\n" + streamInf + "\n" + base + "/video/index.m3u8\n"
+	streamInf += ",AUDIO=\"audio\",CLOSED-CAPTIONS=NONE"
+	b.WriteString(streamInf + "\n" + base + "/video/index.m3u8\n")
+	return b.String()
 }
 
 func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {
@@ -136,10 +150,19 @@ func (a *StreamplaceAPI) HandleLLHLSPlaylist(ctx context.Context) httprouter.Han
 			}
 		}
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s/%s", url.PathEscape(did), url.PathEscape(presentation), track)
-		body := window.Playlist(presentation, track,
+		renditionBase := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
+		playlist := window.Playlist
+		if track == "audio" {
+			// Safari's native LL-HLS path loses audio when AAC parts are exposed
+			// as a second low-latency rendition. Keep audio on complete parents;
+			// video remains low latency.
+			playlist = window.PlaylistSegmentsOnly
+		}
+		body := playlist(presentation, track,
 			func(msn uint64, part uint32) string { return fmt.Sprintf("%s/%d/%d.m4s", base, msn, part) },
 			func(msn uint64) string { return fmt.Sprintf("%s/%d.m4s", base, msn) },
-			base+"/init.mp4")
+			base+"/init.mp4",
+			func(otherTrack string) string { return fmt.Sprintf("%s/%s/index.m3u8", renditionBase, otherTrack) })
 		if body == "" {
 			apierrors.WriteHTTPNotFound(w, "track not found", nil)
 			return
@@ -193,7 +216,7 @@ func (a *StreamplaceAPI) HandleLLHLSInit(ctx context.Context) httprouter.Handle 
 		} else {
 			log.Debug(r.Context(), "LL-HLS init response", "presentation", presentation, "track", track, "bytes", len(data))
 		}
-		serveLLHLSBytes(w, r, data, "init.mp4", false)
+		serveLLHLSBytes(w, r, data, "init.mp4", false, llhlsTrackMIMEType(track))
 	}
 }
 
@@ -222,7 +245,7 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 		} else {
 			log.Debug(r.Context(), "LL-HLS part response", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "bytes", len(data))
 		}
-		serveLLHLSBytes(w, r, data, "part.m4s", true)
+		serveLLHLSBytes(w, r, data, "part.m4s", true, llhlsTrackMIMEType(track))
 	}
 }
 
@@ -245,7 +268,7 @@ func (a *StreamplaceAPI) HandleLLHLSSegment(ctx context.Context) httprouter.Hand
 		} else {
 			log.Debug(r.Context(), "LL-HLS segment response", "presentation", presentation, "track", track, "msn", msn, "bytes", len(data))
 		}
-		serveLLHLSBytes(w, r, data, "segment.m4s", true)
+		serveLLHLSBytes(w, r, data, "segment.m4s", true, llhlsTrackMIMEType(track))
 	}
 }
 
@@ -256,13 +279,20 @@ func writeLLHLSPlaylist(w http.ResponseWriter, body string) {
 	_, _ = w.Write([]byte(body))
 }
 
-func serveLLHLSBytes(w http.ResponseWriter, r *http.Request, data []byte, name string, immutable bool) {
+func llhlsTrackMIMEType(track string) string {
+	if track == "audio" {
+		return "audio/mp4"
+	}
+	return "video/mp4"
+}
+
+func serveLLHLSBytes(w http.ResponseWriter, r *http.Request, data []byte, name string, immutable bool, contentType string) {
 	if len(data) == 0 {
 		w.Header().Set("Cache-Control", "no-store")
 		apierrors.WriteHTTPNotFound(w, "media not found", nil)
 		return
 	}
-	w.Header().Set("Content-Type", "video/mp4")
+	w.Header().Set("Content-Type", contentType)
 	if immutable {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else {

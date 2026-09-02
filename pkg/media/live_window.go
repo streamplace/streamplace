@@ -29,12 +29,20 @@ const liveWindowRetention = 30 * time.Second
 const llhlsWindowSegments = 30
 const llhlsWindowBytes = 64 << 20
 
+// llhlsCompletionHold keeps a finished parent segment appearing open just
+// long enough for players blocking on its final part to see that part listed
+// and fetch it. The muxer emits the final part and the segment completion in
+// the same instant; without the hold the completion wins the playlist update,
+// the part request rolls over, and players re-fetch the whole segment.
+// Safari audibly replays the segment's audio when that fallback fires.
+const llhlsCompletionHold = 300 * time.Millisecond
+
 func (mm *MediaManager) llWindow(did string) *llhls.Window {
 	mm.llWindowsMut.Lock()
 	defer mm.llWindowsMut.Unlock()
 	w := mm.llWindows[did]
 	if w == nil {
-		w = llhls.NewWindow(llhls.WithMaxSegments(llhlsWindowSegments), llhls.WithMaxBytes(llhlsWindowBytes))
+		w = llhls.NewWindow(llhls.WithMaxSegments(llhlsWindowSegments), llhls.WithMaxBytes(llhlsWindowBytes), llhls.WithSegmentCompletionDelay(llhlsCompletionHold))
 		mm.llWindows[did] = w
 	}
 	return w

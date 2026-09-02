@@ -33,6 +33,20 @@ type cmafTFHDMetadata struct {
 	haveDefaultFlags      bool
 }
 
+const (
+	tfhdBaseDataOffsetPresent    = 0x000001
+	tfhdSampleDescriptionPresent = 0x000002
+	tfhdDefaultSampleDuration    = 0x000008
+	tfhdDefaultSampleSize        = 0x000010
+	tfhdDefaultSampleFlags       = 0x000020
+	trunDataOffsetPresent        = 0x000001
+	trunFirstSampleFlagsPresent  = 0x000004
+	trunSampleDurationPresent    = 0x000100
+	trunSampleSizePresent        = 0x000200
+	trunSampleFlagsPresent       = 0x000400
+	trunCompositionOffsetPresent = 0x000800
+)
+
 func inspectCMAFFragment(data []byte) ([]cmafFragmentTiming, error) {
 	var timings []cmafFragmentTiming
 	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
@@ -454,32 +468,32 @@ func parseCMAFTFHD(payload []byte) (cmafTFHDMetadata, error) {
 	flags := binary.BigEndian.Uint32(payload[0:4]) & 0x00ffffff
 	metadata := cmafTFHDMetadata{trackID: binary.BigEndian.Uint32(payload[4:8])}
 	offset := 8
-	if flags&0x000001 != 0 {
+	if flags&tfhdBaseDataOffsetPresent != 0 {
 		if len(payload) < offset+8 {
 			return cmafTFHDMetadata{}, fmt.Errorf("tfhd base-data-offset is truncated")
 		}
 		offset += 8
 	}
-	if flags&0x000002 != 0 {
+	if flags&tfhdSampleDescriptionPresent != 0 {
 		if len(payload) < offset+4 {
 			return cmafTFHDMetadata{}, fmt.Errorf("tfhd sample-description-index is truncated")
 		}
 		offset += 4
 	}
-	if flags&0x000008 != 0 {
+	if flags&tfhdDefaultSampleDuration != 0 {
 		if len(payload) < offset+4 {
 			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample duration is truncated")
 		}
 		metadata.defaultSampleDuration = binary.BigEndian.Uint32(payload[offset : offset+4])
 		offset += 4
 	}
-	if flags&0x000010 != 0 {
+	if flags&tfhdDefaultSampleSize != 0 {
 		if len(payload) < offset+4 {
 			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample size is truncated")
 		}
 		offset += 4
 	}
-	if flags&0x000020 != 0 {
+	if flags&tfhdDefaultSampleFlags != 0 {
 		if len(payload) < offset+4 {
 			return cmafTFHDMetadata{}, fmt.Errorf("tfhd default sample flags are truncated")
 		}
@@ -496,15 +510,15 @@ func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNM
 	flags := binary.BigEndian.Uint32(payload[0:4]) & 0x00ffffff
 	metadata := cmafTRUNMetadata{sampleCount: binary.BigEndian.Uint32(payload[4:8])}
 	offset := 8
-	if flags&0x000001 != 0 {
+	if flags&trunDataOffsetPresent != 0 {
 		if len(payload) < offset+4 {
 			return cmafTRUNMetadata{}, fmt.Errorf("trun data offset is truncated")
 		}
 		offset += 4
 	}
-	// GStreamer treats the combination of first-sample-flags and per-sample
-	// flags as invalid and gives precedence to the per-sample flags.
-	if flags&0x000004 != 0 && flags&0x000400 == 0 {
+	// When both flag fields are present, GStreamer uses the per-sample value
+	// for the first sample.
+	if flags&trunFirstSampleFlagsPresent != 0 && flags&trunSampleFlagsPresent == 0 {
 		if len(payload) < offset+4 {
 			return cmafTRUNMetadata{}, fmt.Errorf("trun first-sample-flags is truncated")
 		}
@@ -514,7 +528,7 @@ func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNM
 	}
 	for i := uint32(0); i < metadata.sampleCount; i++ {
 		sampleDuration := defaults.defaultSampleDuration
-		if flags&0x000100 != 0 {
+		if flags&trunSampleDurationPresent != 0 {
 			if len(payload) < offset+4 {
 				return cmafTRUNMetadata{}, fmt.Errorf("trun sample duration is truncated at sample %d", i)
 			}
@@ -524,13 +538,13 @@ func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNM
 			return cmafTRUNMetadata{}, fmt.Errorf("trun has no sample duration at sample %d", i)
 		}
 		metadata.duration += uint64(sampleDuration)
-		if flags&0x000200 != 0 {
+		if flags&trunSampleSizePresent != 0 {
 			if len(payload) < offset+4 {
 				return cmafTRUNMetadata{}, fmt.Errorf("trun sample size is truncated at sample %d", i)
 			}
 			offset += 4
 		}
-		if flags&0x000400 != 0 {
+		if flags&trunSampleFlagsPresent != 0 {
 			if len(payload) < offset+4 {
 				return cmafTRUNMetadata{}, fmt.Errorf("trun sample flags are truncated at sample %d", i)
 			}
@@ -540,7 +554,7 @@ func parseCMAFTRUNMetadata(payload []byte, defaults cmafTFHDMetadata) (cmafTRUNM
 			}
 			offset += 4
 		}
-		if flags&0x000800 != 0 {
+		if flags&trunCompositionOffsetPresent != 0 {
 			if len(payload) < offset+4 {
 				return cmafTRUNMetadata{}, fmt.Errorf("trun composition offset is truncated at sample %d", i)
 			}

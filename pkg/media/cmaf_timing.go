@@ -3,6 +3,7 @@ package media
 import (
 	"encoding/binary"
 	"fmt"
+	"time"
 )
 
 type cmafFragmentTiming struct {
@@ -123,6 +124,32 @@ func inspectCMAFFirstVideoSampleIndependent(data []byte, videoTrackID uint32) (b
 	return inspectCMAFFragmentIndependence(data, map[uint32]bool{videoTrackID: true})
 }
 
+func inspectCMAFFragmentHasVideo(data []byte, videoTrackIDs map[uint32]bool) (bool, error) {
+	var foundVideo bool
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moof" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "traf" {
+				return nil
+			}
+			metadata, err := inspectCMAFTrackFragmentMetadata(childPayload)
+			if err != nil {
+				return err
+			}
+			if videoTrackIDs[metadata.timing.TrackID] {
+				foundVideo = true
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return false, err
+	}
+	return foundVideo, nil
+}
+
 func inspectCMAFFragmentIndependence(data []byte, videoTrackIDs map[uint32]bool) (bool, error) {
 	var foundVideo bool
 	var independent bool
@@ -194,6 +221,176 @@ func cmafVideoTrackIDs(data []byte) (map[uint32]bool, error) {
 		return nil, fmt.Errorf("CMAF init contains no video track")
 	}
 	return videoTrackIDs, nil
+}
+
+func cmafTrackTimescale(data []byte) (uint32, error) {
+	var timescale uint32
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moov" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "trak" {
+				return nil
+			}
+			return walkCMAFBoxes(childPayload, func(trackChildType string, trackChildPayload []byte) error {
+				if trackChildType != "mdia" {
+					return nil
+				}
+				return walkCMAFBoxes(trackChildPayload, func(mediaChildType string, mediaChildPayload []byte) error {
+					if mediaChildType != "mdhd" || timescale != 0 {
+						return nil
+					}
+					parsed, err := parseCMAFMDHD(mediaChildPayload)
+					if err == nil {
+						timescale = parsed
+					}
+					return err
+				})
+			})
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	if timescale == 0 {
+		return 0, fmt.Errorf("CMAF init contains no track timescale")
+	}
+	return timescale, nil
+}
+
+func cmafAudioChannels(data []byte) (int, error) {
+	var channels int
+	var foundAudio bool
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "moov" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "trak" {
+				return nil
+			}
+			trackChannels, found, err := cmafAudioTrackChannels(childPayload)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return nil
+			}
+			if foundAudio {
+				return fmt.Errorf("CMAF init contains multiple audio tracks")
+			}
+			channels = trackChannels
+			foundAudio = true
+			return nil
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	if !foundAudio {
+		return 0, fmt.Errorf("CMAF init contains no audio track")
+	}
+	return channels, nil
+}
+
+func cmafAudioTrackChannels(data []byte) (int, bool, error) {
+	var handler string
+	err := walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "mdia" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "hdlr" {
+				return nil
+			}
+			if len(childPayload) < 12 {
+				return fmt.Errorf("hdlr is truncated")
+			}
+			handler = string(childPayload[8:12])
+			return nil
+		})
+	})
+	if err != nil {
+		return 0, false, err
+	}
+	if handler != "soun" {
+		return 0, false, nil
+	}
+
+	var channels int
+	err = walkCMAFBoxes(data, func(boxType string, payload []byte) error {
+		if boxType != "mdia" {
+			return nil
+		}
+		return walkCMAFBoxes(payload, func(childType string, childPayload []byte) error {
+			if childType != "minf" {
+				return nil
+			}
+			return walkCMAFBoxes(childPayload, func(minfChildType string, minfChildPayload []byte) error {
+				if minfChildType != "stbl" {
+					return nil
+				}
+				return walkCMAFBoxes(minfChildPayload, func(stblChildType string, stblChildPayload []byte) error {
+					if stblChildType != "stsd" || channels != 0 {
+						return nil
+					}
+					if len(stblChildPayload) < 8 {
+						return fmt.Errorf("stsd is truncated")
+					}
+					return walkCMAFBoxes(stblChildPayload[8:], func(entryType string, entryPayload []byte) error {
+						if entryType != "mp4a" || channels != 0 {
+							return nil
+						}
+						if len(entryPayload) < 18 {
+							return fmt.Errorf("mp4a sample entry is truncated")
+						}
+						channels = int(binary.BigEndian.Uint16(entryPayload[16:18]))
+						if channels == 0 {
+							return fmt.Errorf("mp4a sample entry has no channels")
+						}
+						return nil
+					})
+				})
+			})
+		})
+	})
+	if err != nil {
+		return 0, false, err
+	}
+	if channels == 0 {
+		return 0, false, fmt.Errorf("CMAF audio track contains no mp4a sample entry")
+	}
+	return channels, true, nil
+}
+
+func parseCMAFMDHD(payload []byte) (uint32, error) {
+	if len(payload) < 4 {
+		return 0, fmt.Errorf("mdhd is truncated")
+	}
+	switch payload[0] {
+	case 0:
+		if len(payload) < 16 {
+			return 0, fmt.Errorf("version 0 mdhd is truncated")
+		}
+		return binary.BigEndian.Uint32(payload[12:16]), nil
+	case 1:
+		if len(payload) < 24 {
+			return 0, fmt.Errorf("version 1 mdhd is truncated")
+		}
+		return binary.BigEndian.Uint32(payload[20:24]), nil
+	default:
+		return 0, fmt.Errorf("unsupported mdhd version %d", payload[0])
+	}
+}
+
+func cmafDecodeTimeDuration(decodeTime uint64, timescale uint32) time.Duration {
+	if timescale == 0 {
+		return 0
+	}
+	wholeSeconds := decodeTime / uint64(timescale)
+	remainder := decodeTime % uint64(timescale)
+	return time.Duration(wholeSeconds)*time.Second + time.Duration(remainder)*time.Second/time.Duration(timescale)
 }
 
 func parseCMAFTrak(data []byte) (trackID uint32, handler string, err error) {

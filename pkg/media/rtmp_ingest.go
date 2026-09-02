@@ -72,12 +72,19 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		llEnabled = false
 	}
 	if llEnabled {
-		// Keep audio and video in one CMAF output so both tracks are published
-		// atomically with one set of parent and part boundaries.
+		// Audio and video are muxed into separate CMAF renditions: AVPlayer's
+		// low-latency part stitcher mis-times muxed AAC against the video part
+		// grid (AAC frames do not divide evenly into it), so audio gets its
+		// own parts cut on AAC frame boundaries. The renditions are tied
+		// together by a shared program-date-time anchor.
 		pipelineSlice = append(pipelineSlice,
-			fmt.Sprintf("isofmp4mux name=ll_video_mux fragment-duration=%d chunk-duration=%d ! appsink name=ll_video_sink sync=false", llhlsParentDuration, llhlsPartDuration),
+			fmt.Sprintf("isofmp4mux name=ll_video_mux fragment-duration=%d chunk-duration=%d ! appsink name=ll_video_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
+			fmt.Sprintf("isofmp4mux name=ll_audio_mux manual-split=true fragment-duration=%d chunk-duration=%d ! appsink name=ll_audio_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
 			"demux.audio ! queue ! aacparse name=audioenc ! audio/mpeg,mpegversion=4,stream-format=raw ! tee name=audio_tee",
-			"audio_tee. ! queue ! ll_video_mux.",
+			// The manual-split mux waits for a future AAC buffer to carry each
+			// split marker. The default one-second queue time limit can fill
+			// before that buffer arrives and deadlock the muxer.
+			"audio_tee. ! queue name=ll_audio_queue max-size-time=0 ! ll_audio_mux.",
 			"audio_tee. ! queue name=audio_signer_queue",
 			"demux.video ! queue ! h264parse name=parse ! video/x-h264,stream-format=avc,alignment=au ! tee name=video_tee",
 			"video_tee. ! queue ! ll_video_mux.",
@@ -158,6 +165,11 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 			log.Error(ctx, "error setting pipeline to null state", "error", err)
 		}
 	}()
+	if llEnabled {
+		if err := startLLAudioSplitter(ctx, pipeline); err != nil {
+			return err
+		}
+	}
 
 	err = <-busErr
 	log.Log(ctx, "RTMP ingest pipeline stopped", "error", err)
@@ -189,6 +201,9 @@ func linkElementToPad(source, destination *gst.Element, sinkPadName string) erro
 }
 
 func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string) error {
+	// Shared wall-clock anchor so the video and audio rendition playlists map
+	// to the same program date time (players sync renditions through PDT).
+	programDateTimeBase := time.Now().UTC()
 	videoElement, err := pipeline.GetElementByName("ll_video_sink")
 	if err != nil {
 		return fmt.Errorf("LL-HLS CMAF sink: %w", err)
@@ -217,11 +232,115 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 		})
 	}
 	installCMAFSink(ctx, app.SinkFromElement(videoElement), &cmafTrackSink{
-		presentation: presentation,
-		track:        "video",
-		window:       window,
-		generation:   1,
-		partDuration: llhlsPartDuration,
+		presentation:        presentation,
+		track:               "video",
+		window:              window,
+		generation:          1,
+		partDuration:        llhlsPartDuration,
+		programDateTimeBase: programDateTimeBase,
+		// Must match the PART-TARGET advertised by the window: parts below 85%
+		// of PART-TARGET make AVPlayer reject the playlist (-12642), so the
+		// sink coalesces short prefixes up to this target before publishing.
+		partTarget: 1100 * time.Millisecond,
 	})
+	audioElement, err := pipeline.GetElementByName("ll_audio_sink")
+	if err != nil {
+		return fmt.Errorf("LL-HLS CMAF audio sink: %w", err)
+	}
+	installCMAFSink(ctx, app.SinkFromElement(audioElement), &cmafTrackSink{
+		presentation:        presentation,
+		track:               "audio",
+		window:              window,
+		generation:          1,
+		partDuration:        llhlsPartDuration,
+		programDateTimeBase: programDateTimeBase,
+		partTarget:          1100 * time.Millisecond,
+		audioOnly:           true,
+	})
+	return nil
+}
+
+// startLLAudioSplitter installs a serialized split trigger on the audio queue.
+// The manual-split muxer cuts between input buffers, so AAC frames are never
+// dropped or assigned to the wrong parent when a 2-second boundary falls
+// between two 1024-sample frames. The trigger follows buffer PTS rather than
+// wall clock time because live ingest can temporarily run faster than real
+// time while upstream data is being drained.
+func startLLAudioSplitter(ctx context.Context, pipeline *gst.Pipeline) error {
+	mux := safeElement(pipeline, "ll_audio_mux")
+	if mux == nil {
+		return fmt.Errorf("LL-HLS audio splitter: ll_audio_mux is missing")
+	}
+	queue := safeElement(pipeline, "ll_audio_queue")
+	if queue == nil {
+		return fmt.Errorf("LL-HLS audio splitter: ll_audio_queue is missing")
+	}
+	queueSrc := queue.GetStaticPad("src")
+	if queueSrc == nil {
+		return fmt.Errorf("LL-HLS audio splitter: ll_audio_queue has no source pad")
+	}
+	splitter := &llAudioSplitter{}
+	probeID := queueSrc.AddProbe(gst.PadProbeTypeBuffer, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		buffer := info.GetBuffer()
+		if buffer != nil {
+			splitter.handleBuffer(ctx, pad, buffer)
+		}
+		return gst.PadProbeOK
+	})
+	go func() {
+		<-ctx.Done()
+		queueSrc.RemoveProbe(probeID)
+	}()
+	return nil
+}
+
+type llAudioSplitter struct {
+	initialized  bool
+	nextBoundary time.Duration
+	splitIndex   uint64
+}
+
+func (s *llAudioSplitter) handleBuffer(ctx context.Context, pad *gst.Pad, buffer *gst.Buffer) {
+	if buffer.GetFlags()&gst.BufferFlagDiscont != 0 {
+		s.initialized = false
+	}
+	pts := buffer.PresentationTimestamp().AsDuration()
+	if pts == nil {
+		return
+	}
+	if !s.initialized {
+		s.nextBoundary = *pts + llhlsPartDuration
+		s.initialized = true
+		return
+	}
+	if *pts < s.nextBoundary {
+		return
+	}
+
+	chunk := (s.splitIndex+1)%2 == 1
+	if err := emitLLAudioManualSplit(pad, chunk); err != nil {
+		log.Warn(ctx, "LL-HLS audio split event failed", "chunk", chunk, "error", err)
+		return
+	}
+	s.splitIndex++
+	s.nextBoundary += llhlsPartDuration
+}
+
+func emitLLAudioSplit(mux *gst.Element, boundary gst.ClockTime) error {
+	_, err := mux.Emit("split-at-running-time", uint64(boundary))
+	return err
+}
+
+func emitLLAudioManualSplit(queueSrc *gst.Pad, chunk bool) error {
+	if queueSrc == nil {
+		return fmt.Errorf("LL-HLS audio splitter: nil queue source pad")
+	}
+	structure := gst.NewStructure("FMP4MuxSplitNow")
+	if err := structure.SetValue("chunk", chunk); err != nil {
+		return fmt.Errorf("set audio split event: %w", err)
+	}
+	if !queueSrc.PushEvent(gst.NewCustomEvent(gst.EventTypeCustomDownstream, structure)) {
+		return fmt.Errorf("push audio split event")
+	}
 	return nil
 }

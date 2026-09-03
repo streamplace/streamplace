@@ -365,8 +365,8 @@ export function HLSPlayer(props: VideoProps) {
       var hls = new Hls({
         maxAudioFramesDrift: 20,
         lowLatencyMode: true,
-        liveSyncDuration: 2.75,
-        liveMaxLatencyDuration: 12,
+        liveSyncDuration: 4.75,
+        liveMaxLatencyDuration: 18,
         maxLiveSyncPlaybackRate: 1.125,
         backBufferLength: 90,
         enableWorker: true,

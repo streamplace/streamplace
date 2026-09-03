@@ -2,6 +2,7 @@ package media
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -22,8 +23,30 @@ func TestH264VideoConfigUsesSPSMetadata(t *testing.T) {
 
 	config := h264VideoConfig(&format.H264{SPS: sps})
 
-	if config.Codec != "avc1.64002a" || config.Width != 1280 || config.Height != 720 {
+	if config.Codec != "avc1.64002a" || config.Width != 1280 || config.Height != 720 || config.FrameRate <= 0 {
 		t.Fatalf("video config = %+v", config)
+	}
+}
+
+func TestFiniteH264FrameRateRejectsInvalidValues(t *testing.T) {
+	for _, fps := range []float64{0, -1, math.NaN(), math.Inf(1), math.Inf(-1)} {
+		if got := finiteH264FrameRate(fps); got != 0 {
+			t.Fatalf("finiteH264FrameRate(%v) = %v, want 0", fps, got)
+		}
+	}
+	if got := finiteH264FrameRate(59.94); got != 59.94 {
+		t.Fatalf("finiteH264FrameRate(59.94) = %v", got)
+	}
+}
+
+func TestCMAFVideoFrameRateFromTiming(t *testing.T) {
+	if got := cmafVideoFrameRate(cmafFragmentTiming{SampleCount: 60, Duration: 90000}, 90000); got != 60 {
+		t.Fatalf("CMAF frame rate = %v, want 60", got)
+	}
+	for _, timing := range []cmafFragmentTiming{{}, {SampleCount: 60, Duration: 0}} {
+		if got := cmafVideoFrameRate(timing, 90000); got != 0 {
+			t.Fatalf("invalid CMAF timing frame rate = %v, want 0", got)
+		}
 	}
 }
 

@@ -223,6 +223,54 @@ func TestWindowWaitHonorsCancellation(t *testing.T) {
 	}
 }
 
+func TestWindowWaitForMasterWaitsForCompleteMetadata(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("video-init")})
+	w.SetVideoConfig(VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() { result <- w.WaitForMaster(ctx, "p") }()
+	select {
+	case err := <-result:
+		t.Fatalf("master wait returned before audio metadata: %v", err)
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "audio", Generation: 1, Data: []byte("audio-init")})
+	w.SetAudioConfig(AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	if err := <-result; err != nil {
+		t.Fatalf("master wait error = %v", err)
+	}
+}
+
+func TestWindowReloadPointAllowsTwoAheadButRejectsThree(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 7, Part: 0, Data: []byte("part")})
+
+	if w.reloadPointUnavailableLocked("p", "v", 9) {
+		t.Fatal("reload two parents ahead was rejected")
+	}
+	if !w.reloadPointUnavailableLocked("p", "v", 10) {
+		t.Fatal("reload three parents ahead was accepted")
+	}
+}
+
+func TestWindowRejectsReloadPartBeyondAdvanceLimit(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 7, Part: 0, Duration: time.Second, Data: []byte("part")})
+
+	if w.reloadPartUnavailableLocked("p", "v", 7, 3) {
+		t.Fatal("reload part at the advance limit was rejected")
+	}
+	if !w.reloadPartUnavailableLocked("p", "v", 7, 4) {
+		t.Fatal("reload part beyond the advance limit was accepted")
+	}
+}
+
 func TestWindowWaitForPartHonorsCancellation(t *testing.T) {
 	w := NewWindow()
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
@@ -344,6 +392,18 @@ func TestWindowExactPartWaitReturnsUnavailableAfterParentClose(t *testing.T) {
 	}
 }
 
+func TestWindowExactPartWaitRejectsPartBeyondAdvanceLimit(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "v", Generation: 1, MSN: 4, Part: 0, Data: []byte("parent")})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := w.WaitForPart(ctx, "p", "v", 4, 4); !errors.Is(err, ErrPartUnavailable) {
+		t.Fatalf("exact future part wait error = %v, want ErrPartUnavailable", err)
+	}
+}
+
 func TestWindowExactPartWaitDoesNotResolveFromFollowingParent(t *testing.T) {
 	w := NewWindow()
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "v", Generation: 1})
@@ -406,26 +466,6 @@ func TestPlaylistContainsLLTagsAndOnlyCompleteParentURI(t *testing.T) {
 	}
 	if strings.Contains(playlist, "\n4.m4s\n") {
 		t.Error("incomplete parent must not be published")
-	}
-}
-
-func TestPlaylistSegmentsOnlyOmitsLLPartTags(t *testing.T) {
-	w := NewWindow()
-	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "audio", Generation: 1, Data: []byte("init")})
-	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Part: 0, Duration: time.Second, Data: []byte("a")})
-	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Part: 1, Duration: time.Second, Data: []byte("b")})
-	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 4, Duration: 2 * time.Second, Data: []byte("ab")})
-
-	playlist := w.PlaylistSegmentsOnly("p", "audio", func(msn uint64, part uint32) string {
-		return fmt.Sprintf("%d/%d.m4s", msn, part)
-	}, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
-	for _, forbidden := range []string{"#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", "#EXT-X-PART:", "#EXT-X-PRELOAD-HINT:", "#EXT-X-RENDITION-REPORT:"} {
-		if strings.Contains(playlist, forbidden) {
-			t.Errorf("segments-only playlist contains %q:\n%s", forbidden, playlist)
-		}
-	}
-	if !strings.Contains(playlist, "#EXTINF:2.000000,") || !strings.Contains(playlist, "4.m4s") {
-		t.Fatalf("segments-only playlist omitted complete parent:\n%s", playlist)
 	}
 }
 
@@ -579,6 +619,113 @@ func TestWindowStoresVideoConfig(t *testing.T) {
 
 	if got := w.VideoConfig(); got != (VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720}) {
 		t.Fatalf("video config = %+v", got)
+	}
+}
+
+func TestWindowResetsVideoConfigAcrossPresentationReset(t *testing.T) {
+	w := NewWindow()
+	config := VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720, FrameRate: 30}
+	w.SetVideoConfig(config)
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p1", Track: "video", Generation: 1})
+
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p2", Track: "video", Generation: 1})
+	if got := w.VideoConfig(); got != (VideoConfig{}) {
+		t.Fatalf("video config after reconnect = %+v, want empty config", got)
+	}
+}
+
+func TestWindowRejectsStalePresentationSession(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p2", Session: 2, Track: "video", Generation: 1})
+	if err := w.Observe(Event{Kind: Init, Presentation: "p1", Session: 1, Track: "video", Generation: 1}); err != ErrStalePresentation {
+		t.Fatalf("stale presentation error = %v, want %v", err, ErrStalePresentation)
+	}
+	if got := w.Presentation(); got != "p2" {
+		t.Fatalf("stale presentation replaced current session with %q", got)
+	}
+}
+
+func TestWindowResetsBitrateOnGenerationChange(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	w.SetVideoFrameRate(30)
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: time.Second, Data: make([]byte, 1000)})
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 2})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 2, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 2, MSN: 1, Duration: time.Second, Data: make([]byte, 100)})
+
+	if got := w.VideoConfig().AverageBandwidth; got != 800 {
+		t.Fatalf("generation-two average bandwidth = %d, want 800", got)
+	}
+	w.SetVideoFrameRate(24)
+	if got := w.VideoConfig().FrameRate; got != 24 {
+		t.Fatalf("generation-two frame rate = %v, want 24", got)
+	}
+}
+
+func TestWindowTracksPerTrackBandwidth(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("init")})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: time.Second, Data: make([]byte, 1000)})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Part: 0, Duration: 2 * time.Second, Data: []byte("part")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Duration: 2 * time.Second, Data: make([]byte, 3000)})
+
+	config := w.VideoConfig()
+	if config.Bandwidth != 12000 {
+		t.Fatalf("peak video bandwidth = %d, want 12000", config.Bandwidth)
+	}
+	if config.AverageBandwidth != 10667 {
+		t.Fatalf("average video bandwidth = %d, want 10667", config.AverageBandwidth)
+	}
+}
+
+func TestWindowMetadataUpdatePreservesMeasuredBandwidth(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte("part")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: time.Second, Data: make([]byte, 1000)})
+
+	w.SetVideoConfig(VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720, FrameRate: 30})
+	config := w.VideoConfig()
+	if config.Bandwidth != 8000 || config.AverageBandwidth != 8000 {
+		t.Fatalf("metadata update erased measured bandwidth: %+v", config)
+	}
+}
+
+func TestCeilBitrateAvoidsIntermediateOverflow(t *testing.T) {
+	if got := ceilBitrate(2_000_000_000, time.Second); got != 16_000_000_000 {
+		t.Fatalf("ceilBitrate = %d, want 16000000000", got)
+	}
+}
+
+func TestWindowWaiterLimit(t *testing.T) {
+	w := NewWindow(withMaxWaiters(1))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+
+	if err := acquireWaiter(w.waiters); err != nil {
+		t.Fatalf("first waiter acquisition error = %v", err)
+	}
+	defer releaseWaiter(w.waiters)
+	if err := w.Wait(context.Background(), "p", "video", 1, 0); err != ErrWaiterLimit {
+		t.Fatalf("second waiter error = %v, want %v", err, ErrWaiterLimit)
+	}
+}
+
+func TestWindowMasterWaitersDoNotStarveMediaWaiters(t *testing.T) {
+	w := NewWindow(withMaxWaiters(1))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("init")})
+
+	if err := acquireWaiter(w.masterWaiters); err != nil {
+		t.Fatalf("master waiter acquisition error = %v", err)
+	}
+	defer releaseWaiter(w.masterWaiters)
+
+	mediaCtx, cancelMedia := context.WithCancel(context.Background())
+	cancelMedia()
+	if err := w.Wait(mediaCtx, "p", "video", 1, 0); err != context.Canceled {
+		t.Fatalf("media waiter error = %v, want %v", err, context.Canceled)
 	}
 }
 

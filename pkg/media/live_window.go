@@ -36,25 +36,46 @@ func (mm *MediaManager) llWindow(did string) *llhls.Window {
 	defer mm.llWindowsMut.Unlock()
 	w := mm.llWindows[did]
 	if w == nil {
-		w = llhls.NewWindow(
-			llhls.WithMaxSegments(llhlsWindowSegments),
-			llhls.WithMaxBytes(llhlsWindowBytes),
-			llhls.WithPlaylistDurations(llhlsParentDuration, llhlsPartTarget),
-			llhls.WithPartHoldBack(llhlsLivePartHoldBack),
-			llhls.WithSegmentCompletionDelay(llhlsCompletionHold),
-		)
+		w = newLLWindow()
 		mm.llWindows[did] = w
 	}
 	return w
 }
 
+func newLLWindow() *llhls.Window {
+	return llhls.NewWindow(
+		llhls.WithMaxSegments(llhlsWindowSegments),
+		llhls.WithMaxBytes(llhlsWindowBytes),
+		llhls.WithPlaylistDurations(llhlsParentDuration, llhlsPartTarget),
+		llhls.WithPartHoldBack(llhlsLivePartHoldBack),
+		llhls.WithSegmentCompletionDelay(llhlsCompletionHold),
+	)
+}
+
+func (mm *MediaManager) replaceLLWindow(did string) *llhls.Window {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	w := newLLWindow()
+	mm.llWindows[did] = w
+	return w
+}
+
 // GetLLWindow returns the low-latency window for a stream. Unlike the legacy
 // window, its lifetime is tied to the CMAF presentation and reconnects replace
-// the presentation in-place.
+// the map entry.
 func (mm *MediaManager) GetLLWindow(did string) *llhls.Window {
 	mm.llWindowsMut.Lock()
 	defer mm.llWindowsMut.Unlock()
 	return mm.llWindows[did]
+}
+
+func (mm *MediaManager) removeLLWindow(did, presentation string, expected *llhls.Window) {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	window := mm.llWindows[did]
+	if window == expected && window != nil && window.Presentation() == presentation {
+		delete(mm.llWindows, did)
+	}
 }
 
 // liveWindow returns the streamer's in-memory live-HLS window, creating it on

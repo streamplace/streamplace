@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
+	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
 )
@@ -51,8 +53,16 @@ func h264VideoConfig(track *format.H264) llhls.VideoConfig {
 	if err := sps.Unmarshal(track.SPS); err == nil {
 		config.Width = sps.Width()
 		config.Height = sps.Height()
+		config.FrameRate = finiteH264FrameRate(sps.FPS())
 	}
 	return config
+}
+
+func finiteH264FrameRate(fps float64) float64 {
+	if fps <= 0 || math.IsNaN(fps) || math.IsInf(fps, 0) {
+		return 0
+	}
+	return fps
 }
 
 func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms MediaSigner, streamerDID string, videoTrack *format.H264) error {
@@ -121,14 +131,17 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 	if err != nil {
 		return err
 	}
+	presentation := ""
 	if llEnabled {
 		if err := linkElementToPad(safeElement(pipeline, "audio_signer_queue"), signer, "audio_0"); err != nil {
 			return err
 		}
-		presentation := fmt.Sprintf("rtmp-%d", mm.nextIngestSession())
-		window := mm.llWindow(streamerDID)
+		session := mm.nextIngestSession()
+		presentation = fmt.Sprintf("rtmp-%d-%s", session, uuid.NewString())
+		window := mm.replaceLLWindow(streamerDID)
+		defer mm.removeLLWindow(streamerDID, presentation, window)
 		window.SetVideoConfig(h264VideoConfig(videoTrack))
-		if err := installCMAFBranch(ctx, pipeline, window, presentation); err != nil {
+		if err := installCMAFBranch(ctx, pipeline, window, presentation, session); err != nil {
 			return err
 		}
 	} else if err = audioenc.Link(signer); err != nil {
@@ -149,7 +162,7 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 	}
 	log.Log(ctx, "RTMP ingest pipeline playing", "ll_hls_enabled", llEnabled, "presentation", func() string {
 		if llEnabled {
-			return fmt.Sprintf("rtmp-%d", mm.ingestSessionSeq.Load())
+			return presentation
 		}
 		return ""
 	}())
@@ -195,7 +208,7 @@ func linkElementToPad(source, destination *gst.Element, sinkPadName string) erro
 	return nil
 }
 
-func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string) error {
+func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string, session uint64) error {
 	// Both rendition playlists use the same program-date-time anchor.
 	programDateTimeBase := time.Now().UTC()
 	videoElement, err := pipeline.GetElementByName("ll_video_sink")
@@ -204,6 +217,7 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 	}
 	installCMAFSink(ctx, app.SinkFromElement(videoElement), &cmafTrackSink{
 		presentation:        presentation,
+		session:             session,
 		track:               "video",
 		window:              window,
 		generation:          1,
@@ -217,6 +231,7 @@ func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhl
 	}
 	installCMAFSink(ctx, app.SinkFromElement(audioElement), &cmafTrackSink{
 		presentation:        presentation,
+		session:             session,
 		track:               "audio",
 		window:              window,
 		generation:          1,

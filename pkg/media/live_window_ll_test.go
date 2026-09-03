@@ -36,3 +36,16 @@ func TestLLWindowUsesMobilePlaybackHoldBack(t *testing.T) {
 	require.Contains(t, playlist, "PART-HOLD-BACK=5.500000")
 	require.Contains(t, playlist, "HOLD-BACK=6.000000")
 }
+
+func TestRemoveLLWindowOnlyRemovesMatchingPresentation(t *testing.T) {
+	mm := &MediaManager{llWindows: map[string]*llhls.Window{}}
+	w := mm.replaceLLWindow("did:plc:streamer")
+	require.NoError(t, w.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p2", Session: 2, Track: "video", Generation: 1}))
+
+	mm.removeLLWindow("did:plc:streamer", "p1", w)
+	require.Same(t, w, mm.GetLLWindow("did:plc:streamer"))
+	mm.removeLLWindow("did:plc:streamer", "p2", newLLWindow())
+	require.Same(t, w, mm.GetLLWindow("did:plc:streamer"))
+	mm.removeLLWindow("did:plc:streamer", "p2", w)
+	require.Nil(t, mm.GetLLWindow("did:plc:streamer"))
+}

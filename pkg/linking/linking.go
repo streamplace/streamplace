@@ -3,6 +3,7 @@ package linking
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,6 +63,10 @@ var BrandingAssetList = [...]string{
 	"backgroundColorLight",
 	"foregroundColorLight",
 }
+
+// inlineBrandingImageLimit caps the image assets embedded as data URLs in
+// the internal-brand meta tags.
+const inlineBrandingImageLimit = 96 * 1024
 
 // hexColor accepts #rgb / #rrggbb / #rrggbbaa, the only forms the app's
 // theme accepts, so a stored value can be dropped straight into a style.
@@ -141,6 +146,14 @@ func (l *Linker) getBrandingAssets(broadcasterDid string) ([]placestream.Brandin
 		} else {
 			url := fmt.Sprintf("/xrpc/place.stream.branding.getBlob?key=%s&broadcaster=%s", blob.Key, broadcasterDid)
 			asset.Url = &url
+			// Small images ride along inline so the very first paint can draw
+			// the node's logo instead of the default mark while the blob
+			// fetch is in flight. Large ones (sidebar backgrounds) stay
+			// URL-only; the meta tag would dwarf the page.
+			if len(blob.Data) <= inlineBrandingImageLimit {
+				dataURL := "data:" + blob.MimeType + ";base64," + base64.StdEncoding.EncodeToString(blob.Data)
+				asset.Data = &dataURL
+			}
 		}
 		ret = append(ret, asset)
 	}

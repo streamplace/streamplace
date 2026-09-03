@@ -10,7 +10,7 @@ import (
 
 func TestLLWindowIsKeyedByStreamerDID(t *testing.T) {
 	mm := &MediaManager{llWindows: map[string]*llhls.Window{}}
-	window := mm.llWindow("did:plc:streamer")
+	window := mm.replaceLLWindow("did:plc:streamer")
 
 	require.Same(t, window, mm.GetLLWindow("did:plc:streamer"))
 	require.Nil(t, mm.GetLLWindow("did:key:signing-key"))
@@ -18,7 +18,7 @@ func TestLLWindowIsKeyedByStreamerDID(t *testing.T) {
 
 func TestLLWindowUsesMobilePlaybackHoldBack(t *testing.T) {
 	mm := &MediaManager{llWindows: map[string]*llhls.Window{}}
-	w := mm.llWindow("did:plc:streamer")
+	w := mm.replaceLLWindow("did:plc:streamer")
 	require.NoError(t, w.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1}))
 	require.NoError(t, w.Observe(llhls.Event{
 		Kind:         llhls.Part,

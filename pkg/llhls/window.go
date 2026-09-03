@@ -268,7 +268,6 @@ func (w *Window) Observe(ev Event) error {
 	if w.presentationSession != 0 && ev.Session != w.presentationSession {
 		return ErrStalePresentation
 	}
-
 	t := w.tracks[ev.Track]
 	if t == nil {
 		t = &track{}
@@ -656,65 +655,23 @@ func (w *Window) SegmentData(presentation, trackID string, msn uint64) []byte {
 // part rolls over to part zero of the following parent, per HLS blocking
 // reload semantics. This rule intentionally does not apply to media lookups.
 func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
-	if err := acquireWaiter(w.waiters); err != nil {
-		return err
-	}
-	defer releaseWaiter(w.waiters)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		w.mu.Lock()
+	return w.waitForChange(ctx, w.waiters, func() (bool, error) {
 		if w.reloadPointUnavailableLocked(presentation, trackID, msn) || w.reloadPartUnavailableLocked(presentation, trackID, msn, partIndex) {
-			w.mu.Unlock()
-			return ErrReloadUnavailable
+			return false, ErrReloadUnavailable
 		}
-		ready := w.playlistReloadReadyLocked(presentation, trackID, msn, partIndex)
-		changed := w.changed
-		w.mu.Unlock()
-		if ready {
-			return nil
-		}
-		select {
-		case <-changed:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+		return w.playlistReloadReadyLocked(presentation, trackID, msn, partIndex), nil
+	})
 }
 
 // WaitForMaster blocks until both renditions and the metadata required by the
 // multivariant playlist have been published for a presentation.
 func (w *Window) WaitForMaster(ctx context.Context, presentation string) error {
-	if err := acquireWaiter(w.masterWaiters); err != nil {
-		return err
-	}
-	defer releaseWaiter(w.masterWaiters)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-		w.mu.Lock()
+	return w.waitForChange(ctx, w.masterWaiters, func() (bool, error) {
 		if presentation != w.presentation {
-			w.mu.Unlock()
-			return ErrReloadUnavailable
+			return false, ErrReloadUnavailable
 		}
-		ready := w.masterMetadataReadyLocked()
-		changed := w.changed
-		w.mu.Unlock()
-		if ready {
-			return nil
-		}
-		select {
-		case <-changed:
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+		return w.masterMetadataReadyLocked(), nil
+	})
 }
 
 func (w *Window) masterMetadataReadyLocked() bool {
@@ -775,20 +732,36 @@ func partTooFarAhead(lastPart uint64, requestedPart uint32, partTarget time.Dura
 // callers should serve ErrPartUnavailable as a no-store 404. Part identity is
 // the immutable tuple of presentation, track, MSN, and local part index.
 func (w *Window) WaitForPart(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
-	if err := acquireWaiter(w.waiters); err != nil {
-		return err
-	}
-	defer releaseWaiter(w.waiters)
-	for {
-		w.mu.Lock()
+	return w.waitForChange(ctx, w.waiters, func() (bool, error) {
 		state := w.partStateLocked(presentation, trackID, msn, partIndex)
-		changed := w.changed
-		w.mu.Unlock()
 		switch state {
 		case partReady:
-			return nil
+			return true, nil
 		case partUnavailable:
-			return ErrPartUnavailable
+			return false, ErrPartUnavailable
+		}
+		return false, nil
+	})
+}
+
+func (w *Window) waitForChange(ctx context.Context, waiters chan struct{}, check func() (bool, error)) error {
+	if err := acquireWaiter(waiters); err != nil {
+		return err
+	}
+	defer releaseWaiter(waiters)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		w.mu.Lock()
+		ready, err := check()
+		changed := w.changed
+		w.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		if ready {
+			return nil
 		}
 		select {
 		case <-changed:

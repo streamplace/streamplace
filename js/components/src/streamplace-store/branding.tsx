@@ -312,3 +312,17 @@ export function useBrandingAutoFetch() {
     }
   }, [broadcasterDID, fetchBranding]);
 }
+
+// Whether the first paint can be branded: the store has branding (fetched or
+// hydrated from cache), the fetch failed (nothing more will arrive), or the
+// page carries server-injected branding meta (web) that the asset hooks read
+// directly. Until then the shell holds its blank frame so the default mark
+// and title never flash before the node's own.
+export function useBrandingSettled(): boolean {
+  return useStreamplaceStore(
+    (s) =>
+      s.branding !== null ||
+      s.brandingError !== null ||
+      getMetaContent("siteTitle") !== null,
+  );
+}

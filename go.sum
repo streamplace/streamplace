@@ -1377,6 +1377,8 @@ github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c h
 github.com/streamplace/atproto-oauth-golang v0.0.0-20260413212710-98956064d06c/go.mod h1:9LlKkqciiO5lRfbX0n4Wn5KNY9nvFb4R3by8FdW2TWc=
 github.com/streamplace/glex v0.0.0-20260716203108-f73ed7cc31c9 h1:HbIhx8i7wytiNg9mWg2EuHG59r8FXTVlDqlkZObjqbQ=
 github.com/streamplace/glex v0.0.0-20260716203108-f73ed7cc31c9/go.mod h1:LRaoeSMvSgOrhFX8s7ygjRlyka7wXdDa1s7JJ9o1IzY=
+github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22 h1:yy0iaLxWsgdacyeukLFAWMJ6KXRCCZ4IZiv5iODBKGg=
+github.com/streamplace/glex v0.0.0-20260820164827-814f46540f22/go.mod h1:LRaoeSMvSgOrhFX8s7ygjRlyka7wXdDa1s7JJ9o1IzY=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4 h1:L1fS4HJSaAyNnkwfuZubgfeZy8rkWmA0cMtH5Z0HqNc=
 github.com/streamplace/go-dpop v0.0.0-20250510031900-c897158a8ad4/go.mod h1:bGUXY9Wd4mnd+XUrOYZr358J2f6z9QO/dLhL1SsiD+0=
 github.com/streamplace/indigo v0.0.0-20260218231908-939cdaf0c507 h1:e8M3qPLr37NxEjlr18TaAwGP+OVyherVjgUG5VVmgWI=

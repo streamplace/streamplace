@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"stream.place/streamplace/pkg/log"
@@ -56,6 +57,32 @@ var BrandingAssetList = [...]string{
 	"favicon",
 	"sidebarBg",
 	"legalLinks",
+	"backgroundColor",
+	"foregroundColor",
+	"backgroundColorLight",
+	"foregroundColorLight",
+}
+
+// hexColor accepts #rgb / #rrggbb / #rrggbbaa, the only forms the app's
+// theme accepts, so a stored value can be dropped straight into a style.
+var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$`)
+
+// bodyBackground returns the node's branded dark background color, if any,
+// so the page can paint it before the bundle loads instead of the default
+// then re-painting (the "flash of unbranded content").
+func (l *Linker) bodyBackground() string {
+	if l.sdb == nil || l.cli == nil {
+		return ""
+	}
+	blob, err := l.sdb.GetBrandingBlob("did:web:"+l.cli.BroadcasterHost, "backgroundColor")
+	if err != nil || blob == nil {
+		return ""
+	}
+	v := strings.TrimSpace(string(blob.Data))
+	if !hexColor.MatchString(v) {
+		return ""
+	}
+	return v
 }
 
 // atTags returns meta tags implementing the at-tags proposal
@@ -451,6 +478,13 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 				{Key: "content", Val: tag.Content},
 			},
 		})
+	}
+
+	// Paint the branded background before any script runs.
+	if bg := l.bodyBackground(); bg != "" {
+		style := &html.Node{Type: html.ElementNode, Data: "style"}
+		head.AppendChild(style)
+		style.AppendChild(&html.Node{Type: html.TextNode, Data: "body{background-color:" + bg + "}"})
 	}
 
 	// Add Sentry DSN script if configured

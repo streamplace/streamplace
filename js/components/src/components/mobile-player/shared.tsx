@@ -45,7 +45,7 @@ export function srcToUrl(
     }
     let outUrl: string;
     if (protocol === PlayerProtocol.HLS) {
-      const llhlsUrl = `${url}/api/playback/${encodeURIComponent(props.src)}/llhls/master.m3u8`;
+      const llhlsUrl = `${url}/api/playback/${encodeURIComponent(props.src)}/llhls/main.m3u8`;
       if (
         props.selectedRendition &&
         props.selectedRendition !== "auto" &&

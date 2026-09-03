@@ -24,11 +24,11 @@ Get information about a Streamplace broadcaster.
 
 **Schema Type:** `object`
 
-| Name          | Type              | Req'd | Description                                                     | Constraints   |
-| ------------- | ----------------- | ----- | --------------------------------------------------------------- | ------------- |
-| `broadcaster` | `string`          | ✅    | DID of the Streamplace broadcaster to which this server belongs | Format: `did` |
-| `server`      | `string`          | ❌    | DID of this particular Streamplace server                       | Format: `did` |
-| `admins`      | Array of `string` | ❌    | Array of DIDs authorized as admins                              |               |
+| Name          | Type              | Req'd | Description                                                                                                                                            | Constraints   |
+| ------------- | ----------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `broadcaster` | `string`          | ✅    | DID of the Streamplace broadcaster to which this server belongs                                                                                        | Format: `did` |
+| `server`      | `string`          | ❌    | DID of this particular Streamplace server                                                                                                              | Format: `did` |
+| `admins`      | Array of `string` | ❌    | Deprecated and no longer populated. Clients learn their own roles from place.stream.access.getStatus; admins manage grants via place.stream.access.\*. |               |
 
 ---
 
@@ -69,7 +69,7 @@ Get information about a Streamplace broadcaster.
                 "type": "string",
                 "format": "did"
               },
-              "description": "Array of DIDs authorized as admins"
+              "description": "Deprecated and no longer populated. Clients learn their own roles from place.stream.access.getStatus; admins manage grants via place.stream.access.*."
             }
           }
         }

@@ -1,0 +1,52 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.access.createGrant",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Grant a role to an account. Requires the admin role. Idempotent: granting a role an account already holds returns the existing grant.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["subject", "role"],
+          "properties": {
+            "subject": {
+              "type": "string",
+              "description": "The account to grant to, as a DID or a handle. Handles are resolved to DIDs before the grant is written."
+            },
+            "role": { "type": "ref", "ref": "place.stream.access.defs#role" },
+            "note": { "type": "string", "maxLength": 1000, "maxGraphemes": 100 }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["grant"],
+          "properties": {
+            "grant": {
+              "type": "ref",
+              "ref": "place.stream.access.defs#grantView"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The caller is not an admin."
+        },
+        {
+          "name": "InvalidSubject",
+          "description": "The subject is neither a valid DID nor a resolvable handle."
+        },
+        {
+          "name": "InvalidRole",
+          "description": "The role is not one this node knows about."
+        }
+      ]
+    }
+  }
+}

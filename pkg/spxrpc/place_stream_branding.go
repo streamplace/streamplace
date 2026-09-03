@@ -132,12 +132,7 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 }
 
 func (s *Server) isAdminDID(did string) bool {
-	for _, adminDID := range s.cli.AdminDIDs {
-		if adminDID == did {
-			return true
-		}
-	}
-	return false
+	return s.cli.IsAdmin(did)
 }
 
 func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input *placestream.BrandingUpdateBlob_Input) (*placestream.BrandingUpdateBlob_Output, error) {

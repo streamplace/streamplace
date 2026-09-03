@@ -51,6 +51,16 @@ handle-label = Handle
 redirecting = Redirecting…
 sign-in-failed = Sign-in failed
 
+## Access Wall (private nodes)
+access-wall-private-title = This node is private
+access-wall-private-body = Sign in to continue
+access-wall-denied-title = You're not on the list
+access-wall-denied-body = Ask an administrator of this node to grant you access.
+access-wall-signed-in-as = Signed in as { $account }
+access-wall-sign-out = Sign out
+access-wall-connecting-title = Connecting to this node
+access-wall-connecting-body = The node hasn't said whether you can use it yet. Check that it's running and reachable.
+
 ## Demo and Testing
 welcome-user = Welcome, { $username }!
 notification-count = { $count ->

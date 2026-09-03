@@ -19,6 +19,7 @@ export type SettingsStackParamList = {
   BadgeSelection: undefined;
   BadgeIssuer: undefined;
   BrandingAdmin: undefined;
+  AccessAdmin: undefined;
 };
 
 export type HomeStackParamList = {

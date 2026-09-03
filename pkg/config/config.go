@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"slices"
 	"strconv"
+	"stream.place/streamplace/pkg/access"
 	"strings"
 	"time"
 
@@ -149,34 +150,42 @@ type CLI struct {
 	BehindHTTPSProxy            bool
 	SegmentDebugDir             string
 	AdminDIDs                   []string
-	Syndicate                   []string
-	PlayerTelemetry             bool
-	PlaybackWorkerURL           string
-	Ingests                     *placestream.IngestGetIngestUrls_Output
-	S3Endpoint                  string
-	S3Bucket                    string
-	S3AccessKeyID               string
-	S3SecretAccessKey           string
-	S3Region                    string
-	VODCDNURL                   string
-	DisableSyndication          bool
-	MuxlInitialMemoryMB         int
-	MuxlMaxMemoryMB             int
-	GamesAPIURL                 string
-	GamesAPIClientKey           string
-	GamesAPIClientSecret        string
-	BetaInviteDID               string
-	ViewLogFlushInterval        time.Duration
-	ViewCountAggregateInterval  time.Duration
-	ViewCountAggregateLag       time.Duration
-	VODConcurrency              int
-	MaximumLiveBitrate          int
-	SweepConcurrency            int
-	SweepInterval               time.Duration
-	SweepBootDelay              time.Duration
-	DeepenRate                  int
-	FirehoseReplayWindow        time.Duration
-	IndexDBConnections          int
+	// Access is the node's role-based access controller, installed at boot
+	// once statedb is open. When nil (tests, early boot) the environment
+	// lists below are the whole policy.
+	Access access.Manager
+	// AccessPolicy seeds the mode of each role (SP_ACCESS_POLICY, e.g.
+	// "viewer=allowlist,vod=off"). A policy record written from the app
+	// overrides it per role.
+	AccessPolicy               map[string]string
+	Syndicate                  []string
+	PlayerTelemetry            bool
+	PlaybackWorkerURL          string
+	Ingests                    *placestream.IngestGetIngestUrls_Output
+	S3Endpoint                 string
+	S3Bucket                   string
+	S3AccessKeyID              string
+	S3SecretAccessKey          string
+	S3Region                   string
+	VODCDNURL                  string
+	DisableSyndication         bool
+	MuxlInitialMemoryMB        int
+	MuxlMaxMemoryMB            int
+	GamesAPIURL                string
+	GamesAPIClientKey          string
+	GamesAPIClientSecret       string
+	BetaInviteDID              string
+	ViewLogFlushInterval       time.Duration
+	ViewCountAggregateInterval time.Duration
+	ViewCountAggregateLag      time.Duration
+	VODConcurrency             int
+	MaximumLiveBitrate         int
+	SweepConcurrency           int
+	SweepInterval              time.Duration
+	SweepBootDelay             time.Duration
+	DeepenRate                 int
+	FirehoseReplayWindow       time.Duration
+	IndexDBConnections         int
 }
 
 // DefaultSweepInterval is how often the atproto sweep re-runs when
@@ -993,7 +1002,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.StringFlag{
 				Name:  "admin-dids",
-				Usage: `comma-separated list of DIDs that are authorized to modify branding and other admin operations (default: "")`,
+				Usage: `comma-separated list of DIDs seeded with the admin role: they manage branding and access control (Settings → Access) and can grant every other role (default: "")`,
 				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
 					if s == "" {
 						return nil
@@ -1002,6 +1011,22 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 					return nil
 				},
 				Sources: urfavecli.EnvVars("SP_ADMIN_DIDS"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "access-policy",
+				Usage: `seed the access policy as comma-separated role=mode pairs, e.g. "viewer=allowlist,vod=off". Roles: viewer, streamer, syndicate, vod. Modes: open, allowlist, off. Modes set from the app's Access screen override these per role. Start with viewer=allowlist and an --admin-dids entry to bring up a private node nobody but that admin can use until they grant access (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					policy, err := access.ParsePolicy(s)
+					if err != nil {
+						return fmt.Errorf("--access-policy: %w", err)
+					}
+					cli.AccessPolicy = policy
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACCESS_POLICY"),
 			},
 			&urfavecli.StringFlag{
 				Name:  "syndicate",
@@ -1505,6 +1530,12 @@ func (cli *CLI) AddressSliceFlag(name, defaultValue, usage string, dest *[]aqpub
 }
 
 func (cli *CLI) StreamIsAllowed(did string) error {
+	if cli.Access != nil {
+		if cli.Access.Allowed(context.Background(), did, access.RoleStreamer) {
+			return nil
+		}
+		return fmt.Errorf("user %s is not allowed to stream on this node", did)
+	}
 	if cli.WideOpen {
 		return nil
 	}
@@ -1617,6 +1648,9 @@ func (cli *CLI) DebugRecordingCreate(ctx context.Context, fpath []string, conten
 }
 
 func (cli *CLI) ShouldSyndicate(did string) bool {
+	if cli.Access != nil {
+		return cli.Access.Allowed(context.Background(), did, access.RoleSyndicate)
+	}
 	if cli.DisableSyndication {
 		return false
 	}
@@ -1629,4 +1663,14 @@ func (cli *CLI) ShouldSyndicate(did string) bool {
 		}
 	}
 	return false
+}
+
+// IsAdmin reports whether did holds the admin role: an SP_ADMIN_DIDS entry
+// or, once the access controller is installed, a grant in the node's
+// access-control space.
+func (cli *CLI) IsAdmin(did string) bool {
+	if cli.Access != nil {
+		return cli.Access.Allowed(context.Background(), did, access.RoleAdmin)
+	}
+	return slices.Contains(cli.AdminDIDs, did)
 }

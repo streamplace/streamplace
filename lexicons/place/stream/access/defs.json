@@ -1,0 +1,86 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.access.defs",
+  "defs": {
+    "role": {
+      "type": "string",
+      "description": "A capability a node grants to an account. admin: manage branding and access control (implies every other role). viewer: use the frontend and playback when the node is private. streamer: ingest media to this node. syndicate: have this account's media carried from other nodes. vod: upload and record VODs.",
+      "knownValues": ["admin", "viewer", "streamer", "syndicate", "vod"]
+    },
+    "mode": {
+      "type": "string",
+      "description": "How a node decides a role. open: every account holds the role. allowlist: only accounts with a grant hold the role. off: nobody holds the role (admins are always exempt).",
+      "knownValues": ["open", "allowlist", "off"]
+    },
+    "roleMode": {
+      "type": "object",
+      "required": ["role", "mode"],
+      "properties": {
+        "role": {
+          "type": "ref",
+          "ref": "#role"
+        },
+        "mode": {
+          "type": "ref",
+          "ref": "#mode"
+        }
+      }
+    },
+    "grantView": {
+      "type": "object",
+      "description": "One account's grant of one role. Grants stored as place.stream.access.grant records in the node's access-control space carry a uri and cid; grants seeded from the node's environment (SP_ADMIN_DIDS, SP_ALLOWED_STREAMS, SP_SYNDICATE) have no uri and cannot be revoked from the API.",
+      "required": ["subject", "role", "source"],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "description": "at://{authority}/space/place.stream.access.control/self/{author}/place.stream.access.grant/{rkey} (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid"
+        },
+        "subject": {
+          "type": "string",
+          "format": "did"
+        },
+        "role": {
+          "type": "ref",
+          "ref": "#role"
+        },
+        "source": {
+          "type": "string",
+          "knownValues": ["space", "environment"],
+          "description": "space: a record in the access-control space, editable via the API. environment: seeded from the node's configuration."
+        },
+        "createdBy": {
+          "type": "string",
+          "format": "did",
+          "description": "The admin that created the grant (the record's author)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000,
+          "maxGraphemes": 100
+        }
+      }
+    },
+    "policyView": {
+      "type": "object",
+      "required": ["roles"],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "description": "The effective mode of every role the node knows about, including environment overrides such as SP_WIDE_OPEN and SP_DISABLE_SYNDICATION.",
+          "items": {
+            "type": "ref",
+            "ref": "#roleMode"
+          }
+        }
+      }
+    }
+  }
+}

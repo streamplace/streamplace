@@ -34,7 +34,9 @@ SP_HTTP_ADDR=:80
 SP_HTTPS_ADDR=:443
 SP_SECURE=true
 
-# Set this variable to your did:plc or did:web to have admin access to the node
+# Set this variable to your did:plc or did:web to have admin access to the node.
+# Admins can manage branding and access control from Settings in the app,
+# including granting more admins, so you only need to seed the first one here.
 SP_ADMIN_DIDS=did:web:example.com,did:plc:rbvrr34edl5ddpuwcubjiost
 
 # If you're running Streamplace behind an HTTPS proxy, you'll want
@@ -46,7 +48,10 @@ SP_BROADCASTER_HOST=example.com
 # If you have a multi-node cluster, they'll each need different public DNS names:
 SP_SERVER_HOST=prod-nyc0.example.com
 
-# If you don't want to syndicate everyone, add your list of allowed DIDs here:
+# By default anyone with an atproto account can stream to your node. To
+# restrict ingest to a list of DIDs, seed the streamer allowlist here. You can
+# also manage this (and who may view, upload, or be syndicated) from
+# Settings → Access in the app; see the Access control guide.
 SP_ALLOWED_STREAMS=did:web:example.com,did:plc:rbvrr34edl5ddpuwcubjiost
 
 # Useful if your TLS cert and key aren't in the default

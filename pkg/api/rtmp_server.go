@@ -298,14 +298,18 @@ func (a *StreamplaceAPI) ServeRTMPInternalPlayback(ctx context.Context) error {
 }
 
 func (a *StreamplaceAPI) ServeRTMPS(ctx context.Context, cli *config.CLI) error {
-	cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to load TLS certificate: %w", err)
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+	var tlsConfig *tls.Config
+	if a.ACME != nil {
+		tlsConfig = a.ACME.TLSConfig()
+	} else {
+		cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
 	}
 
 	ln, err := tls.Listen("tcp", cli.RTMPSAddr, tlsConfig)

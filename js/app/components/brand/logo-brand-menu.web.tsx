@@ -4,7 +4,12 @@ import { Type } from "lucide-react-native";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pressable, View } from "react-native";
-import { LogoMark, markSvgString, wordmarkSvgString } from "./logo";
+import {
+  LogoMark,
+  markSvgString,
+  useCustomMark,
+  wordmarkSvgString,
+} from "./logo";
 
 /**
  * Vercel-style right-click menu on the logo: copy the mark or wordmark as SVG,
@@ -55,13 +60,21 @@ export function LogoBrandMenu({ children }: { children: ReactNode }) {
     }
   };
 
+  // A node's uploaded SVG logo is what gets copied; a raster upload has no
+  // SVG to offer, so the item is dropped rather than copying the default.
+  const custom = useCustomMark();
+  const logoSvg = custom.svg ?? (custom.uri ? null : markSvgString());
   const items = [
-    {
-      key: "logo",
-      label: "Copy Logo as SVG",
-      icon: <LogoMark size={18} color={theme.colors.text1} />,
-      onPress: () => copy(markSvgString(), "Logo"),
-    },
+    ...(logoSvg
+      ? [
+          {
+            key: "logo",
+            label: "Copy Logo as SVG",
+            icon: <LogoMark size={18} color={theme.colors.text1} />,
+            onPress: () => copy(logoSvg, "Logo"),
+          },
+        ]
+      : []),
     {
       key: "wordmark",
       label: "Copy Wordmark as SVG",

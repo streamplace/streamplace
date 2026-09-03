@@ -8,6 +8,7 @@ export {
   lightTheme,
   usePlatformTypography,
   useTheme,
+  type BrandColors,
   type Theme,
   type ThemeIcons,
 } from "./theme";
@@ -64,3 +65,14 @@ export {
 // Convenience re-exports
 export * as atoms from "./atoms";
 export * as tokens from "./tokens";
+
+// Branded chrome derivation
+export {
+  DEFAULT_CHROME,
+  contrastForeground,
+  deriveChrome,
+  parseHexColor,
+  withAlpha,
+  type ChromeColors,
+  type DerivedChrome,
+} from "./chrome";

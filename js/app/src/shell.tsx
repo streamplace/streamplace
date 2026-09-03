@@ -13,10 +13,13 @@ import {
   useAccentColor,
   useAccessStatusError,
   useAccessStatusLoaded,
+  useBrandingSettled,
   useDID,
   usePrimaryColor,
+  useStreamplaceStore,
   useTheme,
   useViewerLockedOut,
+  withAlpha,
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
@@ -667,6 +670,19 @@ export default function Shell() {
   const accessStatusLoaded = useAccessStatusLoaded();
   const accessStatusError = useAccessStatusError();
   const viewerLockedOut = useViewerLockedOut();
+  // Two more things the first frame waits for (bounded by the same timeout):
+  // the OAuth session restore, so a signed-in viewer never sees the wall
+  // that the anonymous status answer would paint; and branding, so the
+  // default mark and title never flash before the node's own.
+  const sessionRestoring = useStreamplaceStore(
+    (s) => s.oauthSession === undefined,
+  );
+  const brandingSettled = useBrandingSettled();
+  const [bootTimedOut, setBootTimedOut] = useState(false);
+  useEffect(() => {
+    const handle = setTimeout(() => setBootTimedOut(true), 6000);
+    return () => clearTimeout(handle);
+  }, []);
   const [accessTimedOut, setAccessTimedOut] = useState(false);
   useEffect(() => {
     if (accessStatusLoaded) {
@@ -773,6 +789,9 @@ export default function Shell() {
     ) : (
       <View />
     );
+  }
+  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
+    return <View />;
   }
 
   // The login + PDS modals live here (not inside the navigator) so the access
@@ -965,7 +984,7 @@ export default function Shell() {
                     left: 0,
                     right: 0,
                     paddingHorizontal: spacing[2],
-                    backgroundColor: "rgba(10,10,11,0.55)", // token-ok: glass tint
+                    backgroundColor: withAlpha(z.theme.colors.surface0, 0.55),
                     backdropFilter: "blur(18px)",
                     WebkitBackdropFilter: "blur(18px)",
                     borderBottomWidth: 1,

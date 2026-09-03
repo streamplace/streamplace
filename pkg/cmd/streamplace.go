@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -17,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"stream.place/streamplace/pkg/accessctl"
+	"stream.place/streamplace/pkg/acme"
 	"strings"
 	"syscall"
 	"time"
@@ -534,7 +536,22 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 	}
 
+	if cli.ACME && !cli.Secure {
+		log.Warn(ctx, "--acme has no effect without --secure; TLS is terminated elsewhere")
+	}
 	if cli.Secure {
+		var rtmpsTLS *tls.Config
+		if cli.ACME {
+			mgr, err := acme.New(ctx, cli, state)
+			if err != nil {
+				return err
+			}
+			a.ACME = mgr
+			rtmpsTLS = mgr.TLSConfig()
+			group.Go(func() error {
+				return mgr.Manage(ctx)
+			})
+		}
 		group.Go(func() error {
 			return a.ServeHTTPS(ctx)
 		})
@@ -543,7 +560,7 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		})
 		if cli.RTMPServerAddon != "" {
 			group.Go(func() error {
-				return rtmps.ServeRTMPSAddon(ctx, cli)
+				return rtmps.ServeRTMPSAddon(ctx, cli, rtmpsTLS)
 			})
 		}
 		group.Go(func() error {

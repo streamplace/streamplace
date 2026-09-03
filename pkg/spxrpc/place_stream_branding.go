@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -28,20 +30,76 @@ var defaultBrandingAssets = map[string]struct {
 	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
 	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
 	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
+	// Chrome colors: the app derives its surface, text and border ramps from
+	// one background + one foreground per color scheme (see
+	// js/components/src/lib/theme/chrome.ts). Empty means the app's defaults.
+	"backgroundColor":      {data: []byte(""), mime: "text/plain"},
+	"foregroundColor":      {data: []byte(""), mime: "text/plain"},
+	"backgroundColorLight": {data: []byte(""), mime: "text/plain"},
+	"foregroundColorLight": {data: []byte(""), mime: "text/plain"},
+	// Accent (secondary surfaces), status and live colors; the *Light keys
+	// override the light scheme. Empty means the app's defaults.
+	"accentColorLight":  {data: []byte(""), mime: "text/plain"},
+	"dangerColor":       {data: []byte(""), mime: "text/plain"},
+	"dangerColorLight":  {data: []byte(""), mime: "text/plain"},
+	"successColor":      {data: []byte(""), mime: "text/plain"},
+	"successColorLight": {data: []byte(""), mime: "text/plain"},
+	"warningColor":      {data: []byte(""), mime: "text/plain"},
+	"warningColorLight": {data: []byte(""), mime: "text/plain"},
+	"infoColor":         {data: []byte(""), mime: "text/plain"},
+	"infoColorLight":    {data: []byte(""), mime: "text/plain"},
+	"liveColor":         {data: []byte(""), mime: "text/plain"},
+}
+
+// hexColor is the only form the app's theme accepts for color keys; it does
+// string math on the value (alpha tints), so anything else breaks silently.
+var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
+
+// isColorKey reports whether a branding key holds a color.
+func isColorKey(key string) bool {
+	return strings.HasSuffix(key, "Color") || strings.HasSuffix(key, "ColorLight")
+}
+
+// brandingTextKeys are the small text-valued assets (1KB cap).
+var brandingTextKeys = func() map[string]bool {
+	m := map[string]bool{}
+	for key, def := range defaultBrandingAssets {
+		if def.mime == "text/plain" {
+			m[key] = true
+		}
+	}
+	return m
+}()
+
+// NormalizeBroadcasterID turns the optional `broadcaster` parameter into the
+// key branding is stored under. Assets are written under the broadcaster's
+// DID (did:web:<host>), which is what clients send; an empty parameter means
+// this node's own broadcaster, and a bare host is upgraded to its did:web.
+func NormalizeBroadcasterID(param, defaultHost string) string {
+	param = strings.TrimSpace(param)
+	if param == "" {
+		return "did:web:" + defaultHost
+	}
+	if strings.HasPrefix(param, "did:") {
+		return param
+	}
+	return "did:web:" + param
 }
 
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
-	// if broadcaster param provided, use it; otherwise use server's default
-	if broadcasterDID != "" {
-		return broadcasterDID
-	}
-	return s.cli.BroadcasterHost
+	return NormalizeBroadcasterID(broadcasterDID, s.cli.BroadcasterHost)
 }
 
 func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
+		// Older nodes stored unparameterised writes under the bare host.
+		if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+			if legacy, lerr := s.statefulDB.GetBrandingBlob(host, key); lerr == nil {
+				return legacy.Data, legacy.MimeType, legacy.Width, legacy.Height, nil
+			}
+		}
 		// not in db, use default
 		if def, ok := defaultBrandingAssets[key]; ok {
 			return def.data, def.mime, nil, nil, nil
@@ -80,6 +138,13 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	dbKeys, err := s.statefulDB.ListBrandingKeys(broadcasterID)
 	if err != nil {
 		return nil, fmt.Errorf("error listing branding keys: %w", err)
+	}
+	if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+		legacyKeys, err := s.statefulDB.ListBrandingKeys(host)
+		if err != nil {
+			return nil, fmt.Errorf("error listing legacy branding keys: %w", err)
+		}
+		dbKeys = append(dbKeys, legacyKeys...)
 	}
 
 	// build key set including defaults
@@ -164,12 +229,21 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	maxSize := 500 * 1024 // 500KB default for logos
 	if input.Key == "favicon" {
 		maxSize = 100 * 1024 // 100KB for favicons
-	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamer" {
+	} else if input.Key == "linkBanner" {
+		maxSize = 2 * 1024 * 1024 // 2MB for the OpenGraph banner (1200x630)
+	} else if brandingTextKeys[input.Key] {
 		maxSize = 1024 // 1KB for text values
 	}
 	// sidebarBackgroundImage uses default 500KB limit
 	if len(data) > maxSize {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	}
+	if isColorKey(input.Key) {
+		v := strings.TrimSpace(string(data))
+		if !hexColor.MatchString(v) {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidColor: colors must be hex, like #1a2b3c")
+		}
+		data = []byte(strings.ToLower(v))
 	}
 
 	// store in database
@@ -258,4 +332,32 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 	}
 
 	return c.Blob(http.StatusOK, mimeType, data)
+}
+
+// HandleLinkBanner serves /linkbanner.png, the image behind the front
+// page's OpenGraph card: the node's uploaded linkBanner branding asset with
+// its real content type (link crawlers refuse application/octet-stream),
+// else the bundled brand banner. Branding is public even on a private node.
+func (s *Server) HandleLinkBanner(c echo.Context) error {
+	ctx := c.Request().Context()
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "linkBanner")
+	if err == nil && len(data) > 0 && strings.HasPrefix(mimeType, "image/") {
+		c.Response().Header().Set("Cache-Control", "public, max-age=300")
+		return c.Blob(http.StatusOK, mimeType, data)
+	}
+	distFiles, fsErr := app.Files()
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load link banner")
+	}
+	f, fsErr := distFiles.Open("linkbanner.png")
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "link banner not found")
+	}
+	defer f.Close()
+	bs, fsErr := io.ReadAll(f)
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to read link banner")
+	}
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
+	return c.Blob(http.StatusOK, "image/png", bs)
 }

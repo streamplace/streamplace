@@ -17,6 +17,7 @@ const SETTINGS_SCREENS = [
   "BadgeSelection",
   "BadgeIssuer",
   "BrandingAdmin",
+  "AccessAdmin",
 ];
 
 // Screens that are in the HomeTab stack

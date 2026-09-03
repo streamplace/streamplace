@@ -129,6 +129,7 @@ export const SCREEN_PATHS = {
   KeyManagement: "settings/streaming/key-management",
   LanguagesCategory: "settings/languages",
   BrandingAdmin: "settings/branding",
+  AccessAdmin: "settings/access",
   BadgeSelection: "settings/account/badges",
   BadgeIssuer: "settings/issue-badges",
   // Tabs
@@ -241,6 +242,7 @@ export const streamplaceLinkingOptions: LinkingOptions<ReactNavigation.RootParam
                 KeyManagement: SCREEN_PATHS.KeyManagement,
                 LanguagesCategory: SCREEN_PATHS.LanguagesCategory,
                 BrandingAdmin: SCREEN_PATHS.BrandingAdmin,
+                AccessAdmin: SCREEN_PATHS.AccessAdmin,
                 BadgeSelection: SCREEN_PATHS.BadgeSelection,
                 BadgeIssuer: SCREEN_PATHS.BadgeIssuer,
               },

@@ -98,9 +98,6 @@ export function useFetchBroadcasterDID() {
       if (result.server) {
         store.setState({ serverDID: result.server });
       }
-      if (result.admins) {
-        store.setState({ adminDIDs: result.admins });
-      }
     } catch (err) {
       console.error("Failed to fetch broadcaster DID:", err);
     }

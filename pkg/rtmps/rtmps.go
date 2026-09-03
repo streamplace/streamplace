@@ -14,19 +14,22 @@ import (
 )
 
 // passthrough RTMPS TLS terminator to external RTMP server
-func ServeRTMPSAddon(ctx context.Context, cli *config.CLI) error {
+// tlsConfig may be nil, in which case the certificate files from the CLI
+// are used; the ACME manager passes its own.
+func ServeRTMPSAddon(ctx context.Context, cli *config.CLI, tlsConfig *tls.Config) error {
 	if cli.RTMPServerAddon == "" {
 		return fmt.Errorf("RTMP server address not configured")
 	}
 
-	cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
-	if err != nil {
-		return fmt.Errorf("failed to load TLS certificate: %w", err)
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+	if tlsConfig == nil {
+		cert, err := tls.LoadX509KeyPair(cli.TLSCertPath, cli.TLSKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to load TLS certificate: %w", err)
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
 	}
 
 	listener, err := tls.Listen("tcp", cli.RTMPSAddonAddr, tlsConfig)

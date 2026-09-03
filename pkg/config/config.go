@@ -58,33 +58,39 @@ func (b BuildFlags) BuildTimeStrExpo() string {
 }
 
 type CLI struct {
-	AdminAccount                string
-	Build                       *BuildFlags
-	DataDir                     string
-	DBURL                       string
-	LocalDBURL                  string
-	EthAccountAddr              string
-	EthKeystorePath             string
-	EthPassword                 string
-	FirebaseServiceAccount      string
-	FirebaseServiceAccountFile  string
-	GitLabURL                   string
-	HTTPAddr                    string
-	HTTPInternalAddr            string
-	HTTPSAddr                   string
-	RTMPAddr                    string
-	RTMPSAddr                   string
-	RTMPSAddonAddr              string
-	Secure                      bool
-	NoMist                      bool
-	IsolatedIngest              bool
-	MistAdminPort               int
-	MistHTTPPort                int
-	MistRTMPPort                int
-	SigningKeyPath              string
-	TAURL                       string
-	TLSCertPath                 string
-	TLSKeyPath                  string
+	AdminAccount               string
+	Build                      *BuildFlags
+	DataDir                    string
+	DBURL                      string
+	LocalDBURL                 string
+	EthAccountAddr             string
+	EthKeystorePath            string
+	EthPassword                string
+	FirebaseServiceAccount     string
+	FirebaseServiceAccountFile string
+	GitLabURL                  string
+	HTTPAddr                   string
+	HTTPInternalAddr           string
+	HTTPSAddr                  string
+	RTMPAddr                   string
+	RTMPSAddr                  string
+	RTMPSAddonAddr             string
+	Secure                     bool
+	NoMist                     bool
+	IsolatedIngest             bool
+	MistAdminPort              int
+	MistHTTPPort               int
+	MistRTMPPort               int
+	SigningKeyPath             string
+	TAURL                      string
+	TLSCertPath                string
+	TLSKeyPath                 string
+	// ACME enables automatic TLS certificates from an ACME CA (Let\'s Encrypt)
+	// stored in statedb; see pkg/acme.
+	ACME                        bool
+	ACMEEmail                   string
+	ACMECA                      string
+	ACMEDomains                 []string
 	PKCS11ModulePath            string
 	PKCS11Pin                   string
 	PKCS11TokenSlot             string
@@ -337,6 +343,37 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Destination: &cli.TLSKeyPath,
 				Value:       filepath.Join(SPDataDir, "tls", "tls.key"),
 				Sources:     urfavecli.EnvVars("SP_TLS_KEY"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "acme",
+				Usage:       "With --secure, obtain and renew the node's TLS certificates automatically from an ACME CA (Let's Encrypt by default) instead of reading --tls-cert/--tls-key. Certificates are kept in the state database so every node in a station shares them. The CA must be able to reach this node on port 80 (HTTP-01) or 443 (TLS-ALPN-01) at --broadcaster-host and --server-host. Using this means you agree to the CA's terms of service.",
+				Value:       false,
+				Destination: &cli.ACME,
+				Sources:     urfavecli.EnvVars("SP_ACME"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-email",
+				Usage:       "Contact email registered with the ACME CA (expiry warnings, account recovery)",
+				Destination: &cli.ACMEEmail,
+				Sources:     urfavecli.EnvVars("SP_ACME_EMAIL"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "acme-ca",
+				Usage:       `ACME directory URL, or "letsencrypt" / "letsencrypt-staging" (default: letsencrypt)`,
+				Destination: &cli.ACMECA,
+				Sources:     urfavecli.EnvVars("SP_ACME_CA"),
+			},
+			&urfavecli.StringFlag{
+				Name:  "acme-domains",
+				Usage: `comma-separated extra hostnames to hold certificates for, on top of --broadcaster-host and --server-host (default: "")`,
+				Action: func(ctx context.Context, cmd *urfavecli.Command, s string) error {
+					if s == "" {
+						return nil
+					}
+					cli.ACMEDomains = strings.Split(s, ",")
+					return nil
+				},
+				Sources: urfavecli.EnvVars("SP_ACME_DOMAINS"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "signing-key",

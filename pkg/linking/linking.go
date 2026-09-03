@@ -62,6 +62,16 @@ var BrandingAssetList = [...]string{
 	"foregroundColor",
 	"backgroundColorLight",
 	"foregroundColorLight",
+	"accentColorLight",
+	"dangerColor",
+	"dangerColorLight",
+	"successColor",
+	"successColorLight",
+	"warningColor",
+	"warningColorLight",
+	"infoColor",
+	"infoColorLight",
+	"liveColor",
 }
 
 // inlineBrandingImageLimit caps the image assets embedded as data URLs in

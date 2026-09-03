@@ -415,7 +415,7 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 	fsys := AppHostingFS{http.FS(files)}
 
 	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
-	serveStaticOrIndex := func(w http.ResponseWriter, req *http.Request, card bool) {
+	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
@@ -427,17 +427,9 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			var bs []byte
-			if card {
-				bs, err = linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
-				if err != nil {
-					log.Error(ctx, "error generating default card", "error", err)
-				}
-			} else {
-				bs, err = fs.ReadFile(files, "index.html")
-				if err != nil {
-					log.Error(ctx, "error reading index.html", "error", err)
-				}
+			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
+			if err != nil {
+				log.Error(ctx, "error generating default card", "error", err)
 			}
 			w.Header().Set("Content-Type", "text/html")
 			if _, err := w.Write(bs); err != nil {
@@ -447,15 +439,13 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
 		}
-	}
-	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		serveStaticOrIndex(w, req, true)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if !a.viewerAllowed(req) {
-			// Private node, unknown visitor: the app shell (which renders the
-			// sign-in wall) and its assets, but no link cards.
-			serveStaticOrIndex(w, req, false)
+			// Private node, unknown visitor: the app shell and its assets with
+			// the node's branding baked into the page (so the sign-in wall
+			// paints branded on first render), but no stream or profile cards.
+			defaultHandler.ServeHTTP(w, req)
 			return
 		}
 		proto := "http"

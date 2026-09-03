@@ -1,7 +1,7 @@
 import { Text, useBrandingAsset, useTheme } from "@streamplace/components";
 import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
-import { Fragment } from "react";
-import { View, type ViewProps } from "react-native";
+import { Fragment, useMemo } from "react";
+import { Image, View, type ViewProps } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { BRAND } from "../../assets/generated/brand";
 
@@ -30,6 +30,41 @@ export function wordmarkSvgString(color = BRAND.colors.ink) {
   return tinted(BRAND.wordmarkSvg, color);
 }
 
+// Decode the payload of a base64 data: URL as UTF-8 text.
+function decodeDataUrlText(dataUrl: string): string | null {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return null;
+  const header = dataUrl.slice(0, comma);
+  const payload = dataUrl.slice(comma + 1);
+  try {
+    if (!/;base64$/i.test(header)) return decodeURIComponent(payload);
+    const bin = atob(payload);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The node's uploaded mainLogo branding asset, if any: an inline SVG when
+ * the upload was SVG (so it scales and can be copied as SVG), else the data
+ * URL for an <Image>. Empty when the node has no custom logo.
+ */
+export function useCustomMark(): { svg?: string; uri?: string } {
+  const asset = useBrandingAsset("mainLogo");
+  const data = asset?.data;
+  const mime = asset?.mimeType;
+  return useMemo(() => {
+    if (!data || !data.startsWith("data:")) return {};
+    if ((mime ?? "").includes("svg") || data.startsWith("data:image/svg")) {
+      const svg = decodeDataUrlText(data);
+      if (svg && svg.includes("<svg")) return { svg, uri: data };
+    }
+    return { uri: data };
+  }, [data, mime]);
+}
+
 export function LogoMark({
   size = 24,
   color,
@@ -38,6 +73,22 @@ export function LogoMark({
   color?: string;
 }) {
   const { theme } = useTheme();
+  const custom = useCustomMark();
+  // A node's uploaded logo renders as drawn: no tinting, so multi-color
+  // artwork survives, at the same box the default mark would occupy.
+  if (custom.svg) {
+    return <SvgXml xml={custom.svg} width={size} height={size} />;
+  }
+  if (custom.uri) {
+    return (
+      <Image
+        source={{ uri: custom.uri }}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+        accessibilityIgnoresInvertColors
+      />
+    );
+  }
   // Monochrome brands default the mark to the ink/paper text color so it
   // matches the wordmark exactly; pass `color` explicitly for the rare
   // colored variant.

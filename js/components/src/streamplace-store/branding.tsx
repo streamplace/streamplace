@@ -144,17 +144,23 @@ export function useFetchBranding() {
         // check localStorage first
         const cacheKey = `branding:${broadcasterDID}`;
         const cached = await storage.getItem(cacheKey);
-        if (!force && cached) {
+        if (cached) {
           try {
             const parsed = JSON.parse(cached);
-            // check if cache is less than 1 hour old
-            if (Date.now() - parsed.timestamp < 60 * 60 * 1000) {
+            const fresh = Date.now() - parsed.timestamp < 60 * 60 * 1000;
+            if (!force && fresh) {
               store.setState({
                 branding: parsed.data,
                 brandingLoading: false,
                 brandingError: null,
               });
               return;
+            }
+            // Paint what we had last time right away, then refresh: the
+            // alternative is a flash of default branding on every cold start
+            // (no server-injected meta on native or behind the dev proxy).
+            if (parsed.data && !store.getState().branding) {
+              store.setState({ branding: parsed.data });
             }
           } catch (e) {
             // invalid cache, continue to fetch

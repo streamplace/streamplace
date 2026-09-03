@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
@@ -28,20 +29,51 @@ var defaultBrandingAssets = map[string]struct {
 	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
 	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
 	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
+	// Chrome colors: the app derives its surface, text and border ramps from
+	// one background + one foreground per color scheme (see
+	// js/components/src/lib/theme/chrome.ts). Empty means the app's defaults.
+	"backgroundColor":      {data: []byte(""), mime: "text/plain"},
+	"foregroundColor":      {data: []byte(""), mime: "text/plain"},
+	"backgroundColorLight": {data: []byte(""), mime: "text/plain"},
+	"foregroundColorLight": {data: []byte(""), mime: "text/plain"},
+}
+
+// brandingTextKeys are the small text-valued assets (1KB cap).
+var brandingTextKeys = map[string]bool{
+	"siteTitle": true, "siteDescription": true, "primaryColor": true, "accentColor": true,
+	"defaultStreamer": true, "backgroundColor": true, "foregroundColor": true,
+	"backgroundColorLight": true, "foregroundColorLight": true,
+}
+
+// NormalizeBroadcasterID turns the optional `broadcaster` parameter into the
+// key branding is stored under. Assets are written under the broadcaster's
+// DID (did:web:<host>), which is what clients send; an empty parameter means
+// this node's own broadcaster, and a bare host is upgraded to its did:web.
+func NormalizeBroadcasterID(param, defaultHost string) string {
+	param = strings.TrimSpace(param)
+	if param == "" {
+		return "did:web:" + defaultHost
+	}
+	if strings.HasPrefix(param, "did:") {
+		return param
+	}
+	return "did:web:" + param
 }
 
 func (s *Server) getBroadcasterID(ctx context.Context, broadcasterDID string) string {
-	// if broadcaster param provided, use it; otherwise use server's default
-	if broadcasterDID != "" {
-		return broadcasterDID
-	}
-	return s.cli.BroadcasterHost
+	return NormalizeBroadcasterID(broadcasterDID, s.cli.BroadcasterHost)
 }
 
 func (s *Server) GetBrandingBlob(ctx context.Context, broadcasterID, key string) ([]byte, string, *int, *int, error) {
 	// cache miss - fetch from db
 	blob, err := s.statefulDB.GetBrandingBlob(broadcasterID, key)
 	if err == gorm.ErrRecordNotFound {
+		// Older nodes stored unparameterised writes under the bare host.
+		if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+			if legacy, lerr := s.statefulDB.GetBrandingBlob(host, key); lerr == nil {
+				return legacy.Data, legacy.MimeType, legacy.Width, legacy.Height, nil
+			}
+		}
 		// not in db, use default
 		if def, ok := defaultBrandingAssets[key]; ok {
 			return def.data, def.mime, nil, nil, nil
@@ -80,6 +112,13 @@ func (s *Server) HandlePlaceStreamBrandingGetBrandingDirect(ctx context.Context,
 	dbKeys, err := s.statefulDB.ListBrandingKeys(broadcasterID)
 	if err != nil {
 		return nil, fmt.Errorf("error listing branding keys: %w", err)
+	}
+	if host, ok := strings.CutPrefix(broadcasterID, "did:web:"); ok {
+		legacyKeys, err := s.statefulDB.ListBrandingKeys(host)
+		if err != nil {
+			return nil, fmt.Errorf("error listing legacy branding keys: %w", err)
+		}
+		dbKeys = append(dbKeys, legacyKeys...)
 	}
 
 	// build key set including defaults
@@ -164,7 +203,7 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	maxSize := 500 * 1024 // 500KB default for logos
 	if input.Key == "favicon" {
 		maxSize = 100 * 1024 // 100KB for favicons
-	} else if input.Key == "siteTitle" || input.Key == "siteDescription" || input.Key == "primaryColor" || input.Key == "accentColor" || input.Key == "defaultStreamer" {
+	} else if brandingTextKeys[input.Key] {
 		maxSize = 1024 // 1KB for text values
 	}
 	// sidebarBackgroundImage uses default 500KB limit

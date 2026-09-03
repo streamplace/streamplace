@@ -272,6 +272,43 @@ branding-upload-failed = Failed to upload
 branding-delete-failed = Failed to delete
 branding-not-available = File uploads are only available on web
 
+## Access Control
+access = Access
+access-admin = Access Control
+access-admin-description = Decide who can use this node. Admins always hold every role.
+access-admin-required = You need to be signed in as an administrator of this node to manage access.
+access-policy = Policy
+access-grants = Grants
+access-role-admin = Admin
+access-role-viewer = Viewer
+access-role-viewer-description = Use the frontend and watch streams when this node is private
+access-role-streamer = Streamer
+access-role-streamer-description = Go live and send video to this node
+access-role-syndicate = Syndicate
+access-role-syndicate-description = Media carried over from other nodes
+access-role-vod = VOD
+access-role-vod-description = Upload videos and record livestreams
+access-mode-open = Open
+access-mode-allowlist = Allowlist
+access-mode-off = Off
+access-viewer-warning = Only accounts with the viewer role (and admins) can use this node.
+access-filter = Filter by role
+access-filter-all = All
+access-add-grant = Grant access
+access-subject-placeholder = Handle or DID
+access-note-placeholder = Note (optional)
+access-source-environment = From environment
+access-remove = Remove
+access-confirm-remove = Confirm removal
+access-no-grants = No grants yet.
+access-policy-updated = Policy updated
+access-policy-update-failed = Failed to update policy
+access-grant-created = Access granted to { $subject }
+access-grant-create-failed = Failed to grant access
+access-grant-deleted = Grant removed
+access-grant-delete-failed = Failed to remove grant
+access-grants-load-failed = Failed to load grants
+
 ## Navigation Categories (About Page)
 node-legal-documents = Broadcaster-specific Documents
 

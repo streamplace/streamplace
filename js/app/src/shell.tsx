@@ -11,13 +11,17 @@ import {
 import {
   Text,
   useAccentColor,
+  useAccessStatusError,
+  useAccessStatusLoaded,
   useDID,
   usePrimaryColor,
   useTheme,
+  useViewerLockedOut,
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
 import { Settings } from "components";
+import AccessWall, { AccessConnecting } from "components/access/access-wall";
 import { SiteTitleLockup, useNodeTitle } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import Login from "components/login/login";
@@ -25,6 +29,7 @@ import LoginModal from "components/login/login-modal";
 import PdsHostSelectorModal from "components/login/pds-host-selector-modal";
 import { MobileAppBanner } from "components/mobile-app-banner";
 import { AboutCategorySettings } from "components/settings/about-category-settings";
+import { AccessAdmin } from "components/settings/access-admin";
 import { AccountCategorySettings } from "components/settings/account-category-settings";
 import { AdvancedCategorySettings } from "components/settings/advanced-category-settings";
 import { BackupSettings } from "components/settings/backup-settings";
@@ -465,6 +470,11 @@ function SettingsNavigator() {
         component={BrandingAdmin}
         options={{ title: "Branding" }}
       />
+      <SettingsStack.Screen
+        name="AccessAdmin"
+        component={AccessAdmin}
+        options={{ title: "Access" }}
+      />
     </SettingsStack.Navigator>
   );
 }
@@ -649,6 +659,24 @@ export default function Shell() {
   const did = useStore((state) => state.oauthSession?.did);
   const hydrated = useHydrated();
 
+  // Role-based access: hold a blank frame until the node has told us whether
+  // the caller may use it, then either wall them off or render the app.
+  // Never render the app on a timeout: on a private node that would show a
+  // screen whose every request fails. A node that doesn't answer at all gets
+  // a "connecting" state with a retry instead.
+  const accessStatusLoaded = useAccessStatusLoaded();
+  const accessStatusError = useAccessStatusError();
+  const viewerLockedOut = useViewerLockedOut();
+  const [accessTimedOut, setAccessTimedOut] = useState(false);
+  useEffect(() => {
+    if (accessStatusLoaded) {
+      setAccessTimedOut(false);
+      return;
+    }
+    const handle = setTimeout(() => setAccessTimedOut(true), 6000);
+    return () => clearTimeout(handle);
+  }, [accessStatusLoaded]);
+
   // Re-register when the token changes OR once the logged-in DID resolves, so a
   // token acquired before the OAuth session finishes restoring still gets its
   // repoDID association registered (otherwise the user is excluded from
@@ -737,6 +765,44 @@ export default function Shell() {
 
   if (!hydrated) {
     return <View />;
+  }
+
+  if (!accessStatusLoaded) {
+    return accessTimedOut || accessStatusError ? (
+      <AccessConnecting error={accessStatusError} />
+    ) : (
+      <View />
+    );
+  }
+
+  // The login + PDS modals live here (not inside the navigator) so the access
+  // wall can still open them when the node is private.
+  const authModals = (
+    <>
+      <LoginModal
+        visible={showLoginModal}
+        onClose={closeLoginModal}
+        onOpenPdsModal={openPdsModal}
+      />
+      <PdsHostSelectorModal
+        open={showPdsModal}
+        onOpenChange={closePdsModal}
+        onSubmit={(pdsHost) => {
+          closePdsModal();
+          loginAction(pdsHost, openLoginLink);
+        }}
+      />
+    </>
+  );
+
+  if (viewerLockedOut) {
+    return (
+      <View style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" />
+        <AccessWall />
+        {authModals}
+      </View>
+    );
   }
 
   return (
@@ -933,19 +999,7 @@ export default function Shell() {
             </LogoBrandMenu>
           </View>
         )}
-      <LoginModal
-        visible={showLoginModal}
-        onClose={closeLoginModal}
-        onOpenPdsModal={openPdsModal}
-      />
-      <PdsHostSelectorModal
-        open={showPdsModal}
-        onOpenChange={closePdsModal}
-        onSubmit={(pdsHost) => {
-          closePdsModal();
-          loginAction(pdsHost, openLoginLink);
-        }}
-      />
+      {authModals}
       <UploadProgressIndicator />
     </View>
   );

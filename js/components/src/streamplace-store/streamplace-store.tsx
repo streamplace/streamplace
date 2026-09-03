@@ -4,6 +4,7 @@ import { place } from "streamplace";
 import { createStore, StoreApi, useStore } from "zustand";
 import storage from "../storage";
 import { StreamplaceContext } from "../streamplace-provider/context";
+import type { AccessStatus } from "./access";
 import { BrandingAsset } from "./branding";
 
 export interface ContentMetadataResult {
@@ -55,8 +56,14 @@ export interface StreamplaceState {
   setBroadcasterDID: (broadcasterDID: string | null) => void;
   serverDID: string | null;
   setServerDID: (serverDID: string | null) => void;
-  adminDIDs: string[];
-  setAdminDIDs: (adminDIDs: string[]) => void;
+  // Role-based access control: the caller's roles + the node's policy, from
+  // place.stream.access.getStatus. null until the first answer; `loaded`
+  // flips true once we have an answer (or gave up and assumed open).
+  accessStatus: AccessStatus | null;
+  accessStatusLoaded: boolean;
+  // Set when getStatus failed for a reason other than "this node predates
+  // access control": the shell shows it instead of guessing.
+  accessStatusError: string | null;
 
   playbackWorkerUrl: string | null;
   setPlaybackWorkerUrl: (url: string | null) => void;
@@ -134,8 +141,9 @@ export const makeStreamplaceStore = ({
       set({ broadcasterDID }),
     serverDID: null,
     setServerDID: (serverDID: string | null) => set({ serverDID }),
-    adminDIDs: [],
-    setAdminDIDs: (adminDIDs: string[]) => set({ adminDIDs }),
+    accessStatus: null,
+    accessStatusLoaded: false,
+    accessStatusError: null,
 
     playbackWorkerUrl: null,
     setPlaybackWorkerUrl: (playbackWorkerUrl: string | null) =>

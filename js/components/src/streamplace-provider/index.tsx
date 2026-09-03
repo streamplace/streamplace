@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import { ProfileCacheProvider } from "../context/profile-cache";
 import { useDocumentTitle } from "../hooks";
 import {
+  useAccessStatusAutoFetch,
   useBrandingAutoFetch,
   useFetchBroadcasterDID,
   useFetchEnvConfig,
@@ -55,6 +56,7 @@ export function BrandingFetcher({ children }: { children: React.ReactNode }) {
   const fetchBroadcasterDID = useFetchBroadcasterDID();
   const fetchEnvConfig = useFetchEnvConfig();
   useBrandingAutoFetch();
+  useAccessStatusAutoFetch();
   useDocumentTitle();
 
   useEffect(() => {

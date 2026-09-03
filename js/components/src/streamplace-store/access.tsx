@@ -106,8 +106,24 @@ export function useAccessStatusAutoFetch() {
 
 export const useAccessStatus = () => useStreamplaceStore((s) => s.accessStatus);
 
+// An answer only counts once it belongs to the current caller. When the
+// session restores (or the user signs in or out) the store re-renders before
+// the effect that refetches runs, so for one frame the old anonymous answer
+// would otherwise pair with a signed-in session and paint the wall.
+function statusIsCurrent(s: {
+  accessStatusLoaded: boolean;
+  accessStatus: AccessStatus | null;
+  oauthSession: { did?: string } | null | undefined;
+}): boolean {
+  if (!s.accessStatusLoaded || !s.accessStatus) return false;
+  if (s.oauthSession === undefined) return false;
+  return (
+    (s.accessStatus.did ?? undefined) === (s.oauthSession?.did ?? undefined)
+  );
+}
+
 export const useAccessStatusLoaded = () =>
-  useStreamplaceStore((s) => s.accessStatusLoaded);
+  useStreamplaceStore((s) => statusIsCurrent(s));
 
 // Whether the caller holds `role`. Admin implies every other role.
 export function useHasRole(role: string): boolean {
@@ -125,7 +141,7 @@ export const useIsAdmin = () => useHasRole("admin");
 // the app. False until status has loaded, and for nodes without a policy.
 export function useViewerLockedOut(): boolean {
   return useStreamplaceStore((s) => {
-    if (!s.accessStatusLoaded || !s.accessStatus) return false;
+    if (!statusIsCurrent(s) || !s.accessStatus) return false;
     const mode = s.accessStatus.policy.viewer;
     if (mode === undefined || mode === "open") return false;
     const roles = s.accessStatus.roles;

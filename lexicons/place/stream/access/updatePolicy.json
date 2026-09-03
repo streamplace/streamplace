@@ -1,0 +1,49 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.access.updatePolicy",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "Set the mode of one or more roles. Requires the admin role. Roles not mentioned keep their current mode. The admin role cannot be changed: it is always allowlist.",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["roles"],
+          "properties": {
+            "roles": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.access.defs#roleMode"
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["policy"],
+          "properties": {
+            "policy": {
+              "type": "ref",
+              "ref": "place.stream.access.defs#policyView"
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "Unauthorized",
+          "description": "The caller is not an admin."
+        },
+        {
+          "name": "InvalidRole",
+          "description": "A role or mode is not one this node knows about."
+        }
+      ]
+    }
+  }
+}

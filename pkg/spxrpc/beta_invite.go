@@ -3,6 +3,8 @@ package spxrpc
 import (
 	"context"
 	"fmt"
+
+	"stream.place/streamplace/pkg/access"
 )
 
 // vodInviteFeature is the canonical `feature` value on a
@@ -29,6 +31,12 @@ const vodInviteFeature = "vod"
 //     a self-hoster who already locked down SP_ALLOWED_STREAMS for
 //     live keeps the same lockdown for uploads.
 func (s *Server) betaFeatureGranted(ctx context.Context, did, feature string) (bool, error) {
+	// With the access controller installed, the vod role is the whole
+	// answer: it folds in explicit grants, trusted beta invites and the
+	// legacy "streamers may upload" fallback (see accessctl.vodFallback).
+	if s.cli.Access != nil && feature == vodInviteFeature {
+		return s.cli.Access.Allowed(ctx, did, access.RoleVOD), nil
+	}
 	if s.cli.BetaInviteDID != "" {
 		has, err := s.model.HasBetaInvite(ctx, s.cli.BetaInviteDID, did, feature)
 		if err != nil {

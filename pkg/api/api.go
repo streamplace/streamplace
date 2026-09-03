@@ -197,26 +197,26 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	// new ones
 	addFunc(apiRouter, "GET", "/api/manifest", a.HandleAppUpdates(ctx))
 	addHandle(apiRouter, "GET", "/api/desktop-updates/:platform/:architecture/:version/:buildTime/:file", a.HandleDesktopUpdates(ctx))
-	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
-	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.MistProxyHandler(ctx, "/webrtc/%s"))
+	addHandle(apiRouter, "POST", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
+	addHandle(apiRouter, "OPTIONS", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
+	addHandle(apiRouter, "DELETE", "/api/webrtc/:stream", a.viewerGate(a.MistProxyHandler(ctx, "/webrtc/%s")))
 	addFunc(apiRouter, "POST", "/api/segment", a.HandleSegment(ctx))
 	addFunc(apiRouter, "GET", "/api/healthz", a.HandleHealthz(ctx))
 	// they're jpegs now
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.jpg", a.viewerGate(a.HandleThumbnailPlayback(ctx)))
 	// this one is actually a jpeg (used previously and shouldn't remove for historical reasons)
-	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.HandleThumbnailPlayback(ctx))
+	addHandle(apiRouter, "GET", "/api/playback/:user/stream.png", a.viewerGate(a.HandleThumbnailPlayback(ctx)))
 	addHandle(apiRouter, "GET", "/api/app-return/*anything", a.HandleAppReturn(ctx))
-	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.HandleWebRTCPlayback(ctx))
+	addHandle(apiRouter, "POST", "/api/playback/:user/webrtc", a.viewerGate(a.HandleWebRTCPlayback(ctx)))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc", a.HandleWebRTCIngest(ctx))
 	addHandle(apiRouter, "POST", "/api/ingest/webrtc/:key", a.HandleWebRTCIngest(ctx))
-	addHandle(apiRouter, "POST", "/api/player-event", a.HandlePlayerEvent(ctx))
-	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.HandleChat(ctx))
-	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.HandleWebsocket(ctx))
-	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.HandleLivestream(ctx))
+	addHandle(apiRouter, "POST", "/api/player-event", a.viewerGate(a.HandlePlayerEvent(ctx)))
+	addHandle(apiRouter, "GET", "/api/chat/:repoDID", a.viewerGate(a.HandleChat(ctx)))
+	addHandle(apiRouter, "GET", "/api/websocket/:repoDID", a.viewerGate(a.HandleWebsocket(ctx)))
+	addHandle(apiRouter, "GET", "/api/livestream/:repoDID", a.viewerGate(a.HandleLivestream(ctx)))
 	addHandle(apiRouter, "GET", "/api/bluesky/resolve/:handle", a.HandleBlueskyResolve(ctx))
-	addHandle(apiRouter, "GET", "/api/view-count/:user", a.HandleViewCount(ctx))
-	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.HandleClip(ctx))
+	addHandle(apiRouter, "GET", "/api/view-count/:user", a.viewerGate(a.HandleViewCount(ctx)))
+	addHandle(apiRouter, "GET", "/api/clip/:user/:file", a.viewerGate(a.HandleClip(ctx)))
 	if a.UploadManager != nil {
 		// Don't wrap in middlewarestd.Handler (go-http-metrics): its
 		// responseWriterInterceptor doesn't implement Unwrap, which would
@@ -411,7 +411,7 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 	fsys := AppHostingFS{http.FS(files)}
 
 	fileHandler := a.FileHandler(ctx, http.FileServer(fsys))
-	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	serveStaticOrIndex := func(w http.ResponseWriter, req *http.Request, card bool) {
 		f := strings.TrimPrefix(req.URL.Path, "/")
 		// under docs we need the index.html suffix due to astro rendering
 		if strings.HasPrefix(req.URL.Path, "/docs") && strings.HasSuffix(req.URL.Path, "/") {
@@ -423,9 +423,17 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			return
 		}
 		if errors.Is(err, ErrorIndex) || f == "" {
-			bs, err := linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
-			if err != nil {
-				log.Error(ctx, "error generating default card", "error", err)
+			var bs []byte
+			if card {
+				bs, err = linker.GenerateDefaultCard(ctx, req.URL, a.CLI.SentryDSN)
+				if err != nil {
+					log.Error(ctx, "error generating default card", "error", err)
+				}
+			} else {
+				bs, err = fs.ReadFile(files, "index.html")
+				if err != nil {
+					log.Error(ctx, "error reading index.html", "error", err)
+				}
 			}
 			w.Header().Set("Content-Type", "text/html")
 			if _, err := w.Write(bs); err != nil {
@@ -435,8 +443,17 @@ func (a *StreamplaceAPI) notFoundLinkingHandler(ctx context.Context, linker *lin
 			log.Warn(ctx, "error opening file", "error", err)
 			apierrors.WriteHTTPInternalServerError(w, "file not found", err)
 		}
+	}
+	defaultHandler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		serveStaticOrIndex(w, req, true)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !a.viewerAllowed(req) {
+			// Private node, unknown visitor: the app shell (which renders the
+			// sign-in wall) and its assets, but no link cards.
+			serveStaticOrIndex(w, req, false)
+			return
+		}
 		proto := "http"
 		if req.TLS != nil {
 			proto = "https"

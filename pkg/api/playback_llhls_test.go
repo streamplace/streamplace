@@ -135,7 +135,7 @@ func TestLLHLSMasterReturnsUnavailableWithoutMeasuredBandwidth(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	requestContext, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil).WithContext(requestContext)
+	request := httptest.NewRequest(http.MethodGet, "/main.m3u8", nil).WithContext(requestContext)
 	api.HandleLLHLSMaster(context.Background())(recorder, request, httprouter.Params{{Key: "user", Value: user}})
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("master without measured bandwidth status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
@@ -143,7 +143,7 @@ func TestLLHLSMasterReturnsUnavailableWithoutMeasuredBandwidth(t *testing.T) {
 }
 
 func TestLLHLSMasterRedirectsForInvalidVideoFrameRate(t *testing.T) {
-	for _, fps := range []float64{math.NaN(), math.Inf(1), -1, 61} {
+	for _, fps := range []float64{math.NaN(), math.Inf(1), -1} {
 		t.Run(fmt.Sprintf("fps-%v", fps), func(t *testing.T) {
 			const user = "did:key:z6MkInvalidFrameRateTest"
 			window := llhls.NewWindow()
@@ -158,7 +158,7 @@ func TestLLHLSMasterRedirectsForInvalidVideoFrameRate(t *testing.T) {
 			setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
 			api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
 			recorder := httptest.NewRecorder()
-			api.HandleLLHLSMaster(context.Background())(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
+			api.HandleLLHLSMaster(context.Background())(recorder, httptest.NewRequest(http.MethodGet, "/main.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
 			if recorder.Code != http.StatusTemporaryRedirect {
 				t.Fatalf("master with invalid frame rate status = %d, want %d", recorder.Code, http.StatusTemporaryRedirect)
 			}
@@ -171,14 +171,14 @@ func TestLLHLSMasterAdvertisesFrameRateWhenKnown(t *testing.T) {
 		Codec:            "avc1.64002a",
 		Width:            1280,
 		Height:           720,
-		FrameRate:        59.94,
+		FrameRate:        120,
 		Bandwidth:        5000000,
 		AverageBandwidth: 4000000,
 	}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(master, "FRAME-RATE=59.940") {
+	if !strings.Contains(master, "FRAME-RATE=120.000") {
 		t.Fatalf("master omitted known video frame rate:\n%s", master)
 	}
 }
@@ -224,7 +224,7 @@ func TestLLHLSMasterRedirectsWhilePresentationIsInitializing(t *testing.T) {
 	handler := api.HandleLLHLSMaster(context.Background())
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil)
+	request := httptest.NewRequest(http.MethodGet, "/main.m3u8", nil)
 	handler(recorder, request, httprouter.Params{{Key: "user", Value: user}})
 
 	if recorder.Code != http.StatusTemporaryRedirect {
@@ -239,13 +239,41 @@ func TestLLHLSMasterRedirectsWhilePresentationIsInitializing(t *testing.T) {
 	}
 }
 
+func TestHandleLLHLSUsesMainPlaylistName(t *testing.T) {
+	const user = "did:key:z6MkMainPlaylistRouteTest"
+	manager := &media.MediaManager{}
+	setLLWindowsForTest(manager, map[string]*llhls.Window{user: llhls.NewWindow()})
+	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+	handler := api.HandleLLHLS(context.Background())
+
+	for _, test := range []struct {
+		name string
+		path string
+		want int
+	}{
+		{name: "main", path: "/main.m3u8", want: http.StatusTemporaryRedirect},
+		{name: "master", path: "/master.m3u8", want: http.StatusNotFound},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			handler(recorder, httptest.NewRequest(http.MethodGet, test.path, nil), httprouter.Params{
+				{Key: "user", Value: user},
+				{Key: "path", Value: test.path},
+			})
+			if recorder.Code != test.want {
+				t.Fatalf("%s status = %d, want %d", test.path, recorder.Code, test.want)
+			}
+		})
+	}
+}
+
 func TestLLHLSMasterWaitsForBothRenditions(t *testing.T) {
 	const user = "did:key:z6MkBothTracksTest"
 	window := llhls.NewWindow()
 	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("video-init")}); err != nil {
 		t.Fatal(err)
 	}
-	window.SetVideoConfig(llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000})
+	window.SetVideoConfig(llhls.VideoConfig{FrameRate: 120, Bandwidth: 5000000, AverageBandwidth: 4000000})
 	manager := &media.MediaManager{}
 	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
 	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
@@ -254,7 +282,7 @@ func TestLLHLSMasterWaitsForBothRenditions(t *testing.T) {
 	result := make(chan *httptest.ResponseRecorder, 1)
 	go func() {
 		recorder := httptest.NewRecorder()
-		handler(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
+		handler(recorder, httptest.NewRequest(http.MethodGet, "/main.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
 		result <- recorder
 	}()
 	select {
@@ -273,7 +301,7 @@ func TestLLHLSMasterWaitsForBothRenditions(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("master did not become ready after both renditions initialized")
 	}
-	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `AUDIO="audio"`) {
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `AUDIO="audio"`) || !strings.Contains(recorder.Body.String(), "FRAME-RATE=120.000") {
 		t.Fatalf("master after both init segments = status %d body %q", recorder.Code, recorder.Body.String())
 	}
 }
@@ -293,7 +321,7 @@ func TestLLHLSMasterRedirectsWithoutVideoFrameRate(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	requestContext, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil).WithContext(requestContext)
+	request := httptest.NewRequest(http.MethodGet, "/main.m3u8", nil).WithContext(requestContext)
 	api.HandleLLHLSMaster(context.Background())(recorder, request, httprouter.Params{{Key: "user", Value: user}})
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("master without frame rate status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)

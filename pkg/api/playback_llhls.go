@@ -144,7 +144,7 @@ func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {
 		parts := strings.Split(path, "/")
 		params := httprouter.Params{{Key: "user", Value: p.ByName("user")}}
 		switch {
-		case path == "master.m3u8":
+		case path == "main.m3u8":
 			master(w, r, params)
 		case len(parts) == 3 && parts[2] == "index.m3u8":
 			params = append(params,
@@ -334,8 +334,7 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 }
 
 func validLLHLSFrameRate(fps float64) bool {
-	// Apple HLS authoring rules cap advertised video frame rates at 60 fps.
-	return fps > 0 && fps <= 60 && !math.IsNaN(fps) && !math.IsInf(fps, 0)
+	return fps > 0 && !math.IsNaN(fps) && !math.IsInf(fps, 0)
 }
 
 func (a *StreamplaceAPI) HandleLLHLSSegment(ctx context.Context) httprouter.Handle {

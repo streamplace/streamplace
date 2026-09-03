@@ -1,5 +1,3 @@
-// Package llhls contains the bounded in-memory state used by the LL-HLS
-// origin. It deliberately knows nothing about GStreamer or HTTP.
 package llhls
 
 import (
@@ -171,7 +169,7 @@ type Option func(*Window)
 func WithMaxSegments(n int) Option { return func(w *Window) { w.maxSegments = n } }
 func WithMaxBytes(n int) Option    { return func(w *Window) { w.maxBytes = n } }
 
-// WithPartHoldBack sets the advertised live edge distance for LL-HLS parts.
+// Sets the advertised live edge distance for LL-HLS parts.
 // Values below the HLS minimum are raised to three part targets.
 func WithPartHoldBack(d time.Duration) Option {
 	return func(w *Window) {
@@ -181,7 +179,7 @@ func WithPartHoldBack(d time.Duration) Option {
 	}
 }
 
-// WithSegmentCompletionDelay delays parent completion visibility by d. This
+// Delays parent completion visibility by d. This
 // gives blocking reloads time to observe the final part of an open segment.
 func WithSegmentCompletionDelay(d time.Duration) Option {
 	return func(w *Window) { w.completionHold = d }
@@ -195,7 +193,7 @@ func withMaxWaiters(n int) Option {
 	}
 }
 
-// WithPlaylistDurations sets fixed upper bounds for parent and part durations.
+// Sets fixed upper bounds for parent and part durations.
 // The parent bound is rounded to the nearest whole second for TARGETDURATION.
 // Both values remain fixed for each presentation observed by the Window.
 func WithPlaylistDurations(parent, part time.Duration) Option {
@@ -377,7 +375,7 @@ func (w *Window) findOrCreateSegment(t *track, ev Event) *segment {
 	return s
 }
 
-// scheduleCompletion flips a closing segment to complete after the hold. The
+// Flips a closing segment to complete after the hold. The
 // timer re-validates under the lock: a presentation reset or discontinuity
 // may have dropped the segment (or the whole track) in the meantime.
 func (w *Window) scheduleCompletion(t *track, trackID string, s *segment) {
@@ -409,7 +407,7 @@ func (w *Window) completeClosingSegments(t *track, nextMSN uint64) {
 func (w *Window) evict() {
 	for _, t := range w.tracks {
 		for len(t.segments) > 0 {
-			// Incomplete segments are still receiving part events; evicting
+			// Incomplete segments are still receiving part events, so evicting
 			// one strands those events and fails the ingest stream. Small
 			// tracks would otherwise be emptied wholesale while a large
 			// track keeps the byte budget exceeded.
@@ -650,10 +648,8 @@ func (w *Window) SegmentData(presentation, trackID string, msn uint64) []byte {
 	return nil
 }
 
-// Wait blocks a playlist reload until the requested reload point is reflected
-// in a newer playlist. For a completed parent, a part index beyond the final
-// part rolls over to part zero of the following parent, per HLS blocking
-// reload semantics. This rule intentionally does not apply to media lookups.
+// Blocks a playlist reload until the requested reload point is reflected
+// in a newer playlist, except for media lookups.
 func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
 	return w.waitForChange(ctx, w.waiters, func() (bool, error) {
 		if w.reloadPointUnavailableLocked(presentation, trackID, msn) || w.reloadPartUnavailableLocked(presentation, trackID, msn, partIndex) {
@@ -663,7 +659,7 @@ func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uin
 	})
 }
 
-// WaitForMaster blocks until both renditions and the metadata required by the
+// Blocks until both renditions and the metadata required by the
 // multivariant playlist have been published for a presentation.
 func (w *Window) WaitForMaster(ctx context.Context, presentation string) error {
 	return w.waitForChange(ctx, w.masterWaiters, func() (bool, error) {
@@ -677,9 +673,8 @@ func (w *Window) WaitForMaster(ctx context.Context, presentation string) error {
 func (w *Window) masterMetadataReadyLocked() bool {
 	video := w.tracks["video"]
 	audio := w.tracks["audio"]
-	// Keep the master within Apple's HLS authoring limit for advertised frame rate.
 	return video != nil && len(video.init) > 0 && audio != nil && len(audio.init) > 0 &&
-		w.videoConfig.FrameRate > 0 && w.videoConfig.FrameRate <= 60 && !math.IsNaN(w.videoConfig.FrameRate) && !math.IsInf(w.videoConfig.FrameRate, 0) &&
+		w.videoConfig.FrameRate > 0 && !math.IsNaN(w.videoConfig.FrameRate) && !math.IsInf(w.videoConfig.FrameRate, 0) &&
 		w.videoConfig.Bandwidth > 0 && w.videoConfig.AverageBandwidth > 0 &&
 		w.audioConfig.Bandwidth > 0 && w.audioConfig.AverageBandwidth > 0
 }
@@ -873,10 +868,8 @@ func acquireWaiter(waiters chan struct{}) error {
 
 func releaseWaiter(waiters chan struct{}) { <-waiters }
 
-// Playlist renders the media playlist for one track. URIs are supplied by the
+// Renders the media playlist for one track. URIs are supplied by the
 // caller so routing and presentation identifiers remain outside this package.
-// When renditionURI is non-nil, an EXT-X-RENDITION-REPORT is emitted for
-// every other track that has published media (required for LL-HLS).
 func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string) string {
 	s := w.playlistSnapshot(presentation, trackID)
 	if s.Track == "" {
@@ -890,6 +883,8 @@ func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uin
 		b.WriteString("#EXT-X-INDEPENDENT-SEGMENTS\n")
 	}
 	fmt.Fprintf(&b, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", partHoldBack.Seconds(), 3*float64(targetSeconds))
+	// When renditionURI is non-nil, an EXT-X-RENDITION-REPORT is emitted for
+	// every other track that has published media (required for LL-HLS).
 	if renditionURI != nil {
 		for _, rep := range w.renditionReports(presentation, trackID) {
 			fmt.Fprintf(&b, "#EXT-X-RENDITION-REPORT:URI=%q,LAST-MSN=%d", renditionURI(rep.trackID), rep.lastMSN)
@@ -971,10 +966,8 @@ type renditionReport struct {
 	lastPart int32
 }
 
-// renditionReports describes the latest published state of every track other
-// than exclude. A track with an open segment reports that segment's MSN and
-// its last published part; a fully completed tail reports its last MSN
-// without a part (completed parents carry no listed partial segments).
+// Describes the latest published state of every track other
+// than exclude
 func (w *Window) renditionReports(presentation, exclude string) []renditionReport {
 	w.mu.Lock()
 	defer w.mu.Unlock()

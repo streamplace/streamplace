@@ -5,7 +5,7 @@ import {
   usePrimaryColor,
   useStreamplaceStore,
 } from "../../streamplace-store";
-import { ThemeProvider, type Theme } from "./theme";
+import { ThemeProvider, type BrandColors, type Theme } from "./theme";
 
 interface BrandedThemeProviderProps {
   children: ReactNode;
@@ -61,12 +61,55 @@ export function BrandedThemeProvider({
     return overrides;
   }, [primaryColor, accentColor, brandingLoading]);
 
+  // Accent doubles as the secondary color (the only accent-ish token the
+  // app actually renders); status and live colors are their own keys.
+  const dangerColor = useBrandingAsset("dangerColor")?.data;
+  const successColor = useBrandingAsset("successColor")?.data;
+  const warningColor = useBrandingAsset("warningColor")?.data;
+  const infoColor = useBrandingAsset("infoColor")?.data;
+  const liveColor = useBrandingAsset("liveColor")?.data;
+  const accentLight = useBrandingAsset("accentColorLight")?.data;
+  const dangerLight = useBrandingAsset("dangerColorLight")?.data;
+  const successLight = useBrandingAsset("successColorLight")?.data;
+  const warningLight = useBrandingAsset("warningColorLight")?.data;
+  const infoLight = useBrandingAsset("infoColorLight")?.data;
+  const brandColors = useMemo<BrandColors | undefined>(() => {
+    if (brandingLoading) return undefined;
+    return {
+      secondary: accentColor,
+      danger: dangerColor,
+      success: successColor,
+      warning: warningColor,
+      info: infoColor,
+      live: liveColor,
+      secondaryLight: accentLight,
+      dangerLight,
+      successLight,
+      warningLight,
+      infoLight,
+    };
+  }, [
+    brandingLoading,
+    accentColor,
+    dangerColor,
+    successColor,
+    warningColor,
+    infoColor,
+    liveColor,
+    accentLight,
+    dangerLight,
+    successLight,
+    warningLight,
+    infoLight,
+  ]);
+
   return (
     <ThemeProvider
       defaultTheme={defaultTheme}
       forcedTheme={forcedTheme}
       colorTheme={colorTheme}
       chromeColors={chromeColors}
+      brandColors={brandColors}
     >
       {children}
     </ThemeProvider>

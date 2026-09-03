@@ -225,6 +225,14 @@ branding-foreground-dark = Foreground (dark)
 branding-background-light = Background (light)
 branding-foreground-light = Foreground (light)
 branding-reset = Reset
+branding-default = default
+branding-status-colors = Status Colors
+branding-status-colors-description = Colors for errors, success, warnings, informational notes and the live badge. Hex colors (#rrggbb); text on top of them is chosen automatically.
+branding-danger-color = Danger / error
+branding-success-color = Success
+branding-warning-color = Warning
+branding-info-color = Info
+branding-live-color = Live badge
 branding-images = Images
 
 ## Branding Fields
@@ -240,7 +248,7 @@ branding-default-streamer-placeholder = did:plc:...
 branding-clear-default-streamer = Clear Default Streamer
 branding-primary-color = Primary Color
 branding-primary-color-placeholder = #6366f1
-branding-accent-color = Accent Color
+branding-accent-color = Accent Color (secondary surfaces, highlights)
 branding-accent-color-placeholder = #8b5cf6
 branding-main-logo = Main Logo
 branding-main-logo-description = SVG, PNG, or JPEG (max 500KB)

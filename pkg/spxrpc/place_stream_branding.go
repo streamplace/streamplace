@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -36,14 +37,39 @@ var defaultBrandingAssets = map[string]struct {
 	"foregroundColor":      {data: []byte(""), mime: "text/plain"},
 	"backgroundColorLight": {data: []byte(""), mime: "text/plain"},
 	"foregroundColorLight": {data: []byte(""), mime: "text/plain"},
+	// Accent (secondary surfaces), status and live colors; the *Light keys
+	// override the light scheme. Empty means the app's defaults.
+	"accentColorLight":  {data: []byte(""), mime: "text/plain"},
+	"dangerColor":       {data: []byte(""), mime: "text/plain"},
+	"dangerColorLight":  {data: []byte(""), mime: "text/plain"},
+	"successColor":      {data: []byte(""), mime: "text/plain"},
+	"successColorLight": {data: []byte(""), mime: "text/plain"},
+	"warningColor":      {data: []byte(""), mime: "text/plain"},
+	"warningColorLight": {data: []byte(""), mime: "text/plain"},
+	"infoColor":         {data: []byte(""), mime: "text/plain"},
+	"infoColorLight":    {data: []byte(""), mime: "text/plain"},
+	"liveColor":         {data: []byte(""), mime: "text/plain"},
+}
+
+// hexColor is the only form the app's theme accepts for color keys; it does
+// string math on the value (alpha tints), so anything else breaks silently.
+var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
+
+// isColorKey reports whether a branding key holds a color.
+func isColorKey(key string) bool {
+	return strings.HasSuffix(key, "Color") || strings.HasSuffix(key, "ColorLight")
 }
 
 // brandingTextKeys are the small text-valued assets (1KB cap).
-var brandingTextKeys = map[string]bool{
-	"siteTitle": true, "siteDescription": true, "primaryColor": true, "accentColor": true,
-	"defaultStreamer": true, "backgroundColor": true, "foregroundColor": true,
-	"backgroundColorLight": true, "foregroundColorLight": true,
-}
+var brandingTextKeys = func() map[string]bool {
+	m := map[string]bool{}
+	for key, def := range defaultBrandingAssets {
+		if def.mime == "text/plain" {
+			m[key] = true
+		}
+	}
+	return m
+}()
 
 // NormalizeBroadcasterID turns the optional `broadcaster` parameter into the
 // key branding is stored under. Assets are written under the broadcaster's
@@ -209,6 +235,13 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	// sidebarBackgroundImage uses default 500KB limit
 	if len(data) > maxSize {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	}
+	if isColorKey(input.Key) {
+		v := strings.TrimSpace(string(data))
+		if !hexColor.MatchString(v) {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidColor: colors must be hex, like #1a2b3c")
+		}
+		data = []byte(strings.ToLower(v))
 	}
 
 	// store in database

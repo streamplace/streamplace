@@ -32,6 +32,7 @@ import (
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"stream.place/streamplace/js/app"
 	web "stream.place/streamplace/js/web"
+	"stream.place/streamplace/pkg/acme"
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
@@ -74,6 +75,9 @@ type StreamplaceAPI struct {
 	PlaybackStore blob.Store
 	ViewLog       *viewlog.Writer
 	XRPCServer    *spxrpc.Server
+	// ACME, when set, supplies TLS certificates for every TLS listener and
+	// answers HTTP-01 challenges on the redirect listener.
+	ACME *acme.Manager
 	// not thread-safe yet
 	Aliases  map[string]string
 	Bus      *bus.Bus
@@ -1006,6 +1010,9 @@ func (a *StreamplaceAPI) ServeHTTPRedirect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if a.ACME != nil {
+		handler = a.ACME.HTTPChallengeHandler(handler)
+	}
 	return a.ServerWithShutdown(ctx, handler, func(s *http.Server) error {
 		ln, err := getListenerFromFD("http")
 		if err != nil {
@@ -1044,6 +1051,15 @@ func (a *StreamplaceAPI) ServeHTTPS(ctx context.Context) error {
 			port443 := 443
 			a.HTTPRedirectTLSPort = &port443
 			log.Warn(ctx, "https server listening for https over systemd socket", "addr", ln.Addr())
+		}
+		if a.ACME != nil {
+			s.TLSConfig = a.ACME.TLSConfig()
+			s.TLSConfig.NextProtos = append([]string{"h2", "http/1.1"}, s.TLSConfig.NextProtos...)
+			log.Log(ctx, "https server starting",
+				"addr", ln.Addr(),
+				"acmeDomains", strings.Join(a.ACME.Domains(), ","),
+			)
+			return s.ServeTLS(ln, "", "")
 		}
 		log.Log(ctx, "https server starting",
 			"addr", ln.Addr(),

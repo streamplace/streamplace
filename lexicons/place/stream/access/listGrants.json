@@ -1,0 +1,38 @@
+{
+  "lexicon": 1,
+  "id": "place.stream.access.listGrants",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "List every grant on this node, including grants seeded from the environment. Requires the admin role.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "Only return grants of this role."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["grants"],
+          "properties": {
+            "grants": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "place.stream.access.defs#grantView"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        { "name": "Unauthorized", "description": "The caller is not an admin." }
+      ]
+    }
+  }
+}

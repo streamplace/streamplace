@@ -14,7 +14,7 @@ import (
 
 type BroadcastGetBroadcaster_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
-	// admins: Array of DIDs authorized as admins
+	// admins: Deprecated and no longer populated. Clients learn their own roles from place.stream.access.getStatus; admins manage grants via place.stream.access.*.
 	Admins []string `json:"admins,omitempty"`
 	// broadcaster: DID of the Streamplace broadcaster to which this server belongs
 	Broadcaster string `json:"broadcaster"`

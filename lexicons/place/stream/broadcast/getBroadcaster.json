@@ -32,7 +32,7 @@
                 "type": "string",
                 "format": "did"
               },
-              "description": "Array of DIDs authorized as admins"
+              "description": "Deprecated and no longer populated. Clients learn their own roles from place.stream.access.getStatus; admins manage grants via place.stream.access.*."
             }
           }
         }

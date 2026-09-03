@@ -17,6 +17,7 @@ import (
 	"runtime/pprof"
 	"slices"
 	"strconv"
+	"stream.place/streamplace/pkg/accessctl"
 	"stream.place/streamplace/pkg/acme"
 	"strings"
 	"syscall"
@@ -263,6 +264,12 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 		return err
 	}
 	cli.ServiceAuthKey = serviceAuthKey
+
+	accessCtl, err := accessctl.New(ctx, cli, state, mod)
+	if err != nil {
+		return fmt.Errorf("access control: %w", err)
+	}
+	cli.Access = accessCtl
 
 	b := bus.NewBus()
 	atsync := &atproto.ATProtoSynchronizer{

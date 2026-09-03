@@ -62,6 +62,7 @@ export function BrandingAdmin() {
   const currentLogo = useBrandingAsset("mainLogo");
   const currentFavicon = useBrandingAsset("favicon");
   const currentSidebarBg = useSidebarBackgroundImage();
+  const currentLinkBanner = useBrandingAsset("linkBanner");
   const currentLegalLinks = useBrandingAsset("legalLinks");
 
   // parse legal links
@@ -1363,6 +1364,59 @@ export function BrandingAdmin() {
                       style={{ height: 42 }}
                     >
                       {t("branding-delete-background")}
+                    </Button>
+                  </View>
+                </View>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <View style={[zero.gap.all[2], { flex: 1 }]}>
+                  <Text size="sm" weight="semibold">
+                    {t("branding-link-banner")}
+                  </Text>
+                  <MenuInfo
+                    description={t("branding-link-banner-description")}
+                  />
+                  {currentLinkBanner?.data && (
+                    <>
+                      <Image
+                        source={{ uri: currentLinkBanner.data }}
+                        contentFit="contain"
+                        style={{
+                          width: 300,
+                          height: 158,
+                        }}
+                      />
+                      <Text size="xs" color="muted">
+                        {currentLinkBanner?.width || "unknown"} x{" "}
+                        {currentLinkBanner?.height || "unknown"}
+                      </Text>
+                    </>
+                  )}
+                  <View
+                    style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                  >
+                    <Button
+                      onPress={() =>
+                        handleFileSelect(
+                          "linkBanner",
+                          "image/png,image/jpeg,image/webp",
+                        )
+                      }
+                      disabled={uploading || Platform.OS !== "web"}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-upload-link-banner")}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onPress={() => deleteBlob("linkBanner")}
+                      disabled={uploading || !currentLinkBanner?.data}
+                      width="min"
+                      style={{ height: 42 }}
+                    >
+                      {t("branding-delete-link-banner")}
                     </Button>
                   </View>
                 </View>

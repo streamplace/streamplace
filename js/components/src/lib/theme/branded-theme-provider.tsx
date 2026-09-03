@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import {
   useAccentColor,
+  useBrandingAsset,
   usePrimaryColor,
   useStreamplaceStore,
 } from "../../streamplace-store";
@@ -24,6 +25,20 @@ export function BrandedThemeProvider({
   const primaryColor = usePrimaryColor();
   const accentColor = useAccentColor();
   const brandingLoading = useStreamplaceStore((state) => state.brandingLoading);
+
+  // Chrome: the node's background/foreground pair per scheme, from which the
+  // theme derives surfaces, text and borders. Empty values leave defaults.
+  const bgDark = useBrandingAsset("backgroundColor")?.data;
+  const fgDark = useBrandingAsset("foregroundColor")?.data;
+  const bgLight = useBrandingAsset("backgroundColorLight")?.data;
+  const fgLight = useBrandingAsset("foregroundColorLight")?.data;
+  const chromeColors = useMemo(
+    () => ({
+      dark: { background: bgDark, foreground: fgDark },
+      light: { background: bgLight, foreground: fgLight },
+    }),
+    [bgDark, fgDark, bgLight, fgLight],
+  );
 
   // Build color theme overrides from branding
   const colorTheme = useMemo<Partial<Theme["colors"]>>(() => {
@@ -51,6 +66,7 @@ export function BrandedThemeProvider({
       defaultTheme={defaultTheme}
       forcedTheme={forcedTheme}
       colorTheme={colorTheme}
+      chromeColors={chromeColors}
     >
       {children}
     </ThemeProvider>

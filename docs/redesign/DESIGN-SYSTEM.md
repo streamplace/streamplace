@@ -35,12 +35,12 @@ Legacy aliases (kept working): `background`→surface0, `card`→surface1,
 
 White (dark) / ink (light) at fixed alphas.
 
-| Token   | Dark                    | Light               | Use                                |
-| ------- | ----------------------- | ------------------- | ---------------------------------- |
-| `text1` | `rgba(255,255,255,.92)` | `rgba(9,9,11,.92)`  | Primary: titles, body              |
-| `text2` | `rgba(255,255,255,.65)` | `rgba(9,9,11,.66)`  | Secondary: metadata, descriptions  |
-| `text3` | `rgba(255,255,255,.45)` | `rgba(9,9,11,.46)`  | Tertiary: placeholders, timestamps |
-| `text4` | `rgba(255,255,255,.30)` | `rgba(9,9,11,.32)`  | Disabled                           |
+| Token   | Dark                    | Light              | Use                                |
+| ------- | ----------------------- | ------------------ | ---------------------------------- |
+| `text1` | `rgba(255,255,255,.92)` | `rgba(9,9,11,.92)` | Primary: titles, body              |
+| `text2` | `rgba(255,255,255,.65)` | `rgba(9,9,11,.66)` | Secondary: metadata, descriptions  |
+| `text3` | `rgba(255,255,255,.45)` | `rgba(9,9,11,.46)` | Tertiary: placeholders, timestamps |
+| `text4` | `rgba(255,255,255,.30)` | `rgba(9,9,11,.32)` | Disabled                           |
 
 Legacy aliases: `text`→text1, `textMuted`→text2, `textDisabled`→text4.
 

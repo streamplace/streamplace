@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -51,15 +53,21 @@ func TestLLHLSReloadQueryRejectsPartWithoutMSN(t *testing.T) {
 }
 
 func TestLLHLSMasterAdvertisesVideoMetadata(t *testing.T) {
-	master := renderLLHLSMaster("/api/playback/did:plc:test/llhls/rtmp-1", llhls.VideoConfig{
-		Codec:  "avc1.64002a",
-		Width:  1280,
-		Height: 720,
-	}, llhls.AudioConfig{Channels: 2})
+	master, err := renderLLHLSMaster("/api/playback/did:plc:test/llhls/rtmp-1", llhls.VideoConfig{
+		Codec:            "avc1.64002a",
+		Width:            1280,
+		Height:           720,
+		FrameRate:        30,
+		Bandwidth:        5000000,
+		AverageBandwidth: 4000000,
+	}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, want := range []string{
 		"#EXT-X-VERSION:10",
-		`#EXT-X-STREAM-INF:BANDWIDTH=6500000,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=1280x720,AUDIO="audio",CLOSED-CAPTIONS=NONE`,
+		`#EXT-X-STREAM-INF:BANDWIDTH=5128000,AVERAGE-BANDWIDTH=4128000,CODECS="avc1.64002a,mp4a.40.2",RESOLUTION=1280x720,FRAME-RATE=30.000,AUDIO="audio",CLOSED-CAPTIONS=NONE`,
 		`#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="default",DEFAULT=YES,AUTOSELECT=YES,CHANNELS="2",CODECS="mp4a.40.2",URI="/api/playback/did:plc:test/llhls/rtmp-1/audio/index.m3u8"`,
 		`/api/playback/did:plc:test/llhls/rtmp-1/video/index.m3u8`,
 	} {
@@ -72,25 +80,139 @@ func TestLLHLSMasterAdvertisesVideoMetadata(t *testing.T) {
 	}
 }
 
-func TestLLHLSMasterAdvertisesAudioOnlyVariant(t *testing.T) {
-	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720}, llhls.AudioConfig{Channels: 2})
-	want := "#EXT-X-STREAM-INF:BANDWIDTH=128000,CODECS=\"mp4a.40.2\"\n/api/playback/test/audio/index.m3u8"
-	if !strings.Contains(master, want) {
-		t.Fatalf("master missing audio-only variant %q:\n%s", want, master)
+func TestLLHLSMasterOmitsAudioOnlyVariant(t *testing.T) {
+	video := llhls.VideoConfig{Codec: "avc1.64002a", Width: 1280, Height: 720, FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}
+	audio := llhls.AudioConfig{Channels: 2, Bandwidth: 96000, AverageBandwidth: 88000}
+	master, err := renderLLHLSMaster("/api/playback/test", video, audio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(master, "/api/playback/test/audio/index.m3u8\n") {
+		t.Fatalf("Apple master advertised an audio-only variant:\n%s", master)
+	}
+}
+
+func TestLLHLSPlaylistRejectsReloadTooFarAhead(t *testing.T) {
+	const user = "did:key:z6MkFutureReloadTest"
+	window := llhls.NewWindow()
+	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := window.Observe(llhls.Event{Kind: llhls.Part, Presentation: "p", Track: "video", Generation: 1, MSN: 7, Part: 0, Duration: time.Second, Data: []byte("part")}); err != nil {
+		t.Fatal(err)
+	}
+
+	manager := &media.MediaManager{}
+	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
+	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+	params := httprouter.Params{
+		{Key: "user", Value: user},
+		{Key: "presentation", Value: "p"},
+		{Key: "track", Value: "video"},
+	}
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/video/index.m3u8?_HLS_msn=10", nil)
+	api.HandleLLHLSPlaylist(context.Background())(recorder, request, params)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("future reload status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+}
+
+func TestLLHLSMasterReturnsUnavailableWithoutMeasuredBandwidth(t *testing.T) {
+	const user = "did:key:z6MkMissingBandwidthTest"
+	window := llhls.NewWindow()
+	window.SetVideoConfig(llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000})
+	window.SetAudioConfig(llhls.AudioConfig{Channels: 2})
+	for _, track := range []string{"video", "audio"} {
+		if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: track, Generation: 1, Data: []byte(track + "-init")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	manager := &media.MediaManager{}
+	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
+	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+	recorder := httptest.NewRecorder()
+	requestContext, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil).WithContext(requestContext)
+	api.HandleLLHLSMaster(context.Background())(recorder, request, httprouter.Params{{Key: "user", Value: user}})
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("master without measured bandwidth status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestLLHLSMasterRedirectsForInvalidVideoFrameRate(t *testing.T) {
+	for _, fps := range []float64{math.NaN(), math.Inf(1), -1, 61} {
+		t.Run(fmt.Sprintf("fps-%v", fps), func(t *testing.T) {
+			const user = "did:key:z6MkInvalidFrameRateTest"
+			window := llhls.NewWindow()
+			window.SetVideoConfig(llhls.VideoConfig{FrameRate: fps, Bandwidth: 5000000, AverageBandwidth: 4000000})
+			window.SetAudioConfig(llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+			for _, track := range []string{"video", "audio"} {
+				if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: track, Generation: 1, Data: []byte(track + "-init")}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			manager := &media.MediaManager{}
+			setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
+			api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+			recorder := httptest.NewRecorder()
+			api.HandleLLHLSMaster(context.Background())(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
+			if recorder.Code != http.StatusTemporaryRedirect {
+				t.Fatalf("master with invalid frame rate status = %d, want %d", recorder.Code, http.StatusTemporaryRedirect)
+			}
+		})
+	}
+}
+
+func TestLLHLSMasterAdvertisesFrameRateWhenKnown(t *testing.T) {
+	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{
+		Codec:            "avc1.64002a",
+		Width:            1280,
+		Height:           720,
+		FrameRate:        59.94,
+		Bandwidth:        5000000,
+		AverageBandwidth: 4000000,
+	}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(master, "FRAME-RATE=59.940") {
+		t.Fatalf("master omitted known video frame rate:\n%s", master)
 	}
 }
 
 func TestLLHLSMasterOmitsIndependentSegments(t *testing.T) {
-	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, llhls.AudioConfig{Channels: 2})
+	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if strings.Contains(master, "#EXT-X-INDEPENDENT-SEGMENTS") {
 		t.Fatalf("master advertised independent segments without metadata:\n%s", master)
 	}
 }
 
 func TestLLHLSMasterAdvertisesAudioChannels(t *testing.T) {
-	master := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, llhls.AudioConfig{Channels: 1})
+	master, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000}, llhls.AudioConfig{Channels: 1, Bandwidth: 128000, AverageBandwidth: 128000})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(master, `CHANNELS="1"`) {
 		t.Fatalf("master omitted mono audio metadata:\n%s", master)
+	}
+}
+
+func TestLLHLSMasterRendererRejectsIncompleteMetadata(t *testing.T) {
+	if _, err := renderLLHLSMaster("/api/playback/test", llhls.VideoConfig{}, llhls.AudioConfig{}); err == nil {
+		t.Fatal("renderer accepted incomplete metadata")
+	}
+}
+
+func TestLLHLSMasterBitrateSumSaturates(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	if got := sumBitrates(maxInt-1, 2); got != maxInt {
+		t.Fatalf("sumBitrates overflowed to %d, want %d", got, maxInt)
 	}
 }
 
@@ -123,32 +245,63 @@ func TestLLHLSMasterWaitsForBothRenditions(t *testing.T) {
 	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "video", Generation: 1, Data: []byte("video-init")}); err != nil {
 		t.Fatal(err)
 	}
+	window.SetVideoConfig(llhls.VideoConfig{FrameRate: 30, Bandwidth: 5000000, AverageBandwidth: 4000000})
 	manager := &media.MediaManager{}
 	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
 	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
 	handler := api.HandleLLHLSMaster(context.Background())
 
-	recorder := httptest.NewRecorder()
-	handler(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
-	if recorder.Code != http.StatusTemporaryRedirect {
-		t.Fatalf("master with video-only init status = %d, want %d", recorder.Code, http.StatusTemporaryRedirect)
-	}
-	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
-		t.Fatalf("master with video-only init cache policy = %q, want no-store", got)
+	result := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		recorder := httptest.NewRecorder()
+		handler(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
+		result <- recorder
+	}()
+	select {
+	case recorder := <-result:
+		t.Fatalf("master with video-only init returned early with status %d", recorder.Code)
+	case <-time.After(10 * time.Millisecond):
 	}
 
 	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "audio", Generation: 1, Data: []byte("audio-init")}); err != nil {
 		t.Fatal(err)
 	}
-	recorder = httptest.NewRecorder()
-	handler(recorder, httptest.NewRequest(http.MethodGet, "/master.m3u8", nil), httprouter.Params{{Key: "user", Value: user}})
+	window.SetAudioConfig(llhls.AudioConfig{Channels: 2, Bandwidth: 128000, AverageBandwidth: 128000})
+	var recorder *httptest.ResponseRecorder
+	select {
+	case recorder = <-result:
+	case <-time.After(time.Second):
+		t.Fatal("master did not become ready after both renditions initialized")
+	}
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `AUDIO="audio"`) {
 		t.Fatalf("master after both init segments = status %d body %q", recorder.Code, recorder.Body.String())
 	}
 }
 
-func TestLLHLSAudioPlaylistUsesCompleteSegments(t *testing.T) {
-	const user = "did:key:z6MkAudioSegmentsOnlyTest"
+func TestLLHLSMasterRedirectsWithoutVideoFrameRate(t *testing.T) {
+	const user = "did:key:z6MkMissingFrameRateTest"
+	window := llhls.NewWindow()
+	for _, track := range []string{"video", "audio"} {
+		if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: track, Generation: 1, Data: []byte(track + "-init")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	manager := &media.MediaManager{}
+	setLLWindowsForTest(manager, map[string]*llhls.Window{user: window})
+	api := &StreamplaceAPI{MediaManager: manager, Aliases: map[string]string{}}
+	recorder := httptest.NewRecorder()
+	requestContext, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	request := httptest.NewRequest(http.MethodGet, "/master.m3u8", nil).WithContext(requestContext)
+	api.HandleLLHLSMaster(context.Background())(recorder, request, httprouter.Params{{Key: "user", Value: user}})
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("master without frame rate status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestLLHLSAudioPlaylistUsesLLHLSParts(t *testing.T) {
+	const user = "did:key:z6MkAudioLLHLSTest"
 	window := llhls.NewWindow()
 	if err := window.Observe(llhls.Event{Kind: llhls.Init, Presentation: "p", Track: "audio", Generation: 1, Data: []byte("audio-init")}); err != nil {
 		t.Fatal(err)
@@ -160,6 +313,9 @@ func TestLLHLSAudioPlaylistUsesCompleteSegments(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := window.Observe(llhls.Event{Kind: llhls.SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 1, Duration: 2 * time.Second, Data: []byte("segment")}); err != nil {
+		t.Fatal(err)
+	}
+	if err := window.Observe(llhls.Event{Kind: llhls.Part, Presentation: "p", Track: "audio", Generation: 1, MSN: 2, Part: 0, Duration: time.Second, Data: []byte("next-part")}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -177,9 +333,9 @@ func TestLLHLSAudioPlaylistUsesCompleteSegments(t *testing.T) {
 		t.Fatalf("audio playlist status = %d, want %d", recorder.Code, http.StatusOK)
 	}
 	body := recorder.Body.String()
-	for _, forbidden := range []string{"#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", "#EXT-X-PART:", "#EXT-X-PRELOAD-HINT:", "#EXT-X-RENDITION-REPORT:"} {
-		if strings.Contains(body, forbidden) {
-			t.Errorf("audio playlist contains %q:\n%s", forbidden, body)
+	for _, required := range []string{"#EXT-X-PART-INF:", "#EXT-X-SERVER-CONTROL:", `#EXT-X-PART:DURATION=1.000000,URI="/api/playback/did:key:z6MkAudioLLHLSTest/llhls/p/audio/2/0.m4s"`, `#EXT-X-PRELOAD-HINT:TYPE=PART,URI="/api/playback/did:key:z6MkAudioLLHLSTest/llhls/p/audio/2/1.m4s"`} {
+		if !strings.Contains(body, required) {
+			t.Errorf("audio playlist missing %q:\n%s", required, body)
 		}
 	}
 	if !strings.Contains(body, "#EXTINF:2.000000,") || !strings.Contains(body, "/audio/1.m4s") {
@@ -232,6 +388,16 @@ func TestLLHLSPartHandlerKeepsExactURIIdentity(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
 		t.Fatalf("invalid exact part cache policy = %q, want no-store", got)
+	}
+
+	params[1].Value = "stale-presentation"
+	recorder = httptest.NewRecorder()
+	handler(recorder, httptest.NewRequest(http.MethodGet, "/part.m4s", nil), params)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("stale presentation part status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("stale presentation part cache policy = %q, want no-store", got)
 	}
 }
 

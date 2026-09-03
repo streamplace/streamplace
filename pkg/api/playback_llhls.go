@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,6 +17,8 @@ import (
 	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
 )
+
+const llhlsBlockingRequestTimeout = 10 * time.Second
 
 func (a *StreamplaceAPI) llWindow(r *http.Request, user string) (*llhls.Window, string, error) {
 	did, err := a.NormalizeUser(r.Context(), user)
@@ -46,18 +49,50 @@ func (a *StreamplaceAPI) HandleLLHLSMaster(ctx context.Context) httprouter.Handl
 			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
 			return
 		}
-		if len(window.Snapshot(presentation, "video").Init) == 0 || len(window.Snapshot(presentation, "audio").Init) == 0 {
+		videoConfig := window.VideoConfig()
+		if videoConfig.FrameRate != 0 && !validLLHLSFrameRate(videoConfig.FrameRate) {
 			w.Header().Set("Cache-Control", "no-store")
 			http.Redirect(w, r, "/xrpc/place.stream.playback.getLivePlaylist?streamer="+url.QueryEscape(p.ByName("user")), http.StatusTemporaryRedirect)
 			return
 		}
+		waitCtx, cancel := context.WithTimeout(r.Context(), llhlsBlockingRequestTimeout)
+		waitErr := window.WaitForMaster(waitCtx, presentation)
+		cancel()
+		if waitErr != nil {
+			if errors.Is(waitErr, context.Canceled) {
+				return
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			if errors.Is(waitErr, llhls.ErrReloadUnavailable) {
+				http.Error(w, "LL-HLS presentation changed while loading master", http.StatusServiceUnavailable)
+			} else if errors.Is(waitErr, llhls.ErrWaiterLimit) {
+				http.Error(w, "too many LL-HLS master requests", http.StatusServiceUnavailable)
+			} else {
+				w.Header().Set("Retry-After", "1")
+				http.Error(w, "LL-HLS master metadata is not ready", http.StatusServiceUnavailable)
+			}
+			return
+		}
+		videoConfig = window.VideoConfig()
+		audioConfig := window.AudioConfig()
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		body := renderLLHLSMaster(base, window.VideoConfig(), window.AudioConfig())
+		body, err := renderLLHLSMaster(base, videoConfig, audioConfig)
+		if err != nil {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Error(w, "LL-HLS master metadata is not ready", http.StatusServiceUnavailable)
+			return
+		}
 		writeLLHLSPlaylist(w, body)
 	}
 }
 
-func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig llhls.AudioConfig) string {
+func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig llhls.AudioConfig) (string, error) {
+	if !validLLHLSFrameRate(videoConfig.FrameRate) {
+		return "", fmt.Errorf("invalid LL-HLS video frame rate: %v", videoConfig.FrameRate)
+	}
+	if videoConfig.Bandwidth <= 0 || videoConfig.AverageBandwidth <= 0 || audioConfig.Bandwidth <= 0 || audioConfig.AverageBandwidth <= 0 {
+		return "", errors.New("LL-HLS bandwidth metadata is not ready")
+	}
 	codec := videoConfig.Codec
 	if codec == "" {
 		codec = "avc1.64001f"
@@ -66,18 +101,36 @@ func renderLLHLSMaster(base string, videoConfig llhls.VideoConfig, audioConfig l
 	if channels <= 0 {
 		channels = 2
 	}
+	videoBandwidth := videoConfig.Bandwidth
+	videoAverageBandwidth := videoConfig.AverageBandwidth
+	audioBandwidth := audioConfig.Bandwidth
+	audioAverageBandwidth := audioConfig.AverageBandwidth
 	var b strings.Builder
 	b.WriteString("#EXTM3U\n#EXT-X-VERSION:10\n")
 	fmt.Fprintf(&b, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=%q,NAME=%q,DEFAULT=YES,AUTOSELECT=YES,CHANNELS=%q,CODECS=%q,URI=%q\n",
 		"audio", "default", strconv.Itoa(channels), "mp4a.40.2", base+"/audio/index.m3u8")
-	streamInf := fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=6500000,CODECS=%q", codec+",mp4a.40.2")
+	streamInf := fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,AVERAGE-BANDWIDTH=%d,CODECS=%q", sumBitrates(videoBandwidth, audioBandwidth), sumBitrates(videoAverageBandwidth, audioAverageBandwidth), codec+",mp4a.40.2")
 	if videoConfig.Width > 0 && videoConfig.Height > 0 {
 		streamInf += fmt.Sprintf(",RESOLUTION=%dx%d", videoConfig.Width, videoConfig.Height)
 	}
+	if validLLHLSFrameRate(videoConfig.FrameRate) {
+		streamInf += fmt.Sprintf(",FRAME-RATE=%.3f", videoConfig.FrameRate)
+	}
 	streamInf += ",AUDIO=\"audio\",CLOSED-CAPTIONS=NONE"
 	b.WriteString(streamInf + "\n" + base + "/video/index.m3u8\n")
-	fmt.Fprintf(&b, "#EXT-X-STREAM-INF:BANDWIDTH=%d,CODECS=%q\n%s\n", 128000, "mp4a.40.2", base+"/audio/index.m3u8")
-	return b.String()
+	return b.String(), nil
+}
+
+func sumBitrates(values ...int) int {
+	maxInt := int(^uint(0) >> 1)
+	sum := 0
+	for _, value := range values {
+		if value <= 0 || sum > maxInt-value {
+			return maxInt
+		}
+		sum += value
+	}
+	return sum
 }
 
 func (a *StreamplaceAPI) HandleLLHLS(ctx context.Context) httprouter.Handle {
@@ -145,20 +198,30 @@ func (a *StreamplaceAPI) HandleLLHLSPlaylist(ctx context.Context) httprouter.Han
 		}
 		log.Debug(r.Context(), "LL-HLS playlist request", "presentation", presentation, "track", track, "msn", msn, "part", part, "blocking", reload, "skip", r.URL.Query().Get("_HLS_skip"))
 		if reload {
-			if err := window.Wait(r.Context(), presentation, track, msn, part); err != nil {
+			waitCtx, cancel := context.WithTimeout(r.Context(), llhlsBlockingRequestTimeout)
+			err := window.Wait(waitCtx, presentation, track, msn, part)
+			cancel()
+			if err != nil {
 				log.Debug(r.Context(), "LL-HLS playlist wait ended", "presentation", presentation, "track", track, "msn", msn, "part", part, "error", err)
+				if errors.Is(err, llhls.ErrReloadUnavailable) {
+					w.Header().Set("Cache-Control", "no-store")
+					apierrors.WriteHTTPBadRequest(w, "invalid LL-HLS reload point", err)
+				} else if errors.Is(err, context.DeadlineExceeded) {
+					w.Header().Set("Cache-Control", "no-store")
+					http.Error(w, "LL-HLS playlist reload timed out", http.StatusServiceUnavailable)
+				} else if errors.Is(err, llhls.ErrWaiterLimit) {
+					w.Header().Set("Cache-Control", "no-store")
+					http.Error(w, "too many LL-HLS playlist reloads", http.StatusServiceUnavailable)
+				} else {
+					w.Header().Set("Cache-Control", "no-store")
+					http.Error(w, "LL-HLS playlist reload failed", http.StatusServiceUnavailable)
+				}
 				return
 			}
 		}
 		base := fmt.Sprintf("/api/playback/%s/llhls/%s/%s", url.PathEscape(did), url.PathEscape(presentation), track)
 		renditionBase := fmt.Sprintf("/api/playback/%s/llhls/%s", url.PathEscape(did), url.PathEscape(presentation))
-		playlist := window.Playlist
-		if track == "audio" {
-			// Keep AAC on complete-parent playlists. Its frame boundaries are not
-			// exposed through the low-latency part path used by video.
-			playlist = window.PlaylistSegmentsOnly
-		}
-		body := playlist(presentation, track,
+		body := window.Playlist(presentation, track,
 			func(msn uint64, part uint32) string { return fmt.Sprintf("%s/%d/%d.m4s", base, msn, part) },
 			func(msn uint64) string { return fmt.Sprintf("%s/%d.m4s", base, msn) },
 			base+"/init.mp4",
@@ -235,8 +298,29 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 		}
 		presentation, track := p.ByName("presentation"), p.ByName("track")
 		partIndex := uint32(part)
-		if err := window.WaitForPart(r.Context(), presentation, track, msn, partIndex); err != nil && !errors.Is(err, llhls.ErrPartUnavailable) {
-			log.Debug(r.Context(), "LL-HLS part wait ended", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "error", err)
+		waitCtx, cancel := context.WithTimeout(r.Context(), llhlsBlockingRequestTimeout)
+		waitErr := window.WaitForPart(waitCtx, presentation, track, msn, partIndex)
+		cancel()
+		if errors.Is(waitErr, llhls.ErrPartUnavailable) {
+			w.Header().Set("Cache-Control", "no-store")
+			apierrors.WriteHTTPNotFound(w, "media not found", waitErr)
+			return
+		}
+		if waitErr != nil {
+			log.Debug(r.Context(), "LL-HLS part wait ended", "presentation", presentation, "track", track, "msn", msn, "part", partIndex, "error", waitErr)
+			w.Header().Set("Cache-Control", "no-store")
+			switch {
+			case errors.Is(waitErr, context.Canceled):
+				return
+			case errors.Is(waitErr, llhls.ErrReloadUnavailable):
+				apierrors.WriteHTTPNotFound(w, "LL-HLS presentation changed", waitErr)
+			case errors.Is(waitErr, context.DeadlineExceeded):
+				http.Error(w, "LL-HLS part request timed out", http.StatusServiceUnavailable)
+			case errors.Is(waitErr, llhls.ErrWaiterLimit):
+				http.Error(w, "too many LL-HLS part requests", http.StatusServiceUnavailable)
+			default:
+				http.Error(w, "LL-HLS part request failed", http.StatusServiceUnavailable)
+			}
 			return
 		}
 		data := window.Data(presentation, track, msn, partIndex)
@@ -247,6 +331,11 @@ func (a *StreamplaceAPI) HandleLLHLSPart(ctx context.Context) httprouter.Handle 
 		}
 		serveLLHLSBytes(w, r, data, "part.m4s", true, llhlsTrackMIMEType(track))
 	}
+}
+
+func validLLHLSFrameRate(fps float64) bool {
+	// Apple HLS authoring rules cap advertised video frame rates at 60 fps.
+	return fps > 0 && fps <= 60 && !math.IsNaN(fps) && !math.IsInf(fps, 0)
 }
 
 func (a *StreamplaceAPI) HandleLLHLSSegment(ctx context.Context) httprouter.Handle {

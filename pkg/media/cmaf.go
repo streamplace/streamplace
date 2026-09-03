@@ -27,6 +27,7 @@ const (
 type cmafTrackSink struct {
 	ctx           context.Context
 	presentation  string
+	session       uint64
 	track         string
 	window        *llhls.Window
 	generation    uint64
@@ -86,6 +87,7 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		}
 	}
 	if initIndex >= 0 {
+		audioChannels := 0
 		if s.track == "video" {
 			videoTrackIDs, err := cmafVideoTrackIDs(buffers[initIndex])
 			if err != nil && s.ctx != nil {
@@ -100,7 +102,7 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 					log.Error(s.ctx, "LL-HLS CMAF audio channel mapping failed", "presentation", s.presentation, "track", s.track, "error", err)
 				}
 			} else {
-				s.window.SetAudioConfig(llhls.AudioConfig{Channels: channels})
+				audioChannels = channels
 			}
 		}
 		if timescale, err := cmafTrackTimescale(buffers[initIndex]); err != nil {
@@ -113,11 +115,15 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		if err := s.window.Observe(llhls.Event{
 			Kind:         llhls.Init,
 			Presentation: s.presentation,
+			Session:      s.session,
 			Track:        s.track,
 			Generation:   s.generation,
 			Data:         buffers[initIndex],
 		}); err != nil {
 			return fmt.Errorf("publish CMAF init: %w", err)
+		}
+		if audioChannels > 0 {
+			s.window.SetAudioConfig(llhls.AudioConfig{Channels: audioChannels})
 		}
 		s.initialized = true
 	}
@@ -157,14 +163,24 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		fragment.Write(data)
 	}
 	fragmentTiming := cmafFragmentTiming{}
-	if !s.hasParent && s.timescale > 0 {
+	if s.timescale > 0 && (!s.hasParent || s.track == "video") {
 		timings, err := inspectCMAFFragment(fragment.Bytes())
 		if err != nil {
 			if s.ctx != nil {
 				log.Error(s.ctx, "LL-HLS CMAF fragment timing unavailable for program date time", "presentation", s.presentation, "track", s.track, "msn", s.nextMSN, "part", s.partIndex, "error", err)
 			}
-		} else if len(timings) == 1 {
-			fragmentTiming = timings[0]
+		} else {
+			if !s.hasParent && len(timings) == 1 {
+				fragmentTiming = timings[0]
+			}
+			if s.track == "video" {
+				for _, timing := range timings {
+					if s.videoTrackIDs[timing.TrackID] {
+						s.window.SetVideoFrameRate(cmafVideoFrameRate(timing, s.timescale))
+						break
+					}
+				}
+			}
 		}
 	}
 	partStart := s.timelineEnd
@@ -216,6 +232,13 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		}
 	}
 	return nil
+}
+
+func cmafVideoFrameRate(timing cmafFragmentTiming, timescale uint32) float64 {
+	if timescale == 0 || timing.SampleCount == 0 || timing.Duration == 0 {
+		return 0
+	}
+	return float64(timing.SampleCount) * float64(timescale) / float64(timing.Duration)
 }
 
 func (s *cmafTrackSink) fragmentProgramDateTime(timing cmafFragmentTiming, fallback time.Duration) time.Time {
@@ -282,6 +305,7 @@ func (s *cmafTrackSink) publishPart(part cmafPendingPart) error {
 	if err := s.window.Observe(llhls.Event{
 		Kind:            llhls.Part,
 		Presentation:    s.presentation,
+		Session:         s.session,
 		Track:           s.track,
 		Generation:      s.generation,
 		MSN:             s.nextMSN,
@@ -309,6 +333,7 @@ func (s *cmafTrackSink) completeParent() error {
 	if err := s.window.Observe(llhls.Event{
 		Kind:         llhls.SegmentComplete,
 		Presentation: s.presentation,
+		Session:      s.session,
 		Track:        s.track,
 		Generation:   s.generation,
 		MSN:          s.nextMSN,

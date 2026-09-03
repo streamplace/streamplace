@@ -18,6 +18,8 @@ var (
 	ErrPartOrder         = errors.New("llhls: invalid part order")
 	ErrGeneration        = errors.New("llhls: stale configuration generation")
 	ErrPartUnavailable   = errors.New("llhls: part unavailable")
+	ErrReloadUnavailable = errors.New("llhls: reload point unavailable")
+	ErrWaiterLimit       = errors.New("llhls: waiter limit reached")
 	ErrWindowCapacity    = errors.New("llhls: window capacity exceeded")
 )
 
@@ -31,6 +33,7 @@ const (
 	// Keep enough completed history for hold-back playback when a sibling track
 	// drives the shared byte budget over its limit.
 	minRetainedSegments = 12
+	defaultMaxWaiters   = 256
 )
 
 type EventKind uint8
@@ -46,6 +49,7 @@ const (
 type Event struct {
 	Kind            EventKind
 	Presentation    string
+	Session         uint64
 	Track           string
 	Generation      uint64
 	MSN             uint64
@@ -86,13 +90,18 @@ type Snapshot struct {
 }
 
 type VideoConfig struct {
-	Codec  string
-	Width  int
-	Height int
+	Codec            string
+	Width            int
+	Height           int
+	FrameRate        float64
+	Bandwidth        int
+	AverageBandwidth int
 }
 
 type AudioConfig struct {
-	Channels int
+	Channels         int
+	Bandwidth        int
+	AverageBandwidth int
 }
 
 // PartIdentity is the stable logical identity used by a part URI. Parent
@@ -106,6 +115,7 @@ type PartIdentity struct {
 type Window struct {
 	mu                     sync.Mutex
 	presentation           string
+	presentationSession    uint64
 	tracks                 map[string]*track
 	maxSegments            int
 	maxBytes               int
@@ -122,14 +132,20 @@ type Window struct {
 	partHoldBack           time.Duration
 	configuredPartHoldBack time.Duration
 	completionHold         time.Duration
+	maxWaiters             int
+	waiters                chan struct{}
+	masterWaiters          chan struct{}
 }
 
 type track struct {
-	generation uint64
-	init       []byte
-	segments   []*segment
-	ended      bool
-	bytes      int
+	generation    uint64
+	init          []byte
+	segments      []*segment
+	ended         bool
+	bytes         int
+	mediaBytes    int64
+	mediaDuration time.Duration
+	peakBandwidth int
 }
 
 type segment struct {
@@ -171,6 +187,14 @@ func WithSegmentCompletionDelay(d time.Duration) Option {
 	return func(w *Window) { w.completionHold = d }
 }
 
+func withMaxWaiters(n int) Option {
+	return func(w *Window) {
+		if n > 0 {
+			w.maxWaiters = n
+		}
+	}
+}
+
 // WithPlaylistDurations sets fixed upper bounds for parent and part durations.
 // The parent bound is rounded to the nearest whole second for TARGETDURATION.
 // Both values remain fixed for each presentation observed by the Window.
@@ -191,6 +215,7 @@ func NewWindow(opts ...Option) *Window {
 		changed:        make(chan struct{}),
 		targetDuration: roundedDurationSeconds(defaultTargetDuration),
 		partTarget:     defaultPartTarget,
+		maxWaiters:     defaultMaxWaiters,
 	}
 	for _, opt := range opts {
 		opt(w)
@@ -201,6 +226,8 @@ func NewWindow(opts ...Option) *Window {
 	w.configuredTarget = w.targetDuration
 	w.configuredPartTarget = w.partTarget
 	w.configuredPartHoldBack = w.partHoldBack
+	w.waiters = make(chan struct{}, w.maxWaiters)
+	w.masterWaiters = make(chan struct{}, w.maxWaiters)
 	return w
 }
 
@@ -212,6 +239,7 @@ func (w *Window) Observe(ev Event) error {
 	}
 	if w.presentation == "" {
 		w.presentation = ev.Presentation
+		w.presentationSession = ev.Session
 	}
 	if ev.Presentation != w.presentation {
 		// A new init is the explicit reconnect boundary. Drop the old timeline
@@ -220,17 +248,25 @@ func (w *Window) Observe(ev Event) error {
 		if ev.Kind != Init {
 			return ErrStalePresentation
 		}
+		if w.presentationSession != 0 && (ev.Session == 0 || ev.Session < w.presentationSession) {
+			return ErrStalePresentation
+		}
 		for _, t := range w.tracks {
 			w.removeTrackBytes(t)
 		}
 		w.tracks = make(map[string]*track)
 		w.presentation = ev.Presentation
+		w.presentationSession = ev.Session
+		w.videoConfig = VideoConfig{}
 		w.audioConfig = AudioConfig{}
 		w.programDateTime = time.Time{}
 		w.programDateTimeStart = 0
 		w.targetDuration = w.configuredTarget
 		w.partTarget = w.configuredPartTarget
 		w.partHoldBack = w.configuredPartHoldBack
+	}
+	if w.presentationSession != 0 && ev.Session != w.presentationSession {
+		return ErrStalePresentation
 	}
 
 	t := w.tracks[ev.Track]
@@ -243,9 +279,13 @@ func (w *Window) Observe(ev Event) error {
 			return ErrGeneration
 		}
 		if t.generation != ev.Generation {
+			if t.generation != 0 && ev.Track == "video" {
+				w.videoConfig.FrameRate = 0
+			}
 			w.removeTrackBytes(t)
 			t.segments = nil
 			t.ended = false
+			w.resetTrackBitrate(ev.Track, t)
 		}
 		t.generation, t.init = ev.Generation, append([]byte(nil), ev.Data...)
 		w.notify()
@@ -293,6 +333,7 @@ func (w *Window) Observe(ev Event) error {
 		s.data = append([]byte(nil), ev.Data...)
 		w.bytes += len(s.data)
 		t.bytes += len(s.data)
+		w.recordTrackBitrate(ev.Track, t, len(s.data), ev.Duration)
 		if w.completionHold <= 0 {
 			s.complete = true
 		} else {
@@ -304,6 +345,7 @@ func (w *Window) Observe(ev Event) error {
 		t.segments = nil
 		t.bytes = 0
 		t.ended = false
+		w.resetTrackBitrate(ev.Track, t)
 	case SessionEnd:
 		t.ended = true
 	default:
@@ -434,7 +476,78 @@ func (w *Window) Presentation() string {
 func (w *Window) SetVideoConfig(config VideoConfig) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if config.FrameRate == 0 {
+		config.FrameRate = w.videoConfig.FrameRate
+	}
+	if config.Bandwidth <= 0 {
+		config.Bandwidth = w.videoConfig.Bandwidth
+	}
+	if config.AverageBandwidth <= 0 {
+		config.AverageBandwidth = w.videoConfig.AverageBandwidth
+	}
 	w.videoConfig = config
+	w.notify()
+}
+
+func (w *Window) SetVideoFrameRate(fps float64) {
+	if fps <= 0 || math.IsNaN(fps) || math.IsInf(fps, 0) {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if fps > w.videoConfig.FrameRate {
+		w.videoConfig.FrameRate = fps
+		w.notify()
+	}
+}
+
+func (w *Window) resetTrackBitrate(trackID string, t *track) {
+	t.mediaBytes = 0
+	t.mediaDuration = 0
+	t.peakBandwidth = 0
+	if trackID == "video" {
+		w.videoConfig.Bandwidth = 0
+		w.videoConfig.AverageBandwidth = 0
+	} else if trackID == "audio" {
+		w.audioConfig.Bandwidth = 0
+		w.audioConfig.AverageBandwidth = 0
+	}
+}
+
+func (w *Window) recordTrackBitrate(trackID string, t *track, bytes int, duration time.Duration) {
+	if bytes <= 0 || duration <= 0 {
+		return
+	}
+	if int64(bytes) > math.MaxInt64-t.mediaBytes {
+		t.mediaBytes = math.MaxInt64
+	} else {
+		t.mediaBytes += int64(bytes)
+	}
+	t.mediaDuration += duration
+	bitrate := ceilBitrate(int64(bytes), duration)
+	if bitrate > t.peakBandwidth {
+		t.peakBandwidth = bitrate
+	}
+	average := ceilBitrate(t.mediaBytes, t.mediaDuration)
+	if trackID == "video" {
+		w.videoConfig.Bandwidth = t.peakBandwidth
+		w.videoConfig.AverageBandwidth = average
+	} else if trackID == "audio" {
+		w.audioConfig.Bandwidth = t.peakBandwidth
+		w.audioConfig.AverageBandwidth = average
+	}
+}
+
+func ceilBitrate(bytes int64, duration time.Duration) int {
+	if bytes <= 0 || duration <= 0 {
+		return 0
+	}
+	rate := math.Ceil(float64(bytes) * 8 * float64(time.Second) / float64(duration))
+	maxInt := int(^uint(0) >> 1)
+	if rate >= float64(maxInt) {
+		return maxInt
+	}
+	return int(rate)
 }
 
 func (w *Window) VideoConfig() VideoConfig {
@@ -446,7 +559,14 @@ func (w *Window) VideoConfig() VideoConfig {
 func (w *Window) SetAudioConfig(config AudioConfig) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if config.Bandwidth <= 0 {
+		config.Bandwidth = w.audioConfig.Bandwidth
+	}
+	if config.AverageBandwidth <= 0 {
+		config.AverageBandwidth = w.audioConfig.AverageBandwidth
+	}
 	w.audioConfig = config
+	w.notify()
 }
 
 func (w *Window) AudioConfig() AudioConfig {
@@ -456,6 +576,14 @@ func (w *Window) AudioConfig() AudioConfig {
 }
 
 func (w *Window) Snapshot(presentation, trackID string) Snapshot {
+	return w.snapshot(presentation, trackID, true)
+}
+
+func (w *Window) playlistSnapshot(presentation, trackID string) Snapshot {
+	return w.snapshot(presentation, trackID, false)
+}
+
+func (w *Window) snapshot(presentation, trackID string, includeData bool) Snapshot {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if presentation != w.presentation {
@@ -469,15 +597,24 @@ func (w *Window) Snapshot(presentation, trackID string) Snapshot {
 		Presentation:         w.presentation,
 		Track:                trackID,
 		Generation:           t.generation,
-		Init:                 append([]byte(nil), t.init...),
 		Ended:                t.ended,
 		ProgramDateTime:      w.programDateTime,
 		ProgramDateTimeStart: w.programDateTimeStart,
 	}
+	if includeData {
+		s.Init = append([]byte(nil), t.init...)
+	}
 	for _, seg := range t.segments {
-		ss := SegmentSnapshot{MSN: seg.msn, Start: seg.start, Duration: seg.duration, Complete: seg.complete, Independent: seg.independent, ProgramDateTime: seg.programDateTime, Data: append([]byte(nil), seg.data...)}
+		ss := SegmentSnapshot{MSN: seg.msn, Start: seg.start, Duration: seg.duration, Complete: seg.complete, Independent: seg.independent, ProgramDateTime: seg.programDateTime}
+		if includeData {
+			ss.Data = append([]byte(nil), seg.data...)
+		}
 		for _, p := range seg.parts {
-			ss.Parts = append(ss.Parts, PartSnapshot{Identity: p.identity, Index: p.identity.Index, Start: p.start, Duration: p.duration, Independent: p.independent, Data: append([]byte(nil), p.data...)})
+			part := PartSnapshot{Identity: p.identity, Index: p.identity.Index, Start: p.start, Duration: p.duration, Independent: p.independent}
+			if includeData {
+				part.Data = append([]byte(nil), p.data...)
+			}
+			ss.Parts = append(ss.Parts, part)
 		}
 		s.Segments = append(s.Segments, ss)
 	}
@@ -519,8 +656,21 @@ func (w *Window) SegmentData(presentation, trackID string, msn uint64) []byte {
 // part rolls over to part zero of the following parent, per HLS blocking
 // reload semantics. This rule intentionally does not apply to media lookups.
 func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
+	if err := acquireWaiter(w.waiters); err != nil {
+		return err
+	}
+	defer releaseWaiter(w.waiters)
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		w.mu.Lock()
+		if w.reloadPointUnavailableLocked(presentation, trackID, msn) || w.reloadPartUnavailableLocked(presentation, trackID, msn, partIndex) {
+			w.mu.Unlock()
+			return ErrReloadUnavailable
+		}
 		ready := w.playlistReloadReadyLocked(presentation, trackID, msn, partIndex)
 		changed := w.changed
 		w.mu.Unlock()
@@ -535,11 +685,100 @@ func (w *Window) Wait(ctx context.Context, presentation, trackID string, msn uin
 	}
 }
 
+// WaitForMaster blocks until both renditions and the metadata required by the
+// multivariant playlist have been published for a presentation.
+func (w *Window) WaitForMaster(ctx context.Context, presentation string) error {
+	if err := acquireWaiter(w.masterWaiters); err != nil {
+		return err
+	}
+	defer releaseWaiter(w.masterWaiters)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		w.mu.Lock()
+		if presentation != w.presentation {
+			w.mu.Unlock()
+			return ErrReloadUnavailable
+		}
+		ready := w.masterMetadataReadyLocked()
+		changed := w.changed
+		w.mu.Unlock()
+		if ready {
+			return nil
+		}
+		select {
+		case <-changed:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (w *Window) masterMetadataReadyLocked() bool {
+	video := w.tracks["video"]
+	audio := w.tracks["audio"]
+	// Keep the master within Apple's HLS authoring limit for advertised frame rate.
+	return video != nil && len(video.init) > 0 && audio != nil && len(audio.init) > 0 &&
+		w.videoConfig.FrameRate > 0 && w.videoConfig.FrameRate <= 60 && !math.IsNaN(w.videoConfig.FrameRate) && !math.IsInf(w.videoConfig.FrameRate, 0) &&
+		w.videoConfig.Bandwidth > 0 && w.videoConfig.AverageBandwidth > 0 &&
+		w.audioConfig.Bandwidth > 0 && w.audioConfig.AverageBandwidth > 0
+}
+
+func (w *Window) reloadPointUnavailableLocked(presentation, trackID string, msn uint64) bool {
+	if presentation != w.presentation {
+		return true
+	}
+	t := w.tracks[trackID]
+	if t == nil || len(t.segments) == 0 {
+		return false
+	}
+	last := t.segments[len(t.segments)-1].msn
+	return msnTooFarAhead(last, msn)
+}
+
+func msnTooFarAhead(last, requested uint64) bool {
+	return requested > last && requested-last > 2
+}
+
+func (w *Window) reloadPartUnavailableLocked(presentation, trackID string, msn uint64, partIndex uint32) bool {
+	if w.reloadPointUnavailableLocked(presentation, trackID, msn) {
+		return true
+	}
+	t := w.tracks[trackID]
+	if t == nil || len(t.segments) == 0 {
+		return false
+	}
+	last := t.segments[len(t.segments)-1]
+	if last.msn != msn || len(last.parts) == 0 {
+		return false
+	}
+	return partTooFarAhead(uint64(len(last.parts)-1), partIndex, w.partTarget)
+}
+
+func advancePartLimit(partTarget time.Duration) uint64 {
+	if partTarget <= 0 || partTarget >= time.Second {
+		return 3
+	}
+	return uint64(math.Ceil(float64(3*time.Second) / float64(partTarget)))
+}
+
+func partTooFarAhead(lastPart uint64, requestedPart uint32, partTarget time.Duration) bool {
+	requested := uint64(requestedPart)
+	return requested > lastPart && requested-lastPart > advancePartLimit(partTarget)
+}
+
 // WaitForPart blocks until the exact (MSN, part index) is available. A part
 // that belongs to a completed or evicted parent is permanently unavailable;
 // callers should serve ErrPartUnavailable as a no-store 404. Part identity is
 // the immutable tuple of presentation, track, MSN, and local part index.
 func (w *Window) WaitForPart(ctx context.Context, presentation, trackID string, msn uint64, partIndex uint32) error {
+	if err := acquireWaiter(w.waiters); err != nil {
+		return err
+	}
+	defer releaseWaiter(w.waiters)
 	for {
 		w.mu.Lock()
 		state := w.partStateLocked(presentation, trackID, msn, partIndex)
@@ -624,6 +863,10 @@ func (w *Window) partStateLocked(presentation, trackID string, msn uint64, partI
 		if len(t.segments) == 0 {
 			return partPending
 		}
+		last := t.segments[len(t.segments)-1].msn
+		if msnTooFarAhead(last, msn) {
+			return partUnavailable
+		}
 		if t.segments[0].msn > msn {
 			return partUnavailable
 		}
@@ -640,48 +883,41 @@ func (w *Window) partStateLocked(presentation, trackID string, msn uint64, partI
 	if s.complete {
 		return partUnavailable
 	}
+	if len(s.parts) > 0 && partTooFarAhead(uint64(len(s.parts)-1), partIndex, w.partTarget) {
+		return partUnavailable
+	}
 	return partPending
 }
+
+func acquireWaiter(waiters chan struct{}) error {
+	select {
+	case waiters <- struct{}{}:
+		return nil
+	default:
+		return ErrWaiterLimit
+	}
+}
+
+func releaseWaiter(waiters chan struct{}) { <-waiters }
 
 // Playlist renders the media playlist for one track. URIs are supplied by the
 // caller so routing and presentation identifiers remain outside this package.
 // When renditionURI is non-nil, an EXT-X-RENDITION-REPORT is emitted for
 // every other track that has published media (required for LL-HLS).
 func (w *Window) Playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string) string {
-	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, playlistWithParts)
-}
-
-// PlaylistSegmentsOnly renders a media playlist using only completed parents.
-func (w *Window) PlaylistSegmentsOnly(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string) string {
-	return w.playlist(presentation, trackID, partURI, segmentURI, initURI, renditionURI, playlistSegmentsOnly)
-}
-
-type playlistMode uint8
-
-const (
-	playlistWithParts playlistMode = iota
-	playlistSegmentsOnly
-)
-
-func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uint32) string, segmentURI func(uint64) string, initURI string, renditionURI func(string) string, mode playlistMode) string {
-	s := w.Snapshot(presentation, trackID)
+	s := w.playlistSnapshot(presentation, trackID)
 	if s.Track == "" {
 		return ""
 	}
-	includeParts := mode == playlistWithParts
 	targetSeconds, partTarget, partHoldBack := w.playlistDurations()
 	var b strings.Builder
 	fmt.Fprintf(&b, "#EXTM3U\n#EXT-X-VERSION:10\n#EXT-X-TARGETDURATION:%d\n", targetSeconds)
-	if includeParts {
-		fmt.Fprintf(&b, "#EXT-X-PART-INF:PART-TARGET=%.6f\n", partTarget.Seconds())
-	}
+	fmt.Fprintf(&b, "#EXT-X-PART-INF:PART-TARGET=%.6f\n", partTarget.Seconds())
 	if trackID == "video" && allSegmentsIndependent(s.Segments) {
 		b.WriteString("#EXT-X-INDEPENDENT-SEGMENTS\n")
 	}
-	if includeParts {
-		fmt.Fprintf(&b, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", partHoldBack.Seconds(), 3*float64(targetSeconds))
-	}
-	if includeParts && renditionURI != nil {
+	fmt.Fprintf(&b, "#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=%.6f,HOLD-BACK=%.6f\n", partHoldBack.Seconds(), 3*float64(targetSeconds))
+	if renditionURI != nil {
 		for _, rep := range w.renditionReports(presentation, trackID) {
 			fmt.Fprintf(&b, "#EXT-X-RENDITION-REPORT:URI=%q,LAST-MSN=%d", renditionURI(rep.trackID), rep.lastMSN)
 			if rep.lastPart >= 0 {
@@ -698,7 +934,7 @@ func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uin
 		}
 	}
 	for _, seg := range s.Segments {
-		if includeParts && !seg.Complete && seg.MSN == openMSN {
+		if !seg.Complete && seg.MSN == openMSN {
 			for _, p := range seg.Parts {
 				fmt.Fprintf(&b, "#EXT-X-PART:DURATION=%.6f,URI=%q", p.Duration.Seconds(), partURI(p.Identity.MSN, p.Identity.Index))
 				if p.Independent {
@@ -718,7 +954,7 @@ func (w *Window) playlist(presentation, trackID string, partURI func(uint64, uin
 			fmt.Fprintf(&b, "#EXTINF:%.6f,\n%s\n", seg.Duration.Seconds(), segmentURI(seg.MSN))
 		}
 	}
-	if includeParts && !s.Ended && len(s.Segments) > 0 {
+	if !s.Ended && len(s.Segments) > 0 {
 		last := s.Segments[len(s.Segments)-1]
 		nextMSN, nextPart := last.MSN, uint32(len(last.Parts))
 		if last.Complete {

@@ -16,6 +16,7 @@ import {
   usePrimaryColor,
   useStreamplaceStore,
   useTheme,
+  withAlpha,
   zero,
 } from "@streamplace/components";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
@@ -916,7 +917,7 @@ if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
                     left: 0,
                     right: 0,
                     paddingHorizontal: spacing[2],
-                    backgroundColor: "rgba(10,10,11,0.55)", // token-ok: glass tint
+                    backgroundColor: withAlpha(z.theme.colors.surface0, 0.55),
                     backdropFilter: "blur(18px)",
                     WebkitBackdropFilter: "blur(18px)",
                     borderBottomWidth: 1,

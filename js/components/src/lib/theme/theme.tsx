@@ -9,8 +9,11 @@ import {
 } from "react";
 import { Platform, useColorScheme } from "react-native";
 import {
+  contrastForeground,
   defaultChrome,
   deriveChrome,
+  parseHexColor,
+  withAlpha,
   type ChromeColors,
   type DerivedChrome,
 } from "./chrome";
@@ -26,6 +29,40 @@ import {
   touchTargets,
   typography,
 } from "./tokens";
+
+/**
+ * Branded accent and status colors. Each is a hex color; invalid or missing
+ * values keep the token defaults. The scheme-specific variants win for that
+ * scheme when set. Foreground-on-color tokens are derived by luminance.
+ */
+export interface BrandColors {
+  secondary?: string;
+  danger?: string;
+  success?: string;
+  warning?: string;
+  info?: string;
+  live?: string;
+  secondaryLight?: string;
+  dangerLight?: string;
+  successLight?: string;
+  warningLight?: string;
+  infoLight?: string;
+}
+
+const validHex = (v: string | undefined) =>
+  v && parseHexColor(v) ? v.trim() : undefined;
+
+// pick the branded value for this scheme, if any
+function brandFor(
+  brand: BrandColors | undefined,
+  key: "secondary" | "danger" | "success" | "warning" | "info",
+  isDark: boolean,
+): string | undefined {
+  if (!brand) return undefined;
+  const light = validHex(brand[`${key}Light`]);
+  if (!isDark && light) return light;
+  return validHex(brand[key]);
+}
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { ToastProvider } from "../../components/ui/toast";
@@ -218,23 +255,29 @@ const createThemeColors = (
   darkTheme?: ColorPalette | Theme["colors"],
   colorTheme?: Partial<Theme["colors"]>,
   chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
+  brand?: BrandColors,
 ): Theme["colors"] => {
   let baseColors: Theme["colors"];
 
   if (isDark && darkTheme) {
     // Use dark theme
     baseColors = isColorPalette(darkTheme)
-      ? generateThemeColorsFromPalette(darkTheme, true, chrome)
+      ? generateThemeColorsFromPalette(darkTheme, true, chrome, brand)
       : darkTheme;
   } else if (!isDark && lightTheme) {
     // Use light theme
     baseColors = isColorPalette(lightTheme)
-      ? generateThemeColorsFromPalette(lightTheme, false, chrome)
+      ? generateThemeColorsFromPalette(lightTheme, false, chrome, brand)
       : lightTheme;
   } else {
     // Fall back to default gray theme
     const defaultPalette = colors.neutral;
-    baseColors = generateThemeColorsFromPalette(defaultPalette, isDark, chrome);
+    baseColors = generateThemeColorsFromPalette(
+      defaultPalette,
+      isDark,
+      chrome,
+      brand,
+    );
   }
 
   // Merge with custom color overrides if provided. Focus rings follow the
@@ -245,6 +288,11 @@ const createThemeColors = (
   };
   if (colorTheme?.ring && !colorTheme.focus) {
     merged.focus = colorTheme.ring;
+  }
+  // A branded primary picks its own text color, so a light brand color
+  // doesn't get white-on-pastel buttons.
+  if (colorTheme?.primary && !colorTheme.primaryForeground) {
+    merged.primaryForeground = contrastForeground(colorTheme.primary);
   }
   return merged;
 };
@@ -385,6 +433,7 @@ function generateThemeColorsFromPalette(
   palette: ColorPalette,
   isDark: boolean,
   chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
+  brand?: BrandColors,
 ): Theme["colors"] {
   // The neutral chrome comes from the node's branded background/foreground
   // pair when it has one (see chrome.ts), else the design tokens.
@@ -394,8 +443,25 @@ function generateThemeColorsFromPalette(
   const surface = own.surface;
   const text = own.text;
   const border = own.border;
-  const status = isDark ? statusColors.dark : statusColors.light;
+  const tokenStatus = isDark ? statusColors.dark : statusColors.light;
   const isDefaultPalette = palette === colors.neutral;
+
+  // Branded status colors, with their soft tints re-derived so a custom
+  // danger red gets a matching hover wash.
+  const danger = brandFor(brand, "danger", isDark);
+  const success = brandFor(brand, "success", isDark);
+  const warning = brandFor(brand, "warning", isDark);
+  const info = brandFor(brand, "info", isDark);
+  const live = validHex(brand?.live);
+  const status = {
+    danger: danger ?? tokenStatus.danger,
+    dangerSoft: danger
+      ? withAlpha(danger, isDark ? 0.14 : 0.1)
+      : tokenStatus.dangerSoft,
+    success: success ?? tokenStatus.success,
+    warning: warning ?? tokenStatus.warning,
+  };
+  const brandedSecondary = brandFor(brand, "secondary", isDark);
 
   return {
     background: surface[0],
@@ -413,13 +479,20 @@ function generateThemeColorsFromPalette(
     primary: colors.primary[500],
     primaryForeground: colors.white,
 
-    // Teal, aligned with the web app's `--secondary`.
-    secondary: isDefaultPalette
-      ? colors.secondary[500]
+    // Teal, aligned with the web app's `--secondary`; a node's accentColor
+    // branding replaces it.
+    secondary:
+      brandedSecondary ??
+      (isDefaultPalette
+        ? colors.secondary[500]
+        : isDark
+          ? palette[800]
+          : palette[100]),
+    secondaryForeground: brandedSecondary
+      ? contrastForeground(brandedSecondary)
       : isDark
-        ? palette[800]
-        : palette[100],
-    secondaryForeground: isDark ? surface[0] : colors.white,
+        ? surface[0]
+        : colors.white,
 
     muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
     mutedForeground: text[2],
@@ -437,14 +510,22 @@ function generateThemeColorsFromPalette(
     destructiveForeground: colors.white,
 
     success: status.success,
-    successForeground: isDark ? surface[0] : colors.white,
+    successForeground: success
+      ? contrastForeground(success)
+      : isDark
+        ? surface[0]
+        : colors.white,
 
     warning: status.warning,
-    warningForeground: isDark ? surface[0] : colors.white,
+    warningForeground: warning
+      ? contrastForeground(warning)
+      : isDark
+        ? surface[0]
+        : colors.white,
 
     // Info is a blue, distinct from the pink primary. Aligned with the web's
     // `--color-info` (chart-3); the light value reads on dark, the dark on light.
-    info: isDark ? "#88c0f9" : "#335b83",
+    info: info ?? (isDark ? "#88c0f9" : "#335b83"),
     infoForeground: text[1],
 
     border: border.default,
@@ -470,9 +551,9 @@ function generateThemeColorsFromPalette(
     borderSubtle: border.subtle,
     borderStrong: border.strong,
 
-    live: statusColors.live,
-    liveDim: statusColors.liveDim,
-    liveForeground: colors.white,
+    live: live ?? statusColors.live,
+    liveDim: live ? withAlpha(live, 0.16) : statusColors.liveDim,
+    liveForeground: live ? contrastForeground(live) : colors.white,
 
     overlay: isDark ? scrims.dark : scrims.light,
     focus: colors.primary[500],
@@ -504,6 +585,8 @@ interface ThemeProviderProps {
     dark?: Partial<ChromeColors>;
     light?: Partial<ChromeColors>;
   };
+  /** Branded accent and status colors; see BrandColors. */
+  brandColors?: BrandColors;
 }
 
 // Theme provider component
@@ -516,6 +599,7 @@ export function ThemeProvider({
   lightTheme,
   darkTheme,
   chromeColors,
+  brandColors,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
   const chrome = useMemo(
@@ -552,6 +636,7 @@ export function ThemeProvider({
       darkTheme,
       colorTheme,
       chrome,
+      brandColors,
     );
     return {
       colors: themeColors,
@@ -563,7 +648,7 @@ export function ThemeProvider({
       animations,
       motion,
     };
-  }, [isDark, lightTheme, darkTheme, colorTheme, chrome]);
+  }, [isDark, lightTheme, darkTheme, colorTheme, chrome, brandColors]);
 
   // Create theme-aware zero tokens
   const zero = useMemo<ThemeZero>(() => {

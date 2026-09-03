@@ -83,16 +83,37 @@ const BORDER_ALPHAS = {
   light: { subtle: 0.06, default: 0.09, strong: 0.13 },
 } as const;
 
+/** White or near-black, whichever reads on `color`. */
+export function contrastForeground(color: string): string {
+  const rgb = parseHexColor(color);
+  if (!rgb) return "#ffffff";
+  return luminance(rgb) > 0.4 ? "#09090b" : "#ffffff";
+}
+
+/** `color` (hex) at `alpha`, as an rgba() string. */
+export function withAlpha(color: string, alpha: number): string {
+  const rgb = parseHexColor(color);
+  if (!rgb) return color;
+  return rgba(rgb, alpha);
+}
+
 /**
- * Derive the surface / text / border ramps for one scheme. Returns null when
- * either color is not a valid hex color, so callers fall back to defaults.
+ * Derive the surface / text / border ramps for one scheme. Either color may
+ * be omitted: a missing foreground is white or near-black by the
+ * background's luminance, a missing background is the scheme's default.
+ * Returns null when neither is set (or both are invalid), so callers keep
+ * the token defaults.
  */
 export function deriveChrome(
   chrome: Partial<ChromeColors> | undefined,
   isDark: boolean,
 ): DerivedChrome | null {
-  const bg = parseHexColor(chrome?.background);
-  const fg = parseHexColor(chrome?.foreground);
+  const defaults = isDark ? DEFAULT_CHROME.dark : DEFAULT_CHROME.light;
+  let bg = parseHexColor(chrome?.background);
+  let fg = parseHexColor(chrome?.foreground);
+  if (!bg && !fg) return null;
+  if (!bg) bg = parseHexColor(defaults.background);
+  if (!fg) fg = parseHexColor(contrastForeground(toHex(bg!)));
   if (!bg || !fg) return null;
   const steps = isDark ? SURFACE_STEPS.dark : SURFACE_STEPS.light;
   const borders = isDark ? BORDER_ALPHAS.dark : BORDER_ALPHAS.light;

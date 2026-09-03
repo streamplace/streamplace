@@ -247,6 +247,12 @@ func (a *StreamplaceAPI) Handler(ctx context.Context) (http.Handler, error) {
 	router.Handler("PATCH", "/xrpc/*resource", xrpcHandler)
 	router.Handler("DELETE", "/xrpc/*resource", xrpcHandler)
 	// i wonder if there's a better way to do this?
+	router.GET("/linkbanner.png", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		if err := a.XRPCServer.HandleLinkBanner(echo.New().NewContext(r, w)); err != nil {
+			log.Error(ctx, "error handling linkbanner.png", "error", err)
+			w.WriteHeader(500)
+		}
+	})
 	router.GET("/favicon.ico", func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		err := a.XRPCServer.HandleFaviconICO(echo.New().NewContext(r, w))
 		if err != nil {

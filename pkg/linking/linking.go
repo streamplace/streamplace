@@ -72,6 +72,7 @@ var BrandingAssetList = [...]string{
 	"infoColor",
 	"infoColorLight",
 	"liveColor",
+	"linkBanner",
 }
 
 // inlineBrandingImageLimit caps the image assets embedded as data URLs in
@@ -366,45 +367,35 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		return nil, errors.New("url is nil")
 	}
 
+	// The front-page card is the node's own: its siteTitle and
+	// siteDescription branding, and /linkbanner.png, which serves the
+	// uploaded linkBanner asset when there is one and the bundled brand
+	// banner otherwise.
 	thumbURL, _ := url.Parse(u.String())
 	thumbURL.Path = "/linkbanner.png"
 
-	// Define all meta tags
-	metaTags := []MetaTag{
-		// Basic meta
-		{Type: "name", Key: "description", Content: "Stream.place is open-source livestreaming on the AT Protocol."},
-
-		// Facebook Meta Tags
-		{Type: "property", Key: "og:url", Content: u.String()},
-		{Type: "property", Key: "og:type", Content: "website"},
-		{Type: "property", Key: "og:title", Content: "Stream.place"},
-		{Type: "property", Key: "og:description", Content: "Open-source livestreaming on the AT Protocol."},
-		{Type: "property", Key: "og:image", Content: thumbURL.String()},
-
-		// Twitter Meta Tags
-		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
-		{Type: "property", Key: "twitter:domain", Content: u.Host},
-		{Type: "property", Key: "twitter:url", Content: u.String()},
-		{Type: "name", Key: "twitter:title", Content: "Stream.place"},
-		{Type: "name", Key: "twitter:description", Content: "Open-source livestreaming on the AT Protocol."},
-		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
-	}
-
 	brandingTitle := "streamplace node"
+	brandingDescription := "Open-source livestreaming on the AT Protocol."
+	var brandMetas []MetaTag
 	if l.sdb != nil && l.cli != nil {
 		branding, err := l.getBrandingAssets("did:web:" + l.cli.BroadcasterHost)
 		if err == nil {
 			for i := range branding {
 				val := branding[i]
-				if val.Key == "siteTitle" && val.Data != nil {
-					brandingTitle = *val.Data
+				if val.Data != nil && strings.TrimSpace(*val.Data) != "" {
+					switch val.Key {
+					case "siteTitle":
+						brandingTitle = *val.Data
+					case "siteDescription":
+						brandingDescription = *val.Data
+					}
 				}
 				marshalledJson, err := json.Marshal(val)
 				if err != nil {
 					log.Error(ctx, "error marshalling branding asset", "key", val.Key, "error", err)
 					continue
 				}
-				metaTags = append(metaTags, MetaTag{
+				brandMetas = append(brandMetas, MetaTag{
 					Type:    "name",
 					Key:     "internal-brand:" + val.Key,
 					Content: string(marshalledJson),
@@ -416,17 +407,28 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 		}
 	}
 
-	// do twitter/og title after
-	metaTags = append(metaTags, MetaTag{
-		Type:    "property",
-		Key:     "og:title",
-		Content: brandingTitle,
-	})
-	metaTags = append(metaTags, MetaTag{
-		Type:    "name",
-		Key:     "twitter:title",
-		Content: brandingTitle,
-	})
+	// Define all meta tags
+	metaTags := []MetaTag{
+		// Basic meta
+		{Type: "name", Key: "description", Content: brandingDescription},
+
+		// Facebook Meta Tags
+		{Type: "property", Key: "og:url", Content: u.String()},
+		{Type: "property", Key: "og:type", Content: "website"},
+		{Type: "property", Key: "og:site_name", Content: brandingTitle},
+		{Type: "property", Key: "og:title", Content: brandingTitle},
+		{Type: "property", Key: "og:description", Content: brandingDescription},
+		{Type: "property", Key: "og:image", Content: thumbURL.String()},
+
+		// Twitter Meta Tags
+		{Type: "name", Key: "twitter:card", Content: "summary_large_image"},
+		{Type: "property", Key: "twitter:domain", Content: u.Host},
+		{Type: "property", Key: "twitter:url", Content: u.String()},
+		{Type: "name", Key: "twitter:title", Content: brandingTitle},
+		{Type: "name", Key: "twitter:description", Content: brandingDescription},
+		{Type: "name", Key: "twitter:image", Content: thumbURL.String()},
+	}
+	metaTags = append(metaTags, brandMetas...)
 
 	// at-tags: the site itself is identified by this node's did:web; there's
 	// no single author or canonical record for the front page

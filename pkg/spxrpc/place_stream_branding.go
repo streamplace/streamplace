@@ -229,6 +229,8 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 	maxSize := 500 * 1024 // 500KB default for logos
 	if input.Key == "favicon" {
 		maxSize = 100 * 1024 // 100KB for favicons
+	} else if input.Key == "linkBanner" {
+		maxSize = 2 * 1024 * 1024 // 2MB for the OpenGraph banner (1200x630)
 	} else if brandingTextKeys[input.Key] {
 		maxSize = 1024 // 1KB for text values
 	}
@@ -330,4 +332,32 @@ func (s *Server) HandleFaviconICO(c echo.Context) error {
 	}
 
 	return c.Blob(http.StatusOK, mimeType, data)
+}
+
+// HandleLinkBanner serves /linkbanner.png, the image behind the front
+// page's OpenGraph card: the node's uploaded linkBanner branding asset with
+// its real content type (link crawlers refuse application/octet-stream),
+// else the bundled brand banner. Branding is public even on a private node.
+func (s *Server) HandleLinkBanner(c echo.Context) error {
+	ctx := c.Request().Context()
+	data, mimeType, _, _, err := s.GetBrandingBlob(ctx, s.cli.BroadcasterDID(), "linkBanner")
+	if err == nil && len(data) > 0 && strings.HasPrefix(mimeType, "image/") {
+		c.Response().Header().Set("Cache-Control", "public, max-age=300")
+		return c.Blob(http.StatusOK, mimeType, data)
+	}
+	distFiles, fsErr := app.Files()
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to load link banner")
+	}
+	f, fsErr := distFiles.Open("linkbanner.png")
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusNotFound, "link banner not found")
+	}
+	defer f.Close()
+	bs, fsErr := io.ReadAll(f)
+	if fsErr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to read link banner")
+	}
+	c.Response().Header().Set("Cache-Control", "public, max-age=300")
+	return c.Blob(http.StatusOK, "image/png", bs)
 }

@@ -9,8 +9,13 @@ import {
 } from "react";
 import { Platform, useColorScheme } from "react-native";
 import {
+  defaultChrome,
+  deriveChrome,
+  type ChromeColors,
+  type DerivedChrome,
+} from "./chrome";
+import {
   animations,
-  borderAlphas,
   borderRadius,
   colors,
   motion,
@@ -18,8 +23,6 @@ import {
   shadows,
   spacing,
   statusColors,
-  surfaces,
-  textAlphas,
   touchTargets,
   typography,
 } from "./tokens";
@@ -214,23 +217,24 @@ const createThemeColors = (
   lightTheme?: ColorPalette | Theme["colors"],
   darkTheme?: ColorPalette | Theme["colors"],
   colorTheme?: Partial<Theme["colors"]>,
+  chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
 ): Theme["colors"] => {
   let baseColors: Theme["colors"];
 
   if (isDark && darkTheme) {
     // Use dark theme
     baseColors = isColorPalette(darkTheme)
-      ? generateThemeColorsFromPalette(darkTheme, true)
+      ? generateThemeColorsFromPalette(darkTheme, true, chrome)
       : darkTheme;
   } else if (!isDark && lightTheme) {
     // Use light theme
     baseColors = isColorPalette(lightTheme)
-      ? generateThemeColorsFromPalette(lightTheme, false)
+      ? generateThemeColorsFromPalette(lightTheme, false, chrome)
       : lightTheme;
   } else {
     // Fall back to default gray theme
     const defaultPalette = colors.neutral;
-    baseColors = generateThemeColorsFromPalette(defaultPalette, isDark);
+    baseColors = generateThemeColorsFromPalette(defaultPalette, isDark, chrome);
   }
 
   // Merge with custom color overrides if provided. Focus rings follow the
@@ -380,10 +384,16 @@ function isColorPalette(
 function generateThemeColorsFromPalette(
   palette: ColorPalette,
   isDark: boolean,
+  chrome?: { dark?: DerivedChrome | null; light?: DerivedChrome | null },
 ): Theme["colors"] {
-  const surface = isDark ? surfaces.dark : surfaces.light;
-  const text = isDark ? textAlphas.dark : textAlphas.light;
-  const border = isDark ? borderAlphas.dark : borderAlphas.light;
+  // The neutral chrome comes from the node's branded background/foreground
+  // pair when it has one (see chrome.ts), else the design tokens.
+  const own = (isDark ? chrome?.dark : chrome?.light) ?? defaultChrome(isDark);
+  const other =
+    (isDark ? chrome?.light : chrome?.dark) ?? defaultChrome(!isDark);
+  const surface = own.surface;
+  const text = own.text;
+  const border = own.border;
   const status = isDark ? statusColors.dark : statusColors.light;
   const isDefaultPalette = palette === colors.neutral;
 
@@ -409,7 +419,7 @@ function generateThemeColorsFromPalette(
       : isDark
         ? palette[800]
         : palette[100],
-    secondaryForeground: isDark ? surfaces.dark[0] : colors.white,
+    secondaryForeground: isDark ? surface[0] : colors.white,
 
     muted: isDefaultPalette ? surface[2] : isDark ? palette[800] : palette[100],
     mutedForeground: text[2],
@@ -421,16 +431,16 @@ function generateThemeColorsFromPalette(
       : isDark
         ? palette[800]
         : palette[100],
-    accentForeground: isDark ? surfaces.dark[0] : text[1],
+    accentForeground: isDark ? surface[0] : text[1],
 
     destructive: status.danger,
     destructiveForeground: colors.white,
 
     success: status.success,
-    successForeground: isDark ? surfaces.dark[0] : colors.white,
+    successForeground: isDark ? surface[0] : colors.white,
 
     warning: status.warning,
-    warningForeground: isDark ? surfaces.dark[0] : colors.white,
+    warningForeground: isDark ? surface[0] : colors.white,
 
     // Info is a blue, distinct from the pink primary. Aligned with the web's
     // `--color-info` (chart-3); the light value reads on dark, the dark on light.
@@ -472,7 +482,7 @@ function generateThemeColorsFromPalette(
 
     // Paper on dark, Ink on light — the opposite scheme's raised surface, with
     // the current scheme's base surface as its text.
-    inverse: (isDark ? surfaces.light : surfaces.dark)[1],
+    inverse: other.surface[1],
     inverseForeground: surface[0],
   };
 }
@@ -485,6 +495,15 @@ interface ThemeProviderProps {
   colorTheme?: Partial<Theme["colors"]>;
   lightTheme?: ColorPalette | Theme["colors"];
   darkTheme?: ColorPalette | Theme["colors"];
+  /**
+   * Branded chrome: a background + foreground pair per scheme from which the
+   * surface, text and border ramps are derived. Missing or invalid pairs
+   * keep the design-token defaults for that scheme.
+   */
+  chromeColors?: {
+    dark?: Partial<ChromeColors>;
+    light?: Partial<ChromeColors>;
+  };
 }
 
 // Theme provider component
@@ -496,8 +515,21 @@ export function ThemeProvider({
   colorTheme,
   lightTheme,
   darkTheme,
+  chromeColors,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
+  const chrome = useMemo(
+    () => ({
+      dark: deriveChrome(chromeColors?.dark, true),
+      light: deriveChrome(chromeColors?.light, false),
+    }),
+    [
+      chromeColors?.dark?.background,
+      chromeColors?.dark?.foreground,
+      chromeColors?.light?.background,
+      chromeColors?.light?.foreground,
+    ],
+  );
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark" | "system">(
     defaultTheme,
   );
@@ -519,6 +551,7 @@ export function ThemeProvider({
       lightTheme,
       darkTheme,
       colorTheme,
+      chrome,
     );
     return {
       colors: themeColors,
@@ -530,7 +563,7 @@ export function ThemeProvider({
       animations,
       motion,
     };
-  }, [isDark, lightTheme, darkTheme, colorTheme]);
+  }, [isDark, lightTheme, darkTheme, colorTheme, chrome]);
 
   // Create theme-aware zero tokens
   const zero = useMemo<ThemeZero>(() => {

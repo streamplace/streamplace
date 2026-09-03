@@ -64,3 +64,12 @@ export {
 // Convenience re-exports
 export * as atoms from "./atoms";
 export * as tokens from "./tokens";
+
+// Branded chrome derivation
+export {
+  DEFAULT_CHROME,
+  deriveChrome,
+  parseHexColor,
+  type ChromeColors,
+  type DerivedChrome,
+} from "./chrome";

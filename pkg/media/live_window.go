@@ -31,17 +31,6 @@ const (
 // moves the parent into the segment-only portion of the playlist.
 const llhlsCompletionHold = 300 * time.Millisecond
 
-func (mm *MediaManager) llWindow(did string) *llhls.Window {
-	mm.llWindowsMut.Lock()
-	defer mm.llWindowsMut.Unlock()
-	w := mm.llWindows[did]
-	if w == nil {
-		w = newLLWindow()
-		mm.llWindows[did] = w
-	}
-	return w
-}
-
 func newLLWindow() *llhls.Window {
 	return llhls.NewWindow(
 		llhls.WithMaxSegments(llhlsWindowSegments),

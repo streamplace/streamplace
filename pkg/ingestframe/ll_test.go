@@ -8,7 +8,7 @@ import (
 func TestLLFramesRoundTripMetadataAndBytes(t *testing.T) {
 	var buf bytes.Buffer
 	w := NewWriter(&buf)
-	if err := w.LLPart(LLFrame{Presentation: "p", Track: "v", Generation: 2, Timescale: 90000, MSN: 9, Part: 3, Start: 90, Duration: 30, Independent: true, Data: []byte("part")}); err != nil {
+	if err := w.LLPart(LLFrame{Presentation: "p", Session: 4, Track: "v", Generation: 2, Timescale: 90000, MSN: 9, Part: 3, Start: 90, Duration: 30, Independent: true, ProgramDateTimeUnixNano: 123456789, FrameRate: 120.5, Channels: 2, Data: []byte("part")}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -23,7 +23,7 @@ func TestLLFramesRoundTripMetadataAndBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Presentation != "p" || got.Track != "v" || got.Generation != 2 || got.Timescale != 90000 || got.MSN != 9 || got.Part != 3 || !got.Independent || !bytes.Equal(got.Data, []byte("part")) {
+	if got.Presentation != "p" || got.Session != 4 || got.Track != "v" || got.Generation != 2 || got.Timescale != 90000 || got.MSN != 9 || got.Part != 3 || !got.Independent || got.ProgramDateTimeUnixNano != 123456789 || got.FrameRate != 120.5 || got.Channels != 2 || !bytes.Equal(got.Data, []byte("part")) {
 		t.Fatalf("frame = %+v", got)
 	}
 }

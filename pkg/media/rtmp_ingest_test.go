@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,18 @@ import (
 	"github.com/go-gst/go-gst/gst/app"
 	"stream.place/streamplace/pkg/gstinit"
 )
+
+func TestLLHLSMuxerElementsUseSourceSpecificVideoChunkDuration(t *testing.T) {
+	pipeline := strings.Join(llhlsMuxerElements(500*time.Millisecond), "\n")
+	for _, want := range []string{
+		"isofmp4mux name=ll_video_mux fragment-duration=2000000000 chunk-duration=500000000",
+		"isofmp4mux name=ll_audio_mux manual-split=true fragment-duration=2000000000 chunk-duration=1000000000",
+	} {
+		if !strings.Contains(pipeline, want) {
+			t.Fatalf("LL-HLS muxer pipeline = %q, missing %q", pipeline, want)
+		}
+	}
+}
 
 func TestH264VideoConfigUsesSPSMetadata(t *testing.T) {
 	sps := []byte{

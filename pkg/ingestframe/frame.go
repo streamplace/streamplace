@@ -169,20 +169,24 @@ func (fw *Writer) Manifest(payload []byte) error { return fw.WriteFrame(Manifest
 // timestamps use the worker's track timescale, keeping the wire protocol
 // independent of Go's duration representation.
 type LLFrame struct {
-	Presentation string `cbor:"presentation"`
-	Track        string `cbor:"track"`
-	Generation   uint64 `cbor:"generation"`
-	Timescale    uint32 `cbor:"timescale,omitempty"`
-	MSN          uint64 `cbor:"msn,omitempty"`
-	Part         uint32 `cbor:"part,omitempty"`
-	Start        uint64 `cbor:"start,omitempty"`
-	Duration     uint64 `cbor:"duration,omitempty"`
-	Independent  bool   `cbor:"independent,omitempty"`
-	Data         []byte `cbor:"data,omitempty"`
+	Presentation            string  `cbor:"presentation"`
+	Session                 uint64  `cbor:"session,omitempty"`
+	Track                   string  `cbor:"track"`
+	Generation              uint64  `cbor:"generation"`
+	Timescale               uint32  `cbor:"timescale,omitempty"`
+	MSN                     uint64  `cbor:"msn,omitempty"`
+	Part                    uint32  `cbor:"part,omitempty"`
+	Start                   uint64  `cbor:"start,omitempty"`
+	Duration                uint64  `cbor:"duration,omitempty"`
+	Independent             bool    `cbor:"independent,omitempty"`
+	ProgramDateTimeUnixNano int64   `cbor:"program_date_time_unix_nano,omitempty"`
+	FrameRate               float64 `cbor:"frame_rate,omitempty"`
+	Channels                int     `cbor:"channels,omitempty"`
+	Data                    []byte  `cbor:"data,omitempty"`
 }
 
 func (fw *Writer) writeLL(t Type, f LLFrame) error {
-	b, err := drisl.Marshal(f)
+	b, err := EncodeLLFrame(f)
 	if err != nil {
 		return fmt.Errorf("ingestframe: encode %s: %w", t, err)
 	}
@@ -193,6 +197,10 @@ func (fw *Writer) LLPart(f LLFrame) error            { return fw.writeLL(LLPart,
 func (fw *Writer) LLSegmentComplete(f LLFrame) error { return fw.writeLL(LLSegmentComplete, f) }
 func (fw *Writer) LLDiscontinuity(f LLFrame) error   { return fw.writeLL(LLDiscontinuity, f) }
 func (fw *Writer) LLSessionEnd(f LLFrame) error      { return fw.writeLL(LLSessionEnd, f) }
+
+func EncodeLLFrame(f LLFrame) ([]byte, error) {
+	return drisl.Marshal(f)
+}
 
 func DecodeLLFrame(payload []byte) (LLFrame, error) {
 	var f LLFrame

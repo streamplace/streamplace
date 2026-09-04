@@ -10,6 +10,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
@@ -94,7 +95,20 @@ type MediaManager struct {
 // session. Epochs are strictly increasing, so a newer session always wins over a
 // transcoder built for an older one.
 func (mm *MediaManager) nextIngestSession() uint64 {
-	return mm.ingestSessionSeq.Add(1)
+	// Seed the process-local sequence from wall time so a worker resumed after a
+	// main restart still sorts before newly-created sessions. The CAS preserves
+	// strict ordering when sessions start in the same nanosecond.
+	now := uint64(time.Now().UnixNano())
+	for {
+		previous := mm.ingestSessionSeq.Load()
+		next := now
+		if next <= previous {
+			next = previous + 1
+		}
+		if mm.ingestSessionSeq.CompareAndSwap(previous, next) {
+			return next
+		}
+	}
 }
 
 type NewSegmentNotification struct {

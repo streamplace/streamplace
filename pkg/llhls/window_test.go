@@ -645,6 +645,14 @@ func TestWindowRejectsStalePresentationSession(t *testing.T) {
 	}
 }
 
+func TestWindowRejectsEqualSessionStalePresentation(t *testing.T) {
+	w := NewWindow()
+	observeEvent(t, w, Event{Kind: Init, Presentation: "current", Session: 7, Track: "video", Generation: 1})
+	if err := w.Observe(Event{Kind: Init, Presentation: "stale", Session: 7, Track: "video", Generation: 1}); err != ErrStalePresentation {
+		t.Fatalf("equal-session stale presentation error = %v", err)
+	}
+}
+
 func TestWindowResetsBitrateOnGenerationChange(t *testing.T) {
 	w := NewWindow()
 	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
@@ -760,6 +768,53 @@ func TestPlaylistDurationsFreezeForPresentationAndRoundTargetDuration(t *testing
 	playlist = w.Playlist("p", "v", func(msn uint64, part uint32) string { return fmt.Sprintf("%d/%d.m4s", msn, part) }, func(msn uint64) string { return fmt.Sprintf("%d.m4s", msn) }, "init.mp4", nil)
 	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:6") || !strings.Contains(playlist, "#EXT-X-PART-INF:PART-TARGET=1.100000") {
 		t.Fatalf("playlist durations changed during presentation:\n%s", playlist)
+	}
+}
+
+func TestDynamicPlaylistTargetDurationUsesObservedParentDurations(t *testing.T) {
+	w := NewWindow(WithDynamicTargetDuration(time.Second))
+	observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: "video", Generation: 1})
+
+	playlist := w.Playlist("p", "video", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:1") {
+		t.Fatalf("initial target duration was not clamped to one second:\n%s", playlist)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Part: 0, Duration: 500 * time.Millisecond, Data: []byte("short")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: 500 * time.Millisecond, Data: []byte("short")})
+	playlist = w.Playlist("p", "video", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:1") {
+		t.Fatalf("short parent lowered the one-second floor:\n%s", playlist)
+	}
+
+	observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Part: 0, Duration: 4 * time.Second, Data: []byte("long")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 2, Duration: 4 * time.Second, Data: []byte("long")})
+	playlist = w.Playlist("p", "video", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:4") {
+		t.Fatalf("target duration did not follow the four-second parent:\n%s", playlist)
+	}
+
+	observeEvent(t, w, Event{Kind: Init, Presentation: "next", Track: "video", Generation: 1})
+	playlist = w.Playlist("next", "video", completionHoldURI, completionHoldSegment, "init.mp4", nil)
+	if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:1") {
+		t.Fatalf("target duration did not reset at the presentation boundary:\n%s", playlist)
+	}
+}
+
+func TestDynamicPlaylistTargetDurationIsSharedAcrossTracks(t *testing.T) {
+	w := NewWindow(WithDynamicTargetDuration(time.Second))
+	for _, track := range []string{"video", "audio"} {
+		observeEvent(t, w, Event{Kind: Init, Presentation: "p", Track: track, Generation: 1})
+		observeEvent(t, w, Event{Kind: Part, Presentation: "p", Track: track, Generation: 1, MSN: 1, Part: 0, Duration: time.Second, Data: []byte(track)})
+	}
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "video", Generation: 1, MSN: 1, Duration: time.Second, Data: []byte("video")})
+	observeEvent(t, w, Event{Kind: SegmentComplete, Presentation: "p", Track: "audio", Generation: 1, MSN: 1, Duration: 4 * time.Second, Data: []byte("audio")})
+
+	for _, track := range []string{"video", "audio"} {
+		playlist := w.Playlist("p", track, completionHoldURI, completionHoldSegment, "init.mp4", nil)
+		if !strings.Contains(playlist, "#EXT-X-TARGETDURATION:4") {
+			t.Errorf("%s playlist did not use the window-wide observed target:\n%s", track, playlist)
+		}
 	}
 }
 

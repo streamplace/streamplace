@@ -317,7 +317,7 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 			},
 			&urfavecli.BoolFlag{
 				Name:        "ll-hls",
-				Usage:       "enable the experimental low-latency HLS origin for RTMP H.264/AAC streams",
+				Usage:       "enable the experimental low-latency HLS origin for RTMP H.264/AAC and WHIP H.264/Opus streams",
 				Value:       false,
 				Destination: &cli.LLHLS,
 				Sources:     urfavecli.EnvVars("SP_LL_HLS"),

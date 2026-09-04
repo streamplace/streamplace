@@ -215,6 +215,10 @@ func (mm *MediaManager) consumeWorkerFrames(ctx context.Context, fr *ingestframe
 					log.Error(ctx, "ingest worker: segment handler failed", "streamer", streamer, "error", serr)
 				}
 			}
+		case ingestframe.LLInit, ingestframe.LLPart, ingestframe.LLSegmentComplete, ingestframe.LLDiscontinuity, ingestframe.LLSessionEnd:
+			if err := mm.observeWorkerLLHLSFrame(streamer, typ, payload); err != nil {
+				log.Error(ctx, "ingest worker: LL-HLS frame failed", "streamer", streamer, "type", typ, "error", err)
+			}
 		case ingestframe.End:
 			sawEnd = true
 		case ingestframe.Error:

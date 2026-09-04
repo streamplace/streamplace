@@ -56,11 +56,9 @@ type IngestWorkerConfig struct {
 	// forwarded verbatim, no reconstruction.
 	KeyPEM  []byte `json:"key_pem"`
 	CertPEM []byte `json:"cert_pem"`
-	// Manifest is the C2PA manifest JSON, built ONCE by main at stream start.
-	// muxl-sign stamps each segment's signing time into it as it signs. NOTE:
-	// static for the worker's lifetime — mid-stream manifest changes (e.g. a
-	// pre-live → live transition) don't yet cross the boundary; that needs a
-	// control channel and is tracked as future work.
+	// Manifest is the initial C2PA manifest JSON. Main can replace it over the
+	// worker socket while the stream is running; muxl-sign reads the current
+	// value for each segment and stamps that segment's signing time into it.
 	Manifest []byte `json:"manifest"`
 
 	// Node transcode signer + broadcaster identity. When set, the worker completes
@@ -112,6 +110,12 @@ type IngestWorkerConfig struct {
 	// generates the answer and emits it as the first frame (ingestframe.Answer)
 	// so main can return it to the client before consuming segments.
 	OfferSDP string `json:"offer_sdp,omitempty"`
+	// LLHLS asks a WHIP worker to emit raw LL-HLS events alongside signed
+	// segments. The presentation identity is allocated by main so the main
+	// process can create the playback window before the first event arrives.
+	LLHLS             bool   `json:"ll_hls,omitempty"`
+	LLHLSPresentation string `json:"ll_hls_presentation,omitempty"`
+	LLHLSSession      uint64 `json:"ll_hls_session,omitempty"`
 }
 
 // IngestTransportWHIP is the cfg.Transport value selecting the WHIP worker.
@@ -122,7 +126,7 @@ const IngestTransportWHIP = "whip"
 // handed its config over the handshake, else local disk under DataDir). Shared
 // by the MP4 and WHIP workers so both record to the same place main would.
 func (cfg IngestWorkerConfig) workerCLI() *config.CLI {
-	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir}
+	cli := &config.CLI{BroadcasterHost: cfg.BroadcasterHost, DataDir: cfg.DataDir, LLHLS: cfg.LLHLS}
 	if cfg.S3 != nil {
 		cli.SetS3Config(*cfg.S3)
 	}

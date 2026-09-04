@@ -35,7 +35,8 @@ func newLLWindow() *llhls.Window {
 	return llhls.NewWindow(
 		llhls.WithMaxSegments(llhlsWindowSegments),
 		llhls.WithMaxBytes(llhlsWindowBytes),
-		llhls.WithPlaylistDurations(llhlsParentDuration, llhlsPartTarget),
+		llhls.WithDynamicTargetDuration(time.Second),
+		llhls.WithPlaylistDurations(0, llhlsPartTarget),
 		llhls.WithPartHoldBack(llhlsLivePartHoldBack),
 		llhls.WithSegmentCompletionDelay(llhlsCompletionHold),
 	)
@@ -44,6 +45,9 @@ func newLLWindow() *llhls.Window {
 func (mm *MediaManager) replaceLLWindow(did string) *llhls.Window {
 	mm.llWindowsMut.Lock()
 	defer mm.llWindowsMut.Unlock()
+	if mm.llWindows == nil {
+		mm.llWindows = make(map[string]*llhls.Window)
+	}
 	w := newLLWindow()
 	mm.llWindows[did] = w
 	return w
@@ -62,7 +66,7 @@ func (mm *MediaManager) removeLLWindow(did, presentation string, expected *llhls
 	mm.llWindowsMut.Lock()
 	defer mm.llWindowsMut.Unlock()
 	window := mm.llWindows[did]
-	if window == expected && window != nil && window.Presentation() == presentation {
+	if window == expected && window != nil && (window.Presentation() == "" || window.Presentation() == presentation) {
 		delete(mm.llWindows, did)
 	}
 }

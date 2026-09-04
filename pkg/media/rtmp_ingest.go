@@ -10,7 +10,6 @@ import (
 	"github.com/bluenviron/gortsplib/v5/pkg/format"
 	"github.com/bluenviron/mediacommon/v2/pkg/codecs/h264"
 	"github.com/go-gst/go-gst/gst"
-	"github.com/go-gst/go-gst/gst/app"
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
@@ -33,12 +32,6 @@ type RTMPSession struct {
 	AudioTrack  *format.MPEG4Audio
 	MediaSigner MediaSigner
 }
-
-const (
-	llhlsParentDuration = 2 * time.Second
-	llhlsPartDuration   = time.Second
-	llhlsPartTarget     = 1100 * time.Millisecond
-)
 
 func h264VideoConfig(track *format.H264) llhls.VideoConfig {
 	if track == nil {
@@ -80,11 +73,10 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		llEnabled = false
 	}
 	if llEnabled {
-		// AAC and H.264 use separate renditions so each track can preserve its
-		// own sample boundaries. The playlists share a program-date-time grid.
+		// AAC and H.264 use separate muxers so each track can preserve its own
+		// sample boundaries. The playlists share a program-date-time grid.
+		pipelineSlice = append(pipelineSlice, llhlsMuxerElements(llhlsPartDuration)...)
 		pipelineSlice = append(pipelineSlice,
-			fmt.Sprintf("isofmp4mux name=ll_video_mux fragment-duration=%d chunk-duration=%d ! appsink name=ll_video_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
-			fmt.Sprintf("isofmp4mux name=ll_audio_mux manual-split=true fragment-duration=%d chunk-duration=%d ! appsink name=ll_audio_sink sync=false async=false", llhlsParentDuration, llhlsPartDuration),
 			"demux.audio ! queue ! aacparse name=audioenc ! audio/mpeg,mpegversion=4,stream-format=raw ! tee name=audio_tee",
 			// The manual-split mux waits for a future AAC buffer to carry each
 			// split marker. The default one-second queue time limit can fill
@@ -141,7 +133,11 @@ func (mm *MediaManager) RTMPIngest(ctx context.Context, rtmpURL string, ms Media
 		window := mm.replaceLLWindow(streamerDID)
 		defer mm.removeLLWindow(streamerDID, presentation, window)
 		window.SetVideoConfig(h264VideoConfig(videoTrack))
-		if err := installCMAFBranch(ctx, pipeline, window, presentation, session); err != nil {
+		if err := installCMAFBranch(ctx, pipeline, &llhlsIngestOutput{
+			presentation: presentation,
+			session:      session,
+			window:       window,
+		}); err != nil {
 			return err
 		}
 	} else if err = audioenc.Link(signer); err != nil {
@@ -204,122 +200,6 @@ func linkElementToPad(source, destination *gst.Element, sinkPadName string) erro
 	}
 	if result := src.Link(sink); result != gst.PadLinkOK {
 		return fmt.Errorf("LL-HLS element link: %s", result.String())
-	}
-	return nil
-}
-
-func installCMAFBranch(ctx context.Context, pipeline *gst.Pipeline, window *llhls.Window, presentation string, session uint64) error {
-	// Both rendition playlists use the same program-date-time anchor.
-	programDateTimeBase := time.Now().UTC()
-	videoElement, err := pipeline.GetElementByName("ll_video_sink")
-	if err != nil {
-		return fmt.Errorf("LL-HLS CMAF sink: %w", err)
-	}
-	installCMAFSink(ctx, app.SinkFromElement(videoElement), &cmafTrackSink{
-		presentation:        presentation,
-		session:             session,
-		track:               "video",
-		window:              window,
-		generation:          1,
-		partDuration:        llhlsPartDuration,
-		programDateTimeBase: programDateTimeBase,
-		partTarget:          llhlsPartTarget,
-	})
-	audioElement, err := pipeline.GetElementByName("ll_audio_sink")
-	if err != nil {
-		return fmt.Errorf("LL-HLS CMAF audio sink: %w", err)
-	}
-	installCMAFSink(ctx, app.SinkFromElement(audioElement), &cmafTrackSink{
-		presentation:        presentation,
-		session:             session,
-		track:               "audio",
-		window:              window,
-		generation:          1,
-		partDuration:        llhlsPartDuration,
-		programDateTimeBase: programDateTimeBase,
-		partTarget:          llhlsPartTarget,
-		audioOnly:           true,
-	})
-	return nil
-}
-
-// startLLAudioSplitter triggers manual muxer splits from AAC buffer PTS. The
-// muxer cuts between input buffers, preserving AAC frames at parent boundaries.
-func startLLAudioSplitter(ctx context.Context, pipeline *gst.Pipeline) error {
-	mux := safeElement(pipeline, "ll_audio_mux")
-	if mux == nil {
-		return fmt.Errorf("LL-HLS audio splitter: ll_audio_mux is missing")
-	}
-	queue := safeElement(pipeline, "ll_audio_queue")
-	if queue == nil {
-		return fmt.Errorf("LL-HLS audio splitter: ll_audio_queue is missing")
-	}
-	queueSrc := queue.GetStaticPad("src")
-	if queueSrc == nil {
-		return fmt.Errorf("LL-HLS audio splitter: ll_audio_queue has no source pad")
-	}
-	splitter := &llAudioSplitter{}
-	probeID := queueSrc.AddProbe(gst.PadProbeTypeBuffer, func(pad *gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		buffer := info.GetBuffer()
-		if buffer != nil {
-			splitter.handleBuffer(ctx, pad, buffer)
-		}
-		return gst.PadProbeOK
-	})
-	go func() {
-		<-ctx.Done()
-		queueSrc.RemoveProbe(probeID)
-	}()
-	return nil
-}
-
-type llAudioSplitter struct {
-	initialized  bool
-	nextBoundary time.Duration
-	splitIndex   uint64
-}
-
-func (s *llAudioSplitter) handleBuffer(ctx context.Context, pad *gst.Pad, buffer *gst.Buffer) {
-	if buffer.GetFlags()&gst.BufferFlagDiscont != 0 {
-		s.initialized = false
-	}
-	pts := buffer.PresentationTimestamp().AsDuration()
-	if pts == nil {
-		return
-	}
-	if !s.initialized {
-		s.nextBoundary = *pts + llhlsPartDuration
-		s.initialized = true
-		return
-	}
-	if *pts < s.nextBoundary {
-		return
-	}
-
-	chunk := (s.splitIndex+1)%2 == 1
-	if err := emitLLAudioManualSplit(pad, chunk); err != nil {
-		log.Warn(ctx, "LL-HLS audio split event failed", "chunk", chunk, "error", err)
-		return
-	}
-	s.splitIndex++
-	s.nextBoundary += llhlsPartDuration
-}
-
-func emitLLAudioSplit(mux *gst.Element, boundary gst.ClockTime) error {
-	_, err := mux.Emit("split-at-running-time", uint64(boundary))
-	return err
-}
-
-func emitLLAudioManualSplit(queueSrc *gst.Pad, chunk bool) error {
-	if queueSrc == nil {
-		return fmt.Errorf("LL-HLS audio splitter: nil queue source pad")
-	}
-	structure := gst.NewStructure("FMP4MuxSplitNow")
-	if err := structure.SetValue("chunk", chunk); err != nil {
-		return fmt.Errorf("set audio split event: %w", err)
-	}
-	if !queueSrc.PushEvent(gst.NewCustomEvent(gst.EventTypeCustomDownstream, structure)) {
-		return fmt.Errorf("push audio split event")
 	}
 	return nil
 }

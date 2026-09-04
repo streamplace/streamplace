@@ -14,10 +14,12 @@ import (
 	"stream.place/streamplace/pkg/log"
 )
 
-// workerFrameBuffer bounds how many signed segments a worker holds while main is
-// disconnected — ~10 min at one segment per ~1s GoP. Beyond this the oldest are
-// dropped (a main outage longer than this loses the oldest tail, loudly).
+// workerFrameBuffer bounds how many frames a worker holds while main is
+// disconnected. LL-HLS parts and metadata consume entries alongside signed
+// segments, so this is a frame bound rather than a fixed time guarantee.
 const workerFrameBuffer = 600
+
+const workerFrameWriteTimeout = 100 * time.Millisecond
 
 // workerDrainGrace bounds how long a worker lingers after its stream ends waiting
 // for main to drain the buffer. Generous enough for a main restart/upgrade; an
@@ -53,6 +55,8 @@ type bufferedFrame struct {
 // and re-buffers that frame, so a hard main disconnect degrades to buffering.
 type frameServer struct {
 	mu           sync.Mutex
+	llInits      []bufferedFrame
+	llInitTracks map[string]int
 	pending      []bufferedFrame
 	conn         net.Conn
 	w            *ingestframe.Writer
@@ -64,30 +68,92 @@ type frameServer struct {
 // newFrameServer creates a server that buffers up to maxBuf frames while no
 // client is attached.
 func newFrameServer(maxBuf int) *frameServer {
-	return &frameServer{maxBuf: maxBuf}
+	return &frameServer{maxBuf: maxBuf, llInitTracks: make(map[string]int)}
 }
 
 func (s *frameServer) push(typ ingestframe.Type, payload []byte) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	rememberedInit := false
+	if typ == ingestframe.LLInit {
+		if frame, err := ingestframe.DecodeLLFrame(payload); err == nil && frame.Track != "" {
+			if s.llInitTracks == nil {
+				s.llInitTracks = make(map[string]int)
+			}
+			buffered := bufferedFrame{typ, bytes.Clone(payload)}
+			if index, ok := s.llInitTracks[frame.Track]; ok {
+				s.llInits[index] = buffered
+			} else {
+				s.llInitTracks[frame.Track] = len(s.llInits)
+				s.llInits = append(s.llInits, buffered)
+			}
+			rememberedInit = true
+		}
+	}
 	if s.w != nil {
-		if err := s.w.WriteFrame(typ, payload); err == nil {
+		if err := writeWorkerFrame(s.conn, s.w, typ, payload); err == nil {
 			return
 		}
 		// Client gone; drop it and buffer this frame instead.
+		conn := s.conn
 		s.conn, s.w = nil, nil
+		if conn != nil {
+			_ = conn.Close()
+		}
 	}
-	s.pending = append(s.pending, bufferedFrame{typ, bytes.Clone(payload)})
+	if typ != ingestframe.LLInit || !rememberedInit {
+		s.pending = append(s.pending, bufferedFrame{typ, bytes.Clone(payload)})
+	}
 	for len(s.pending) > s.maxBuf {
 		s.pending = s.pending[1:]
 		s.dropped++
 	}
 }
 
+func writeWorkerFrame(conn net.Conn, writer *ingestframe.Writer, typ ingestframe.Type, payload []byte) error {
+	if conn == nil || writer == nil {
+		return fmt.Errorf("missing frame connection")
+	}
+	if err := conn.SetWriteDeadline(time.Now().Add(workerFrameWriteTimeout)); err != nil {
+		return err
+	}
+	defer conn.SetWriteDeadline(time.Time{})
+	return writer.WriteFrame(typ, payload)
+}
+
 func (s *frameServer) Segment(seg []byte) error { s.push(ingestframe.Segment, seg); return nil }
 func (s *frameServer) End() error               { s.push(ingestframe.End, nil); return nil }
 func (s *frameServer) Error(msg string) error   { s.push(ingestframe.Error, []byte(msg)); return nil }
 func (s *frameServer) Answer(sdp string) error  { s.push(ingestframe.Answer, []byte(sdp)); return nil }
+
+func (s *frameServer) writeLL(typ ingestframe.Type, frame ingestframe.LLFrame) error {
+	payload, err := ingestframe.EncodeLLFrame(frame)
+	if err != nil {
+		return err
+	}
+	s.push(typ, payload)
+	return nil
+}
+
+func (s *frameServer) LLInit(frame ingestframe.LLFrame) error {
+	return s.writeLL(ingestframe.LLInit, frame)
+}
+
+func (s *frameServer) LLPart(frame ingestframe.LLFrame) error {
+	return s.writeLL(ingestframe.LLPart, frame)
+}
+
+func (s *frameServer) LLSegmentComplete(frame ingestframe.LLFrame) error {
+	return s.writeLL(ingestframe.LLSegmentComplete, frame)
+}
+
+func (s *frameServer) LLDiscontinuity(frame ingestframe.LLFrame) error {
+	return s.writeLL(ingestframe.LLDiscontinuity, frame)
+}
+
+func (s *frameServer) LLSessionEnd(frame ingestframe.LLFrame) error {
+	return s.writeLL(ingestframe.LLSessionEnd, frame)
+}
 
 // dropped reports how many buffered frames were discarded because the buffer
 // overflowed (main was disconnected longer than the buffer window).
@@ -104,8 +170,15 @@ func (s *frameServer) attach(conn net.Conn) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	w := ingestframe.NewWriter(conn)
+	for _, f := range s.llInits {
+		if err := writeWorkerFrame(conn, w, f.typ, f.payload); err != nil {
+			_ = conn.Close()
+			return
+		}
+	}
 	for _, f := range s.pending {
-		if err := w.WriteFrame(f.typ, f.payload); err != nil {
+		if err := writeWorkerFrame(conn, w, f.typ, f.payload); err != nil {
+			_ = conn.Close()
 			return
 		}
 	}
@@ -135,7 +208,10 @@ func (s *frameServer) waitDrained(ctx context.Context, grace time.Duration) {
 		case <-ctx.Done():
 			return
 		case <-deadline.C:
-			log.Warn(ctx, "ingest worker: main never drained the frame buffer; exiting", "pending", len(s.pending))
+			s.mu.Lock()
+			pending := len(s.pending)
+			s.mu.Unlock()
+			log.Warn(ctx, "ingest worker: main never drained the frame buffer; exiting", "pending", pending)
 			return
 		case <-tick.C:
 		}

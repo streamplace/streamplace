@@ -58,6 +58,36 @@ func TestCMAFPartPublishesFullSizedFirstPartImmediately(t *testing.T) {
 	}
 }
 
+func TestCMAFSinkPublishesWorkerMetadata(t *testing.T) {
+	var got llhls.Event
+	state := &cmafTrackSink{
+		presentation:   "test",
+		session:        4,
+		track:          "audio",
+		generation:     2,
+		timescale:      48000,
+		videoFrameRate: 59.94,
+		audioChannels:  2,
+		publish: func(ev llhls.Event) error {
+			got = ev
+			return nil
+		},
+	}
+	when := time.Unix(1700000000, 123)
+	if err := state.publishPart(cmafPendingPart{
+		data:            []byte("part"),
+		start:           time.Second,
+		duration:        20 * time.Millisecond,
+		programDateTime: when,
+		set:             true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got.Session != 4 || got.Timescale != 48000 || got.FrameRate != 59.94 || got.AudioChannels != 2 || !got.ProgramDateTime.Equal(when) {
+		t.Fatalf("worker event metadata = %+v", got)
+	}
+}
+
 func TestCMAFMuxEmitsFragmentedBufferLists(t *testing.T) {
 	gstinit.InitGST()
 	if gst.Find("cmafmux") == nil || gst.Find("x264enc") == nil {

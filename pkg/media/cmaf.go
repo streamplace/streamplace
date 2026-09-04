@@ -30,6 +30,7 @@ type cmafTrackSink struct {
 	session       uint64
 	track         string
 	window        *llhls.Window
+	publish       func(llhls.Event) error
 	generation    uint64
 	nextMSN       uint64
 	initialized   bool
@@ -50,6 +51,8 @@ type cmafTrackSink struct {
 	// times provide the offset for each parent.
 	programDateTimeBase time.Time
 	timescale           uint32
+	videoFrameRate      float64
+	audioChannels       int
 }
 
 type cmafPendingPart struct {
@@ -112,7 +115,8 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 		} else {
 			s.timescale = timescale
 		}
-		if err := s.window.Observe(llhls.Event{
+		s.audioChannels = audioChannels
+		if err := s.observe(llhls.Event{
 			Kind:         llhls.Init,
 			Presentation: s.presentation,
 			Session:      s.session,
@@ -123,7 +127,7 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 			return fmt.Errorf("publish CMAF init: %w", err)
 		}
 		if audioChannels > 0 {
-			s.window.SetAudioConfig(llhls.AudioConfig{Channels: audioChannels})
+			s.setAudioConfig(llhls.AudioConfig{Channels: audioChannels})
 		}
 		s.initialized = true
 	}
@@ -176,7 +180,11 @@ func (s *cmafTrackSink) sample(sample *gst.Sample) error {
 			if s.track == "video" {
 				for _, timing := range timings {
 					if s.videoTrackIDs[timing.TrackID] {
-						s.window.SetVideoFrameRate(cmafVideoFrameRate(timing, s.timescale))
+						rate := cmafVideoFrameRate(timing, s.timescale)
+						if rate > s.videoFrameRate {
+							s.videoFrameRate = rate
+						}
+						s.setVideoFrameRate(rate)
 						break
 					}
 				}
@@ -302,7 +310,7 @@ func (s *cmafTrackSink) publishPart(part cmafPendingPart) error {
 	if s.partTarget > 0 && part.duration > s.partTarget {
 		return fmt.Errorf("CMAF part duration %s exceeds PART-TARGET %s", part.duration, s.partTarget)
 	}
-	if err := s.window.Observe(llhls.Event{
+	if err := s.observe(llhls.Event{
 		Kind:            llhls.Part,
 		Presentation:    s.presentation,
 		Session:         s.session,
@@ -330,7 +338,7 @@ func (s *cmafTrackSink) completeParent() error {
 		return err
 	}
 	s.pendingPart = cmafPendingPart{}
-	if err := s.window.Observe(llhls.Event{
+	if err := s.observe(llhls.Event{
 		Kind:         llhls.SegmentComplete,
 		Presentation: s.presentation,
 		Session:      s.session,
@@ -350,6 +358,31 @@ func (s *cmafTrackSink) completeParent() error {
 	s.partIndex = 0
 	s.hasParent = false
 	return nil
+}
+
+func (s *cmafTrackSink) observe(ev llhls.Event) error {
+	ev.Timescale = s.timescale
+	ev.FrameRate = s.videoFrameRate
+	ev.AudioChannels = s.audioChannels
+	if s.publish != nil {
+		return s.publish(ev)
+	}
+	if s.window == nil {
+		return errors.New("CMAF event sink has no destination")
+	}
+	return s.window.Observe(ev)
+}
+
+func (s *cmafTrackSink) setVideoFrameRate(fps float64) {
+	if s.window != nil {
+		s.window.SetVideoFrameRate(fps)
+	}
+}
+
+func (s *cmafTrackSink) setAudioConfig(config llhls.AudioConfig) {
+	if s.window != nil {
+		s.window.SetAudioConfig(config)
+	}
 }
 
 func isCMAFInit(data []byte) bool {

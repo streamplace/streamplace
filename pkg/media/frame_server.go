@@ -110,14 +110,19 @@ func (s *frameServer) push(typ ingestframe.Type, payload []byte) {
 	}
 }
 
-func writeWorkerFrame(conn net.Conn, writer *ingestframe.Writer, typ ingestframe.Type, payload []byte) error {
+func writeWorkerFrame(conn net.Conn, writer *ingestframe.Writer, typ ingestframe.Type, payload []byte) (err error) {
 	if conn == nil || writer == nil {
 		return fmt.Errorf("missing frame connection")
 	}
 	if err := conn.SetWriteDeadline(time.Now().Add(workerFrameWriteTimeout)); err != nil {
 		return err
 	}
-	defer conn.SetWriteDeadline(time.Time{})
+	defer func() {
+		if resetErr := conn.SetWriteDeadline(time.Time{}); err == nil {
+			err = resetErr
+		}
+	}()
+
 	return writer.WriteFrame(typ, payload)
 }
 

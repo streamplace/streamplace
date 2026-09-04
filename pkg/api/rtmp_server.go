@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortmplib"
@@ -43,6 +44,10 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 
 	streamer := mediaSigner.Streamer()
 	ctx = log.WithLogValues(ctx, "streamer", streamer)
+	streamerDID, err := a.NormalizeUser(ctx, streamer)
+	if err != nil {
+		return fmt.Errorf("failed to resolve streamer %s: %w", streamer, err)
+	}
 	session := &media.RTMPSession{
 		EventChan:   make(chan any, 1024),
 		MediaSigner: mediaSigner,
@@ -66,6 +71,7 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		return err
 	}
 
+	var videoFrames, audioFrames atomic.Uint64
 	for _, track := range r.Tracks() {
 		log.Log(ctx, "get track", "track", track)
 
@@ -73,7 +79,9 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		case *format.H264:
 			session.VideoTrack = track
 			r.OnDataH264(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-				// log.Log(ctx, "got H264", "len", len(au), "pts", pts, "dts", dts)
+				if n := videoFrames.Add(1); n <= 10 || n%300 == 0 {
+					log.Log(ctx, "received RTMP H264 frame", "frame", n, "aus", len(au), "pts", pts, "dts", dts)
+				}
 				session.EventChan <- &media.RTMPH264Data{
 					AU:  au,
 					PTS: pts,
@@ -84,7 +92,9 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 		case *format.MPEG4Audio:
 			session.AudioTrack = track
 			r.OnDataMPEG4Audio(track, func(pts time.Duration, au []byte) {
-				// log.Log(ctx, "got MPEG4Au", "len", len(au), "pts", pts)
+				if n := audioFrames.Add(1); n <= 10 || n%500 == 0 {
+					log.Log(ctx, "received RTMP AAC frame", "frame", n, "bytes", len(au), "pts", pts)
+				}
 				session.EventChan <- &media.RTMPAACData{
 					AU:  au,
 					PTS: pts,
@@ -108,13 +118,20 @@ func (a *StreamplaceAPI) HandleRTMPPublisher(ctx context.Context, sc *gortmplib.
 			}
 			err = r.Read()
 			if err != nil {
+				log.Error(ctx, "RTMP publisher reader stopped", "streamer", streamer, "error", err)
 				return err
 			}
 		}
 	})
 
 	g.Go(func() error {
-		return a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner)
+		err := a.MediaManager.RTMPIngest(ctx, fmt.Sprintf("rtmp://%s/live/%s", a.rtmpInternalPlaybackAddr, streamer), mediaSigner, streamerDID, session.VideoTrack)
+		if err != nil {
+			log.Error(ctx, "RTMP ingest worker stopped", "streamer", streamer, "error", err)
+		} else {
+			log.Log(ctx, "RTMP ingest worker stopped cleanly", "streamer", streamer)
+		}
+		return err
 	})
 
 	return g.Wait()
@@ -136,6 +153,7 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 		Conn:   sc,
 		Tracks: []format.Format{session.VideoTrack, session.AudioTrack},
 	}
+	var videoFrames, audioFrames atomic.Uint64
 	err := w.Initialize()
 	if err != nil {
 		return err
@@ -150,13 +168,21 @@ func (a *StreamplaceAPI) HandleRTMPPlayback(ctx context.Context, sc *gortmplib.S
 			}
 			switch event := event.(type) {
 			case *media.RTMPH264Data:
+				if n := videoFrames.Add(1); n <= 10 || n%300 == 0 {
+					log.Log(ctx, "writing internal RTMP H264 frame", "frame", n, "aus", len(event.AU), "pts", event.PTS)
+				}
 				err := w.WriteH264(session.VideoTrack, event.PTS, event.DTS, event.AU)
 				if err != nil {
+					log.Error(ctx, "internal RTMP H264 writer stopped", "streamer", streamer, "error", err)
 					return fmt.Errorf("error writing H264: %w", err)
 				}
 			case *media.RTMPAACData:
+				if n := audioFrames.Add(1); n <= 10 || n%500 == 0 {
+					log.Log(ctx, "writing internal RTMP AAC frame", "frame", n, "bytes", len(event.AU), "pts", event.PTS)
+				}
 				err := w.WriteMPEG4Audio(session.AudioTrack, event.PTS, event.AU)
 				if err != nil {
+					log.Error(ctx, "internal RTMP AAC writer stopped", "streamer", streamer, "error", err)
 					return fmt.Errorf("error writing MPEG4Audio: %w", err)
 				}
 			default:

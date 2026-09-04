@@ -76,6 +76,7 @@ type CLI struct {
 	RTMPSAddonAddr              string
 	Secure                      bool
 	NoMist                      bool
+	LLHLS                       bool
 	IsolatedIngest              bool
 	MistAdminPort               int
 	MistHTTPPort                int
@@ -314,6 +315,13 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Value:       true,
 				Destination: &cli.IsolatedIngest,
 				Sources:     urfavecli.EnvVars("SP_ISOLATED_INGEST"),
+			},
+			&urfavecli.BoolFlag{
+				Name:        "ll-hls",
+				Usage:       "enable the experimental low-latency HLS origin for RTMP H.264/AAC and WHIP H.264/Opus streams",
+				Value:       false,
+				Destination: &cli.LLHLS,
+				Sources:     urfavecli.EnvVars("SP_LL_HLS"),
 			},
 			&urfavecli.StringFlag{
 				Name:        "tls-cert",

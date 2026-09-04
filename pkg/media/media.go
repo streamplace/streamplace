@@ -10,6 +10,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/pion/webrtc/v4"
@@ -21,6 +22,7 @@ import (
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/gstinit"
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/model"
 	"stream.place/streamplace/pkg/placestream"
@@ -43,6 +45,8 @@ type MediaManager struct {
 	cli            *config.CLI
 	liveWindows    map[string]*livehls.Writer
 	liveWindowsMut sync.Mutex
+	llWindows      map[string]*llhls.Window
+	llWindowsMut   sync.Mutex
 	// modBuffers holds a short in-memory ring of each live user's most recent
 	// canonical segments, the source for moderation/report clips now that
 	// segments are no longer archived to disk. Keyed by repoDID. See
@@ -91,7 +95,20 @@ type MediaManager struct {
 // session. Epochs are strictly increasing, so a newer session always wins over a
 // transcoder built for an older one.
 func (mm *MediaManager) nextIngestSession() uint64 {
-	return mm.ingestSessionSeq.Add(1)
+	// Seed the process-local sequence from wall time so a worker resumed after a
+	// main restart still sorts before newly-created sessions. The CAS preserves
+	// strict ordering when sessions start in the same nanosecond.
+	now := uint64(time.Now().UnixNano())
+	for {
+		previous := mm.ingestSessionSeq.Load()
+		next := now
+		if next <= previous {
+			next = previous + 1
+		}
+		if mm.ingestSessionSeq.CompareAndSwap(previous, next) {
+			return next
+		}
+	}
 }
 
 type NewSegmentNotification struct {
@@ -126,6 +143,7 @@ func MakeMediaManager(ctx context.Context, cli *config.CLI, signer crypto.Signer
 	mm := &MediaManager{
 		cli:          cli,
 		liveWindows:  map[string]*livehls.Writer{},
+		llWindows:    map[string]*llhls.Window{},
 		modBuffers:   map[string]*modBuffer{},
 		httpPipes:    map[string]io.Writer{},
 		model:        mod,

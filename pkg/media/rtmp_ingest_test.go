@@ -170,6 +170,18 @@ func TestFilterSegmentToCodecStrictRejectsCodecMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "requested opus audio track is missing")
 }
 
+func TestLLHLSMuxerElementsUseSourceSpecificVideoChunkDuration(t *testing.T) {
+	pipeline := strings.Join(llhlsMuxerElements(500*time.Millisecond), "\n")
+	for _, want := range []string{
+		"isofmp4mux name=ll_video_mux fragment-duration=2000000000 chunk-duration=500000000",
+		"isofmp4mux name=ll_audio_mux manual-split=true fragment-duration=2000000000 chunk-duration=1000000000",
+	} {
+		if !strings.Contains(pipeline, want) {
+			t.Fatalf("LL-HLS muxer pipeline = %q, missing %q", pipeline, want)
+		}
+	}
+}
+
 func TestH264VideoConfigUsesSPSMetadata(t *testing.T) {
 	sps := []byte{
 		0x67, 0x64, 0x00, 0x1f, 0xac, 0xd9, 0x40, 0x50,

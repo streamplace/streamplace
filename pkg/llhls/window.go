@@ -45,11 +45,16 @@ const (
 )
 
 type Event struct {
-	Kind            EventKind
-	Presentation    string
-	Session         uint64
-	Track           string
-	Generation      uint64
+	Kind         EventKind
+	Presentation string
+	Session      uint64
+	Track        string
+	Generation   uint64
+	// Bridge metadata is intentionally ignored by Window. Detached ingest uses it
+	// to carry CMAF timing and stream metadata across the worker boundary.
+	Timescale       uint32
+	FrameRate       float64
+	AudioChannels   int
 	MSN             uint64
 	Part            uint32
 	Start           time.Duration
@@ -127,6 +132,7 @@ type Window struct {
 	partTarget             time.Duration
 	configuredTarget       int64
 	configuredPartTarget   time.Duration
+	dynamicTarget          bool
 	partHoldBack           time.Duration
 	configuredPartHoldBack time.Duration
 	completionHold         time.Duration
@@ -207,6 +213,17 @@ func WithPlaylistDurations(parent, part time.Duration) Option {
 	}
 }
 
+// WithDynamicTargetDuration starts TARGETDURATION at the supplied minimum and
+// raises it to cover the largest completed parent observed during the
+// presentation. The value is rounded to the nearest whole second as required
+// by HLS and never falls below one second.
+func WithDynamicTargetDuration(minimum time.Duration) Option {
+	return func(w *Window) {
+		w.dynamicTarget = true
+		w.targetDuration = roundedDurationSeconds(minimum)
+	}
+}
+
 func NewWindow(opts ...Option) *Window {
 	w := &Window{
 		tracks:         make(map[string]*track),
@@ -246,7 +263,7 @@ func (w *Window) Observe(ev Event) error {
 		if ev.Kind != Init {
 			return ErrStalePresentation
 		}
-		if w.presentationSession != 0 && (ev.Session == 0 || ev.Session < w.presentationSession) {
+		if w.presentationSession != 0 && (ev.Session == 0 || ev.Session <= w.presentationSession) {
 			return ErrStalePresentation
 		}
 		for _, t := range w.tracks {
@@ -331,6 +348,12 @@ func (w *Window) Observe(ev Event) error {
 		w.bytes += len(s.data)
 		t.bytes += len(s.data)
 		w.recordTrackBitrate(ev.Track, t, len(s.data), ev.Duration)
+		if w.dynamicTarget && ev.Duration > 0 {
+			observedTarget := roundedDurationSeconds(ev.Duration)
+			if observedTarget > w.targetDuration {
+				w.targetDuration = observedTarget
+			}
+		}
 		if w.completionHold <= 0 {
 			s.complete = true
 		} else {

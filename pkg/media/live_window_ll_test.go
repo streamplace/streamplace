@@ -32,9 +32,9 @@ func TestLLWindowUsesMobilePlaybackHoldBack(t *testing.T) {
 	}))
 
 	playlist := w.Playlist("p", "video", func(uint64, uint32) string { return "part.m4s" }, func(uint64) string { return "segment.m4s" }, "init.mp4", nil)
-	require.Contains(t, playlist, "#EXT-X-TARGETDURATION:2")
+	require.Contains(t, playlist, "#EXT-X-TARGETDURATION:1")
 	require.Contains(t, playlist, "PART-HOLD-BACK=5.500000")
-	require.Contains(t, playlist, "HOLD-BACK=6.000000")
+	require.Contains(t, playlist, "HOLD-BACK=3.000000")
 }
 
 func TestRemoveLLWindowOnlyRemovesMatchingPresentation(t *testing.T) {

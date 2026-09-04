@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"stream.place/streamplace/pkg/ingestframe"
@@ -16,7 +18,10 @@ import (
 // the frameServer can flush its buffer without a concurrent drainer.
 func unixPair(t *testing.T) (client net.Conn, server net.Conn) {
 	t.Helper()
-	sock := filepath.Join(t.TempDir(), "p.sock")
+	tempDir, err := os.MkdirTemp("/tmp", "sp-")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(tempDir) })
+	sock := filepath.Join(tempDir, "p.sock")
 	ln, err := net.Listen("unix", sock)
 	require.NoError(t, err)
 	defer ln.Close()
@@ -93,6 +98,69 @@ func TestFrameServerBufferFlushReconnect(t *testing.T) {
 	}
 
 	require.Equal(t, 0, srv.droppedCount(), "ample buffer drops nothing across a brief restart")
+}
+
+func TestFrameServerReplaysLatestLLInitOnReconnect(t *testing.T) {
+	srv := newFrameServer(1000)
+	initFrame := ingestframe.LLFrame{
+		Presentation: "whip-1-test",
+		Track:        "video",
+		Generation:   1,
+		Data:         []byte("init"),
+	}
+	partFrame := initFrame
+	partFrame.MSN = 1
+	partFrame.Data = []byte("part")
+	initPayload, err := ingestframe.EncodeLLFrame(initFrame)
+	require.NoError(t, err)
+	partPayload, err := ingestframe.EncodeLLFrame(partFrame)
+	require.NoError(t, err)
+
+	// The first init is delivered before main disconnects. The next part is
+	// buffered, so a fresh main must receive the init again before that part.
+	clientA, serverA := unixPair(t)
+	srv.attach(serverA)
+	srv.push(ingestframe.LLInit, initPayload)
+	_, _, err = ingestframe.NewReader(clientA).ReadFrame()
+	require.NoError(t, err)
+	srv.detachConn(serverA)
+	clientA.Close()
+	serverA.Close()
+	srv.push(ingestframe.LLPart, partPayload)
+
+	clientB, serverB := unixPair(t)
+	srv.attach(serverB)
+	reader := ingestframe.NewReader(clientB)
+	typ, payload, err := reader.ReadFrame()
+	require.NoError(t, err)
+	require.Equal(t, ingestframe.LLInit, typ)
+	require.Equal(t, initPayload, payload)
+	typ, payload, err = reader.ReadFrame()
+	require.NoError(t, err)
+	require.Equal(t, ingestframe.LLPart, typ)
+	require.Equal(t, partPayload, payload)
+}
+
+func TestFrameServerBoundsBlockedClientWrite(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	srv := newFrameServer(3)
+	srv.mu.Lock()
+	srv.conn = server
+	srv.w = ingestframe.NewWriter(server)
+	srv.mu.Unlock()
+
+	start := time.Now()
+	require.NoError(t, srv.Segment(seg(0)))
+	require.Less(t, time.Since(start), 500*time.Millisecond, "blocked client write exceeded its deadline")
+
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	require.Nil(t, srv.conn)
+	require.Nil(t, srv.w)
+	require.Len(t, srv.pending, 1)
 }
 
 // TestFrameServerDropsOldestBeyondBound: a main outage longer than the buffer

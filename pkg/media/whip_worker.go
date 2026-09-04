@@ -88,10 +88,20 @@ func ServeWHIPIngestWorkerSocket(ctx context.Context, cfg IngestWorkerConfig) er
 	if err != nil {
 		return finish(fmt.Errorf("build signer element: %w", err))
 	}
+	var llOutput *llhlsIngestOutput
+	if cfg.LLHLS {
+		workerOutput := newWorkerLLHLSOutput(srv, cfg.LLHLSPresentation, cfg.LLHLSSession)
+		llOutput = &llhlsIngestOutput{
+			presentation: cfg.LLHLSPresentation,
+			session:      cfg.LLHLSSession,
+			publish:      workerOutput.publish,
+			done:         workerOutput.done,
+		}
+	}
 
 	offer := &webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: cfg.OfferSDP}
 	streamDone := make(chan error, 1)
-	answer, err := mm.webRTCIngestPipeline(ctx, cancel, offer, pc, signerElem, nil, streamDone)
+	answer, err := mm.webRTCIngestPipeline(ctx, cancel, offer, pc, signerElem, nil, streamDone, llOutput)
 	if err != nil {
 		return finish(fmt.Errorf("webrtc ingest: %w", err))
 	}

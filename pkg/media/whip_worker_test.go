@@ -154,6 +154,9 @@ func produceWHIPMedia(t *testing.T, ctx context.Context, video, audio *webrtc.Tr
 func TestWHIPWorkerLoopback(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	if gst.Find("isofmp4mux") == nil || gst.Find("fdkaacenc") == nil || gst.Find("opusdec") == nil {
+		t.Skip("static GStreamer build with WebRTC LL-HLS audio support is required")
+	}
 
 	ms := newBareSegmentSigner(t)
 	keyPEM, err := signers.MarshalES256KPrivateKeyPEM(ms.Signer)
@@ -174,16 +177,19 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 
 	sock := filepath.Join(t.TempDir(), "whip.sock")
 	cfg := IngestWorkerConfig{
-		StreamerDID:     ms.Streamer(),
-		KeyPEM:          keyPEM,
-		CertPEM:         ms.Cert,
-		Manifest:        manifest,
-		NodeCertPEM:     ms.Cert,
-		NodeKeyPEM:      keyPEM,
-		BroadcasterHost: "test.example.com",
-		SocketPath:      sock,
-		Transport:       IngestTransportWHIP,
-		OfferSDP:        offer.SDP,
+		StreamerDID:       ms.Streamer(),
+		KeyPEM:            keyPEM,
+		CertPEM:           ms.Cert,
+		Manifest:          manifest,
+		NodeCertPEM:       ms.Cert,
+		NodeKeyPEM:        keyPEM,
+		BroadcasterHost:   "test.example.com",
+		SocketPath:        sock,
+		Transport:         IngestTransportWHIP,
+		OfferSDP:          offer.SDP,
+		LLHLS:             true,
+		LLHLSPresentation: "whip-1-test",
+		LLHLSSession:      1,
 	}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- ServeWHIPIngestWorkerSocket(ctx, cfg) }()
@@ -210,22 +216,35 @@ func TestWHIPWorkerLoopback(t *testing.T) {
 
 	produceWHIPMedia(t, ctx, videoTrack, audioTrack)
 
-	// Read signed segments; require at least one valid dual-codec one.
+	// Read LL-HLS frames and signed segments; require both media tracks and at
+	// least one valid dual-codec signed segment.
 	_ = conn.SetReadDeadline(time.Now().Add(45 * time.Second))
-	var segs int
-	for segs == 0 {
+	var segs, llInits, llParts int
+	for segs == 0 || llInits < 2 || llParts == 0 {
 		typ, payload, ferr := fr.ReadFrame()
 		require.NoError(t, ferr, "reading worker frames")
-		if typ != ingestframe.Segment {
+		switch typ {
+		case ingestframe.LLInit:
+			frame, derr := ingestframe.DecodeLLFrame(payload)
+			require.NoError(t, derr)
+			require.Equal(t, "whip-1-test", frame.Presentation)
+			llInits++
+		case ingestframe.LLPart:
+			frame, derr := ingestframe.DecodeLLFrame(payload)
+			require.NoError(t, derr)
+			require.Equal(t, "whip-1-test", frame.Presentation)
+			llParts++
+		case ingestframe.Segment:
+			out, verr := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
+			require.NoError(t, verr)
+			require.NotContains(t, out, `"validation_state":"Invalid"`, "segment must validate")
+			segs++
+		default:
 			continue
 		}
-		out, verr := muxl.RunMuxlVerify(ctx, bytes.NewReader(payload))
-		require.NoError(t, verr)
-		require.NotContains(t, out, `"validation_state":"Invalid"`, "segment must validate")
-		segs++
 	}
 	_ = conn.SetReadDeadline(time.Time{})
-	t.Logf("whip worker produced %d signed segment(s) from real RTP media", segs)
+	t.Logf("whip worker produced %d init frame(s), %d part frame(s), and %d signed segment(s) from real RTP media", llInits, llParts, segs)
 
 	// Close the connection before tearing down: in production main's connection
 	// breaks on shutdown, which detaches the worker's frame server so it drains

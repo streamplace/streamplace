@@ -170,7 +170,8 @@ function createMentionSuggestion() {
       };
 
       function destroy() {
-        component?.destroy();
+        // internally, we updated external html els
+        flushSync(() => component?.destroy());
         popup?.remove();
         component = null;
         popup = null;
@@ -179,10 +180,7 @@ function createMentionSuggestion() {
   };
 }
 
-// Render-factory for suggestion popups that take an arbitrary React list
-// component. Centralizes the DOM-popup pattern (anchor at the suggestion's
-// clientRect, append to body, reposition on scroll/update, destroy on exit)
-// so the mention and emoji suggestions can share the choreography.
+// Suggestion popup factory
 interface PopupProps<T> {
   items: T[];
   command: (item: T) => void;
@@ -244,7 +242,7 @@ function createBodyPopup<T>(
       },
       onKeyDown(props) {
         if (props.event.key === "Escape") {
-          component?.destroy();
+          flushSync(() => component?.destroy());
           popup?.remove();
           component = null;
           popup = null;
@@ -253,7 +251,7 @@ function createBodyPopup<T>(
         return component?.ref?.onKeyDown?.(props) ?? false;
       },
       onExit() {
-        component?.destroy();
+        flushSync(() => component?.destroy());
         popup?.remove();
         component = null;
         popup = null;
@@ -270,24 +268,16 @@ function createEmojiSuggestion({ getSkinTone }: EmojiSuggestionProps) {
   return {
     pluginKey: EmojiPluginKey,
     char: ":",
-    // Don't pop the popup open on a single `:`; only once the user has
-    // typed enough characters to plausibly match something. Without this
-    // gate the popup opens with an empty list and looks broken.
+    // Should show after this many characters
     shouldShow: ({ query }: { query: string }) => query.length >= 3,
     items: ({ query }: { query: string }) => {
       const data = emojiDataRef.data;
       if (data) return searchEmojis(data, query);
-      // Data not yet loaded; kick off the fetch, cache the result, and
-      // resolve the items list once it lands. The suggestion plugin
-      // accepts a Promise return value and will re-fire onUpdate.
       return getEmojiData().then((d) => {
         emojiDataRef.data = d;
         return searchEmojis(d, query);
       });
     },
-    // Insert the native char with the user's selected skin tone. We
-    // append a space so the cursor lands past the emoji and the user
-    // can keep typing without an extra keystroke.
     command: ({ editor, range, props }: any) => {
       const native = getSkinNative(props, skinToneIndex(getSkinTone()));
       editor
@@ -420,16 +410,15 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
             "min-h-[36px] max-h-[120px] min-w-0 overflow-y-auto whitespace-pre-wrap break-words px-3 py-2 text-sm outline-none",
         },
         handleKeyDown: (view, event) => {
-          // Submit on Enter (not Shift+Enter) unless a suggestion popup is
-          // active. ProseMirror dispatches handleKeyDown with editor-view
-          // props first and plugins after, so we can't rely on the
-          // suggestion plugin short-circuiting us; we have to check both
-          // plugin states and decline to handle the event ourselves so
-          // whichever plugin is open still gets a turn.
           if (event.key === "Enter" && !event.shiftKey) {
             const mentionActive = MentionPluginKey.getState(view.state)?.active;
             const emojiActive = EmojiPluginKey.getState(view.state)?.active;
-            if (mentionActive || emojiActive) return false;
+            // use decoration as final check for active suggestions
+            const suggestionVisible = Boolean(
+              view.dom.querySelector("[data-decoration-id]") ??
+              view.dom.querySelector(".suggestion"),
+            );
+            if (mentionActive || emojiActive || suggestionVisible) return false;
             onSubmitRef.current();
             return true;
           }

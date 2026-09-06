@@ -84,6 +84,79 @@ These last two options are very important! Your viewers' experience may be chopp
 2. There, you can fill out your stream title and choose an optional thumbnail.
 3. Click 'Announce Livestream' to announce your livestream to the world!
 
+## Multitrack Video (Enhanced RTMP)
+
+Streamplace supports eRTMP multitrack ingest: OBS encodes several renditions
+of your stream (for example 1080p and 720p) and sends them over a single RTMP
+connection. Viewers can then switch between your renditions, and since you're
+sending the ladder yourself, no server-side video transcode is needed.
+
+Requires OBS Studio ≥ 31.0.0.
+
+1. Open Settings > Stream
+2. Service: `Custom...`, Server: `rtmps://stream.place:1935/live`, Stream Key:
+   _your stream key_
+3. Turn on `Enable Multitrack Video`
+4. Leave `Maximum Streaming Bandwidth` and `Maximum Video Tracks` on `Auto`
+5. Turn on `Enable Config Override` and fill `Config Override (JSON)`, for
+   example:
+
+```json
+{
+  "encoder_configurations": [
+    {
+      "type": "obs_x264",
+      "width": 1920,
+      "height": 1080,
+      "framerate": { "numerator": 30, "denominator": 1 },
+      "settings": {
+        "rate_control": "CBR",
+        "bitrate": 6000,
+        "keyint_sec": 1,
+        "preset": "veryfast",
+        "profile": "high",
+        "tune": "zerolatency"
+      },
+      "canvas_index": 0
+    },
+    {
+      "type": "obs_x264",
+      "width": 1280,
+      "height": 720,
+      "framerate": { "numerator": 30, "denominator": 1 },
+      "settings": {
+        "rate_control": "CBR",
+        "bitrate": 3000,
+        "keyint_sec": 1,
+        "preset": "veryfast",
+        "profile": "main",
+        "tune": "zerolatency"
+      },
+      "canvas_index": 0
+    }
+  ],
+  "audio_configurations": {
+    "live": [
+      {
+        "codec": "ffmpeg_aac",
+        "track_id": 1,
+        "channels": 2,
+        "settings": { "bitrate": 160 }
+      }
+    ]
+  }
+}
+```
+
+A few constraints specific to Streamplace:
+
+- Every video track must be **H.264** (`obs_x264`, `obs_nvenc_h264_tex`,
+  `h264_texture_amf`, or `obs_qsv11_v2`). HEVC/AV1 multitrack is not yet
+  supported.
+- Send a **single AAC audio track** — multitrack audio is not supported.
+- Keep `keyint_sec` **identical on all tracks** (1s recommended, same as the
+  single-track guidance above) so the renditions stay keyframe-aligned.
+
 ## Multi-Streaming Support
 
 OBS supports multi-streaming through two available OBS plugins:

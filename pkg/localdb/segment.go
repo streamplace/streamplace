@@ -192,6 +192,26 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		}
 	}
 
+	// One entry per video track in the segment — a single track for plain
+	// ingests, one per rendition for eRTMP multitrack sources. Index 0 is
+	// always the primary track (video_0).
+	video := make([]placestream.Segment_Video, 0, len(s.MediaData.Video))
+	for _, v := range s.MediaData.Video {
+		if v == nil {
+			continue
+		}
+		video = append(video, placestream.Segment_Video{
+			Codec:  "h264",
+			Width:  int64(v.Width),
+			Height: int64(v.Height),
+			Framerate: &placestream.Segment_Framerate{
+				Num: int64(v.FPSNum),
+				Den: int64(v.FPSDen),
+			},
+			Bframes: &v.BFrames,
+		})
+	}
+
 	return &placestream.Segment{
 		LexiconTypeID:      "place.stream.segment",
 		Creator:            s.RepoDID,
@@ -203,18 +223,7 @@ func (s *Segment) ToStreamplaceSegment() (*placestream.Segment, error) {
 		ContentRights:      contentRights,
 		ContentWarnings:    contentWarnings,
 		DistributionPolicy: distributionPolicy,
-		Video: []placestream.Segment_Video{
-			{
-				Codec:  "h264",
-				Width:  int64(s.MediaData.Video[0].Width),
-				Height: int64(s.MediaData.Video[0].Height),
-				Framerate: &placestream.Segment_Framerate{
-					Num: int64(s.MediaData.Video[0].FPSNum),
-					Den: int64(s.MediaData.Video[0].FPSDen),
-				},
-				Bframes: &s.MediaData.Video[0].BFrames,
-			},
-		},
+		Video:              video,
 		Audio: []placestream.Segment_Audio{
 			{
 				Codec:    "opus",

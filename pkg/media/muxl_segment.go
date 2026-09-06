@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/go-gst/go-gst/gst"
 	"github.com/go-gst/go-gst/gst/app"
@@ -21,7 +20,7 @@ import (
 // without the model/DB a MediaSignerLocal carries).
 type SignSegmentStreamFunc func(ctx context.Context, input io.Reader, eventCh chan *muxl.MuxlEvent) error
 
-// MuxlSignSegmentElem builds the gstreamer bin that muxes the incoming
+// muxlSignSegmentElem builds the gstreamer bin that muxes the incoming
 // video+audio into a fragmented MP4 stream, then drives muxl-sign's streaming
 // per-segment signer over it. For each GoP it assembles the bare canonical
 // .m4s — the per-track signed [c2pa-uuid][muxl-uuid][moof][mdat] runs
@@ -29,18 +28,12 @@ type SignSegmentStreamFunc func(ctx context.Context, input io.Reader, eventCh ch
 // is exactly what gets stored, verified, and replicated; no flat MP4 is
 // produced here. Presentation headers are synthesized downstream (ValidateMP4
 // / playback) only when needed.
-func MuxlSignSegmentElem(ctx context.Context, cli *config.CLI, ms MediaSigner, onSegment func(ctx context.Context, segment []byte) error) (*gst.Element, error) {
-	elem, _, err := muxlSignSegmentElem(ctx, cli, ms.SignSegmentStream, onSegment)
-	return elem, err
-}
-
-// muxlSignSegmentElem is MuxlSignSegmentElem's core, parameterized by the raw
-// sign-stream function and additionally returning a done channel that closes
-// once every signed segment has been drained to onSegment (the signer goroutine
-// has finished and the event loop has emptied). The isolated ingest worker waits
-// on it to guarantee all segment frames are flushed before it signals a clean
-// end-of-stream.
-func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error) (*gst.Element, <-chan struct{}, error) {
+//
+// The returned done channel closes once every signed segment has been drained
+// to onSegment (the signer goroutine has finished and the event loop has
+// emptied). The isolated ingest worker waits on it to guarantee all segment
+// frames are flushed before it signals a clean end-of-stream.
+func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSegmentStreamFunc, onSegment func(ctx context.Context, segment []byte) error, videoTrackCount int) (*gst.Element, <-chan struct{}, error) {
 	ctx = log.WithLogValues(ctx, "func", "MuxlSignSegmentElem")
 	bin := gst.NewBin("muxl-segment-bin")
 	elem, err := gst.NewElementWithProperties("mp4mux", map[string]any{
@@ -55,13 +48,22 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 		return nil, nil, fmt.Errorf("failed to add mp4mux to bin: %w", err)
 	}
 
-	videoPad := elem.GetRequestPad("video_%u")
-	if videoPad == nil {
-		return nil, nil, fmt.Errorf("failed to get video pad")
-	}
-	videoGhost := gst.NewGhostPad("video_0", videoPad)
-	if videoGhost == nil {
-		return nil, nil, fmt.Errorf("failed to create video ghost pad")
+	// One mp4mux video_%u request pad per video track, ghosted as video_<i>.
+	// Multitrack sources are expected to be GOP-aligned (OBS aligns its
+	// multitrack encoders); mp4mux cuts fragments on video_0 keyframes and a
+	// misaligned track would surface as a ValidateMP4 failure on the segment.
+	for i := 0; i < videoTrackCount; i++ {
+		videoPad := elem.GetRequestPad("video_%u")
+		if videoPad == nil {
+			return nil, nil, fmt.Errorf("failed to get video pad %d", i)
+		}
+		videoGhost := gst.NewGhostPad(fmt.Sprintf("video_%d", i), videoPad)
+		if videoGhost == nil {
+			return nil, nil, fmt.Errorf("failed to create video ghost pad %d", i)
+		}
+		if ok := bin.AddPad(videoGhost.Pad); !ok {
+			return nil, nil, fmt.Errorf("failed to add video ghost pad %d to bin", i)
+		}
 	}
 	audioPad := elem.GetRequestPad("audio_%u")
 	if audioPad == nil {
@@ -70,9 +72,6 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	audioGhost := gst.NewGhostPad("audio_0", audioPad)
 	if audioGhost == nil {
 		return nil, nil, fmt.Errorf("failed to create audio ghost pad")
-	}
-	if ok := bin.AddPad(videoGhost.Pad); !ok {
-		return nil, nil, fmt.Errorf("failed to add video ghost pad to bin")
 	}
 	if ok := bin.AddPad(audioGhost.Pad); !ok {
 		return nil, nil, fmt.Errorf("failed to add audio ghost pad to bin")
@@ -150,13 +149,14 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 
 // concatTracksSorted joins the per-track canonical segment bytes for one GoP
 // in ascending track-id order — the canonical interleave a multi-track .m4s
-// uses, which muxl's unwrap/verify/wrap all expect.
+// uses, which muxl's unwrap/verify/wrap all expect. Keys are numeric track
+// IDs, so sort numerically (lexical order breaks at track ID 10).
 func concatTracksSorted(tracks map[string][]byte) []byte {
 	keys := make([]string, 0, len(tracks))
 	for k := range tracks {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	sortNumericStrings(keys)
 	var out []byte
 	for _, k := range keys {
 		out = append(out, tracks[k]...)

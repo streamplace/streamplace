@@ -106,7 +106,9 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	}
 	var allRenditions renditions.Renditions
 
-	if ss.cli.LivepeerGatewayURL != "" {
+	// if we have >1 video track, don't generate renditions here (handled in NewSegment)
+	multitrack := len(spseg.Video) > 1
+	if ss.cli.LivepeerGatewayURL != "" && !multitrack {
 		allRenditions, err = renditions.GenerateRenditions(spseg)
 	} else {
 		allRenditions = []renditions.Rendition{}
@@ -120,13 +122,9 @@ func (ss *StreamSession) Start(ctx context.Context, notif *media.NewSegmentNotif
 	dur := time.Duration(*spseg.Duration)
 	byteLen := len(notif.Data)
 	bitrate := int(float64(byteLen) / dur.Seconds() * 8)
-	sourceRendition := renditions.Rendition{
-		Name:    "source",
-		Bitrate: bitrate,
-		Width:   spseg.Video[0].Width,
-		Height:  spseg.Video[0].Height,
-	}
-	allRenditions = append([]renditions.Rendition{sourceRendition}, allRenditions...)
+
+	sourceRenditions := renditions.BuildSourceRenditions(spseg, bitrate)
+	allRenditions = append(sourceRenditions, allRenditions...)
 	allRenditions = append(allRenditions, renditions.AudioRendition)
 
 	ss.maybeStartS3Upload(ctx, notif.Segment.RepoDID)
@@ -224,13 +222,24 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	// their bitrate and reconnects clean — at which point findProblems clears it.
 	// The client dedupes place.stream.error by code, so repeated kicks surface as
 	// a single persistent problem.
-	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, ss.cli.MaximumLiveBitrate); exceeded {
+	// The kick is measured over the WHOLE segment — for a multitrack source that
+	// is the sum of every rendition, which is naturally N× a single track.
+	// Scaling the cap by the number of video tracks keeps the intent (bound a
+	// streamer's total egress) without kicking someone who was fine before for
+	// enabling multitrack. trackCount stays 1 whenever Video is nil or holds a
+	// single entry (single-track sources), so single-track behavior is unchanged.
+	trackCount := 1
+	if notif.Segment.MediaData != nil && len(notif.Segment.MediaData.Video) > 1 {
+		trackCount = len(notif.Segment.MediaData.Video)
+	}
+	maxBitrate := ss.cli.MaximumLiveBitrate * trackCount
+	if bitrate, exceeded := exceedsMaxBitrate(len(notif.Data), notif.Segment.MediaData.Duration, maxBitrate); exceeded {
 		log.Log(ctx, "live bitrate exceeded maximum, disconnecting stream",
-			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", ss.cli.MaximumLiveBitrate)
+			"streamer", notif.Segment.RepoDID, "bitrate", bitrate, "max", maxBitrate, "tracks", trackCount)
 		ss.bus.Publish(notif.Segment.RepoDID, media.NewStreamKick(
 			"bitrate",
 			fmt.Sprintf("Your stream's bitrate (%d kbps) exceeds this server's maximum of %d kbps. Lower your encoder's bitrate to keep streaming.",
-				bitrate/1000, ss.cli.MaximumLiveBitrate/1000),
+				bitrate/1000, maxBitrate/1000),
 		))
 		return nil
 	}
@@ -274,14 +283,26 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 
 	ss.bus.Publish(spseg.Creator, spseg)
-	ss.Go(ctx, func() error {
-		return ss.AddPlaybackSegment(ctx, spseg, "source", &bus.Seg{
-			Filepath:  notif.Segment.ID,
-			Data:      notif.Data,
-			Muxl:      notif.Muxl,
-			Published: notif.Metadata.Published,
+	// Publish one channel per source rendition. For multitrack sources these are
+	// the client-encoded ladder ("source", "source-720p", ". . ."), each exposing
+	// that track over WebRTC — the same per-rendition-channel shape the livepeer
+	// transcode path uses below. For single-track sources there is exactly one
+	// ("source"), which is how it always was. All channels share the same Muxl
+	// bytes; Packetize selects the matching track by preferHeight.
+	//
+	// Bitrate isn't known at this granularity here, and nothing below consumes it
+	// for the WebRTC channels — 0 just skips attaching it to the top "source".
+	for _, sr := range renditions.BuildSourceRenditions(spseg, 0) {
+		sr := sr
+		ss.Go(ctx, func() error {
+			return ss.AddPlaybackSegment(ctx, spseg, sr.Name, &bus.Seg{
+				Filepath:  notif.Segment.ID,
+				Data:      notif.Data,
+				Muxl:      notif.Muxl,
+				Published: notif.Metadata.Published,
+			}, uint32(sr.Height))
 		})
-	})
+	}
 
 	if notif.Local {
 		ss.Go(ctx, func() error {
@@ -307,7 +328,8 @@ func (ss *StreamSession) NewSegment(ctx context.Context, notif *media.NewSegment
 	}
 	ss.UpdateViewCount(ctx)
 
-	if ss.cli.LivepeerGatewayURL != "" {
+	// Multitrack sources bring their own rendition ladder — no node-side transcode.
+	if ss.cli.LivepeerGatewayURL != "" && len(spseg.Video) <= 1 {
 		ss.Go(ctx, func() error {
 			start := time.Now()
 			err := ss.Transcode(ctx, spseg, notif.Data)
@@ -876,25 +898,23 @@ func (ss *StreamSession) Transcode(ctx context.Context, spseg *placestream.Segme
 			return fmt.Errorf("failed to write transcoded segment file: %w", err)
 		}
 		ss.Go(ctx, func() error {
-			return ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{
-				Filepath: fd.Name(),
-				Data:     seg,
-			})
+			// Transcode outputs are single-track flat MP4s (no Muxl), so no
+			// per-height selection — preferHeight is unused here.
+			return ss.AddPlaybackSegment(ctx, spseg, rs[i].Name, &bus.Seg{Filepath: fd.Name(), Data: seg}, 0)
 		})
-
 	}
 	return nil
 }
 
-func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
+func (ss *StreamSession) AddPlaybackSegment(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, preferHeight uint32) error {
 	ss.Go(ctx, func() error {
-		return ss.AddToWebRTC(ctx, spseg, rendition, seg)
+		return ss.AddToWebRTC(ctx, spseg, rendition, seg, preferHeight)
 	})
 	return nil
 }
 
-func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg) error {
-	packet, err := media.Packetize(ctx, ss.cli, seg)
+func (ss *StreamSession) AddToWebRTC(ctx context.Context, spseg *placestream.Segment, rendition string, seg *bus.Seg, preferHeight uint32) error {
+	packet, err := media.Packetize(ctx, ss.cli, seg, preferHeight)
 	if err != nil {
 		return fmt.Errorf("failed to packetize segment: %w", err)
 	}
@@ -1055,11 +1075,14 @@ func (ss *StreamSession) StartMultistreamTarget(ctx context.Context, targetView 
 		// Under --isolated-ingest the crash-prone native egress pipeline runs in a
 		// worker subprocess (a gst fault there can't take the node down); otherwise
 		// it runs in-process. The on/off + status flow is identical either way.
+		// preferHeight=0 selects the highest-quality video rendition.
+		// TODO: hook up target preference
+		var preferHeight uint32
 		var err error
 		if ss.cli.IsolatedIngest {
-			err = ss.mm.RTMPPushIsolated(ctx, ss.repoDID, "source", targetView)
+			err = ss.mm.RTMPPushIsolated(ctx, ss.repoDID, "source", targetView, preferHeight)
 		} else {
-			err = ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView)
+			err = ss.mm.RTMPPush(ctx, ss.repoDID, "source", targetView, preferHeight)
 		}
 		if err != nil {
 			log.Error(ctx, "failed to push to RTMP server", "error", err)

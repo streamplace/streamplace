@@ -70,7 +70,7 @@ func RunRTMPPushWorker(ctx context.Context, cfg RTMPPushWorkerConfig, source io.
 // under exec.CommandContext(ctx), so the cancel HandleMultistreamTargets fires
 // when a target is disabled tears the worker down, and a crash surfaces as a
 // non-zero exit that StartMultistreamTarget turns into an "error" event + retry.
-func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView) error {
+func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendition string, targetView *placestream.MultistreamDefs_TargetView, preferHeight uint32) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ctx = log.WithLogValues(ctx, "mediafunc", "RTMPPushIsolated")
@@ -143,7 +143,7 @@ func (mm *MediaManager) RTMPPushIsolated(ctx context.Context, user string, rendi
 	// init+concat). Closing stdin on source EOF/cancel is the worker's EOS.
 	go func() {
 		defer stdin.Close()
-		if serr := mm.writeRTMPSource(ctx, user, rendition, stdin); serr != nil && ctx.Err() == nil {
+		if serr := mm.writeRTMPSource(ctx, user, rendition, preferHeight, stdin); serr != nil && ctx.Err() == nil {
 			log.Error(ctx, "rtmp push source ended", "error", serr)
 		}
 	}()

@@ -1,13 +1,21 @@
 import { useModerationActions } from "@/hooks/use-moderation-actions";
 import { useToast } from "@/hooks/use-toast";
+import { useSession } from "@/lib/session";
 import {
   ComAtprotoModerationCreateReport,
   ComAtprotoModerationDefs,
 } from "@atproto/api";
-import { CheckCircle2, Circle, LoaderCircle } from "lucide-react";
+import type { LivestreamStore } from "@streamplace/core";
+import {
+  CheckCircle2,
+  Circle,
+  EllipsisVertical,
+  LoaderCircle,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "../ui/button";
+import { useStore } from "zustand";
+import { Button, buttonVariants } from "../ui/button";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { Textarea } from "../ui/textarea";
 
 export type ReportSubject =
@@ -180,5 +194,59 @@ export function ReportDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Kebab on the stream header with the stream-level report entry points:
+ * the livestream record (strongRef) and the channel account (repoRef).
+ * Hidden from the streamer themselves and from logged-out viewers.
+ */
+export function StreamReportMenu({ store }: { store: LivestreamStore }) {
+  const { t } = useTranslation("common");
+  const { did } = useSession();
+  const livestream = useStore(store, (s) => s.livestream);
+  const [subject, setSubject] = useState<ReportSubject | null>(null);
+
+  if (!did || !livestream || did === livestream.author.did) return null;
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className={buttonVariants({ variant: "outline", size: "icon-lg" })}
+          aria-label={t("report-title")}
+          title={t("report-title")}
+        >
+          <EllipsisVertical />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-48">
+          <DropdownMenuItem
+            onClick={() =>
+              setSubject({
+                $type: "com.atproto.repo.strongRef",
+                uri: livestream.uri,
+                cid: livestream.cid,
+              })
+            }
+          >
+            {t("report-live-stream")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              setSubject({
+                $type: "com.atproto.admin.defs#repoRef",
+                did: livestream.author.did,
+              })
+            }
+          >
+            {t("report-something-else")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {subject && (
+        <ReportDialog subject={subject} onClose={() => setSubject(null)} />
+      )}
+    </>
   );
 }

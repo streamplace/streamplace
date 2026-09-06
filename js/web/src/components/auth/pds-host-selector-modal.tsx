@@ -1,10 +1,3 @@
-// PDS host selector shown during signup.
-//
-// The flow: user clicks "Sign Up" in the login modal → login modal
-// closes and this one opens → user picks a PDS (or enters a custom
-// URL) and confirms → onSubmit(pdsHost) is called and the modal
-// closes. The caller is responsible for setting the PDS and starting
-// the login round-trip.
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

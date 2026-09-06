@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Textarea } from "../ui/textarea";
+import { StreamReportMenu } from "./report-dialog";
 import { StreamAvatar } from "./stream-avatar";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
@@ -191,6 +192,7 @@ export function StreamInfo({
               </Button>
             )}
           <CopyButton type="live" nodeBaseURL={node} />
+          <StreamReportMenu store={store} />
           <Button
             type="button"
             variant="outline"

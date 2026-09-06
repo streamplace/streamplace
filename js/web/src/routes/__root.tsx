@@ -18,15 +18,6 @@ import i18next from "../lib/i18n";
 
 /** Routes that should render without sidebar/header chrome. */
 const POPOUT_PREFIXES = ["/chat-popout/", "/embed/"];
-
-/** Routes that own their own chrome via a layout route
- *  (see routes/dashboard/route.tsx). The root only needs to know about
- *  these to decide whether to wrap with ChromeLayout or render the
- *  Outlet bare. The dashboard's provider tree is mounted by the layout
- *  route itself, not by this check, so a stale read here is just a
- *  visual flash; not a render race. */
-const DASHBOARD_PREFIX = "/dashboard";
-
 export const Route = createRootRoute({
   component: RootLayout,
   pendingComponent: RouteLoadingSkeleton,
@@ -83,21 +74,14 @@ function RouteLoadingSkeleton() {
 }
 
 function RootLayout() {
-  // Popout routes (chat popout, embeds) skip the regular chrome and
-  // render their own minimal layout. Dashboard routes also skip the
-  // regular chrome; they own their own via routes/dashboard/route.tsx.
-  // The dashboard layout route mounts DashboardChrome (with its
-  // DashboardStoreContext etc.) before its children, so the chrome
-  // decision here is purely visual; a stale read just causes a brief
-  // flash, not a render race.
   const pathname = useRouterState({
     select: (s) => s.resolvedLocation?.pathname ?? "",
   });
+  const isDashboardRoute = useRouterState({
+    select: (s) => s.matches.some((match) => match.routeId === "/dashboard"),
+  });
 
-  const browserPathname =
-    typeof window !== "undefined" ? window.location.pathname : "";
-
-  const actualPathname = pathname || browserPathname;
+  const actualPathname = pathname;
 
   // pause until we can get a valid pathname, to avoid rendering the wrong chrome on initial load
   if (!actualPathname) {
@@ -114,11 +98,7 @@ function RootLayout() {
     );
   }
 
-  const isDashboard =
-    actualPathname === DASHBOARD_PREFIX ||
-    actualPathname.startsWith(`${DASHBOARD_PREFIX}/`);
-
-  if (isDashboard) {
+  if (isDashboardRoute) {
     return (
       <ErrorBoundary>
         <TooltipProvider>

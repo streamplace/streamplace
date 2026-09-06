@@ -9,6 +9,7 @@ import { exitSuggestion, Suggestion } from "@tiptap/suggestion";
 import type { SkinTone } from "frimousse";
 import { Reply, Smile, X } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
 import { useStore } from "zustand";

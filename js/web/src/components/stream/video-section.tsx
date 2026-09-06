@@ -74,6 +74,9 @@ export function VideoSection({
     };
   }, [user]);
 
+  // check if the current user is the streamer
+  const isStreamer = useAppStore((s) => s.pdsAgent?.did === user);
+
   return (
     <VideoSectionInner
       user={user}
@@ -89,6 +92,7 @@ export function VideoSection({
       danmuSpeed={danmuSpeed}
       danmuLaneCount={danmuLaneCount}
       danmuMaxMessages={danmuMaxMessages}
+      isStreamer={true}
     />
   );
 }
@@ -112,6 +116,7 @@ export function VideoSectionInner({
   danmuSpeed = 1,
   danmuLaneCount = 12,
   danmuMaxMessages = 50,
+  isStreamer = false,
 }: {
   user: string;
   liveness: Liveness;
@@ -127,6 +132,7 @@ export function VideoSectionInner({
   danmuSpeed?: number;
   danmuLaneCount?: number;
   danmuMaxMessages?: number;
+  isStreamer?: boolean;
 }) {
   const { t } = useTranslation("common");
   const { theatre } = useFullscreen();
@@ -223,6 +229,7 @@ export function VideoSectionInner({
         {neverLive && <UserOffline user={user} />}
 
         {showPlayer &&
+          isStreamer &&
           problems
             .filter((p) => p.severity === "error")
             .map((p) => (

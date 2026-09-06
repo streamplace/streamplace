@@ -1,10 +1,3 @@
-// Public <Player> component. Owns the video element and the shared
-// chrome (controls overlay, error display, fullscreen, auto-hide,
-// click-to-toggle). The actual playback source is handled by a
-// backend, currently <HLSPlayer>, soon <WebRTCPlayer> and others.
-// Backends are rendered as siblings of the <video> element and use
-// the shared videoRef to attach their source. This keeps the chrome
-// implementation-free of any specific transport.
 import { useSonare } from "@/lib/useSonare";
 import {
   useCallback,
@@ -59,6 +52,8 @@ export type PlayerProps = {
    * travels with the video into fullscreen.
    */
   danmuOverlay?: ReactNode;
+  /** Whether the current user is the stream owner. */
+  isStreamer?: boolean;
 };
 
 /** One quality option shown in the player's settings menu. */
@@ -168,6 +163,7 @@ export function Player({
   showDanmu = false,
   onShowDanmuChange,
   danmuOverlay,
+  isStreamer,
 }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -198,8 +194,11 @@ export function Player({
   onErrorRef.current = onError;
 
   const surfaceError = useCallback((msg: string) => {
-    setError(msg);
-    onErrorRef.current?.(msg);
+    if (isStreamer) {
+      setError(msg);
+      onErrorRef.current?.(msg);
+      return;
+    }
     // WebRTC failed; fall back to HLS automatically.
     if (useWebRTCRef.current) {
       setUseWebRTC(false);
@@ -223,10 +222,7 @@ export function Player({
     setStats(null);
   }, [src, active]);
 
-  // When the user toggles transport (HLS <-> WebRTC) the backend child
-  // inside <PlayerBackend> is a different component type, so React
-  // unmounts the old one and mounts the new one automatically. We just
-  // need to reset the chrome's per-transport state.
+  // reset chrome's per-transport state.
   useEffect(() => {
     setBuffering(active);
     setQualities([]);
@@ -507,12 +503,6 @@ function PlayerBackend({
   );
 }
 
-/**
- * "Stats for nerds" panel. Draggable, moveable window; grab anywhere
- * on the panel and drag to reposition. Uses pointer events so mouse and
- * touch both work, with setPointerCapture so the drag keeps tracking
- * even if the cursor leaves the panel mid-drag.
- */
 function StatsOverlay({
   stats,
   protocol,

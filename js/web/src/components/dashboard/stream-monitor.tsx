@@ -74,6 +74,7 @@ export function StreamMonitorWidget({
             onError={(message) =>
               captureError(message, { user, source: "stream-monitor" })
             }
+            isStreamer={true}
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">

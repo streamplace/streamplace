@@ -174,6 +174,29 @@ moderators-error-required = Please enter a DID or handle
 moderators-error-permissions = Please select at least one permission
 moderators-cancel = Cancel
 
+## Report
+chat-report-message = Report message…
+report-title = Report
+report-description = Why are you submitting this report?
+report-reason-spam = Spam
+report-reason-spam-desc = Excessive unwanted promotion, replies, mentions
+report-reason-violation = Rule Violation
+report-reason-violation-desc = Direct, blatant violation of laws or terms of service
+report-reason-misleading = Misleading Content
+report-reason-misleading-desc = Misleading identity, affiliation, or content
+report-reason-sexual = Sexual Content
+report-reason-sexual-desc = Unwanted or mislabeled sexual content
+report-reason-rude = Harassment
+report-reason-rude-desc = Rude, harassing, explicit, or otherwise unwelcoming behavior
+report-reason-other = Other
+report-reason-other-desc = Reports not falling under another report category
+report-comments-label = Additional comments (optional)
+report-comments-placeholder = Provide additional context for this report…
+report-submit = Submit
+report-submitting = Submitting…
+report-submitted = Report submitted
+report-failed = Failed to submit report
+
 ## Badges
 badge-moderator = Moderator
 badge-streamer = Streamer

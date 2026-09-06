@@ -159,6 +159,13 @@ type CLI struct {
 	S3SecretAccessKey           string
 	S3Region                    string
 	VODCDNURL                   string
+	VODCDNProvider              string
+	BunnyTokenAuthKey           string
+	BunnyPullZone               string
+	BunnyLogStorageZone         string
+	BunnyLogStorageEndpoint     string
+	BunnyLogStorageKey          string
+	CDNLogIngestInterval        time.Duration
 	DisableSyndication          bool
 	MuxlInitialMemoryMB         int
 	MuxlMaxMemoryMB             int
@@ -1085,6 +1092,50 @@ func (cli *CLI) NewCommand(name string) *urfavecli.Command {
 				Sources:     urfavecli.EnvVars("SP_VOD_CDN_URL"),
 			},
 			&urfavecli.StringFlag{
+				Name:        "vod-cdn-provider",
+				Usage:       "Which CDN product sits at --vod-cdn-url, selecting URL signing + access-log ingestion. Empty means a plain static CDN over a public bucket: unsigned URLs, and no way to count segment views. Supported: bunny (configure with the --bunny-* flags).",
+				Destination: &cli.VODCDNProvider,
+				Sources:     urfavecli.EnvVars("SP_VOD_CDN_PROVIDER"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-token-auth-key",
+				Usage:       "bunny.net: the pull zone's Token Authentication key. When set, every blob URL in an HLS playlist is signed (token + expires query params) so the CDN only serves blobs this node handed out; the token is bound to the blob path and expires well after the VOD's duration. Requires --vod-cdn-provider=bunny.",
+				Destination: &cli.BunnyTokenAuthKey,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_TOKEN_AUTH_KEY"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-pull-zone",
+				Usage:       "bunny.net: the pull zone's name, as it appears in the Permanent Log Storage path (pullzone-logs/<name>/...). Required with --bunny-log-storage-zone.",
+				Destination: &cli.BunnyPullZone,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_PULL_ZONE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-zone",
+				Usage:       "bunny.net: the Edge Storage zone the pull zone's Permanent Log Storage writes into. When set, the node periodically ingests archived access logs so segment requests served by the CDN count toward views. Requires --vod-cdn-provider=bunny, --bunny-pull-zone and --bunny-log-storage-key.",
+				Destination: &cli.BunnyLogStorageZone,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_ZONE"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-endpoint",
+				Usage:       "bunny.net: Edge Storage API endpoint for the log storage zone's region (e.g. https://ny.storage.bunnycdn.com).",
+				Value:       "https://storage.bunnycdn.com",
+				Destination: &cli.BunnyLogStorageEndpoint,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_ENDPOINT"),
+			},
+			&urfavecli.StringFlag{
+				Name:        "bunny-log-storage-key",
+				Usage:       "bunny.net: access key (password) for the log storage zone. A read-only key is sufficient.",
+				Destination: &cli.BunnyLogStorageKey,
+				Sources:     urfavecli.EnvVars("SP_BUNNY_LOG_STORAGE_KEY"),
+			},
+			&urfavecli.DurationFlag{
+				Name:        "cdn-log-ingest-interval",
+				Usage:       "How often to pull newly archived CDN access logs into the view-log store and re-aggregate the view-count windows they touch. Only meaningful when the --vod-cdn-provider has a log source configured. Set to 0 to disable.",
+				Value:       15 * time.Minute,
+				Destination: &cli.CDNLogIngestInterval,
+				Sources:     urfavecli.EnvVars("SP_CDN_LOG_INGEST_INTERVAL"),
+			},
+			&urfavecli.StringFlag{
 				Name:        "beta-invite-did",
 				Usage:       "DID of the atproto account whose place.stream.beta.invite records this node trusts. When set, uploading VODs requires an invite from that account; when empty, falls back to the --allowed-streams allowlist used by livestreaming.",
 				Destination: &cli.BetaInviteDID,
@@ -1323,6 +1374,35 @@ func (cli *CLI) Validate(cmd *urfavecli.Command) error {
 	// Set default replicator if none specified
 	if len(cli.Replicators) == 0 {
 		cli.Replicators = []string{ReplicatorWebsocket}
+	}
+	if err := cli.validateVODCDN(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateVODCDN refuses half-configured CDN setups: provider flags
+// without their provider, a provider without a CDN URL, or a log
+// source missing one of its parts. Anything that passes here is a
+// combination cdn.FromConfig can assemble without surprises.
+func (cli *CLI) validateVODCDN() error {
+	bunnyFlags := cli.BunnyTokenAuthKey != "" || cli.BunnyPullZone != "" ||
+		cli.BunnyLogStorageZone != "" || cli.BunnyLogStorageKey != ""
+	switch cli.VODCDNProvider {
+	case "":
+		if bunnyFlags {
+			return fmt.Errorf("--bunny-* flags are set but --vod-cdn-provider is not; set --vod-cdn-provider=bunny")
+		}
+	case "bunny":
+		if cli.VODCDNURL == "" {
+			return fmt.Errorf("--vod-cdn-provider=bunny requires --vod-cdn-url (the pull zone hostname)")
+		}
+		logFlags := cli.BunnyPullZone != "" || cli.BunnyLogStorageZone != "" || cli.BunnyLogStorageKey != ""
+		if logFlags && (cli.BunnyPullZone == "" || cli.BunnyLogStorageZone == "" || cli.BunnyLogStorageKey == "") {
+			return fmt.Errorf("bunny log ingestion needs all of --bunny-pull-zone, --bunny-log-storage-zone and --bunny-log-storage-key")
+		}
+	default:
+		return fmt.Errorf("unknown --vod-cdn-provider %q (supported: bunny)", cli.VODCDNProvider)
 	}
 	return nil
 }

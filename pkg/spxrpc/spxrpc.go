@@ -19,6 +19,7 @@ import (
 	"stream.place/streamplace/pkg/atproto"
 	"stream.place/streamplace/pkg/blob"
 	"stream.place/streamplace/pkg/bus"
+	"stream.place/streamplace/pkg/cdn/providers"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/localdb"
 	"stream.place/streamplace/pkg/log"
@@ -52,14 +53,29 @@ type Server struct {
 	// fetches) for later view-count aggregation. Optional; nil when
 	// --view-log-flush-interval is 0 or no playback store is wired.
 	viewLog *viewlog.Writer
+	// cdn is the VOD CDN configuration playlists are generated
+	// against (URL + URL signer). Zero-valued for self-hosted.
+	cdn     vodCDN
 	aliases map[string]string
 }
 
+// vodCDN returns the playlist-generation CDN settings.
+func (s *Server) vodCDN() vodCDN { return s.cdn }
+
 func NewServer(ctx context.Context, cli *config.CLI, model model.Model, statefulDB *statedb.StatefulDB, op *oatproxy.OATProxy, mdlw middleware.Middleware, atsync *atproto.ATProtoSynchronizer, bus *bus.Bus, ldb localdb.LocalDB, mm *media.MediaManager, um *upload.Manager, playbackStore blob.Store, viewLog *viewlog.Writer, aliases map[string]string) (*Server, error) {
 	e := echo.New()
+	provider, err := providers.FromConfig(cli)
+	if err != nil {
+		return nil, err
+	}
+	var vcdn vodCDN
+	if provider != nil {
+		vcdn = vodCDN{URL: cli.VODCDNURL, Signer: provider.Signer}
+	}
 	s := &Server{
 		e:               e,
 		cli:             cli,
+		cdn:             vcdn,
 		model:           model,
 		OGImageCache:    cache.New(5*time.Minute, 10*time.Minute),
 		LiveUsersCache:  cache.New(30*time.Second, 60*time.Second),
@@ -81,7 +97,7 @@ func NewServer(ctx context.Context, cli *config.CLI, model model.Model, stateful
 	e.Use(echomiddleware.Handler("", mdlw))
 	e.Use(s.ServiceAuthMiddleware())
 	e.Use(op.OAuthMiddleware)
-	err := s.RegisterHandlersPlacestream(e)
+	err = s.RegisterHandlersPlacestream(e)
 	if err != nil {
 		return nil, err
 	}

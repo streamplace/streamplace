@@ -11,11 +11,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/labstack/echo/v4"
 
 	"stream.place/streamplace/pkg/blob"
+	"stream.place/streamplace/pkg/cdn"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/spid"
@@ -335,7 +337,7 @@ func (s *Server) HandleGetVideoPlaylist(c echo.Context) error {
 		// server side, so the propagation stays in clip-local time.
 		body = masterPlaylist(meta, uri, sid, startMS, endMS)
 	} else {
-		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.cli.VODCDNURL, effectiveStartMS, effectiveEndMS)
+		body, err = mediaPlaylist(meta, track, aturi.Authority().String(), sid, s.vodCDN(), effectiveStartMS, effectiveEndMS)
 		if err != nil {
 			return err
 		}
@@ -511,10 +513,57 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 
 // --- playlist generation -----------------------------------------------
 
+// vodCDN describes the CDN (if any) fronting the VOD blob store, as
+// configured by --vod-cdn-url / --vod-cdn-provider.
+type vodCDN struct {
+	// URL is the CDN base URL. Empty means self-hosted: playlists
+	// link back to our own getVideoBlob endpoint.
+	URL string
+	// Signer turns a blob URL into what the player fetches. nil or
+	// cdn.Static{} emits the URL unsigned.
+	Signer cdn.Signer
+	// now overrides the clock used for token expiry. nil = time.Now.
+	now func() time.Time
+}
+
+// cdnTokenSlack is the minimum lifetime of a signed blob URL beyond
+// the VOD's own duration. A VOD media playlist is fetched once and
+// never refreshed, so the tokens it carries have to outlive any
+// realistic viewing session — including pausing and seeking around —
+// or the player hits 403s mid-watch. 24h is the longest VOD we
+// promise to serve, so it doubles as the floor here. Being generous
+// costs nothing: the token is bound to a single blob path, so the
+// only thing it can ever unlock is the VOD it was minted for.
+const cdnTokenSlack = 24 * time.Hour
+
+// tokenExpiry picks the expiry for blob URLs in a playlist covering a
+// VOD of the given duration.
+func (c vodCDN) tokenExpiry(vodDuration time.Duration) time.Time {
+	now := time.Now
+	if c.now != nil {
+		now = c.now
+	}
+	return now().Add(cdnTokenSlack + 2*vodDuration)
+}
+
+// ticksToDuration converts a tick count at the given timescale
+// without overflowing: multiplying ticks by time.Second first would
+// wrap past ~9.2e9 ticks (a day and change at 90 kHz), so split into
+// whole seconds and a sub-second remainder.
+func ticksToDuration(ticks uint64, timescale uint32) time.Duration {
+	if timescale == 0 {
+		return 0
+	}
+	ts := uint64(timescale)
+	secs := ticks / ts
+	rem := ticks % ts
+	return time.Duration(secs)*time.Second + time.Duration(rem*uint64(time.Second)/ts)
+}
+
 // blobURL is where the .m3u8 references segments + init blobs.
 // Behaviour depends on whether a CDN sits in front of the bucket:
 //
-//   - cdnURL == "": self-hosted mode. The playlist links back to our
+//   - cdn.URL == "": self-hosted mode. The playlist links back to our
 //     own getVideoBlob endpoint, content-addressed by query param.
 //     The trailing `.m4s` is cosmetic but load-bearing: ffmpeg's HLS
 //     demuxer refuses to fetch segment URLs whose extension isn't in
@@ -523,29 +572,42 @@ func (s *Server) fetchMetafile(ctx context.Context, cid string) (*vod.Metafile, 
 //     the last query param — we can't let url.Values sort other keys
 //     after it. The handler strips the suffix back off before lookup.
 //
-//   - cdnURL != "": CDN-fronted mode. The playlist links straight at
+//   - cdn.URL != "": CDN-fronted mode. The playlist links straight at
 //     the configured CDN, which in turn serves blobs/<cid>.mp4 out of
 //     the bucket. The `blobs/` prefix is baked in — operators point
 //     --vod-cdn-url at the bucket root, and we know the layout from
 //     vod.BlobsPrefix. We don't need the `.m4s` trick here because the
 //     path itself carries `.mp4`; query params come after (browser HLS
-//     players don't care).
+//     players don't care). The provider's Signer then gets the last
+//     word, e.g. bunny appends token + expires.
 //
 // `did` is the owning account, carried in either mode so the request
 // is attributable for egress accounting. `sid` is the playback session
 // id used for view-count correlation; the CDN passes both through to
-// access logs.
-func blobURL(cdnURL, did, cid, sid string) string {
+// access logs, which is how CDN-served segments get counted.
+func blobURL(c vodCDN, did, cid, sid string, expires time.Time) string {
 	q := url.Values{"did": {did}}
 	if sid != "" {
 		q.Set("sid", sid)
 	}
-	if cdnURL != "" {
-		return strings.TrimRight(cdnURL, "/") + "/" + vod.BlobsPrefix +
+	if c.URL == "" {
+		return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode() +
+			"&cid=" + url.QueryEscape(cid) + ".m4s"
+	}
+	u, err := url.Parse(c.URL)
+	if err != nil || u.Host == "" {
+		// Not a parseable absolute URL; fall back to naive string
+		// concatenation (unsigned — there's no path to sign).
+		return strings.TrimRight(c.URL, "/") + "/" + vod.BlobsPrefix +
 			url.PathEscape(cid) + ".mp4?" + q.Encode()
 	}
-	return "/xrpc/place.stream.playback.getVideoBlob?" + q.Encode() +
-		"&cid=" + url.QueryEscape(cid) + ".m4s"
+	u.Path = strings.TrimRight(u.Path, "/") + "/" + vod.BlobsPrefix + cid + ".mp4"
+	u.RawPath = ""
+	u.RawQuery = q.Encode()
+	if c.Signer == nil {
+		return u.String()
+	}
+	return c.Signer.SignURL(u, expires)
 }
 
 // trackPlaylistURL is the URL to a single-track media playlist served
@@ -631,12 +693,21 @@ func masterPlaylist(meta *vod.Metafile, uri, sid string, startMS, endMS *int64) 
 // threaded into every blob URL for egress accounting and `sid` for
 // view-count correlation against the request that built this playlist.
 // `cdnURL` is the configured CDN root, or "" for self-hosted serving.
-func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, startMS, endMS *int64) (string, error) {
+func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid string, c vodCDN, startMS, endMS *int64) (string, error) {
 	t, ok := meta.Tracks[trackID]
 	if !ok {
 		return "", echo.NewHTTPError(http.StatusNotFound, "TrackNotFound")
 	}
 	segments, discontinuitySeq := filterSegments(t.Segments, t.Timescale, startMS, endMS)
+
+	// Signed CDN URLs expire relative to the whole track's duration
+	// (not the clipped window) so every playlist over one VOD gets a
+	// comparably long-lived token.
+	var totalTicks uint64
+	for _, s := range t.Segments {
+		totalTicks += s.DurationTicks
+	}
+	expires := c.tokenExpiry(ticksToDuration(totalTicks, t.Timescale))
 
 	var maxDurSec float64
 	for _, s := range segments {
@@ -668,10 +739,10 @@ func mediaPlaylist(meta *vod.Metafile, trackID, ownerDID, sid, cdnURL string, st
 		lines = append(lines, fmt.Sprintf("#EXT-X-DISCONTINUITY-SEQUENCE:%d", discontinuitySeq))
 	}
 	lines = append(lines,
-		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(cdnURL, ownerDID, t.InitCID, sid)),
+		fmt.Sprintf(`#EXT-X-MAP:URI=%q`, blobURL(c, ownerDID, t.InitCID, sid, expires)),
 		"",
 	)
-	bURL := blobURL(cdnURL, ownerDID, t.BlobCID, sid)
+	bURL := blobURL(c, ownerDID, t.BlobCID, sid, expires)
 	for i, seg := range segments {
 		// A segment whose decode time reset (a concatenated reconnect/restart)
 		// begins a new timeline; signal it so players re-anchor instead of

@@ -69,4 +69,10 @@ type Event struct {
 	// Zero values indicate "whole blob" / "open-ended" range.
 	RangeStart int64 `json:"range_start,omitempty"`
 	RangeEnd   int64 `json:"range_end,omitempty"`
+	// BytesSent is the response body size as reported by whoever
+	// served the request. Set on events ingested from CDN access
+	// logs, which carry no Range header: when it's present and the
+	// Range fields are zero, the aggregator prorates it across the
+	// blob's tracks by byte share instead of intersecting a range.
+	BytesSent int64 `json:"bytes_sent,omitempty"`
 }

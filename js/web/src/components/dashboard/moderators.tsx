@@ -377,7 +377,7 @@ function AddModeratorDialog({
                 setHandleOrDid(e.target.value);
                 if (error) setError(null);
               }}
-              placeholder="handle.bsky.social or did:plc:…"
+              placeholder={t("moderators-handle-placeholder")}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleAdd();
               }}

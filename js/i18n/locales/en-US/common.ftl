@@ -122,8 +122,57 @@ chat-log-in-to = Log in to chat
 chat-pop-out = Pop out chat
 chat-close = Close chat
 chat-open = Open chat
+chat-moderation-menu = Message options
+chat-pin-until-stream-end = Until stream end
+chat-pin-duration-minutes = { $count } min
+chat-hide-message = Hide message
+chat-block-user = Block user
+chat-delete-message = Delete message
+chat-delete-confirm = Are you sure? Click again to confirm.
 streamer-fallback = Streamer
 view-profile = View profile
+
+## Moderation
+moderation-error-title = Moderation action failed
+moderation-message-pinned = Comment pinned
+moderation-user-blocked = { $handle } has been blocked from this channel
+moderation-hide-failed = Failed to hide message
+moderation-block-failed = Failed to block user
+moderation-pin-failed = Failed to pin message
+moderation-delete-failed = Failed to delete message
+
+## Moderators
+moderators-title = Moderators
+moderators-add = Add
+moderators-adding = Adding…
+moderators-loading = Loading moderators…
+moderators-empty = No moderators yet
+moderators-empty-hint = Add moderators to help manage your chat
+moderators-add-title = Add Moderator
+moderators-add-description = Enter the DID or handle of the user you want to add as a moderator and select their permissions.
+moderators-handle-label = Moderator DID or handle
+moderators-handle-placeholder = handle.bsky.social or did:plc:…
+moderators-permissions-label = Permissions
+moderators-permission-ban = Ban users
+moderators-permission-ban-desc = Block users from chat
+moderators-permission-hide = Hide messages
+moderators-permission-hide-desc = Hide individual chat messages
+moderators-permission-manage = Manage livestream
+moderators-permission-manage-desc = Update stream title
+moderators-permission-pin = Pin messages
+moderators-permission-pin-desc = Pin and unpin chat messages
+moderators-added-toast = Moderator added
+moderators-add-failed = Failed to add moderator
+moderators-remove = Remove
+moderators-remove-title = Remove moderator?
+moderators-remove-description = This will revoke all moderation permissions for { $handle }.
+moderators-removed-toast = Moderator removed
+moderators-remove-failed = Failed to remove moderator
+moderators-expired = Expired
+moderators-expires = Expires { $date }
+moderators-error-required = Please enter a DID or handle
+moderators-error-permissions = Please select at least one permission
+moderators-cancel = Cancel
 
 ## Badges
 badge-moderator = Moderator
@@ -144,6 +193,12 @@ badge-count = Badge { $current } of { $total }
 
 ## Stream Info
 stream-details = Stream details
+edit-title = Edit title
+edit-title-dialog-title = Edit stream title
+edit-title-label = Stream title
+edit-title-saving = Saving…
+edit-title-saved = Stream title updated
+edit-title-failed = Failed to update stream title
 activity-events = Events
 activity-just-chatting = Just Chatting
 activity-music = Music

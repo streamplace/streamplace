@@ -26,10 +26,10 @@ interface ModeratorRecord {
 }
 
 const PERMISSION_OPTIONS = [
-  "ban",
-  "hide",
-  "livestream.manage",
-  "message.pin",
+  { perm: "ban", key: "ban" },
+  { perm: "hide", key: "hide" },
+  { perm: "livestream.manage", key: "manage" },
+  { perm: "message.pin", key: "pin" },
 ] as const;
 
 /**
@@ -388,23 +388,23 @@ function AddModeratorDialog({
             <p className="text-sm text-(--color-fg-muted)">
               {t("moderators-permissions-label")}
             </p>
-            {PERMISSION_OPTIONS.map((perm) => (
+            {PERMISSION_OPTIONS.map(({ perm, key }) => (
               <div
                 key={perm}
                 className="flex items-center justify-between gap-3 rounded-md border border-(--color-border) bg-(--color-bg-elevated) p-3"
               >
                 <div>
                   <p className="text-sm font-medium">
-                    {t(`moderators-permission-${perm}`)}
+                    {t(`moderators-permission-${key}`)}
                   </p>
                   <p className="text-xs text-(--color-fg-muted)">
-                    {t(`moderators-permission-${perm}-desc`)}
+                    {t(`moderators-permission-${key}-desc`)}
                   </p>
                 </div>
                 <Switch
                   checked={permissions.has(perm)}
                   onCheckedChange={() => togglePermission(perm)}
-                  aria-label={t(`moderators-permission-${perm}`)}
+                  aria-label={t(`moderators-permission-${key}`)}
                 />
               </div>
             ))}

@@ -2,6 +2,7 @@
 // around the UI are plain strings sourced from server data, so delegated
 // procedure calls cast those fields (same approach as js/components).
 import { useSession } from "@/lib/session";
+import { ComAtprotoModerationCreateReport } from "@atproto/api";
 import { place } from "streamplace";
 
 /**
@@ -128,11 +129,25 @@ export function useModerationActions() {
     });
   };
 
+  const submitReport = async (
+    subject: ComAtprotoModerationCreateReport.InputSchema["subject"],
+    reasonType: string,
+    reason?: string,
+  ) => {
+    const agent = requireAgent();
+    return agent.com.atproto.moderation.createReport({
+      reasonType,
+      reason,
+      subject,
+    });
+  };
+
   return {
     blockUser,
     hideMessage,
     pinMessage,
     unpinMessage,
     updateStreamTitle,
+    submitReport,
   };
 }

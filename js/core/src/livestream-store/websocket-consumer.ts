@@ -135,6 +135,30 @@ export const handleWebSocketMessages = (
           ...state,
           pinnedComment: null,
         };
+      } else if (
+        place.stream.moderation.defs.permissionView.isTypeOf(message)
+      ) {
+        const view = message as place.stream.moderation.defs.PermissionView;
+        const record =
+          view.record as unknown as place.stream.moderation.permission.Main;
+        if (record?.moderator) {
+          // Permission records are immutable, so moderator+createdAt
+          // identifies a record across the initial listRecords fetch and
+          // websocket pushes; a re-delivered view replaces its earlier copy
+          // instead of stacking a duplicate.
+          const withoutRecord = state.moderationPermissions.filter(
+            (perm) =>
+              !(
+                perm.moderator === record.moderator &&
+                perm.createdAt === record.createdAt
+              ),
+          );
+          state = {
+            ...state,
+            moderationPermissions: [...withoutRecord, record],
+          };
+        }
+      } else if (place.stream.live.teleport.$isTypeOf(message)) {
       } else if (place.stream.live.teleport.$isTypeOf(message)) {
         const teleportRecord = message as place.stream.live.teleport.Main;
         state = {

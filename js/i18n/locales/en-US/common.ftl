@@ -176,6 +176,8 @@ moderators-cancel = Cancel
 
 ## Report
 chat-report-message = Report message…
+report-live-stream = Report Live Stream
+report-something-else = Report Something Else
 report-title = Report
 report-description = Why are you submitting this report?
 report-reason-spam = Spam

@@ -56,9 +56,9 @@ const LIVE_HLS_SETTINGS: Partial<HlsConfig> = {
 const LIVE_LOWLATENCY_HLS_SETTINGS: Partial<HlsConfig> = {
   maxAudioFramesDrift: 20,
   lowLatencyMode: true,
-  liveSyncDurationCount: 2.75,
-  liveMaxLatencyDuration: 6,
-  maxLiveSyncPlaybackRate: 1.5,
+  liveSyncDuration: 4.75,
+  liveMaxLatencyDuration: 18,
+  maxLiveSyncPlaybackRate: 1.125,
   backBufferLength: 90,
   enableWorker: true,
   debug: import.meta.env.DEV,

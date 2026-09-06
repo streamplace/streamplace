@@ -1,6 +1,6 @@
 import { Player } from "@/components/player/player";
 import { captureError } from "@/lib/log";
-import { getStreamplaceUrl } from "@/lib/streamplace-url";
+import { getLiveLLHLSUrl, getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 
@@ -14,7 +14,7 @@ function EmbedLive() {
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
-      playlistUrl: `${base}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(user)}`,
+      playlistUrl: getLiveLLHLSUrl(user),
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(user)}/stream.jpg`,
     };
   }, [user]);
@@ -26,6 +26,7 @@ function EmbedLive() {
         poster={thumbnailUrl}
         active
         mode="live"
+        lowLatency
         onError={(message) =>
           captureError(message, { user, source: "embed-live" })
         }

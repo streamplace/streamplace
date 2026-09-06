@@ -8,7 +8,7 @@ import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
 import { captureError } from "../../lib/log";
 import { useStore } from "../../lib/store";
-import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import { getLiveLLHLSUrl, getStreamplaceUrl } from "../../lib/streamplace-url";
 import { Player } from "../player/player";
 import { validateOfflineRecommendation } from "./offline-recommendation";
 
@@ -216,7 +216,7 @@ function RecommendationEmbed({
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
-      playlistUrl: `${base}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(did)}`,
+      playlistUrl: getLiveLLHLSUrl(did),
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(did)}/stream.jpg`,
     };
   }, [did]);
@@ -229,6 +229,7 @@ function RecommendationEmbed({
           poster={thumbnailUrl}
           active
           mode="live"
+          lowLatency
           onError={(message) =>
             captureError(message, { user: did, source: "recommendation-embed" })
           }

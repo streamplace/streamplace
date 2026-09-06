@@ -8,7 +8,7 @@ import { useFullscreen } from "../../contexts/fullscreen-context";
 import type { Liveness } from "../../hooks/use-liveness-state";
 import { captureError } from "../../lib/log";
 import { useStore as useAppStore } from "../../lib/store";
-import { getStreamplaceUrl } from "../../lib/streamplace-url";
+import { getLiveLLHLSUrl, getStreamplaceUrl } from "../../lib/streamplace-url";
 import { DanmuOverlay } from "./danmu-overlay";
 import { PlayerOffline } from "./player-offline";
 import { UserOffline } from "./user-offline";
@@ -69,7 +69,7 @@ export function VideoSection({
   const { playlistUrl, thumbnailUrl } = useMemo(() => {
     const base = getStreamplaceUrl();
     return {
-      playlistUrl: `${base}/xrpc/place.stream.playback.getLivePlaylist?streamer=${encodeURIComponent(user)}`,
+      playlistUrl: getLiveLLHLSUrl(user),
       thumbnailUrl: `${base}/api/playback/${encodeURIComponent(user)}/stream.jpg`,
     };
   }, [user]);
@@ -183,6 +183,7 @@ export function VideoSectionInner({
                 poster={thumbnailUrl}
                 active
                 mode={mode}
+                lowLatency={mode === "live"}
                 showDanmu={showDanmu}
                 onShowDanmuChange={onShowDanmuChange}
                 onError={(message) => captureError(message, { user, mode })}

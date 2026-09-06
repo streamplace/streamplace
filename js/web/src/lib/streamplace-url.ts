@@ -34,3 +34,7 @@ export function getStreamplaceUrl(): string {
     "Could not determine streamplaceUrl. Set VITE_STREAMPLACE_URL or run the web app from a browser.",
   );
 }
+
+export function getLiveLLHLSUrl(user: string): string {
+  return `${getStreamplaceUrl()}/api/playback/${encodeURIComponent(user)}/llhls/main.m3u8`;
+}

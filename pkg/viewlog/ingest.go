@@ -138,9 +138,26 @@ func RunIngest(ctx context.Context, in IngestInput) (*IngestResult, error) {
 			}
 			continue
 		}
+		// Request re-aggregation BEFORE marking the part complete. A
+		// completed part is never revisited, so an enqueue that fails
+		// after completion would leave that window's published count
+		// permanently missing the CDN's segments. Failing here instead
+		// releases the claim; the next pass re-ingests the part, which
+		// is idempotent (output keys derive from part ID + window, so
+		// the rewrite lands on the same files with the same content).
+		if err := requestReaggregation(ctx, in, part.ID, pr.windows); err != nil {
+			log.Error(ctx, "viewlog: request re-aggregation failed", "source", in.SourceName, "part", part.ID, "error", err)
+			if rerr := in.Cursor.ReleasePart(ctx, in.SourceName, part.ID); rerr != nil {
+				log.Error(ctx, "viewlog: release part claim", "part", part.ID, "error", rerr)
+			}
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
 		if err := in.Cursor.CompletePart(ctx, in.SourceName, part.ID, pr.events); err != nil {
-			// The files are visible; a re-run would duplicate them.
-			// Surface loudly rather than release.
+			// Files + re-aggregation requests are in place; the next
+			// pass will redo both harmlessly. Surface it anyway.
 			return res, fmt.Errorf("viewlog: complete part %s: %w", part.ID, err)
 		}
 		res.PartsIngested++
@@ -150,18 +167,24 @@ func RunIngest(ctx context.Context, in IngestInput) (*IngestResult, error) {
 		log.Log(ctx, "viewlog: ingested cdn log part",
 			"source", in.SourceName, "part", part.ID, "size", part.Size,
 			"events", pr.events, "skipped", pr.skipped, "windows", len(pr.windows))
-		if in.Reaggregate != nil {
-			for _, w := range pr.windows {
-				if err := in.Reaggregate(ctx, part.ID, w, w.Add(in.Window)); err != nil {
-					log.Error(ctx, "viewlog: request re-aggregation", "part", part.ID, "window", w, "error", err)
-					if firstErr == nil {
-						firstErr = err
-					}
-				}
-			}
-		}
 	}
 	return res, firstErr
+}
+
+// requestReaggregation asks for every touched window to be recomputed.
+// Stops at the first failure: the caller releases the part and the
+// whole thing is retried next pass (duplicate requests dedup on their
+// task key).
+func requestReaggregation(ctx context.Context, in IngestInput, partID string, windows []time.Time) error {
+	if in.Reaggregate == nil {
+		return nil
+	}
+	for _, w := range windows {
+		if err := in.Reaggregate(ctx, partID, w, w.Add(in.Window)); err != nil {
+			return fmt.Errorf("window %s: %w", w.Format(time.RFC3339), err)
+		}
+	}
+	return nil
 }
 
 type partResult struct {

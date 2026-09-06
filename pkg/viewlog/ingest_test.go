@@ -254,6 +254,50 @@ func TestRunIngestFailedPartIsReleasedAndRetried(t *testing.T) {
 	require.Len(t, keys, 2)
 }
 
+// TestRunIngestReaggregateFailureRetriesPart: if requesting
+// re-aggregation fails, the part must not be marked complete, or the
+// window's published count would never pick up the CDN's segments.
+// The next pass redoes the part; the rewrite lands on the same keys.
+func TestRunIngestReaggregateFailureRetriesPart(t *testing.T) {
+	root := t.TempDir()
+	store, err := blob.NewFileStore(root)
+	require.NoError(t, err)
+	day := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	src := &fakeSource{
+		parts:    []cdn.Part{{ID: "p/a.gzip", Day: day}},
+		requests: map[string][]cdn.Request{"p/a.gzip": {segReq(day.Add(time.Hour), 200, 10, "bafyblob", "tid1")}},
+	}
+	cursor := newMemCursor()
+	failing := true
+	var reaggs int
+	in := IngestInput{
+		Store: store, Source: src, SourceName: "bunny", Salts: NewSaltManager(newMemSaltStorage()),
+		Cursor: cursor, Window: 5 * time.Minute,
+		Reaggregate: func(ctx context.Context, part string, start, end time.Time) error {
+			reaggs++
+			if failing {
+				return errors.New("queue down")
+			}
+			return nil
+		},
+		Now: func() time.Time { return day.Add(26 * time.Hour) },
+	}
+	res, err := RunIngest(context.Background(), in)
+	require.Error(t, err)
+	require.Equal(t, 0, res.PartsIngested)
+	require.Empty(t, cursor.completed, "part is not complete after a failed re-aggregation request")
+
+	failing = false
+	res, err = RunIngest(context.Background(), in)
+	require.NoError(t, err)
+	require.Equal(t, 1, res.PartsIngested)
+	require.Equal(t, 2, reaggs)
+	require.Equal(t, 2, src.reads, "the part was re-read on retry")
+	keys, err := store.List(context.Background(), viewLogsPrefix)
+	require.NoError(t, err)
+	require.Len(t, keys, 1, "the retry overwrote the same window file rather than adding a duplicate")
+}
+
 func TestIngestTaskKeys(t *testing.T) {
 	start := time.Date(2026, 9, 5, 10, 0, 0, 0, time.UTC)
 	end := start.Add(5 * time.Minute)

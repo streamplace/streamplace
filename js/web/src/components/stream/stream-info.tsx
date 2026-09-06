@@ -1,16 +1,33 @@
+import { useToast } from "@/hooks/use-toast";
 import { useStore } from "@/lib/store";
 import { useStreamplaceUrl } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import type { LivestreamStore } from "@streamplace/core";
-import { Check, ChevronRight, ClipboardCopy, Plus, Share2 } from "lucide-react";
-import { useState } from "react";
+import {
+  Check,
+  ChevronRight,
+  ClipboardCopy,
+  Pencil,
+  Plus,
+  Share2,
+} from "lucide-react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { place } from "streamplace";
 import { useStore as useLivestreamStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { useCanModerate } from "../../hooks/use-can-moderate";
 import type { Liveness } from "../../hooks/use-liveness-state";
+import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
 import { Button, buttonVariants } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +36,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { Textarea } from "../ui/textarea";
 import { StreamAvatar } from "./stream-avatar";
 
 const ACTIVITY_I18N_KEYS: Record<string, string> = {
@@ -82,6 +100,8 @@ export function StreamInfo({
   const activity = activityLabel(record?.activity, t);
   const tags = record?.tags;
   const isLive = liveness === "live";
+  const moderation = useCanModerate(store);
+  const [showEditTitle, setShowEditTitle] = useState(false);
 
   const node = useStreamplaceUrl();
 
@@ -124,9 +144,22 @@ export function StreamInfo({
             )}
           </div>
 
-          <h2 className="font-display mt-1 line-clamp-2 text-lg leading-tight font-semibold text-(--color-fg)">
-            {title}
-          </h2>
+          <div className="mt-1 flex items-start gap-1">
+            <h2 className="font-display line-clamp-2 text-lg leading-tight font-semibold text-(--color-fg)">
+              {title}
+            </h2>
+            {moderation.canManageLivestream && record && (
+              <button
+                type="button"
+                onClick={() => setShowEditTitle(true)}
+                className="mt-0.5 shrink-0 rounded p-1 text-(--color-fg-muted) transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+                aria-label={t("edit-title")}
+                title={t("edit-title")}
+              >
+                <Pencil className="size-3.5" />
+              </button>
+            )}
+          </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {activity && (
@@ -175,6 +208,12 @@ export function StreamInfo({
           </Button>
         </div>
       </div>
+      {showEditTitle && (
+        <EditTitleDialog
+          store={store}
+          onClose={() => setShowEditTitle(false)}
+        />
+      )}
     </div>
   );
 }
@@ -284,5 +323,71 @@ export function CopyButton({
         </DropdownMenuContent>
       </DropdownMenu>
     </>
+  );
+}
+
+function EditTitleDialog({
+  store,
+  onClose,
+}: {
+  store: LivestreamStore;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation("common");
+  const toast = useToast();
+  const { updateStreamTitle } = useModerationActions();
+  const livestream = useLivestreamStore(store, (s) => s.livestream);
+  const [title, setTitle] = useState(livestream?.record.title ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    if (!livestream || isSaving) return;
+    const next = title.trim();
+    if (!next) return;
+    setIsSaving(true);
+    try {
+      await updateStreamTitle(livestream.uri, next, livestream.author.did);
+      toast.show(t("edit-title-saved"), "", { duration: 3000 });
+      onClose();
+    } catch (e) {
+      console.error(e);
+      toast.show(
+        t("edit-title-failed"),
+        e instanceof Error ? e.message : String(e),
+        { duration: 5000 },
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }, [isSaving, livestream, onClose, t, title, toast, updateStreamTitle]);
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("edit-title-dialog-title")}</DialogTitle>
+        </DialogHeader>
+        <Textarea
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={140}
+          rows={2}
+          aria-label={t("edit-title-label")}
+        />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            {t("cancel")}
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || !title.trim()}>
+            {isSaving ? t("edit-title-saving") : t("save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,10 +1,12 @@
 import {
   moderationPermissionsFor,
   permissionRecordsFromListRecords,
+  type ModerationPermissionRecord,
 } from "@/lib/moderation";
 import { useSession } from "@/lib/session";
 import type { LivestreamStore } from "@streamplace/core";
 import { useEffect, useState } from "react";
+import type { StreamplaceAgent } from "streamplace";
 import { useStore } from "zustand";
 
 export interface UseCanModerateResult extends ReturnType<
@@ -12,6 +14,23 @@ export interface UseCanModerateResult extends ReturnType<
 > {
   isLoading: boolean;
   error: string | null;
+}
+
+// Chat panel, stream info, and the pinned banner each mount this hook for
+// the same stream; let them share one in-flight listRecords fetch per
+// (agent, streamer) instead of stacking identical requests.
+const inflight = new Map<string, Promise<void>>();
+
+async function fetchDelegations(
+  agent: StreamplaceAgent,
+  streamerDid: string,
+): Promise<ModerationPermissionRecord[]> {
+  const result = await agent.com.atproto.repo.listRecords({
+    repo: streamerDid,
+    collection: "place.stream.moderation.permission",
+    limit: 100,
+  });
+  return permissionRecordsFromListRecords(result.data.records ?? []);
 }
 
 /**
@@ -42,20 +61,25 @@ export function useCanModerate(store: LivestreamStore): UseCanModerateResult {
     }
 
     let cancelled = false;
-    setIsLoading(true);
-    (async () => {
-      try {
-        const result = await pdsAgent.com.atproto.repo.listRecords({
-          repo: streamerDid,
-          collection: "place.stream.moderation.permission",
-          limit: 100,
+    const key = `${pdsAgent.did}:${streamerDid}`;
+    let request = inflight.get(key);
+    if (!request) {
+      request = fetchDelegations(pdsAgent, streamerDid)
+        .then((records) => {
+          setModerationPermissions(records);
+        })
+        .finally(() => {
+          inflight.delete(key);
         });
-        if (cancelled) return;
-        setModerationPermissions(
-          permissionRecordsFromListRecords(result.data.records ?? []),
-        );
-        setError(null);
-      } catch (e) {
+      inflight.set(key, request);
+    }
+
+    setIsLoading(true);
+    request
+      .then(() => {
+        if (!cancelled) setError(null);
+      })
+      .catch((e) => {
         if (cancelled) return;
         setError(
           e instanceof Error
@@ -63,10 +87,10 @@ export function useCanModerate(store: LivestreamStore): UseCanModerateResult {
             : "Failed to load moderation permissions",
         );
         setModerationPermissions([]);
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setIsLoading(false);
-      }
-    })();
+      });
 
     return () => {
       cancelled = true;

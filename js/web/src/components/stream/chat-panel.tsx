@@ -17,7 +17,6 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
-  Pin,
   Reply,
 } from "lucide-react";
 import {
@@ -34,6 +33,7 @@ import { ChatMessageViewHydrated, place } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import useAvatars from "../../hooks/use-avatars";
+import { useCanModerate } from "../../hooks/use-can-moderate";
 import { useSession } from "../../lib/session";
 import {
   HoverCard,
@@ -41,6 +41,7 @@ import {
   HoverCardTrigger,
 } from "../ui/hover-card";
 import { getAdjacentBadgeIndex } from "./badge-navigation";
+import { ChatMessageMenu } from "./chat-message-menu";
 import { initializeChatScroll } from "./chat-scroll";
 
 export function ChatPanel({
@@ -60,6 +61,7 @@ export function ChatPanel({
       websocketConnected: s.websocketConnected,
     })),
   );
+  const moderation = useCanModerate(store);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
@@ -211,6 +213,7 @@ export function ChatPanel({
                 store={store}
                 isGrouped={isGrouped}
                 issuerProfiles={issuerProfiles}
+                moderation={moderation}
               />
             );
           })
@@ -249,6 +252,7 @@ function ChatMessage({
   store,
   isGrouped = false,
   issuerProfiles,
+  moderation,
 }: {
   message: ChatMessageViewHydrated;
   profile: ChatMessageViewHydrated["chatProfile"];
@@ -256,35 +260,18 @@ function ChatMessage({
   store: LivestreamStore;
   isGrouped?: boolean;
   issuerProfiles: ReturnType<typeof useAvatars>;
+  moderation: ReturnType<typeof useCanModerate>;
 }) {
   const { t } = useTranslation("common");
-  const { state, pdsAgent, did } = useSession();
+  const { state, did } = useSession();
   const isSystem = message.author.did === "did:sys:system";
   const isOwn = did === message.author.did;
 
   const streamerDid = useStore(store, (s) => s.livestream?.author.did);
-  const canPin = did && streamerDid && did === streamerDid;
 
   const handleReply = useCallback(() => {
     store.setState((s) => ({ ...s, replyToMessage: message }));
   }, [store, message]);
-
-  const handlePin = useCallback(async () => {
-    if (!pdsAgent || !streamerDid) return;
-    try {
-      await pdsAgent.com.atproto.repo.createRecord({
-        repo: streamerDid,
-        collection: "place.stream.chat.pinnedRecord",
-        record: {
-          $type: "place.stream.chat.pinnedRecord",
-          pinnedMessage: message.uri,
-          createdAt: new Date().toISOString(),
-        },
-      });
-    } catch (e) {
-      console.error("Failed to pin message:", e);
-    }
-  }, [pdsAgent, streamerDid, message.uri]);
 
   if (isSystem) {
     return (
@@ -310,15 +297,14 @@ function ChatMessage({
             <Reply className="h-3.5 w-3.5" />
           </button>
         )}
-        {canPin && (
-          <button
-            type="button"
-            onClick={handlePin}
-            className="rounded border border-(--color-border) bg-(--color-bg-elevated) p-1 text-(--color-fg-muted) shadow-sm transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-accent)"
-            aria-label={t("chat-pin-message")}
-          >
-            <Pin className="h-3.5 w-3.5" />
-          </button>
+        {state.status === "authenticated" && (
+          <ChatMessageMenu
+            store={store}
+            message={message}
+            streamerDid={streamerDid}
+            isOwn={isOwn}
+            moderation={moderation}
+          />
         )}
       </div>
 

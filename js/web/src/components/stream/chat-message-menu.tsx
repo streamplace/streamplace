@@ -4,7 +4,14 @@ import { useToast } from "@/hooks/use-toast";
 import { useSession } from "@/lib/session";
 import type { LivestreamStore } from "@streamplace/core";
 import { reduceChat } from "@streamplace/core";
-import { EyeOff, MoreHorizontal, Pin, Shield, Trash2 } from "lucide-react";
+import {
+  EyeOff,
+  Flag,
+  MoreHorizontal,
+  Pin,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatMessageViewHydrated } from "streamplace";
@@ -18,6 +25,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { ReportDialog } from "./report-dialog";
 
 const PIN_DURATIONS_MINUTES = [5, 10, 15, 30, 60];
 
@@ -62,6 +70,12 @@ export function ChatMessageMenu({
     !!did &&
     authorDid !== did &&
     authorDid !== streamerDid;
+  // The app offers report for others' messages and none for your own.
+  const canReport = !isOwn;
+  const [reportSubject, setReportSubject] = useState<null | {
+    uri: string;
+    cid: string;
+  }>(null);
 
   const fail = useCallback(
     (fallback: string, e: unknown) => {
@@ -150,64 +164,85 @@ export function ChatMessageMenu({
   }, [confirmingDelete, handleDeleteOwn]);
 
   if (!did) return null;
-  if (!isOwn && !canPin && !canHide && !canBlock) return null;
+  if (!isOwn && !canPin && !canHide && !canBlock && !canReport) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className="rounded border border-(--color-border) bg-(--color-bg-elevated) p-1 text-(--color-fg-muted) shadow-sm transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
-        aria-label={t("chat-moderation-menu")}
-      >
-        <MoreHorizontal className="h-3.5 w-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side="top" align="end" className="min-w-48">
-        {canPin && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <Pin /> {t("chat-pin-message")}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              <DropdownMenuGroup>
-                <DropdownMenuItem onClick={() => handlePin()}>
-                  {t("chat-pin-until-stream-end")}
-                </DropdownMenuItem>
-                {PIN_DURATIONS_MINUTES.map((minutes) => (
-                  <DropdownMenuItem
-                    key={minutes}
-                    onClick={() =>
-                      handlePin(
-                        new Date(
-                          Date.now() + minutes * 60 * 1000,
-                        ).toISOString(),
-                      )
-                    }
-                  >
-                    {t("chat-pin-duration-minutes", { count: minutes })}
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="rounded border border-(--color-border) bg-(--color-bg-elevated) p-1 text-(--color-fg-muted) shadow-sm transition-colors hover:bg-(--color-bg-overlay) hover:text-(--color-fg)"
+          aria-label={t("chat-moderation-menu")}
+        >
+          <MoreHorizontal className="h-3.5 w-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="end" className="min-w-48">
+          {canPin && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Pin /> {t("chat-pin-message")}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => handlePin()}>
+                    {t("chat-pin-until-stream-end")}
                   </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        {canHide && (
-          <DropdownMenuItem variant="destructive" onClick={handleHide}>
-            <EyeOff /> {t("chat-hide-message")}
-          </DropdownMenuItem>
-        )}
-        {canBlock && (
-          <DropdownMenuItem variant="destructive" onClick={handleBlock}>
-            <Shield /> {t("chat-block-user")}
-          </DropdownMenuItem>
-        )}
-        {isOwn && (
-          <DropdownMenuItem variant="destructive" onClick={handleDeleteClick}>
-            <Trash2 />
-            {confirmingDelete
-              ? t("chat-delete-confirm")
-              : t("chat-delete-message")}
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+                  {PIN_DURATIONS_MINUTES.map((minutes) => (
+                    <DropdownMenuItem
+                      key={minutes}
+                      onClick={() =>
+                        handlePin(
+                          new Date(
+                            Date.now() + minutes * 60 * 1000,
+                          ).toISOString(),
+                        )
+                      }
+                    >
+                      {t("chat-pin-duration-minutes", { count: minutes })}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          {canHide && (
+            <DropdownMenuItem variant="destructive" onClick={handleHide}>
+              <EyeOff /> {t("chat-hide-message")}
+            </DropdownMenuItem>
+          )}
+          {canReport && (
+            <DropdownMenuItem
+              onClick={() =>
+                setReportSubject({ uri: message.uri, cid: message.cid })
+              }
+            >
+              <Flag /> {t("chat-report-message")}
+            </DropdownMenuItem>
+          )}
+          {canBlock && (
+            <DropdownMenuItem variant="destructive" onClick={handleBlock}>
+              <Shield /> {t("chat-block-user")}
+            </DropdownMenuItem>
+          )}
+          {isOwn && (
+            <DropdownMenuItem variant="destructive" onClick={handleDeleteClick}>
+              <Trash2 />
+              {confirmingDelete
+                ? t("chat-delete-confirm")
+                : t("chat-delete-message")}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {reportSubject && (
+        <ReportDialog
+          subject={{
+            $type: "com.atproto.repo.strongRef",
+            uri: reportSubject.uri,
+            cid: reportSubject.cid,
+          }}
+          onClose={() => setReportSubject(null)}
+        />
+      )}
+    </>
   );
 }

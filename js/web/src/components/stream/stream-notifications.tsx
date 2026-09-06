@@ -11,6 +11,8 @@ import type {
 } from "streamplace";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import { useCanModerate } from "../../hooks/use-can-moderate";
+import { useModerationActions } from "../../hooks/use-moderation-actions";
 import { useSession } from "../../lib/session";
 
 function rgbColor(
@@ -49,9 +51,12 @@ function PinnedNotification({
   comment: PinnedRecordViewHydrated;
 }) {
   const { t } = useTranslation("common");
-  const { state: sessionState, pdsAgent, did } = useSession();
+  const { did } = useSession();
   const streamerDid = useStore(store, (s) => s.livestream?.author.did);
-  const canUnpin = did && streamerDid && did === streamerDid;
+  const moderation = useCanModerate(store);
+  const { unpinMessage } = useModerationActions();
+  const [unpinning, setUnpinning] = useState(false);
+  const canUnpin = !!did && moderation.canPin;
 
   const message = comment.message as ChatMessageViewHydrated | undefined;
   const record = comment.record;
@@ -94,20 +99,17 @@ function PinnedNotification({
   }, []);
 
   const handleUnpin = useCallback(async () => {
-    if (!pdsAgent || !streamerDid) return;
+    if (!streamerDid || unpinning) return;
+    setUnpinning(true);
     try {
-      const rkey = comment.uri.split("/").pop();
-      if (!rkey) return;
-      await pdsAgent.com.atproto.repo.deleteRecord({
-        repo: streamerDid,
-        collection: "place.stream.chat.pinnedRecord",
-        rkey,
-      });
+      await unpinMessage(comment.uri, streamerDid);
+      store.setState({ pinnedComment: null });
     } catch (e) {
       console.error("Failed to unpin message:", e);
+    } finally {
+      setUnpinning(false);
     }
-    store.setState({ pinnedComment: null });
-  }, [pdsAgent, streamerDid, comment.uri, store]);
+  }, [streamerDid, unpinMessage, unpinning, comment.uri, store]);
 
   if (dismissed) return null;
 
@@ -143,6 +145,7 @@ function PinnedNotification({
             <button
               type="button"
               onClick={handleUnpin}
+              disabled={unpinning}
               className="rounded p-1 text-neutral-400 transition-colors hover:bg-white/10 hover:text-neutral-200"
               aria-label={t("chat-unpin-message")}
             >

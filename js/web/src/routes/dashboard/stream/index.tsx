@@ -20,16 +20,7 @@ import { useStore } from "@/lib/store";
 import { useKeyRecords } from "@/lib/store/hooks";
 import { cn } from "@/lib/utils";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-  Clipboard,
-  ExternalLink,
-  Key,
-  Loader2,
-  Shield,
-  Tags,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Clipboard, Key, Loader2, Shield, Tags, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -555,12 +546,12 @@ function MetadataSection() {
             {t("save", { defaultValue: "Save" })}
           </button>
 
-          <p className="flex items-center gap-1 text-xs text-(--color-fg-muted)">
-            <ExternalLink className="size-3" />
+          {/*<p className="flex items-center gap-1 text-xs text-(--color-fg-muted)">
             {t("metadata-learn-more", {
               defaultValue: "Learn more about content metadata",
             })}
-          </p>
+            <ExternalLink className="size-3" />
+          </p>*/}
         </>
       )}
     </div>

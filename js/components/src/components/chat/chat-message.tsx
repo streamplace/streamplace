@@ -19,8 +19,10 @@ import {
 } from "../ui";
 
 import { useLivestreamStore } from "../../livestream-store";
+import { useBrandingAsset } from "../../streamplace-store";
+import { Avatar } from "../ui/avatar";
 import { Text } from "../ui/text";
-import { BadgeDisplayRow } from "./badge";
+import { Badge, BadgeDisplayRow } from "./badge";
 import {
   ProfileCardContent,
   UserProfileCard,
@@ -230,6 +232,114 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   );
 };
 
+// Short relative age for the avatar layout: "now", "3m", "2h", "5d".
+function relativeAge(dateString: string): string {
+  const diff = Date.now() - new Date(dateString).getTime();
+  if (!Number.isFinite(diff) || diff < 45_000) return "now";
+  const m = Math.round(diff / 60_000);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
+// The avatar layout (branding chatLayout=avatar): a post-style row with the
+// author's avatar, display name, handle and age on one line and the text
+// beneath, the way a social timeline shows a reply. Badges sit after the
+// name; the profile card opens from the name as it does in compact rows.
+const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const { theme } = useTheme();
+  const author = item.author;
+  const displayName = author.displayName?.trim();
+  const handle = formatHandleWithAt(author);
+  const name = displayName || handle;
+  const nameColor = getRgbColor(item.chatProfile?.color);
+  const meta = { fontSize: 15, lineHeight: 23, color: theme.colors.text2 };
+  // The name line is a flex row rather than nested <Text> so the badges (which
+  // are views) sit after the name on every platform, a long handle truncates
+  // instead of pushing the age off the edge, and native never nests views in
+  // text.
+  return (
+    <View
+      style={[
+        layout.flex.row,
+        { gap: 12, minWidth: 0, maxWidth: "100%", paddingVertical: 4 },
+      ]}
+    >
+      <Avatar
+        src={author.avatar}
+        name={displayName || author.handle}
+        size={42}
+      />
+      <View style={[flex.shrink[1], { flex: 1, minWidth: 0 }]}>
+        <View
+          style={[
+            layout.flex.row,
+            { alignItems: "center", minWidth: 0, maxWidth: "100%" },
+          ]}
+        >
+          <View style={[flex.shrink[1], { minWidth: 0 }]}>
+            <UserProfileCard
+              uri={item.uri}
+              author={item.author}
+              badges={item.badges}
+            >
+              <Text
+                weight="semibold"
+                numberOfLines={1}
+                style={[
+                  flex.shrink[1],
+                  {
+                    fontSize: 15,
+                    lineHeight: 23,
+                    color: nameColor,
+                    minWidth: 0,
+                  },
+                ]}
+              >
+                {name}
+              </Text>
+            </UserProfileCard>
+          </View>
+          {!!item.badges?.length && (
+            <View
+              style={[
+                layout.flex.row,
+                { alignItems: "center", marginLeft: 6, flexShrink: 0 },
+              ]}
+            >
+              {item.badges.map((badge, index) => (
+                <Badge
+                  key={index}
+                  badgeType={badge.badgeType}
+                  imageUrl={badge.imageUrl}
+                />
+              ))}
+            </View>
+          )}
+          {displayName ? (
+            <Text
+              numberOfLines={1}
+              style={[flex.shrink[1], { ...meta, marginLeft: 8, minWidth: 0 }]}
+            >
+              {handle}
+            </Text>
+          ) : null}
+          <Text style={{ ...meta, marginLeft: 8, flexShrink: 0 }}>
+            {"· " + relativeAge(item.record.createdAt)}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 15, lineHeight: 23 }}>
+          <RichTextMessage
+            text={item.record.text}
+            facets={item.record.facets || []}
+          />
+        </Text>
+      </View>
+    </View>
+  );
+};
+
 export const RenderChatMessage = memo(
   function RenderChatMessage({
     item,
@@ -242,6 +352,7 @@ export const RenderChatMessage = memo(
     showTime?: boolean;
   }) {
     const { theme } = useTheme();
+    const avatarLayout = useBrandingAsset("chatLayout")?.data === "avatar";
     const formatTime = useCallback((dateString: string) => {
       return new Date(dateString).toLocaleString(undefined, {
         hour: "2-digit",
@@ -297,26 +408,30 @@ export const RenderChatMessage = memo(
             </Text>
           </View>
         )}
-        <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
-          {showTime && (
-            <Text
-              size="xs"
-              style={{
-                ...tabularNums,
-                color: theme.colors.text3,
-                marginRight: 8,
-                marginTop: Platform.OS === "web" ? 2 : 3,
-              }}
-            >
-              {formatTime(item.record.createdAt)}
-            </Text>
-          )}
-          {Platform.OS === "web" ? (
-            <MessageBodyWeb item={item} />
-          ) : (
-            <MessageBodyNative item={item} />
-          )}
-        </View>
+        {avatarLayout ? (
+          <AvatarMessageBody item={item} />
+        ) : (
+          <View style={[layout.flex.row, { minWidth: 0, maxWidth: "100%" }]}>
+            {showTime && (
+              <Text
+                size="xs"
+                style={{
+                  ...tabularNums,
+                  color: theme.colors.text3,
+                  marginRight: 8,
+                  marginTop: Platform.OS === "web" ? 2 : 3,
+                }}
+              >
+                {formatTime(item.record.createdAt)}
+              </Text>
+            )}
+            {Platform.OS === "web" ? (
+              <MessageBodyWeb item={item} />
+            ) : (
+              <MessageBodyNative item={item} />
+            )}
+          </View>
+        )}
       </>
     );
   },

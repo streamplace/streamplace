@@ -268,6 +268,7 @@ export function BrandingAdmin() {
         case "navCta":
         case "streamLayout":
         case "typeface":
+        case "chatLayout":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -1153,6 +1154,28 @@ export function BrandingAdmin() {
                       ]}
                       value={brandingValue("typeface") || "geist"}
                       onChange={(v) => uploadText("typeface", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-chat-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        { value: "compact", label: t("branding-chat-compact") },
+                        { value: "avatar", label: t("branding-chat-avatar") },
+                      ]}
+                      value={brandingValue("chatLayout") || "compact"}
+                      onChange={(v) => uploadText("chatLayout", v)}
                     />
                   </View>
                 </SettingsRowItem>

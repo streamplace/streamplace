@@ -71,6 +71,7 @@ var Specs = []Spec{
 	{Key: "liveColor", Kind: KindColor, MaxSize: textMax, Doc: "The live badge."},
 	{Key: "streamLayout", Kind: KindEnum, Enum: []string{"classic", "card"}, MaxSize: textMax, Doc: "Stream page shape: classic full-width player, or card (post in a feed column with live chat beside it)."},
 	{Key: "typeface", Kind: KindEnum, Enum: []string{"geist", "inter"}, MaxSize: textMax, Doc: "Sans-serif typeface."},
+	{Key: "chatLayout", Kind: KindEnum, Enum: []string{"compact", "avatar"}, MaxSize: textMax, Doc: "Chat message shape: compact one-line rows, or avatar rows with name, handle and time above the text."},
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},
 	{Key: "legalLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Footer legal links: [{text, url}]."},

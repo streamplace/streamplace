@@ -77,8 +77,13 @@ function BadgeIssuerPanel() {
           }[]
         ).map(({ uri, cid, value }) => ({ uri, cid: cid ?? "", value })),
       );
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load badge definitions");
+    } catch (error) {
+      console.error("Failed to load badge definitions:", error);
+      toast.error(
+        t("issue-badges-load-failed", {
+          defaultValue: "Failed to load badge definitions",
+        }),
+      );
     } finally {
       setLoadingDefs(false);
     }
@@ -96,7 +101,11 @@ function BadgeIssuerPanel() {
       const file = e.target?.files?.[0];
       if (file) {
         if (file.size > 262144) {
-          toast.error("Image must be under 256KB");
+          toast.error(
+            t("issue-badges-image-too-large", {
+              defaultValue: "Image must be under 256KB",
+            }),
+          );
           return;
         }
         const blob = new Blob([file], { type: file.type });
@@ -133,18 +142,29 @@ function BadgeIssuerPanel() {
       );
 
       setLastResult({
-        label: "Badge definition created",
+        label: t("issue-badges-definition-created", {
+          defaultValue: "Badge definition created",
+        }),
         uri: createName.trim(),
       });
       setCreateName("");
       setCreateDescription("");
       setCreateImageUri(null);
       setCreateImageBlob(null);
-      toast.success("Badge definition created");
+      toast.success(
+        t("issue-badges-definition-created", {
+          defaultValue: "Badge definition created",
+        }),
+      );
       loadDefs();
       setView("main");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create badge definition");
+    } catch (error) {
+      console.error("Failed to create badge definition:", error);
+      toast.error(
+        t("issue-badges-create-failed", {
+          defaultValue: "Failed to create badge definition",
+        }),
+      );
     } finally {
       setWorking(false);
     }
@@ -164,15 +184,23 @@ function BadgeIssuerPanel() {
         { repo: agent.did as any },
       );
       setLastResult({
-        label: `Issued to ${recipientDid.trim()}`,
+        label: t("issue-badges-issued-to", {
+          defaultValue: "Issued to {{recipient}}",
+          recipient: recipientDid.trim(),
+        }),
         uri: recipientDid.trim(),
       });
       setRecipientDid("");
-      toast.success("Badge issued");
+      toast.success(t("issue-badges-issued", { defaultValue: "Badge issued" }));
       setSelectedDef(null);
       setView("main");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to issue badge");
+    } catch (error) {
+      console.error("Failed to issue badge:", error);
+      toast.error(
+        t("issue-badges-issue-failed", {
+          defaultValue: "Failed to issue badge",
+        }),
+      );
     } finally {
       setWorking(false);
     }
@@ -182,8 +210,10 @@ function BadgeIssuerPanel() {
   if (view === "issue" && selectedDef) {
     return (
       <div className="space-y-6">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setSelectedDef(null);
             setView("main");
@@ -192,7 +222,7 @@ function BadgeIssuerPanel() {
         >
           <ChevronLeft size={16} />
           {t("issue-badges-back-to-definitions")}
-        </button>
+        </Button>
 
         <div>
           <h1 className="font-display text-lg font-semibold">
@@ -221,7 +251,9 @@ function BadgeIssuerPanel() {
             disabled={!recipientDid.trim() || working}
             className="w-full"
           >
-            {working ? "Issuing…" : t("issue-badges-issue-badge")}
+            {working
+              ? t("issue-badges-issuing", { defaultValue: "Issuing…" })
+              : t("issue-badges-issue-badge")}
           </Button>
         </div>
       </div>
@@ -231,14 +263,16 @@ function BadgeIssuerPanel() {
   if (view === "create") {
     return (
       <div className="space-y-6">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setView("main")}
           className="flex items-center gap-2 text-sm text-(--color-fg-muted) transition-colors hover:text-(--color-fg)"
         >
           <ChevronLeft size={16} />
           {t("issue-badges-back-to-definitions")}
-        </button>
+        </Button>
 
         <div>
           <h1 className="font-display text-lg font-semibold">
@@ -308,16 +342,18 @@ function BadgeIssuerPanel() {
                     alt=""
                     className="h-12 w-12 rounded"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("remove", { defaultValue: "Remove image" })}
                     onClick={() => {
                       setCreateImageUri(null);
                       setCreateImageBlob(null);
                     }}
-                    className="rounded p-1 hover:bg-(--color-bg)"
                   >
                     <X size={16} className="text-(--color-fg-muted)" />
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <Button variant="secondary" size="sm" onClick={pickImage}>
@@ -333,7 +369,9 @@ function BadgeIssuerPanel() {
             disabled={!createName.trim() || working}
             className="w-full"
           >
-            {working ? "Creating…" : t("issue-badges-create-definition")}
+            {working
+              ? t("issue-badges-creating", { defaultValue: "Creating…" })
+              : t("issue-badges-create-definition")}
           </Button>
         </div>
       </div>
@@ -348,10 +386,11 @@ function BadgeIssuerPanel() {
       </p>
 
       {/* Create new definition */}
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={() => setView("create")}
-        className="flex w-full items-center gap-3 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) px-3 py-3 transition-colors hover:bg-(--color-bg)"
+        className="h-auto w-full justify-start gap-3 px-3 py-3 text-left"
       >
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-(--color-accent)/10">
           <Plus size={16} className="text-(--color-accent)" />
@@ -364,7 +403,7 @@ function BadgeIssuerPanel() {
             {t("issue-badges-create-definition-subtitle")}
           </div>
         </div>
-      </button>
+      </Button>
 
       {/* Last result */}
       {lastResult && (
@@ -383,7 +422,13 @@ function BadgeIssuerPanel() {
 
       {/* Badge definitions list */}
       {loadingDefs ? (
-        <div className="text-sm text-(--color-fg-muted)">Loading…</div>
+        <div
+          className="text-sm text-(--color-fg-muted)"
+          role="status"
+          aria-label={t("loading")}
+        >
+          {t("loading")}
+        </div>
       ) : defs.length > 0 ? (
         <section>
           <h2 className="font-display mb-1 text-sm font-semibold">
@@ -394,14 +439,15 @@ function BadgeIssuerPanel() {
           </p>
           <div className="divide-y divide-(--color-border) rounded-lg border border-(--color-border) bg-(--color-bg-elevated)">
             {defs.map((def) => (
-              <button
+              <Button
                 key={def.uri}
                 type="button"
+                variant="ghost"
                 onClick={() => {
                   setSelectedDef(def);
                   setView("issue");
                 }}
-                className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"
+                className="h-auto w-full justify-start gap-3 rounded-none px-3 py-2.5 text-left font-normal"
               >
                 {def.value.image ? (
                   <img
@@ -420,7 +466,7 @@ function BadgeIssuerPanel() {
                     {def.value.badgeType.split("#")[1]}
                   </div>
                 </div>
-              </button>
+              </Button>
             ))}
           </div>
         </section>

@@ -5,6 +5,7 @@ import { useVideoRecord } from "@/hooks/use-video-record";
 import { getStreamplaceUrl } from "@/lib/streamplace-url";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export const Route = createFileRoute("/$user/video/$tid")({
   component: VodPage,
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/$user/video/$tid")({
 
 function VodPage() {
   const { user, tid } = Route.useParams();
+  const { t } = useTranslation("common");
   const { video, loading, error } = useVideoRecord(user, tid);
   const [downloading, setDownloading] = useState(false);
   const { theatre } = useFullscreen();
@@ -68,8 +70,13 @@ function VodPage() {
                 />
               )}
               {error && (
-                <p className="mx-auto mt-4 max-w-350 px-4 text-sm text-(--color-danger) sm:px-6">
-                  {error}
+                <p
+                  className="mx-auto mt-4 max-w-350 px-4 text-sm text-(--color-danger) sm:px-6"
+                  role="alert"
+                >
+                  {t("could-not-load-video", {
+                    defaultValue: "Couldn't load this video. Please try again.",
+                  })}
                 </p>
               )}
             </>

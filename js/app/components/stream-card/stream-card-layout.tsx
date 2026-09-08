@@ -20,14 +20,7 @@ import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Eye,
-  Pin,
-  Settings,
-  Share2,
-} from "lucide-react-native";
+import { ArrowLeft, ArrowRight, Eye, Pin, Share2 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Platform,
@@ -150,17 +143,6 @@ function CardHeader() {
       >
         Live
       </Text>
-      <IconCircleButton
-        onPress={() =>
-          navigation.navigate("MainTabs", {
-            screen: "SettingsTab",
-            params: { screen: "Settings" },
-          })
-        }
-        label="Settings"
-      >
-        <Settings size={22} color={theme.colors.text2} />
-      </IconCircleButton>
     </View>
   );
 }

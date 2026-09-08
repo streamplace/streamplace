@@ -55,6 +55,7 @@ import {
   SidebarOverlay,
   SidebarToggle,
 } from "components/sidebar/sidebar-overlay";
+import { SocialTabBar } from "components/sidebar/social-tab-bar";
 import {
   FEED_COLUMN_WIDTH,
   streamColumnWidthFor,
@@ -989,6 +990,9 @@ export default function Shell() {
           </RootStack.Navigator>
         </View>
       </Animated.View>
+      {/* Social shell without a rail (phones, native): the branded links as
+          a bottom bar, the way the timeline app does it. */}
+      {socialShell && !sidebar.isActive && <SocialTabBar />}
       {/* Scrim behind the overlay drawer (detail views only) */}
       {!isNative && (
         <AnimatedPressable

@@ -82,6 +82,7 @@ var Specs = []Spec{
 	{Key: "infoColor", Kind: KindColor, MaxSize: textMax, Doc: "Informational notes."},
 	{Key: "infoColorLight", Kind: KindColor, MaxSize: textMax, Doc: "infoColor override for the light scheme."},
 	{Key: "liveColor", Kind: KindColor, MaxSize: textMax, Doc: "The live badge."},
+	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},
 	{Key: "chatLayout", Kind: KindEnum, Enum: []string{"compact", "avatar"}, MaxSize: textMax, Doc: "Chat message shape: compact one-line rows, or avatar rows with name, handle and time above the text."},
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},

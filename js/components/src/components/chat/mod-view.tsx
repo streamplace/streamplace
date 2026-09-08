@@ -20,7 +20,6 @@ import {
   useLivestreamStore,
   usePinChatMessage,
 } from "../../livestream-store";
-import { useStreamplaceStore } from "../../streamplace-store";
 import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
 import {
   DropdownMenu,
@@ -50,50 +49,38 @@ export type ModViewRef = {
   close: () => void;
 };
 
-export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
-  const triggerRef = useRef<TriggerRef>(null);
-  const message = usePlayerStore((state) => state.modMessage);
+/**
+ * The moderation / user-actions menu for one message, gathering every hook
+ * it needs so any dropdown can host it: the per-row "…" trigger on web, or
+ * the store-driven singleton below that native's swipe gesture opens.
+ */
+export function ModMenuContent({
+  message,
+}: {
+  message: ChatMessageViewHydrated;
+}) {
   const toast = useToast();
-
-  let agent = usePDSAgent();
-  let [messageRemoved, setMessageRemoved] = useState(false);
-  let { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
-  let { createHideChat, isLoading: isHideLoading } = useCreateHideChatRecord();
+  const agent = usePDSAgent();
+  const [messageRemoved, setMessageRemoved] = useState(false);
+  const { createBlock, isLoading: isBlockLoading } = useCreateBlockRecord();
+  const { createHideChat, isLoading: isHideLoading } =
+    useCreateHideChatRecord();
   const pinChatMessage = usePinChatMessage();
-
   const setReportModalOpen = usePlayerStore((x) => x.setReportModalOpen);
   const setReportSubject = usePlayerStore((x) => x.setReportSubject);
-  const setModMessage = usePlayerStore((x) => x.setModMessage);
   const deleteChatMessage = useDeleteChatMessage();
-
   // Get the streamer's DID from the livestream profile
   const streamerDID = useLivestreamStore((x) => x.profile?.did);
   // Check moderation permissions for the current user on this streamer's channel
   const modPermissions = useCanModerate(streamerDID);
 
-  // get the channel did
-  const channelId = usePlayerStore((state) => state.src);
-  // get the logged in user's identity
-  const handle = useStreamplaceStore((state) => state.handle);
-
-  const cleanup = () => {
-    setModMessage(null);
-  };
-
-  // Effect must be called unconditionally (before any early returns)
   useEffect(() => {
-    if (message) {
-      setMessageRemoved(false);
-      triggerRef.current?.open();
-    } else {
-      triggerRef.current?.close();
-    }
+    setMessageRemoved(false);
   }, [message]);
 
   // Check if any moderation actions are actually available for this message
   // This must match the individual action checks inside the DropdownMenuGroup
   const hasAvailableActions = !!(
-    message &&
     agent?.did &&
     ((modPermissions.canHide && message.author.did !== streamerDID) ||
       (modPermissions.canPin && message.author.did !== streamerDID) ||
@@ -101,43 +88,57 @@ export const ModView = forwardRef<ModViewRef, ModViewProps>(() => {
   );
 
   return (
-    <>
-      <DropdownMenu
-        style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], w[80]]}
-        onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            cleanup();
-          }
-        }}
-      >
-        <DropdownMenuTrigger ref={triggerRef}>
-          {/* Hidden trigger */}
-          <View />
-        </DropdownMenuTrigger>
-        <ResponsiveDropdownMenuContent>
-          {message && (
-            <ModViewContent
-              message={message}
-              modPermissions={modPermissions}
-              agent={agent}
-              streamerDID={streamerDID}
-              hasAvailableActions={hasAvailableActions}
-              isHideLoading={isHideLoading}
-              isBlockLoading={isBlockLoading}
-              messageRemoved={messageRemoved}
-              setMessageRemoved={setMessageRemoved}
-              createHideChat={createHideChat}
-              createBlock={createBlock}
-              pinChatMessage={pinChatMessage}
-              toast={toast}
-              setReportModalOpen={setReportModalOpen}
-              setReportSubject={setReportSubject}
-              deleteChatMessage={deleteChatMessage}
-            />
-          )}
-        </ResponsiveDropdownMenuContent>
-      </DropdownMenu>
-    </>
+    <ModViewContent
+      message={message}
+      modPermissions={modPermissions}
+      agent={agent}
+      streamerDID={streamerDID}
+      hasAvailableActions={hasAvailableActions}
+      isHideLoading={isHideLoading}
+      isBlockLoading={isBlockLoading}
+      messageRemoved={messageRemoved}
+      setMessageRemoved={setMessageRemoved}
+      createHideChat={createHideChat}
+      createBlock={createBlock}
+      pinChatMessage={pinChatMessage}
+      toast={toast}
+      setReportModalOpen={setReportModalOpen}
+      setReportSubject={setReportSubject}
+      deleteChatMessage={deleteChatMessage}
+    />
+  );
+}
+
+// Store-driven singleton with a hidden trigger, for platforms where the
+// menu isn't opened from a row of its own (native's swipe gesture).
+export const ModView = forwardRef<ModViewRef, ModViewProps>(function ModView() {
+  const triggerRef = useRef<TriggerRef>(null);
+  const message = usePlayerStore((state) => state.modMessage);
+  const setModMessage = usePlayerStore((x) => x.setModMessage);
+
+  useEffect(() => {
+    if (message) {
+      triggerRef.current?.open();
+    } else {
+      triggerRef.current?.close();
+    }
+  }, [message]);
+
+  return (
+    <DropdownMenu
+      style={[layout.flex.row, layout.flex.alignCenter, gap.all[2], w[80]]}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) setModMessage(null);
+      }}
+    >
+      <DropdownMenuTrigger ref={triggerRef}>
+        {/* Hidden trigger */}
+        <View />
+      </DropdownMenuTrigger>
+      <ResponsiveDropdownMenuContent>
+        {message && <ModMenuContent message={message} />}
+      </ResponsiveDropdownMenuContent>
+    </DropdownMenu>
   );
 });
 

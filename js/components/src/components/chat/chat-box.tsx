@@ -38,6 +38,8 @@ import {
   useSetReplyToMessage,
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
+import { useChatLockedOut } from "../../streamplace-store/access";
+import { useNetworkName } from "../../streamplace-store/branding";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -88,6 +90,8 @@ export function ChatBox({
   hideLogin?: boolean;
   leftSlot?: ReactNode;
 }) {
+  const lockedOut = useChatLockedOut();
+  const networkName = useNetworkName();
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const message = useChatDraft();
@@ -399,6 +403,29 @@ export function ChatBox({
       textAreaRef.current.focus();
     }
   }, [replyTo]);
+
+  if (lockedOut) {
+    return (
+      <View
+        style={[
+          layout.flex.row,
+          layout.flex.alignCenter,
+          layout.flex.justifyCenter,
+          {
+            paddingVertical: 12,
+            paddingHorizontal: 12,
+            borderRadius: 10,
+            backgroundColor: theme.colors.surface2,
+          },
+          chatBoxStyle,
+        ]}
+      >
+        <Text size="sm" color="muted" center>
+          Only verified {networkName} accounts can chat.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[layout.flex.column, flex.shrink[1], gap.all[2]]}>

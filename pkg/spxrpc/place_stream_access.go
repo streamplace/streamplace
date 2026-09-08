@@ -153,6 +153,16 @@ func (s *Server) handlePlaceStreamAccessGetStatus(ctx context.Context) (*placest
 			out.Roles = append(out.Roles, role)
 		}
 	}
+	// The chat lock and the caller's standing under it, so the composer can
+	// explain itself rather than post into the void.
+	if s.ATSync != nil {
+		locked := s.ATSync.ChatVerifiedOnly(ctx)
+		out.ChatVerifiedOnly = &locked
+		if did != "" {
+			verified := s.ATSync.IsVerified(ctx, did)
+			out.ChatVerified = &verified
+		}
+	}
 	return out, nil
 }
 

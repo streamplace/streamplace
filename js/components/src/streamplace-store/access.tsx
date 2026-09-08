@@ -13,6 +13,10 @@ export interface AccessStatus {
   did?: string;
   roles: string[];
   policy: Record<string, string>;
+  /** Chat is restricted to users the node's trusted verifiers vouch for. */
+  chatVerifiedOnly?: boolean;
+  /** The caller is one of them. */
+  chatVerified?: boolean;
 }
 
 // What we assume when the node predates access control (the method doesn't
@@ -55,6 +59,8 @@ export function useFetchAccessStatus() {
           did: res.did,
           roles: [...(res.roles ?? [])],
           policy,
+          chatVerifiedOnly: res.chatVerifiedOnly ?? false,
+          chatVerified: res.chatVerified ?? false,
         },
         accessStatusLoaded: true,
         accessStatusError: null,
@@ -151,3 +157,17 @@ export function useViewerLockedOut(): boolean {
 
 export const useAccessStatusError = () =>
   useStreamplaceStore((s) => s.accessStatusError);
+
+/**
+ * Whether the signed-in caller is locked out of chat: the node restricts
+ * chat to verified users and the caller isn't one. False while logged out
+ * (the composer already asks for a login then).
+ */
+export function useChatLockedOut(): boolean {
+  return useStreamplaceStore(
+    (s) =>
+      !!s.accessStatus?.chatVerifiedOnly &&
+      !!s.accessStatus?.did &&
+      !s.accessStatus?.chatVerified,
+  );
+}

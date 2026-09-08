@@ -24,12 +24,14 @@ Report the caller's roles on this node and the node's access policy. Works unaut
 
 **Schema Type:** `object`
 
-| Name     | Type                                                                                        | Req'd | Description                                                                                                                                                                                  | Constraints   |
-| -------- | ------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `did`    | `string`                                                                                    | ❌    | The authenticated caller, when there is one.                                                                                                                                                 | Format: `did` |
-| `roles`  | Array of [`place.stream.access.defs#role`](/lex-reference/place-stream-access-defs#role)    | ✅    | Every role the caller effectively holds.                                                                                                                                                     |               |
-| `policy` | [`place.stream.access.defs#policyView`](/lex-reference/place-stream-access-defs#policyview) | ✅    |                                                                                                                                                                                              |               |
-| `space`  | `string`                                                                                    | ✅    | The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.) |               |
+| Name               | Type                                                                                        | Req'd | Description                                                                                                                                                                                  | Constraints   |
+| ------------------ | ------------------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `did`              | `string`                                                                                    | ❌    | The authenticated caller, when there is one.                                                                                                                                                 | Format: `did` |
+| `roles`            | Array of [`place.stream.access.defs#role`](/lex-reference/place-stream-access-defs#role)    | ✅    | Every role the caller effectively holds.                                                                                                                                                     |               |
+| `policy`           | [`place.stream.access.defs#policyView`](/lex-reference/place-stream-access-defs#policyview) | ✅    |                                                                                                                                                                                              |               |
+| `space`            | `string`                                                                                    | ✅    | The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.) |               |
+| `chatVerifiedOnly` | `boolean`                                                                                   | ❌    | Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).                                                                                |               |
+| `chatVerified`     | `boolean`                                                                                   | ❌    | Whether the authenticated caller is verified by one of the node's trusted verifiers.                                                                                                         |               |
 
 ---
 
@@ -69,6 +71,14 @@ Report the caller's roles on this node and the node's access policy. Works unaut
             "space": {
               "type": "string",
               "description": "The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)"
+            },
+            "chatVerifiedOnly": {
+              "type": "boolean",
+              "description": "Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly)."
+            },
+            "chatVerified": {
+              "type": "boolean",
+              "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
             }
           }
         }

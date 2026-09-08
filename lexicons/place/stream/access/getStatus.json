@@ -31,6 +31,14 @@
             "space": {
               "type": "string",
               "description": "The node's access-control space: at://{authority}/space/place.stream.access.control/self (A space URI; not validated as a classic at-uri because the space form is newer than that grammar.)"
+            },
+            "chatVerifiedOnly": {
+              "type": "boolean",
+              "description": "Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly)."
+            },
+            "chatVerified": {
+              "type": "boolean",
+              "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
             }
           }
         }

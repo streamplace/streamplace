@@ -30,7 +30,7 @@ export function wordmarkSvgString(color = BRAND.colors.ink) {
 }
 
 // Decode the payload of a base64 data: URL as UTF-8 text.
-function decodeDataUrlText(dataUrl: string): string | null {
+export function decodeDataUrlText(dataUrl: string): string | null {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) return null;
   const header = dataUrl.slice(0, comma);

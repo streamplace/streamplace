@@ -26,7 +26,15 @@ branding: # only what is set on this node
   streamLayout: card
   navLinks: # JSON-valued keys are plain YAML
     - { label: Home, url: https://example.com, icon: home }
+  socialLinks:
+    - {
+        label: Bluesky,
+        url: https://bsky.app/profile/example.com,
+        icon: bluesky,
+      }
+    - { label: Forum, url: https://example.com/forum, icon: socialIcon1 }
   mainLogo: mainLogo.svg # image keys name a file in the zip
+  socialIcon1: socialIcon1.svg
   linkBanner: linkBanner.png
 defaults: # informational: the app's default for each key
   primaryColor: "#6366f1"

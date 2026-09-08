@@ -46,6 +46,7 @@ const (
 	textMax  = 1024
 	jsonMax  = 16 * 1024
 	imageMax = 500 * 1024
+	iconMax  = 64 * 1024
 )
 
 // Specs lists every known key in export order.
@@ -75,10 +76,16 @@ var Specs = []Spec{
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},
 	{Key: "legalLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Footer legal links: [{text, url}]."},
+	{Key: "socialHeading", Kind: KindText, Default: "Say Hello?", MaxSize: textMax, Doc: "Heading above the social links at the bottom of the sidebar."},
+	{Key: "socialLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Social links at the bottom of the sidebar: [{label, url, icon}], icon a built-in name (bluesky, discord, ...) or socialIcon1..4; [] hides them."},
 	{Key: "mainLogo", Kind: KindImage, MaxSize: imageMax, Doc: "The logo mark (SVG preferred)."},
 	{Key: "favicon", Kind: KindImage, MaxSize: 100 * 1024, Doc: "Browser tab icon."},
 	{Key: "sidebarBackgroundImage", Kind: KindImage, MaxSize: imageMax, Doc: "Decorative image at the bottom of the sidebar."},
 	{Key: "linkBanner", Kind: KindImage, MaxSize: 2 * 1024 * 1024, Doc: "OpenGraph image for the front page's link card (1200x630)."},
+	{Key: "socialIcon1", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
+	{Key: "socialIcon2", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
+	{Key: "socialIcon3", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
+	{Key: "socialIcon4", Kind: KindImage, MaxSize: iconMax, Doc: "Custom icon for socialLinks (SVG preferred; use currentColor to take the sidebar's icon color)."},
 }
 
 var specByKey = func() map[string]Spec {

@@ -39,6 +39,14 @@ const NAV_LINKS_EXAMPLE =
   '[{"label": "Home", "url": "https://example.com", "icon": "home"}, {"label": "Live", "url": "/", "icon": "play"}]';
 const NAV_CTA_EXAMPLE =
   '{"label": "New post", "url": "https://example.com/compose"}';
+const SOCIAL_LINKS_EXAMPLE =
+  '[{"label": "Bluesky", "url": "https://bsky.app/profile/example.com", "icon": "bluesky"}, {"label": "Forum", "url": "https://example.com/forum", "icon": "socialIcon1"}]';
+const SOCIAL_ICON_SLOTS = [
+  "socialIcon1",
+  "socialIcon2",
+  "socialIcon3",
+  "socialIcon4",
+];
 
 export function BrandingAdmin() {
   const { t } = useTranslation("settings");
@@ -269,6 +277,8 @@ export function BrandingAdmin() {
         case "streamLayout":
         case "typeface":
         case "chatLayout":
+        case "socialHeading":
+        case "socialLinks":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -1283,6 +1293,186 @@ export function BrandingAdmin() {
                       >
                         {t("branding-reset")}
                       </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-social-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-social-links-description")}
+                    </Text>
+                    <Input
+                      placeholder={t("branding-social-heading-placeholder")}
+                      value={
+                        chromeInputs["socialHeading"] ??
+                        brandingValue("socialHeading")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          socialHeading: v,
+                        }))
+                      }
+                    />
+                    <TextInput
+                      multiline
+                      numberOfLines={4}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 90,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={SOCIAL_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["socialLinks"] ??
+                        brandingValue("socialLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          socialLinks: v,
+                        }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() => {
+                          const heading = chromeInputs["socialHeading"];
+                          const links = chromeInputs["socialLinks"];
+                          if (heading !== undefined) {
+                            uploadText("socialHeading", heading);
+                          }
+                          if (links !== undefined) {
+                            uploadText("socialLinks", links);
+                          }
+                        }}
+                        disabled={
+                          uploading ||
+                          (chromeInputs["socialHeading"] === undefined &&
+                            chromeInputs["socialLinks"] === undefined)
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => uploadText("socialLinks", "[]")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-social-hide")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => {
+                          deleteBlob("socialHeading");
+                          deleteBlob("socialLinks");
+                        }}
+                        disabled={
+                          uploading ||
+                          (!brandingValue("socialLinks") &&
+                            !brandingValue("socialHeading"))
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-social-icons-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[3],
+                        { flexWrap: "wrap" },
+                      ]}
+                    >
+                      {SOCIAL_ICON_SLOTS.map((slot) => (
+                        <View
+                          key={slot}
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                            { alignItems: "center" },
+                          ]}
+                        >
+                          <View
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 8,
+                              borderWidth: 1,
+                              borderColor: theme.colors.border,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {branding?.[slot]?.data ? (
+                              <Image
+                                source={{ uri: branding[slot].data }}
+                                contentFit="contain"
+                                style={{ width: 20, height: 20 }}
+                              />
+                            ) : (
+                              <Text size="xs" color="muted">
+                                {slot.slice(-1)}
+                              </Text>
+                            )}
+                          </View>
+                          <Text
+                            size="xs"
+                            style={{ fontFamily: theme.fonts.monoRegular }}
+                          >
+                            {slot}
+                          </Text>
+                          <Button
+                            variant="secondary"
+                            onPress={() =>
+                              handleFileSelect(
+                                slot,
+                                "image/svg+xml,image/png,image/webp",
+                              )
+                            }
+                            disabled={uploading || Platform.OS !== "web"}
+                            width="min"
+                            style={{ height: 32 }}
+                          >
+                            {t("branding-upload")}
+                          </Button>
+                          {!!branding?.[slot]?.data && (
+                            <Button
+                              variant="danger"
+                              onPress={() => deleteBlob(slot)}
+                              disabled={uploading}
+                              width="min"
+                              style={{ height: 32 }}
+                            >
+                              {t("branding-remove")}
+                            </Button>
+                          )}
+                        </View>
+                      ))}
                     </View>
                   </View>
                 </SettingsRowItem>

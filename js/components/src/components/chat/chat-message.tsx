@@ -20,7 +20,10 @@ import {
 
 import { useAvatars } from "../../hooks/useAvatars";
 import { useLivestreamStore } from "../../livestream-store";
-import { useBrandingAsset } from "../../streamplace-store";
+import {
+  useBrandingAsset,
+  useNetworkProfileUrl,
+} from "../../streamplace-store";
 import { Avatar } from "../ui/avatar";
 import { Text } from "../ui/text";
 import { Badge, BadgeDisplayRow } from "./badge";
@@ -92,6 +95,7 @@ const renderSegment = (
   seg: RichtextSegment,
   index: number,
   userCache?: { [key: string]: ChatMessageViewHydrated["chatProfile"] },
+  profileUrl?: (author: { handle?: string; did?: string }) => string,
 ) => {
   const ftr = seg.features?.[0];
 
@@ -111,7 +115,11 @@ const renderSegment = (
         key={`mention-${index}`}
         style={{ color: getRgbColor(profile?.color), cursor: "pointer" }}
         onPress={() =>
-          Linking.openURL(`https://bsky.app/profile/${mtnFtr.did || ""}`)
+          Linking.openURL(
+            profileUrl
+              ? profileUrl({ did: mtnFtr.did })
+              : `https://bsky.app/profile/${mtnFtr.did || ""}`,
+          )
         }
       >
         {seg.text}
@@ -128,12 +136,13 @@ export const RichTextMessage = ({
   text: string;
   facets: ChatMessageViewHydrated["record"]["facets"];
 }) => {
+  const profileUrl = useNetworkProfileUrl();
   const userCache = useLivestreamStore((state) => state.authors);
   if (!facets?.length) return <Text>{text}</Text>;
 
   let segs = segmentize(text, facets as Facet[]);
 
-  return segs.map((seg, i) => renderSegment(seg, i, userCache));
+  return segs.map((seg, i) => renderSegment(seg, i, userCache, profileUrl));
 };
 
 // Web flows the whole message inline inside a single <Text>, with the badges and

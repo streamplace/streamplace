@@ -20,7 +20,11 @@ import {
   useLivestreamStore,
   usePinChatMessage,
 } from "../../livestream-store";
-import { formatHandle, formatHandleWithAt } from "../../utils/format-handle";
+import {
+  useNetworkName,
+  useNetworkProfileUrl,
+} from "../../streamplace-store/branding";
+import { formatHandleWithAt } from "../../utils/format-handle";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -35,8 +39,6 @@ import {
   useToast,
   View,
 } from "../ui";
-
-const BSKY_FRONTEND_DOMAIN = "bsky.app";
 
 type ModViewProps = {
   onClose?: () => void;
@@ -185,6 +187,8 @@ function ModViewContent({
 }: ModViewContentProps) {
   const { onOpenChange } = useRootContext();
   const { theme } = useTheme();
+  const profileUrl = useNetworkProfileUrl();
+  const networkName = useNetworkName();
 
   return (
     <>
@@ -344,12 +348,10 @@ function ModViewContent({
       <DropdownMenuGroup key="user-actions" title={`User actions`}>
         <DropdownMenuItem
           onPress={() => {
-            Linking.openURL(
-              `https://${BSKY_FRONTEND_DOMAIN}/profile/${formatHandle(message.author)}`,
-            );
+            Linking.openURL(profileUrl(message.author));
           }}
         >
-          <Text color="primary">View user on {BSKY_FRONTEND_DOMAIN}</Text>
+          <Text color="primary">View user on {networkName}</Text>
         </DropdownMenuItem>
         {agent?.did && message.author.did === agent.did && (
           <DeleteButton

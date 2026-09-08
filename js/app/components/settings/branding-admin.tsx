@@ -295,6 +295,7 @@ export function BrandingAdmin() {
         case "socialLinks":
         case "bottomLinks":
         case "networkName":
+        case "networkProfileUrl":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
@@ -675,6 +676,108 @@ export function BrandingAdmin() {
                       >
                         {t("branding-reset")}
                       </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-network-profile-url")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-profile-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://bsky.app/profile/{handle}"
+                          value={
+                            chromeInputs["networkProfileUrl"] ??
+                            brandingValue("networkProfileUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              networkProfileUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "networkProfileUrl",
+                            chromeInputs["networkProfileUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["networkProfileUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("networkProfileUrl")}
+                        disabled={
+                          uploading || !brandingValue("networkProfileUrl")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-icon-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[2],
+                        { alignItems: "center" },
+                      ]}
+                    >
+                      {branding?.networkIcon?.data ? (
+                        <Image
+                          source={{ uri: branding.networkIcon.data }}
+                          contentFit="contain"
+                          style={{ width: 24, height: 24 }}
+                        />
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        onPress={() =>
+                          handleFileSelect(
+                            "networkIcon",
+                            "image/svg+xml,image/png,image/webp",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 36 }}
+                      >
+                        {t("branding-upload")}
+                      </Button>
+                      {!!branding?.networkIcon?.data && (
+                        <Button
+                          variant="danger"
+                          onPress={() => deleteBlob("networkIcon")}
+                          disabled={uploading}
+                          width="min"
+                          style={{ height: 36 }}
+                        >
+                          {t("branding-remove")}
+                        </Button>
+                      )}
                     </View>
                   </View>
                 </SettingsRowItem>

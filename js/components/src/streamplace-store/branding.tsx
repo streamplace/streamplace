@@ -268,6 +268,26 @@ export function useNetworkName(): string {
   return useBrandingAsset("networkName")?.data?.trim() || "Bluesky";
 }
 
+/**
+ * Where a user's profile link goes (branding key networkProfileUrl, with
+ * {handle} and {did} placeholders); the Bluesky profile page by default.
+ */
+export function useNetworkProfileUrl(): (author: {
+  handle?: string;
+  did?: string;
+}) => string {
+  const template =
+    useBrandingAsset("networkProfileUrl")?.data?.trim() ||
+    "https://bsky.app/profile/{handle}";
+  return (author) =>
+    template
+      .replace(
+        "{handle}",
+        encodeURIComponent(author.handle || author.did || ""),
+      )
+      .replace("{did}", encodeURIComponent(author.did || ""));
+}
+
 /** Example handle in the login form's empty field (branding key
  *  loginPlaceholder), or undefined for the app's own. */
 export function useLoginPlaceholder(): string | undefined {

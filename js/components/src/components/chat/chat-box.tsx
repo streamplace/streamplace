@@ -38,6 +38,7 @@ import {
   useSetReplyToMessage,
 } from "../../livestream-store";
 import { useDID, usePDSAgent } from "../../streamplace-store";
+import { useNetworkName } from "../../streamplace-store/branding";
 import { Textarea } from "../ui/textarea";
 import { RenderChatMessage } from "./chat-message";
 import {
@@ -80,6 +81,7 @@ export function ChatBox({
   hideLogin?: boolean;
   leftSlot?: ReactNode;
 }) {
+  const networkName = useNetworkName();
   const [submitting, setSubmitting] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const message = useChatDraft();

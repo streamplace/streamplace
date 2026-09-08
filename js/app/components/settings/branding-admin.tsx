@@ -296,6 +296,8 @@ export function BrandingAdmin() {
         case "bottomLinks":
         case "networkName":
         case "networkProfileUrl":
+        case "verifierDids":
+        case "chatVerifiedOnly":
         case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
@@ -771,6 +773,136 @@ export function BrandingAdmin() {
                         <Button
                           variant="danger"
                           onPress={() => deleteBlob("networkIcon")}
+                          disabled={uploading}
+                          width="min"
+                          style={{ height: 36 }}
+                        >
+                          {t("branding-remove")}
+                        </Button>
+                      )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-verifiers")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-verifiers-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={2}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 56,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder='["did:plc:..."]'
+                      value={
+                        chromeInputs["verifierDids"] ??
+                        brandingValue("verifierDids")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({
+                          ...prev,
+                          verifierDids: v,
+                        }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "verifierDids",
+                            chromeInputs["verifierDids"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["verifierDids"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("verifierDids")}
+                        disabled={uploading || !brandingValue("verifierDids")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-verified-only-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "off",
+                          label: t("branding-chat-verified-only-off"),
+                        },
+                        {
+                          value: "on",
+                          label: t("branding-chat-verified-only-on"),
+                        },
+                      ]}
+                      value={brandingValue("chatVerifiedOnly") || "off"}
+                      onChange={(v) => uploadText("chatVerifiedOnly", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-verified-icon-description")}
+                    </Text>
+                    <View
+                      style={[
+                        zero.layout.flex.direction.row,
+                        zero.gap.all[2],
+                        { alignItems: "center" },
+                      ]}
+                    >
+                      {branding?.verifiedIcon?.data ? (
+                        <Image
+                          source={{ uri: branding.verifiedIcon.data }}
+                          contentFit="contain"
+                          style={{ width: 24, height: 24 }}
+                        />
+                      ) : null}
+                      <Button
+                        variant="secondary"
+                        onPress={() =>
+                          handleFileSelect(
+                            "verifiedIcon",
+                            "image/svg+xml,image/png,image/webp",
+                          )
+                        }
+                        disabled={uploading || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 36 }}
+                      >
+                        {t("branding-upload")}
+                      </Button>
+                      {!!branding?.verifiedIcon?.data && (
+                        <Button
+                          variant="danger"
+                          onPress={() => deleteBlob("verifiedIcon")}
                           disabled={uploading}
                           width="min"
                           style={{ height: 36 }}

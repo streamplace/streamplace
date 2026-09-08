@@ -14,6 +14,7 @@ import {
   zero,
 } from "@streamplace/components";
 import { RichTextMessage } from "@streamplace/components/src/components/chat/chat-message";
+import { VerifiedBadge } from "@streamplace/components/src/components/chat/verified-badge";
 import { useAvatars } from "@streamplace/components/src/hooks/useAvatars";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
@@ -480,6 +481,7 @@ function PinnedCard() {
             <Text weight="semibold" style={{ fontSize: 15 }}>
               {name}
             </Text>
+            <VerifiedBadge author={author} profile={profile} size={14} />
             {handle && name !== author.handle ? (
               <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
                 {"  " + handle}

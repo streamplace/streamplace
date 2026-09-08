@@ -359,6 +359,9 @@ func runMain(ctx context.Context, build *config.BuildFlags, platformJobs []jobFu
 	// it, and at full speed it is what buries a boot. It trickles in at
 	// --deepen-rate windows a minute for as long as this node runs.
 	go atsync.DeepenForever(ctx)
+	// Trusted verifiers' records predate this node; pull them at boot and
+	// hourly, the firehose keeps them current in between.
+	go atsync.SeedVerificationsForever(ctx)
 
 	var replicator replication.Replicator = nil
 	if slices.Contains(cli.Replicators, config.ReplicatorIroh) {

@@ -8,6 +8,7 @@
     "app.bsky.feed.post",
     "app.bsky.graph.block",
     "app.bsky.graph.follow",
+    "app.bsky.graph.verification",
     "app.bsky.richtext.facet",
     "com.atproto.identity.refreshIdentity",
     "com.atproto.identity.resolveHandle",
@@ -109,6 +110,10 @@
     "app.bsky.graph.follow": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.graph.follow",
       "cid": "bafyreiav7u7jchqtsxr2yy3gsazfqqziw5tcrfniuprrmoariruj3cft5u"
+    },
+    "app.bsky.graph.verification": {
+      "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.graph.verification",
+      "cid": "bafyreidn7abfzt5p4gcujys2w4seigbhcfnscos6fmh4hnce2gdormbwpa"
     },
     "app.bsky.labeler.defs": {
       "uri": "at://did:plc:4v4y5r3lwsbtmsxhile2ljac/com.atproto.lexicon.schema/app.bsky.labeler.defs",

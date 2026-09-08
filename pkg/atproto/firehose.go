@@ -537,6 +537,7 @@ var CollectionFilter = []string{
 	constants.APP_BSKY_GRAPH_BLOCK,
 	constants.APP_BSKY_ACTOR_PROFILE,
 	constants.PLACE_STREAM_LIVE_RECOMMENDATIONS,
+	constants.APP_BSKY_GRAPH_VERIFICATION,
 }
 
 // indexedCollection reports whether we index anything in this collection: the
@@ -722,6 +723,12 @@ func (atsync *ATProtoSynchronizer) handleIndexedOps(ctx context.Context, evt *in
 					log.Error(ctx, "failed to revoke signing key", "err", err)
 				}
 				atsync.Bus.Publish(evt.Repo, key)
+			}
+
+			if collection.String() == constants.APP_BSKY_GRAPH_VERIFICATION {
+				if err := atsync.Model.DeleteVerification(ctx, uri); err != nil {
+					log.Error(ctx, "failed to delete verification", "err", err)
+				}
 			}
 
 			if collection.String() == constants.PLACE_STREAM_CHAT_MESSAGE {

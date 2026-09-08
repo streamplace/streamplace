@@ -1,10 +1,5 @@
 import { useMemo, type ReactNode } from "react";
-import {
-  useAccentColor,
-  useBrandingAsset,
-  usePrimaryColor,
-  useStreamplaceStore,
-} from "../../streamplace-store";
+import { useBrandingAsset } from "../../streamplace-store";
 import {
   ThemeProvider,
   type BrandColors,
@@ -27,9 +22,13 @@ export function BrandedThemeProvider({
   defaultTheme,
   forcedTheme,
 }: BrandedThemeProviderProps) {
-  const primaryColor = usePrimaryColor();
-  const accentColor = useAccentColor();
-  const brandingLoading = useStreamplaceStore((state) => state.brandingLoading);
+  // Raw values, undefined until the node's branding is known (injected
+  // meta, the cache, or the fetch). Overrides apply as soon as a value is
+  // known rather than waiting for the fetch to finish: gating on the
+  // fetch flashed the default palette on every load even when the colors
+  // were already at hand.
+  const primaryColor = useBrandingAsset("primaryColor")?.data || undefined;
+  const accentColor = useBrandingAsset("accentColor")?.data || undefined;
 
   // Chrome: the node's background/foreground pair per scheme, from which the
   // theme derives surfaces, text and borders. Empty values leave defaults.
@@ -47,11 +46,6 @@ export function BrandedThemeProvider({
 
   // Build color theme overrides from branding
   const colorTheme = useMemo<Partial<Theme["colors"]>>(() => {
-    // don't override until branding is loaded
-    if (brandingLoading) {
-      return {};
-    }
-
     const overrides: Partial<Theme["colors"]> = {};
 
     if (primaryColor) {
@@ -64,7 +58,7 @@ export function BrandedThemeProvider({
     }
 
     return overrides;
-  }, [primaryColor, accentColor, brandingLoading]);
+  }, [primaryColor, accentColor]);
 
   // Accent doubles as the secondary color (the only accent-ish token the
   // app actually renders); status and live colors are their own keys.
@@ -82,7 +76,6 @@ export function BrandedThemeProvider({
   const typeface: Typeface | undefined =
     typefaceAsset === "inter" ? "inter" : undefined;
   const brandColors = useMemo<BrandColors | undefined>(() => {
-    if (brandingLoading) return undefined;
     return {
       secondary: accentColor,
       danger: dangerColor,
@@ -97,7 +90,6 @@ export function BrandedThemeProvider({
       infoLight,
     };
   }, [
-    brandingLoading,
     accentColor,
     dangerColor,
     successColor,

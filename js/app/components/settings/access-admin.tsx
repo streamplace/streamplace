@@ -87,7 +87,10 @@ export function AccessAdmin() {
     } finally {
       setGrantsLoading(false);
     }
-  }, [agent, canManage, t, toast]);
+    // toast.show is a stable module function; the toast object itself
+    // changes whenever a toast appears, which would refetch (and, on a
+    // failing fetch, loop).
+  }, [agent, canManage, t, toast.show]);
 
   useEffect(() => {
     loadGrants();

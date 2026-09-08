@@ -61,6 +61,8 @@ export function Player(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
     onTeleport?: (targetHandle: string, targetDID: string) => void;
+    /** Never mount the chat side panel; the caller places chat itself. */
+    hideChat?: boolean;
   },
 ) {
   const inner = (
@@ -86,13 +88,15 @@ function PlayerWithProvider(
   props: Partial<PlayerProps> & {
     setFullscreen?: (fullscreen: boolean) => void;
     onTeleport?: (targetHandle: string, targetDID: string) => void;
+    hideChat?: boolean;
   },
 ) {
   // Chat visibility is a persisted preference (survives reloads), except VOD
-  // playback which never shows the live chat panel.
+  // playback which never shows the live chat panel, and layouts that place
+  // chat themselves.
   const setShowChat = useStore((state) => state.setChatVisible);
   let showChat = useStore((state) => state.chatVisible);
-  if (props.mode === "vod") {
+  if (props.mode === "vod" || props.hideChat) {
     showChat = false;
   }
   const { shouldShowChatSidePanel, chatPanelWidth } = useResponsiveLayout();

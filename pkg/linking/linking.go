@@ -73,6 +73,10 @@ var BrandingAssetList = [...]string{
 	"infoColorLight",
 	"liveColor",
 	"linkBanner",
+	"streamLayout",
+	"typeface",
+	"navLinks",
+	"navCta",
 }
 
 // inlineBrandingImageLimit caps the image assets embedded as data URLs in

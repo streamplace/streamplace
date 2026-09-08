@@ -5,10 +5,12 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -49,7 +51,24 @@ var defaultBrandingAssets = map[string]struct {
 	"infoColor":         {data: []byte(""), mime: "text/plain"},
 	"infoColorLight":    {data: []byte(""), mime: "text/plain"},
 	"liveColor":         {data: []byte(""), mime: "text/plain"},
+	// Page shape and chrome: streamLayout "classic" | "card", typeface
+	// "geist" | "inter", navLinks (JSON [{label,url,icon}]) and navCta
+	// (JSON {label,url}) for a node's own navigation.
+	"streamLayout": {data: []byte(""), mime: "text/plain"},
+	"typeface":     {data: []byte(""), mime: "text/plain"},
+	"navLinks":     {data: []byte(""), mime: "text/plain"},
+	"navCta":       {data: []byte(""), mime: "text/plain"},
 }
+
+// brandingEnumKeys constrain a few text keys to known values ("" resets).
+var brandingEnumKeys = map[string][]string{
+	"streamLayout": {"classic", "card"},
+	"typeface":     {"geist", "inter"},
+}
+
+// brandingLongTextKeys hold JSON documents and get a larger cap than the
+// 1KB of a title or color.
+var brandingLongTextKeys = map[string]bool{"navLinks": true, "navCta": true, "legalLinks": true}
 
 // hexColor is the only form the app's theme accepts for color keys; it does
 // string math on the value (alpha tints), so anything else breaks silently.
@@ -231,12 +250,24 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		maxSize = 100 * 1024 // 100KB for favicons
 	} else if input.Key == "linkBanner" {
 		maxSize = 2 * 1024 * 1024 // 2MB for the OpenGraph banner (1200x630)
+	} else if brandingLongTextKeys[input.Key] {
+		maxSize = 16 * 1024 // 16KB for JSON documents
 	} else if brandingTextKeys[input.Key] {
 		maxSize = 1024 // 1KB for text values
 	}
 	// sidebarBackgroundImage uses default 500KB limit
 	if len(data) > maxSize {
 		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
+	}
+	if allowed, ok := brandingEnumKeys[input.Key]; ok {
+		v := strings.TrimSpace(string(data))
+		if v != "" && !slices.Contains(allowed, v) {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("InvalidValue: %s must be one of %s", input.Key, strings.Join(allowed, ", ")))
+		}
+		data = []byte(v)
+	}
+	if brandingLongTextKeys[input.Key] && len(data) > 0 && !json.Valid(data) {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+input.Key+" must be JSON")
 	}
 	if isColorKey(input.Key) {
 		v := strings.TrimSpace(string(data))

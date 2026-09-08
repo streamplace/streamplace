@@ -21,6 +21,7 @@ import {
   animations,
   borderRadius,
   colors,
+  fontFamilies,
   motion,
   scrims,
   shadows,
@@ -187,6 +188,8 @@ export interface Theme {
   spacing: typeof spacing;
   borderRadius: typeof borderRadius;
   typography: typeof typography;
+  /** Font family names after the typeface choice; prefer over the tokens. */
+  fonts: typeof fontFamilies;
   shadows: typeof shadows;
   touchTargets: typeof touchTargets;
   animations: typeof animations;
@@ -587,6 +590,44 @@ interface ThemeProviderProps {
   };
   /** Branded accent and status colors; see BrandColors. */
   brandColors?: BrandColors;
+  /** Sans typeface: "geist" (default) or "inter". Mono stays Geist Mono. */
+  typeface?: Typeface;
+}
+
+export type Typeface = "geist" | "inter";
+
+// The sans faces are registered as "<Family>-<Weight>"; swapping the family
+// prefix across the typography tree is all a typeface change needs.
+function remapFonts<T>(value: T, from: string, to: string): T {
+  if (typeof value === "string") {
+    return (
+      value.startsWith(from + "-") ? to + value.slice(from.length) : value
+    ) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => remapFonts(v, from, to)) as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] =
+        k === "fontFamily" || typeof v !== "string"
+          ? remapFonts(v, from, to)
+          : v;
+    }
+    return out as T;
+  }
+  return value;
+}
+
+function typographyFor(typeface: Typeface | undefined) {
+  if (typeface === "inter") {
+    return {
+      typography: remapFonts(typography, "Geist", "Inter"),
+      fonts: remapFonts(fontFamilies, "Geist", "Inter"),
+    };
+  }
+  return { typography, fonts: fontFamilies };
 }
 
 // Theme provider component
@@ -600,6 +641,7 @@ export function ThemeProvider({
   darkTheme,
   chromeColors,
   brandColors,
+  typeface,
 }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
   const chrome = useMemo(
@@ -638,17 +680,27 @@ export function ThemeProvider({
       chrome,
       brandColors,
     );
+    const type = typographyFor(typeface);
     return {
       colors: themeColors,
       spacing,
       borderRadius,
-      typography,
+      typography: type.typography,
+      fonts: type.fonts,
       shadows,
       touchTargets,
       animations,
       motion,
     };
-  }, [isDark, lightTheme, darkTheme, colorTheme, chrome, brandColors]);
+  }, [
+    isDark,
+    lightTheme,
+    darkTheme,
+    colorTheme,
+    chrome,
+    brandColors,
+    typeface,
+  ]);
 
   // Create theme-aware zero tokens
   const zero = useMemo<ThemeZero>(() => {
@@ -780,6 +832,7 @@ export const lightTheme: Theme = {
   spacing,
   borderRadius,
   typography,
+  fonts: fontFamilies,
   shadows,
   touchTargets,
   animations,
@@ -791,6 +844,7 @@ export const darkTheme: Theme = {
   spacing,
   borderRadius,
   typography,
+  fonts: fontFamilies,
   shadows,
   touchTargets,
   animations,

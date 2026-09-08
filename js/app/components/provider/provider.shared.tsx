@@ -144,6 +144,12 @@ export const FontProvider = ({ children }: { children: React.ReactNode }) => {
     "GeistMono-Regular": require("../../assets/fonts/GeistMono-Regular.ttf"),
     "GeistMono-Medium": require("../../assets/fonts/GeistMono-Medium.ttf"),
     "GeistMono-SemiBold": require("../../assets/fonts/GeistMono-SemiBold.ttf"),
+
+    // Inter — the alternative sans a node can pick with the typeface
+    // branding key (same three weights, mono stays Geist Mono)
+    "Inter-Regular": require("@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf"),
+    "Inter-Medium": require("@expo-google-fonts/inter/500Medium/Inter_500Medium.ttf"),
+    "Inter-SemiBold": require("@expo-google-fonts/inter/600SemiBold/Inter_600SemiBold.ttf"),
   });
 
   if (!fontLoaded && !fontError) {

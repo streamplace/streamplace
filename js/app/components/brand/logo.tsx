@@ -1,5 +1,4 @@
 import { Text, useBrandingAsset, useTheme } from "@streamplace/components";
-import { fontFamilies } from "@streamplace/components/src/lib/theme/tokens";
 import { Fragment, useMemo } from "react";
 import { Image, View, type ViewProps } from "react-native";
 import { SvgXml } from "react-native-svg";
@@ -135,7 +134,7 @@ export function Wordmark({
     fontSize: size,
     lineHeight: Math.round(size * 1.16),
     letterSpacing: letterSpacing ?? (isMedium ? -0.025 : -0.02) * size,
-    fontFamily: isMedium ? fontFamilies.medium : fontFamilies.semiBold,
+    fontFamily: isMedium ? theme.fonts.medium : theme.fonts.semiBold,
     fontWeight: (isMedium ? "500" : "600") as "500" | "600",
     color: color ?? theme.colors.text1,
   };

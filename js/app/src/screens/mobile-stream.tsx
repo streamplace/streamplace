@@ -4,11 +4,13 @@ import {
   LivestreamProvider,
   PlayerProvider,
   Text,
+  useBrandingAsset,
   useLivestreamStore,
 } from "@streamplace/components";
 import { colors, surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
+import { StreamCardLayout } from "components/stream-card/stream-card-layout";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import useTitle from "hooks/useTitle";
 import { Platform, View } from "react-native";
@@ -43,6 +45,9 @@ function MobileStreamInner({
   onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
   const problems = useLivestreamStore((x) => x.problems);
+  // Branding picks the page shape: the classic full-bleed player, or the
+  // stream as a post card beside a live-chat column.
+  const layout = useBrandingAsset("streamLayout")?.data;
 
   const userNotFoundError = problems.find((p) => p.code === "user_not_found");
 
@@ -50,6 +55,16 @@ function MobileStreamInner({
 
   if (userNotFoundError) {
     return <StreamError message={userNotFoundError.message} />;
+  }
+
+  if (layout === "card") {
+    return (
+      <StreamCardLayout
+        src={src}
+        extraProps={extraProps}
+        onTeleport={onTeleport}
+      />
+    );
   }
 
   return (

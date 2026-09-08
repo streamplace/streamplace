@@ -8,8 +8,10 @@ import {
   MenuItem,
   MenuLabel,
   MenuSeparator,
+  SegmentedTabs,
   Text,
   useStreamplaceStore,
+  useTheme,
   useToast,
   useTranslation,
   View,
@@ -23,12 +25,23 @@ import {
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  TextInput,
+} from "react-native";
 import { place } from "streamplace";
 import { SettingsRowItem } from "./components/settings-navigation-item";
 
+const NAV_LINKS_EXAMPLE =
+  '[{"label": "Home", "url": "https://example.com", "icon": "home"}, {"label": "Live", "url": "/", "icon": "play"}]';
+const NAV_CTA_EXAMPLE =
+  '{"label": "New post", "url": "https://example.com/compose"}';
+
 export function BrandingAdmin() {
   const { t } = useTranslation("settings");
+  const { theme } = useTheme();
   const agent = usePDSAgent();
   const fetchBranding = useFetchBranding();
   const toast = useToast();
@@ -141,6 +154,10 @@ export function BrandingAdmin() {
         case "warningColor":
         case "infoColor":
         case "liveColor":
+        case "navLinks":
+        case "navCta":
+        case "streamLayout":
+        case "typeface":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -870,6 +887,163 @@ export function BrandingAdmin() {
                         variant="secondary"
                         onPress={() => deleteBlob("liveColor")}
                         disabled={uploading || !brandingValue("liveColor")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-layout")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-stream-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-stream-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        {
+                          value: "classic",
+                          label: t("branding-layout-classic"),
+                        },
+                        { value: "card", label: t("branding-layout-card") },
+                      ]}
+                      value={brandingValue("streamLayout") || "classic"}
+                      onChange={(v) => uploadText("streamLayout", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-typeface")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-typeface-description")}
+                    </Text>
+                    <SegmentedTabs
+                      size="sm"
+                      options={[
+                        { value: "geist", label: "Geist" },
+                        { value: "inter", label: "Inter" },
+                      ]}
+                      value={brandingValue("typeface") || "geist"}
+                      onChange={(v) => uploadText("typeface", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-nav-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-nav-links-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={6}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 120,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={NAV_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["navLinks"] ?? brandingValue("navLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, navLinks: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText("navLinks", chromeInputs["navLinks"] ?? "")
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["navLinks"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("navLinks")}
+                        disabled={uploading || !brandingValue("navLinks")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-nav-cta")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-nav-cta-description")}
+                    </Text>
+                    <Input
+                      placeholder={NAV_CTA_EXAMPLE}
+                      value={chromeInputs["navCta"] ?? brandingValue("navCta")}
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, navCta: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText("navCta", chromeInputs["navCta"] ?? "")
+                        }
+                        disabled={
+                          uploading || !(chromeInputs["navCta"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("navCta")}
+                        disabled={uploading || !brandingValue("navCta")}
                         width="min"
                         style={{ height: 42 }}
                       >

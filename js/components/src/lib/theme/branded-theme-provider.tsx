@@ -5,7 +5,12 @@ import {
   usePrimaryColor,
   useStreamplaceStore,
 } from "../../streamplace-store";
-import { ThemeProvider, type BrandColors, type Theme } from "./theme";
+import {
+  ThemeProvider,
+  type BrandColors,
+  type Theme,
+  type Typeface,
+} from "./theme";
 
 interface BrandedThemeProviderProps {
   children: ReactNode;
@@ -73,6 +78,9 @@ export function BrandedThemeProvider({
   const successLight = useBrandingAsset("successColorLight")?.data;
   const warningLight = useBrandingAsset("warningColorLight")?.data;
   const infoLight = useBrandingAsset("infoColorLight")?.data;
+  const typefaceAsset = useBrandingAsset("typeface")?.data;
+  const typeface: Typeface | undefined =
+    typefaceAsset === "inter" ? "inter" : undefined;
   const brandColors = useMemo<BrandColors | undefined>(() => {
     if (brandingLoading) return undefined;
     return {
@@ -110,6 +118,7 @@ export function BrandedThemeProvider({
       colorTheme={colorTheme}
       chromeColors={chromeColors}
       brandColors={brandColors}
+      typeface={typeface}
     >
       {children}
     </ThemeProvider>

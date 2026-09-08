@@ -787,8 +787,16 @@ export default function Shell() {
   // centered in the window and the content is a fixed-width column — feed
   // + hairline + chat on stream pages, the 600px feed alone elsewhere —
   // rather than filling everything right of the rail.
+  // Tool screens (the creator dashboard, go-live) need the whole width and
+  // stay out of the column.
+  const fullWidthRoute =
+    currentRouteName === "LiveDashboard" || currentRouteName === "MobileGoLive";
   const socialDocked =
-    socialShell && !isNative && sidebar.isActive && !sidebar.overlay;
+    socialShell &&
+    !isNative &&
+    sidebar.isActive &&
+    !sidebar.overlay &&
+    !fullWidthRoute;
   const isStreamPage =
     currentRouteName === "Stream" ||
     (currentRouteName === "HomeMain" && !!defaultStreamer);

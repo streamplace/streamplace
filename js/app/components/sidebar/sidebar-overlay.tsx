@@ -526,8 +526,12 @@ export function SidebarOverlay() {
   // The social shell centers the nav + feed + chat cluster (Figma: 240 +
   // 600 + 407 in a 1440 window) instead of pinning the rail to the left
   // edge. The shell adds the same offset to its content margin.
+  // Tool screens leave the column (see the shell), so the rail returns to
+  // the left edge with them.
+  const fullWidthRoute =
+    currentScreen === "LiveDashboard" || currentScreen === "MobileGoLive";
   const socialOffset =
-    socialShell && sidebar.isActive && !sidebar.overlay
+    socialShell && sidebar.isActive && !sidebar.overlay && !fullWidthRoute
       ? Math.max(
           0,
           Math.floor((windowWidth - (sidebar.contentMargin + 1008)) / 2),

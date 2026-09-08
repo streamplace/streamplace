@@ -773,7 +773,12 @@ export function ThemeProvider({
       `:focus { outline: none; }`,
       `:focus-visible { outline: 2px solid ${theme.colors.focus}; outline-offset: 2px; }`,
     ].join("\n");
-  }, [isRoot, theme.colors.focus]);
+    // The web nav container is transparent (for OBS sourcing), so anything
+    // no component paints falls through to the body. The server injects the
+    // branded background into the page head, but the dev proxy bypasses it;
+    // painting from the theme covers both and follows the scheme switch.
+    document.body.style.backgroundColor = theme.colors.background;
+  }, [isRoot, theme.colors.focus, theme.colors.background]);
 
   return (
     <ThemeContext.Provider value={value}>

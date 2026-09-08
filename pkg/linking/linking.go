@@ -14,6 +14,7 @@ import (
 	"stream.place/streamplace/pkg/log"
 
 	"golang.org/x/net/html"
+	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/config"
 	"stream.place/streamplace/pkg/placestream"
 	"stream.place/streamplace/pkg/statedb"
@@ -48,36 +49,13 @@ type MetaTag struct {
 	Content string
 }
 
-var BrandingAssetList = [...]string{
-	"siteTitle",
-	"siteDescription",
-	"primaryColor",
-	"accentColor",
-	"defaultStreamer",
-	"mainLogo",
-	"favicon",
-	"sidebarBg",
-	"legalLinks",
-	"backgroundColor",
-	"foregroundColor",
-	"backgroundColorLight",
-	"foregroundColorLight",
-	"accentColorLight",
-	"dangerColor",
-	"dangerColorLight",
-	"successColor",
-	"successColorLight",
-	"warningColor",
-	"warningColorLight",
-	"infoColor",
-	"infoColorLight",
-	"liveColor",
-	"linkBanner",
-	"streamLayout",
-	"typeface",
-	"navLinks",
-	"navCta",
-}
+var BrandingAssetList = func() []string {
+	keys := make([]string, 0, len(branding.Specs))
+	for _, spec := range branding.Specs {
+		keys = append(keys, spec.Key)
+	}
+	return keys
+}()
 
 // inlineBrandingImageLimit caps the image assets embedded as data URLs in
 // the internal-brand meta tags.

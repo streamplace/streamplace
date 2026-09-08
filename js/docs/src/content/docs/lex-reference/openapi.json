@@ -3913,6 +3913,60 @@
         }
       }
     },
+    "/xrpc/place.stream.branding.exportBundle": {
+      "get": {
+        "summary": "Download the node's branding as a bundle: a zip with branding.yaml (every set key; image keys name files in the zip) plus the image files. Re-import it on another node with place.stream.branding.importBundle. Requires admin authorization.",
+        "operationId": "place.stream.branding.exportBundle",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/zip": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. Defaults to this node's.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. Defaults to this node's.",
+              "format": "did"
+            }
+          }
+        ]
+      }
+    },
     "/xrpc/place.stream.branding.getBlob": {
       "get": {
         "summary": "Get a specific branding asset blob by key.",
@@ -4017,6 +4071,114 @@
             }
           }
         ]
+      }
+    },
+    "/xrpc/place.stream.branding.importBundle": {
+      "post": {
+        "summary": "Apply a branding bundle (see exportBundle). By default the bundle replaces the node's branding: keys it does not mention are removed. Every value is validated like updateBlob. Requires admin authorization.",
+        "operationId": "place.stream.branding.importBundle",
+        "tags": ["place.stream.branding"],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "applied": {
+                      "type": "boolean",
+                      "description": "False for a dry run."
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/place.stream.branding.importBundle_change"
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["applied", "changes"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["error", "message"],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "oneOf": [
+                        {
+                          "const": "Unauthorized"
+                        },
+                        {
+                          "const": "InvalidBundle"
+                        }
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "broadcaster",
+            "in": "query",
+            "required": false,
+            "description": "DID of the broadcaster. Defaults to this node's.",
+            "schema": {
+              "type": "string",
+              "description": "DID of the broadcaster. Defaults to this node's.",
+              "format": "did"
+            }
+          },
+          {
+            "name": "merge",
+            "in": "query",
+            "required": false,
+            "description": "Keep keys the bundle does not mention instead of removing them.",
+            "schema": {
+              "type": "boolean",
+              "description": "Keep keys the bundle does not mention instead of removing them.",
+              "default": false
+            }
+          },
+          {
+            "name": "dryRun",
+            "in": "query",
+            "required": false,
+            "description": "Report what would change without writing anything.",
+            "schema": {
+              "type": "boolean",
+              "description": "Report what would change without writing anything.",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {}
+            }
+          }
+        }
       }
     },
     "/xrpc/place.stream.branding.updateBlob": {
@@ -7597,6 +7759,22 @@
           }
         },
         "required": ["key", "mimeType"]
+      },
+      "place.stream.branding.importBundle_change": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string",
+            "description": "The new text value, or the image's type and size."
+          }
+        },
+        "required": ["key", "action"]
       },
       "place.stream.badge.defs_badgeView": {
         "type": "object",

@@ -5,87 +5,36 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/streamplace/oatproxy/pkg/oatproxy"
 	"gorm.io/gorm"
 	"stream.place/streamplace/js/app"
+	"stream.place/streamplace/pkg/branding"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/placestream"
 )
 
-var defaultBrandingAssets = map[string]struct {
+// defaultBrandingAssets are the text keys with app defaults, served by
+// getBranding when the node has not set them (see pkg/branding for the
+// full vocabulary).
+var defaultBrandingAssets = func() map[string]struct {
 	data []byte
 	mime string
-}{
-	// "mainLogo":         {data: defaultLogoSVG, mime: "image/svg+xml"},
-	// "favicon":          {data: defaultFaviconSVG, mime: "image/svg+xml"},
-	"siteTitle":       {data: []byte(""), mime: "text/plain"},
-	"siteDescription": {data: []byte(""), mime: "text/plain"},
-	"primaryColor":    {data: []byte("#6366f1"), mime: "text/plain"},
-	"accentColor":     {data: []byte("#8b5cf6"), mime: "text/plain"},
-	"defaultStreamer": {data: []byte(""), mime: "text/plain"},
-	// Chrome colors: the app derives its surface, text and border ramps from
-	// one background + one foreground per color scheme (see
-	// js/components/src/lib/theme/chrome.ts). Empty means the app's defaults.
-	"backgroundColor":      {data: []byte(""), mime: "text/plain"},
-	"foregroundColor":      {data: []byte(""), mime: "text/plain"},
-	"backgroundColorLight": {data: []byte(""), mime: "text/plain"},
-	"foregroundColorLight": {data: []byte(""), mime: "text/plain"},
-	// Accent (secondary surfaces), status and live colors; the *Light keys
-	// override the light scheme. Empty means the app's defaults.
-	"accentColorLight":  {data: []byte(""), mime: "text/plain"},
-	"dangerColor":       {data: []byte(""), mime: "text/plain"},
-	"dangerColorLight":  {data: []byte(""), mime: "text/plain"},
-	"successColor":      {data: []byte(""), mime: "text/plain"},
-	"successColorLight": {data: []byte(""), mime: "text/plain"},
-	"warningColor":      {data: []byte(""), mime: "text/plain"},
-	"warningColorLight": {data: []byte(""), mime: "text/plain"},
-	"infoColor":         {data: []byte(""), mime: "text/plain"},
-	"infoColorLight":    {data: []byte(""), mime: "text/plain"},
-	"liveColor":         {data: []byte(""), mime: "text/plain"},
-	// Page shape and chrome: streamLayout "classic" | "card", typeface
-	// "geist" | "inter", navLinks (JSON [{label,url,icon}]) and navCta
-	// (JSON {label,url}) for a node's own navigation.
-	"streamLayout": {data: []byte(""), mime: "text/plain"},
-	"typeface":     {data: []byte(""), mime: "text/plain"},
-	"navLinks":     {data: []byte(""), mime: "text/plain"},
-	"navCta":       {data: []byte(""), mime: "text/plain"},
-}
-
-// brandingEnumKeys constrain a few text keys to known values ("" resets).
-var brandingEnumKeys = map[string][]string{
-	"streamLayout": {"classic", "card"},
-	"typeface":     {"geist", "inter"},
-}
-
-// brandingLongTextKeys hold JSON documents and get a larger cap than the
-// 1KB of a title or color.
-var brandingLongTextKeys = map[string]bool{"navLinks": true, "navCta": true, "legalLinks": true}
-
-// hexColor is the only form the app's theme accepts for color keys; it does
-// string math on the value (alpha tints), so anything else breaks silently.
-var hexColor = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
-
-// isColorKey reports whether a branding key holds a color.
-func isColorKey(key string) bool {
-	return strings.HasSuffix(key, "Color") || strings.HasSuffix(key, "ColorLight")
-}
-
-// brandingTextKeys are the small text-valued assets (1KB cap).
-var brandingTextKeys = func() map[string]bool {
-	m := map[string]bool{}
-	for key, def := range defaultBrandingAssets {
-		if def.mime == "text/plain" {
-			m[key] = true
-		}
+} {
+	m := map[string]struct {
+		data []byte
+		mime string
+	}{}
+	for key, def := range branding.Defaults() {
+		m[key] = struct {
+			data []byte
+			mime string
+		}{data: []byte(def), mime: branding.TextMime}
 	}
 	return m
 }()
@@ -244,37 +193,16 @@ func (s *Server) handlePlaceStreamBrandingUpdateBlob(ctx context.Context, input 
 		return nil, echo.NewHTTPError(http.StatusBadRequest, "invalid base64 data")
 	}
 
-	// validate size based on key type
-	maxSize := 500 * 1024 // 500KB default for logos
-	if input.Key == "favicon" {
-		maxSize = 100 * 1024 // 100KB for favicons
-	} else if input.Key == "linkBanner" {
-		maxSize = 2 * 1024 * 1024 // 2MB for the OpenGraph banner (1200x630)
-	} else if brandingLongTextKeys[input.Key] {
-		maxSize = 16 * 1024 // 16KB for JSON documents
-	} else if brandingTextKeys[input.Key] {
-		maxSize = 1024 // 1KB for text values
+	// validate size and value against the branding vocabulary
+	if len(data) > branding.MaxSize(input.Key) {
+		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", branding.MaxSize(input.Key)))
 	}
-	// sidebarBackgroundImage uses default 500KB limit
-	if len(data) > maxSize {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("blob too large (max %d bytes)", maxSize))
-	}
-	if allowed, ok := brandingEnumKeys[input.Key]; ok {
-		v := strings.TrimSpace(string(data))
-		if v != "" && !slices.Contains(allowed, v) {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("InvalidValue: %s must be one of %s", input.Key, strings.Join(allowed, ", ")))
+	if branding.IsText(input.Key) {
+		canon, err := branding.Normalize(input.Key, data)
+		if err != nil {
+			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+err.Error())
 		}
-		data = []byte(v)
-	}
-	if brandingLongTextKeys[input.Key] && len(data) > 0 && !json.Valid(data) {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidValue: "+input.Key+" must be JSON")
-	}
-	if isColorKey(input.Key) {
-		v := strings.TrimSpace(string(data))
-		if !hexColor.MatchString(v) {
-			return nil, echo.NewHTTPError(http.StatusBadRequest, "InvalidColor: colors must be hex, like #1a2b3c")
-		}
-		data = []byte(strings.ToLower(v))
+		data = canon
 	}
 
 	// store in database

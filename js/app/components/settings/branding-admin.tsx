@@ -28,6 +28,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
+  Pressable,
   ScrollView,
   TextInput,
 } from "react-native";
@@ -67,6 +68,115 @@ export function BrandingAdmin() {
   const currentAccentColor = useBrandingAsset("accentColor");
   const branding = useStreamplaceStore((st) => st.branding);
   const brandingValue = (key: string) => branding?.[key]?.data || "";
+
+  // Bundles: everything set on the node as a zip (branding.yaml + images).
+  // Import previews with a dry run first, then applies on confirmation.
+  const [bundleBusy, setBundleBusy] = useState(false);
+  const [bundleMerge, setBundleMerge] = useState(false);
+  const [bundlePreview, setBundlePreview] = useState<{
+    bytes: Uint8Array;
+    name: string;
+    changes: { key: string; action: string; detail?: string }[];
+    warnings: string[];
+  } | null>(null);
+
+  const exportBundle = async () => {
+    if (!agent) return;
+    setBundleBusy(true);
+    try {
+      const bytes = (await agent.client.call(
+        place.stream.branding.exportBundle,
+        { broadcaster: (broadcasterDID || undefined) as any },
+      )) as unknown as Uint8Array;
+      const blob = new Blob([bytes as any], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "branding.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e: any) {
+      toast.show(t("branding-bundle-export-failed"), e?.message, {
+        variant: "error",
+      });
+    } finally {
+      setBundleBusy(false);
+    }
+  };
+
+  const runImport = async (
+    bytes: Uint8Array,
+    dryRun: boolean,
+  ): Promise<{
+    applied: boolean;
+    changes: { key: string; action: string; detail?: string }[];
+    warnings?: string[];
+  }> => {
+    if (!agent) throw new Error("not logged in");
+    return (await agent.client.call(
+      place.stream.branding.importBundle,
+      bytes as any,
+      {
+        params: {
+          broadcaster: (broadcasterDID || undefined) as any,
+          dryRun,
+          merge: bundleMerge,
+        },
+      } as any,
+    )) as any;
+  };
+
+  const pickBundle = () => {
+    if (Platform.OS !== "web") return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".zip,application/zip";
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setBundleBusy(true);
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const res = await runImport(bytes, true);
+        setBundlePreview({
+          bytes,
+          name: file.name,
+          changes: res.changes,
+          warnings: res.warnings ?? [],
+        });
+      } catch (e: any) {
+        toast.show(t("branding-bundle-invalid"), e?.message, {
+          variant: "error",
+        });
+      } finally {
+        setBundleBusy(false);
+      }
+    };
+    input.click();
+  };
+
+  const applyBundle = async () => {
+    if (!bundlePreview) return;
+    setBundleBusy(true);
+    try {
+      const res = await runImport(bundlePreview.bytes, false);
+      toast.show(
+        t("branding-bundle-imported", { count: res.changes.length }),
+        undefined,
+        { variant: "success" },
+      );
+      setBundlePreview(null);
+      await fetchBranding();
+    } catch (e: any) {
+      toast.show(t("branding-bundle-import-failed"), e?.message, {
+        variant: "error",
+      });
+    } finally {
+      setBundleBusy(false);
+    }
+  };
   const currentBgDark = useBrandingAsset("backgroundColor");
   const currentFgDark = useBrandingAsset("foregroundColor");
   const currentBgLight = useBrandingAsset("backgroundColorLight");
@@ -893,6 +1003,107 @@ export function BrandingAdmin() {
                         {t("branding-reset")}
                       </Button>
                     </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+            </MenuGroup>
+
+            <MenuLabel>{t("branding-bundle")}</MenuLabel>
+            <MenuGroup>
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="xs" color="muted">
+                      {t("branding-bundle-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={exportBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-export")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={pickBundle}
+                        disabled={bundleBusy || Platform.OS !== "web"}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-bundle-import")}
+                      </Button>
+                    </View>
+                    <Pressable
+                      onPress={() => setBundleMerge((v) => !v)}
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Text size="sm">
+                        {bundleMerge ? "☑" : "☐"} {t("branding-bundle-merge")}
+                      </Text>
+                    </Pressable>
+                    {bundlePreview && (
+                      <View style={[zero.gap.all[2], { marginTop: 8 }]}>
+                        <Text size="sm" weight="semibold">
+                          {t("branding-bundle-preview", {
+                            name: bundlePreview.name,
+                          })}
+                        </Text>
+                        {bundlePreview.changes
+                          .filter((c) => c.action !== "unchanged")
+                          .map((c) => (
+                            <Text key={c.key} size="xs">
+                              {c.action === "added"
+                                ? "+"
+                                : c.action === "removed"
+                                  ? "−"
+                                  : "~"}{" "}
+                              {c.key}
+                              {c.detail ? `: ${c.detail}` : ""}
+                            </Text>
+                          ))}
+                        {bundlePreview.changes.every(
+                          (c) => c.action === "unchanged",
+                        ) && (
+                          <Text size="xs" color="muted">
+                            {t("branding-bundle-no-changes")}
+                          </Text>
+                        )}
+                        {bundlePreview.warnings.map((w) => (
+                          <Text key={w} size="xs" color="muted">
+                            {w}
+                          </Text>
+                        ))}
+                        <View
+                          style={[
+                            zero.layout.flex.direction.row,
+                            zero.gap.all[2],
+                          ]}
+                        >
+                          <Button
+                            variant="primary"
+                            onPress={applyBundle}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("branding-bundle-apply")}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onPress={() => setBundlePreview(null)}
+                            disabled={bundleBusy}
+                            width="min"
+                            style={{ height: 42 }}
+                          >
+                            {t("cancel")}
+                          </Button>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 </SettingsRowItem>
               </MenuItem>

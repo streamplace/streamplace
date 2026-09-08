@@ -139,7 +139,17 @@ export const RichTextMessage = ({
 // Web flows the whole message inline inside a single <Text>, with the badges and
 // handle rendered as an inline-block via display: "inline".
 // Chat is dense but legible: 14px (size base), handles in medium weight.
+// Branding key chatNameColors=off: names in the default text color instead
+// of each user's chosen chat color.
+function useNameColor(): (
+  color?: Parameters<typeof getRgbColor>[0],
+) => string | undefined {
+  const off = useBrandingAsset("chatNameColors")?.data === "off";
+  return off ? () => undefined : getRgbColor;
+}
+
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const nameColor = useNameColor();
   return (
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
@@ -160,7 +170,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             weight="medium"
             style={{
               cursor: "pointer",
-              color: getRgbColor(item.chatProfile?.color),
+              color: nameColor(item.chatProfile?.color),
             }}
           >
             {formatHandleWithAt(item.author)}
@@ -182,6 +192,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
 // a flex row beside the message instead of inline. Tapping the badges or the
 // handle opens the same profile bottom sheet via two triggers on one menu.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
+  const nameColor = useNameColor();
   const { theme } = useTheme();
   const data = useProfileCardData(item.author, item.badges);
   return (
@@ -213,7 +224,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
           <Text
             size="base"
             weight="medium"
-            style={{ color: getRgbColor(item.chatProfile?.color) }}
+            style={{ color: nameColor(item.chatProfile?.color) }}
           >
             {formatHandleWithAt(item.author)}
           </Text>
@@ -259,7 +270,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const displayName = (author.displayName || profile?.displayName)?.trim();
   const handle = formatHandleWithAt(author);
   const name = displayName || handle;
-  const nameColor = getRgbColor(item.chatProfile?.color);
+  const nameColor = useNameColor()(item.chatProfile?.color);
   const meta = { fontSize: 15, lineHeight: 23, color: theme.colors.text2 };
   // The name line is a flex row rather than nested <Text> so the badges (which
   // are views) sit after the name on every platform, a long handle truncates
@@ -355,6 +366,7 @@ export const RenderChatMessage = memo(
   }) {
     const { theme } = useTheme();
     const avatarLayout = useBrandingAsset("chatLayout")?.data === "avatar";
+    const nameColor = useNameColor();
     const formatTime = useCallback((dateString: string) => {
       return new Date(dateString).toLocaleString(undefined, {
         hour: "2-digit",
@@ -393,7 +405,7 @@ export const RenderChatMessage = memo(
                 size="xs"
                 weight="medium"
                 style={{
-                  color: getRgbColor(replyTo.chatProfile?.color),
+                  color: nameColor(replyTo.chatProfile?.color),
                 }}
               >
                 {formatHandleWithAt(replyTo.author)}

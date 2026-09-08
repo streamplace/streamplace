@@ -75,6 +75,7 @@ var Specs = []Spec{
 	{Key: "appLayout", Kind: KindEnum, Enum: []string{"classic", "social"}, MaxSize: textMax, Doc: "App shell: classic Streamplace chrome, or social (no top bar, avatar atop the nav rail, fixed-width feed column, timeline-style nav)."},
 	{Key: "streamLayout", Kind: KindEnum, Enum: []string{"classic", "card"}, MaxSize: textMax, Doc: "Stream page shape: classic full-width player, or card (post in a feed column with live chat beside it)."},
 	{Key: "typeface", Kind: KindEnum, Enum: []string{"geist", "inter"}, MaxSize: textMax, Doc: "Sans-serif typeface."},
+	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},
 	{Key: "chatLayout", Kind: KindEnum, Enum: []string{"compact", "avatar"}, MaxSize: textMax, Doc: "Chat message shape: compact one-line rows, or avatar rows with name, handle and time above the text."},
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},
 	{Key: "navCta", Kind: KindJSON, MaxSize: jsonMax, Doc: "Highlighted button under the navigation links: {label, url}."},

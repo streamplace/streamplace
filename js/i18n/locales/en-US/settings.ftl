@@ -81,7 +81,7 @@ optional = optional
 
 ## Account Settings
 account-greeting = Hey, @{ $handle }.
-edit-profile-bluesky = Edit profile (on Bluesky)
+edit-profile-bluesky = Edit profile (on { $network })
 change-name-color = Change name color
 
 ## Key Management
@@ -286,6 +286,10 @@ branding-site-title = Site Title
 branding-site-title-placeholder = Enter new site title
 branding-site-description = Site Description
 branding-site-description-placeholder = Enter site description
+branding-network-name = Network name
+branding-network-name-description = What the app calls the social network viewers sign in with and share to: "Sign in with your { $network } account", "Share to { $network }", the live-ring permission. Default Bluesky.
+branding-login-placeholder = Login handle example
+branding-login-placeholder-description = The example handle shown in the login form's empty handle field, e.g. you.example.com.
 branding-default-streamer = Default Streamer
 branding-default-streamer-none = None
 branding-default-streamer-placeholder = did:plc:...

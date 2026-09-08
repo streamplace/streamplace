@@ -263,6 +263,17 @@ export function useCardStreamLayout(): boolean {
   return layout === "card" || social;
 }
 
+/** What the app calls the social network (branding key networkName). */
+export function useNetworkName(): string {
+  return useBrandingAsset("networkName")?.data?.trim() || "Bluesky";
+}
+
+/** Example handle in the login form's empty field (branding key
+ *  loginPlaceholder), or undefined for the app's own. */
+export function useLoginPlaceholder(): string | undefined {
+  return useBrandingAsset("loginPlaceholder")?.data?.trim() || undefined;
+}
+
 // convenience hook for main logo
 export function useMainLogo(): string | undefined {
   const asset = useBrandingAsset("mainLogo");

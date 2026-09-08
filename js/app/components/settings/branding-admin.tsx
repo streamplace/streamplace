@@ -282,6 +282,8 @@ export function BrandingAdmin() {
         case "socialHeading":
         case "socialLinks":
         case "bottomLinks":
+        case "networkName":
+        case "loginPlaceholder":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -601,6 +603,126 @@ export function BrandingAdmin() {
                         style={{ height: 42 }}
                       >
                         {t("update")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-network-name")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-network-name-description", {
+                        network: "Bluesky",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="Bluesky"
+                          value={
+                            chromeInputs["networkName"] ??
+                            brandingValue("networkName")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              networkName: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "networkName",
+                            chromeInputs["networkName"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["networkName"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("networkName")}
+                        disabled={uploading || !brandingValue("networkName")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-login-placeholder")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-login-placeholder-description", {
+                        network: "Bluesky",
+                      })}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="you.example.com"
+                          value={
+                            chromeInputs["loginPlaceholder"] ??
+                            brandingValue("loginPlaceholder")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginPlaceholder: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginPlaceholder",
+                            chromeInputs["loginPlaceholder"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginPlaceholder"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginPlaceholder")}
+                        disabled={
+                          uploading || !brandingValue("loginPlaceholder")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
                       </Button>
                     </View>
                   </View>

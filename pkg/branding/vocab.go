@@ -53,6 +53,8 @@ const (
 var Specs = []Spec{
 	{Key: "siteTitle", Kind: KindText, MaxSize: textMax, Doc: "Name of the node, shown in the nav lockup, the browser tab and link cards."},
 	{Key: "siteDescription", Kind: KindText, MaxSize: textMax, Doc: "One-line description for link cards and the page meta description."},
+	{Key: "networkName", Kind: KindText, Default: "Bluesky", MaxSize: textMax, Doc: "What the app calls the social network viewers sign in with and share to."},
+	{Key: "loginPlaceholder", Kind: KindText, MaxSize: textMax, Doc: "Example handle shown in the login form's empty handle field."},
 	{Key: "defaultStreamer", Kind: KindText, MaxSize: textMax, Doc: "Handle or DID whose stream page is the node's front door (single-user nodes)."},
 	{Key: "primaryColor", Kind: KindColor, Default: "#6366f1", MaxSize: textMax, Doc: "Buttons, links, focus rings."},
 	{Key: "accentColor", Kind: KindColor, Default: "#8b5cf6", MaxSize: textMax, Doc: "Secondary surfaces and highlights."},

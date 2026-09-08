@@ -46,7 +46,7 @@ completing-sign-in = Completing sign-in…
 already-logged-in = You're already logged in.
 signed-in-as = Signed in as @{ $handle }
 signed-in-as-code = Signed in as { $handle }
-sign-in-description = Sign in with your Atmosphere account, such as your Bluesky account.
+sign-in-description = Sign in with your Atmosphere account, such as your { $network } account.
 handle-label = Handle
 redirecting = Redirecting…
 sign-in-failed = Sign-in failed
@@ -87,7 +87,7 @@ viewer-count = { $count ->
 
 ## PDS Host Selector
 pds-selector-title = New to the Atmosphere?
-pds-selector-description = Choose where your Atmosphere account is hosted. You can use it with Bluesky, Streamplace, and other Atmosphere apps.
+pds-selector-description = Choose where your Atmosphere account is hosted. You can use it with { $network }, Streamplace, and other Atmosphere apps.
 pds-selector-show-other-hosts = See { $count } other account hosts
 pds-selector-custom-label = Another account host
 pds-selector-custom-description = Enter your own account host URL
@@ -121,7 +121,7 @@ chat-reply-to-message = Reply to message
 chat-pin-message = Pin message
 chat-unpin-message = Unpin message
 chat-dismiss-pinned = Dismiss pinned message
-chat-view-profile-bluesky = View profile on Bluesky
+chat-view-profile-bluesky = View profile on { $network }
 chat-send-message = Send a message
 chat-replying-to = Replying to { $handle }
 chat-insert-emoji = Insert emoji
@@ -174,7 +174,7 @@ share-copy-embed-url = Copy Embed URL
 share-copy-failed = Couldn’t copy that
 share-video = Share
 share-video-message = Watch { $title } on Streamplace
-share-to-bluesky = Share to Bluesky
+share-to-bluesky = Share to { $network }
 share-more-options = More sharing options
 share-failed = Couldn’t open sharing options
 like-video = Like
@@ -331,8 +331,8 @@ required = Required
 select-license = Select a license…
 
 ## Login
-login-show-live-on-bluesky = Show when I'm live on Bluesky
-login-show-live-on-bluesky-description = Gives your Bluesky avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your Bluesky account.
+login-show-live-on-bluesky = Show when I'm live on { $network }
+login-show-live-on-bluesky-description = Gives your { $network } avatar the red LIVE ring while you stream and lets Streamplace post announcements for you. Uncheck to sign in without granting any access to your { $network } account.
 
 ## Video Player - Controls
 player-play = Play

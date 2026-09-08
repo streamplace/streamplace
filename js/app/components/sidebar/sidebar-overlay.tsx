@@ -16,7 +16,7 @@ import {
 import { BlueskyIcon } from "@streamplace/components/src/components/icons/bluesky-icon";
 import { DiscordIcon } from "@streamplace/components/src/components/icons/discord-icon";
 import { colors, spacing } from "@streamplace/components/src/lib/theme/tokens";
-import { SiteTitleLockup } from "components/brand/logo";
+import { decodeDataUrlText, SiteTitleLockup } from "components/brand/logo";
 import { LogoBrandMenu } from "components/brand/logo-brand-menu";
 import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
@@ -30,6 +30,7 @@ import {
   Hash,
   Home,
   Library,
+  Link as LinkIcon,
   List,
   LogIn,
   Menu,
@@ -41,9 +42,10 @@ import {
   UserCircle,
   Video,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { SvgXml } from "react-native-svg";
 import {
   getStreamplaceStateFromPath,
   streamplaceLinkingOptions,
@@ -116,6 +118,52 @@ export function parseNavCta(
   return null;
 }
 
+/**
+ * Social links (branding keys socialHeading / socialLinks / socialIcon1-4):
+ * the "Say Hello?" row at the bottom of the sidebar. socialLinks is a JSON
+ * array of { label, url, icon } where icon is one of SOCIAL_ICONS, one of
+ * NAV_ICONS, or socialIcon1..socialIcon4 for an uploaded image. Unset shows
+ * the Streamplace defaults; an empty array hides the row.
+ */
+export const SOCIAL_ICONS: Record<string, React.ComponentType<any>> = {
+  bluesky: BlueskyIcon,
+  discord: DiscordIcon,
+};
+
+export const SOCIAL_ICON_SLOTS = [
+  "socialIcon1",
+  "socialIcon2",
+  "socialIcon3",
+  "socialIcon4",
+];
+
+export const DEFAULT_SOCIAL_LINKS: BrandedNavLink[] = [
+  {
+    label: "Bluesky",
+    url: "https://bsky.app/profile/stream.place",
+    icon: "bluesky",
+  },
+  { label: "Discord", url: "https://discord.stream.place", icon: "discord" },
+];
+
+export function parseSocialLinks(
+  raw: string | undefined,
+): BrandedNavLink[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .filter(
+        (l: any) =>
+          l && typeof l.label === "string" && typeof l.url === "string",
+      )
+      .map((l: any) => ({ label: l.label, url: l.url, icon: l.icon }));
+  } catch {
+    return null;
+  }
+}
+
 const isExternal = (url: string) => /^[a-z]+:/i.test(url);
 
 /**
@@ -161,18 +209,64 @@ export function SidebarToggle({
   );
 }
 
+// An uploaded SVG icon is tinted like the built-in ones when it is authored
+// with currentColor; anything else (multi-color SVG, raster) renders as
+// drawn.
+function UploadedSocialIcon({
+  slot,
+  size,
+  color,
+}: {
+  slot: string;
+  size: number;
+  color: string;
+}) {
+  const asset = useBrandingAsset(slot);
+  const data = asset?.data;
+  const mime = asset?.mimeType ?? "";
+  const svg = useMemo(() => {
+    if (!data || !data.startsWith("data:")) return null;
+    if (!mime.includes("svg") && !data.startsWith("data:image/svg")) {
+      return null;
+    }
+    const text = decodeDataUrlText(data);
+    return text && text.includes("<svg") ? text : null;
+  }, [data, mime]);
+  if (svg) {
+    return (
+      <SvgXml
+        xml={svg.replaceAll("currentColor", color)}
+        width={size}
+        height={size}
+      />
+    );
+  }
+  if (data) {
+    return (
+      <Image
+        source={{ uri: data }}
+        style={{ width: size, height: size }}
+        contentFit="contain"
+      />
+    );
+  }
+  return <LinkIcon size={size} color={color} />;
+}
+
 function SocialIconButton({
   icon,
   label,
   href,
 }: {
-  icon: React.ComponentType<any>;
+  icon?: string;
   label: string;
   href: string;
 }) {
   const { theme } = useTheme();
   const [hover, setHover] = useState(false);
-  const Icon = icon;
+  const color = hover ? theme.colors.text1 : theme.colors.text2;
+  const slot = icon && SOCIAL_ICON_SLOTS.includes(icon) ? icon : null;
+  const Icon = SOCIAL_ICONS[icon ?? ""] ?? NAV_ICONS[icon ?? ""] ?? LinkIcon;
   return (
     <Pressable
       onPress={(e) => {
@@ -197,10 +291,11 @@ function SocialIconButton({
           },
         ]}
       >
-        <Icon
-          size={24}
-          color={hover ? theme.colors.text1 : theme.colors.text2}
-        />
+        {slot ? (
+          <UploadedSocialIcon slot={slot} size={24} color={color} />
+        ) : (
+          <Icon size={24} color={color} />
+        )}
       </View>
     </Pressable>
   );
@@ -305,15 +400,24 @@ export function SidebarOverlay() {
     };
   });
 
+  // Branded navigation replaces the browse/creator sections when present;
+  // the social row is branded the same way. Hooks stay above the early
+  // return below so the count is stable when the sidebar deactivates on
+  // resize.
+  const brandedLinks = parseNavLinks(useBrandingAsset("navLinks")?.data);
+  const brandedCta = parseNavCta(useBrandingAsset("navCta")?.data);
+  const socialLinks =
+    parseSocialLinks(useBrandingAsset("socialLinks")?.data) ??
+    DEFAULT_SOCIAL_LINKS;
+  const socialHeading =
+    useBrandingAsset("socialHeading")?.data?.trim() || "Say Hello?";
+
   // Don't render if sidebar is not active (small screen) or hidden
   if (!sidebar.isActive || sidebar.isHidden) {
     return null;
   }
 
   // Browse destinations — public, content-first, YouTube-style
-  // Branded navigation replaces the browse/creator sections when present.
-  const brandedLinks = parseNavLinks(useBrandingAsset("navLinks")?.data);
-  const brandedCta = parseNavCta(useBrandingAsset("navCta")?.data);
   const brandedItems: SidebarNavItem[] = brandedLinks.map((l) => ({
     icon: NAV_ICONS[l.icon ?? ""] ?? Hash,
     label: l.label,
@@ -613,44 +717,37 @@ export function SidebarOverlay() {
               Linking.openURL(u.toString());
             }}
           />
-          {renderSectionHeader("Say Hello?")}
-          {collapsed ? (
-            <View
-              style={[
-                zero.layout.flex.column,
-                zero.layout.flex.alignCenter,
-                { gap: 2 },
-              ]}
-            >
-              <SocialIconButton
-                icon={BlueskyIcon}
-                label="Bluesky"
-                href="https://bsky.app/profile/stream.place"
-              />
-              <SocialIconButton
-                icon={DiscordIcon}
-                label="Discord"
-                href="https://discord.stream.place"
-              />
-            </View>
-          ) : (
-            <View
-              style={[
-                zero.layout.flex.row,
-                { gap: 2, paddingHorizontal: spacing[3] },
-              ]}
-            >
-              <SocialIconButton
-                icon={BlueskyIcon}
-                label="Bluesky"
-                href="https://bsky.app/profile/stream.place"
-              />
-              <SocialIconButton
-                icon={DiscordIcon}
-                label="Discord"
-                href="https://discord.stream.place"
-              />
-            </View>
+          {socialLinks.length > 0 && (
+            <>
+              {renderSectionHeader(socialHeading)}
+              <View
+                style={
+                  collapsed
+                    ? [
+                        zero.layout.flex.column,
+                        zero.layout.flex.alignCenter,
+                        { gap: 2 },
+                      ]
+                    : [
+                        zero.layout.flex.row,
+                        {
+                          gap: 2,
+                          paddingHorizontal: spacing[3],
+                          flexWrap: "wrap",
+                        },
+                      ]
+                }
+              >
+                {socialLinks.map((link) => (
+                  <SocialIconButton
+                    key={link.url + link.label}
+                    icon={link.icon}
+                    label={link.label}
+                    href={link.url}
+                  />
+                ))}
+              </View>
+            </>
           )}
         </View>
       )}

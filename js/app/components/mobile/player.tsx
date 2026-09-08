@@ -63,6 +63,14 @@ export function Player(
     onTeleport?: (targetHandle: string, targetDID: string) => void;
     /** Never mount the chat side panel; the caller places chat itself. */
     hideChat?: boolean;
+    /** Replaces the full offline card when the streamer is not live. */
+    offlineContent?: React.ReactNode;
+    /**
+     * Size the video to the parent box instead of the window: no desktop
+     * theater framing, no window-derived heights. For layouts that embed
+     * the player in a card.
+     */
+    fitContainer?: boolean;
   },
 ) {
   const inner = (
@@ -89,6 +97,8 @@ function PlayerWithProvider(
     setFullscreen?: (fullscreen: boolean) => void;
     onTeleport?: (targetHandle: string, targetDID: string) => void;
     hideChat?: boolean;
+    offlineContent?: React.ReactNode;
+    fitContainer?: boolean;
   },
 ) {
   // Chat visibility is a persisted preference (survives reloads), except VOD
@@ -346,6 +356,8 @@ export function PlayerInner(
     showChat: boolean;
     setShowChat: (show: boolean) => void;
     showUnavailable: boolean;
+    offlineContent?: React.ReactNode;
+    fitContainer?: boolean;
   },
 ) {
   let sb = useSidebarControl();
@@ -429,12 +441,13 @@ export function PlayerInner(
     };
   }, [width, height]);
   // should cover full width on mobile?
-  const isDesktopMode = shouldShowChatSidePanel || screenWidth > 1200;
+  const fit = !!props.fitContainer;
+  const isDesktopMode = !fit && (shouldShowChatSidePanel || screenWidth > 1200);
   // Calculate optimal height for desktop mode (90% of available height)
   const maxDesktopHeight = availableHeight * 0.8;
   const chatVisible = shouldShowChatSidePanel && props.showChat;
 
-  const showFullDesktopMode = aspectRatio > 1 && screenWidth > 1200;
+  const showFullDesktopMode = !fit && aspectRatio > 1 && screenWidth > 1200;
   const isLandscape = aspectRatio > 1;
 
   // Desktop theater framing: the player floats in a padded well with
@@ -474,10 +487,12 @@ export function PlayerInner(
   });
 
   const videoContent = props.showUnavailable ? (
-    <UserOffline />
+    (props.offlineContent ?? <UserOffline />)
   ) : (
     <PlayerInnerInner {...props}>
-      {showFullDesktopMode || fullscreen ? (
+      {fit || showFullDesktopMode || fullscreen ? (
+        // Embedded in a card the player keeps the hover controls; the
+        // mobile chrome assumes it owns the whole screen.
         <DesktopUi dropdownPortalContainer={dropdownPortalRef.current} />
       ) : (
         (isLandscape || props.mode === "vod") && (
@@ -539,13 +554,21 @@ export function PlayerInner(
   // collapse below full height after rotating from portrait to landscape.
   if (props.mode !== "vod" && !showFullDesktopMode) {
     return (
-      <View style={{ flex: 1, maxWidth: calculatedWidth + playerPad * 2 }}>
+      <View
+        style={{
+          flex: 1,
+          maxWidth: fit ? undefined : calculatedWidth + playerPad * 2,
+        }}
+      >
         <Reanimated.View
           style={[
             { flex: 1 },
             {
               paddingTop:
-                isPlayerRatioGreater && !isLandscape && !props.showUnavailable
+                !fit &&
+                isPlayerRatioGreater &&
+                !isLandscape &&
+                !props.showUnavailable
                   ? safeAreaInsets.top
                   : 0,
             },

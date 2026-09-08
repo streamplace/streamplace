@@ -27,12 +27,11 @@ import {
   Settings,
   Share2,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Platform,
   Pressable,
   ScrollView,
-  useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
 import { useStore } from "store";
@@ -163,6 +162,41 @@ function CardHeader() {
   );
 }
 
+// A quiet offline state sized to the embed box, in place of the player's
+// full-screen offline card (which lays itself out against the window).
+function CardOffline({ handle }: { handle: string }) {
+  const { theme } = useTheme();
+  return (
+    <View
+      style={{
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        backgroundColor: theme.colors.surface1,
+      }}
+    >
+      <Text
+        weight="semibold"
+        style={{ fontSize: 17, lineHeight: 22, textAlign: "center" }}
+      >
+        {handle} is offline right now
+      </Text>
+      <Text
+        style={{
+          fontSize: 15,
+          lineHeight: 20,
+          marginTop: 6,
+          color: theme.colors.text2,
+          textAlign: "center",
+        }}
+      >
+        Check back later.
+      </Text>
+    </View>
+  );
+}
+
 function PostCard({
   src,
   extraProps,
@@ -174,8 +208,17 @@ function PostCard({
 }) {
   const { theme } = useTheme();
   const toast = useToast();
-  const { title, avatarUri, isLive, views, displayName, handleStr } =
-    useStreamMeta();
+  const { title, avatarUri, views, displayName, handleStr } = useStreamMeta();
+  // Liveness from the segments actually arriving (a fresh one in the last
+  // ten seconds), not the player's mode; no segment at all means offline.
+  const segment = useLivestreamStore((x) => x.segment);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const isLive =
+    !!segment?.startTime && now - Date.parse(segment.startTime) < 10_000;
   const ls = useLivestreamStore((x) => x.livestream);
   const postDate = formatPostDate((ls?.record as any)?.createdAt);
   const name = displayName || handleStr;
@@ -249,6 +292,8 @@ function PostCard({
             src={src}
             {...extraProps}
             hideChat
+            fitContainer
+            offlineContent={<CardOffline handle={handleStr} />}
             onTeleport={onTeleport}
           />
         </FullscreenProvider>
@@ -397,7 +442,7 @@ function CardChatPanel({ fill }: { fill: boolean }) {
       </Text>
       <PinnedCard />
       <View style={{ flex: 1, minHeight: 0 }}>
-        <Chat />
+        <Chat reverse />
       </View>
       {agent?.did ? (
         <ChatBox
@@ -463,7 +508,6 @@ export function StreamCardLayout({
   onTeleport?: (targetHandle: string, targetDID: string) => void;
 }) {
   const { theme } = useTheme();
-  const { height: windowHeight } = useWindowDimensions();
   // Measure the content area rather than the window: the app's sidebar
   // takes a slice of the window on web.
   const [contentWidth, setContentWidth] = useState(0);
@@ -493,7 +537,7 @@ export function StreamCardLayout({
           <Hairline />
         </ScrollView>
         <Hairline vertical />
-        <View style={{ width: CHAT_WIDTH, height: windowHeight }}>
+        <View style={{ width: CHAT_WIDTH, alignSelf: "stretch" }}>
           <CardChatPanel fill />
         </View>
       </View>

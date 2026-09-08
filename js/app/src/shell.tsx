@@ -13,6 +13,7 @@ import {
   useAccentColor,
   useAccessStatusError,
   useAccessStatusLoaded,
+  useBrandingAsset,
   useBrandingSettled,
   useDID,
   usePrimaryColor,
@@ -751,8 +752,11 @@ export default function Shell() {
   // so it opens as an overlay drawer over dimmed content instead of pushing.
   const setOverlay = useStore((state) => state.setOverlay);
   const closeDrawer = useStore((state) => state.closeDrawer);
+  // The card stream layout is a feed page with the nav beside it, not a
+  // full-bleed player, so it keeps the sidebar in flow.
+  const cardStreamLayout = useBrandingAsset("streamLayout")?.data === "card";
   const isDetailView =
-    currentRouteName === "Stream" ||
+    (currentRouteName === "Stream" && !cardStreamLayout) ||
     currentRouteName === "Video" ||
     currentRouteName === "Vod";
   // Video pages get a YouTube-style sticky translucent header the content

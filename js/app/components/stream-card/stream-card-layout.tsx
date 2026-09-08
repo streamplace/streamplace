@@ -149,6 +149,71 @@ function CardHeader() {
   );
 }
 
+// The feed column's tab bar from the design: Live (this page), Video on
+// demand and Go live, so viewers learn those exist even before they're the
+// node's focus. 48px, 15px labels, a 3px brand-colored indicator.
+function CardTabs() {
+  const { theme } = useTheme();
+  const navigation: any = useNavigation();
+  const tabs: { label: string; active?: boolean; onPress: () => void }[] = [
+    { label: "Live", active: true, onPress: () => {} },
+    {
+      label: "Video on demand",
+      onPress: () => navigation.navigate("MainTabs", { screen: "VideosTab" }),
+    },
+    {
+      label: "Go live",
+      onPress: () =>
+        navigation.navigate("MainTabs", {
+          screen: "HomeTab",
+          params: { screen: "LiveDashboard" },
+        }),
+    },
+  ];
+  return (
+    <View style={{ flexDirection: "row", height: 48 }}>
+      {tabs.map((tab) => (
+        <Pressable
+          key={tab.label}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: !!tab.active }}
+          onPress={tab.onPress}
+          style={({ hovered }: any) => ({
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "flex-end",
+            paddingTop: 14,
+            opacity: hovered && !tab.active ? 0.85 : 1,
+          })}
+        >
+          <Text
+            weight="semibold"
+            style={{
+              fontSize: 15,
+              lineHeight: 20,
+              color: tab.active ? theme.colors.text1 : theme.colors.text2,
+            }}
+          >
+            {tab.label}
+          </Text>
+          <View
+            style={{
+              marginTop: 10,
+              height: 3,
+              alignSelf: "stretch",
+              marginHorizontal: 16,
+              borderRadius: 2,
+              backgroundColor: tab.active
+                ? theme.colors.primary
+                : "transparent",
+            }}
+          />
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 // A quiet offline state sized to the embed box, in place of the player's
 // full-screen offline card (which lays itself out against the window).
 function CardOffline({ handle }: { handle: string }) {
@@ -564,6 +629,8 @@ export function StreamCardLayout({
         >
           <CardHeader />
           <Hairline />
+          <CardTabs />
+          <Hairline />
           <PostCard src={src} extraProps={extraProps} onTeleport={onTeleport} />
           <Hairline />
         </ScrollView>
@@ -588,6 +655,8 @@ export function StreamCardLayout({
     >
       <View style={{ flex: 1, width: "100%", maxWidth: FEED_WIDTH }}>
         <CardHeader />
+        <Hairline />
+        <CardTabs />
         <Hairline />
         <PostCard
           src={src}

@@ -4,7 +4,7 @@ import {
   Mention,
 } from "@atproto/api/dist/client/types/app/bsky/richtext/facet";
 import { Facet, RichtextSegment, segmentize } from "@streamplace/core";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
 import { ChatMessageViewHydrated } from "streamplace";
 import { flex, gap, ml, mr, opacity, pl } from "../../lib/theme/atoms";
@@ -18,6 +18,7 @@ import {
   useTheme,
 } from "../ui";
 
+import { useAvatars } from "../../hooks/useAvatars";
 import { useLivestreamStore } from "../../livestream-store";
 import { useBrandingAsset } from "../../streamplace-store";
 import { Avatar } from "../ui/avatar";
@@ -250,7 +251,12 @@ function relativeAge(dateString: string): string {
 const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const { theme } = useTheme();
   const author = item.author;
-  const displayName = author.displayName?.trim();
+  // Hydrated messages carry handle and display name but not the avatar;
+  // the profile cache batches getProfiles across visible rows.
+  const dids = useMemo(() => [author.did], [author.did]);
+  const profile = useAvatars(dids)[author.did];
+  const avatar = profile?.avatar || author.avatar;
+  const displayName = (author.displayName || profile?.displayName)?.trim();
   const handle = formatHandleWithAt(author);
   const name = displayName || handle;
   const nameColor = getRgbColor(item.chatProfile?.color);
@@ -266,11 +272,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
         { gap: 12, minWidth: 0, maxWidth: "100%", paddingVertical: 4 },
       ]}
     >
-      <Avatar
-        src={author.avatar}
-        name={displayName || author.handle}
-        size={42}
-      />
+      <Avatar src={avatar} name={displayName || author.handle} size={42} />
       <View style={[flex.shrink[1], { flex: 1, minWidth: 0 }]}>
         <View
           style={[

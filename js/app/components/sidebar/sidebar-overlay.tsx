@@ -787,17 +787,20 @@ export function SidebarOverlay() {
         </>
       )}
 
-      {/* Hairline section divider */}
-      <View
-        style={{
-          height: 1,
-          backgroundColor: theme.colors.borderSubtle,
-          marginVertical: spacing[3],
-          marginHorizontal: spacing[3],
-        }}
-      />
-
-      <View style={{ gap: 2 }}>{renderItems(secondaryItems)}</View>
+      {/* Hairline section divider, only when there is a section under it */}
+      {secondaryItems.some((item) => !item.hidden) && (
+        <>
+          <View
+            style={{
+              height: 1,
+              backgroundColor: theme.colors.borderSubtle,
+              marginVertical: spacing[3],
+              marginHorizontal: spacing[3],
+            }}
+          />
+          <View style={{ gap: 2 }}>{renderItems(secondaryItems)}</View>
+        </>
+      )}
 
       {/* Bottom links and the social row pinned to the bottom */}
       {isBrowser && (

@@ -462,6 +462,7 @@ function CardChatPanel({ fill }: { fill: boolean }) {
           }}
           placeholder="Write your message..."
           hideSendButton
+          hideToolbar
           leftSlot={<MessageIcon size={18} color={theme.colors.text3} />}
           emojiPicker={(isOpen, onClose, onSelect) => (
             <EmojiPicker

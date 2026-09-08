@@ -66,12 +66,15 @@ export function ChatBox({
   hideLogin = false,
   leftSlot,
   hideSendButton = false,
+  hideToolbar = false,
   placeholder = "Type a message...",
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
   /** Enter still sends; the timeline-style composer has no button. */
   hideSendButton?: boolean;
+  /** No @ / emoji / popout row under the field. */
+  hideToolbar?: boolean;
   placeholder?: string;
   emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
@@ -605,7 +608,7 @@ export function ChatBox({
           skinTone={skinTone}
         />
       )}
-      {Platform.OS === "web" && (
+      {Platform.OS === "web" && !hideToolbar && (
         <View
           style={[
             layout.flex.row,

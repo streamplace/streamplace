@@ -5,6 +5,8 @@ import {
   Loader,
   Text,
   Tooltip,
+  useLoginPlaceholder,
+  useNetworkName,
   useTheme,
   useTranslation,
   zero,
@@ -35,6 +37,8 @@ export default function LoginForm({
 }: LoginFormProps) {
   const { theme } = useTheme();
   const { t } = useTranslation("common");
+  const network = useNetworkName();
+  const loginPlaceholder = useLoginPlaceholder();
   const loginAction = useStore((state) => state.login);
   const openLoginLink = useStore((state) => state.openLoginLink);
   const authStatus = useStore((state) => state.authStatus);
@@ -144,7 +148,7 @@ export default function LoginForm({
           <Info size={16} style={{ paddingTop: 4 }} color={theme.colors.ring} />
         </Pressable>
         <Text style={[{ color: theme.colors.textMuted }]}>
-          (e.g. your Bluesky handle)
+          (e.g. your {network} handle)
         </Text>
       </View>
 
@@ -274,7 +278,7 @@ export default function LoginForm({
                   .trim(),
               )
             }
-            placeholder="jcsalterego.bsky.social"
+            placeholder={loginPlaceholder ?? "jcsalterego.bsky.social"}
             onKeyPress={onKeyPress}
             onSubmitEditing={submit}
             autoCapitalize="none"
@@ -353,14 +357,14 @@ export default function LoginForm({
           </View>
         </View>
         <Tooltip
-          content={t("login-show-live-on-bluesky-description")}
+          content={t("login-show-live-on-bluesky-description", { network })}
           position="top"
           style={{ flex: 1 }}
         >
           <Checkbox
             checked={blueskyPermissions}
             onCheckedChange={setBlueskyPermissions}
-            label={t("login-show-live-on-bluesky")}
+            label={t("login-show-live-on-bluesky", { network })}
           />
         </Tooltip>
       </View>

@@ -13,6 +13,8 @@ import {
   View,
   zero,
 } from "@streamplace/components";
+import { RichTextMessage } from "@streamplace/components/src/components/chat/chat-message";
+import { useAvatars } from "@streamplace/components/src/hooks/useAvatars";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
@@ -21,7 +23,7 @@ import { PlayerProps } from "components/player/props";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import { ArrowLeft, ArrowRight, Eye, Pin, Share2 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -368,12 +370,19 @@ function PostCard({
 function PinnedCard() {
   const { theme } = useTheme();
   const pinned = useLivestreamStore((x) => x.pinnedComment);
-  if (!pinned?.message) return null;
-  const message: any = pinned.message;
-  const author = message.author ?? {};
-  const name: string = author.displayName || author.handle || "";
+  const message: any = pinned?.message;
+  const author = message?.author ?? {};
+  // The pinned record carries the author's handle but not avatar or
+  // display name; the profile cache fills them in like chat rows do.
+  const dids = useMemo(() => (author.did ? [author.did] : []), [author.did]);
+  const profile = useAvatars(dids)[author.did];
+  if (!message) return null;
+  const avatar: string | undefined = profile?.avatar || author.avatar;
+  const name: string =
+    author.displayName || profile?.displayName || author.handle || "";
   const handle: string = author.handle ? `@${author.handle}` : "";
   const text: string = message.record?.text ?? "";
+  const facets = message.record?.facets ?? [];
   return (
     <View
       style={{
@@ -404,19 +413,21 @@ function PinnedCard() {
       <View
         style={{ flexDirection: "row", gap: 12, padding: 12, paddingTop: 8 }}
       >
-        <Avatar src={author.avatar} name={name} size={42} />
+        <Avatar src={avatar} name={name} size={42} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text numberOfLines={1} style={{ fontSize: 15, lineHeight: 23 }}>
             <Text weight="semibold" style={{ fontSize: 15 }}>
               {name}
             </Text>
-            {handle ? (
+            {handle && name !== author.handle ? (
               <Text style={{ fontSize: 15, color: theme.colors.text2 }}>
                 {"  " + handle}
               </Text>
             ) : null}
           </Text>
-          <Text style={{ fontSize: 15, lineHeight: 23 }}>{text}</Text>
+          <Text style={{ fontSize: 15, lineHeight: 23 }}>
+            <RichTextMessage text={text} facets={facets} />
+          </Text>
         </View>
       </View>
     </View>

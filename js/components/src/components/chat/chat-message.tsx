@@ -331,9 +331,11 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             </View>
           )}
           {displayName ? (
+            // The handle gives way first: it shrinks many times faster than
+            // the name, so the name only truncates once the handle is gone.
             <Text
               numberOfLines={1}
-              style={[flex.shrink[1], { ...meta, marginLeft: 8, minWidth: 0 }]}
+              style={{ ...meta, marginLeft: 8, minWidth: 0, flexShrink: 20 }}
             >
               {handle}
             </Text>

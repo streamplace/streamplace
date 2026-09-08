@@ -32,6 +32,7 @@ import {
   UserProfileCard,
   useProfileCardData,
 } from "./user-profile-card";
+import { VerifiedBadge } from "./verified-badge";
 
 // Deterministic per-user color, muted so a busy chat doesn't turn into a
 // rainbow, and clamped for contrast against the dark chat surface: colors
@@ -159,6 +160,8 @@ function useNameColor(): (
 
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
+  const dids = useMemo(() => [item.author.did], [item.author.did]);
+  const profile = useAvatars(dids)[item.author.did];
   return (
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
       <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
@@ -184,6 +187,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
           >
             {formatHandleWithAt(item.author)}
           </Text>
+          <VerifiedBadge author={item.author} profile={profile} size={14} />
         </View>
       </UserProfileCard>
       <Text size="base" color="default">
@@ -202,6 +206,8 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
 // handle opens the same profile bottom sheet via two triggers on one menu.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
+  const dids = useMemo(() => [item.author.did], [item.author.did]);
+  const profile = useAvatars(dids)[item.author.did];
   const { theme } = useTheme();
   const data = useProfileCardData(item.author, item.badges);
   return (
@@ -225,6 +231,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
             }}
           >
             <BadgeDisplayRow badges={item.badges} />
+            <VerifiedBadge author={item.author} profile={profile} size={14} />
           </Pressable>
         </DropdownMenuTrigger>
       )}
@@ -323,6 +330,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
               </Text>
             </UserProfileCard>
           </View>
+          <VerifiedBadge author={author} profile={profile} />
           {!!item.badges?.length && (
             <View
               style={[

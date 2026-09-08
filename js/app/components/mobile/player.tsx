@@ -211,7 +211,11 @@ function PlayerWithProvider(
   const localLivestreamURI = useLivestreamStore((x) => x.localLivestreamURI);
 
   let chatSection: React.ReactNode = null;
-  if (props.mode === "vod") {
+  if (props.mode === "vod" || props.hideChat) {
+    // Not merely collapsed: a mounted-but-hidden side panel still hosts a
+    // composer, and setting a reply target focuses it, which scrolls the
+    // hidden panel into view inside the player (the card layout has its
+    // own chat column).
     chatSection = null;
   } else if (isPortraitLandscapeCase) {
     // Mobile portrait watching a landscape stream: YouTube grammar —

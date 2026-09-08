@@ -54,8 +54,13 @@ function PrivacySettings() {
     setError(null);
     try {
       await createServerSettingsRecord(patch);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to update setting");
+    } catch (error) {
+      console.error("Failed to update privacy setting:", error);
+      setError(
+        t("privacy-update-failed", {
+          defaultValue: "Failed to update setting",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -116,7 +121,11 @@ function PrivacySettings() {
         </Card>
       )}
 
-      {error && <p className="text-sm text-(--color-danger)">{error}</p>}
+      {error && (
+        <p className="text-sm text-(--color-danger)" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

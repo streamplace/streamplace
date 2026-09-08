@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   ColorPicker,
   ColorPickerFormat,
@@ -98,8 +99,9 @@ function ChatProfileSettings() {
       await createChatProfileRecord(rgb.red, rgb.green, rgb.blue, selfLabels);
 
       toast.success(t("chat-profile-saved"));
-    } catch (error: any) {
-      toast.error(error.message || t("chat-profile-save-failed"));
+    } catch (error) {
+      console.error("Failed to save chat profile:", error);
+      toast.error(t("chat-profile-save-failed"));
     } finally {
       setSaving(false);
     }
@@ -180,14 +182,14 @@ function ChatProfileSettings() {
       {/* Save */}
       {hasChanges && (
         <div className="flex justify-end">
-          <button
+          <Button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="rounded-md bg-(--color-accent) px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            size="lg"
           >
             {saving ? t("saving") : t("save-button")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

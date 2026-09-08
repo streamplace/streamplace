@@ -12,6 +12,7 @@ import {
 } from "@tanstack/react-router";
 import { Loader } from "lucide-react";
 import { Component, type ReactNode, useEffect, useState } from "react";
+import { Button } from "../components/ui/button";
 import { SidebarInset, SidebarProvider } from "../components/ui/sidebar";
 import { getStoredPreference, syncThemeClass } from "../hooks/use-color-scheme";
 import i18next from "../lib/i18n";
@@ -48,16 +49,12 @@ class ErrorBoundary extends Component<
           <h1 className="font-display mb-2 text-2xl font-semibold">
             {i18next.t("something-went-wrong")}
           </h1>
-          <p className="mb-6 max-w-md text-(--color-fg-muted)">
-            {this.state.error.message || i18next.t("unexpected-error")}
+          <p className="mb-6 max-w-md text-(--color-fg-muted)" role="alert">
+            {i18next.t("unexpected-error")}
           </p>
-          <button
-            type="button"
-            onClick={() => this.setState({ error: null })}
-            className="h-10 rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
-          >
+          <Button type="button" onClick={() => this.setState({ error: null })}>
             {i18next.t("try-again")}
-          </button>
+          </Button>
         </div>
       );
     }

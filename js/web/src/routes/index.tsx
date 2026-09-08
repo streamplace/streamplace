@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { StreamCard } from "../components/stream/stream-card";
+import { Button } from "../components/ui/button";
 import useAvatars from "../hooks/use-avatars";
 import { useLiveUsers } from "../hooks/use-live-users";
 import { useStore } from "../lib/store";
@@ -11,18 +12,23 @@ export const Route = createFileRoute("/")({
 
 function HomePage() {
   const { t } = useTranslation("common");
-  const { data: streams, isLoading, error } = useLiveUsers();
+  const { data: streams, isLoading, error, refetch } = useLiveUsers();
 
   const allDids = streams?.map((s) => s.author.did) ?? [];
   const avatars = useAvatars(allDids);
 
   if (streams === undefined && isLoading) {
     return (
-      <div className="mx-auto max-w-[1600px] px-4 py-6">
+      <div
+        className="mx-auto max-w-[1600px] px-4 py-6"
+        role="status"
+        aria-label={t("loading")}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
+              aria-hidden="true"
               className="animate-pulse rounded-xl border border-(--color-border) bg-(--color-bg-elevated)"
             >
               <div className="aspect-video rounded-t-xl bg-(--color-bg-overlay)" />
@@ -40,8 +46,19 @@ function HomePage() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-6">
       {error && !streams && (
-        <div className="mb-8 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)">
-          {t("could-not-load-streams")}
+        <div
+          className="mb-8 rounded-lg border border-(--color-border) bg-(--color-bg-elevated) p-4 text-sm text-(--color-fg-muted)"
+          role="alert"
+        >
+          <div>{t("could-not-load-streams")}</div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => void refetch()}
+          >
+            {t("try-again")}
+          </Button>
         </div>
       )}
 
@@ -55,12 +72,12 @@ function HomePage() {
       )}
 
       {streams && streams.length === 0 && (
-        <div className="py-20 pt-52 text-center">
+        <div className="py-12 text-center sm:py-16">
           <svg
             width="100%"
             viewBox="0 0 680 360"
-            role="img"
-            className="mb-6 scale-400 -rotate-3"
+            aria-hidden="true"
+            className="mx-auto mb-6 h-40 w-full max-w-2xl -rotate-3 sm:h-56"
           >
             <g
               stroke="currentColor"
@@ -301,13 +318,13 @@ function HomePage() {
             {t("hero-description")}
           </p>
           <div className="mt-8 flex justify-center gap-3">
-            <button
+            <Button
               type="button"
               onClick={() => useStore.getState().openLoginModal()}
-              className="inline-flex h-10 items-center rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover)"
+              size="lg"
             >
               {t("log-in")}
-            </button>
+            </Button>
             <a
               href="https://stream.place"
               className="inline-flex h-10 items-center rounded-md border border-(--color-border) px-4 text-(--color-fg) transition-colors hover:border-(--color-border-strong)"

@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { consumeAuthReturnPath } from "../lib/auth-return";
 import { useSession } from "../lib/session";
 
@@ -51,11 +53,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (search.error) {
-      setError(
-        search.errorDescription
-          ? `${search.error}: ${search.errorDescription}`
-          : search.error,
-      );
+      setError(t("sign-in-failed"));
       return;
     }
     // In the popup case state.status never reaches "authenticated"
@@ -84,7 +82,8 @@ function LoginPage() {
       // here by the modal's popup-blocker detection.
       await signIn(handle.trim(), "redirect");
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("sign-in-failed"));
+      console.error("Sign-in failed:", err);
+      setError(t("sign-in-failed"));
       setSubmitting(false);
     }
   };
@@ -106,13 +105,14 @@ function LoginPage() {
         <p className="mt-2 text-(--color-fg-muted)">
           {t("signed-in-as-code", { handle: state.session.sub })}
         </p>
-        <button
+        <Button
           type="button"
           onClick={() => navigate({ to: "/" })}
-          className="mt-6 inline-flex h-10 items-center rounded-md bg-(--color-accent) px-4 font-medium text-(--color-accent-fg) hover:bg-(--color-accent-hover)"
+          size="lg"
+          className="mt-6"
         >
           {t("go-home")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -123,30 +123,36 @@ function LoginPage() {
       <p className="mt-2 text-(--color-fg-muted)">{t("sign-in-description")}</p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <label className="block">
+        <label className="block" htmlFor="login-handle">
           <span className="text-sm text-(--color-fg-muted)">
             {t("handle-label")}
           </span>
-          <input
+          <Input
+            id="login-handle"
             type="text"
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             placeholder="you.bsky.social"
             autoComplete="username"
             required
-            className="mt-1 h-10 w-full rounded-md border border-(--color-border) bg-(--color-bg-elevated) px-3 transition-colors focus:border-(--color-accent) focus:outline-none"
+            className="bg-card mt-1 h-10"
           />
         </label>
 
-        {error && <p className="text-sm text-(--color-danger)">{error}</p>}
+        {error && (
+          <p className="text-sm text-(--color-danger)" role="alert">
+            {error}
+          </p>
+        )}
 
-        <button
+        <Button
           type="submit"
           disabled={submitting || state.status === "loading"}
-          className="h-10 w-full rounded-md bg-(--color-accent) font-medium text-(--color-accent-fg) transition-colors hover:bg-(--color-accent-hover) disabled:cursor-not-allowed disabled:opacity-50"
+          size="lg"
+          className="w-full"
         >
           {submitting ? t("redirecting") : t("continue")}
-        </button>
+        </Button>
       </form>
     </div>
   );

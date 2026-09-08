@@ -1,10 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardRow } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { useStore } from "../../lib/store";
 import { useStreamplaceUrl } from "../../lib/store/hooks";
 import { isWebBetaEnabled, setWebBetaEnabled } from "../../lib/web-beta";
@@ -63,13 +65,23 @@ function AdvancedSettings() {
 
   const handleRefreshBranding = () => {
     setRefreshBranding("active");
-    fetchBranding({ force: true }).then(() => {
-      setRefreshBranding("done");
-      // set back to ready after a short delay
-      setTimeout(() => {
+    fetchBranding({ force: true })
+      .then(() => {
+        setRefreshBranding("done");
+        // set back to ready after a short delay
+        setTimeout(() => {
+          setRefreshBranding("ready");
+        }, 2500);
+      })
+      .catch((error) => {
+        console.error("Failed to refresh branding:", error);
         setRefreshBranding("ready");
-      }, 2500);
-    });
+        toast.error(
+          t("refresh-branding-failed", {
+            defaultValue: "Failed to refresh branding",
+          }),
+        );
+      });
   };
 
   return (
@@ -92,7 +104,7 @@ function AdvancedSettings() {
         {overrideEnabled && (
           <CardRow>
             <div className="flex items-center justify-center gap-2">
-              <input
+              <Input
                 type="url"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
@@ -101,7 +113,7 @@ function AdvancedSettings() {
                 }
                 spellCheck={false}
                 autoComplete="off"
-                className="h-9 flex-1 rounded-lg border border-(--color-border) bg-transparent px-3 font-mono text-sm outline-none focus:border-(--color-accent)"
+                className="h-9 flex-1 font-mono text-sm"
               />
               <Button
                 type="button"
@@ -131,10 +143,11 @@ function AdvancedSettings() {
       </Card>
 
       <Card>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={handleRefreshBranding}
-          className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"
+          className="h-auto w-full justify-between rounded-none px-3 py-2.5 text-left"
         >
           <span className="text-sm">{t("refresh-branding")}</span>
           {refreshBranding === "active" && (
@@ -143,7 +156,7 @@ function AdvancedSettings() {
           {refreshBranding === "done" && (
             <Check className="size-4 text-green-400" />
           )}
-        </button>
+        </Button>
       </Card>
     </div>
   );

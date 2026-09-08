@@ -377,6 +377,7 @@ export function PlayerControls({
               step={0.01}
               value={muted ? 0 : volume}
               onValueChange={onVolumeInput}
+              aria-label={t("player-volume", { defaultValue: "Volume" })}
             />
           </div>
 
@@ -454,10 +455,10 @@ export function PlayerControls({
                   onValueChange={(v) => onUseWebRTCChange(v === "webrtc")}
                 >
                   <DropdownMenuRadioItem value="hls">
-                    Standard
+                    {t("player-latency-standard")}
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="webrtc">
-                    Low (WebRTC)
+                    {t("player-latency-low")}
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuGroup>
@@ -503,7 +504,7 @@ export function PlayerControls({
                 checked={showStats}
                 onCheckedChange={onShowStatsChange}
               >
-                Stats for nerds
+                {t("player-stats")}
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>

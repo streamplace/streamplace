@@ -137,7 +137,7 @@ function CardHeader() {
         <ArrowLeft size={22} color={theme.colors.text2} />
       </IconCircleButton>
       <Text
-        weight="semibold"
+        weight="medium"
         style={{ flex: 1, fontSize: 19, lineHeight: 22 }}
         numberOfLines={1}
       >
@@ -439,7 +439,7 @@ function CardChatPanel({ fill }: { fill: boolean }) {
         gap: 16,
       }}
     >
-      <Text weight="semibold" style={{ fontSize: 15, lineHeight: 23 }}>
+      <Text weight="medium" style={{ fontSize: 15, lineHeight: 23 }}>
         Live chat
       </Text>
       <PinnedCard />

@@ -133,7 +133,7 @@ function useBaseScreenOptions() {
     headerTitleStyle: {
       fontFamily: z.theme.typography.universal.xl.fontFamily,
       fontSize: social ? 19 : 15,
-      fontWeight: social ? ("600" as const) : ("500" as const),
+      fontWeight: "500" as const,
       color: z.theme.colors.text1,
     },
     headerStyle: {

@@ -59,6 +59,7 @@ import {
 } from "src/linking-config";
 import { AvatarButton } from "src/router";
 import { useStore } from "store";
+import { streamColumnWidthFor } from "../stream-card/widths";
 import SidebarItem from "./sidebar-item";
 import { EditIcon, SOCIAL_NAV_ICONS } from "./social-icons";
 
@@ -534,7 +535,11 @@ export function SidebarOverlay() {
     socialShell && sidebar.isActive && !sidebar.overlay && !fullWidthRoute
       ? Math.max(
           0,
-          Math.floor((windowWidth - (sidebar.contentMargin + 1008)) / 2),
+          Math.floor(
+            (windowWidth -
+              (sidebar.contentMargin + streamColumnWidthFor(windowWidth))) /
+              2,
+          ),
         )
       : 0;
 

@@ -28,10 +28,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  useWindowDimensions,
   type LayoutChangeEvent,
 } from "react-native";
 import { useStore } from "store";
 import { useEmojiData } from "utils/emoji";
+import { chatWidthFor, FEED_WIDTH } from "./widths";
 
 /**
  * The "card" stream layout (branding key streamLayout=card): the stream as a
@@ -42,12 +44,6 @@ import { useEmojiData } from "utils/emoji";
  * Everything here is chrome around the existing Player, Chat and ChatBox;
  * the video, chat state and moderation are untouched.
  */
-
-const FEED_WIDTH = 600;
-const CHAT_WIDTH = 407;
-// Feed + chat + the hairline between them; the social shell sizes its
-// content column to exactly this.
-const TWO_COLUMN_MIN = FEED_WIDTH + CHAT_WIDTH + 1;
 
 function formatPostDate(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -600,7 +596,11 @@ export function StreamCardLayout({
   const [contentWidth, setContentWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) =>
     setContentWidth(e.nativeEvent.layout.width);
-  const twoColumn = contentWidth >= TWO_COLUMN_MIN;
+  // Feed + chat + the hairline between them; the social shell sizes its
+  // content column to exactly this, and the chat widens on big windows.
+  const { width: windowWidth } = useWindowDimensions();
+  const chatWidth = chatWidthFor(windowWidth);
+  const twoColumn = contentWidth >= FEED_WIDTH + chatWidth + 1;
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
   // Tell the shell this page wants the feed + chat column while mounted
@@ -635,7 +635,7 @@ export function StreamCardLayout({
           <Hairline />
         </ScrollView>
         <Hairline vertical />
-        <View style={{ width: CHAT_WIDTH, alignSelf: "stretch" }}>
+        <View style={{ width: chatWidth, alignSelf: "stretch" }}>
           <CardChatPanel fill />
         </View>
       </View>

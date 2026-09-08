@@ -55,6 +55,10 @@ import {
   SidebarOverlay,
   SidebarToggle,
 } from "components/sidebar/sidebar-overlay";
+import {
+  FEED_COLUMN_WIDTH,
+  streamColumnWidthFor,
+} from "components/stream-card/widths";
 import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import usePlatform from "hooks/usePlatform";
@@ -799,13 +803,14 @@ export default function Shell() {
   // The stream card layout reports itself while mounted; the route name
   // alone misfires (e.g. right after the return from login).
   const isStreamPage = useStore((state) => state.wideColumn);
-  const socialClusterWidth = sidebar.contentMargin + 1008;
+  const socialClusterWidth =
+    sidebar.contentMargin + streamColumnWidthFor(windowWidth);
   const socialOffset = socialDocked
     ? Math.max(0, Math.floor((windowWidth - socialClusterWidth) / 2))
     : 0;
   const socialColumnWidth = socialDocked
     ? Math.min(
-        isStreamPage ? 1008 : 601,
+        isStreamPage ? streamColumnWidthFor(windowWidth) : FEED_COLUMN_WIDTH,
         Math.max(320, windowWidth - socialOffset - sidebar.contentMargin),
       )
     : undefined;

@@ -769,16 +769,25 @@ export function ThemeProvider({
       el.id = "sp-focus-ring";
       document.head.appendChild(el);
     }
+    // Scrollbars in the page's own palette (chat, sidebars, long pages)
+    // instead of the browser's default light chrome.
+    const thumb = withAlpha(theme.colors.text1, 0.22);
+    const thumbHover = withAlpha(theme.colors.text1, 0.36);
     el.textContent = [
       `:focus { outline: none; }`,
       `:focus-visible { outline: 2px solid ${theme.colors.focus}; outline-offset: 2px; }`,
+      `* { scrollbar-width: thin; scrollbar-color: ${thumb} transparent; }`,
+      `*::-webkit-scrollbar { width: 8px; height: 8px; }`,
+      `*::-webkit-scrollbar-track { background: transparent; }`,
+      `*::-webkit-scrollbar-thumb { background: ${thumb}; border-radius: 999px; }`,
+      `*::-webkit-scrollbar-thumb:hover { background: ${thumbHover}; }`,
     ].join("\n");
     // The web nav container is transparent (for OBS sourcing), so anything
     // no component paints falls through to the body. The server injects the
     // branded background into the page head, but the dev proxy bypasses it;
     // painting from the theme covers both and follows the scheme switch.
     document.body.style.backgroundColor = theme.colors.background;
-  }, [isRoot, theme.colors.focus, theme.colors.background]);
+  }, [isRoot, theme.colors.focus, theme.colors.background, theme.colors.text1]);
 
   return (
     <ThemeContext.Provider value={value}>

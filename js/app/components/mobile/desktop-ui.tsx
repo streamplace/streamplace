@@ -90,6 +90,7 @@ export function DesktopUi({
   const segment = useSegment();
 
   const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const controlsVisibleRef = useRef(true);
   const [pipSupported, setPipSupported] = useState(false);
   const [pipActive, setPipActive] = useState(false);
   const fadeOpacity = useSharedValue(1);
@@ -104,6 +105,7 @@ export function DesktopUi({
     fadeOpacity.value = withTiming(1, { duration: motion.base });
     if (fadeTimeout.current) clearTimeout(fadeTimeout.current);
     setIsControlsVisible(true);
+    controlsVisibleRef.current = true;
 
     if (selectedRendition === "audio") return;
     if (ingest !== null) return;
@@ -112,6 +114,7 @@ export function DesktopUi({
     fadeTimeout.current = setTimeout(() => {
       fadeOpacity.value = withTiming(0, { duration: motion.slow });
       setIsControlsVisible(false);
+      controlsVisibleRef.current = false;
     }, FADE_OUT_DELAY);
   }, [fadeOpacity, selectedRendition, ingest, status]);
 
@@ -211,8 +214,15 @@ export function DesktopUi({
   const togglePlayPause = usePlayerStore((x) => x.togglePlayPause);
 
   const handleSingleClick = useCallback(() => {
+    // Touch screens have no hover: once the controls have faded (and stopped
+    // taking taps), the first tap brings them back rather than toggling
+    // playback, so the fullscreen and quality buttons stay reachable.
+    if (!controlsVisibleRef.current) {
+      resetFadeTimer();
+      return;
+    }
     togglePlayPause();
-  }, [togglePlayPause]);
+  }, [togglePlayPause, resetFadeTimer]);
 
   const handleDoubleClick = useCallback(() => {
     toggleFullscreen();

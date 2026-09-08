@@ -13,6 +13,7 @@ var STREAMPLACE_SIGNING_KEY = "signingKey"                                    //
 var APP_BSKY_GRAPH_FOLLOW = "app.bsky.graph.follow"                           //nolint:all
 var APP_BSKY_FEED_POST = "app.bsky.feed.post"                                 //nolint:all
 var APP_BSKY_GRAPH_BLOCK = "app.bsky.graph.block"                             //nolint:all
+var APP_BSKY_GRAPH_VERIFICATION = "app.bsky.graph.verification"               //nolint:all
 var APP_BSKY_ACTOR_PROFILE = "app.bsky.actor.profile"                         //nolint:all
 var PLACE_STREAM_CHAT_GATE = "place.stream.chat.gate"                         //nolint:all
 var PLACE_STREAM_CHAT_PINNED_RECORD = "place.stream.chat.pinnedRecord"        //nolint:all

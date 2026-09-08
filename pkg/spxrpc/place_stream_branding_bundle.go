@@ -24,6 +24,11 @@ func (s *Server) handlePlaceStreamBrandingExportBundle(ctx context.Context, broa
 		return nil, echo.NewHTTPError(http.StatusInternalServerError, "unable to export branding")
 	}
 	if ec, ok := ctx.Value(echoContextKey).(echo.Context); ok {
+		// The generated stub streams every binary output as octet-stream, but
+		// the lexicon declares application/zip and the TS client rejects a
+		// mismatch. echo's Stream only fills in Content-Type when unset, so
+		// declaring it here wins.
+		ec.Response().Header().Set(echo.HeaderContentType, "application/zip")
 		ec.Response().Header().Set("Content-Disposition", `attachment; filename="branding.zip"`)
 	}
 	return bytes.NewReader(bs), nil

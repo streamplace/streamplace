@@ -845,13 +845,15 @@ export default function Shell() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    // Painted explicitly: in the social shell the navigator only covers its
+    // fixed-width column, so the page background has to come from here.
+    <View style={{ flex: 1, backgroundColor: z.theme.colors.background }}>
       <StatusBar barStyle="light-content" />
       {!isNative && <SidebarOverlay />}
       {!isNative && <MobileAppBanner />}
       <Animated.View
         style={[
-          { flex: 1 },
+          { flex: 1, backgroundColor: z.theme.colors.background },
           animatedContentStyle,
           socialDocked && { paddingLeft: socialOffset },
         ]}

@@ -4808,6 +4808,14 @@
         ]
       }
     },
+                    },
+                    "chatVerifiedOnly": {
+                      "type": "boolean",
+                      "description": "Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly)."
+                    },
+                    "chatVerified": {
+                      "type": "boolean",
+                      "description": "Whether the authenticated caller is verified by one of the node's trusted verifiers."
     "/xrpc/games.gamesgamesgamesgames.search": {
       "get": {
         "summary": "Search across all entity types (games, profiles, platforms, collections, engines).",

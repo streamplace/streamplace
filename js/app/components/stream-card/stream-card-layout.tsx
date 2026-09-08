@@ -204,10 +204,14 @@ function PostCard({
   src,
   extraProps,
   onTeleport,
+  compact = false,
 }: {
   src: string;
   extraProps: Partial<PlayerProps>;
   onTeleport?: (targetHandle: string, targetDID: string) => void;
+  /** Streamer row, title and player only: the fixed phone layout keeps the
+   *  rest of the height for chat. */
+  compact?: boolean;
 }) {
   const { theme } = useTheme();
   const toast = useToast();
@@ -272,7 +276,10 @@ function PostCard({
 
       {/* the post text is the stream title */}
       {title ? (
-        <Text style={{ fontSize: 17, lineHeight: 22, marginTop: 12 }}>
+        <Text
+          numberOfLines={compact ? 2 : undefined}
+          style={{ fontSize: 17, lineHeight: 22, marginTop: 12 }}
+        >
           {title}
         </Text>
       ) : null}
@@ -303,54 +310,64 @@ function PostCard({
       </View>
 
       {/* engagement row */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 16,
-          paddingVertical: 12,
-          marginTop: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.colors.borderSubtle,
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-          <Eye size={18} color={theme.colors.text3} />
-          <Text
-            style={{ fontSize: 13, lineHeight: 17, color: theme.colors.text3 }}
-          >
-            {typeof views === "number" ? views : 0}
-            {isLive ? " watching" : ""}
-          </Text>
-        </View>
-        {isLive ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View
+      {!compact && (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 16,
+            paddingVertical: 12,
+            marginTop: 8,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Eye size={18} color={theme.colors.text3} />
+            <Text
               style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: theme.colors.live,
+                fontSize: 13,
+                lineHeight: 17,
+                color: theme.colors.text3,
               }}
-            />
-            <Text weight="semibold" style={{ fontSize: 13, lineHeight: 17 }}>
-              Live
+            >
+              {typeof views === "number" ? views : 0}
+              {isLive ? " watching" : ""}
             </Text>
           </View>
-        ) : (
-          <Text
-            style={{ fontSize: 13, lineHeight: 17, color: theme.colors.text3 }}
-          >
-            Offline
-          </Text>
-        )}
-        <View style={{ flex: 1 }} />
-        <IconCircleButton onPress={share} label="Share">
-          <Share2 size={18} color={theme.colors.text3} />
-        </IconCircleButton>
-      </View>
+          {isLive ? (
+            <View
+              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: theme.colors.live,
+                }}
+              />
+              <Text weight="semibold" style={{ fontSize: 13, lineHeight: 17 }}>
+                Live
+              </Text>
+            </View>
+          ) : (
+            <Text
+              style={{
+                fontSize: 13,
+                lineHeight: 17,
+                color: theme.colors.text3,
+              }}
+            >
+              Offline
+            </Text>
+          )}
+          <View style={{ flex: 1 }} />
+          <IconCircleButton onPress={share} label="Share">
+            <Share2 size={18} color={theme.colors.text3} />
+          </IconCircleButton>
+        </View>
+      )}
 
-      {postDate ? (
+      {postDate && !compact ? (
         <Text
           style={{
             fontSize: 13,
@@ -558,19 +575,29 @@ export function StreamCardLayout({
     );
   }
 
+  // Narrow: a fixed column — the player up top, chat filling the rest, the
+  // composer pinned at the bottom — rather than a page that scrolls.
   return (
-    <ScrollView
+    <View
       onLayout={onLayout}
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-      contentContainerStyle={{ alignItems: "center", paddingBottom: 40 }}
+      style={{
+        flex: 1,
+        alignItems: "center",
+        backgroundColor: theme.colors.background,
+      }}
     >
-      <View style={{ width: "100%", maxWidth: FEED_WIDTH }}>
+      <View style={{ flex: 1, width: "100%", maxWidth: FEED_WIDTH }}>
         <CardHeader />
         <Hairline />
-        <PostCard src={src} extraProps={extraProps} onTeleport={onTeleport} />
+        <PostCard
+          src={src}
+          extraProps={extraProps}
+          onTeleport={onTeleport}
+          compact
+        />
         <Hairline />
-        <CardChatPanel fill={false} />
+        <CardChatPanel fill />
       </View>
-    </ScrollView>
+    </View>
   );
 }

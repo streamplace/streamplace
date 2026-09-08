@@ -6,6 +6,7 @@ import {
   Text,
   useCardStreamLayout,
   useLivestreamStore,
+  useProfile,
 } from "@streamplace/components";
 import { colors, surfaces } from "@streamplace/components/src/lib/theme/tokens";
 import { Player } from "components/mobile/player";
@@ -51,7 +52,10 @@ function MobileStreamInner({
 
   const userNotFoundError = problems.find((p) => p.code === "user_not_found");
 
-  useTitle(user);
+  // The browser tab names the streamer by handle once the profile resolves,
+  // not by whatever the route carried (which may be a DID).
+  const profile = useProfile();
+  useTitle(profile?.handle || user);
 
   if (userNotFoundError) {
     return <StreamError message={userNotFoundError.message} />;

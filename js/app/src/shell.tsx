@@ -508,6 +508,7 @@ const getIcon = (
 // Tab navigator (main app sections, navigation on web is handled in sidebar)
 function TabNavigator() {
   const { isNative, isBrowser } = usePlatform();
+  const socialShell = useSocialShell();
   const accentColor = useAccentColor();
   const primaryColor = usePrimaryColor();
   const isLargeScreen = useIsLargeScreen();
@@ -518,18 +519,21 @@ function TabNavigator() {
       screenOptions={{
         lazy: true,
         headerShown: false,
-        // Hide tab bar on web and < 800px
-        tabBarStyle: isNative
-          ? {
-              backgroundColor: z.theme.colors.surface1,
-              borderTopColor: z.theme.colors.borderSubtle,
-            }
-          : !isLargeScreen
+        // Hide tab bar on web and < 800px; the social shell has no bottom
+        // bar at all (the stream page is a fixed player/chat/composer stack).
+        tabBarStyle: socialShell
+          ? { display: "none" }
+          : isNative
             ? {
                 backgroundColor: z.theme.colors.surface1,
                 borderTopColor: z.theme.colors.borderSubtle,
               }
-            : { display: "none" },
+            : !isLargeScreen
+              ? {
+                  backgroundColor: z.theme.colors.surface1,
+                  borderTopColor: z.theme.colors.borderSubtle,
+                }
+              : { display: "none" },
         tabBarActiveTintColor:
           accentColor || primaryColor || z.theme.colors.primary,
         tabBarInactiveTintColor: z.theme.colors.text3,

@@ -50,6 +50,17 @@ const SOCIAL_ICON_SLOTS = [
   "socialIcon4",
 ];
 
+// Base64 without spreading the whole buffer into one call: a 2MB link
+// banner spread into String.fromCharCode overflows the call stack.
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 export function BrandingAdmin() {
   const { t } = useTranslation("settings");
   const { theme } = useTheme();
@@ -234,7 +245,7 @@ export function BrandingAdmin() {
     setUploading(true);
     try {
       const textBytes = new TextEncoder().encode(value.trim());
-      const base64Data = btoa(String.fromCharCode(...textBytes));
+      const base64Data = bytesToBase64(textBytes);
 
       await agent.client.call(place.stream.branding.updateBlob, {
         key,
@@ -322,7 +333,7 @@ export function BrandingAdmin() {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Data = btoa(String.fromCharCode(...uint8Array));
+      const base64Data = bytesToBase64(uint8Array);
 
       // detect image dimensions if it's an image
       let width: number | undefined;

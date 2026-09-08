@@ -1,5 +1,4 @@
 import {
-  hexToRgba,
   PlayerStatus,
   PlayerUI,
   PortalHost,
@@ -14,11 +13,9 @@ import {
 } from "@streamplace/components";
 import {
   borderAlphas,
-  colors,
   motion,
   scrims,
 } from "@streamplace/components/src/lib/theme/tokens";
-import { AnimatedGradient } from "components/ui/gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -346,11 +343,9 @@ export function DesktopUi({
           { pointerEvents: isControlsVisible ? "auto" : "none" },
         ]}
       >
-        <AnimatedGradient
-          fromColor={hexToRgba(colors.black, 0.5)}
-          toColor={colors.black}
-          opacityColor1={0}
-        >
+        {/* No full-width scrim: the bars carry their own translucent pills
+            around the buttons, so the video stays visible behind them. */}
+        <View style={{ paddingBottom: 12 }}>
           <BottomControlBar
             ingest={ingest}
             pipSupported={pipSupported}
@@ -360,7 +355,7 @@ export function DesktopUi({
             showChat={isChatOpen || false}
             setShowChat={setIsChatOpen || undefined}
           />
-        </AnimatedGradient>
+        </View>
       </Animated.View>
       {fullscreen && <PortalHost name={portalContainerID} />}
     </>

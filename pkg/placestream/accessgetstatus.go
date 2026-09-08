@@ -14,6 +14,10 @@ import (
 
 type AccessGetStatus_Output struct {
 	LexiconTypeID string `json:"$type,omitempty"`
+	// chatVerified: Whether the authenticated caller is verified by one of the node's trusted verifiers.
+	ChatVerified *bool `json:"chatVerified,omitempty"`
+	// chatVerifiedOnly: Whether chat is restricted to users verified by the node's trusted verifiers (branding key chatVerifiedOnly).
+	ChatVerifiedOnly *bool `json:"chatVerifiedOnly,omitempty"`
 	// did: The authenticated caller, when there is one.
 	Did    *string               `json:"did,omitempty"`
 	Policy AccessDefs_PolicyView `json:"policy"`

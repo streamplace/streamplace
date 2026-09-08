@@ -545,6 +545,13 @@ export function StreamCardLayout({
   const twoColumn = contentWidth >= TWO_COLUMN_MIN;
   // In the social shell the nav rail's own border is the feed's left edge.
   const socialShell = useSocialShell();
+  // Tell the shell this page wants the feed + chat column while mounted
+  // (route names alone misfire, e.g. on the return from login).
+  const setWideColumn = useStore((s) => s.setWideColumn);
+  useEffect(() => {
+    setWideColumn(true);
+    return () => setWideColumn(false);
+  }, [setWideColumn]);
 
   if (twoColumn) {
     return (

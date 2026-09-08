@@ -753,7 +753,6 @@ export default function Shell() {
   // full-bleed player, so it keeps the sidebar in flow.
   const cardStreamLayout = useCardStreamLayout();
   const socialShell = useSocialShell();
-  const defaultStreamer = useDefaultStreamer();
   const { width: windowWidth } = useWindowDimensions();
   const isDetailView =
     (currentRouteName === "Stream" && !cardStreamLayout) ||
@@ -797,9 +796,9 @@ export default function Shell() {
     sidebar.isActive &&
     !sidebar.overlay &&
     !fullWidthRoute;
-  const isStreamPage =
-    currentRouteName === "Stream" ||
-    (currentRouteName === "HomeMain" && !!defaultStreamer);
+  // The stream card layout reports itself while mounted; the route name
+  // alone misfires (e.g. right after the return from login).
+  const isStreamPage = useStore((state) => state.wideColumn);
   const socialClusterWidth = sidebar.contentMargin + 1008;
   const socialOffset = socialDocked
     ? Math.max(0, Math.floor((windowWidth - socialClusterWidth) / 2))

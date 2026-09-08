@@ -6,6 +6,7 @@ import {
   MenuGroup,
   MenuSeparator,
   Text,
+  useNetworkName,
   useTheme,
   useTranslation,
   View,
@@ -27,6 +28,7 @@ import {
 export function AccountCategorySettings() {
   const { theme, zero: z } = useTheme();
   const { t } = useTranslation("settings");
+  const network = useNetworkName();
   const { t: tn } = useTranslation();
   const logout = useStore((state) => state.logout);
   const chatProfile = useChatProfile();
@@ -127,7 +129,7 @@ export function AccountCategorySettings() {
             <MenuGroup>
               <SettingsExternalItem
                 LeftIcon={Edit3}
-                title={t("edit-profile-bluesky")}
+                title={t("edit-profile-bluesky", { network })}
                 link={`https://bsky.app/profile/${userProfile.handle}`}
               />
             </MenuGroup>

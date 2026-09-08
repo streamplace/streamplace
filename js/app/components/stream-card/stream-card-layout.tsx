@@ -442,7 +442,7 @@ function CardChatPanel({ fill }: { fill: boolean }) {
       </Text>
       <PinnedCard />
       <View style={{ flex: 1, minHeight: 0 }}>
-        <Chat reverse />
+        <Chat />
       </View>
       {agent?.did ? (
         <ChatBox

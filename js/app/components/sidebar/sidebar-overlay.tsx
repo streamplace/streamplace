@@ -4,7 +4,9 @@ import {
   useNavigation,
 } from "@react-navigation/native";
 import {
+  Button,
   Text,
+  useBrandingAsset,
   useDID,
   useSidebarBackgroundImage,
   useTheme,
@@ -20,15 +22,24 @@ import { Image } from "expo-image";
 import usePlatform from "hooks/usePlatform";
 import { useSidebarControl } from "hooks/useSidebarControl";
 import {
+  Bell,
   Book,
+  Bookmark,
   Clapperboard,
   Download,
+  Hash,
   Home,
   Library,
+  List,
   LogIn,
   Menu,
+  MessageCircle,
+  Play,
   Radio,
+  Search,
   Settings as SettingsIcon,
+  UserCircle,
+  Video,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { Linking, Platform, Pressable, View } from "react-native";
@@ -39,6 +50,73 @@ import {
 } from "src/linking-config";
 import { useStore } from "store";
 import SidebarItem from "./sidebar-item";
+
+/**
+ * Branded navigation (branding keys navLinks / navCta): a node can replace
+ * the browse and creator sections with its own links, typically into the
+ * wider site a single-user node belongs to. navLinks is a JSON array of
+ * { label, url, icon? } with icon one of NAV_ICONS; navCta is
+ * { label, url } and renders as the pill button under the list. Internal
+ * paths navigate in-app; anything else opens as a link.
+ */
+export const NAV_ICONS: Record<string, React.ComponentType<any>> = {
+  home: Home,
+  search: Search,
+  play: Play,
+  live: Radio,
+  bell: Bell,
+  message: MessageCircle,
+  hash: Hash,
+  list: List,
+  bookmark: Bookmark,
+  user: UserCircle,
+  settings: SettingsIcon,
+  video: Video,
+  book: Book,
+};
+
+export interface BrandedNavLink {
+  label: string;
+  url: string;
+  icon?: string;
+}
+
+export function parseNavLinks(raw: string | undefined): BrandedNavLink[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (l: any) =>
+          l && typeof l.label === "string" && typeof l.url === "string",
+      )
+      .map((l: any) => ({ label: l.label, url: l.url, icon: l.icon }));
+  } catch {
+    return [];
+  }
+}
+
+export function parseNavCta(
+  raw: string | undefined,
+): { label: string; url: string } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      parsed &&
+      typeof parsed.label === "string" &&
+      typeof parsed.url === "string"
+    ) {
+      return { label: parsed.label, url: parsed.url };
+    }
+  } catch {
+    // fall through
+  }
+  return null;
+}
+
+const isExternal = (url: string) => /^[a-z]+:/i.test(url);
 
 /**
  * Sidebar toggle — a hamburger/panel button styled to line its icon up with
@@ -233,6 +311,23 @@ export function SidebarOverlay() {
   }
 
   // Browse destinations — public, content-first, YouTube-style
+  // Branded navigation replaces the browse/creator sections when present.
+  const brandedLinks = parseNavLinks(useBrandingAsset("navLinks")?.data);
+  const brandedCta = parseNavCta(useBrandingAsset("navCta")?.data);
+  const brandedItems: SidebarNavItem[] = brandedLinks.map((l) => ({
+    icon: NAV_ICONS[l.icon ?? ""] ?? Hash,
+    label: l.label,
+    href: l.url,
+  }));
+  const openLink = (url: string) => {
+    if (isExternal(url)) {
+      closeDrawer();
+      void Linking.openURL(url);
+    } else {
+      navigate(url);
+    }
+  };
+
   const browseItems: SidebarNavItem[] = [
     { icon: Home, label: "Home", href: "/" },
     {
@@ -443,12 +538,52 @@ export function SidebarOverlay() {
         )}
       </View>
 
-      <View style={{ gap: 2 }}>{renderItems(browseItems)}</View>
-
-      {creatorItems.some((item) => !item.hidden) && (
+      {brandedItems.length > 0 ? (
+        <View style={{ gap: 2 }}>
+          {brandedItems.map((item) => (
+            <SidebarItem
+              key={item.href}
+              icon={item.icon}
+              href={item.href}
+              label={item.label}
+              active={
+                !isExternal(item.href) &&
+                isItemActive(item.href, item.matchPrefix)
+              }
+              collapsed={collapsed}
+              onPress={(e) => {
+                e.preventDefault();
+                openLink(item.href);
+              }}
+            />
+          ))}
+          {brandedCta && !collapsed && (
+            <View
+              style={{
+                paddingHorizontal: spacing[3],
+                paddingVertical: spacing[4],
+              }}
+            >
+              <Button
+                variant="primary"
+                width="min"
+                style={{ borderRadius: 999, height: 44, paddingHorizontal: 24 }}
+                onPress={() => openLink(brandedCta.url)}
+              >
+                {brandedCta.label}
+              </Button>
+            </View>
+          )}
+        </View>
+      ) : (
         <>
-          {renderSectionHeader("Creator Dashboard")}
-          <View style={{ gap: 2 }}>{renderItems(creatorItems)}</View>
+          <View style={{ gap: 2 }}>{renderItems(browseItems)}</View>
+          {creatorItems.some((item) => !item.hidden) && (
+            <>
+              {renderSectionHeader("Creator Dashboard")}
+              <View style={{ gap: 2 }}>{renderItems(creatorItems)}</View>
+            </>
+          )}
         </>
       )}
 

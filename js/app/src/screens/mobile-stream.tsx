@@ -4,7 +4,7 @@ import {
   LivestreamProvider,
   PlayerProvider,
   Text,
-  useBrandingAsset,
+  useCardStreamLayout,
   useLivestreamStore,
 } from "@streamplace/components";
 import { colors, surfaces } from "@streamplace/components/src/lib/theme/tokens";
@@ -47,7 +47,7 @@ function MobileStreamInner({
   const problems = useLivestreamStore((x) => x.problems);
   // Branding picks the page shape: the classic full-bleed player, or the
   // stream as a post card beside a live-chat column.
-  const layout = useBrandingAsset("streamLayout")?.data;
+  const cardLayout = useCardStreamLayout();
 
   const userNotFoundError = problems.find((p) => p.code === "user_not_found");
 
@@ -57,7 +57,7 @@ function MobileStreamInner({
     return <StreamError message={userNotFoundError.message} />;
   }
 
-  if (layout === "card") {
+  if (cardLayout) {
     return (
       <StreamCardLayout
         src={src}

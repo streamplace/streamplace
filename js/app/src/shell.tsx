@@ -13,10 +13,12 @@ import {
   useAccentColor,
   useAccessStatusError,
   useAccessStatusLoaded,
-  useBrandingAsset,
   useBrandingSettled,
+  useCardStreamLayout,
+  useDefaultStreamer,
   useDID,
   usePrimaryColor,
+  useSocialShell,
   useStreamplaceStore,
   useTheme,
   useViewerLockedOut,
@@ -59,7 +61,13 @@ import usePlatform from "hooks/usePlatform";
 import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
 import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Platform, Pressable, StatusBar, View } from "react-native";
+import {
+  Platform,
+  Pressable,
+  StatusBar,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SFSymbols7_0 } from "sf-symbols-typescript";
 import "src/navigation-types";
@@ -114,32 +122,54 @@ const SettingsStack = createNativeStackNavigator();
 
 function useBaseScreenOptions() {
   const z = useTheme();
+  const social = useSocialShell();
   return {
     headerShown: true,
     headerTransparent: Platform.OS === "ios",
     headerBackButtonDisplayMode: "minimal" as const,
-    // Slim, quiet chrome: 15px medium title on surface0 with a hairline
+    // Slim, quiet chrome: 15px medium title on surface0 with a hairline.
+    // The social shell has no top bar: the header is the feed column's own
+    // 52px title row (19px semibold on the page background).
     headerTitleStyle: {
       fontFamily: z.theme.typography.universal.xl.fontFamily,
-      fontSize: 15,
-      fontWeight: "500" as const,
+      fontSize: social ? 19 : 15,
+      fontWeight: social ? ("600" as const) : ("500" as const),
       color: z.theme.colors.text1,
     },
     headerStyle: {
       backgroundColor:
-        Platform.OS === "web" ? z.theme.colors.surface0 : undefined,
+        Platform.OS === "web"
+          ? social
+            ? z.theme.colors.background
+            : z.theme.colors.surface0
+          : undefined,
       borderBottomColor: z.theme.colors.borderSubtle,
       borderBottomWidth: 1,
       // Slimmer bar, aligned with the 56px sidebar brand row.
-      height: 56,
+      height: social ? 52 : 56,
     },
   };
+}
+
+// The Upload + avatar cluster at the header's right. The social shell keeps
+// the avatar in the nav rail instead, so its headers carry nothing.
+function HeaderRight({ large = false }: { large?: boolean }) {
+  const social = useSocialShell();
+  if (social) return null;
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <UploadButton />
+      {large ? <LGAvatarButton /> : <AvatarButton />}
+    </View>
+  );
 }
 
 // Home navigator (contains home + all general navigation screens)
 function HomeNavigator() {
   const title = useNodeTitle();
   const baseScreenOptions = useBaseScreenOptions();
+  const social = useSocialShell();
+  const defaultStreamer = useDefaultStreamer();
   const isNative = Platform.OS !== "web";
   const z = useTheme();
   const did = useDID();
@@ -151,12 +181,7 @@ function HomeNavigator() {
       : ({ canGoBack }: NativeStackHeaderBackProps) => (
           <NavigationButton canGoBack={canGoBack} />
         ),
-    headerRight: () => (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <UploadButton />
-        <LGAvatarButton />
-      </View>
-    ),
+    headerRight: () => <HeaderRight large />,
     ...(isNative && {
       headerTransparent: true,
     }),
@@ -165,12 +190,7 @@ function HomeNavigator() {
         {
           type: "custom",
           hidesSharedBackground: true,
-          element: (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <UploadButton />
-              <LGAvatarButton />
-            </View>
-          ),
+          element: <HeaderRight large />,
         },
       ],
     }),
@@ -206,23 +226,16 @@ function HomeNavigator() {
             Platform.OS !== "ios"
               ? ({ canGoBack }) => <NavigationButton canGoBack={canGoBack} />
               : undefined,
-          headerRight: () => (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <UploadButton />
-              <AvatarButton />
-            </View>
-          ),
+          headerRight: () => <HeaderRight />,
+          // The social shell's front door is the stream card, which draws
+          // its own column header.
+          headerShown: !(social && !!defaultStreamer),
           ...(Platform.OS === "ios" && {
             unstable_headerRightItems: () => [
               {
                 type: "custom",
                 hidesSharedBackground: true,
-                element: (
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <UploadButton />
-                    <LGAvatarButton />
-                  </View>
-                ),
+                element: <HeaderRight large />,
               },
             ],
           }),
@@ -315,23 +328,13 @@ function VideosNavigator() {
           : ({ canGoBack }: NativeStackHeaderBackProps) => (
               <NavigationButton canGoBack={canGoBack} />
             ),
-        headerRight: () => (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <UploadButton />
-            <LGAvatarButton />
-          </View>
-        ),
+        headerRight: () => <HeaderRight large />,
         ...(Platform.OS === "ios" && {
           unstable_headerRightItems: () => [
             {
               type: "custom",
               hidesSharedBackground: true,
-              element: (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <UploadButton />
-                  <LGAvatarButton />
-                </View>
-              ),
+              element: <HeaderRight large />,
             },
           ],
         }),
@@ -361,23 +364,13 @@ function SettingsNavigator() {
     headerShown: true,
     // Same Create + avatar cluster as the other navigators, so the header
     // controls don't vanish on Settings screens.
-    headerRight: () => (
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <UploadButton />
-        <LGAvatarButton />
-      </View>
-    ),
+    headerRight: () => <HeaderRight large />,
     ...(Platform.OS === "ios" && {
       unstable_headerRightItems: () => [
         {
           type: "custom",
           hidesSharedBackground: true,
-          element: (
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <UploadButton />
-              <LGAvatarButton />
-            </View>
-          ),
+          element: <HeaderRight large />,
         },
       ],
     }),
@@ -754,7 +747,10 @@ export default function Shell() {
   const closeDrawer = useStore((state) => state.closeDrawer);
   // The card stream layout is a feed page with the nav beside it, not a
   // full-bleed player, so it keeps the sidebar in flow.
-  const cardStreamLayout = useBrandingAsset("streamLayout")?.data === "card";
+  const cardStreamLayout = useCardStreamLayout();
+  const socialShell = useSocialShell();
+  const defaultStreamer = useDefaultStreamer();
+  const { width: windowWidth } = useWindowDimensions();
   const isDetailView =
     (currentRouteName === "Stream" && !cardStreamLayout) ||
     currentRouteName === "Video" ||
@@ -782,6 +778,26 @@ export default function Shell() {
   const scrimStyle = useAnimatedStyle(() => ({
     opacity: sidebar.animatedScrim.value,
   }));
+
+  // Social shell (web, docked sidebar): the nav + feed + chat cluster is
+  // centered in the window and the content is a fixed-width column — feed
+  // + hairline + chat on stream pages, the 600px feed alone elsewhere —
+  // rather than filling everything right of the rail.
+  const socialDocked =
+    socialShell && !isNative && sidebar.isActive && !sidebar.overlay;
+  const isStreamPage =
+    currentRouteName === "Stream" ||
+    (currentRouteName === "HomeMain" && !!defaultStreamer);
+  const socialClusterWidth = sidebar.contentMargin + 1008;
+  const socialOffset = socialDocked
+    ? Math.max(0, Math.floor((windowWidth - socialClusterWidth) / 2))
+    : 0;
+  const socialColumnWidth = socialDocked
+    ? Math.min(
+        isStreamPage ? 1008 : 601,
+        Math.max(320, windowWidth - socialOffset - sidebar.contentMargin),
+      )
+    : undefined;
 
   if (!hydrated) {
     return <View />;
@@ -833,112 +849,127 @@ export default function Shell() {
       <StatusBar barStyle="light-content" />
       {!isNative && <SidebarOverlay />}
       {!isNative && <MobileAppBanner />}
-      <Animated.View style={[{ flex: 1 }, animatedContentStyle]}>
-        <RootStack.Navigator
-          screenOptions={{
-            // Reuse the shared chrome (surface0 + hairline, 15px title) so
-            // pushed screens like Stream don't render a differently-colored
-            // header than the HomeStack.
-            ...baseScreenOptions,
-            headerShown: !isNative,
-            headerLeft: ({ canGoBack }) => (
-              <NavigationButton canGoBack={canGoBack} />
-            ),
-            headerRight: () => (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <UploadButton />
-                <LGAvatarButton />
-              </View>
-            ),
-            ...(isNative && {
-              headerTransparent: true,
-            }),
-          }}
+      <Animated.View
+        style={[
+          { flex: 1 },
+          animatedContentStyle,
+          socialDocked && { paddingLeft: socialOffset },
+        ]}
+      >
+        <View
+          style={
+            socialDocked
+              ? {
+                  flex: 1,
+                  alignSelf: "flex-start",
+                  width: socialColumnWidth,
+                  borderRightWidth: isStreamPage ? 0 : 1,
+                  borderRightColor: z.theme.colors.borderSubtle,
+                }
+              : { flex: 1 }
+          }
         >
-          {/* Main tabs (initial screen for all platforms) */}
-          <RootStack.Screen
-            name="MainTabs"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
-
-          {/* Full-screen screens that should NOT have tab bar accessible on mobile */}
-          <RootStack.Screen
-            name="Stream"
-            component={MobileStream}
-            options={{
-              headerShown: Platform.OS === "web",
-              headerTitle: "",
+          <RootStack.Navigator
+            screenOptions={{
+              // Reuse the shared chrome (surface0 + hairline, 15px title) so
+              // pushed screens like Stream don't render a differently-colored
+              // header than the HomeStack.
+              ...baseScreenOptions,
+              headerShown: !isNative,
+              headerLeft: ({ canGoBack }) => (
+                <NavigationButton canGoBack={canGoBack} />
+              ),
+              headerRight: () => <HeaderRight large />,
+              ...(isNative && {
+                headerTransparent: true,
+              }),
             }}
-          />
-          <RootStack.Screen
-            name="MobileGoLive"
-            component={MobileGoLive}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="Video"
-            component={VideoScreen}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="Vod"
-            component={VodScreen}
-            options={{ headerShown: false }}
-          />
+          >
+            {/* Main tabs (initial screen for all platforms) */}
+            <RootStack.Screen
+              name="MainTabs"
+              component={TabNavigator}
+              options={{ headerShown: false }}
+            />
 
-          {/* Utility/embed screens */}
-          <RootStack.Screen
-            name="AppReturn"
-            component={AppReturnScreen}
-            options={{ title: "Returning to app..." }}
-          />
-          <RootStack.Screen
-            name="PopoutChat"
-            component={PopoutChat}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="Embed"
-            component={EmbedScreen}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="VodEmbed"
-            component={VodEmbedScreen}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="InfoWidgetEmbed"
-            component={InfoWidgetEmbed}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="DanmuOBS"
-            component={DanmuOBSScreen}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="PopoutStreamMonitor"
-            component={PopoutStreamMonitor}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="PopoutInfoWidget"
-            component={PopoutInfoWidget}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="PopoutMultistream"
-            component={PopoutMultistream}
-            options={{ headerShown: false }}
-          />
-          <RootStack.Screen
-            name="PopoutLivestream"
-            component={PopoutLivestream}
-            options={{ headerShown: false }}
-          />
-        </RootStack.Navigator>
+            {/* Full-screen screens that should NOT have tab bar accessible on mobile */}
+            <RootStack.Screen
+              name="Stream"
+              component={MobileStream}
+              options={{
+                headerShown: Platform.OS === "web" && !socialShell,
+                headerTitle: "",
+              }}
+            />
+            <RootStack.Screen
+              name="MobileGoLive"
+              component={MobileGoLive}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="Video"
+              component={VideoScreen}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="Vod"
+              component={VodScreen}
+              options={{ headerShown: false }}
+            />
+
+            {/* Utility/embed screens */}
+            <RootStack.Screen
+              name="AppReturn"
+              component={AppReturnScreen}
+              options={{ title: "Returning to app..." }}
+            />
+            <RootStack.Screen
+              name="PopoutChat"
+              component={PopoutChat}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="Embed"
+              component={EmbedScreen}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="VodEmbed"
+              component={VodEmbedScreen}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="InfoWidgetEmbed"
+              component={InfoWidgetEmbed}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="DanmuOBS"
+              component={DanmuOBSScreen}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="PopoutStreamMonitor"
+              component={PopoutStreamMonitor}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="PopoutInfoWidget"
+              component={PopoutInfoWidget}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="PopoutMultistream"
+              component={PopoutMultistream}
+              options={{ headerShown: false }}
+            />
+            <RootStack.Screen
+              name="PopoutLivestream"
+              component={PopoutLivestream}
+              options={{ headerShown: false }}
+            />
+          </RootStack.Navigator>
+        </View>
       </Animated.View>
       {/* Scrim behind the overlay drawer (detail views only) */}
       {!isNative && (

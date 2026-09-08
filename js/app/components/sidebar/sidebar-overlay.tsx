@@ -9,6 +9,7 @@ import {
   useBrandingAsset,
   useDID,
   useSidebarBackgroundImage,
+  useSocialShell,
   useTheme,
   useUrl,
   zero,
@@ -43,15 +44,23 @@ import {
   Video,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Platform, Pressable, View } from "react-native";
+import {
+  Linking,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
 import { SvgXml } from "react-native-svg";
 import {
   getStreamplaceStateFromPath,
   streamplaceLinkingOptions,
 } from "src/linking-config";
+import { AvatarButton } from "src/router";
 import { useStore } from "store";
 import SidebarItem from "./sidebar-item";
+import { EditIcon, SOCIAL_NAV_ICONS } from "./social-icons";
 
 /**
  * Branded navigation (branding keys navLinks / navCta): a node can replace
@@ -352,6 +361,7 @@ export interface SidebarNavItem {
     | React.ComponentType<any>
     | React.ReactElement
     | (() => React.ReactElement);
+  activeIcon?: React.ComponentType<any>;
   label: string;
   href: string;
   hidden?: boolean;
@@ -406,11 +416,22 @@ export function SidebarOverlay() {
   // resize.
   const brandedLinks = parseNavLinks(useBrandingAsset("navLinks")?.data);
   const brandedCta = parseNavCta(useBrandingAsset("navCta")?.data);
+  const socialShell = useSocialShell();
+  // Unset social links mean the Streamplace defaults in the classic shell
+  // and nothing in the social shell (the app it imitates has no such row).
   const socialLinks =
     parseSocialLinks(useBrandingAsset("socialLinks")?.data) ??
-    DEFAULT_SOCIAL_LINKS;
+    (socialShell ? [] : DEFAULT_SOCIAL_LINKS);
   const socialHeading =
     useBrandingAsset("socialHeading")?.data?.trim() || "Say Hello?";
+  const downloadSetting = useBrandingAsset("showDownloadLink")?.data;
+  const showDownload = downloadSetting
+    ? downloadSetting === "on"
+    : !socialShell;
+  const brandedBottomLinks = parseSocialLinks(
+    useBrandingAsset("bottomLinks")?.data,
+  );
+  const { width: windowWidth } = useWindowDimensions();
 
   // Don't render if sidebar is not active (small screen) or hidden
   if (!sidebar.isActive || sidebar.isHidden) {
@@ -419,7 +440,13 @@ export function SidebarOverlay() {
 
   // Browse destinations — public, content-first, YouTube-style
   const brandedItems: SidebarNavItem[] = brandedLinks.map((l) => ({
-    icon: NAV_ICONS[l.icon ?? ""] ?? Hash,
+    icon:
+      (socialShell && SOCIAL_NAV_ICONS[l.icon ?? ""]?.inactive) ||
+      NAV_ICONS[l.icon ?? ""] ||
+      Hash,
+    activeIcon: socialShell
+      ? SOCIAL_NAV_ICONS[l.icon ?? ""]?.active
+      : undefined,
     label: l.label,
     href: l.url,
   }));
@@ -465,24 +492,47 @@ export function SidebarOverlay() {
 
   // You / meta destinations. Account lives under Settings, so it's dropped from
   // the sidebar — this row is just the logged-out "Log in" entry.
+  // A branded link that already targets a destination (e.g. /settings)
+  // replaces the built-in row for it rather than duplicating it.
+  const brandedHrefs = new Set(brandedLinks.map((l) => l.url));
   const secondaryItems: SidebarNavItem[] = [
     { icon: LogIn, label: "Log in", href: "/login", hidden: !!did },
     {
-      icon: SettingsIcon,
+      icon: socialShell ? SOCIAL_NAV_ICONS.settings.inactive : SettingsIcon,
+      activeIcon: socialShell ? SOCIAL_NAV_ICONS.settings.active : undefined,
       label: "Settings",
       href: "/settings",
       matchPrefix: "/settings",
+      hidden: brandedHrefs.has("/settings"),
     },
     {
       icon: Download,
       label: "Download",
       href: "/download",
-      hidden: !isBrowser,
+      hidden: !isBrowser || !showDownload,
     },
   ];
 
   const u = new URL(streamplaceUrl);
   u.pathname = "/docs";
+  // Links pinned to the bottom (branding key bottomLinks). Unset keeps the
+  // classic shell's Documentation link; the social shell shows none.
+  const bottomLinks: BrandedNavLink[] =
+    brandedBottomLinks ??
+    (socialShell
+      ? []
+      : [{ label: "Documentation", url: u.toString(), icon: "book" }]);
+
+  // The social shell centers the nav + feed + chat cluster (Figma: 240 +
+  // 600 + 407 in a 1440 window) instead of pinning the rail to the left
+  // edge. The shell adds the same offset to its content margin.
+  const socialOffset =
+    socialShell && sidebar.isActive && !sidebar.overlay
+      ? Math.max(
+          0,
+          Math.floor((windowWidth - (sidebar.contentMargin + 1008)) / 2),
+        )
+      : 0;
 
   const navigate = (href: string) => {
     closeDrawer();
@@ -533,10 +583,12 @@ export function SidebarOverlay() {
         <SidebarItem
           key={item.href}
           icon={item.icon}
+          activeIcon={item.activeIcon}
           href={item.href}
           label={item.label}
           active={isItemActive(item.href, item.matchPrefix)}
           collapsed={collapsed}
+          variant={socialShell ? "social" : "classic"}
           onPress={(e) => {
             e.preventDefault();
             navigate(item.href);
@@ -553,7 +605,7 @@ export function SidebarOverlay() {
         {
           position: "absolute",
           top: 0,
-          left: 0,
+          left: socialOffset,
           bottom: 0,
           zIndex: 128000,
           paddingHorizontal: spacing[2],
@@ -584,63 +636,78 @@ export function SidebarOverlay() {
         />
       )}
 
-      {/* Brand row — toggle left of the logo, its icon aligned with the nav
-          icons below (YouTube-style). */}
-      <View
-        style={[
-          zero.layout.flex.row,
-          zero.layout.flex.alignCenter,
-          {
-            height: 56,
-            marginTop: Platform.OS === "ios" ? spacing[6] : 0,
-            marginBottom: spacing[2],
-            // No gap: the toggle's width equals a nav row's icon cluster, so
-            // butting the logo against it lands the mark on the nav-label
-            // column while the toggle icon stays aligned with the nav icons.
-            gap: 0,
-          },
-        ]}
-      >
-        <SidebarToggle
-          label={
-            sidebar.overlay
-              ? "Close menu"
-              : collapsed
-                ? "Expand sidebar"
-                : "Collapse sidebar"
-          }
-          onPress={sidebar.toggle}
-        />
-        {!collapsed && (
-          <LogoBrandMenu>
-            <Pressable
-              // @ts-ignore renders as <a> on web
-              href="/"
-              style={[
-                zero.layout.flex.row,
-                zero.layout.flex.alignCenter,
-                { flexShrink: 1, minWidth: 0 },
-              ]}
-              onPress={(e) => {
-                e.preventDefault();
-                closeDrawer();
-                navigation.navigate("MainTabs", {
-                  screen: "HomeTab",
-                  params: { screen: "HomeMain" },
-                });
-              }}
-            >
-              <SiteTitleLockup
-                size={19}
-                weight="semibold"
-                letterSpacing={0}
-                markColor={colors.white}
-                color={colors.white}
-              />
-            </Pressable>
-          </LogoBrandMenu>
-        )}
-      </View>
+      {socialShell ? (
+        // Social shell: the viewer's avatar heads the rail (48px, opens the
+        // account menu; logged out it opens login), no lockup, no toggle.
+        <View
+          style={{
+            height: 72,
+            paddingVertical: spacing[3],
+            paddingLeft: collapsed ? 0 : spacing[4],
+            alignItems: collapsed ? "center" : "flex-start",
+            justifyContent: "center",
+            marginBottom: spacing[1],
+          }}
+        >
+          <AvatarButton size={48} bare />
+        </View>
+      ) : (
+        <View
+          style={[
+            zero.layout.flex.row,
+            zero.layout.flex.alignCenter,
+            {
+              height: 56,
+              marginTop: Platform.OS === "ios" ? spacing[6] : 0,
+              marginBottom: spacing[2],
+              // No gap: the toggle's width equals a nav row's icon cluster, so
+              // butting the logo against it lands the mark on the nav-label
+              // column while the toggle icon stays aligned with the nav icons.
+              gap: 0,
+            },
+          ]}
+        >
+          <SidebarToggle
+            label={
+              sidebar.overlay
+                ? "Close menu"
+                : collapsed
+                  ? "Expand sidebar"
+                  : "Collapse sidebar"
+            }
+            onPress={sidebar.toggle}
+          />
+          {!collapsed && (
+            <LogoBrandMenu>
+              <Pressable
+                // @ts-ignore renders as <a> on web
+                href="/"
+                style={[
+                  zero.layout.flex.row,
+                  zero.layout.flex.alignCenter,
+                  { flexShrink: 1, minWidth: 0 },
+                ]}
+                onPress={(e) => {
+                  e.preventDefault();
+                  closeDrawer();
+                  navigation.navigate("MainTabs", {
+                    screen: "HomeTab",
+                    params: { screen: "HomeMain" },
+                  });
+                }}
+              >
+                <SiteTitleLockup
+                  size={19}
+                  weight="semibold"
+                  letterSpacing={0}
+                  markColor={colors.white}
+                  color={colors.white}
+                />
+              </Pressable>
+            </LogoBrandMenu>
+          )}
+        </View>
+      )}
 
       {brandedItems.length > 0 ? (
         <View style={{ gap: 2 }}>
@@ -648,6 +715,7 @@ export function SidebarOverlay() {
             <SidebarItem
               key={item.href}
               icon={item.icon}
+              activeIcon={item.activeIcon}
               href={item.href}
               label={item.label}
               active={
@@ -655,6 +723,7 @@ export function SidebarOverlay() {
                 isItemActive(item.href, item.matchPrefix)
               }
               collapsed={collapsed}
+              variant={socialShell ? "social" : "classic"}
               onPress={(e) => {
                 e.preventDefault();
                 openLink(item.href);
@@ -669,12 +738,39 @@ export function SidebarOverlay() {
               }}
             >
               <Button
-                variant="primary"
+                // The social shell's pill is the brand color (Figma: accent
+                // fill, dark text); the classic one is the monochrome primary.
+                variant={socialShell ? "accent" : "primary"}
                 width="min"
                 style={{ borderRadius: 999, height: 44, paddingHorizontal: 24 }}
                 onPress={() => openLink(brandedCta.url)}
               >
-                {brandedCta.label}
+                {socialShell ? (
+                  <View
+                    style={[
+                      zero.layout.flex.row,
+                      zero.layout.flex.alignCenter,
+                      { gap: 6 },
+                    ]}
+                  >
+                    <EditIcon
+                      size={18}
+                      color={theme.colors.primaryForeground}
+                    />
+                    <Text
+                      weight="medium"
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 20,
+                        color: theme.colors.primaryForeground,
+                      }}
+                    >
+                      {brandedCta.label}
+                    </Text>
+                  </View>
+                ) : (
+                  brandedCta.label
+                )}
               </Button>
             </View>
           )}
@@ -703,20 +799,28 @@ export function SidebarOverlay() {
 
       <View style={{ gap: 2 }}>{renderItems(secondaryItems)}</View>
 
-      {/* Docs and social pinned to the bottom */}
+      {/* Bottom links and the social row pinned to the bottom */}
       {isBrowser && (
         <View style={{ marginTop: "auto", gap: 2 }}>
-          <SidebarItem
-            icon={Book}
-            href={u.toString()}
-            label="Documentation"
-            active={false}
-            collapsed={sidebar.isCollapsed}
-            onPress={(e) => {
-              e.preventDefault();
-              Linking.openURL(u.toString());
-            }}
-          />
+          {bottomLinks.map((link) => (
+            <SidebarItem
+              key={link.url + link.label}
+              icon={
+                (socialShell && SOCIAL_NAV_ICONS[link.icon ?? ""]?.inactive) ||
+                NAV_ICONS[link.icon ?? ""] ||
+                Book
+              }
+              href={link.url}
+              label={link.label}
+              active={false}
+              collapsed={sidebar.isCollapsed}
+              variant={socialShell ? "social" : "classic"}
+              onPress={(e) => {
+                e.preventDefault();
+                openLink(link.url);
+              }}
+            />
+          ))}
           {socialLinks.length > 0 && (
             <>
               {renderSectionHeader(socialHeading)}

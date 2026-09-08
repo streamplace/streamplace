@@ -23,7 +23,8 @@ version: 1
 branding: # only what is set on this node
   siteTitle: Sample Node
   primaryColor: "#11e8b2"
-  streamLayout: card
+  appLayout: social # timeline-style shell; implies streamLayout: card
+  chatLayout: avatar
   navLinks: # JSON-valued keys are plain YAML
     - { label: Home, url: https://example.com, icon: home }
   socialLinks:

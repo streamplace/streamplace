@@ -14,28 +14,41 @@ const ICON_SIZE = 24;
  */
 export default function SidebarItem({
   icon,
+  activeIcon,
   label,
   collapsed,
   active,
   onPress,
   href,
+  variant = "classic",
 }: {
   icon:
     | React.ComponentType<any>
     | React.ReactElement
     | (() => React.ReactElement);
+  /** Shown instead of `icon` while active (the social shell's filled glyphs). */
+  activeIcon?: React.ComponentType<any>;
   label: string | ReactNode;
   collapsed: boolean;
   active: boolean;
   onPress: (event: GestureResponderEvent) => void;
   href: string;
+  /** "social": the timeline-shell row — 48px, 19px white label, semibold
+   *  when active, no active pill. */
+  variant?: "classic" | "social";
 }) {
   const [hover, setHover] = useState<boolean>(false);
   const { theme } = useTheme();
+  const social = variant === "social";
 
-  const iconColor = active || hover ? theme.colors.text1 : theme.colors.text2;
+  const iconColor =
+    social || active || hover ? theme.colors.text1 : theme.colors.text2;
 
   const renderIcon = () => {
+    if (active && activeIcon) {
+      const ActiveIcon = activeIcon;
+      return <ActiveIcon color={iconColor} size={ICON_SIZE} />;
+    }
     if (!icon) return null;
     if (React.isValidElement(icon)) {
       return React.cloneElement(icon as any, {
@@ -84,16 +97,21 @@ export default function SidebarItem({
           zero.layout.flex.row,
           zero.layout.flex.alignCenter,
           {
-            height: 40,
+            height: social ? 48 : 40,
             paddingHorizontal: spacing[3],
-            gap: spacing[4],
-            backgroundColor: active
-              ? theme.colors.surface2
-              : hover
+            gap: social ? spacing[2] : spacing[4],
+            backgroundColor: social
+              ? hover
                 ? theme.colors.surface1
-                : "transparent",
+                : "transparent"
+              : active
+                ? theme.colors.surface2
+                : hover
+                  ? theme.colors.surface1
+                  : "transparent",
             overflow: "hidden",
           },
+          social && { borderRadius: 8 },
           webTransition,
         ]}
       >
@@ -111,10 +129,21 @@ export default function SidebarItem({
             {typeof label === "string" ? (
               <Text
                 numberOfLines={1}
-                weight={active ? "medium" : "normal"}
+                weight={
+                  social
+                    ? active
+                      ? "semibold"
+                      : "normal"
+                    : active
+                      ? "medium"
+                      : "normal"
+                }
                 style={{
                   color:
-                    active || hover ? theme.colors.text1 : theme.colors.text2,
+                    social || active || hover
+                      ? theme.colors.text1
+                      : theme.colors.text2,
+                  ...(social ? { fontSize: 19, lineHeight: 22 } : {}),
                 }}
               >
                 {label}

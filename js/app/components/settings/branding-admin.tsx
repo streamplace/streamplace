@@ -41,6 +41,8 @@ const NAV_CTA_EXAMPLE =
   '{"label": "New post", "url": "https://example.com/compose"}';
 const SOCIAL_LINKS_EXAMPLE =
   '[{"label": "Bluesky", "url": "https://bsky.app/profile/example.com", "icon": "bluesky"}, {"label": "Forum", "url": "https://example.com/forum", "icon": "socialIcon1"}]';
+const BOTTOM_LINKS_EXAMPLE =
+  '[{"label": "Help", "url": "https://example.com/help", "icon": "book"}]';
 const SOCIAL_ICON_SLOTS = [
   "socialIcon1",
   "socialIcon2",
@@ -279,6 +281,7 @@ export function BrandingAdmin() {
         case "chatLayout":
         case "socialHeading":
         case "socialLinks":
+        case "bottomLinks":
           setChromeInputs((prev) => ({ ...prev, [key]: "" }));
           break;
         case "defaultStreamer":
@@ -1126,6 +1129,33 @@ export function BrandingAdmin() {
                 <SettingsRowItem>
                   <View style={[zero.gap.all[2], { flex: 1 }]}>
                     <Text size="sm" weight="semibold">
+                      {t("branding-app-layout")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-app-layout-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "classic",
+                          label: t("branding-layout-classic"),
+                        },
+                        {
+                          value: "social",
+                          label: t("branding-app-layout-social"),
+                        },
+                      ]}
+                      value={brandingValue("appLayout") || "classic"}
+                      onChange={(v) => uploadText("appLayout", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
                       {t("branding-stream-layout")}
                     </Text>
                     <Text size="xs" color="muted">
@@ -1288,6 +1318,108 @@ export function BrandingAdmin() {
                         variant="secondary"
                         onPress={() => deleteBlob("navCta")}
                         disabled={uploading || !brandingValue("navCta")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-download-link")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-download-link-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "", label: t("branding-download-default") },
+                        { value: "on", label: t("branding-download-on") },
+                        { value: "off", label: t("branding-download-off") },
+                      ]}
+                      value={brandingValue("showDownloadLink") || ""}
+                      onChange={(v) =>
+                        v
+                          ? uploadText("showDownloadLink", v)
+                          : deleteBlob("showDownloadLink")
+                      }
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-bottom-links")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-bottom-links-description")}
+                    </Text>
+                    <TextInput
+                      multiline
+                      numberOfLines={3}
+                      placeholderTextColor={theme.colors.text3}
+                      style={{
+                        minHeight: 70,
+                        padding: 12,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.colors.border,
+                        backgroundColor: theme.colors.surface1,
+                        color: theme.colors.text1,
+                        fontFamily: theme.fonts.monoRegular,
+                        fontSize: 12,
+                        textAlignVertical: "top",
+                      }}
+                      placeholder={BOTTOM_LINKS_EXAMPLE}
+                      value={
+                        chromeInputs["bottomLinks"] ??
+                        brandingValue("bottomLinks")
+                      }
+                      onChangeText={(v) =>
+                        setChromeInputs((prev) => ({ ...prev, bottomLinks: v }))
+                      }
+                    />
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "bottomLinks",
+                            chromeInputs["bottomLinks"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["bottomLinks"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => uploadText("bottomLinks", "[]")}
+                        disabled={uploading}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-social-hide")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("bottomLinks")}
+                        disabled={uploading || !brandingValue("bottomLinks")}
                         width="min"
                         style={{ height: 42 }}
                       >

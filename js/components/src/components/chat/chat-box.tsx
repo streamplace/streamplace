@@ -65,9 +65,14 @@ export function ChatBox({
   skinTone = 0,
   hideLogin = false,
   leftSlot,
+  hideSendButton = false,
+  placeholder = "Type a message...",
 }: {
   isPopout?: boolean;
   chatBoxStyle?: any;
+  /** Enter still sends; the timeline-style composer has no button. */
+  hideSendButton?: boolean;
+  placeholder?: string;
   emojiData: EmojiData | null;
   setIsChatVisible?: (visible: boolean) => void;
   onEmojiPickerToggle?: () => void;
@@ -568,20 +573,22 @@ export function ChatBox({
             }
             // "submit" won't blur on enter
             submitBehavior="submit"
-            placeholder="Type a message..."
+            placeholder={placeholder}
           />
         </View>
-        <View>
-          <Button
-            disabled={submitting}
-            variant="secondary"
-            width="min"
-            style={{ borderRadius: theme.borderRadius.md, height: 43 }}
-            onPress={submit}
-          >
-            {submitting ? <Loader /> : "Send"}
-          </Button>
-        </View>
+        {!hideSendButton && (
+          <View>
+            <Button
+              disabled={submitting}
+              variant="secondary"
+              width="min"
+              style={{ borderRadius: theme.borderRadius.md, height: 43 }}
+              onPress={submit}
+            >
+              {submitting ? <Loader /> : "Send"}
+            </Button>
+          </View>
+        )}
       </View>
       {showSuggestions && (
         <MentionSuggestions

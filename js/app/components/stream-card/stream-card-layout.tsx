@@ -7,6 +7,7 @@ import {
   Loader,
   Text,
   useLivestreamStore,
+  useSocialShell,
   useTheme,
   useToast,
   View,
@@ -14,10 +15,10 @@ import {
 } from "@streamplace/components";
 import { usePDSAgent } from "@streamplace/components/src/streamplace-store/xrpc";
 import { EmojiPicker } from "components/emoji-picker/emoji-picker";
-import { BadgePicker } from "components/mobile/badge-picker";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
+import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
 import {
   ArrowLeft,
@@ -49,7 +50,9 @@ import { useEmojiData } from "utils/emoji";
 
 const FEED_WIDTH = 600;
 const CHAT_WIDTH = 407;
-const TWO_COLUMN_MIN = FEED_WIDTH + CHAT_WIDTH + 32;
+// Feed + chat + the hairline between them; the social shell sizes its
+// content column to exactly this.
+const TWO_COLUMN_MIN = FEED_WIDTH + CHAT_WIDTH + 1;
 
 function formatPostDate(iso: string | undefined): string | null {
   if (!iso) return null;
@@ -447,11 +450,19 @@ function CardChatPanel({ fill }: { fill: boolean }) {
       {agent?.did ? (
         <ChatBox
           emojiData={emojiData}
+          // The timeline composer: a 44px field, no send button (Enter
+          // sends), a chat glyph at the left in place of the badge picker.
           chatBoxStyle={{
             borderRadius: 10,
             backgroundColor: theme.colors.surface2,
+            borderWidth: 0,
+            height: 44,
+            paddingLeft: 12,
+            gap: 4,
           }}
-          leftSlot={<BadgePicker />}
+          placeholder="Write your message..."
+          hideSendButton
+          leftSlot={<MessageIcon size={18} color={theme.colors.text3} />}
           emojiPicker={(isOpen, onClose, onSelect) => (
             <EmojiPicker
               isOpen={isOpen}
@@ -514,6 +525,8 @@ export function StreamCardLayout({
   const onLayout = (e: LayoutChangeEvent) =>
     setContentWidth(e.nativeEvent.layout.width);
   const twoColumn = contentWidth >= TWO_COLUMN_MIN;
+  // In the social shell the nav rail's own border is the feed's left edge.
+  const socialShell = useSocialShell();
 
   if (twoColumn) {
     return (
@@ -522,11 +535,11 @@ export function StreamCardLayout({
         style={{
           flex: 1,
           flexDirection: "row",
-          justifyContent: "center",
+          justifyContent: socialShell ? "flex-start" : "center",
           backgroundColor: theme.colors.background,
         }}
       >
-        <Hairline vertical />
+        {!socialShell && <Hairline vertical />}
         <ScrollView
           style={{ width: FEED_WIDTH, flexGrow: 0 }}
           contentContainerStyle={{ paddingBottom: 40 }}

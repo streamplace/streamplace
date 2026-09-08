@@ -241,6 +241,28 @@ export function useBrandingAsset(key: string): BrandingAsset | undefined {
   );
 }
 
+/**
+ * App shell shape (branding key appLayout). "social" is the timeline-style
+ * shell: no top bar, the viewer's avatar atop the nav rail, a fixed-width
+ * feed column and upstream social-app nav icons.
+ */
+export function useAppLayout(): "classic" | "social" {
+  const asset = useBrandingAsset("appLayout");
+  return asset?.data === "social" ? "social" : "classic";
+}
+
+export function useSocialShell(): boolean {
+  return useAppLayout() === "social";
+}
+
+/** The stream page as a post card beside live chat: streamLayout=card, which
+ *  the social shell implies. */
+export function useCardStreamLayout(): boolean {
+  const layout = useBrandingAsset("streamLayout")?.data;
+  const social = useSocialShell();
+  return layout === "card" || social;
+}
+
 // convenience hook for main logo
 export function useMainLogo(): string | undefined {
   const asset = useBrandingAsset("mainLogo");

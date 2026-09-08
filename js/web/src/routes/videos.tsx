@@ -4,6 +4,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../components/ui/button";
 import { VideoCard } from "../components/video/video-card";
 import useAvatars from "../hooks/use-avatars";
 import { useVideoList } from "../hooks/use-video-list";
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/videos")({
 
 function VideosPage() {
   const { t } = useTranslation("common");
-  const { videos, loading, error, hasMore, loadMore } = useVideoList();
+  const { videos, loading, error, hasMore, loadMore, refresh } = useVideoList();
 
   const dids = useMemo(
     () => Array.from(new Set(videos.map((v) => v.author.did))),
@@ -55,9 +56,13 @@ function VideosPage() {
       )}
 
       {loading && videos.length === 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          role="status"
+          aria-label={t("loading")}
+        >
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse space-y-2">
+            <div key={i} aria-hidden="true" className="animate-pulse space-y-2">
               <div className="aspect-video rounded-xl bg-(--color-bg-elevated)" />
               <div className="flex gap-2.5">
                 <div className="h-8 w-8 rounded-full bg-(--color-bg-elevated)" />
@@ -75,15 +80,40 @@ function VideosPage() {
         <div className="py-20 text-center">
           <div className="mb-2 text-2xl">🎬</div>
           <p className="text-(--color-fg-muted)">
-            {error ? t("could-not-load-videos", { error }) : t("no-videos-yet")}
+            {error
+              ? t("could-not-load-videos-generic", {
+                  defaultValue: "Couldn't load videos. Please try again.",
+                })
+              : t("no-videos-yet")}
           </p>
+          {error && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => void refresh()}
+            >
+              {t("try-again")}
+            </Button>
+          )}
         </div>
       )}
 
       {/* Infinite scroll sentinel */}
       {hasMore && <div ref={sentinelRef} className="h-1" />}
+      {hasMore && !loading && videos.length > 0 && (
+        <div className="flex justify-center py-6">
+          <Button variant="outline" onClick={() => void loadMore()}>
+            {t("load-more", { defaultValue: "Load more" })}
+          </Button>
+        </div>
+      )}
       {loading && videos.length > 0 && (
-        <div className="flex justify-center py-8">
+        <div
+          className="flex justify-center py-8"
+          role="status"
+          aria-label={t("loading")}
+        >
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-(--color-border) border-t-(--color-accent)" />
         </div>
       )}

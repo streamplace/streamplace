@@ -240,9 +240,9 @@ function RecommendationEmbed({
           to="/$user"
           params={{ user: handle }}
           aria-label={`Watch ${handle}`}
-          className="group absolute inset-0 z-10 mb-12 cursor-pointer bg-linear-to-t from-transparent via-black/20 to-black/20 opacity-0 transition-all duration-300 hover:opacity-100"
+          className="group absolute inset-0 z-10 mb-12 cursor-pointer bg-linear-to-t from-transparent via-black/20 to-black/20 opacity-0 transition-opacity duration-300 hover:opacity-100"
         >
-          <div className="absolute right-4 bottom-2 flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-3 py-1 text-left opacity-0 backdrop-blur-sm transition-all duration-300 group-hover:opacity-100">
+          <div className="absolute right-4 bottom-2 flex shrink-0 items-center gap-1 rounded-full bg-black/50 px-3 py-1 text-left opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
             {avatar ? (
               <img
                 src={avatar}

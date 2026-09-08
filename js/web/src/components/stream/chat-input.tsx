@@ -457,8 +457,9 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
     try {
       await send(text);
       editor.commands.clearContent();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("chat-failed-send"));
+    } catch (error) {
+      console.error("Failed to send chat message:", error);
+      setError(t("chat-failed-send"));
     } finally {
       setSending(false);
     }
@@ -510,15 +511,18 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
               handle: replyToMessage.author.handle || replyToMessage.author.did,
             })}
           </span>
-          <button
+          <Button
             type="button"
             onClick={() =>
               store.setState((s) => ({ ...s, replyToMessage: null }))
             }
-            className="text-(--color-fg-muted) hover:text-(--color-fg)"
+            variant="ghost"
+            size="icon-touch"
+            aria-label={t("close")}
+            className="-mr-1 shrink-0 text-(--color-fg-muted) hover:text-(--color-fg)"
           >
             <X className="h-3 w-3" />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -570,7 +574,9 @@ export function ChatInput({ store }: { store: LivestreamStore }) {
       )}
 
       {error && (
-        <div className="mt-1 text-xs text-(--color-danger)">{error}</div>
+        <div className="mt-1 text-xs text-(--color-danger)" role="alert">
+          {error}
+        </div>
       )}
     </div>
   );

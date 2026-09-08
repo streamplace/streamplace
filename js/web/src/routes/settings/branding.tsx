@@ -36,7 +36,9 @@ function BrandingAdmin() {
   const uploadText = async (key: string, value: string) => {
     if (!agent) return;
     if (!value.trim()) {
-      toast.error("Value cannot be empty");
+      toast.error(
+        t("branding-empty-value", { defaultValue: "Value cannot be empty" }),
+      );
       return;
     }
     try {
@@ -49,9 +51,16 @@ function BrandingAdmin() {
         data: base64Data,
         mimeType: "text/plain",
       });
-      toast.success(`${key} updated`);
-    } catch (error: any) {
-      toast.error(error.message || `Failed to update ${key}`);
+      toast.success(
+        t("branding-value-updated", { defaultValue: "Branding updated" }),
+      );
+    } catch (error) {
+      console.error(`Failed to update branding value ${key}:`, error);
+      toast.error(
+        t("branding-update-failed", {
+          defaultValue: "Failed to update branding",
+        }),
+      );
     } finally {
       setUploading(false);
     }
@@ -93,9 +102,16 @@ function BrandingAdmin() {
         width,
         height,
       });
-      toast.success(`${key} uploaded`);
-    } catch (error: any) {
-      toast.error(error.message || `Failed to upload ${key}`);
+      toast.success(
+        t("branding-file-uploaded", { defaultValue: "Branding uploaded" }),
+      );
+    } catch (error) {
+      console.error(`Failed to upload branding value ${key}:`, error);
+      toast.error(
+        t("branding-upload-failed", {
+          defaultValue: "Failed to upload branding",
+        }),
+      );
     } finally {
       setUploading(false);
     }
@@ -109,9 +125,16 @@ function BrandingAdmin() {
         key,
         broadcaster: (broadcasterDID || undefined) as any,
       });
-      toast.success(`${key} deleted`);
-    } catch (error: any) {
-      toast.error(error.message || `Failed to delete ${key}`);
+      toast.success(
+        t("branding-value-deleted", { defaultValue: "Branding removed" }),
+      );
+    } catch (error) {
+      console.error(`Failed to delete branding value ${key}:`, error);
+      toast.error(
+        t("branding-delete-failed", {
+          defaultValue: "Failed to remove branding",
+        }),
+      );
     } finally {
       setUploading(false);
     }
@@ -163,7 +186,13 @@ function BrandingAdmin() {
       </div>
 
       {uploading && (
-        <div className="text-sm text-(--color-fg-muted)">Uploading…</div>
+        <div
+          className="text-sm text-(--color-fg-muted)"
+          role="status"
+          aria-label={t("loading")}
+        >
+          {t("branding-uploading", { defaultValue: "Uploading…" })}
+        </div>
       )}
 
       {/* Broadcaster DID */}

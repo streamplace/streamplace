@@ -7,6 +7,7 @@ import {
   Link,
   Outlet,
   useMatchRoute,
+  useNavigate,
 } from "@tanstack/react-router";
 import {
   Bell,
@@ -21,6 +22,14 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 
 interface NavLink {
   needsAuth?: boolean;
@@ -135,8 +144,9 @@ function NavGroupItem({ item }: { item: NavGroup }) {
     <div>
       {/* Desktop: expandable group */}
       <div className="hidden lg:block">
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setOpen(!open)}
           className={cn(
             linkClass,
@@ -154,7 +164,7 @@ function NavGroupItem({ item }: { item: NavGroup }) {
               open && "rotate-180",
             )}
           />
-        </button>
+        </Button>
         {open && (
           <div className="mt-0.5 mb-1 ml-4.5 space-y-0.5 border-l border-(--color-border)">
             {item.children.map((child) => (
@@ -205,33 +215,69 @@ function DisplayNavItem({ item }: { item: NavItem }) {
   );
 }
 
+function MobileSettingsNav() {
+  const { t } = useTranslation("settings");
+  const { state } = useSession();
+  const userProfile = useUserProfile();
+  const danmuUnlocked = useStore((s) => s.danmuUnlocked);
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+
+  const links = NAV_ITEMS.filter(
+    (item): item is Extract<NavItem, { role: "link" }> => item.role === "link",
+  ).filter((item) => {
+    if (item.needsAuth && (state.status !== "authenticated" || !userProfile)) {
+      return false;
+    }
+    return !item.requiresDanmuUnlock || danmuUnlocked;
+  });
+
+  const activeLink =
+    links.find((item) => matchRoute({ to: item.to, fuzzy: true })) ?? links[0];
+
+  if (!activeLink) return null;
+
+  return (
+    <div className="lg:hidden">
+      <label htmlFor="settings-mobile-nav" className="sr-only">
+        {t("settings-title")}
+      </label>
+      <Select
+        value={activeLink.to}
+        onValueChange={(value) => {
+          void navigate({ to: value as any });
+        }}
+      >
+        <SelectTrigger
+          id="settings-mobile-nav"
+          className="h-10 w-full bg-(--color-bg-elevated)"
+          aria-label={t("settings-title")}
+        >
+          <SelectValue>{t(activeLink.labelKey)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {links.map((item) => (
+            <SelectItem key={item.to} value={item.to}>
+              {t(item.labelKey)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function SettingsLayout() {
   const { t } = useTranslation("settings");
 
   return (
     <div className="mx-auto flex max-w-screen flex-col gap-6 px-4 py-6 lg:flex-row lg:gap-8 lg:px-6 lg:py-10">
-      {/* Mobile: floating sticky nav */}
+      {/* Mobile: compact sticky nav */}
       <div className="sticky top-0 z-30 -mx-4 bg-(--color-bg)/80 px-4 py-2 backdrop-blur-md lg:hidden">
         <h2 className="font-display mb-2 text-lg font-semibold tracking-tight">
           {t("settings-title")}
         </h2>
-
-        <div className="relative -mx-4 px-4">
-          <div className="pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-5 bg-linear-to-r from-(--color-bg) to-transparent" />
-          <div className="pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-5 bg-linear-to-l from-(--color-bg) to-transparent" />
-
-          <nav
-            className="-mx-5 flex scrollbar-none gap-0.5 overflow-x-auto px-5"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-          >
-            {NAV_ITEMS.map((item, i) => (
-              <DisplayNavItem
-                key={"labelKey" in item ? item.labelKey : `divider-${i}`}
-                item={item}
-              />
-            ))}
-          </nav>
-        </div>
+        <MobileSettingsNav />
       </div>
 
       {/* Desktop: sidebar */}

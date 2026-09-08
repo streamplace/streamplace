@@ -33,7 +33,7 @@ code {
   --accent: oklch(0.9435 0.0175 339.9);
   --accent-foreground: oklch(0.2917 0.0806 320.4);
   --destructive: oklch(0.66 0.2286 17.5);
-  --destructive-foreground: oklch(0.66 0.2286 17.5);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.8942 0.0296 337.9);
   --input: oklch(0.8942 0.0296 337.9);
   --ring: oklch(0.6803 0.2158 339.7);
@@ -69,7 +69,7 @@ code {
   --accent: oklch(0.7207 0.1189 198.3);
   --accent-foreground: oklch(0.13 0 308.5);
   --destructive: oklch(0.66 0.2286 17.5);
-  --destructive-foreground: oklch(0.66 0.2286 17.5);
+  --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.9498 0.0183 336.6 / 10%);
   --input: oklch(0.9498 0.0183 336.6 / 15%);
   --ring: oklch(0.6803 0.2158 339.7);
@@ -160,7 +160,7 @@ code {
 
 @layer base {
   * {
-    @apply border-border outline-ring/50 font-sans transition-colors;
+    @apply border-border outline-ring/50 font-sans;
     font-size: 16px;
   }
   :root {
@@ -272,7 +272,19 @@ code {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .animate-scope-rock {
+    .animate-scope-rock,
+    .animate-cursor-slide,
+    .animate-button-click,
+    .animate-hero-rotate,
+    .animate-particle-1,
+    .animate-particle-2,
+    .animate-particle-3,
+    .animate-particle-4,
+    .animate-scale,
+    .animate-fade-in-staggered,
+    .animate-in-hubble,
+    .animate-fade-in-down,
+    .animate-fade-out-up {
       animation: none;
     }
   }
@@ -283,6 +295,22 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-smooth: always;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
 }
 
 ::view-transition-old(root),

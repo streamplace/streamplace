@@ -438,7 +438,10 @@ export function Player({
       )}
 
       {error && (
-        <div className="pointer-events-auto absolute top-2 right-2 left-2 rounded bg-red-500/90 px-3 py-2 text-sm text-white">
+        <div
+          className="pointer-events-auto absolute top-2 right-2 left-2 rounded bg-red-500/90 px-3 py-2 text-sm text-white"
+          role="alert"
+        >
           {error}
         </div>
       )}
@@ -575,7 +578,7 @@ function StatsOverlay({
       style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
     >
       <div className="bg-muted/50 mb-1 w-full rounded-t px-2.5 pt-1.5 pb-0.5 font-mono text-sm text-white/40 select-none">
-        Stats
+        {t("player-stats")}
       </div>
       <div className="px-2.5 py-1.5">
         <Row

@@ -1,4 +1,6 @@
+import { Button } from "@/components/ui/button";
 import { CardMenuSection } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { manifest } from "@streamplace/i18n";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check } from "lucide-react";
@@ -44,26 +46,28 @@ function LanguagesSettings() {
         </div>
       </CardMenuSection>
 
-      <input
-        type="text"
+      <Input
+        type="search"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder={t("input-search-languages")}
-        className="h-9 w-full rounded-lg border border-(--color-border) bg-transparent px-3 text-sm outline-none focus:border-(--color-accent)"
+        aria-label={t("input-search-languages")}
+        className="h-9"
       />
 
       <CardMenuSection className="max-h-[60vh] overflow-y-auto">
         {filteredLanguages.map(([code, info]) => {
           const isSelected = i18n.language === code;
           return (
-            <button
+            <Button
               key={code}
               type="button"
+              variant="ghost"
               onClick={() => {
                 void i18n.changeLanguage(code);
                 setSearchQuery("");
               }}
-              className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-(--color-bg)"
+              className="h-auto w-full justify-between rounded-none px-3 py-2.5 text-left font-normal"
             >
               <div className="flex items-center gap-2">
                 <span>{info.flag}</span>
@@ -84,7 +88,7 @@ function LanguagesSettings() {
               {isSelected && (
                 <Check size={16} className="text-(--color-accent)" />
               )}
-            </button>
+            </Button>
           );
         })}
         {filteredLanguages.length === 0 && (

@@ -423,6 +423,24 @@ func (l *Linker) GenerateDefaultCard(ctx context.Context, u *url.URL, sentryDSN 
 	})
 }
 
+// isLinkPreviewMeta reports whether a <meta> is one the cards own: the page
+// description and every og: / twitter: tag.
+func isLinkPreviewMeta(node *html.Node) bool {
+	for _, attr := range node.Attr {
+		switch attr.Key {
+		case "property":
+			if strings.HasPrefix(attr.Val, "og:") || strings.HasPrefix(attr.Val, "twitter:") {
+				return true
+			}
+		case "name":
+			if attr.Val == "description" || strings.HasPrefix(attr.Val, "twitter:") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, error) {
 
 	root, err := html.Parse(bytes.NewReader(l.BaseHTML))
@@ -452,17 +470,20 @@ func (l *Linker) GenerateHTML(ctx context.Context, pc *PageConfig) ([]byte, erro
 		return nil, errors.New("head not found")
 	}
 
-	// Title tag (handled separately as it's not a meta tag)
-
-	var oldTitle *html.Node
+	// The template ships its own title, description and link-preview tags
+	// (the first-party brand, for a static host). Every card replaces them,
+	// and crawlers honour the first tag they meet, so the template's go.
+	var stale []*html.Node
 	for node := range head.ChildNodes() {
-		if node.Type == html.ElementNode && node.Data == "title" {
-			oldTitle = node
-			break
+		if node.Type != html.ElementNode {
+			continue
+		}
+		if node.Data == "title" || (node.Data == "meta" && isLinkPreviewMeta(node)) {
+			stale = append(stale, node)
 		}
 	}
-	if oldTitle != nil {
-		head.RemoveChild(oldTitle)
+	for _, node := range stale {
+		head.RemoveChild(node)
 	}
 
 	title := &html.Node{

@@ -125,8 +125,9 @@ function statusIsCurrent(s: {
   if (s.oauthSession === undefined) return false;
   // A brokered session (a sibling app's bearer token) is anonymous to the
   // node, so the node's answer for it carries no DID.
+  const kind = s.oauthSession?.kind;
   const expected =
-    s.oauthSession?.kind === "brokered"
+    kind === "brokered" || kind === "credential"
       ? undefined
       : (s.oauthSession?.did ?? undefined);
   return (s.accessStatus.did ?? undefined) === expected;

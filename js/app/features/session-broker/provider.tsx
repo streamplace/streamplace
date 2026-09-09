@@ -49,9 +49,13 @@ export function SessionBrokerProvider() {
         current.update(data);
         return;
       }
-      const session = new BrokeredSession(data, nodeUrl!, async () => {
-        const client = clientRef.current;
-        return client ? client.request() : null;
+      const session = new BrokeredSession(data, {
+        nodeUrl: nodeUrl!,
+        kind: "brokered",
+        refresh: async () => {
+          const client = clientRef.current;
+          return client ? client.request() : null;
+        },
       });
       sessionRef.current = session;
       setBrokeredSession(session);

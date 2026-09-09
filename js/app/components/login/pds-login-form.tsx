@@ -152,9 +152,9 @@ function QuickLoginPanel({
     </Pressable>
   );
 
-  // Narrow: the app hand-off as a card (deep link when the PDS offers one).
-  if (compact) {
-    if (!state.init?.signUrl && !state.error) return null;
+  // Narrow with a hand-off link: the app card. Narrow without one (the
+  // PDS offers only the QR): the code, centered above the form.
+  if (compact && (state.init?.signUrl || (state.error && !state.init))) {
     return (
       <View
         style={{
@@ -190,7 +190,13 @@ function QuickLoginPanel({
   }
 
   return (
-    <View style={{ alignItems: "center", gap: 10, width: 220 }}>
+    <View
+      style={{
+        alignItems: "center",
+        gap: 10,
+        width: compact ? "100%" : 220,
+      }}
+    >
       <View
         style={{
           width: 200,

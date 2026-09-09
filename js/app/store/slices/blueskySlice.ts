@@ -30,6 +30,21 @@ import { DID_KEY, STORED_KEY_KEY, StreamKey } from "./baseSlice";
 // Where a credentials session (tokens this app holds) is kept between loads.
 const CREDENTIAL_SESSION_KEY = "sp:credential-session";
 
+// Picks a stored credentials session back up, if there is one.
+async function restoreCredentialSession(get: () => AppStore) {
+  const stored = await storage.getItem(CREDENTIAL_SESSION_KEY);
+  if (!stored) return;
+  let credential: BearerSessionData | null = null;
+  try {
+    credential = JSON.parse(stored);
+  } catch {
+    credential = null;
+  }
+  if (credential?.accessJwt && credential.did) {
+    await (get() as BlueskySlice).setCredentialSession(credential);
+  }
+}
+
 type NewLivestream = {
   loading: boolean;
   error: string | null;
@@ -372,26 +387,15 @@ export const createBlueskySlice: StateCreator<
         });
         void (get() as BlueskySlice).refreshSessionScope();
       } else {
-        // No OAuth session: a credentials session this app holds may still
-        // be around from an earlier sign-in.
-        const stored = await storage.getItem(CREDENTIAL_SESSION_KEY);
-        let credential: BearerSessionData | null = null;
-        if (stored) {
-          try {
-            credential = JSON.parse(stored);
-          } catch {
-            credential = null;
-          }
-        }
         set({
           oauthSession: session,
           authStatus: "loggedOut",
           client,
           anonPDSAgent,
         });
-        if (credential?.accessJwt && credential.did) {
-          await (get() as BlueskySlice).setCredentialSession(credential);
-        }
+        // No OAuth session: a credentials session this app holds may still
+        // be around from an earlier sign-in.
+        await restoreCredentialSession(get);
       }
     } catch (error) {
       console.error("loadOAuthClient error", error);
@@ -405,6 +409,7 @@ export const createBlueskySlice: StateCreator<
         sessionKind: null,
         anonPDSAgent: new StreamplaceAgent(get().url),
       });
+      await restoreCredentialSession(get);
     }
   },
 

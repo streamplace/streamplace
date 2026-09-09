@@ -177,6 +177,28 @@ export function parseSocialLinks(
 const isExternal = (url: string) => /^[a-z]+:/i.test(url);
 
 /**
+ * Branded link URLs may carry {handle} and {did} for the signed-in viewer
+ * (a "Profile" link into the main app, say). Signed out, such a link falls
+ * back to its site root rather than a broken path.
+ */
+export function resolveNavUrl(
+  url: string,
+  viewer: { handle?: string | null; did?: string | null },
+): string {
+  if (!/\{(handle|did)\}/.test(url)) return url;
+  if (!viewer.did) {
+    try {
+      return new URL(url).origin + "/";
+    } catch {
+      return url;
+    }
+  }
+  return url
+    .replace("{handle}", encodeURIComponent(viewer.handle || viewer.did))
+    .replace("{did}", encodeURIComponent(viewer.did));
+}
+
+/**
  * Sidebar toggle — a hamburger/panel button styled to line its icon up with
  * the nav item icons below it (YouTube-style), sitting left of the logo.
  */
@@ -380,6 +402,10 @@ export function SidebarOverlay() {
   const streamplaceUrl = useUrl();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
   const did = useDID();
+  const viewerHandle = useStore((state) =>
+    did ? state.profiles[did]?.handle : undefined,
+  );
+  const viewer = { did, handle: viewerHandle };
 
   const [navState, setNavState] = useState(() => navigation.getState());
   useEffect(() => {
@@ -451,7 +477,8 @@ export function SidebarOverlay() {
     label: l.label,
     href: l.url,
   }));
-  const openLink = (url: string) => {
+  const openLink = (raw: string) => {
+    const url = resolveNavUrl(raw, viewer);
     if (isExternal(url)) {
       closeDrawer();
       void Linking.openURL(url);

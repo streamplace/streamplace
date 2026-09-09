@@ -4,7 +4,11 @@ import { Linking, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getStreamplaceStateFromPath } from "src/linking-config";
 import { useStore } from "store";
-import { BrandedNavLink, parseNavLinks } from "./sidebar-overlay";
+import {
+  BrandedNavLink,
+  parseNavLinks,
+  resolveNavUrl,
+} from "./sidebar-overlay";
 import { SOCIAL_NAV_ICONS } from "./social-icons";
 
 // The timeline app's bottom bar order; whichever of these the node's
@@ -33,12 +37,18 @@ export function SocialTabBar() {
   const navigation = useNavigation();
   const closeDrawer = useStore((state) => state.closeDrawer);
   const onStreamPage = useStore((state) => state.wideColumn);
+  const did = useStore((state) => state.oauthSession?.did);
+  const viewerHandle = useStore((state) =>
+    did ? state.profiles[did]?.handle : undefined,
+  );
+  const viewer = { did, handle: viewerHandle };
   const links = pickTabBarLinks(
     parseNavLinks(useBrandingAsset("navLinks")?.data),
   );
   if (links.length === 0) return null;
 
-  const open = (url: string) => {
+  const open = (raw: string) => {
+    const url = resolveNavUrl(raw, viewer);
     if (isExternal(url)) {
       void Linking.openURL(url);
       return;

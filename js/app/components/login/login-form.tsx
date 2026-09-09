@@ -5,6 +5,7 @@ import {
   Loader,
   Text,
   Tooltip,
+  useBrandingAsset,
   useLoginPlaceholder,
   useNetworkName,
   useTheme,
@@ -23,6 +24,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Platform, Pressable, View } from "react-native";
 import { useStore } from "store";
 import { useLogin } from "store/hooks";
+import PdsLoginForm from "./pds-login-form";
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -30,7 +32,22 @@ interface LoginFormProps {
   onOpenPdsModal?: () => void;
 }
 
-export default function LoginForm({
+// Branding key loginMode picks the sign-in: the node's OAuth flow, or the
+// PDS's own email / app password + QR login.
+export default function LoginForm(props: LoginFormProps) {
+  const mode = useBrandingAsset("loginMode")?.data;
+  if (mode === "pds") {
+    return (
+      <PdsLoginForm
+        onSuccess={props.onSuccess}
+        inModal={!!props.onCloseModal}
+      />
+    );
+  }
+  return <OAuthLoginForm {...props} />;
+}
+
+function OAuthLoginForm({
   onSuccess,
   onCloseModal,
   onOpenPdsModal,

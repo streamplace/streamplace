@@ -1,4 +1,9 @@
-import { Text, useTheme, zero } from "@streamplace/components";
+import {
+  Text,
+  useBrandingAsset,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { X } from "lucide-react-native";
 import {
   KeyboardAvoidingView,
@@ -21,6 +26,7 @@ export default function LoginModal({
   onClose,
   onOpenPdsModal,
 }: LoginModalProps) {
+  const pdsMode = useBrandingAsset("loginMode")?.data === "pds";
   const { theme } = useTheme();
 
   if (!visible) {
@@ -78,7 +84,7 @@ export default function LoginModal({
             ]}
           >
             <Text size="4xl" leading="snug">
-              Log in
+              {pdsMode ? "Sign in" : "Log in"}
             </Text>
             <TouchableOpacity
               onPress={onClose}

@@ -298,6 +298,12 @@ export function BrandingAdmin() {
         case "networkName":
         case "networkProfileUrl":
         case "sessionBrokerOrigin":
+        case "loginMode":
+        case "loginPdsUrl":
+        case "quickLogin":
+        case "loginForgotUrl":
+        case "loginWaitlistUrl":
+        case "loginSupportEmail":
         case "verifierDids":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
@@ -921,6 +927,227 @@ export function BrandingAdmin() {
                           {t("branding-remove")}
                         </Button>
                       )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-login-mode")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-login-mode-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        {
+                          value: "oauth",
+                          label: t("branding-login-mode-oauth"),
+                        },
+                        { value: "pds", label: t("branding-login-mode-pds") },
+                      ]}
+                      value={brandingValue("loginMode") || "oauth"}
+                      onChange={(v) => uploadText("loginMode", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-login-pds-url-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://pds.example.com"
+                          value={
+                            chromeInputs["loginPdsUrl"] ??
+                            brandingValue("loginPdsUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginPdsUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginPdsUrl",
+                            chromeInputs["loginPdsUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginPdsUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginPdsUrl")}
+                        disabled={uploading || !brandingValue("loginPdsUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <Text size="xs" color="muted">
+                      {t("branding-quick-login-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "off", label: t("branding-quick-login-off") },
+                        { value: "on", label: t("branding-quick-login-on") },
+                      ]}
+                      value={brandingValue("quickLogin") || "off"}
+                      onChange={(v) => uploadText("quickLogin", v)}
+                    />
+                    <Text size="xs" color="muted">
+                      {t("branding-login-links-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/forgot-password"
+                          value={
+                            chromeInputs["loginForgotUrl"] ??
+                            brandingValue("loginForgotUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginForgotUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginForgotUrl",
+                            chromeInputs["loginForgotUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginForgotUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginForgotUrl")}
+                        disabled={uploading || !brandingValue("loginForgotUrl")}
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com/waitlist"
+                          value={
+                            chromeInputs["loginWaitlistUrl"] ??
+                            brandingValue("loginWaitlistUrl")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginWaitlistUrl: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginWaitlistUrl",
+                            chromeInputs["loginWaitlistUrl"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginWaitlistUrl"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginWaitlistUrl")}
+                        disabled={
+                          uploading || !brandingValue("loginWaitlistUrl")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
+                    </View>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="support@example.com"
+                          value={
+                            chromeInputs["loginSupportEmail"] ??
+                            brandingValue("loginSupportEmail")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              loginSupportEmail: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "loginSupportEmail",
+                            chromeInputs["loginSupportEmail"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["loginSupportEmail"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("loginSupportEmail")}
+                        disabled={
+                          uploading || !brandingValue("loginSupportEmail")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
                     </View>
                   </View>
                 </SettingsRowItem>

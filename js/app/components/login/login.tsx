@@ -1,5 +1,11 @@
 import { useNavigation } from "@react-navigation/native";
-import { storage, Text, useTheme, zero } from "@streamplace/components";
+import {
+  storage,
+  Text,
+  useBrandingAsset,
+  useTheme,
+  zero,
+} from "@streamplace/components";
 import { Redirect } from "components/aqlink";
 import Loading from "components/loading/loading";
 import { useEffect, useState } from "react";
@@ -11,6 +17,7 @@ import { navigateToRoute } from "../../utils/navigation";
 import LoginForm from "./login-form";
 
 export default function Login() {
+  const pdsMode = useBrandingAsset("loginMode")?.data === "pds";
   const { theme } = useTheme();
   const closeLoginModal = useStore((state) => state.closeLoginModal);
   const openPdsModal = useStore((state) => state.openPdsModal);
@@ -112,9 +119,13 @@ export default function Login() {
               zero.gap.all[4],
             ]}
           >
-            <Text style={[{ fontSize: 36, fontWeight: "200", color: "white" }]}>
-              Log in
-            </Text>
+            {!pdsMode && (
+              <Text
+                style={[{ fontSize: 36, fontWeight: "200", color: "white" }]}
+              >
+                Log in
+              </Text>
+            )}
             <LoginForm onOpenPdsModal={openPdsModal} />
           </View>
         </View>

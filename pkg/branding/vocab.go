@@ -79,6 +79,7 @@ var Specs = []Spec{
 	{Key: "typeface", Kind: KindEnum, Enum: []string{"geist", "inter"}, MaxSize: textMax, Doc: "Sans-serif typeface."},
 	{Key: "verifierDids", Kind: KindJSON, MaxSize: jsonMax, Doc: "DIDs whose app.bsky.graph.verification records mark a chat user as verified: [\"did:plc:...\"]."},
 	{Key: "chatVerifiedOnly", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Only users verified by one of verifierDids may chat (their messages are the only ones shown)."},
+	{Key: "chatBadges", Kind: KindEnum, Enum: []string{"all", "custom", "none"}, MaxSize: textMax, Doc: "Badges beside chat names: all, only badges issued by badge definitions (no built-in streamer / moderator / bot marks), or none."},
 	{Key: "chatNameColors", Kind: KindEnum, Enum: []string{"on", "off"}, MaxSize: textMax, Doc: "Whether chat shows display names in each user's chosen color (on) or the default text color (off)."},
 	{Key: "chatLayout", Kind: KindEnum, Enum: []string{"compact", "avatar"}, MaxSize: textMax, Doc: "Chat message shape: compact one-line rows, or avatar rows with name, handle and time above the text."},
 	{Key: "navLinks", Kind: KindJSON, MaxSize: jsonMax, Doc: "Navigation links replacing the sidebar sections: [{label, url, icon}]."},

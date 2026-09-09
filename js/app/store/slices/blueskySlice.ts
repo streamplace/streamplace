@@ -337,6 +337,16 @@ export const createBlueskySlice: StateCreator<
       }
     } catch (error) {
       console.error("loadOAuthClient error", error);
+      // A client that cannot be built (bad metadata, unreachable node, a dev
+      // hostname the OAuth rules reject) must not wedge the app in "start":
+      // that is a logged-out viewer, and a session broker can still take
+      // over from here.
+      set({
+        authStatus: "loggedOut",
+        oauthSession: null,
+        sessionKind: null,
+        anonPDSAgent: new StreamplaceAgent(get().url),
+      });
     }
   },
 

@@ -119,13 +119,17 @@ export const useAccessStatus = () => useStreamplaceStore((s) => s.accessStatus);
 function statusIsCurrent(s: {
   accessStatusLoaded: boolean;
   accessStatus: AccessStatus | null;
-  oauthSession: { did?: string } | null | undefined;
+  oauthSession: { did?: string; kind?: string } | null | undefined;
 }): boolean {
   if (!s.accessStatusLoaded || !s.accessStatus) return false;
   if (s.oauthSession === undefined) return false;
-  return (
-    (s.accessStatus.did ?? undefined) === (s.oauthSession?.did ?? undefined)
-  );
+  // A brokered session (a sibling app's bearer token) is anonymous to the
+  // node, so the node's answer for it carries no DID.
+  const expected =
+    s.oauthSession?.kind === "brokered"
+      ? undefined
+      : (s.oauthSession?.did ?? undefined);
+  return (s.accessStatus.did ?? undefined) === expected;
 }
 
 export const useAccessStatusLoaded = () =>

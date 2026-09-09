@@ -19,19 +19,25 @@ export interface BrokeredSessionData {
  * and retries once.
  */
 export class BrokeredSession implements SessionManager {
+  /** Lets callers that only see a SessionManager tell this kind apart. */
+  readonly kind = "brokered" as const;
   private data: BrokeredSessionData;
   private readonly nodeUrl: string;
   private readonly refresh?: () => Promise<BrokeredSessionData | null>;
   private refreshing: Promise<BrokeredSessionData | null> | null = null;
+  /** atproto-proxy value for app view reads (Bluesky's by default). */
+  readonly appViewProxy: string;
 
   constructor(
     data: BrokeredSessionData,
     nodeUrl: string,
     refresh?: () => Promise<BrokeredSessionData | null>,
+    appViewProxy = "did:web:api.bsky.app#bsky_appview",
   ) {
     this.data = data;
     this.nodeUrl = nodeUrl.replace(/\/$/, "");
     this.refresh = refresh;
+    this.appViewProxy = appViewProxy;
   }
 
   get did(): string {
@@ -51,6 +57,12 @@ export class BrokeredSession implements SessionManager {
     this.data = data;
   }
 
+  /** app.bsky.* and chat.bsky.* are served by an app view behind the PDS. */
+  private isAppViewBound(pathname: string): boolean {
+    const nsid = pathname.slice("/xrpc/".length).split("?")[0];
+    return nsid.startsWith("app.bsky.") || nsid.startsWith("chat.bsky.");
+  }
+
   /** The node handles its own lexicons and API routes; the PDS the rest. */
   private isNodeBound(pathname: string): boolean {
     if (!pathname.startsWith("/xrpc/")) return true;
@@ -66,6 +78,11 @@ export class BrokeredSession implements SessionManager {
     const send = () => {
       const headers = new Headers(init?.headers);
       headers.set("Authorization", `Bearer ${this.data.accessJwt}`);
+      // App view reads go through the PDS's proxy; a PDS that has no default
+      // app view (tranquil, for one) answers 501 without the header.
+      if (this.isAppViewBound(pathname) && !headers.has("atproto-proxy")) {
+        headers.set("atproto-proxy", this.appViewProxy);
+      }
       return fetch(base + pathname, { ...init, headers });
     };
     let res = await send();

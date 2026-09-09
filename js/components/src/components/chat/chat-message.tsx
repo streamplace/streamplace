@@ -158,13 +158,32 @@ function useNameColor(): (
   return off ? () => undefined : getRgbColor;
 }
 
+// Branding key chatBadges: "custom" drops the node's built-in marks
+// (streamer, moderator, bot), "none" drops every badge.
+const BUILT_IN_BADGES = new Set([
+  "place.stream.badge.defs#streamer",
+  "place.stream.badge.defs#mod",
+  "place.stream.badge.defs#bot",
+]);
+function useVisibleBadges(
+  badges: ChatMessageViewHydrated["badges"],
+): ChatMessageViewHydrated["badges"] {
+  const mode = useBrandingAsset("chatBadges")?.data;
+  return useMemo(() => {
+    if (!badges || mode === "all" || !mode) return badges;
+    if (mode === "none") return [];
+    return badges.filter((b) => !BUILT_IN_BADGES.has(b.badgeType));
+  }, [badges, mode]);
+}
+
 const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
+  const badges = useVisibleBadges(item.badges);
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   return (
     <Text size="base" style={[flex.shrink[1], { minWidth: 0 }]}>
-      <UserProfileCard uri={item.uri} author={item.author} badges={item.badges}>
+      <UserProfileCard uri={item.uri} author={item.author} badges={badges}>
         <View
           style={
             {
@@ -176,7 +195,7 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
             } as any
           }
         >
-          <BadgeDisplayRow badges={item.badges} />
+          <BadgeDisplayRow badges={badges} />
           <Text
             size="base"
             weight="medium"
@@ -206,10 +225,11 @@ const MessageBodyWeb = ({ item }: { item: ChatMessageViewHydrated }) => {
 // handle opens the same profile bottom sheet via two triggers on one menu.
 const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
   const nameColor = useNameColor();
+  const badges = useVisibleBadges(item.badges);
   const dids = useMemo(() => [item.author.did], [item.author.did]);
   const profile = useAvatars(dids)[item.author.did];
   const { theme } = useTheme();
-  const data = useProfileCardData(item.author, item.badges);
+  const data = useProfileCardData(item.author, badges);
   return (
     <DropdownMenu
       style={[
@@ -218,7 +238,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
         { minWidth: 0, alignItems: "flex-start" },
       ]}
     >
-      {!!item.badges?.length && (
+      {!!badges?.length && (
         <DropdownMenuTrigger asChild>
           <Pressable
             style={{
@@ -230,7 +250,7 @@ const MessageBodyNative = ({ item }: { item: ChatMessageViewHydrated }) => {
               marginTop: Platform.OS === "ios" ? 1 : 0,
             }}
           >
-            <BadgeDisplayRow badges={item.badges} />
+            <BadgeDisplayRow badges={badges} />
             <VerifiedBadge author={item.author} profile={profile} size={14} />
           </Pressable>
         </DropdownMenuTrigger>
@@ -277,6 +297,7 @@ function relativeAge(dateString: string): string {
 // name; the profile card opens from the name as it does in compact rows.
 const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
   const { theme } = useTheme();
+  const badges = useVisibleBadges(item.badges);
   const author = item.author;
   // Hydrated messages carry handle and display name but not the avatar;
   // the profile cache batches getProfiles across visible rows.
@@ -311,7 +332,7 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             <UserProfileCard
               uri={item.uri}
               author={item.author}
-              badges={item.badges}
+              badges={badges}
             >
               <Text
                 weight="semibold"
@@ -331,14 +352,14 @@ const AvatarMessageBody = ({ item }: { item: ChatMessageViewHydrated }) => {
             </UserProfileCard>
           </View>
           <VerifiedBadge author={author} profile={profile} />
-          {!!item.badges?.length && (
+          {!!badges?.length && (
             <View
               style={[
                 layout.flex.row,
                 { alignItems: "center", marginLeft: 6, flexShrink: 0 },
               ]}
             >
-              {item.badges.map((badge, index) => (
+              {badges.map((badge, index) => (
                 <Badge
                   key={index}
                   badgeType={badge.badgeType}

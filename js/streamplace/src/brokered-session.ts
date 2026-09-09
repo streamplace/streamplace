@@ -1,4 +1,9 @@
-import type { SessionManager } from "@atproto/api/dist/session-manager";
+// The shape @atproto/api's Agent accepts as a session manager, spelled out
+// here because the package does not export the type from its entry point.
+interface SessionManager {
+  readonly did?: string;
+  fetchHandler(url: string, init?: RequestInit): Promise<Response>;
+}
 
 /** What a session broker hands over: a bearer token for the user's PDS. */
 export interface BrokeredSessionData {

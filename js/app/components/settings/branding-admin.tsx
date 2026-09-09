@@ -319,6 +319,7 @@ export function BrandingAdmin() {
         case "navLinks":
         case "navCta":
         case "chatNameColors":
+        case "chatBadges":
         case "socialHeading":
         case "socialLinks":
         case "networkName":
@@ -1712,6 +1713,34 @@ export function BrandingAdmin() {
                       ]}
                       value={brandingValue("chatNameColors") || "on"}
                       onChange={(v) => uploadText("chatNameColors", v)}
+                    />
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-chat-badges")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-chat-badges-description")}
+                    </Text>
+                    <SegmentedTabs
+                      options={[
+                        { value: "all", label: t("branding-chat-badges-all") },
+                        {
+                          value: "custom",
+                          label: t("branding-chat-badges-custom"),
+                        },
+                        {
+                          value: "none",
+                          label: t("branding-chat-badges-none"),
+                        },
+                      ]}
+                      value={brandingValue("chatBadges") || "all"}
+                      onChange={(v) => uploadText("chatBadges", v)}
                     />
                   </View>
                 </SettingsRowItem>

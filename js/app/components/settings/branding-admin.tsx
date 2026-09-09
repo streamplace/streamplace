@@ -348,19 +348,28 @@ export function BrandingAdmin() {
         const img = new window.Image();
         const imageUrl = URL.createObjectURL(file);
 
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => {
-            width = img.naturalWidth;
-            height = img.naturalHeight;
-            URL.revokeObjectURL(imageUrl);
-            resolve();
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(imageUrl);
-            reject(new Error("Failed to load image"));
-          };
-          img.src = imageUrl;
-        });
+        // The dimensions are a nicety (the sidebar background's aspect
+        // ratio); an image the browser won't decode as an <img> — an SVG
+        // with an unusual header, an .ico — must not sink the upload.
+        try {
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+              width = img.naturalWidth || undefined;
+              height = img.naturalHeight || undefined;
+              URL.revokeObjectURL(imageUrl);
+              resolve();
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(imageUrl);
+              reject(new Error("Failed to load image"));
+            };
+            img.src = imageUrl;
+          });
+        } catch (e) {
+          console.warn("could not read image dimensions, uploading anyway", e);
+          width = undefined;
+          height = undefined;
+        }
       }
 
       await agent.client.call(place.stream.branding.updateBlob, {

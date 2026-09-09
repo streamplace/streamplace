@@ -12,6 +12,7 @@ import {
 } from "@streamplace/components";
 import { useFonts } from "expo-font";
 import BlueskyProvider from "features/bluesky/blueskyProvider";
+import { SessionBrokerProvider } from "features/session-broker/provider";
 import StreamplaceProvider from "features/streamplace/streamplaceProvider";
 import useStreamplaceNode from "hooks/useStreamplaceNode";
 import React from "react";
@@ -101,6 +102,7 @@ function ProviderInner({
             <StreamplaceProvider>
               <BlueskyProvider>
                 <NewStreamplaceProvider>
+                  <SessionBrokerProvider />
                   <BrandedThemeProvider forcedTheme="dark">
                     <FontProvider>{children}</FontProvider>
                   </BrandedThemeProvider>

@@ -12,7 +12,7 @@ import { OAuthSession } from "@atproto/oauth-client";
 import { storage } from "@streamplace/components";
 import { Platform } from "react-native";
 import { AppStore } from "store";
-import { place, StreamplaceAgent } from "streamplace";
+import { BrokeredSession, place, StreamplaceAgent } from "streamplace";
 import clearQueryParams from "utils/clear-query-params";
 import { privateKeyToAccount } from "viem/accounts";
 import { StateCreator } from "zustand";
@@ -30,7 +30,16 @@ type NewLivestream = {
 export interface BlueskySlice {
   authStatus: "start" | "loggedIn" | "loggedOut";
   oauthState: null | string;
-  oauthSession?: null | OAuthSession;
+  oauthSession?: null | OAuthSession | BrokeredSession;
+  // How the session came to be: the node's OAuth flow, or handed over by a
+  // sibling app's session broker (a bearer token for the PDS; the node sees
+  // an anonymous viewer). null while logged out.
+  sessionKind: "oauth" | "brokered" | null;
+  // False while a configured session broker has not answered yet, so the
+  // first frame can wait for it instead of flashing logged-out.
+  brokerSettled: boolean;
+  setBrokerSettled: (settled: boolean) => void;
+  setBrokeredSession: (session: BrokeredSession | null) => void;
   // granted OAuth scope of the current session (from /oauth/introspect);
   // null means unknown, which is treated as a full grant
   sessionScope: null | string;
@@ -175,6 +184,8 @@ export const createBlueskySlice: StateCreator<
   authStatus: "start",
   oauthState: null,
   oauthSession: undefined,
+  sessionKind: null,
+  brokerSettled: true,
   sessionScope: null,
   pdsAgent: null,
   anonPDSAgent: null,
@@ -246,6 +257,30 @@ export const createBlueskySlice: StateCreator<
     set({ showPdsModal: false });
   },
 
+  setBrokerSettled: (settled: boolean) => set({ brokerSettled: settled }),
+  setBrokeredSession: (session: BrokeredSession | null) => {
+    const state = get() as BlueskySlice;
+    if (session) {
+      // The node's own OAuth session always wins over a brokered one.
+      if (state.sessionKind === "oauth" && state.oauthSession) return;
+      set({
+        oauthSession: session,
+        sessionKind: "brokered",
+        pdsAgent: new StreamplaceAgent(session),
+        sessionScope: null,
+        authStatus: "loggedIn",
+      });
+      return;
+    }
+    if (state.sessionKind !== "brokered") return;
+    set({
+      oauthSession: null,
+      sessionKind: null,
+      pdsAgent: null,
+      sessionScope: null,
+      authStatus: "loggedOut",
+    });
+  },
   loadOAuthClient: async () => {
     set({ authStatus: "start" });
     try {
@@ -287,6 +322,7 @@ export const createBlueskySlice: StateCreator<
           client,
           authStatus: "loggedIn",
           oauthSession: session,
+          sessionKind: "oauth",
           pdsAgent: new StreamplaceAgent(session),
           anonPDSAgent,
         });
@@ -321,7 +357,7 @@ export const createBlueskySlice: StateCreator<
 
   refreshSessionScope: async () => {
     const session = (get() as BlueskySlice).oauthSession;
-    if (!session) {
+    if (!session || session instanceof BrokeredSession) {
       set({ sessionScope: null });
       return;
     }
@@ -412,9 +448,22 @@ export const createBlueskySlice: StateCreator<
     if (!state.oauthSession) {
       throw new Error("No oauth session");
     }
+    if (state.oauthSession instanceof BrokeredSession) {
+      // Nothing to revoke here: the login belongs to the sibling app. The
+      // broker will hand it back on the next load while it lasts there.
+      set({
+        oauthSession: null,
+        sessionKind: null,
+        pdsAgent: null,
+        sessionScope: null,
+        authStatus: "loggedOut",
+      });
+      return;
+    }
     await state.oauthSession.signOut();
     set({
       oauthSession: null,
+      sessionKind: null,
       pdsAgent: null,
       sessionScope: null,
       authStatus: "loggedOut",
@@ -495,6 +544,7 @@ export const createBlueskySlice: StateCreator<
         set({
           client,
           oauthSession: ret.session,
+          sessionKind: "oauth",
           pdsAgent: new StreamplaceAgent(ret.session),
           authStatus: "loggedIn",
         });

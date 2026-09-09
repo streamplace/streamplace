@@ -241,6 +241,8 @@
   "branding-chat-verified-only-off": "Anyone can chat",
   "branding-chat-verified-only-on": "Verified only",
   "branding-verified-icon-description": "Badge shown beside verified users. SVG preferred, max 64KB, currentColor takes the primary color; unset shows a check in the primary color.",
+  "branding-session-broker": "Session broker",
+  "branding-session-broker-description": "Origin of the main app whose /session-broker route hands this site the viewer's existing login, so someone signed in there is signed in here (web only). Leave unset to require a sign-in here.",
   "branding-login-placeholder": "Login handle example",
   "branding-login-placeholder-description": "The example handle shown in the login form's empty handle field, e.g. you.example.com.",
   "branding-default-streamer": "Default Streamer",

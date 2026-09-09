@@ -296,6 +296,7 @@ export function BrandingAdmin() {
         case "bottomLinks":
         case "networkName":
         case "networkProfileUrl":
+        case "sessionBrokerOrigin":
         case "verifierDids":
         case "chatVerifiedOnly":
         case "loginPlaceholder":
@@ -910,6 +911,65 @@ export function BrandingAdmin() {
                           {t("branding-remove")}
                         </Button>
                       )}
+                    </View>
+                  </View>
+                </SettingsRowItem>
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem>
+                <SettingsRowItem>
+                  <View style={[zero.gap.all[2], { flex: 1 }]}>
+                    <Text size="sm" weight="semibold">
+                      {t("branding-session-broker")}
+                    </Text>
+                    <Text size="xs" color="muted">
+                      {t("branding-session-broker-description")}
+                    </Text>
+                    <View
+                      style={[zero.layout.flex.direction.row, zero.gap.all[2]]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Input
+                          placeholder="https://example.com"
+                          value={
+                            chromeInputs["sessionBrokerOrigin"] ??
+                            brandingValue("sessionBrokerOrigin")
+                          }
+                          onChangeText={(v) =>
+                            setChromeInputs((prev) => ({
+                              ...prev,
+                              sessionBrokerOrigin: v,
+                            }))
+                          }
+                        />
+                      </View>
+                      <Button
+                        onPress={() =>
+                          uploadText(
+                            "sessionBrokerOrigin",
+                            chromeInputs["sessionBrokerOrigin"] ?? "",
+                          )
+                        }
+                        disabled={
+                          uploading ||
+                          !(chromeInputs["sessionBrokerOrigin"] ?? "").trim()
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("update")}
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onPress={() => deleteBlob("sessionBrokerOrigin")}
+                        disabled={
+                          uploading || !brandingValue("sessionBrokerOrigin")
+                        }
+                        width="min"
+                        style={{ height: 42 }}
+                      >
+                        {t("branding-reset")}
+                      </Button>
                     </View>
                   </View>
                 </SettingsRowItem>

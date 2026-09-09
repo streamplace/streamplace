@@ -54,6 +54,7 @@ var Specs = []Spec{
 	{Key: "siteTitle", Kind: KindText, MaxSize: textMax, Doc: "Name of the node, shown in the nav lockup, the browser tab and link cards."},
 	{Key: "siteDescription", Kind: KindText, MaxSize: textMax, Doc: "One-line description for link cards and the page meta description."},
 	{Key: "networkName", Kind: KindText, Default: "Bluesky", MaxSize: textMax, Doc: "What the app calls the social network viewers sign in with and share to."},
+	{Key: "sessionBrokerOrigin", Kind: KindText, MaxSize: textMax, Doc: "Origin of a sibling app whose /session-broker hands this front end its login (web only), e.g. https://example.com."},
 	{Key: "networkProfileUrl", Kind: KindText, MaxSize: textMax, Doc: "Where a chat user's profile link goes, with {handle} and {did} placeholders; default https://bsky.app/profile/{handle}."},
 	{Key: "loginPlaceholder", Kind: KindText, MaxSize: textMax, Doc: "Example handle shown in the login form's empty handle field."},
 	{Key: "defaultStreamer", Kind: KindText, MaxSize: textMax, Doc: "Handle or DID whose stream page is the node's front door (single-user nodes)."},

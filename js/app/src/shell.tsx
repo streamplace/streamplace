@@ -681,6 +681,7 @@ export default function Shell() {
     (s) => s.oauthSession === undefined,
   );
   const brandingSettled = useBrandingSettled();
+  const brokerSettled = useStore((state) => state.brokerSettled);
   const [bootTimedOut, setBootTimedOut] = useState(false);
   useEffect(() => {
     const handle = setTimeout(() => setBootTimedOut(true), 6000);
@@ -827,7 +828,10 @@ export default function Shell() {
       <View />
     );
   }
-  if ((sessionRestoring || !brandingSettled) && !bootTimedOut) {
+  if (
+    (sessionRestoring || !brandingSettled || !brokerSettled) &&
+    !bootTimedOut
+  ) {
     return <View />;
   }
 

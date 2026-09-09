@@ -9,6 +9,7 @@ import {
   IconButton,
   ResponsiveDropdownMenuContent,
   Text,
+  useNetworkName,
   useSocialShell,
   useTheme,
 } from "@streamplace/components";
@@ -301,6 +302,8 @@ export const AvatarButton = ({
   const openLoginModal = useStore((state) => state.openLoginModal);
   const openPDSModal = useStore((state) => state.openPdsModal);
   const logout = useStore((state) => state.logout);
+  const sessionKind = useStore((state) => state.sessionKind);
+  const networkName = useNetworkName();
   const navigation = useNavigation();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -465,12 +468,20 @@ export const AvatarButton = ({
               }}
             />
 
-            <AccountMenuItem
-              icon={LogOut}
-              label="Log out"
-              danger
-              onPress={() => logout()}
-            />
+            {sessionKind === "brokered" ? (
+              <View style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
+                <Text style={{ color: c.text3, fontSize: 12.5 }}>
+                  Signed in through {networkName}
+                </Text>
+              </View>
+            ) : (
+              <AccountMenuItem
+                icon={LogOut}
+                label="Log out"
+                danger
+                onPress={() => logout()}
+              />
+            )}
           </ResponsiveDropdownMenuContent>
         </DropdownMenu>
       </View>

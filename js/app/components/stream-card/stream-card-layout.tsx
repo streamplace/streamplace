@@ -24,8 +24,10 @@ import { EmojiPicker } from "components/emoji-picker/emoji-picker";
 import { useStreamMeta } from "components/mobile/bottom-metadata";
 import { Player } from "components/mobile/player";
 import { PlayerProps } from "components/player/props";
+import { PhoneMenuButton } from "components/sidebar/sidebar-overlay";
 import { MessageIcon } from "components/sidebar/social-icons";
 import { FullscreenProvider } from "contexts/FullscreenContext";
+import { usePhoneMenu } from "hooks/useSidebarControl";
 import { ArrowLeft, Eye, Pin, Share2 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -118,6 +120,7 @@ function IconCircleButton({
 function CardHeader() {
   const { theme } = useTheme();
   const navigation: any = useNavigation();
+  const phoneMenu = usePhoneMenu();
   const goBack = () => {
     if (navigation.canGoBack()) navigation.goBack();
     else
@@ -146,6 +149,7 @@ function CardHeader() {
       >
         Live
       </Text>
+      {phoneMenu && <PhoneMenuButton style={{ marginRight: -8 }} />}
     </View>
   );
 }

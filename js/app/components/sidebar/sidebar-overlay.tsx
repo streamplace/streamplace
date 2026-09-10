@@ -391,13 +391,49 @@ export interface SidebarNavItem {
   matchPrefix?: string;
 }
 
+// Width of the social shell's phone menu drawer.
+export const PHONE_MENU_WIDTH = 280;
+
+/** The hamburger that opens the phone menu drawer (33px, after the design's
+ *  header buttons). */
+export function PhoneMenuButton({ style }: { style?: any }) {
+  const { theme } = useTheme();
+  const toggleMobileMenu = useStore((state) => state.toggleMobileMenu);
+  return (
+    <Pressable
+      accessibilityLabel="Open menu"
+      accessibilityRole="button"
+      onPress={toggleMobileMenu}
+      style={({ hovered }: any) => [
+        {
+          width: 33,
+          height: 33,
+          borderRadius: 999,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+          opacity: hovered ? 0.8 : 1,
+        },
+        style,
+      ]}
+    >
+      <Menu size={24} color={theme.colors.text1} />
+    </Pressable>
+  );
+}
+
 export function SidebarOverlay() {
   const sidebar = useSidebarControl();
   const closeDrawer = useStore((state) => state.closeDrawer);
+  const mobileMenuOpen = useStore((state) => state.mobileMenuOpen);
   const navigation = useNavigation();
   const { theme } = useTheme();
+  const socialShellEarly = useSocialShell();
+  // Phones in the social shell have no rail; the hamburger opens the same
+  // sidebar as a drawer over the content, always expanded.
+  const phoneMenu = socialShellEarly && !sidebar.isActive && mobileMenuOpen;
   // The overlay drawer is always full-width; only the docked sidebar collapses.
-  const collapsed = sidebar.isCollapsed && !sidebar.overlay;
+  const collapsed = sidebar.isCollapsed && !sidebar.overlay && !phoneMenu;
   const { isNative, isBrowser } = usePlatform();
   const streamplaceUrl = useUrl();
   const sidebarBackgroundImageAsset = useSidebarBackgroundImage();
@@ -460,8 +496,9 @@ export function SidebarOverlay() {
   );
   const { width: windowWidth } = useWindowDimensions();
 
-  // Don't render if sidebar is not active (small screen) or hidden
-  if (!sidebar.isActive || sidebar.isHidden) {
+  // Don't render if sidebar is not active (small screen) or hidden — unless
+  // the phone menu is open, which is that sidebar as a drawer.
+  if ((!sidebar.isActive && !phoneMenu) || sidebar.isHidden) {
     return null;
   }
 
@@ -637,6 +674,11 @@ export function SidebarOverlay() {
     <Animated.View
       style={[
         animatedSidebarStyle,
+        phoneMenu && {
+          minWidth: PHONE_MENU_WIDTH,
+          maxWidth: PHONE_MENU_WIDTH,
+          transform: [],
+        },
         zero.layout.flex.column,
         {
           position: "absolute",

@@ -31,6 +31,14 @@ const COLLAPSED_WIDTH = 64;
 // and the mobile bottom bar below that.
 export const SOCIAL_RAIL_MIN = 842;
 
+/** Social shell on a window too narrow for any rail: navigation lives in
+ *  the hamburger's drawer instead. */
+export function usePhoneMenu() {
+  const social = useSocialShell();
+  const { width } = useWindowDimensions();
+  return social && width < SOCIAL_RAIL_MIN;
+}
+
 /** Social shell on a window that gets the icon rail rather than the full one. */
 export function useSocialIconRail() {
   const social = useSocialShell();

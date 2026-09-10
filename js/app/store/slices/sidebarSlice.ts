@@ -15,6 +15,10 @@ export interface SidebarSlice {
    *  (feed + chat) column; the shell can't tell from route names alone. */
   wideColumn: boolean;
   drawerOpen: boolean;
+  /** The social shell's phone menu: the sidebar shown as a drawer on
+   *  windows too narrow for a rail. */
+  mobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
   setSidebarHidden: () => void;
   setSidebarUnhidden: () => void;
   toggleSidebar: () => void;
@@ -56,6 +60,12 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
   overlay: false,
   wideColumn: false,
   drawerOpen: false,
+  mobileMenuOpen: false,
+  toggleMobileMenu: () => {
+    set((state) => ({
+      mobileMenuOpen: !(state as SidebarSlice).mobileMenuOpen,
+    }));
+  },
   setWideColumn: (wide: boolean) => set({ wideColumn: wide }),
   setOverlay: (overlay: boolean) => {
     set((state) => {
@@ -68,7 +78,7 @@ export const createSidebarSlice: StateCreator<SidebarSlice> = (set, get) => ({
     set((state) => ({ drawerOpen: !(state as SidebarSlice).drawerOpen }));
   },
   closeDrawer: () => {
-    set({ drawerOpen: false });
+    set({ drawerOpen: false, mobileMenuOpen: false });
   },
   setSidebarHidden: () => {
     set((state) => {

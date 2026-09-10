@@ -52,10 +52,10 @@ import RecommendationsManager from "components/settings/recommendations-manager"
 import { StreamingCategorySettings } from "components/settings/streaming-category-settings";
 import WebhookManager from "components/settings/webhook-manager";
 import {
+  PhoneMenuButton,
   SidebarOverlay,
   SidebarToggle,
 } from "components/sidebar/sidebar-overlay";
-import { SocialTabBar } from "components/sidebar/social-tab-bar";
 import {
   FEED_COLUMN_WIDTH,
   streamColumnWidthFor,
@@ -63,7 +63,11 @@ import {
 import UploadProgressIndicator from "components/upload/upload-progress-indicator";
 import { useBlueskyNotifications } from "hooks/useBlueskyNotifications";
 import usePlatform from "hooks/usePlatform";
-import { useIsLargeScreen, useSidebarControl } from "hooks/useSidebarControl";
+import {
+  useIsLargeScreen,
+  usePhoneMenu,
+  useSidebarControl,
+} from "hooks/useSidebarControl";
 import { Clapperboard, Cog, Home, Video } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -160,7 +164,8 @@ function useBaseScreenOptions() {
 // the avatar in the nav rail instead, so its headers carry nothing.
 function HeaderRight({ large = false }: { large?: boolean }) {
   const social = useSocialShell();
-  if (social) return null;
+  const phoneMenu = usePhoneMenu();
+  if (social) return phoneMenu ? <PhoneMenuButton /> : null;
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
       <UploadButton />
@@ -755,6 +760,7 @@ export default function Shell() {
   // so it opens as an overlay drawer over dimmed content instead of pushing.
   const setOverlay = useStore((state) => state.setOverlay);
   const closeDrawer = useStore((state) => state.closeDrawer);
+  const mobileMenuOpen = useStore((state) => state.mobileMenuOpen);
   // The card stream layout is a feed page with the nav beside it, not a
   // full-bleed player, so it keeps the sidebar in flow.
   const cardStreamLayout = useCardStreamLayout();
@@ -994,9 +1000,23 @@ export default function Shell() {
           </RootStack.Navigator>
         </View>
       </Animated.View>
-      {/* Social shell without a rail (phones, native): the branded links as
-          a bottom bar, the way the timeline app does it. */}
-      {socialShell && !sidebar.isActive && <SocialTabBar />}
+      {/* Scrim behind the social shell's phone menu drawer */}
+      {!isNative && socialShell && !sidebar.isActive && mobileMenuOpen && (
+        <Pressable
+          accessibilityLabel="Close menu"
+          onPress={closeDrawer}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "#000", // token-ok: overlay scrim
+            opacity: 0.55,
+            zIndex: 127000,
+          }}
+        />
+      )}
       {/* Scrim behind the overlay drawer (detail views only) */}
       {!isNative && (
         <AnimatedPressable

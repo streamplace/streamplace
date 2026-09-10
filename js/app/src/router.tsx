@@ -2,10 +2,12 @@ import { LiquidGlassView } from "@callstack/liquid-glass";
 import "@expo/metro-runtime";
 import { useNavigation } from "@react-navigation/native";
 import {
+  AppCrashScreen,
   Button,
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  ErrorBoundary,
   IconButton,
   ResponsiveDropdownMenuContent,
   Text,
@@ -107,10 +109,14 @@ if (hasDevDomain) {
 console.log("Linking prefixes", streamplaceLinkingOptions.prefixes);
 
 export default function Router() {
+  // The last line of defense: a render error anywhere below would otherwise
+  // unmount the whole tree and leave a black window with nothing to click.
   return (
-    <Provider linking={streamplaceLinkingOptions}>
-      <Shell />
-    </Provider>
+    <ErrorBoundary fallback={(reset) => <AppCrashScreen reset={reset} />}>
+      <Provider linking={streamplaceLinkingOptions}>
+        <Shell />
+      </Provider>
+    </ErrorBoundary>
   );
 }
 

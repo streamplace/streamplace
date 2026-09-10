@@ -234,11 +234,9 @@ export function useFetchBranding() {
 
 // hook to get a specific branding asset by key
 export function useBrandingAsset(key: string): BrandingAsset | undefined {
-  return (
-    useStreamplaceStore((state) => state.branding?.[key]) ||
-    getMetaContent(key) ||
-    undefined
-  );
+  // The hook runs unconditionally; the fallbacks are plain values.
+  const fromStore = useStreamplaceStore((state) => state.branding?.[key]);
+  return fromStore || getMetaContent(key) || undefined;
 }
 
 /**

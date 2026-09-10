@@ -49,10 +49,6 @@ export default function DanmuOBSScreen({ route }) {
     danmuParams = parseDanmuParams(new URLSearchParams(window.location.search));
   }
 
-  if (typeof user !== "string") {
-    return <View />;
-  }
-
   useEffect(() => {
     setSidebarHidden();
     () => {
@@ -60,6 +56,10 @@ export default function DanmuOBSScreen({ route }) {
       setSidebarUnhidden();
     };
   }, []);
+
+  if (typeof user !== "string") {
+    return <View />;
+  }
 
   return (
     <LivestreamProvider src={user}>

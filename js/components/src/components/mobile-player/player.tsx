@@ -70,6 +70,12 @@ export function Player(
     setIngest(props.ingest ? "new" : null);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      clearControlsTimeout();
+    };
+  }, []);
+
   if (typeof props.src !== "string") {
     return (
       <View>
@@ -77,12 +83,6 @@ export function Player(
       </View>
     );
   }
-
-  useEffect(() => {
-    return () => {
-      clearControlsTimeout();
-    };
-  }, []);
 
   return (
     <>

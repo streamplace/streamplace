@@ -227,12 +227,22 @@ export default function HomeScreen({
   // const segments = realSegments; // Comment this line out if using mock data
 
   const avis = useAvatars((segments || []).map((s) => s.author.did));
+  // Single-user node: the front door is that streamer's page. The branding
+  // key defaultStreamer (a handle or DID) has meant this for a while; this is
+  // where it finally takes effect. (Every hook above this line runs on every
+  // render: the early returns below come and go with the live-users fetch,
+  // and a hook after them would change the hook count between renders.)
+  const defaultStreamer = useDefaultStreamer();
 
   useEffect(() => {
     if (!liveUsersLoading) {
       setManualRefresh(false);
     }
   }, [liveUsersLoading]);
+
+  if (defaultStreamer) {
+    return <MobileStream route={{ params: { user: defaultStreamer } }} />;
+  }
 
   if (liveUsersError) {
     if (liveUsersLoading) {
@@ -267,14 +277,6 @@ export default function HomeScreen({
   }
 
   const indicatorTop = safeAreaInsets.top;
-
-  // Single-user node: the front door is that streamer's page. The branding
-  // key defaultStreamer (a handle or DID) has meant this for a while; this is
-  // where it finally takes effect.
-  const defaultStreamer = useDefaultStreamer();
-  if (defaultStreamer) {
-    return <MobileStream route={{ params: { user: defaultStreamer } }} />;
-  }
 
   return (
     <>

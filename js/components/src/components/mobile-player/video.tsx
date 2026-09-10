@@ -363,7 +363,16 @@ export function HLSPlayer(props: VideoProps) {
       return;
     }
     if (Hls.isSupported()) {
-      var hls = new Hls({ maxAudioFramesDrift: 20 });
+      var hls = new Hls({
+        maxAudioFramesDrift: 20,
+        lowLatencyMode: true,
+        liveSyncDuration: 4.75,
+        liveMaxLatencyDuration: 18,
+        maxLiveSyncPlaybackRate: 1.125,
+        backBufferLength: 90,
+        enableWorker: true,
+        debug: true,
+      });
       hlsRef.current = hls;
       hls.loadSource(props.url);
       try {

@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"stream.place/streamplace/pkg/ingestframe"
+	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/spmetrics"
 )
@@ -84,7 +85,13 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 	// hold this worker's process handle, kill it by PID if needed. Best-effort:
 	// without it the worker still runs, just without restart-surviving ban
 	// enforcement.
-	if err := writeWorkerMeta(cfg.SocketPath, workerMeta{StreamerDID: cfg.StreamerDID, PID: cmd.Process.Pid}); err != nil {
+	if err := writeWorkerMeta(cfg.SocketPath, workerMeta{
+		StreamerDID:       cfg.StreamerDID,
+		PID:               cmd.Process.Pid,
+		LLHLS:             cfg.LLHLS,
+		LLHLSPresentation: cfg.LLHLSPresentation,
+		LLHLSSession:      cfg.LLHLSSession,
+	}); err != nil {
 		log.Warn(context.Background(), "ingest worker: write resume metadata failed", "socket", cfg.SocketPath, "error", err)
 	}
 	return cmd.Process, nil
@@ -93,8 +100,11 @@ func SpawnIngestWorkerDetached(cfg IngestWorkerConfig, media *os.File) (*os.Proc
 // workerMeta is the resume sidecar written next to a detached worker's socket:
 // enough for a restarting main to enforce bans on a worker it didn't spawn.
 type workerMeta struct {
-	StreamerDID string `json:"streamer_did"`
-	PID         int    `json:"pid"`
+	StreamerDID       string `json:"streamer_did"`
+	PID               int    `json:"pid"`
+	LLHLS             bool   `json:"ll_hls,omitempty"`
+	LLHLSPresentation string `json:"ll_hls_presentation,omitempty"`
+	LLHLSSession      uint64 `json:"ll_hls_session,omitempty"`
 }
 
 func workerMetaPath(socketPath string) string {
@@ -367,8 +377,24 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	if err != nil {
 		return "", err
 	}
+	var llWindow *llhls.Window
+	llPresentation := ""
+	if webRTCLLHLSAvailable(mm.cli) {
+		llSession := mm.nextIngestSession()
+		llPresentation = fmt.Sprintf("whip-%d-%s", llSession, uuid.NewString())
+		llWindow = mm.replaceLLWindow(ms.Streamer())
+		cfg.LLHLS = true
+		cfg.LLHLSPresentation = llPresentation
+		cfg.LLHLSSession = llSession
+	}
+	cleanupLLHLS := func() {
+		if llWindow != nil {
+			mm.removeLLWindow(ms.Streamer(), llPresentation, llWindow)
+		}
+	}
 	dir, err := mm.ingestWorkerSocketDir()
 	if err != nil {
+		cleanupLLHLS()
 		return "", err
 	}
 	cfg.SocketPath = filepath.Join(dir, uuid.NewString()+".sock")
@@ -377,6 +403,7 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 
 	proc, err := SpawnIngestWorkerDetached(cfg, nil) // worker owns the PeerConnection
 	if err != nil {
+		cleanupLLHLS()
 		return "", fmt.Errorf("spawn detached whip worker: %w", err)
 	}
 	spmetrics.IngestWorkerStarts.WithLabelValues("whip").Inc()
@@ -388,6 +415,7 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	conn, err := dialWorkerSocket(answerCtx, cfg.SocketPath)
 	if err != nil {
 		_ = proc.Kill()
+		cleanupLLHLS()
 		return "", fmt.Errorf("connect to whip worker: %w", err)
 	}
 	// One Reader owns this connection for its whole lifetime: the streaming CBOR
@@ -401,13 +429,15 @@ func (mm *MediaManager) WHIPIngestDetached(ctx context.Context, offerSDP string,
 	if err != nil {
 		conn.Close()
 		_ = proc.Kill()
+		cleanupLLHLS()
 		return "", err
 	}
 	_ = conn.SetReadDeadline(time.Time{}) // clear; streaming has no deadline
 
-	// Consume the signed segments in the background; the HTTP handler returns the
-	// answer now and the WebRTC media establishes directly to the worker.
+	// Consume signed segments and LL-HLS events in the background; the HTTP handler
+	// returns the answer now and the WebRTC media establishes directly to the worker.
 	go func() {
+		defer cleanupLLHLS()
 		// Ban / key revocation: watch on the detached worker's behalf and kill it.
 		// Scoped to this consume's lifetime so it doesn't outlive the stream.
 		wctx, wcancel := context.WithCancel(ctx)
@@ -459,9 +489,20 @@ func (mm *MediaManager) ResumeDetachedWorkers(ctx context.Context) {
 			streamer = meta.StreamerDID
 		}
 		log.Log(ctx, "resuming detached ingest worker", "socket", sock, "streamer", streamer)
+		var llWindow *llhls.Window
+		llPresentation := ""
+		if merr == nil && meta.LLHLS && meta.LLHLSPresentation != "" && meta.StreamerDID != "" {
+			llPresentation = meta.LLHLSPresentation
+			llWindow = mm.replaceLLWindow(meta.StreamerDID)
+		}
 		go func() {
 			wctx, wcancel := context.WithCancel(ctx)
 			defer wcancel()
+			defer func() {
+				if llWindow != nil {
+					mm.removeLLWindow(streamer, llPresentation, llWindow)
+				}
+			}()
 			// Re-arm ban enforcement for a worker we didn't spawn. We have no process
 			// handle, so kill by the PID in the sidecar (guarded against PID reuse).
 			// Without metadata we can still drain the worker, just not enforce bans.

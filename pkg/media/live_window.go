@@ -6,24 +6,70 @@ import (
 	"time"
 
 	"stream.place/streamplace/pkg/livehls"
+	"stream.place/streamplace/pkg/llhls"
 	"stream.place/streamplace/pkg/log"
 	"stream.place/streamplace/pkg/muxl"
 )
 
-// liveWindowSize is how many recent segments per track the in-memory live-HLS
-// window keeps — the sliding window served to players. Bounds per-stream
-// memory; older segments fall out of the playlist (DVR depth is a later,
-// storage-backed feature).
+// liveWindowSize is the number of recent segments per track kept in memory.
+// Older segments fall out of the live playlist.
 const liveWindowSize = 12
 
-// liveWindowRetention ages segments out by wall-clock arrival time, independent
-// of liveWindowSize. The count window only evicts as new segments push old ones
-// out, so when a stream stalls or ends its last segments would otherwise sit in
-// the window forever and a retrying player replays them endlessly. With time
-// eviction the window empties this long after the last segment, and the window
-// is then dropped from the map (so the stream reads as offline). Generous
-// enough not to cut a briefly-lagging player.
+// liveWindowRetention removes segments after a stream stalls or ends. This
+// lets GetLiveWindow report the stream as offline without new segments arriving
+// to drive count-based eviction.
 const liveWindowRetention = 30 * time.Second
+
+const (
+	llhlsWindowSegments   = 30
+	llhlsWindowBytes      = 64 << 20
+	llhlsLivePartHoldBack = 5 * llhlsPartTarget
+)
+
+// llhlsCompletionHold keeps a finished parent open briefly so a blocking
+// reload for its final part can observe and fetch that part before completion
+// moves the parent into the segment-only portion of the playlist.
+const llhlsCompletionHold = 300 * time.Millisecond
+
+func newLLWindow() *llhls.Window {
+	return llhls.NewWindow(
+		llhls.WithMaxSegments(llhlsWindowSegments),
+		llhls.WithMaxBytes(llhlsWindowBytes),
+		llhls.WithDynamicTargetDuration(time.Second),
+		llhls.WithPlaylistDurations(0, llhlsPartTarget),
+		llhls.WithPartHoldBack(llhlsLivePartHoldBack),
+		llhls.WithSegmentCompletionDelay(llhlsCompletionHold),
+	)
+}
+
+func (mm *MediaManager) replaceLLWindow(did string) *llhls.Window {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	if mm.llWindows == nil {
+		mm.llWindows = make(map[string]*llhls.Window)
+	}
+	w := newLLWindow()
+	mm.llWindows[did] = w
+	return w
+}
+
+// GetLLWindow returns the low-latency window for a stream. Unlike the legacy
+// window, its lifetime is tied to the CMAF presentation and reconnects replace
+// the map entry.
+func (mm *MediaManager) GetLLWindow(did string) *llhls.Window {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	return mm.llWindows[did]
+}
+
+func (mm *MediaManager) removeLLWindow(did, presentation string, expected *llhls.Window) {
+	mm.llWindowsMut.Lock()
+	defer mm.llWindowsMut.Unlock()
+	window := mm.llWindows[did]
+	if window == expected && window != nil && (window.Presentation() == "" || window.Presentation() == presentation) {
+		delete(mm.llWindows, did)
+	}
+}
 
 // liveWindow returns the streamer's in-memory live-HLS window, creating it on
 // first use.

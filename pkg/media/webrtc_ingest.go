@@ -30,7 +30,25 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 		cancel()
 		return nil, fmt.Errorf("failed create signer element: %w", err)
 	}
-	return mm.webRTCIngestPipeline(ctx, cancel, offer, peerConnection, signerElem, signer, done)
+	var llOutput *llhlsIngestOutput
+	if webRTCLLHLSAvailable(mm.cli) {
+		session := mm.nextIngestSession()
+		presentation := fmt.Sprintf("whip-%d-%s", session, uu.String())
+		window := mm.replaceLLWindow(signer.Streamer())
+		llOutput = &llhlsIngestOutput{
+			presentation: presentation,
+			session:      session,
+			window:       window,
+			done: func() {
+				mm.removeLLWindow(signer.Streamer(), presentation, window)
+			},
+		}
+	}
+	answer, err := mm.webRTCIngestPipeline(ctx, cancel, offer, peerConnection, signerElem, signer, done, llOutput)
+	if err != nil && llOutput != nil {
+		llOutput.done()
+	}
+	return answer, err
 }
 
 // webRTCIngestPipeline runs WebRTC ingest over a pre-built signer element:
@@ -40,7 +58,7 @@ func (mm *MediaManager) WebRTCIngest(ctx context.Context, offer *webrtc.SessionD
 // worker passes a muxlSignSegmentElem wired to its frame socket and a nil
 // keyRevSigner. The cancellable ctx and signerElem are built by the caller (the
 // signer element's goroutines are tied to ctx).
-func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context.CancelFunc, offer *webrtc.SessionDescription, peerConnection rtcrec.PeerConnection, signerElem *gst.Element, keyRevSigner MediaSigner, done chan error) (*webrtc.SessionDescription, error) {
+func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context.CancelFunc, offer *webrtc.SessionDescription, peerConnection rtcrec.PeerConnection, signerElem *gst.Element, keyRevSigner MediaSigner, done chan error, llOutput *llhlsIngestOutput) (*webrtc.SessionDescription, error) {
 	// Allow us to receive 1 audio track, and 1 video track
 	if _, err := peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
 		return nil, fmt.Errorf("failed to add audio transceiver: %w", err)
@@ -48,10 +66,24 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		return nil, fmt.Errorf("failed to add video transceiver: %w", err)
 	}
 
-	pipelineSlice := []string{
-		"multiqueue name=queue",
-		"appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper ! identity ! queue.sink_0",
-		"appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse ! queue.sink_1",
+	pipelineSlice := []string{"multiqueue name=queue"}
+	videoInput := "appsrc format=time is-live=true do-timestamp=true name=videosrc ! capsfilter caps=application/x-rtp ! rtph264depay ! capsfilter caps=video/x-h264,stream-format=byte-stream,alignment=nal ! h264parse disable-passthrough=true config-interval=-1 ! h264timestamper"
+	audioInput := "appsrc format=time do-timestamp=true name=audiosrc ! capsfilter caps=application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! rtpopusdepay ! opusparse"
+	if llOutput == nil {
+		pipelineSlice = append(pipelineSlice,
+			videoInput+" ! identity ! queue.sink_0",
+			audioInput+" ! queue.sink_1",
+		)
+	} else {
+		pipelineSlice = append(pipelineSlice, llhlsMuxerElements(llhlsPartDuration/2)...)
+		pipelineSlice = append(pipelineSlice,
+			videoInput+" ! tee name=video_tee",
+			"video_tee. ! queue name=video_signer_queue ! queue.sink_0",
+			"video_tee. ! queue ! h264parse ! video/x-h264,stream-format=avc,alignment=au ! ll_video_mux.",
+			audioInput+" ! tee name=audio_tee",
+			"audio_tee. ! queue name=audio_signer_queue ! queue.sink_1",
+			"audio_tee. ! queue name=ll_audio_encode_queue max-size-time=0 ! opusdec ! audioconvert ! audioresample ! fdkaacenc bitrate=128000 ! aacparse ! audio/mpeg,mpegversion=4,stream-format=raw,rate=48000,channels=2 ! queue name=ll_audio_queue max-size-time=0 ! ll_audio_mux.",
+		)
 	}
 
 	pipeline, err := gst.NewPipelineFromString(strings.Join(pipelineSlice, "\n"))
@@ -136,6 +168,12 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		cancel()
 		return nil, fmt.Errorf("failed to link audioSrcPad to signerElemAudioPad")
 	}
+	if llOutput != nil {
+		if err := installCMAFBranch(ctx, pipeline, llOutput); err != nil {
+			cancel()
+			return nil, err
+		}
+	}
 
 	// Setup complete! Now we boot up streaming in the background while returning the SDP offer to the user.
 	go func() {
@@ -185,6 +223,11 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 		if err != nil {
 			log.Log(ctx, "failed to set pipeline state", "error", err)
 			cancel()
+		} else if llOutput != nil {
+			if err := startLLAudioSplitter(ctx, pipeline); err != nil {
+				log.Log(ctx, "failed to start LL-HLS audio splitter", "error", err)
+				cancel()
+			}
 		}
 
 		// Set the handler for ICE connection state
@@ -321,6 +364,9 @@ func (mm *MediaManager) webRTCIngestPipeline(ctx context.Context, cancel context
 
 		if err := videoSrcElem.SetState(gst.StateNull); err != nil {
 			log.Log(ctx, "failed to set videoSrcElem state to null", "error", err)
+		}
+		if llOutput != nil && llOutput.done != nil {
+			llOutput.done()
 		}
 
 		log.Log(ctx, "webrtc ingest pipeline done")

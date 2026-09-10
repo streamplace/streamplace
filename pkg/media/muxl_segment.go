@@ -87,6 +87,9 @@ func muxlSignSegmentElem(ctx context.Context, cli *config.CLI, signStream SignSe
 	appsink, err := gst.NewElementWithProperties("appsink", map[string]any{
 		"name": "muxl-appsink",
 		"sync": false,
+		// This sink is part of the live ingest graph. It must not hold the
+		// pipeline in PAUSED while waiting for a preroll sample.
+		"async": false,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create appsink element: %w", err)

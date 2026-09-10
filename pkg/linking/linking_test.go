@@ -1,6 +1,7 @@
 package linking
 
 import (
+	"golang.org/x/net/html"
 	"context"
 	"io"
 	"net/url"
@@ -149,6 +150,14 @@ func TestGenerateDefaultCardAtMe(t *testing.T) {
 
 // The app template ships first-party link-preview tags; a card must replace
 // them rather than append after them, since crawlers take the first tag.
+func TestIsAppBannerMeta(t *testing.T) {
+	banner := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{{Key: "name", Val: "apple-itunes-app"}, {Key: "content", Val: "app-id=1"}}}
+	other := &html.Node{Type: html.ElementNode, Data: "meta", Attr: []html.Attribute{{Key: "name", Val: "viewport"}}}
+	require.True(t, isAppBannerMeta(banner))
+	require.False(t, isAppBannerMeta(other))
+	require.False(t, isLinkPreviewMeta(banner), "the banner is not a link-preview tag: it stays unless mobileAppBanner=off")
+}
+
 func TestGenerateHTMLReplacesTemplatePreviewTags(t *testing.T) {
 	base := []byte(`<!doctype html><html><head>
 <title>Streamplace</title>

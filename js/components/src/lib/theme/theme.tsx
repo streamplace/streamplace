@@ -774,6 +774,10 @@ export function ThemeProvider({
     const thumb = withAlpha(theme.colors.text1, 0.22);
     const thumbHover = withAlpha(theme.colors.text1, 0.36);
     el.textContent = [
+      // Each weight is its own static face registered at the default weight,
+      // while the style also asks for 500/600; without this the browser
+      // fakes extra boldness on top of the real Medium and SemiBold faces.
+      `* { font-synthesis: none; }`,
       `:focus { outline: none; }`,
       `:focus-visible { outline: 2px solid ${theme.colors.focus}; outline-offset: 2px; }`,
       `* { scrollbar-width: thin; scrollbar-color: ${thumb} transparent; }`,
